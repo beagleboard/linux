@@ -19,14 +19,8 @@
 #define IEP_MAX_COMPEN_INC		0xfff
 #define IEP_MAX_COMPEN_COUNT	0xffffff
 
-#define IEP_GLOBAL_CFG_REG	0x0
-#define IEP_GLOBAL_STATUS_REG	0x4
-#define IEP_COMPEN_REG		0x8
-#define IEP_SLOW_COMPEN_REG	0xc
-#define IEP_COUNT_LOW_REG	0x10
-#define IEP_COUNT_HIGH_REG	0x14
-#define IEP_CAP_CFG_REG		0x18
-#define IEP_CAP_STATUS_REG	0x1c
+#define IEP_CMP_REG0(n)		(0x78 + (n) * 8)
+#define IEP_CMP_REG1(n)		(0x7c + (n) * 8)
 
 #define IEP_GLOBAL_CFG_CNT_ENABLE	BIT(0)
 #define IEP_GLOBAL_CFG_DEFAULT_INC_MASK		GENMASK(7, 4)
@@ -34,13 +28,29 @@
 #define IEP_GLOBAL_CFG_COMPEN_INC_MASK		GENMASK(19, 8)
 #define IEP_GLOBAL_CFG_COMPEN_INC_SHIFT		8
 
-static void iep_settime(struct icssg_iep *iep, u64 tstamp)
+#define IEP_GLOBAL_STATUS_CNT_OVF	BIT(0)
+
+#define IEP_CMP_CFG_SHADOW_EN		BIT(17)
+#define IEP_CMP_CFG_CMP0_RST_CNT_EN	BIT(0)
+#define IEP_CMP_CFG_CMP_EN(cmp)		(1 << ((cmp) + 1))
+
+#define IEP_CMP_STATUS(cmp)		(1 << (cmp))
+
+#define IEP_MIN_CMP	0
+#define IEP_MAX_CMP	15
+
+static void iep_settime(struct icssg_iep *iep, u64 ns)
 {
 	u32 val;
 
-	val = upper_32_bits(tstamp);
+	if (iep->ops && iep->ops->settime) {
+		iep->ops->settime(iep, ns);
+		return;
+	}
+
+	val = upper_32_bits(ns);
 	regmap_write(iep->map, IEP_COUNT_HIGH_REG, val);
-	val = lower_32_bits(tstamp);
+	val = lower_32_bits(ns);
 	regmap_write(iep->map, IEP_COUNT_LOW_REG, val);
 }
 
@@ -48,6 +58,9 @@ static u64 iep_gettime(struct icssg_iep *iep)
 {
 	u64 val;
 	u32 tmp;
+
+	if (iep->ops && iep->ops->gettime)
+		return iep->ops->gettime(iep);
 
 	regmap_read(iep->map, IEP_COUNT_LOW_REG, &tmp);
 	val = tmp;
@@ -69,6 +82,55 @@ static void iep_disable(struct icssg_iep *iep)
 	regmap_update_bits(iep->map, IEP_GLOBAL_CFG_REG,
 			   IEP_GLOBAL_CFG_CNT_ENABLE,
 			   0);
+}
+
+static void iep_enable_shadow_mode(struct icssg_iep *iep, u32 cycle_time_ns)
+{
+	u32 cycle_time;
+	int cmp;
+
+	/* FIXME: check why we need to decrement by def_inc */
+	cycle_time = cycle_time_ns - iep->def_inc;
+
+	iep_disable(iep);
+
+	/* disable shadow mode */
+	regmap_update_bits(iep->map, IEP_CMP_CFG_REG,
+			   IEP_CMP_CFG_SHADOW_EN, 0);
+
+	/* enable shadow mode */
+	regmap_update_bits(iep->map, IEP_CMP_CFG_REG,
+			   IEP_CMP_CFG_SHADOW_EN, IEP_CMP_CFG_SHADOW_EN);
+
+	/* clear counters */
+	regmap_write(iep->map, IEP_COUNT_HIGH_REG, 0);
+	regmap_write(iep->map, IEP_COUNT_LOW_REG, 0);
+
+	/* clear overflow status */
+	regmap_update_bits(iep->map, IEP_GLOBAL_STATUS_REG,
+			   IEP_GLOBAL_STATUS_CNT_OVF,
+			   IEP_GLOBAL_STATUS_CNT_OVF);
+
+	/* clear compare status */
+	for (cmp = IEP_MIN_CMP; cmp < IEP_MAX_CMP; cmp++) {
+		regmap_update_bits(iep->map, IEP_CMP_STATUS_REG,
+				   IEP_CMP_STATUS(cmp), IEP_CMP_STATUS(cmp));
+	}
+
+	/* enable reset counter on CMP0 event */
+	regmap_update_bits(iep->map, IEP_CMP_CFG_REG,
+			   IEP_CMP_CFG_CMP0_RST_CNT_EN,
+			   IEP_CMP_CFG_CMP0_RST_CNT_EN);
+	/* enable compare */
+	regmap_update_bits(iep->map, IEP_CMP_CFG_REG,
+			   IEP_CMP_CFG_CMP_EN(0),
+			   IEP_CMP_CFG_CMP_EN(0));
+
+	/* set CMP0 value to cycle time */
+	regmap_write(iep->map, IEP_CMP_REG0(0), cycle_time);
+	regmap_write(iep->map, IEP_CMP_REG1(0), cycle_time);
+
+	iep_enable(iep);
 }
 
 static void iep_set_default_inc(struct icssg_iep *iep, u8 def_inc)
@@ -137,7 +199,11 @@ static int iep_ptp_adjfreq(struct ptp_clock_info *ptp, s32 ppb)
 	 *	1000ppb = 1/1000 cycle time & 1ns adjust per cycle
 	 */
 
-	iep->slow_cmp_inc = 1;	/* 1ns adjust per cycle */
+	if (iep->cycle_time_ns)
+		iep->slow_cmp_inc = iep->clk_tick_time;	/* 4ns adj per cycle */
+	else
+		iep->slow_cmp_inc = 1;	/* 1ns adjust per cycle */
+
 	if (ppb < 0) {
 		iep->slow_cmp_inc = -iep->slow_cmp_inc;
 		ppb = -ppb;
@@ -147,7 +213,8 @@ static int iep_ptp_adjfreq(struct ptp_clock_info *ptp, s32 ppb)
 	cyc_count /= ppb;		/* cycle time per ppb */
 
 	/* slow_cmp_count is decremented every clock cycle, e.g. @250MHz */
-	cyc_count /= iep->clk_tick_time;
+	if (!iep->cycle_time_ns)
+		cyc_count /= iep->clk_tick_time;
 	iep->slow_cmp_count = cyc_count;
 
 	/* iep->clk_tick_time is def_inc */
@@ -167,9 +234,13 @@ static int iep_ptp_adjtime(struct ptp_clock_info *ptp, s64 delta)
 	s64 ns;
 
 	mutex_lock(&iep->ptp_clk_mutex);
-	ns = iep_gettime(iep);
-	ns += delta;
-	iep_settime(iep, ns);
+	if (iep->ops && iep->ops->adjtime) {
+		iep->ops->adjtime(iep, delta);
+	} else {
+		ns = iep_gettime(iep);
+		ns += delta;
+		iep_settime(iep, ns);
+	}
 	mutex_unlock(&iep->ptp_clk_mutex);
 
 	return 0;
@@ -221,11 +292,11 @@ static struct ptp_clock_info iep_ptp_info = {
 };
 
 int icssg_iep_init(struct icssg_iep *iep, struct device *parent_dev,
-		   struct regmap *iep_map, u32 refclk_freq)
+		   struct regmap *iep_map, u32 refclk_freq,
+		   u32 cycle_time_ns)
 {
 	int ret;
 	u32 def_inc;
-	u64 tstamp;
 
 	iep->map = iep_map;
 	iep->refclk_freq = refclk_freq;
@@ -236,17 +307,23 @@ int icssg_iep_init(struct icssg_iep *iep, struct device *parent_dev,
 		/* iep_core_clk too slow to be supported */
 		return -EINVAL;
 
+	iep->def_inc = def_inc;
 	iep_set_default_inc(iep, def_inc);
 	iep_set_compensation_inc(iep, def_inc);
 	iep_set_compensation_count(iep, 0);
 	iep_set_slow_compensation_count(iep, 0);
-	iep_enable(iep);
+	if (cycle_time_ns)
+		iep_enable_shadow_mode(iep, cycle_time_ns);
+	else
+		iep_enable(iep);
 
-	tstamp = ktime_to_ns(ktime_get_real());
-	iep_settime(iep, tstamp);
+	iep->cycle_time_ns = cycle_time_ns;
+	regmap_write(iep->map, IEP_COUNT_HIGH_REG, 0);
+	regmap_write(iep->map, IEP_COUNT_LOW_REG, 0);
 
 	iep->clk_tick_time = def_inc;
 	iep->ptp_info = iep_ptp_info;
+
 	iep->ptp_clock = ptp_clock_register(&iep->ptp_info, parent_dev);
 	if (IS_ERR(iep->ptp_clock)) {
 		ret = PTR_ERR(iep->ptp_clock);
@@ -266,7 +343,8 @@ err_disable:
 
 int icssg_iep_exit(struct icssg_iep *iep)
 {
-	ptp_clock_unregister(iep->ptp_clock);
+	if (iep->ptp_clock)
+		ptp_clock_unregister(iep->ptp_clock);
 	iep_disable(iep);
 
 	return 0;

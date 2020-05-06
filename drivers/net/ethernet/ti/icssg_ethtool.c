@@ -283,6 +283,9 @@ static int emac_get_ts_info(struct net_device *ndev,
 {
 	struct prueth_emac *emac = netdev_priv(ndev);
 
+	if (!emac->iep_initialized)
+		return 0;
+
 	info->so_timestamping =
 		SOF_TIMESTAMPING_TX_HARDWARE |
 		SOF_TIMESTAMPING_TX_SOFTWARE |

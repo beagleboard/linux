@@ -30,3 +30,20 @@
 &tx_pru2_1 {
 	status = "disabled";
 };
+
+&pruss2_eth {
+	compatible = "ti,am654-icssg-prueth-sr1";
+	prus = <&pru2_0>, <&rtu2_0>, <&pru2_1>, <&rtu2_1>;
+	firmware-name = "ti-pruss/am65x-pru0-prueth-fw.elf",
+			"ti-pruss/am65x-rtu0-prueth-fw.elf",
+			"ti-pruss/am65x-pru1-prueth-fw.elf",
+			"ti-pruss/am65x-rtu1-prueth-fw.elf";
+	ti,pruss-gp-mux-sel = <2>,      /* MII mode */
+			      <2>,
+			      <2>,      /* MII mode */
+			      <2>;
+};
+
+&pruss2_emac1 {
+	iep = <&icssg2_iep1>;
+};

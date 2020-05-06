@@ -98,17 +98,26 @@
 	};
 
 	/* Dual Ethernet application node on PRU-ICSSG2 */
-	pruss2_eth {
+	pruss2_eth: pruss2_eth {
 		compatible = "ti,am654-icssg-prueth";
 		pinctrl-names = "default";
 		pinctrl-0 = <&icssg2_rgmii_pins_default>;
 		sram = <&msmc_ram>;
+		prus = <&pru2_0>, <&rtu2_0>, <&tx_pru2_0>,
+			<&pru2_1>, <&rtu2_1>, <&tx_pru2_1>;
+		firmware-name = "ti-pruss/am65x-sr2-pru0-prueth-fw.elf",
+				"ti-pruss/am65x-sr2-rtu0-prueth-fw.elf",
+				"ti-pruss/am65x-sr2-txpru0-prueth-fw.elf",
+				"ti-pruss/am65x-sr2-pru1-prueth-fw.elf",
+				"ti-pruss/am65x-sr2-rtu1-prueth-fw.elf",
+				"ti-pruss/am65x-sr2-txpru1-prueth-fw.elf";
 
-		prus = <&pru2_0>, <&rtu2_0>, <&pru2_1>, <&rtu2_1>;
-		firmware-name = "ti-pruss/am65x-pru0-prueth-fw.elf",
-				"ti-pruss/am65x-rtu0-prueth-fw.elf",
-				"ti-pruss/am65x-pru1-prueth-fw.elf",
-				"ti-pruss/am65x-rtu1-prueth-fw.elf";
+		ti,pruss-gp-mux-sel = <2>,      /* MII mode */
+				      <2>,
+				      <2>,
+				      <2>,	/* MII mode */
+				      <2>,
+				      <2>;
 		mii-g-rt = <&icssg2_mii_g_rt>;
 		mii-rt = <&icssg2_mii_rt>;
 		dma-coherent;
@@ -133,6 +142,7 @@
 		pruss2_emac0: ethernet-mii0 {
 			phy-handle = <&pruss2_eth0_phy>;
 			phy-mode = "rgmii-rxid";
+			interrupts-extended = <&icssg2_intc 24>;
 			syscon-rgmii-delay = <&scm_conf 0x4120>;
 			iep = <&icssg2_iep0>;
 			/* Filled in by bootloader */
@@ -142,8 +152,8 @@
 		pruss2_emac1: ethernet-mii1 {
 			phy-handle = <&pruss2_eth1_phy>;
 			phy-mode = "rgmii-rxid";
+			interrupts-extended = <&icssg2_intc 25>;
 			syscon-rgmii-delay = <&scm_conf 0x4124>;
-			iep = <&icssg2_iep1>;
 			/* Filled in by bootloader */
 			local-mac-address = [00 00 00 00 00 00];
 		};

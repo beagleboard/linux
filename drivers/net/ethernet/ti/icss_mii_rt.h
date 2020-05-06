@@ -45,6 +45,7 @@
 #define PRUSS_MII_RT_TXCFG_PRE_TX_AUTO_SEQUENCE	BIT(9)
 #define PRUSS_MII_RT_TXCFG_PRE_TX_AUTO_ESC_ERR	BIT(10)
 #define PRUSS_MII_RT_TXCFG_TX_32_MODE_EN	BIT(11)
+#define PRUSS_MII_RT_TXCFG_TX_IPG_WIRE_CLK_EN	BIT(12)	/* SR2.0 onwards */
 
 #define PRUSS_MII_RT_TXCFG_TX_START_DELAY_SHIFT	16
 #define PRUSS_MII_RT_TXCFG_TX_START_DELAY_MASK	GENMASK(25, 16)
@@ -80,18 +81,28 @@
 #define PRUSS_MII_RT_RX_ERR_MIN_FRM_ERR		BIT(2)
 #define PRUSS_MII_RT_RX_ERR_MAX_FRM_ERR		BIT(3)
 
-/* TX IPG Values to be set for 100M and 1G link speeds.  These values are
- * in ocp_clk cycles. So need change if ocp_clk is changed for a specific
- * h/w design.
- */
-#define MII_RT_TX_IPG_100M	0x166
-#define MII_RT_TX_IPG_1G	0x18
-
+#define ICSSG_CFG_OFFSET	0
 #define RGMII_CFG_OFFSET	4
 
 /* Constant to choose between MII0 and MII1 */
 #define ICSS_MII0	0
 #define ICSS_MII1	1
+
+/* ICSSG_CFG Register bits */
+#define ICSSG_CFG_SGMII_MODE	BIT(16)
+#define ICSSG_CFG_TX_PRU_EN	BIT(11)
+#define ICSSG_CFG_RX_SFD_TX_SOF_EN	BIT(10)
+#define ICSSG_CFG_RTU_PRU_PSI_SHARE_EN	BIT(9)
+#define ICSSG_CFG_IEP1_TX_EN	BIT(8)
+#define ICSSG_CFG_MII1_MODE	GENMASK(6, 5)
+#define ICSSG_CFG_MII1_MODE_SHIFT	5
+#define ICSSG_CFG_MII0_MODE	GENMASK(4, 3)
+#define ICSSG_CFG_MII0_MODE_SHIFT	3
+#define ICSSG_CFG_RX_L2_G_EN	BIT(2)
+#define ICSSG_CFG_TX_L2_EN	BIT(1)
+#define ICSSG_CFG_TX_L1_EN	BIT(0)
+
+enum mii_mode { MII_MODE_MII = 0, MII_MODE_RGMII, MII_MODE_SGMII };
 
 /* RGMII CFG Register bits */
 #define RGMII_CFG_GIG_EN_MII0	BIT(17)
@@ -109,6 +120,20 @@
 #define RGMII_CFG_SPEED_10M	0
 #define RGMII_CFG_SPEED_100M	1
 #define RGMII_CFG_SPEED_1G	2
+
+static inline void icssg_mii_update_ipg(struct regmap *mii_rt, int mii, u32 ipg)
+{
+	u32 val;
+
+	if (mii == ICSS_MII0) {
+		regmap_write(mii_rt, PRUSS_MII_RT_TX_IPG0, ipg);
+	} else {
+	/* Errata workaround: IEP1 is not read by h/w unless IEP0 is written */
+		regmap_read(mii_rt, PRUSS_MII_RT_TX_IPG0, &val);
+		regmap_write(mii_rt, PRUSS_MII_RT_TX_IPG1, ipg);
+		regmap_write(mii_rt, PRUSS_MII_RT_TX_IPG0, val);
+	}
+}
 
 static inline void icssg_update_rgmii_cfg(struct regmap *miig_rt, bool gig_en,
 					  bool full_duplex, int mii)
@@ -166,25 +191,4 @@ static inline u32 icssg_rgmii_get_fullduplex(struct regmap *miig_rt, int mii)
 	return icssg_rgmii_cfg_get_bitfield(miig_rt, mask, shift);
 }
 
-static inline void icssg_update_mii_rt_cfg(struct regmap *mii_rt, int speed,
-					   int mii)
-{
-	u32 ipg_reg, val;
-
-	ipg_reg = (mii == ICSS_MII0) ? PRUSS_MII_RT_TX_IPG0 :
-				       PRUSS_MII_RT_TX_IPG1;
-	switch (speed) {
-	case SPEED_1000:
-		val = MII_RT_TX_IPG_1G;
-		break;
-	case SPEED_100:
-		val = MII_RT_TX_IPG_100M;
-		break;
-	default:
-		/* Other links speeds not supported */
-		pr_err("Unsupported link speed\n");
-		return;
-	}
-	regmap_write(mii_rt, ipg_reg, val);
-}
 #endif /* __NET_PRUSS_MII_RT_H__ */

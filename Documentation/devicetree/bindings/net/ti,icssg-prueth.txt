@@ -3,7 +3,8 @@ Texas Instruments ICSSG PRUSS Ethernet
 
 Required properties:
 - compatible       : Should be "ti,am654-icssg-prueth" for AM65x Family SoCs
-- prus             : list of pHandles to the PRU and RTU nodes
+		     "ti,am654-icssg-prueth-sr1" for SR1.0
+- prus             : list of pHandles to the PRU, RTU and TX_PRU nodes
 - firmware-name    : should contain the name of the firmware image
 			file located in the firmware search path
 - sram	           : phandle to MSMC SRAM node
@@ -30,13 +31,17 @@ Required properties for children:
 - phy-mode         : See ethernet.txt file in the same directory.
 - syscon-rgmii-delay : phandle to system controller node and register offset
 			to ICSSG control register for RGMII transmit delay.
-- iep		   : phandle to IEP module's syscon regmap.
+
+Required properties for children: (SR2.0 only)
+- interrupts-extended	: Interrupt specifier to TX timestamp IRQ.
 
 Optional properties for children:
 - local-mac-address	: mac address for the port.
+- iep			: phandle to IEP module's syscon regmap.
+- ti,pruss-gp-mux-sel	: GP-MUX value required for both ports.
 
-Example (k3-am654 base board, dual-emac):
-========================================
+Example (k3-am654 base board SR2.0, dual-emac):
+==============================================
 
 	/* Dual Ethernet application node on PRU-ICSSG2 */
 	pruss2_eth: pruss2_eth {
@@ -45,11 +50,19 @@ Example (k3-am654 base board, dual-emac):
 		pinctrl-0 = <&icssg2_rgmii_pins_default>;
 		sram = <&msmc_ram>;
 
-		prus = <&pru2_0>, <&rtu2_0>, <&pru2_1>, <&rtu2_1>;
-		firmware-name = "ti-pruss/am65x-pru0-prueth-fw.elf",
-				"ti-pruss/am65x-rtu0-prueth-fw.elf",
-				"ti-pruss/am65x-pru1-prueth-fw.elf",
-				"ti-pruss/am65x-rtu1-prueth-fw.elf";
+		prus = <&pru2_0>, <&rtu2_0>, <&tx_pru2_0>, <&pru2_1>, <&rtu2_1>, <&tx_pru2_1>;
+		firmware-name = "ti-pruss/am65x-sr2-pru0-prueth-fw.elf",
+				"ti-pruss/am65x-sr2-rtu0-prueth-fw.elf",
+				"ti-pruss/am65x-sr2-txpru0-prueth-fw.elf",
+				"ti-pruss/am65x-sr2-pru1-prueth-fw.elf",
+				"ti-pruss/am65x-sr2-rtu1-prueth-fw.elf",
+				"ti-pruss/am65x-sr2-txpru1-prueth-fw.elf";
+		ti,pruss-gp-mux-sel = <2>,      /* MII mode */
+				      <2>,
+				      <2>,
+				      <2>,	/* MII mode */
+				      <2>,
+				      <2>;
 		mii-g-rt = <&icssg2_mii_g_rt>;
 		dma-coherent;
 		dmas = <&main_udmap 0xc300>, /* egress slice 0 */
@@ -72,7 +85,8 @@ Example (k3-am654 base board, dual-emac):
 
 		pruss2_emac0: ethernet-mii0 {
 			phy-handle = <&pruss2_eth0_phy>;
-			phy-mode = "rgmii-id";
+			phy-mode = "rgmii-rxid";
+			interrupts-extended = <&icssg2_intc 24>;
 			syscon-rgmii-delay = <&scm_conf 0x4120>;
 			iep = <&icssg2_iep0>;
 			/* Filled in by bootloader */
@@ -81,10 +95,28 @@ Example (k3-am654 base board, dual-emac):
 
 		pruss2_emac1: ethernet-mii1 {
 			phy-handle = <&pruss2_eth1_phy>;
-			phy-mode = "rgmii-id";
+			phy-mode = "rgmii-rxid";
+			interrupts-extended = <&icssg2_intc 25>;
 			syscon-rgmii-delay = <&scm_conf 0x4124>;
-			iep = <&icssg2_iep1>;
 			/* Filled in by bootloader */
 			local-mac-address = [00 00 00 00 00 00];
+		};
+	};
+
+	&icssg2_mdio {
+		status = "okay";
+		pinctrl-names = "default";
+		pinctrl-0 = <&icssg2_mdio_pins_default>;
+
+		pruss2_eth0_phy: ethernet-phy@0 {
+			reg = <0>;
+			ti,rx-internal-delay = <DP83867_RGMIIDCTL_2_00_NS>;
+			ti,fifo-depth = <DP83867_PHYCR_FIFO_DEPTH_4_B_NIB>;
+		};
+
+		pruss2_eth1_phy: ethernet-phy@3 {
+			reg = <3>;
+			ti,rx-internal-delay = <DP83867_RGMIIDCTL_2_00_NS>;
+			ti,fifo-depth = <DP83867_PHYCR_FIFO_DEPTH_4_B_NIB>;
 		};
 	};
