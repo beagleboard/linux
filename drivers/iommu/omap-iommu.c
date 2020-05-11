@@ -859,7 +859,7 @@ static int omap_iommu_attach(struct omap_iommu *obj, u32 *iopgd)
 {
 	int err;
 
-	spin_lock(&obj->iommu_lock);
+	mutex_lock(&obj->iommu_lock);
 
 	obj->pd_dma = dma_map_single(obj->dev, iopgd, IOPGD_TABLE_SIZE,
 				     DMA_TO_DEVICE);
@@ -875,14 +875,14 @@ static int omap_iommu_attach(struct omap_iommu *obj, u32 *iopgd)
 		goto out_err;
 	flush_iotlb_all(obj);
 
-	spin_unlock(&obj->iommu_lock);
+	mutex_unlock(&obj->iommu_lock);
 
 	dev_dbg(obj->dev, "%s: %s\n", __func__, obj->name);
 
 	return 0;
 
 out_err:
-	spin_unlock(&obj->iommu_lock);
+	mutex_unlock(&obj->iommu_lock);
 
 	return err;
 }
@@ -896,7 +896,7 @@ static void omap_iommu_detach(struct omap_iommu *obj)
 	if (!obj || IS_ERR(obj))
 		return;
 
-	spin_lock(&obj->iommu_lock);
+	mutex_lock(&obj->iommu_lock);
 
 	dma_unmap_single(obj->dev, obj->pd_dma, IOPGD_TABLE_SIZE,
 			 DMA_TO_DEVICE);
@@ -904,7 +904,7 @@ static void omap_iommu_detach(struct omap_iommu *obj)
 	obj->iopgd = NULL;
 	iommu_disable(obj);
 
-	spin_unlock(&obj->iommu_lock);
+	mutex_unlock(&obj->iommu_lock);
 
 	dev_dbg(obj->dev, "%s: %s\n", __func__, obj->name);
 }
@@ -1224,7 +1224,7 @@ static int omap_iommu_probe(struct platform_device *pdev)
 	if (!obj->cr_ctx)
 		return -ENOMEM;
 
-	spin_lock_init(&obj->iommu_lock);
+	mutex_init(&obj->iommu_lock);
 	spin_lock_init(&obj->page_table_lock);
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
@@ -1496,7 +1496,7 @@ omap_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 		return -EINVAL;
 	}
 
-	spin_lock(&omap_domain->lock);
+	mutex_lock(&omap_domain->lock);
 
 	/* only a single client device can be attached to a domain */
 	if (omap_domain->dev) {
@@ -1542,7 +1542,7 @@ attach_fail:
 init_fail:
 	omap_iommu_detach_fini(omap_domain);
 out:
-	spin_unlock(&omap_domain->lock);
+	mutex_unlock(&omap_domain->lock);
 	return ret;
 }
 
@@ -1590,9 +1590,9 @@ static void omap_iommu_detach_dev(struct iommu_domain *domain,
 {
 	struct omap_iommu_domain *omap_domain = to_omap_domain(domain);
 
-	spin_lock(&omap_domain->lock);
+	mutex_lock(&omap_domain->lock);
 	_omap_iommu_detach_dev(omap_domain, dev);
-	spin_unlock(&omap_domain->lock);
+	mutex_unlock(&omap_domain->lock);
 }
 
 static struct iommu_domain *omap_iommu_domain_alloc(unsigned type)
@@ -1606,7 +1606,7 @@ static struct iommu_domain *omap_iommu_domain_alloc(unsigned type)
 	if (!omap_domain)
 		return NULL;
 
-	spin_lock_init(&omap_domain->lock);
+	mutex_init(&omap_domain->lock);
 
 	omap_domain->domain.geometry.aperture_start = 0;
 	omap_domain->domain.geometry.aperture_end   = (1ULL << 32) - 1;
