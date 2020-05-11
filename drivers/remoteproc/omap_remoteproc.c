@@ -700,6 +700,19 @@ static int omap_rproc_stop(struct rproc *rproc)
 	pm_runtime_put_noidle(dev);
 	pm_runtime_set_suspended(dev);
 
+	/*
+	 * If remoteproc has crashed, we must trigger IOMMU to reset it also.
+	 * Otherwise we may have stale data in IOMMU causing remoteproc to
+	 * hang / die again. Sleep between is needed to make sure reset
+	 * actually gets triggered, otherwise the runtime PM framework may
+	 * consider this sequence as a NOP.
+	 */
+	if (rproc->state == RPROC_CRASHED) {
+		omap_iommu_domain_deactivate(rproc->domain);
+		msleep(5);
+		omap_iommu_domain_activate(rproc->domain);
+	}
+
 	return 0;
 
 enable_device:
