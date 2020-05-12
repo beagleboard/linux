@@ -426,7 +426,7 @@ config SRAM_EXEC
 
 config SRAM_DMA_HEAP
 	bool "Export on-chip SRAM pools using DMA-Heaps"
-	depends on SRAM
+	depends on DMABUF_HEAPS && SRAM
 	help
 	  This driver allows the export of on-chip SRAM marked as exportable
 	  to userspace using the DMA-Heaps interface.
