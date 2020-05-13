@@ -328,6 +328,10 @@ struct prueth_emac {
  * @hw_bridge_dev: pointer to hw_bridge device
  * @fdb_tbl: pointer to FDB table struct
  *
+ * @prueth_ndev_nb: netdev notifier block
+ * @prueth_sw_switchdev_notifier: non blocking switchdev notifier block
+ * @prueth_sw_switchdev_bl_notifier: blocking switchdev notifier block
+ *
  * @emac_configured: bit mask to configured ports
  * @br_members: bit mask indicating ports that are part of the bridge
  * @eth_type: flag indicate firmware mode (Dual emac vs Switch etc)
@@ -349,6 +353,10 @@ struct prueth {
 
 	struct net_device *hw_bridge_dev;
 	struct fdb_tbl *fdb_tbl;
+
+	struct notifier_block prueth_ndev_nb;
+	struct notifier_block prueth_sw_switchdev_notifier;
+	struct notifier_block prueth_sw_switchdev_bl_notifier;
 
 	unsigned int eth_type;
 	u8 emac_configured;
