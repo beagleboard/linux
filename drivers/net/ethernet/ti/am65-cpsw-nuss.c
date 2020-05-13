@@ -2069,7 +2069,7 @@ static void am65_cpsw_nuss_apply_socinfo(struct am65_cpsw_common *common)
 
 static int am65_cpsw_nuss_probe(struct platform_device *pdev)
 {
-	struct cpsw_ale_params ale_params;
+	struct cpsw_ale_params ale_params = { 0 };
 	const struct of_device_id *of_id;
 	struct device *dev = &pdev->dev;
 	struct am65_cpsw_common *common;
