@@ -2687,10 +2687,19 @@ static int sa_ul_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, dev_data);
 	dev_set_drvdata(sa_k3_dev, dev_data);
 
+	pm_runtime_enable(dev);
+	ret = pm_runtime_get_sync(dev);
+	if (ret) {
+		dev_err(&pdev->dev, "%s: failed to get sync: %d\n", __func__,
+			ret);
+		pm_runtime_disable(dev);
+		return ret;
+	}
+
 	sa_init_mem(dev_data);
 	ret = sa_dma_init(dev_data);
 	if (ret)
-		return ret;
+		goto disable_pm_runtime;
 
 	spin_lock_init(&dev_data->scid_lock);
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
@@ -2706,8 +2715,23 @@ static int sa_ul_probe(struct platform_device *pdev)
 
 	ret = of_platform_populate(node, NULL, NULL, &pdev->dev);
 	if (ret)
-		dev_err(dev, "of_platform_populate failed\n");
+		goto release_dma;
 	return 0;
+
+release_dma:
+	sa_unregister_algos(&pdev->dev);
+
+	dma_release_channel(dev_data->dma_rx2);
+	dma_release_channel(dev_data->dma_rx1);
+	dma_release_channel(dev_data->dma_tx);
+
+	dma_pool_destroy(dev_data->sc_pool);
+
+disable_pm_runtime:
+	pm_runtime_put_sync(dev);
+	pm_runtime_disable(dev);
+
+	return ret;
 }
 
 static int sa_ul_remove(struct platform_device *pdev)
@@ -2723,6 +2747,9 @@ static int sa_ul_remove(struct platform_device *pdev)
 	dma_pool_destroy(dev_data->sc_pool);
 
 	platform_set_drvdata(pdev, NULL);
+
+	pm_runtime_put_sync(&pdev->dev);
+	pm_runtime_disable(&pdev->dev);
 
 	return 0;
 }
