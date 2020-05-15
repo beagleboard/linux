@@ -1213,32 +1213,28 @@ err_addr_alloc:
 	return NOTIFY_BAD;
 }
 
-static struct notifier_block prueth_sw_switchdev_notifier = {
-	.notifier_call = prueth_sw_switchdev_event,
-};
-
-static struct notifier_block prueth_sw_switchdev_bl_notifier = {
-	.notifier_call = prueth_sw_switchdev_blocking_event,
-};
-
 int prueth_sw_register_notifiers(struct prueth *prueth)
 {
 	struct notifier_block *nb;
 	int ret;
 
-	ret = register_switchdev_notifier(&prueth_sw_switchdev_notifier);
+	nb = &prueth->prueth_sw_switchdev_notifier;
+	nb->notifier_call = prueth_sw_switchdev_event;
+	ret = register_switchdev_notifier(nb);
 	if (ret) {
 		dev_err(prueth->dev,
 			"register switchdev notifier failed ret:%d\n", ret);
 		return ret;
 	}
 
-	nb = &prueth_sw_switchdev_bl_notifier;
+	nb = &prueth->prueth_sw_switchdev_bl_notifier;
+	nb->notifier_call = prueth_sw_switchdev_blocking_event;
 	ret = register_switchdev_blocking_notifier(nb);
 	if (ret) {
 		dev_err(prueth->dev, "register switchdev blocking notifier failed ret:%d\n",
 			ret);
-		unregister_netdevice_notifier(&prueth_sw_switchdev_notifier);
+		nb = &prueth->prueth_sw_switchdev_notifier;
+		unregister_switchdev_notifier(nb);
 		return ret;
 	}
 
@@ -1247,6 +1243,6 @@ int prueth_sw_register_notifiers(struct prueth *prueth)
 
 void prueth_sw_unregister_notifiers(struct prueth *prueth)
 {
-	unregister_switchdev_notifier(&prueth_sw_switchdev_bl_notifier);
-	unregister_switchdev_notifier(&prueth_sw_switchdev_notifier);
+	unregister_switchdev_blocking_notifier(&prueth->prueth_sw_switchdev_bl_notifier);
+	unregister_switchdev_notifier(&prueth->prueth_sw_switchdev_notifier);
 }
