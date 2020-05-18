@@ -90,7 +90,7 @@ static int ivshm_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	mem->addr = pci_resource_start(pdev, 0);
 	if (!mem->addr)
 		return -ENODEV;
-	mem->size = pci_resource_len(pdev, 0);
+	mem->size = PAGE_ALIGN(pci_resource_len(pdev, 0));
 	mem->memtype = UIO_MEM_PHYS;
 
 	vendor_cap = pci_find_capability(pdev, PCI_CAP_ID_VNDR);
