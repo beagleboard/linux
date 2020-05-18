@@ -754,7 +754,7 @@ static int am65_cpsw_set_ethtool_priv_flags(struct net_device *ndev, u32 flags)
 		return -EINVAL;
 	}
 
-	if (common->tx_ch_num < 2) {
+	if (common->tx_ch_num < 2 && iet_fpe) {
 		netdev_err(ndev, "IET fpe needs at least 2 h/w queues\n");
 		return -EINVAL;
 	}
