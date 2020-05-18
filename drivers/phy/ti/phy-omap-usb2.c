@@ -1,34 +1,92 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * omap-usb2.c - USB PHY, talking to musb controller in OMAP.
+ * omap-usb2.c - USB PHY, talking to USB controller on TI SoCs.
  *
- * Copyright (C) 2012 Texas Instruments Incorporated - http://www.ti.com
+ * Copyright (C) 2012-2020 Texas Instruments Incorporated - http://www.ti.com
  * Author: Kishon Vijay Abraham I <kishon@ti.com>
  */
 
-#include <linux/module.h>
-#include <linux/platform_device.h>
-#include <linux/slab.h>
-#include <linux/of.h>
-#include <linux/io.h>
-#include <linux/phy/omap_usb.h>
-#include <linux/usb/phy_companion.h>
 #include <linux/clk.h>
-#include <linux/err.h>
-#include <linux/pm_runtime.h>
 #include <linux/delay.h>
-#include <linux/phy/omap_control_phy.h>
-#include <linux/phy/phy.h>
+#include <linux/err.h>
+#include <linux/io.h>
 #include <linux/mfd/syscon.h>
-#include <linux/regmap.h>
+#include <linux/module.h>
+#include <linux/of.h>
 #include <linux/of_platform.h>
+#include <linux/phy/omap_control_phy.h>
+#include <linux/phy/omap_usb.h>
+#include <linux/phy/phy.h>
+#include <linux/platform_device.h>
+#include <linux/pm_runtime.h>
+#include <linux/regmap.h>
+#include <linux/slab.h>
+#include <linux/sys_soc.h>
+#include <linux/usb/phy_companion.h>
 
-#define USB2PHY_DISCON_BYP_LATCH (1 << 31)
-#define USB2PHY_ANA_CONFIG1 0x4c
+#define USB2PHY_ANA_CONFIG1		0x4c
+#define USB2PHY_DISCON_BYP_LATCH	BIT(31)
 
+#define USB2PHY_CHRG_DET			0x14
+#define USB2PHY_CHRG_DET_USE_CHG_DET_REG	BIT(29)
+#define USB2PHY_CHRG_DET_DIS_CHG_DET		BIT(28)
+
+/* SoC Specific USB2_OTG register definitions */
 #define AM654_USB2_OTG_PD		BIT(8)
 #define AM654_USB2_VBUS_DET_EN		BIT(5)
 #define AM654_USB2_VBUSVALID_DET_EN	BIT(4)
+
+#define OMAP_DEV_PHY_PD		BIT(0)
+#define OMAP_USB2_PHY_PD	BIT(28)
+
+#define AM437X_USB2_PHY_PD		BIT(0)
+#define AM437X_USB2_OTG_PD		BIT(1)
+#define AM437X_USB2_OTGVDET_EN		BIT(19)
+#define AM437X_USB2_OTGSESSEND_EN	BIT(20)
+
+/* Driver Flags */
+#define OMAP_USB2_HAS_START_SRP			BIT(0)
+#define OMAP_USB2_HAS_SET_VBUS			BIT(1)
+#define OMAP_USB2_CALIBRATE_FALSE_DISCONNECT	BIT(2)
+#define OMAP_USB2_DISABLE_CHRG_DET		BIT(3)
+
+struct omap_usb {
+	struct usb_phy		phy;
+	struct phy_companion	*comparator;
+	void __iomem		*pll_ctrl_base;
+	void __iomem		*phy_base;
+	struct device		*dev;
+	struct device		*control_dev;
+	struct clk		*wkupclk;
+	struct clk		*optclk;
+	u8			flags;
+	struct regmap		*syscon_phy_power; /* ctrl. reg. acces */
+	unsigned int		power_reg; /* power reg. index within syscon */
+	u32			mask;
+	u32			power_on;
+	u32			power_off;
+};
+
+#define	phy_to_omapusb(x)	container_of((x), struct omap_usb, phy)
+
+struct usb_phy_data {
+	const char *label;
+	u8 flags;
+	u32 mask;
+	u32 power_on;
+	u32 power_off;
+};
+
+static inline u32 omap_usb_readl(void __iomem *addr, unsigned int offset)
+{
+	return __raw_readl(addr + offset);
+}
+
+static inline void omap_usb_writel(void __iomem *addr, unsigned int offset,
+				   u32 data)
+{
+	__raw_writel(data, addr + offset);
+}
 
 /**
  * omap_usb2_set_comparator - links the comparator present in the sytem with
@@ -184,6 +242,24 @@ static int omap_usb_init(struct phy *x)
 		omap_usb_writel(phy->phy_base, USB2PHY_ANA_CONFIG1, val);
 	}
 
+	if (phy->flags & OMAP_USB2_DISABLE_CHRG_DET) {
+		/*
+		 * Errata i2075: USB2PHY: USB2PHY Charger Detect is Enabled by
+		 * Default Without VBUS Presence.
+		 *
+		 * AM654x SR1.0 has a silicon bug due to which D+ is pulled high
+		 * after POR, which could cause enumeration failure with some
+		 * USB hubs.
+		 * Disabling the USB2_PHY Charger Detect function will put D+
+		 * into the normal state.
+		 */
+		pr_info("omap_usb2: disable chrg det\n");
+		val = omap_usb_readl(phy->phy_base, USB2PHY_CHRG_DET);
+		val |= USB2PHY_CHRG_DET_USE_CHG_DET_REG |
+		       USB2PHY_CHRG_DET_DIS_CHG_DET;
+		omap_usb_writel(phy->phy_base, USB2PHY_CHRG_DET, val);
+	}
+
 	return 0;
 }
 
@@ -277,6 +353,11 @@ static const struct of_device_id omap_usb2_id_table[] = {
 };
 MODULE_DEVICE_TABLE(of, omap_usb2_id_table);
 
+static const struct soc_device_attribute dis_chrg_det_devices[] = {
+	{ .family = "AM65X", .revision = "SR1.0", },
+	{ /* sentinel */ }
+};
+
 static int omap_usb2_probe(struct platform_device *pdev)
 {
 	struct omap_usb	*phy;
@@ -289,6 +370,7 @@ static int omap_usb2_probe(struct platform_device *pdev)
 	struct platform_device *control_pdev;
 	const struct of_device_id *of_id;
 	struct usb_phy_data *phy_data;
+	const struct soc_device_attribute *soc;
 
 	of_id = of_match_device(omap_usb2_id_table, &pdev->dev);
 
@@ -314,14 +396,12 @@ static int omap_usb2_probe(struct platform_device *pdev)
 	phy->mask		= phy_data->mask;
 	phy->power_on		= phy_data->power_on;
 	phy->power_off		= phy_data->power_off;
+	phy->flags		= phy_data->flags;
 
-	if (phy_data->flags & OMAP_USB2_CALIBRATE_FALSE_DISCONNECT) {
-		res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-		phy->phy_base = devm_ioremap_resource(&pdev->dev, res);
-		if (IS_ERR(phy->phy_base))
-			return PTR_ERR(phy->phy_base);
-		phy->flags |= OMAP_USB2_CALIBRATE_FALSE_DISCONNECT;
-	}
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	phy->phy_base = devm_ioremap_resource(&pdev->dev, res);
+	if (IS_ERR(phy->phy_base))
+		return PTR_ERR(phy->phy_base);
 
 	phy->syscon_phy_power = syscon_regmap_lookup_by_phandle(node,
 							"syscon-phy-power");
@@ -353,6 +433,9 @@ static int omap_usb2_probe(struct platform_device *pdev)
 		}
 	}
 
+	soc = soc_device_match(dis_chrg_det_devices);
+	if (soc)
+		phy->flags |= OMAP_USB2_DISABLE_CHRG_DET;
 
 	phy->wkupclk = devm_clk_get(phy->dev, "wkupclk");
 	if (IS_ERR(phy->wkupclk)) {
