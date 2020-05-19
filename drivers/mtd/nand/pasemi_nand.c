@@ -167,7 +167,7 @@ static int pasemi_nand_probe(struct platform_device *ofdev)
 	if (mtd_device_register(pasemi_nand_mtd, NULL, 0)) {
 		printk(KERN_ERR "pasemi_nand: Unable to register MTD device\n");
 		err = -ENODEV;
-		goto out_lpc;
+		goto out_cleanup_nand;
 	}
 
 	printk(KERN_INFO "PA Semi NAND flash at %08llx, control at I/O %x\n",
@@ -175,6 +175,8 @@ static int pasemi_nand_probe(struct platform_device *ofdev)
 
 	return 0;
 
+ out_cleanup_nand:
+	nand_cleanup(chip);
  out_lpc:
 	release_region(lpcctl, 4);
  out_ior:
