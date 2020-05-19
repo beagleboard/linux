@@ -47,3 +47,7 @@
 &pruss2_emac1 {
 	iep = <&icssg2_iep1>;
 };
+
+&sdhci1 {
+	no-1-8-v;
+};
