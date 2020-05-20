@@ -15,6 +15,7 @@
 };
 
 &pcie1_rc {
+	num-lanes = <1>;
 	phys = <&serdes1 PHY_TYPE_PCIE 0>;
 	phy-names = "pcie-phy0";
 	reset-gpios = <&pca9555 5 GPIO_ACTIVE_HIGH>;
