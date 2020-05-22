@@ -68,6 +68,9 @@ Linux implementation note:
 - If a "linux,cma-default" property is present, then Linux will use the
   region for the default pool of the contiguous memory allocator.
 
+- If a "linux,cma-heap" property is present, then Linux will expose the
+  the CMA region via the DMA-BUF Heaps interface.
+
 - If a "linux,dma-default" property is present, then Linux will use the
   region for the default pool of the consistent DMA allocator.
 
