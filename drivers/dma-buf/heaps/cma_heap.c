@@ -141,6 +141,11 @@ static int __add_cma_heap(struct cma *cma, void *data)
 {
 	struct cma_heap *cma_heap;
 	struct dma_heap_export_info exp_info;
+	struct cma *default_cma = dev_get_cma_area(NULL);
+
+	/* We only add the default heap and explicitly tagged heaps */
+	if (cma != default_cma && !cma_dma_heap_enabled(cma))
+		return 0;
 
 	cma_heap = kzalloc(sizeof(*cma_heap), GFP_KERNEL);
 	if (!cma_heap)
@@ -162,16 +167,11 @@ static int __add_cma_heap(struct cma *cma, void *data)
 	return 0;
 }
 
-static int add_default_cma_heap(void)
+static int cma_heaps_init(void)
 {
-	struct cma *default_cma = dev_get_cma_area(NULL);
-	int ret = 0;
-
-	if (default_cma)
-		ret = __add_cma_heap(default_cma, NULL);
-
-	return ret;
+	cma_for_each_area(__add_cma_heap, NULL);
+	return 0;
 }
-module_init(add_default_cma_heap);
+module_init(cma_heaps_init);
 MODULE_DESCRIPTION("DMA-BUF CMA Heap");
 MODULE_LICENSE("GPL v2");
