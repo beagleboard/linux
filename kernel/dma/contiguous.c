@@ -302,6 +302,7 @@ static int __init rmem_cma_setup(struct reserved_mem *rmem)
 	phys_addr_t align = PAGE_SIZE << max(MAX_ORDER - 1, pageblock_order);
 	phys_addr_t mask = align - 1;
 	unsigned long node = rmem->fdt_node;
+	bool heap_exported = of_get_flat_dt_prop(node, "linux,cma-heap", NULL);
 	struct cma *cma;
 	int err;
 
@@ -324,6 +325,8 @@ static int __init rmem_cma_setup(struct reserved_mem *rmem)
 
 	if (of_get_flat_dt_prop(node, "linux,cma-default", NULL))
 		dma_contiguous_set_default(cma);
+
+	cma_enable_dma_heap(cma, heap_exported);
 
 	rmem->ops = &rmem_cma_ops;
 	rmem->priv = cma;

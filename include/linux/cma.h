@@ -24,6 +24,9 @@ extern phys_addr_t cma_get_base(const struct cma *cma);
 extern unsigned long cma_get_size(const struct cma *cma);
 extern const char *cma_get_name(const struct cma *cma);
 
+extern void __init cma_enable_dma_heap(struct cma *cma, bool enabled);
+extern bool cma_dma_heap_enabled(struct cma *cma);
+
 extern int __init cma_declare_contiguous(phys_addr_t base,
 			phys_addr_t size, phys_addr_t limit,
 			phys_addr_t alignment, unsigned int order_per_bit,

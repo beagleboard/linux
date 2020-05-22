@@ -55,6 +55,16 @@ const char *cma_get_name(const struct cma *cma)
 	return cma->name ? cma->name : "(undefined)";
 }
 
+void __init cma_enable_dma_heap(struct cma *cma, bool enabled)
+{
+	cma->dma_heap = enabled;
+}
+
+bool cma_dma_heap_enabled(struct cma *cma)
+{
+	return !!cma->dma_heap;
+}
+
 static unsigned long cma_bitmap_aligned_mask(const struct cma *cma,
 					     unsigned int align_order)
 {
