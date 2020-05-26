@@ -29,7 +29,6 @@
 #include <linux/of_address.h>
 #include <linux/interrupt.h>
 #include <linux/clk.h>
-#include <linux/k3_sa2ul.h>
 
 #include <asm/io.h>
 
@@ -448,11 +447,6 @@ static int omap_rng_probe(struct platform_device *pdev)
 	if (!priv)
 		return -ENOMEM;
 
-#if defined(CONFIG_CRYPTO_DEV_SA2UL_MODULE) || defined(CONFIG_CRYPTO_DEV_SA2UL)
-	ret = sa2ul_trng_enable(dev->parent);
-	if (ret)
-		return ret;
-#endif
 	priv->rng.read = omap_rng_do_read;
 	priv->rng.init = omap_rng_init;
 	priv->rng.cleanup = omap_rng_cleanup;
