@@ -317,6 +317,8 @@ struct sa_tfm_ctx {
 	} fallback;
 };
 
+#define SHA_BUFLEN		SA_MAX_DATA_SZ
+
 /**
  * struct sa_sha_req_ctx: Structure used for sha request
  * @dev_data: struct sa_crypto_data pointer
@@ -327,13 +329,11 @@ struct sa_tfm_ctx {
 struct sa_sha_req_ctx {
 	struct sa_crypto_data	*dev_data;
 	u32			cmdl[SA_MAX_CMDL_WORDS + SA_PSDATA_CTX_WORDS];
-	struct scatterlist	*src;
-	unsigned int		src_nents;
-	u32			mode;
-	struct scatterlist	*sg_next;
+	struct scatterlist	sgl[2];
 	int			len;
-	int			buf_free;
-	int			offset;
+	bool			fallback_active;
+	struct ahash_request	fallback_req;
+	u8			buffer[0] SA_ALIGNED;
 };
 
 enum sa_submode {
