@@ -1780,7 +1780,12 @@ static int prueth_netdev_init(struct prueth *prueth,
 	/* remove unsupported modes */
 	phy_remove_link_mode(emac->phydev, ETHTOOL_LINK_MODE_10baseT_Half_BIT);
 	phy_remove_link_mode(emac->phydev, ETHTOOL_LINK_MODE_10baseT_Full_BIT);
-	phy_remove_link_mode(emac->phydev, ETHTOOL_LINK_MODE_100baseT_Half_BIT);
+
+	if (of_property_read_bool(eth_node, "ti,no-half-duplex")) {
+		phy_remove_link_mode(emac->phydev,
+				     ETHTOOL_LINK_MODE_100baseT_Half_BIT);
+	}
+
 	phy_remove_link_mode(emac->phydev, ETHTOOL_LINK_MODE_Pause_BIT);
 	phy_remove_link_mode(emac->phydev, ETHTOOL_LINK_MODE_Asym_Pause_BIT);
 
