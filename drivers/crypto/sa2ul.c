@@ -1235,6 +1235,7 @@ static int sa_cipher_run(struct skcipher_request *req, u8 *iv, int enc)
 	struct crypto_alg *alg = req->base.tfm->__crt_alg;
 	struct sa_req sa_req = { 0 };
 	int ret;
+	struct sa_crypto_data *data = dev_get_drvdata(sa_k3_dev);
 
 	if (!req->cryptlen)
 		return 0;
@@ -1243,7 +1244,8 @@ static int sa_cipher_run(struct skcipher_request *req, u8 *iv, int enc)
 		return -EINVAL;
 
 	/* Use SW fallback if the data size is not supported */
-	if (req->cryptlen > SA_MAX_DATA_SZ ||
+	if (req->cryptlen <= data->fallback_sz ||
+	    req->cryptlen > SA_MAX_DATA_SZ ||
 	    (req->cryptlen >= SA_UNSAFE_DATA_SZ_MIN &&
 	     req->cryptlen <= SA_UNSAFE_DATA_SZ_MAX)) {
 		SYNC_SKCIPHER_REQUEST_ON_STACK(subreq, ctx->fallback.skcipher);
@@ -1349,6 +1351,7 @@ static int sa_sha_run(struct ahash_request *req, bool final, bool update)
 	struct sa_req sa_req = { 0 };
 	size_t auth_len;
 	struct scatterlist *src;
+	struct sa_crypto_data *data = dev_get_drvdata(sa_k3_dev);
 
 	auth_len = rctx->len + (update ? req->nbytes : 0);
 
@@ -1369,7 +1372,7 @@ static int sa_sha_run(struct ahash_request *req, bool final, bool update)
 		src = rctx->sgl;
 	}
 
-	if (rctx->fallback_active || !final ||
+	if (rctx->fallback_active || !final || auth_len <= data->fallback_sz ||
 	    auth_len > SA_MAX_DATA_SZ ||
 	    (auth_len >= SA_UNSAFE_DATA_SZ_MIN &&
 	     auth_len <= SA_UNSAFE_DATA_SZ_MAX)) {
@@ -1917,6 +1920,7 @@ static int sa_aead_run(struct aead_request *req, u8 *iv, int enc)
 	struct sa_tfm_ctx *ctx = crypto_aead_ctx(tfm);
 	struct sa_req sa_req = { 0 };
 	size_t auth_size, enc_size;
+	struct sa_crypto_data *data = dev_get_drvdata(sa_k3_dev);
 
 	enc_size = req->cryptlen;
 	auth_size = req->assoclen + req->cryptlen;
@@ -1926,7 +1930,7 @@ static int sa_aead_run(struct aead_request *req, u8 *iv, int enc)
 		auth_size -= crypto_aead_authsize(tfm);
 	}
 
-	if (auth_size > SA_MAX_DATA_SZ ||
+	if (auth_size <= data->fallback_sz || auth_size > SA_MAX_DATA_SZ ||
 	    (auth_size >= SA_UNSAFE_DATA_SZ_MIN &&
 	     auth_size <= SA_UNSAFE_DATA_SZ_MAX)) {
 		struct aead_request *subreq = aead_request_ctx(req);
@@ -2356,6 +2360,41 @@ static int sa_link_child(struct device *dev, void *data)
 	return 0;
 }
 
+static ssize_t fallback_show(struct device *dev, struct device_attribute *attr,
+			     char *buf)
+{
+	struct sa_crypto_data *data = dev_get_drvdata(dev);
+
+	return sprintf(buf, "%d\n", data->fallback_sz);
+}
+
+static ssize_t fallback_store(struct device *dev, struct device_attribute *attr,
+			      const char *buf, size_t size)
+{
+	struct sa_crypto_data *data = dev_get_drvdata(dev);
+	ssize_t status;
+	long value;
+
+	status = kstrtol(buf, 0, &value);
+	if (status)
+		return status;
+
+	data->fallback_sz = value;
+
+	return size;
+}
+
+static DEVICE_ATTR_RW(fallback);
+
+static struct attribute *sa_ul_attrs[] = {
+	&dev_attr_fallback.attr,
+	NULL,
+};
+
+static struct attribute_group sa_ul_attr_group = {
+	.attrs = sa_ul_attrs,
+};
+
 static int sa_ul_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -2406,6 +2445,12 @@ static int sa_ul_probe(struct platform_device *pdev)
 	if (ret)
 		goto release_dma;
 
+	ret = sysfs_create_group(&dev->kobj, &sa_ul_attr_group);
+	if (ret) {
+		dev_err(dev, "failed to create sysfs attrs.\n");
+		goto release_dma;
+	}
+
 	device_for_each_child(&pdev->dev, &pdev->dev, sa_link_child);
 
 	return 0;
@@ -2444,6 +2489,8 @@ static int sa_ul_remove(struct platform_device *pdev)
 
 	pm_runtime_put_sync(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
+
+	sysfs_remove_group(&pdev->dev.kobj, &sa_ul_attr_group);
 
 	return 0;
 }
