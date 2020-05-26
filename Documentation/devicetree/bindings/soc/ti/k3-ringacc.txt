@@ -28,10 +28,6 @@ Required properties:
 - ti,sci-dev-id	: TI-SCI device id of the ring accelerator
 - msi-parent	: phandle for "ti,sci-inta" interrupt controller
 
-Optional properties:
- -- ti,dma-ring-reset-quirk : enable ringacc / udma ring state interoperability
-		  issue software w/a
-
 Example:
 
 ringacc: ringacc@3c000000 {
@@ -44,7 +40,6 @@ ringacc: ringacc@3c000000 {
 		    "proxy_gcfg", "proxy_target";
 	ti,num-rings = <818>;
 	ti,sci-rm-range-gp-rings = <0x2>; /* GP ring range */
-	ti,dma-ring-reset-quirk;
 	ti,sci = <&dmsc>;
 	ti,sci-dev-id = <187>;
 	msi-parent = <&inta_main_udmass>;
