@@ -181,6 +181,8 @@
 		sram = <&ocmcram1>;
 		interrupt-parent = <&pruss1_intc>;
 		mii-rt = <&pruss1_mii_rt>;
+		interrupts = <20>, <21>;
+		interrupt-names = "rx_lre_hp", "rx_lre_lp";
 		iep = <&pruss1_iep>;
 
 		ethernet-mii0 {
