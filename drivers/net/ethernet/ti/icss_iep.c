@@ -13,7 +13,7 @@
 #include <linux/platform_device.h>
 #include <linux/timekeeping.h>
 
-#include "icssg_iep.h"
+#include "icss_iep.h"
 
 #define IEP_MAX_DEF_INC		0xf
 #define IEP_MAX_COMPEN_INC		0xfff
@@ -39,7 +39,7 @@
 #define IEP_MIN_CMP	0
 #define IEP_MAX_CMP	15
 
-static void iep_settime(struct icssg_iep *iep, u64 ns)
+static void icss_iep_settime(struct icss_iep *iep, u64 ns)
 {
 	u32 val;
 
@@ -54,7 +54,7 @@ static void iep_settime(struct icssg_iep *iep, u64 ns)
 	regmap_write(iep->map, IEP_COUNT_LOW_REG, val);
 }
 
-static u64 iep_gettime(struct icssg_iep *iep)
+static u64 icss_iep_gettime(struct icss_iep *iep)
 {
 	u64 val;
 	u32 tmp;
@@ -70,21 +70,21 @@ static u64 iep_gettime(struct icssg_iep *iep)
 	return val;
 }
 
-static void iep_enable(struct icssg_iep *iep)
+static void icss_iep_enable(struct icss_iep *iep)
 {
 	regmap_update_bits(iep->map, IEP_GLOBAL_CFG_REG,
 			   IEP_GLOBAL_CFG_CNT_ENABLE,
 			   IEP_GLOBAL_CFG_CNT_ENABLE);
 }
 
-static void iep_disable(struct icssg_iep *iep)
+static void icss_iep_disable(struct icss_iep *iep)
 {
 	regmap_update_bits(iep->map, IEP_GLOBAL_CFG_REG,
 			   IEP_GLOBAL_CFG_CNT_ENABLE,
 			   0);
 }
 
-static void iep_enable_shadow_mode(struct icssg_iep *iep, u32 cycle_time_ns)
+static void icss_iep_enable_shadow_mode(struct icss_iep *iep, u32 cycle_time_ns)
 {
 	u32 cycle_time;
 	int cmp;
@@ -92,7 +92,7 @@ static void iep_enable_shadow_mode(struct icssg_iep *iep, u32 cycle_time_ns)
 	/* FIXME: check why we need to decrement by def_inc */
 	cycle_time = cycle_time_ns - iep->def_inc;
 
-	iep_disable(iep);
+	icss_iep_disable(iep);
 
 	/* disable shadow mode */
 	regmap_update_bits(iep->map, IEP_CMP_CFG_REG,
@@ -130,17 +130,17 @@ static void iep_enable_shadow_mode(struct icssg_iep *iep, u32 cycle_time_ns)
 	regmap_write(iep->map, IEP_CMP_REG0(0), cycle_time);
 	regmap_write(iep->map, IEP_CMP_REG1(0), cycle_time);
 
-	iep_enable(iep);
+	icss_iep_enable(iep);
 }
 
-static void iep_set_default_inc(struct icssg_iep *iep, u8 def_inc)
+static void icss_iep_set_default_inc(struct icss_iep *iep, u8 def_inc)
 {
 	regmap_update_bits(iep->map, IEP_GLOBAL_CFG_REG,
 			   IEP_GLOBAL_CFG_DEFAULT_INC_MASK,
 			   def_inc << IEP_GLOBAL_CFG_DEFAULT_INC_SHIFT);
 }
 
-static void iep_set_compensation_inc(struct icssg_iep *iep, u16 compen_inc)
+static void icss_iep_set_compensation_inc(struct icss_iep *iep, u16 compen_inc)
 {
 	struct device *dev = regmap_get_device(iep->map);
 
@@ -155,7 +155,8 @@ static void iep_set_compensation_inc(struct icssg_iep *iep, u16 compen_inc)
 			   compen_inc << IEP_GLOBAL_CFG_COMPEN_INC_SHIFT);
 }
 
-static void iep_set_compensation_count(struct icssg_iep *iep, u32 compen_count)
+static void icss_iep_set_compensation_count(struct icss_iep *iep,
+					    u32 compen_count)
 {
 	struct device *dev = regmap_get_device(iep->map);
 
@@ -168,16 +169,16 @@ static void iep_set_compensation_count(struct icssg_iep *iep, u32 compen_count)
 	regmap_write(iep->map, IEP_COMPEN_REG, compen_count);
 }
 
-static void iep_set_slow_compensation_count(struct icssg_iep *iep,
-					    u32 compen_count)
+static void icss_iep_set_slow_compensation_count(struct icss_iep *iep,
+						 u32 compen_count)
 {
 	regmap_write(iep->map, IEP_SLOW_COMPEN_REG, compen_count);
 }
 
 /* PTP PHC operations */
-static int iep_ptp_adjfreq(struct ptp_clock_info *ptp, s32 ppb)
+static int icss_iep_ptp_adjfreq(struct ptp_clock_info *ptp, s32 ppb)
 {
-	struct icssg_iep *iep = container_of(ptp, struct icssg_iep, ptp_info);
+	struct icss_iep *iep = container_of(ptp, struct icss_iep, ptp_info);
 	u32 cyc_count;
 	u16 cmp_inc;
 
@@ -219,8 +220,8 @@ static int iep_ptp_adjfreq(struct ptp_clock_info *ptp, s32 ppb)
 
 	/* iep->clk_tick_time is def_inc */
 	cmp_inc = iep->clk_tick_time + iep->slow_cmp_inc;
-	iep_set_compensation_inc(iep, cmp_inc);
-	iep_set_slow_compensation_count(iep, iep->slow_cmp_count);
+	icss_iep_set_compensation_inc(iep, cmp_inc);
+	icss_iep_set_slow_compensation_count(iep, iep->slow_cmp_count);
 	iep->slow_cmp_active = 1;
 
 	mutex_unlock(&iep->ptp_clk_mutex);
@@ -228,72 +229,72 @@ static int iep_ptp_adjfreq(struct ptp_clock_info *ptp, s32 ppb)
 	return 0;
 }
 
-static int iep_ptp_adjtime(struct ptp_clock_info *ptp, s64 delta)
+static int icss_iep_ptp_adjtime(struct ptp_clock_info *ptp, s64 delta)
 {
-	struct icssg_iep *iep = container_of(ptp, struct icssg_iep, ptp_info);
+	struct icss_iep *iep = container_of(ptp, struct icss_iep, ptp_info);
 	s64 ns;
 
 	mutex_lock(&iep->ptp_clk_mutex);
 	if (iep->ops && iep->ops->adjtime) {
 		iep->ops->adjtime(iep, delta);
 	} else {
-		ns = iep_gettime(iep);
+		ns = icss_iep_gettime(iep);
 		ns += delta;
-		iep_settime(iep, ns);
+		icss_iep_settime(iep, ns);
 	}
 	mutex_unlock(&iep->ptp_clk_mutex);
 
 	return 0;
 }
 
-static int iep_ptp_gettime(struct ptp_clock_info *ptp,
-			   struct timespec64 *ts)
+static int icss_iep_ptp_gettime(struct ptp_clock_info *ptp,
+				struct timespec64 *ts)
 {
-	struct icssg_iep *iep = container_of(ptp, struct icssg_iep, ptp_info);
+	struct icss_iep *iep = container_of(ptp, struct icss_iep, ptp_info);
 	u64 ns;
 
 	mutex_lock(&iep->ptp_clk_mutex);
-	ns = iep_gettime(iep);
+	ns = icss_iep_gettime(iep);
 	*ts = ns_to_timespec64(ns);
 	mutex_unlock(&iep->ptp_clk_mutex);
 
 	return 0;
 }
 
-static int iep_ptp_settime(struct ptp_clock_info *ptp,
-			   const struct timespec64 *ts)
+static int icss_iep_ptp_settime(struct ptp_clock_info *ptp,
+				const struct timespec64 *ts)
 {
-	struct icssg_iep *iep = container_of(ptp, struct icssg_iep, ptp_info);
+	struct icss_iep *iep = container_of(ptp, struct icss_iep, ptp_info);
 	u64 ns;
 
 	mutex_lock(&iep->ptp_clk_mutex);
 	ns = timespec64_to_ns(ts);
-	iep_settime(iep, ns);
+	icss_iep_settime(iep, ns);
 	mutex_unlock(&iep->ptp_clk_mutex);
 
 	return 0;
 }
 
-static int iep_ptp_enable(struct ptp_clock_info *ptp,
-			  struct ptp_clock_request *rq, int on)
+static int icss_iep_ptp_enable(struct ptp_clock_info *ptp,
+			       struct ptp_clock_request *rq, int on)
 {
 	return -EOPNOTSUPP;
 }
 
-static struct ptp_clock_info iep_ptp_info = {
+static struct ptp_clock_info icss_iep_ptp_info = {
 	.owner		= THIS_MODULE,
 	.name		= "ICSS IEP timer",
 	.max_adj	= 10000000,
-	.adjfreq	= iep_ptp_adjfreq,
-	.adjtime	= iep_ptp_adjtime,
-	.gettime64	= iep_ptp_gettime,
-	.settime64	= iep_ptp_settime,
-	.enable		= iep_ptp_enable,
+	.adjfreq	= icss_iep_ptp_adjfreq,
+	.adjtime	= icss_iep_ptp_adjtime,
+	.gettime64	= icss_iep_ptp_gettime,
+	.settime64	= icss_iep_ptp_settime,
+	.enable		= icss_iep_ptp_enable,
 };
 
-int icssg_iep_init(struct icssg_iep *iep, struct device *parent_dev,
-		   struct regmap *iep_map, u32 refclk_freq,
-		   u32 cycle_time_ns)
+int icss_iep_init(struct icss_iep *iep, struct device *parent_dev,
+		  struct regmap *iep_map, u32 refclk_freq,
+		  u32 cycle_time_ns)
 {
 	int ret;
 	u32 def_inc;
@@ -308,21 +309,21 @@ int icssg_iep_init(struct icssg_iep *iep, struct device *parent_dev,
 		return -EINVAL;
 
 	iep->def_inc = def_inc;
-	iep_set_default_inc(iep, def_inc);
-	iep_set_compensation_inc(iep, def_inc);
-	iep_set_compensation_count(iep, 0);
-	iep_set_slow_compensation_count(iep, 0);
+	icss_iep_set_default_inc(iep, def_inc);
+	icss_iep_set_compensation_inc(iep, def_inc);
+	icss_iep_set_compensation_count(iep, 0);
+	icss_iep_set_slow_compensation_count(iep, 0);
 	if (cycle_time_ns)
-		iep_enable_shadow_mode(iep, cycle_time_ns);
+		icss_iep_enable_shadow_mode(iep, cycle_time_ns);
 	else
-		iep_enable(iep);
+		icss_iep_enable(iep);
 
 	iep->cycle_time_ns = cycle_time_ns;
 	regmap_write(iep->map, IEP_COUNT_HIGH_REG, 0);
 	regmap_write(iep->map, IEP_COUNT_LOW_REG, 0);
 
 	iep->clk_tick_time = def_inc;
-	iep->ptp_info = iep_ptp_info;
+	iep->ptp_info = icss_iep_ptp_info;
 
 	iep->ptp_clock = ptp_clock_register(&iep->ptp_info, parent_dev);
 	if (IS_ERR(iep->ptp_clock)) {
@@ -336,16 +337,16 @@ int icssg_iep_init(struct icssg_iep *iep, struct device *parent_dev,
 	return 0;
 
 err_disable:
-	iep_disable(iep);
+	icss_iep_disable(iep);
 
 	return ret;
 }
 
-int icssg_iep_exit(struct icssg_iep *iep)
+int icss_iep_exit(struct icss_iep *iep)
 {
 	if (iep->ptp_clock)
 		ptp_clock_unregister(iep->ptp_clock);
-	iep_disable(iep);
+	icss_iep_disable(iep);
 
 	return 0;
 }

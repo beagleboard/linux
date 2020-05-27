@@ -5,8 +5,8 @@
  *
  */
 
-#ifndef __NET_TI_ICSSG_IEP_H
-#define __NET_TI_ICSSG_IEP_H
+#ifndef __NET_TI_ICSS_IEP_H
+#define __NET_TI_ICSS_IEP_H
 
 #include <linux/mutex.h>
 #include <linux/ptp_clock_kernel.h>
@@ -23,16 +23,16 @@
 #define IEP_CMP_CFG_REG		0x70
 #define IEP_CMP_STATUS_REG	0x74
 
-struct icssg_iep;
+struct icss_iep;
 
 /* Firmware specific clock operations */
-struct icssg_iep_clockops {
-	void (*settime)(struct icssg_iep *iep, u64 ns);
-	void (*adjtime)(struct icssg_iep *iep, s64 delta);
-	u64 (*gettime)(struct icssg_iep *iep);
+struct icss_iep_clockops {
+	void (*settime)(struct icss_iep *iep, u64 ns);
+	void (*adjtime)(struct icss_iep *iep, s64 delta);
+	u64 (*gettime)(struct icss_iep *iep);
 };
 
-struct icssg_iep {
+struct icss_iep {
 	struct regmap *map;
 	u32 refclk_freq;
 	int clk_tick_time;	/* one refclk tick time in ns */
@@ -44,13 +44,13 @@ struct icssg_iep {
 	u32 def_inc;
 	s16 slow_cmp_inc;
 	u32 slow_cmp_count;
-	const struct icssg_iep_clockops *ops;
+	const struct icss_iep_clockops *ops;
 	u32 cycle_time_ns;
 };
 
-int icssg_iep_init(struct icssg_iep *iep, struct device *parent_dev,
-		   struct regmap *iep_map, u32 refclk_freq,
-		   u32 cycle_time_ns);
-int icssg_iep_exit(struct icssg_iep *iep);
+int icss_iep_init(struct icss_iep *iep, struct device *parent_dev,
+		  struct regmap *iep_map, u32 refclk_freq,
+		  u32 cycle_time_ns);
+int icss_iep_exit(struct icss_iep *iep);
 
-#endif /* __NET_TI_ICSSG_IEP_H */
+#endif /* __NET_TI_ICSS_IEP_H */

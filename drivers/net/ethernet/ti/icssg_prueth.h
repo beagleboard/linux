@@ -32,7 +32,7 @@
 #include <linux/dma/k3-udma-glue.h>
 
 #include "icssg_config.h"
-#include "icssg_iep.h"
+#include "icss_iep.h"
 #include "icssg_switch_map.h"
 
 #define ICSS_SLICE0	0
@@ -127,7 +127,7 @@ struct prueth_emac {
 	int phy_if;
 	struct phy_device *phydev;
 	enum prueth_port port_id;
-	struct icssg_iep iep;
+	struct icss_iep iep;
 	bool iep_initialized;
 	struct hwtstamp_config tstamp_config;
 	unsigned int rx_ts_enabled : 1;

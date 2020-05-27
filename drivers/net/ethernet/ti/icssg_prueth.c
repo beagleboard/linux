@@ -1623,7 +1623,7 @@ static void emac_ndo_set_rx_mode(struct net_device *ndev)
 	}
 }
 
-static u64 prueth_iep_gettime(struct icssg_iep *iep)
+static u64 prueth_iep_gettime(struct icss_iep *iep)
 {
 	struct prueth_emac *emac = prueth_iep_to_emac(iep);
 	u64 ts = 0;
@@ -1652,7 +1652,7 @@ static u64 prueth_iep_gettime(struct icssg_iep *iep)
 	return ts;
 }
 
-static void prueth_iep_settime(struct icssg_iep *iep, u64 ns)
+static void prueth_iep_settime(struct icss_iep *iep, u64 ns)
 {
 	struct prueth_emac *emac = prueth_iep_to_emac(iep);
 	struct icssg_setclock_desc sc_desc, *sc_descp;
@@ -1804,7 +1804,7 @@ static int prueth_node_mac(struct device_node *eth_node)
 
 extern const struct ethtool_ops icssg_ethtool_ops;
 
-const struct icssg_iep_clockops prueth_iep_clockops = {
+const struct icss_iep_clockops prueth_iep_clockops = {
 	.settime = prueth_iep_settime,
 	.gettime = prueth_iep_gettime,
 	/* FIXME: add adjtime to use relative mode */
@@ -1915,13 +1915,13 @@ skip_irq:
 	}
 
 	if (prueth->is_sr1) {
-		ret = icssg_iep_init(&emac->iep, prueth->dev, iep_map,
-				     IEP_REFCLK_FREQ, 0);
+		ret = icss_iep_init(&emac->iep, prueth->dev, iep_map,
+				    IEP_REFCLK_FREQ, 0);
 	} else {
 		emac->iep.ops = &prueth_iep_clockops;
-		ret = icssg_iep_init(&emac->iep, prueth->dev, iep_map,
-				     IEP_REFCLK_FREQ,
-				     IEP_DEFAULT_CYCLE_TIME_NS);
+		ret = icss_iep_init(&emac->iep, prueth->dev, iep_map,
+				    IEP_REFCLK_FREQ,
+				    IEP_DEFAULT_CYCLE_TIME_NS);
 	}
 
 	if (ret) {
@@ -1987,7 +1987,7 @@ static void prueth_netdev_exit(struct prueth *prueth,
 	phy_disconnect(emac->phydev);
 
 	if (emac->iep_initialized) {
-		icssg_iep_exit(&emac->iep);
+		icss_iep_exit(&emac->iep);
 		emac->iep_initialized = 0;
 	}
 
