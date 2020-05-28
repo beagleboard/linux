@@ -32,6 +32,12 @@
 	status = "okay";
 };
 
+&pcie0_ep {
+	num-lanes = <2>;
+	phys = <&serdes0 PHY_TYPE_PCIE 1>, <&serdes1 PHY_TYPE_PCIE 1>;
+	phy-names = "pcie-phy0", "pcie-phy1";
+};
+
 &main_pmx0 {
        usb0_pins_default: usb0_pins_default {
                pinctrl-single,pins = <
