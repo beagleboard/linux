@@ -34,6 +34,7 @@ Required properties for children:
 
 Optional properties for children:
 - local-mac-address	: mac address for the port.
+- ti,no-half-duplex	: disable half-duplex.
 
 Example (am572x-idk board, dual-emac):
 ======================================

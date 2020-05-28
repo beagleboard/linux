@@ -190,6 +190,7 @@
 			phy-mode = "mii";
 			interrupts = <20>, <22>;
 			interrupt-names = "rx", "tx";
+			ti,no-half-duplex;
 			/* Filled in by bootloader */
 			local-mac-address = [00 00 00 00 00 00];
 		};
@@ -199,6 +200,7 @@
 			phy-mode = "mii";
 			interrupts = <21>, <23>;
 			interrupt-names = "rx", "tx";
+			ti,no-half-duplex;
 			/* Filled in by bootloader */
 			local-mac-address = [00 00 00 00 00 00];
 		};
