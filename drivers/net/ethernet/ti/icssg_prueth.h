@@ -127,7 +127,7 @@ struct prueth_emac {
 	int phy_if;
 	struct phy_device *phydev;
 	enum prueth_port port_id;
-	struct icss_iep iep;
+	struct icss_iep *iep;
 	bool iep_initialized;
 	struct hwtstamp_config tstamp_config;
 	unsigned int rx_ts_enabled : 1;

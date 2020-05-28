@@ -55,7 +55,6 @@
 				 NETIF_MSG_WOL)
 
 #define prueth_napi_to_emac(napi) container_of(napi, struct prueth_emac, napi)
-#define prueth_iep_to_emac(iepx) container_of(iepx, struct prueth_emac, iep)
 
 /* CTRLMMR_ICSSG_RGMII_CTRL register bits */
 #define ICSSG_CTRL_RGMII_ID_MODE		BIT(24)
@@ -310,7 +309,7 @@ static void emac_rx_timestamp(struct prueth_emac *emac,
 		u32 hi_sw = readl(emac->dram.va +
 				  TIMESYNC_FW_COUNT_HI_SW_OFFSET_OFFSET);
 		ns = icssg_ts_to_ns(hi_sw, psdata[1], psdata[0],
-				    emac->iep.cycle_time_ns);
+				    IEP_DEFAULT_CYCLE_TIME_NS);
 	}
 
 	ssh = skb_hwtstamps(skb);
@@ -619,7 +618,7 @@ static void tx_ts_work(struct prueth_emac *emac)
 
 	hi_sw = readl(emac->dram.va + TIMESYNC_FW_COUNT_HI_SW_OFFSET_OFFSET);
 	ns = icssg_ts_to_ns(hi_sw, tsr.hi_ts, tsr.lo_ts,
-			    emac->iep.cycle_time_ns);
+			    IEP_DEFAULT_CYCLE_TIME_NS);
 
 	if (tsr.cookie != emac->tx_ts_cookie) {
 		netdev_err(emac->ndev, "TX TS cookie mismatch 0x%x:0x%x\n",
@@ -1623,9 +1622,9 @@ static void emac_ndo_set_rx_mode(struct net_device *ndev)
 	}
 }
 
-static u64 prueth_iep_gettime(struct icss_iep *iep)
+static u64 prueth_iep_gettime(void *clockops_data)
 {
-	struct prueth_emac *emac = prueth_iep_to_emac(iep);
+	struct prueth_emac *emac = clockops_data;
 	u64 ts = 0;
 	u32 iepcount_hi, iepcount_lo, hi_rollover_count;
 	u32 iepcount_hi_r, hi_rollover_count_r;
@@ -1635,27 +1634,27 @@ static u64 prueth_iep_gettime(struct icss_iep *iep)
 					TIMESYNC_FW_HI_ROLLOVER_COUNT_OFFSET;
 
 	do {
-		regmap_read(iep->map, IEP_COUNT_HIGH_REG, &iepcount_hi);
+		iepcount_hi = icss_iep_get_count_hi(emac->iep);
 		iepcount_hi += *fw_count_hi_offset_addr;
 		hi_rollover_count = *hi_rollover_count_addr;
-		regmap_read(iep->map, IEP_COUNT_LOW_REG, &iepcount_lo);
+		iepcount_lo = icss_iep_get_count_low(emac->iep);
 
-		regmap_read(iep->map, IEP_COUNT_HIGH_REG, &iepcount_hi_r);
+		iepcount_hi_r = icss_iep_get_count_hi(emac->iep);
 		iepcount_hi_r += *fw_count_hi_offset_addr;
 		hi_rollover_count_r = *hi_rollover_count_addr;
 	} while ((iepcount_hi_r != iepcount_hi) ||
 		 (hi_rollover_count != hi_rollover_count_r));
 
 	ts = ((u64)hi_rollover_count) << 23 | iepcount_hi;
-	ts = ts * iep->cycle_time_ns + iepcount_lo;
+	ts = ts * (u64)IEP_DEFAULT_CYCLE_TIME_NS + iepcount_lo;
 
 	return ts;
 }
 
-static void prueth_iep_settime(struct icss_iep *iep, u64 ns)
+static void prueth_iep_settime(void *clockops_data, u64 ns)
 {
-	struct prueth_emac *emac = prueth_iep_to_emac(iep);
 	struct icssg_setclock_desc sc_desc, *sc_descp;
+	struct prueth_emac *emac = clockops_data;
 	u32 cycletime;
 	u64 cyclecount;
 	int timeout;
@@ -1665,7 +1664,7 @@ static void prueth_iep_settime(struct icss_iep *iep, u64 ns)
 
 	sc_descp = emac->dram.va + TIMESYNC_FW_SETCLOCK_DESC_OFFSET;
 
-	cycletime = iep->cycle_time_ns;
+	cycletime = IEP_DEFAULT_CYCLE_TIME_NS;
 	cyclecount = ns / cycletime;
 
 	memset(&sc_desc, 0, sizeof(sc_desc));
@@ -1819,7 +1818,6 @@ static int prueth_netdev_init(struct prueth *prueth,
 	struct prueth_emac *emac;
 	const u8 *mac_addr;
 	int ret;
-	struct regmap *iep_map;
 
 	port = prueth_node_port(eth_node);
 	if (port < 0)
@@ -1903,30 +1901,21 @@ skip_irq:
 		goto free;
 	}
 
-	if (!of_property_read_bool(eth_node, "iep"))
+	emac->iep = icss_iep_get(eth_node);
+	if (IS_ERR(emac->iep)) {
+		ret = PTR_ERR(emac->iep);
+		if (ret == -EPROBE_DEFER)
+			goto free;
 		goto skip_iep;
-
-	iep_map = syscon_regmap_lookup_by_phandle(eth_node, "iep");
-	if (IS_ERR(iep_map)) {
-		ret = PTR_ERR(iep_map);
-		if (ret != -EPROBE_DEFER)
-			dev_err(prueth->dev, "couldn't get iep regmap\n");
-		goto free;
 	}
 
-	if (prueth->is_sr1) {
-		ret = icss_iep_init(&emac->iep, prueth->dev, iep_map,
-				    IEP_REFCLK_FREQ, 0);
-	} else {
-		emac->iep.ops = &prueth_iep_clockops;
-		ret = icss_iep_init(&emac->iep, prueth->dev, iep_map,
-				    IEP_REFCLK_FREQ,
-				    IEP_DEFAULT_CYCLE_TIME_NS);
-	}
-
+	if (prueth->is_sr1)
+		ret = icss_iep_init(emac->iep, NULL, NULL, 0);
+	else
+		ret = icss_iep_init(emac->iep, &prueth_iep_clockops,
+				    emac, IEP_DEFAULT_CYCLE_TIME_NS);
 	if (ret) {
 		dev_err(prueth->dev, "failed to init iep\n");
-		emac->iep.ops = NULL;
 		goto free;
 	}
 
@@ -1987,8 +1976,9 @@ static void prueth_netdev_exit(struct prueth *prueth,
 	phy_disconnect(emac->phydev);
 
 	if (emac->iep_initialized) {
-		icss_iep_exit(&emac->iep);
+		icss_iep_exit(emac->iep);
 		emac->iep_initialized = 0;
+		icss_iep_put(emac->iep);
 	}
 
 	if (of_phy_is_fixed_link(emac->phy_node))
