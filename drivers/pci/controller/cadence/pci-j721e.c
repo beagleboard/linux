@@ -406,6 +406,9 @@ static int j721e_pcie_probe(struct platform_device *pdev)
 		num_lanes = 1;
 	pcie->num_lanes = num_lanes;
 
+	if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(48)))
+		return -EINVAL;
+
 	dev_set_drvdata(dev, pcie);
 	pm_runtime_enable(dev);
 	ret = pm_runtime_get_sync(dev);
