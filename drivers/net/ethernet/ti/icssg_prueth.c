@@ -310,8 +310,8 @@ static void emac_rx_timestamp(struct prueth_emac *emac,
 	if (emac->is_sr1) {
 		ns = (u64)psdata[1] << 32 | psdata[0];
 	} else {
-		u32 hi_sw = readl(emac->dram.va +
-				  TIMESYNC_FW_COUNT_HI_SW_OFFSET_OFFSET);
+		u32 hi_sw = readl(emac->prueth->shram.va +
+				  TIMESYNC_FW_WC_COUNT_HI_SW_OFFSET_OFFSET);
 		ns = icssg_ts_to_ns(hi_sw, psdata[1], psdata[0],
 				    IEP_DEFAULT_CYCLE_TIME_NS);
 	}
@@ -620,7 +620,8 @@ static void tx_ts_work(struct prueth_emac *emac)
 		goto error;
 	}
 
-	hi_sw = readl(emac->dram.va + TIMESYNC_FW_COUNT_HI_SW_OFFSET_OFFSET);
+	hi_sw = readl(emac->prueth->shram.va +
+		      TIMESYNC_FW_WC_COUNT_HI_SW_OFFSET_OFFSET);
 	ns = icssg_ts_to_ns(hi_sw, tsr.hi_ts, tsr.lo_ts,
 			    IEP_DEFAULT_CYCLE_TIME_NS);
 
@@ -1635,20 +1636,20 @@ static u64 prueth_iep_gettime(void *clockops_data)
 	u64 ts = 0;
 	u32 iepcount_hi, iepcount_lo, hi_rollover_count;
 	u32 iepcount_hi_r, hi_rollover_count_r;
-	u32 *fw_count_hi_offset_addr = emac->dram.va +
-					TIMESYNC_FW_COUNT_HI_SW_OFFSET_OFFSET;
-	u32 *hi_rollover_count_addr = emac->dram.va +
-					TIMESYNC_FW_HI_ROLLOVER_COUNT_OFFSET;
+	void __iomem *fw_count_hi_offset_addr = emac->prueth->shram.va +
+					TIMESYNC_FW_WC_COUNT_HI_SW_OFFSET_OFFSET;
+	void __iomem *hi_rollover_count_addr = emac->prueth->shram.va +
+					TIMESYNC_FW_WC_HI_ROLLOVER_COUNT_OFFSET;
 
 	do {
 		iepcount_hi = icss_iep_get_count_hi(emac->iep);
-		iepcount_hi += *fw_count_hi_offset_addr;
-		hi_rollover_count = *hi_rollover_count_addr;
+		iepcount_hi += readl(fw_count_hi_offset_addr);
+		hi_rollover_count = readl(hi_rollover_count_addr);
 		iepcount_lo = icss_iep_get_count_low(emac->iep);
 
 		iepcount_hi_r = icss_iep_get_count_hi(emac->iep);
-		iepcount_hi_r += *fw_count_hi_offset_addr;
-		hi_rollover_count_r = *hi_rollover_count_addr;
+		iepcount_hi_r += readl(fw_count_hi_offset_addr);
+		hi_rollover_count_r = readl(hi_rollover_count_addr);
 	} while ((iepcount_hi_r != iepcount_hi) ||
 		 (hi_rollover_count != hi_rollover_count_r));
 
@@ -1669,7 +1670,7 @@ static void prueth_iep_settime(void *clockops_data, u64 ns)
 	if (!emac->fw_running)
 		return;
 
-	sc_descp = emac->dram.va + TIMESYNC_FW_SETCLOCK_DESC_OFFSET;
+	sc_descp = emac->prueth->shram.va + TIMESYNC_FW_WC_SETCLOCK_DESC_OFFSET;
 
 	cycletime = IEP_DEFAULT_CYCLE_TIME_NS;
 	cyclecount = ns / cycletime;
