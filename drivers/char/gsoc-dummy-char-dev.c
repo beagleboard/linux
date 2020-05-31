@@ -26,10 +26,8 @@
 
 static int gsoc_char_dev_open(struct inode * inode, struct file * file);
 static int gsoc_char_dev_close(struct inode * inode, struct file * file);
-static ssize_t gsoc_char_dev_read(struct file *file, char __user * buf, size_t count,
-                                loff_t * offset);
-static ssize_t gsoc_char_dev_write(struct file * file, const char __user * buf, size_t count,
-                                loff_t * offset);
+static ssize_t gsoc_char_dev_read(struct file *file, char __user * buf, size_t count, loff_t * offset);
+static ssize_t gsoc_char_dev_write(struct file * file, const char __user * buf, size_t count, loff_t * offset);
 static int gsoc_char_dev_uevent(struct device *dev, struct kobj_uevent_env *env);
 
 static unsigned int major;
@@ -112,15 +110,13 @@ static int gsoc_char_dev_close(struct inode * inode, struct file * file)
     return 0;
 }
 
-static ssize_t gsoc_char_dev_read(struct file *file, char __user * buf, size_t count,
-                                loff_t * offset)
+static ssize_t gsoc_char_dev_read(struct file *file, char __user * buf, size_t count, loff_t * offset)
 {
     pr_info("Read function of GSoC dummy driver called.\n");
     return 0;
 }
 
-static ssize_t gsoc_char_dev_write(struct file * file, const char __user * buf, size_t count,
-                                loff_t * offset)
+static ssize_t gsoc_char_dev_write(struct file * file, const char __user * buf, size_t count, loff_t * offset)
 {
     pr_info("Write function of GSoC dummy driver called.\n");
     return count;
