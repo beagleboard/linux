@@ -535,6 +535,12 @@ config ADI
 	  and SSM (Silicon Secured Memory).  Intended consumers of this
 	  driver include crash and makedumpfile.
 
+config GSOC_DUMMY_CHAR_DEVICE
+	tristate "GSoC Warmup Driver"
+	help
+	This builds the GSoC Dummy Char Driver, which is required for the warmup task.
+	Say Y to build it into the kernel, M to build it as a module and N to not build it.
+
 endmenu
 
 config RANDOM_TRUST_CPU
@@ -560,3 +566,4 @@ config RANDOM_TRUST_BOOTLOADER
 	booloader is trustworthy so it will be added to the kernel's entropy
 	pool. Otherwise, say N here so it will be regarded as device input that
 	only mixes the entropy pool.
+
