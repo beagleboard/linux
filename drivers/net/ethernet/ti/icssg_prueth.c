@@ -667,7 +667,7 @@ static int emac_ndo_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 	struct cppi5_host_desc_t *first_desc, *next_desc, *cur_desc;
 	struct prueth_tx_chn *tx_chn;
 	dma_addr_t desc_dma, buf_dma;
-	u32 pkt_len, org_pkt_len;
+	u32 pkt_len;
 	int i;
 	void **swdata;
 	u32 *epib;
@@ -680,11 +680,7 @@ static int emac_ndo_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 		goto drop_free_skb;
 	}
 
-	org_pkt_len = skb_headlen(skb);
-	pkt_len = org_pkt_len;
-	/* TEMP: f/w skips packets less than 60 bytes so need to pad */
-	if (!emac->is_sr1 && pkt_len < 60)
-		pkt_len = 60;
+	pkt_len = skb_headlen(skb);
 	tx_chn = &emac->tx_chns;
 
 	/* Map the linear buffer */
@@ -771,7 +767,7 @@ static int emac_ndo_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 
 tx_push:
 	/* report bql before sending packet */
-	netdev_sent_queue(ndev, org_pkt_len);
+	netdev_sent_queue(ndev, pkt_len);
 
 	cppi5_hdesc_set_pktlen(first_desc, pkt_len);
 	desc_dma = k3_cppi_desc_pool_virt2dma(tx_chn->desc_pool, first_desc);
