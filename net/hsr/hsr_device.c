@@ -3,9 +3,8 @@
  *
  * Author(s):
  *	2011-2014 Arvid Brodin, arvid.brodin@alten.se
- *
  * This file contains device methods for creating, using and destroying
- * virtual HSR devices.
+ * virtual HSR or PRP devices.
  */
 
 #include <linux/netdevice.h>
@@ -446,6 +445,10 @@ int hsr_dev_finalize(struct net_device *hsr_dev, struct net_device *slave[2],
 
 	ether_addr_copy(hsr_dev->dev_addr, slave[0]->dev_addr);
 
+	/* currently PRP is not supported */
+	if (protocol_version == PRP_V1)
+		return -EPROTONOSUPPORT;
+
 	/* Make sure we recognize frames from ourselves in hsr_rcv() */
 	res = hsr_create_self_node(hsr, hsr_dev->dev_addr,
 				   slave[1]->dev_addr);
@@ -463,6 +466,7 @@ int hsr_dev_finalize(struct net_device *hsr_dev, struct net_device *slave[2],
 	ether_addr_copy(hsr->sup_multicast_addr, def_multicast_addr);
 	hsr->sup_multicast_addr[ETH_ALEN - 1] = multicast_spec;
 
+	/* For HSR, save the version info */
 	hsr->prot_version = protocol_version;
 
 	/* FIXME: should I modify the value of these?
