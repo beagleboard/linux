@@ -475,15 +475,19 @@ int hsr_dev_finalize(struct net_device *hsr_dev, struct net_device *slave[2],
 
 	ether_addr_copy(hsr_dev->dev_addr, slave[0]->dev_addr);
 
-	/* currently PRP is not supported */
-	if (protocol_version == PRP_V1)
-		return -EPROTONOSUPPORT;
-
 	/* Make sure we recognize frames from ourselves in hsr_rcv() */
 	res = hsr_create_self_node(hsr, hsr_dev->dev_addr,
 				   slave[1]->dev_addr);
 	if (res < 0)
 		return res;
+
+	hsr->prot_version = protocol_version;
+	if (hsr->prot_version == PRP_V1) {
+		/* For PRP, lan_id has most significant 3 bits holding
+		 * the net_id of PRP_LAN_ID
+		 */
+		hsr->net_id = PRP_LAN_ID << 1;
+	}
 
 	spin_lock_init(&hsr->seqnr_lock);
 	/* Overflow soon to find bugs easier: */
@@ -495,9 +499,6 @@ int hsr_dev_finalize(struct net_device *hsr_dev, struct net_device *slave[2],
 
 	ether_addr_copy(hsr->sup_multicast_addr, def_multicast_addr);
 	hsr->sup_multicast_addr[ETH_ALEN - 1] = multicast_spec;
-
-	/* For HSR, save the version info */
-	hsr->prot_version = protocol_version;
 
 	/* FIXME: should I modify the value of these?
 	 *

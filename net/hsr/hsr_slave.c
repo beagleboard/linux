@@ -20,7 +20,12 @@ static rx_handler_result_t hsr_handle_frame(struct sk_buff **pskb)
 {
 	struct sk_buff *skb = *pskb;
 	struct hsr_port *port;
+	struct hsr_priv *hsr;
 	u16 protocol;
+
+	/* Packets from dev_loopback_xmit() do not have L2 header, bail out */
+	if (unlikely(skb->pkt_type == PACKET_LOOPBACK))
+		return RX_HANDLER_PASS;
 
 	if (!skb_mac_header_was_set(skb)) {
 		WARN_ONCE(1, "%s: skb invalid", __func__);
@@ -31,6 +36,7 @@ static rx_handler_result_t hsr_handle_frame(struct sk_buff **pskb)
 	port = hsr_port_get_rcu(skb->dev);
 	if (!port)
 		goto finish_pass;
+	hsr = port->hsr;
 
 	if (hsr_addr_is_self(port->hsr, eth_hdr(skb)->h_source)) {
 		/* Directly kill frames sent by ourselves */
@@ -38,11 +44,25 @@ static rx_handler_result_t hsr_handle_frame(struct sk_buff **pskb)
 		goto finish_consume;
 	}
 
+	/* For HSR, only tagged frames are expected, but for PRP
+	 * there could be non tagged frames as well.
+	 */
 	protocol = eth_hdr(skb)->h_proto;
-	if (protocol != htons(ETH_P_PRP) && protocol != htons(ETH_P_HSR))
+	if (protocol != htons(ETH_P_PRP) && protocol != htons(ETH_P_HSR) &&
+	    hsr->prot_version <= HSR_V1)
 		goto finish_pass;
 
+	/* Frame is a HSR or PRP frame or frame form a SAN. For
+	 * PRP, only supervisor frame will have a PRP protocol
+	 * header.
+	 */
 	skb_push(skb, ETH_HLEN);
+
+	if (skb_mac_header(skb) != skb->data) {
+		WARN_ONCE(1, "%s:%d: Malformed frame at source port %s)\n",
+			  __func__, __LINE__, port->dev->name);
+		goto finish_consume;
+	}
 
 	hsr_forward_skb(skb, port);
 

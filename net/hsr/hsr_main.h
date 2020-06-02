@@ -12,6 +12,7 @@
 
 #include <linux/netdevice.h>
 #include <linux/list.h>
+#include <linux/if_vlan.h>
 
 /* Time constants as specified in the HSR specification (IEC-62439-3 2010)
  * Table 8.
@@ -95,7 +96,12 @@ struct hsr_ethhdr {
 	struct hsr_tag	hsr_tag;
 } __packed;
 
-/* HSR Supervision Frame data types.
+struct hsr_vlan_ethhdr {
+	struct vlan_ethhdr vlanhdr;
+	struct hsr_tag	hsr_tag;
+} __packed;
+
+/* HSR/PRP Supervision Frame data types.
  * Field names as defined in the IEC:2010 standard for HSR.
  */
 struct hsr_sup_tag {
@@ -161,6 +167,16 @@ struct prp_rct {
 	__be16          PRP_suffix;
 } __packed;
 
+static inline u16 get_prp_LSDU_size(struct prp_rct *rct)
+{
+	return ntohs(rct->lan_id_and_LSDU_size) & 0x0FFF;
+}
+
+static inline void set_prp_lan_id(struct prp_rct *rct, u16 lan_id)
+{
+	rct->lan_id_and_LSDU_size = htons((ntohs(rct->lan_id_and_LSDU_size) &
+					  0x0FFF) | (lan_id << 12));
+}
 static inline void set_prp_LSDU_size(struct prp_rct *rct, u16 LSDU_size)
 {
 	rct->lan_id_and_LSDU_size = htons((ntohs(rct->lan_id_and_LSDU_size) &
@@ -194,6 +210,12 @@ struct hsr_priv {
 	enum hsr_version prot_version;	/* Indicate if HSRv0, HSRv1 or PRPv1 */
 	spinlock_t seqnr_lock;	/* locking for sequence_nr */
 	spinlock_t list_lock;	/* locking for node list */
+#define PRP_LAN_ID	0x5     /* 0x1010 for A and 0x1011 for B. Bit 0 is set
+				 * based on SLAVE_A or SLAVE_B
+				 */
+	u8 net_id;		/* for PRP, it occupies most significant 3 bits
+				 * of lan_id
+				 */
 	unsigned char		sup_multicast_addr[ETH_ALEN];
 #ifdef	CONFIG_DEBUG_FS
 	struct dentry *node_tbl_root;
@@ -211,8 +233,52 @@ static inline u16 hsr_get_skb_sequence_nr(struct sk_buff *skb)
 {
 	struct hsr_ethhdr *hsr_ethhdr;
 
+	/* TODO will not work when vlan hdr is present */
 	hsr_ethhdr = (struct hsr_ethhdr *)skb_mac_header(skb);
 	return ntohs(hsr_ethhdr->hsr_tag.sequence_nr);
+}
+
+static inline struct prp_rct *skb_get_PRP_rct(struct sk_buff *skb)
+{
+	unsigned char *tail = skb_tail_pointer(skb) - HSR_HLEN;
+
+	struct prp_rct *rct = (struct prp_rct *)tail;
+
+	if (rct->PRP_suffix == htons(ETH_P_PRP))
+		return rct;
+
+	return NULL;
+}
+
+/* Assume caller has confirmed this skb is PRP suffixed */
+static inline u16 prp_get_skb_sequence_nr(struct prp_rct *rct)
+{
+	return ntohs(rct->sequence_nr);
+}
+
+static inline u16 get_prp_lan_id(struct prp_rct *rct)
+{
+	return ntohs(rct->lan_id_and_LSDU_size) >> 12;
+}
+
+/* assume there is a valid rct */
+static inline bool prp_check_lsdu_size(struct sk_buff *skb,
+				       struct prp_rct *rct,
+				       bool is_sup)
+{
+	struct ethhdr *ethhdr;
+	int expected_lsdu_size;
+
+	if (is_sup) {
+		expected_lsdu_size = HSR_V1_SUP_LSDUSIZE;
+	} else {
+		ethhdr = (struct ethhdr *)skb_mac_header(skb);
+		expected_lsdu_size = skb->len - 14;
+		if (ethhdr->h_proto == htons(ETH_P_8021Q))
+			expected_lsdu_size -= 4;
+	}
+
+	return (expected_lsdu_size == get_prp_LSDU_size(rct));
 }
 
 #if IS_ENABLED(CONFIG_DEBUG_FS)
