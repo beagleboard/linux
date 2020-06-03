@@ -135,7 +135,7 @@ static struct ima_rule_entry default_appraise_rules[] = {
 
 static LIST_HEAD(ima_default_rules);
 static LIST_HEAD(ima_policy_rules);
-static struct list_head *ima_rules;
+static struct list_head *ima_rules = &ima_default_rules;
 
 static DEFINE_MUTEX(ima_rules_mutex);
 
@@ -412,7 +412,6 @@ void __init ima_init_policy(void)
 			      &ima_default_rules);
 	}
 
-	ima_rules = &ima_default_rules;
 }
 
 /**
