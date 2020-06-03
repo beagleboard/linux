@@ -19,6 +19,7 @@
 struct carveout_dma_heap {
 	struct dma_heap *heap;
 	struct gen_pool *pool;
+	bool cached;
 };
 
 struct carveout_dma_heap_buffer {
@@ -30,6 +31,7 @@ struct carveout_dma_heap_buffer {
 	unsigned long len;
 	void *vaddr;
 	phys_addr_t paddr;
+	bool cached;
 };
 
 struct dma_heap_attachment {
@@ -127,8 +129,8 @@ static int dma_heap_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
 	struct carveout_dma_heap_buffer *buffer = dmabuf->priv;
 	int ret;
 
-	/* Carveouts are not cached */
-	vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
+	if (!buffer->cached)
+		vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
 
 	ret = vm_iomap_memory(vma, buffer->paddr, buffer->len);
 	if (ret)
@@ -149,7 +151,10 @@ static void *dma_heap_vmap(struct dma_buf *dmabuf)
 		vaddr = buffer->vaddr;
 		goto exit;
 	}
-	vaddr = memremap(buffer->paddr, buffer->len, MEMREMAP_WC);
+	if (buffer->cached)
+		vaddr = memremap(buffer->paddr, buffer->len, MEMREMAP_WB);
+	else
+		vaddr = memremap(buffer->paddr, buffer->len, MEMREMAP_WC);
 	if (!vaddr) {
 		pr_err("Could not memremap buffer\n");
 		goto exit;
@@ -203,6 +208,7 @@ static int carveout_dma_heap_allocate(struct dma_heap *heap,
 	if (!buffer)
 		return -ENOMEM;
 	buffer->pool = carveout_dma_heap->pool;
+	buffer->cached = carveout_dma_heap->cached;
 	INIT_LIST_HEAD(&buffer->attachments);
 	mutex_init(&buffer->attachments_lock);
 	mutex_init(&buffer->vmap_lock);
@@ -246,7 +252,7 @@ static struct dma_heap_ops carveout_dma_heap_ops = {
 	.allocate = carveout_dma_heap_allocate,
 };
 
-int carveout_dma_heap_export(phys_addr_t base, size_t size, const char *name)
+int carveout_dma_heap_export(phys_addr_t base, size_t size, const char *name, bool cached)
 {
 	struct carveout_dma_heap *carveout_dma_heap;
 	struct dma_heap_export_info exp_info;
@@ -267,6 +273,8 @@ int carveout_dma_heap_export(phys_addr_t base, size_t size, const char *name)
 		pr_err("Carveout Heap: Could not add memory to pool\n");
 		goto free_pool;
 	}
+
+	carveout_dma_heap->cached = cached;
 
 	exp_info.name = name;
 	exp_info.ops = &carveout_dma_heap_ops;
@@ -304,7 +312,8 @@ static int __init carveout_dma_heap_init_areas(void)
 
 	for (i = 0; i < heap_area_count; i++) {
 		struct reserved_mem *rmem = &heap_areas[i];
-		int ret = carveout_dma_heap_export(rmem->base, rmem->size, rmem->name);
+		bool cached = !of_get_flat_dt_prop(rmem->fdt_node, "no-map", NULL);
+		int ret = carveout_dma_heap_export(rmem->base, rmem->size, rmem->name, cached);
 		if (ret) {
 			pr_err("Carveout Heap: could not export as DMA-Heap\n");
 			return ret;
@@ -319,12 +328,6 @@ static int __init rmem_dma_heap_carveout_setup(struct reserved_mem *rmem)
 {
 	phys_addr_t align = PAGE_SIZE;
 	phys_addr_t mask = align - 1;
-	unsigned long node = rmem->fdt_node;
-
-	if (!of_get_flat_dt_prop(node, "no-map", NULL)) {
-		pr_err("Carveout Heap: regions without no-map are not yet supported\n");
-		return -EINVAL;
-	}
 
 	if ((rmem->base & mask) || (rmem->size & mask)) {
 		pr_err("Carveout Heap: incorrect alignment of region\n");
