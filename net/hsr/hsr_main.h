@@ -225,11 +225,31 @@ struct hsr_priv {
 	u8 net_id;		/* for PRP, it occupies most significant 3 bits
 				 * of lan_id
 				 */
+	/* value of hsr mode */
+	enum iec62439_3_hsr_modes hsr_mode;
+	/* PRP Transparent Reception */
+	enum iec62439_3_tr_modes prp_tr;
+	/* Duplicate discard mode */
+	enum iec62439_3_dd_modes dd_mode;
+	/* Clear Node Table command */
+	enum iec62439_3_clear_nt_cmd clear_nt_cmd;
+	u32 dlrmt;	/* duplicate list reside max time */
 	unsigned char		sup_multicast_addr[ETH_ALEN];
 #ifdef	CONFIG_DEBUG_FS
 	struct dentry *root_dir;
 	struct dentry *node_tbl_file;
-	struct dentry *stats_file;
+	struct dentry *lre_info_file;
+#endif
+#ifdef	CONFIG_PROC_FS
+	struct proc_dir_entry *dir;
+	struct proc_dir_entry *hsr_mode_file;
+	struct proc_dir_entry *dd_mode_file;
+	struct proc_dir_entry *prp_tr_file;
+	struct proc_dir_entry *clear_nt_file;
+	struct proc_dir_entry *dlrmt_file;
+	struct proc_dir_entry *lre_stats_file;
+	struct proc_dir_entry *node_table_file;
+	struct proc_dir_entry *disable_sv_file;
 #endif
 };
 
@@ -330,6 +350,21 @@ static inline void hsr_debugfs_remove_root(void)
 {}
 #endif
 
+#ifdef	CONFIG_PROC_FS
+int hsr_create_procfs(struct hsr_priv *hsr, struct net_device *ndev);
+void hsr_remove_procfs(struct hsr_priv *hsr, struct net_device *ndev);
+#else
+static inline int hsr_create_procfs(struct hsr_priv *hsr,
+				    struct net_device *ndev)
+{
+	return 0;
+}
+
+static inline void hsr_remove_procfs(struct hsr_priv *hsr,
+				     struct net_device *ndev)
+{}
+#endif
+
 int hsr_lredev_attr_set(struct hsr_priv *hsr,
 			struct lredev_attr *attr);
 int hsr_lredev_attr_get(struct hsr_priv *hsr,
@@ -339,4 +374,4 @@ int hsr_lredev_get_node_table(struct hsr_priv *hsr,
 			      int size);
 int  hsr_lredev_get_lre_stats(struct hsr_priv *hsr,
 			      struct lre_stats *stats);
-#endif /* __HSR_PRIVATE_H */
+#endif /* __HSR_PRP_MAIN_H */

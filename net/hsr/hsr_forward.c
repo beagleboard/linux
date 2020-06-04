@@ -121,18 +121,24 @@ static struct sk_buff *create_stripped_skb_hsr(struct sk_buff *skb_in,
 static struct sk_buff *frame_get_stripped_skb(struct hsr_frame_info *frame,
 					      struct hsr_port *port)
 {
+	struct hsr_priv *hsr = port->hsr;
+
 	if (!frame->skb_std) {
 		if (frame->skb_hsr) {
 			frame->skb_std =
 				create_stripped_skb_hsr(frame->skb_hsr, frame);
 		} else if (frame->skb_prp) {
-			/* trim the skb by len - HSR_HLEN to exclude RCT */
-			skb_trim(frame->skb_prp,
-				 frame->skb_prp->len - HSR_HLEN);
+			/* trim the skb by len - HSR_HLEN to exclude
+			 * RCT if configured to remove RCT
+			 */
+			if (!hsr->rx_offloaded &&
+			    hsr->prp_tr == IEC62439_3_TR_REMOVE_RCT)
+				skb_trim(frame->skb_prp,
+					 frame->skb_prp->len - HSR_HLEN);
 			frame->skb_std =
 				__pskb_copy(frame->skb_prp,
 					    skb_headroom(frame->skb_prp),
-					    GFP_ATOMIC);
+							 GFP_ATOMIC);
 		} else {
 			/* Unexpected */
 			WARN_ONCE(1, "%s:%d: Unexpected frame received (port_src %s)\n",
@@ -268,6 +274,9 @@ static struct sk_buff *create_tagged_skb(struct sk_buff *skb_o,
 				      GFP_ATOMIC);
 		prp_fill_rct(skb, frame, port);
 		return skb;
+	} else if ((port->hsr->prot_version == HSR_V1) &&
+		   (port->hsr->hsr_mode == IEC62439_3_HSR_MODE_T)) {
+		return skb_clone(skb_o, GFP_ATOMIC);
 	}
 
 	/* Create the new skb with enough headroom to fit the HSR tag */
@@ -482,17 +491,78 @@ static void check_local_dest(struct hsr_priv *hsr, struct sk_buff *skb,
 	}
 }
 
+/* Handle HSR or PRP SV frames here */
+static void fill_frame_info_prefixed(struct hsr_frame_info *frame,
+				     struct sk_buff *skb,
+				     struct hsr_port *port)
+{
+	struct prp_rct *rct = skb_get_PRP_rct(skb);
+
+	if (rct &&
+	    prp_check_lsdu_size(skb, rct, frame->is_supervision)) {
+		frame->skb_hsr = NULL;
+		frame->skb_std = NULL;
+		frame->skb_prp = skb;
+		frame->sequence_nr = prp_get_skb_sequence_nr(rct);
+	} else {
+		frame->skb_std = NULL;
+		frame->skb_prp = NULL;
+		frame->skb_hsr = skb;
+		frame->sequence_nr = hsr_get_skb_sequence_nr(skb);
+	}
+}
+
+/* Handle PRP or standard frames here */
+static void fill_frame_info_non_prefixed(struct hsr_frame_info *frame,
+					 struct sk_buff *skb,
+					 struct hsr_port *port)
+{
+	struct hsr_priv *hsr = port->hsr;
+	struct prp_rct *rct = skb_get_PRP_rct(skb);
+	unsigned long irqflags;
+
+	if (rct &&
+	    prp_check_lsdu_size(skb, rct, frame->is_supervision) &&
+				hsr->prot_version == PRP_V1) {
+		frame->skb_hsr = NULL;
+		frame->skb_std = NULL;
+		frame->skb_prp = skb;
+		frame->sequence_nr = prp_get_skb_sequence_nr(rct);
+		frame->is_from_san = false;
+	} else {
+		frame->skb_hsr = NULL;
+		frame->skb_prp = NULL;
+		frame->skb_std = skb;
+
+		if (port->type != HSR_PT_MASTER) {
+			frame->is_from_san = true;
+		} else {
+			if ((hsr->prot_version == HSR_V1 &&
+			     hsr->hsr_mode != IEC62439_3_HSR_MODE_T) ||
+			     hsr->prot_version == PRP_V1 ||
+			     hsr->prot_version == HSR_V0)	{
+				/* Sequence nr for the master node */
+				spin_lock_irqsave(&hsr->seqnr_lock,
+						  irqflags);
+				frame->sequence_nr = hsr->sequence_nr;
+				hsr->sequence_nr++;
+				spin_unlock_irqrestore(&hsr->seqnr_lock,
+						       irqflags);
+			}
+		}
+	}
+}
+
 static int hsr_fill_frame_info(struct hsr_frame_info *frame,
 			       struct sk_buff *skb, struct hsr_port *port)
 {
 	struct hsr_priv *hsr = port->hsr;
 	struct hsr_vlan_ethhdr *vlan_hdr;
 	struct ethhdr *ethhdr;
-	unsigned long irqflags;
 	__be16 proto;
 
 	memset(frame, 0, sizeof(*frame));
-	frame->is_supervision = is_supervision_frame(port->hsr, skb);
+	frame->is_supervision = is_supervision_frame(hsr, skb);
 
 	/* When offloaded, don't expect Supervision frame which
 	 * is terminated at h/w or f/w that offload the LRE
@@ -526,53 +596,13 @@ static int hsr_fill_frame_info(struct hsr_frame_info *frame,
 	}
 
 	frame->is_from_san = false;
-	if (proto == htons(ETH_P_PRP) || proto == htons(ETH_P_HSR)) {
-		struct prp_rct *rct = skb_get_PRP_rct(skb);
-
-		if (rct &&
-		    prp_check_lsdu_size(skb, rct, frame->is_supervision)) {
-			frame->skb_hsr = NULL;
-			frame->skb_std = NULL;
-			frame->skb_prp = skb;
-			frame->sequence_nr = prp_get_skb_sequence_nr(rct);
-		} else {
-			frame->skb_std = NULL;
-			frame->skb_prp = NULL;
-			frame->skb_hsr = skb;
-			frame->sequence_nr = hsr_get_skb_sequence_nr(skb);
-		}
-	} else {
-		struct prp_rct *rct = skb_get_PRP_rct(skb);
-
-		if (rct &&
-		    prp_check_lsdu_size(skb, rct, frame->is_supervision) &&
-					port->hsr->prot_version == PRP_V1) {
-			frame->skb_hsr = NULL;
-			frame->skb_std = NULL;
-			frame->skb_prp = skb;
-			frame->sequence_nr = prp_get_skb_sequence_nr(rct);
-			frame->is_from_san = false;
-		} else {
-			frame->skb_hsr = NULL;
-			frame->skb_prp = NULL;
-			frame->skb_std = skb;
-
-			if (port->type != HSR_PT_MASTER) {
-				frame->is_from_san = true;
-			} else {
-				/* Sequence nr for the master node */
-				spin_lock_irqsave(&port->hsr->seqnr_lock,
-						  irqflags);
-				frame->sequence_nr = port->hsr->sequence_nr;
-				port->hsr->sequence_nr++;
-				spin_unlock_irqrestore(&port->hsr->seqnr_lock,
-						       irqflags);
-			}
-		}
-	}
+	if (proto == htons(ETH_P_PRP) || proto == htons(ETH_P_HSR))
+		fill_frame_info_prefixed(frame, skb, port);
+	else
+		fill_frame_info_non_prefixed(frame, skb, port);
 
 	frame->port_rcv = port;
-	check_local_dest(port->hsr, skb, frame);
+	check_local_dest(hsr, skb, frame);
 
 	return 0;
 }

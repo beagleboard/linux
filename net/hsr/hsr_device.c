@@ -180,6 +180,9 @@ static int _hsr_lredev_get_node_table(struct hsr_priv *hsr,
 	list_for_each_entry_rcu(node, &hsr->node_db, mac_list) {
 		if (hsr_addr_is_self(hsr, node->macaddress_A))
 			continue;
+		/* SANs are not shown as part of Node Table */
+		if (node->san_a || node->san_b)
+			continue;
 		memcpy(&table[i].mac_address[0],
 		       &node->macaddress_A[0], ETH_ALEN);
 		table[i].time_last_seen_a = node->time_in[HSR_PT_SLAVE_A];
@@ -491,14 +494,19 @@ static void hsr_announce(struct timer_list *t)
 
 		interval = msecs_to_jiffies(HSR_ANNOUNCE_INTERVAL);
 	} else {
-		if (hsr->prot_version <= HSR_V1)
+		if (hsr->prot_version <= HSR_V1) {
 			send_hsr_supervision_frame(master,
 						   HSR_TLV_LIFE_CHECK,
 						   hsr->prot_version);
-		else /* PRP */
-			send_hsr_supervision_frame(master,
-						   PRP_TLV_LIFE_CHECK_DD,
+		} else {/* PRP */
+			enum iec62439_3_dd_modes dd_mode =
+				(hsr->dd_mode == IEC62439_3_DD) ?
+					PRP_TLV_LIFE_CHECK_DD :
+					PRP_TLV_LIFE_CHECK_DA;
+
+			send_hsr_supervision_frame(master, dd_mode,
 						   hsr->prot_version);
+		}
 
 		interval = msecs_to_jiffies(HSR_LIFE_CHECK_INTERVAL);
 	}
@@ -521,6 +529,7 @@ static void hsr_dev_destroy(struct net_device *hsr_dev)
 
 	hsr = netdev_priv(hsr_dev);
 
+	hsr_remove_procfs(hsr, hsr_dev);
 	hsr_debugfs_term(hsr);
 
 	list_for_each_entry_safe(port, tmp, &hsr->ports, port_list)
@@ -732,9 +741,13 @@ int hsr_dev_finalize(struct net_device *hsr_dev, struct net_device *slave[2],
 	hsr->prot_version = protocol_version;
 	if (hsr->prot_version == PRP_V1) {
 		/* For PRP, lan_id has most significant 3 bits holding
-		 * the net_id of PRP_LAN_ID
+		 * the net_id of PRP_LAN_ID and also duplicate discard
+		 * mode set.
 		 */
 		hsr->net_id = PRP_LAN_ID << 1;
+		hsr->dd_mode = IEC62439_3_DD;
+	} else {
+		hsr->hsr_mode = IEC62439_3_HSR_MODE_H;
 	}
 
 	spin_lock_init(&hsr->seqnr_lock);
@@ -828,6 +841,10 @@ int hsr_dev_finalize(struct net_device *hsr_dev, struct net_device *slave[2],
 		res = -EINVAL;
 		goto err_add_slaves;
 	}
+
+	res = hsr_create_procfs(hsr, hsr_dev);
+	if (res)
+		goto err_add_slaves;
 
 	return 0;
 

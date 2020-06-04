@@ -95,75 +95,51 @@ static const struct file_operations hsr_node_table_fops = {
 	.release = single_release,
 };
 
-/* hsr_stats_show - Formats and prints stats in the device
+/* hsr_lre_info_show - Formats and prints debug info in the device
  */
 static int
-hsr_stats_show(struct seq_file *sfp, void *data)
+hsr_lre_info_show(struct seq_file *sfp, void *data)
 {
 	struct hsr_priv *priv = (struct hsr_priv *)sfp->private;
-	struct hsr_port *master;
+	bool prp = priv->prot_version > HSR_V1;
 
-	rcu_read_lock();
-	master = hsr_port_get_hsr(priv, HSR_PT_MASTER);
-	rcu_read_unlock();
-
-	seq_puts(sfp, "LRE Stats entries\n");
-	seq_printf(sfp, "cnt_tx_a = %d\n", priv->lre_stats.cnt_tx_a);
-	seq_printf(sfp, "cnt_tx_b = %d\n", priv->lre_stats.cnt_tx_b);
-	/* actually lre_tx_c is whatever sent to the application interface. So
-	 * same as rx_packets
-	 */
-	seq_printf(sfp, "cnt_tx_c = %d\n", priv->lre_stats.cnt_tx_c);
+	seq_puts(sfp, "LRE debug information\n");
+	seq_printf(sfp, "Protocol : %s\n", prp ? "PRP" : "HSR");
+	seq_printf(sfp, "net_id: %d\n", priv->net_id);
+	seq_printf(sfp, "Rx Offloaded: %s\n",
+		   priv->rx_offloaded ? "Yes" : "No");
+	if (!prp)
+		seq_printf(sfp, "L2 fw Offloaded: %s\n",
+			   priv->l2_fwd_offloaded ? "Yes" : "No");
 	seq_printf(sfp, "cnt_tx_sup = %d\n", priv->dbg_stats.cnt_tx_sup);
-	seq_printf(sfp, "cnt_rx_wrong_lan_a = %d\n",
-		   priv->lre_stats.cnt_errwronglan_a);
-	seq_printf(sfp, "cnt_rx_wrong_lan_b = %d\n",
-		   priv->lre_stats.cnt_errwronglan_b);
-	seq_printf(sfp, "cnt_rx_a = %d\n", priv->lre_stats.cnt_rx_a);
-	seq_printf(sfp, "cnt_rx_b = %d\n", priv->lre_stats.cnt_rx_b);
-	/* actually lre_rx_c is whatever received from the application
-	 * interface,  So same as tx_packets
-	 */
-	seq_printf(sfp, "cnt_rx_c = %d\n", priv->lre_stats.cnt_rx_c);
-	seq_printf(sfp, "cnt_rx_errors_a = %d\n", priv->lre_stats.cnt_errors_a);
-	seq_printf(sfp, "cnt_rx_errors_b = %d\n", priv->lre_stats.cnt_errors_b);
-	if (priv->prot_version <= HSR_V1) {
-		seq_printf(sfp, "cnt_own_rx_a = %d\n",
-			   priv->lre_stats.cnt_own_rx_a);
-		seq_printf(sfp, "cnt_own_rx_b = %d\n",
-			   priv->lre_stats.cnt_own_rx_b);
-	}
 	seq_puts(sfp, "\n");
 	return 0;
 }
 
-/* hsr_stats_open - open stats file
+/* hsr_lre_info_open - open lre info file
  *
  * Description:
- * This routine opens a debugfs file stats of specific hsr or
+ * This routine opens a debugfs file lre_info of specific hsr or
  * prp device
  */
 static int
-hsr_stats_open(struct inode *inode, struct file *filp)
+hsr_lre_info_open(struct inode *inode, struct file *filp)
 {
-	return single_open(filp, hsr_stats_show, inode->i_private);
+	return single_open(filp, hsr_lre_info_show, inode->i_private);
 }
 
-static const struct file_operations hsr_stats_fops = {
+static const struct file_operations hsr_lre_info_fops = {
 	.owner	= THIS_MODULE,
-	.open	= hsr_stats_open,
+	.open	= hsr_lre_info_open,
 	.read	= seq_read,
 	.llseek = seq_lseek,
 	.release = single_release,
 };
 
-/* hsr_debugfs_init - create hsr node_table file for dumping
- * the node table and lre stats
+/* hsr_debugfs_init - create debugfs to dump lre specific debug information
  *
  * Description:
- * When debugfs is configured this routine sets up the node_table file per
- * hsr device for dumping the node_table entries and stats file for
- * lre stats dump.
+ * dump lre info of hsr or prp device
  */
 void hsr_debugfs_init(struct hsr_priv *priv, struct net_device *hsr_dev)
 {
@@ -186,17 +162,17 @@ void hsr_debugfs_init(struct hsr_priv *priv, struct net_device *hsr_dev)
 	}
 	priv->node_tbl_file = de;
 
-	de = debugfs_create_file("stats", S_IFREG | 0444, priv->root_dir, priv,
-				 &hsr_stats_fops);
+	de = debugfs_create_file("lre_info", S_IFREG | 0444,
+				 priv->root_dir, priv, &hsr_lre_info_fops);
 	if (IS_ERR(de)) {
-		pr_err("Cannot create hsr-prp stats directory\n");
-		goto error_stats;
+		pr_err("Cannot create hsr-prp lre_info file\n");
+		goto error_lre_info;
 	}
-	priv->stats_file = de;
+	priv->lre_info_file = de;
 
 	return;
 
-error_stats:
+error_lre_info:
 	debugfs_remove(priv->node_tbl_file);
 	priv->node_tbl_file = NULL;
 error_nt:
@@ -215,8 +191,8 @@ hsr_debugfs_term(struct hsr_priv *priv)
 {
 	debugfs_remove(priv->node_tbl_file);
 	priv->node_tbl_file = NULL;
-	debugfs_remove(priv->stats_file);
-	priv->stats_file = NULL;
+	debugfs_remove(priv->lre_info_file);
+	priv->lre_info_file = NULL;
 	debugfs_remove(priv->root_dir);
 	priv->root_dir = NULL;
 }
