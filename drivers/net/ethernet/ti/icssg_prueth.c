@@ -1655,7 +1655,7 @@ static u64 prueth_iep_gettime(struct icssg_iep *iep)
 static void prueth_iep_settime(struct icssg_iep *iep, u64 ns)
 {
 	struct prueth_emac *emac = prueth_iep_to_emac(iep);
-	struct icssg_setclock_desc *sc_desc;
+	struct icssg_setclock_desc sc_desc, *sc_descp;
 	u32 cycletime;
 	u64 cyclecount;
 	int timeout;
@@ -1663,34 +1663,25 @@ static void prueth_iep_settime(struct icssg_iep *iep, u64 ns)
 	if (!emac->fw_running)
 		return;
 
-	sc_desc = emac->dram.va + TIMESYNC_FW_SETCLOCK_DESC_OFFSET;
+	sc_descp = emac->dram.va + TIMESYNC_FW_SETCLOCK_DESC_OFFSET;
 
 	cycletime = iep->cycle_time_ns;
 	cyclecount = ns / cycletime;
 
-	sc_desc->request = 0;  /*Write request later*/
-	sc_desc->restore = 0;
-	sc_desc->acknowledgment = 0;
-	sc_desc->cmp_status = 0;
+	memset(&sc_desc, 0, sizeof(sc_desc));
+	sc_desc.margin = cycletime - 1000;
+	sc_desc.cyclecounter0_set = cyclecount & GENMASK(31, 0);
+	sc_desc.cyclecounter1_set = (cyclecount & GENMASK(63, 32)) >> 32;
+	sc_desc.iepcount_set = ns % cycletime;
+	sc_desc.CMP0_current = cycletime - 4; //Count from 0 to (cycle time)-4
 
-	sc_desc->margin = cycletime - 1000;
-	sc_desc->cyclecounter0_set = cyclecount & GENMASK(31, 0);
-	sc_desc->cyclecounter1_set = (cyclecount & GENMASK(63, 32)) >> 32;
-	sc_desc->iepcount_set = ns % cycletime;
-	sc_desc->CMP0_current = cycletime - 4; //Count from 0 to (cycle time)-4
+	memcpy_toio(sc_descp, &sc_desc, sizeof(sc_desc));
 
-	sc_desc->iepcount_current = 0;
-	sc_desc->difference = 0;
-
-	sc_desc->cyclecounter0_new = 0;
-	sc_desc->cyclecounter1_new = 0;
-	sc_desc->CMP0_new = 0;
-
-	writeb(1, &sc_desc->request);
+	writeb(1, &sc_descp->request);
 
 	timeout = 5;	/* fw should take 2-3 ms */
 	while (timeout--) {
-		if (readb(&sc_desc->acknowledgment))
+		if (readb(&sc_descp->acknowledgment))
 			return;
 
 		usleep_range(500, 1000);
