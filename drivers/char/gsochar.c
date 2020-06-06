@@ -35,7 +35,7 @@ static int placeholder = 0;
  *  @param inodep A pointer to an inode object (defined in linux/fs.h)
  *  @param filep A pointer to a file object (defined in linux/fs.h)
  */
-static int dev_open(struct inode *inodep, struct file *filep){
+static int gsochar_dev_open(struct inode *inodep, struct file *filep){
    numberOpens++;
    printk(KERN_INFO "gsochar: Device has been opened %d time(s)\n", numberOpens);
    return 0;
@@ -50,7 +50,7 @@ static int dev_open(struct inode *inodep, struct file *filep){
  *  @param offset The offset if required
  */
 
-static ssize_t dev_read(struct file *filep, char *buffer, size_t len, loff_t *offset){
+static ssize_t gsochar_dev_read(struct file *filep, char *buffer, size_t len, loff_t *offset){
 
 	int bytesRead;
 	int bytesToRead = BUFFER_SIZE - *offset;
@@ -80,7 +80,7 @@ static ssize_t dev_read(struct file *filep, char *buffer, size_t len, loff_t *of
  *  @param offset The offset if required
  */
 
-static ssize_t dev_write(struct file *filep, const char *buffer, size_t len, loff_t *offset){
+static ssize_t gsochar_dev_write(struct file *filep, const char *buffer, size_t len, loff_t *offset){
 
 	int bytesToWrite;
 	int bytesWritten;
@@ -116,7 +116,7 @@ static ssize_t dev_write(struct file *filep, const char *buffer, size_t len, lof
  *  @param inodep A pointer to an inode object (defined in linux/fs.h)
  *  @param filep A pointer to a file object (defined in linux/fs.h)
  */
-static int dev_release(struct inode *inodep, struct file *filep){
+static int gsochar_dev_release(struct inode *inodep, struct file *filep){
    printk(KERN_INFO "gsochar: Device successfully closed\n");
    return 0;
 }
@@ -127,10 +127,10 @@ static int dev_release(struct inode *inodep, struct file *filep){
  */
 static struct file_operations fops =
 {
-   .open = dev_open,
-   .read = dev_read,
-   .write = dev_write,
-   .release = dev_release,
+   .open = gsochar_dev_open,
+   .read = gsochar_dev_read,
+   .write = gsochar_dev_write,
+   .release = gsochar_dev_release,
 };
 
 /** @brief The LKM initialization function
