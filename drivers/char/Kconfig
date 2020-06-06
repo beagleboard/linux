@@ -588,5 +588,14 @@ config TILE_SROM
 
 source "drivers/char/xillybus/Kconfig"
 
+config CONFIG_GSOC_SIMPLE_CHAR_DEVICE
+	tristate "GSoC simple char driver"
+	default m
+	help
+	 This driver provides simple open, read, write and close
+	 methods for /dev/gsochar device which it creates.
+	 You can get userspace program to test this from 
+	 https://github.com/lorforlinux/gsoc-simple-char
+
 endmenu
 
