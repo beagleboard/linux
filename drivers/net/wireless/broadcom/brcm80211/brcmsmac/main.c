@@ -507,7 +507,7 @@ brcms_c_attach_malloc(uint unit, uint *err, uint devid)
 	wlc->hw->wlc = wlc;
 
 	wlc->hw->bandstate[0] =
-		kcalloc(MAXBANDS, sizeof(struct brcms_hw_band), GFP_ATOMIC);
+		kzalloc(sizeof(struct brcms_hw_band) * MAXBANDS, GFP_ATOMIC);
 	if (wlc->hw->bandstate[0] == NULL) {
 		*err = 1006;
 		goto fail;
@@ -521,8 +521,7 @@ brcms_c_attach_malloc(uint unit, uint *err, uint devid)
 	}
 
 	wlc->modulecb =
-		kcalloc(BRCMS_MAXMODULES, sizeof(struct modulecb),
-			GFP_ATOMIC);
+		kzalloc(sizeof(struct modulecb) * BRCMS_MAXMODULES, GFP_ATOMIC);
 	if (wlc->modulecb == NULL) {
 		*err = 1009;
 		goto fail;
@@ -554,7 +553,7 @@ brcms_c_attach_malloc(uint unit, uint *err, uint devid)
 	}
 
 	wlc->bandstate[0] =
-		kcalloc(MAXBANDS, sizeof(struct brcms_band), GFP_ATOMIC);
+		kzalloc(sizeof(struct brcms_band)*MAXBANDS, GFP_ATOMIC);
 	if (wlc->bandstate[0] == NULL) {
 		*err = 1025;
 		goto fail;
