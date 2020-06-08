@@ -588,5 +588,11 @@ config TILE_SROM
 
 source "drivers/char/xillybus/Kconfig"
 
+config HELLOTEST_APP
+	tristate “HelloTest App”
+	depends on ARM
+	default m	
+	help
+	 hellotest app is a dummy appp
 endmenu
 
