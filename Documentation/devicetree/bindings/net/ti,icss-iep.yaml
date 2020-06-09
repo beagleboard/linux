@@ -1,0 +1,43 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/net/ti,icss-iep.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Texas Instruments ICSS Industrial Ethernet Peripheral (IEP) module
+
+maintainers:
+  - Roger Quadros <rogerq@ti.com>
+
+properties:
+  compatible:
+    enum:
+      - ti,am3356-icss-iep
+      - ti,am5728-icss-iep
+      - ti,am654-icss-iep
+    description:
+      Use "ti,am3356-icss-iep" on AM335x and AM437x SoCs
+      Use "ti,am5728-icss-iep" on AM57xx and 66AK2G SoCs
+      Use "ti,am654-icss-iep" on K3 AM65x and J721E SoCs
+
+  reg:
+    maxItems: 1
+
+  clocks:
+    maxItems: 1
+    description: phandle to the IEP source clock
+
+required:
+  - compatible
+  - reg
+  - clocks
+
+additionalProperties: false
+
+examples:
+  - |
+    icssg0_iep0: iep@2e000 {
+        compatible = "ti,am654-icss-iep";
+        reg = <0x2e000 0x1000>;
+        clocks = <&icssg0_iepclk_mux>;
+    };
