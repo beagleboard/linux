@@ -799,6 +799,12 @@
 					reg = <0x26000 0x2000>;
 				};
 
+				pruss_iepclk_mux: iepclk-mux {
+					#clock-cells = <0>;
+					clocks = <&l3_gclk>,        /* icss_iep_gclk */
+						 <&pruss_ocp_gclk>; /* icss_ocp_gclk */
+				};
+
 				pruss_iep: iep@2e000 {
 					compatible = "syscon";
 					reg = <0x2e000 0x31c>;
