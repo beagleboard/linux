@@ -645,6 +645,12 @@
 				reg = <0x26000 0x2000>;
 			};
 
+			pruss0_iepclk_mux: iepclk-mux {
+				#clock-cells = <0>;
+				clocks = <&k2g_clks 0x14 5>, /* icss_iep_clk */
+					 <&k2g_clks 0x14 0>; /* icss_vclk_clk */
+			};
+
 			pruss0_iep: iep@2e000 {
 				compatible = "syscon";
 				reg = <0x2e000 0x31c>;
@@ -731,6 +737,12 @@
 			pruss1_cfg: cfg@26000 {
 				compatible = "syscon";
 				reg = <0x26000 0x2000>;
+			};
+
+			pruss1_iepclk_mux: iepclk-mux {
+				#clock-cells = <0>;
+				clocks = <&k2g_clks 0x15 5>, /* icss_iep_clk */
+					 <&k2g_clks 0x15 0>; /* icss_vclk_clk */
 			};
 
 			pruss1_iep: iep@2e000 {
