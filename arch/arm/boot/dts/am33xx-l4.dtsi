@@ -812,6 +812,15 @@
 					clocks = <&pruss_iepclk_mux>;
 				};
 
+				pruss_uart: serial@28000 {
+					compatible = "ti,pruss-uart";
+					reg = <0x28000 0x38>;
+					clocks = <&dpll_per_m2_ck>;
+					interrupt-parent = <&pruss_intc>;
+					interrupts = <6>;
+					status = "disabled";
+				};
+
 				pruss_mii_rt: mii-rt@32000 {
 					compatible = "syscon";
 					reg = <0x32000 0x58>;
