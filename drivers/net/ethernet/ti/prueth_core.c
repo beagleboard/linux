@@ -2650,13 +2650,37 @@ static void emac_get_regs(struct net_device *ndev, struct ethtool_regs *regs,
 	}
 }
 
+static int emac_get_ts_info(struct net_device *ndev,
+			    struct ethtool_ts_info *info)
+{
+	struct prueth_emac *emac = netdev_priv(ndev);
+
+	if ((PRUETH_IS_EMAC(emac->prueth) && !emac->emac_ptp_tx_irq) ||
+	    (PRUETH_IS_LRE(emac->prueth) && !emac->hsr_ptp_tx_irq))
+		return ethtool_op_get_ts_info(ndev, info);
+
+	info->so_timestamping =
+		SOF_TIMESTAMPING_TX_HARDWARE |
+		SOF_TIMESTAMPING_TX_SOFTWARE |
+		SOF_TIMESTAMPING_RX_HARDWARE |
+		SOF_TIMESTAMPING_RX_SOFTWARE |
+		SOF_TIMESTAMPING_SOFTWARE |
+		SOF_TIMESTAMPING_RAW_HARDWARE;
+
+	info->phc_index = ptp_clock_index(icss_iep_get_ptp_clock(emac->prueth->iep));
+	info->tx_types = BIT(HWTSTAMP_TX_OFF) | BIT(HWTSTAMP_TX_ON);
+	info->rx_filters = BIT(HWTSTAMP_FILTER_NONE) | BIT(HWTSTAMP_FILTER_PTP_V2_EVENT);
+
+	return 0;
+}
+
 /* Ethtool support for EMAC adapter */
 static const struct ethtool_ops emac_ethtool_ops = {
 	.get_drvinfo = emac_get_drvinfo,
 	.get_link_ksettings = emac_get_link_ksettings,
 	.set_link_ksettings = emac_set_link_ksettings,
 	.get_link = ethtool_op_get_link,
-	.get_ts_info = ethtool_op_get_ts_info,
+	.get_ts_info = emac_get_ts_info,
 	.get_sset_count = emac_get_sset_count,
 	.get_strings = emac_get_strings,
 	.get_ethtool_stats = emac_get_ethtool_stats,
