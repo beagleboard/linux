@@ -2580,6 +2580,7 @@ void ipv6_mc_destroy_dev(struct inet6_dev *idev)
 		write_unlock_bh(&idev->lock);
 
 		igmp6_group_dropped(i);
+		ip6_mc_clear_src(i);
 		ma_put(i);
 
 		write_lock_bh(&idev->lock);
