@@ -175,6 +175,17 @@ static inline bool prueth_ptp_tx_ts_is_enabled(struct prueth_emac *emac)
 	return !!emac->ptp_tx_enable;
 }
 
+static inline void prueth_ptp_rx_ts_enable(struct prueth_emac *emac, bool enable)
+{
+	emac->ptp_rx_enable = enable;
+	prueth_ptp_ts_enable(emac);
+}
+
+static inline bool prueth_ptp_rx_ts_is_enabled(struct prueth_emac *emac)
+{
+	return !!emac->ptp_rx_enable;
+}
+
 static inline
 void prueth_set_reg(struct prueth *prueth, enum prueth_mem region,
 		    unsigned int reg, u32 mask, u32 set)
@@ -1111,6 +1122,7 @@ void parse_packet_info(struct prueth *prueth, u32 buffer_descriptor,
 	pkt_info->lookup_success = !!(buffer_descriptor &
 				      PRUETH_BD_LOOKUP_SUCCESS_MASK);
 	pkt_info->flood = !!(buffer_descriptor & PRUETH_BD_SW_FLOOD_MASK);
+	pkt_info->timestamp = !!(buffer_descriptor & PRUETH_BD_TIMESTAMP_MASK);
 }
 
 /* get packet from queue
@@ -1133,9 +1145,11 @@ int emac_rx_packet(struct prueth_emac *emac, u16 *bd_rd_ptr,
 	u8 macid[6];
 	/* OCMC RAM is not cached and read order is not important */
 	void *ocmc_ram = (__force void *)emac->prueth->mem[PRUETH_MEM_OCMC].va;
+	struct skb_shared_hwtstamps *ssh;
 	unsigned int actual_pkt_len;
 	u16 start_offset = 0, type;
 	u8 offset = 0, *ptr;
+	u64 ts;
 
 	if (PRUETH_IS_HSR(prueth))
 		start_offset = (pkt_info.start_offset ?
@@ -1218,8 +1232,16 @@ int emac_rx_packet(struct prueth_emac *emac, u16 *bd_rd_ptr,
 		else
 			src_addr = ocmc_ram + rxqueue->buffer_offset;
 		memcpy(dst_addr, src_addr, remaining);
+		src_addr += remaining;
 	} else {
 		memcpy(dst_addr, src_addr, actual_pkt_len);
+		src_addr += actual_pkt_len;
+	}
+
+	if (pkt_info.timestamp) {
+		src_addr = (void *)roundup((uintptr_t)src_addr, ICSS_BLOCK_SIZE);
+		dst_addr = &ts;
+		memcpy(dst_addr, src_addr, sizeof(ts));
 	}
 
 	/* Check if VLAN tag is present since SV payload location will change
@@ -1275,6 +1297,12 @@ int emac_rx_packet(struct prueth_emac *emac, u16 *bd_rd_ptr,
 			skb->offload_fwd_mark = emac->offload_fwd_mark;
 			if (!pkt_info.lookup_success)
 				prueth_sw_learn_fdb(emac, skb->data + ETH_ALEN);
+		}
+
+		if (prueth_ptp_rx_ts_is_enabled(emac)) {
+			ssh = skb_hwtstamps(skb);
+			memset(ssh, 0, sizeof(*ssh));
+			ssh->hwtstamp = ns_to_ktime(ts);
 		}
 
 		/* send packet up the stack */
@@ -1745,6 +1773,7 @@ static int emac_ndo_stop(struct net_device *ndev)
 		free_irq(emac->rx_irq, ndev);
 		free_irq(emac->emac_ptp_tx_irq, ndev);
 		prueth_ptp_tx_ts_enable(emac, 0);
+		prueth_ptp_rx_ts_enable(emac, 0);
 		for (i = 0; i < PRUETH_PTP_TS_EVENTS; i++) {
 			if (emac->ptp_skb[i]) {
 				prueth_ptp_tx_ts_reset(emac, i);

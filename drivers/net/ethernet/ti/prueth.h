@@ -104,6 +104,7 @@ struct prueth_queue_info {
  * @sv_frame: indicate if the frame is a SV frame for HSR/PRP
  * @lookup_success: src mac found in FDB
  * @flood: packet is to be flooded
+ * @timstamp: Specifies if timestamp is appended to the packet
  */
 struct prueth_packet_info {
 	bool start_offset;
@@ -115,6 +116,7 @@ struct prueth_packet_info {
 	bool sv_frame;
 	bool lookup_success;
 	bool flood;
+	bool timestamp;
 };
 
 /**
@@ -384,6 +386,7 @@ struct prueth_emac {
 	int emac_ptp_tx_irq;
 	int hsr_ptp_tx_irq;
 	bool ptp_tx_enable;
+	bool ptp_rx_enable;
 };
 
 struct prueth_ndev_priority {
