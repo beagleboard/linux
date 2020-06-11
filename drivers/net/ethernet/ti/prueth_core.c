@@ -2182,9 +2182,73 @@ unlock:
 	spin_unlock_irqrestore(&emac->addr_lock, flags);
 }
 
+static int emac_hwtstamp_config_set(struct net_device *ndev, struct ifreq *ifr)
+{
+	struct prueth_emac *emac = netdev_priv(ndev);
+	struct hwtstamp_config cfg;
+
+	if (copy_from_user(&cfg, ifr->ifr_data, sizeof(cfg)))
+		return -EFAULT;
+
+	/* reserved for future extensions */
+	if (cfg.flags)
+		return -EINVAL;
+
+	if (cfg.tx_type != HWTSTAMP_TX_OFF && cfg.tx_type != HWTSTAMP_TX_ON)
+		return -ERANGE;
+
+	switch (cfg.rx_filter) {
+	case HWTSTAMP_FILTER_NONE:
+		prueth_ptp_rx_ts_enable(emac, 0);
+		break;
+	case HWTSTAMP_FILTER_PTP_V2_L4_EVENT:
+	case HWTSTAMP_FILTER_PTP_V2_L4_SYNC:
+	case HWTSTAMP_FILTER_PTP_V2_L4_DELAY_REQ:
+	case HWTSTAMP_FILTER_PTP_V2_L2_EVENT:
+	case HWTSTAMP_FILTER_PTP_V2_L2_SYNC:
+	case HWTSTAMP_FILTER_PTP_V2_L2_DELAY_REQ:
+	case HWTSTAMP_FILTER_PTP_V2_EVENT:
+	case HWTSTAMP_FILTER_PTP_V2_SYNC:
+	case HWTSTAMP_FILTER_PTP_V2_DELAY_REQ:
+		prueth_ptp_rx_ts_enable(emac, 1);
+		cfg.rx_filter = HWTSTAMP_FILTER_PTP_V2_EVENT;
+		break;
+	case HWTSTAMP_FILTER_ALL:
+	case HWTSTAMP_FILTER_PTP_V1_L4_EVENT:
+	case HWTSTAMP_FILTER_PTP_V1_L4_SYNC:
+	case HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ:
+	default:
+		return -ERANGE;
+	}
+
+	prueth_ptp_tx_ts_enable(emac, cfg.tx_type == HWTSTAMP_TX_ON);
+
+	return copy_to_user(ifr->ifr_data, &cfg, sizeof(cfg)) ? -EFAULT : 0;
+}
+static int emac_hwtstamp_config_get(struct net_device *ndev, struct ifreq *ifr)
+{
+	struct prueth_emac *emac = netdev_priv(ndev);
+	struct hwtstamp_config cfg;
+
+	cfg.flags = 0;
+	cfg.tx_type = prueth_ptp_tx_ts_is_enabled(emac) ?
+		      HWTSTAMP_TX_ON : HWTSTAMP_TX_OFF;
+	cfg.rx_filter = prueth_ptp_rx_ts_is_enabled(emac) ?
+			HWTSTAMP_FILTER_PTP_V2_EVENT : HWTSTAMP_FILTER_NONE;
+
+	return copy_to_user(ifr->ifr_data, &cfg, sizeof(cfg)) ? -EFAULT : 0;
+}
+
 static int emac_ndo_ioctl(struct net_device *ndev, struct ifreq *ifr, int cmd)
 {
 	struct prueth_emac *emac = netdev_priv(ndev);
+
+        switch (cmd) {
+        case SIOCSHWTSTAMP:
+                return emac_hwtstamp_config_set(ndev, ifr);
+        case SIOCGHWTSTAMP:
+                return emac_hwtstamp_config_get(ndev, ifr);
+        }
 
 	return phy_mii_ioctl(emac->phydev, ifr, cmd);
 }
