@@ -1,11 +1,12 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * AM6 SA2UL crypto accelerator driver
+ * K3 SA2UL crypto accelerator driver
  *
- * Copyright (C) 2018 Texas Instruments Incorporated - http://www.ti.com
+ * Copyright (C) 2018-2020 Texas Instruments Incorporated - http://www.ti.com
  *
  * Authors:	Keerthy
- *              Vitaly Andrianov
+ *		Vitaly Andrianov
+ *		Tero Kristo
  */
 
 #ifndef _K3_SA2UL_
@@ -72,7 +73,6 @@ struct sa_tfm_ctx;
 #define SA_ENG_ID_AM1   4       /* Auth. engine with SHA1/MD5/SHA2 core */
 #define SA_ENG_ID_AM2   5       /*  Authentication engine for pass 2 */
 #define SA_ENG_ID_OUTPORT2 20   /*  Egress module 2  */
-#define SA_ENG_ID_NONE  0xff
 
 /*
  * Command Label Definitions
@@ -155,6 +155,13 @@ struct sa_tfm_ctx;
 #define SA_ALIGN_MASK		(sizeof(u32) - 1)
 #define SA_ALIGNED		__aligned(32)
 
+#define SA_AUTH_SW_CTRL_MD5	1
+#define SA_AUTH_SW_CTRL_SHA1	2
+#define SA_AUTH_SW_CTRL_SHA224	3
+#define SA_AUTH_SW_CTRL_SHA256	4
+#define SA_AUTH_SW_CTRL_SHA384	5
+#define SA_AUTH_SW_CTRL_SHA512	6
+
 /* SA2UL can only handle maximum data size of 64KB */
 #define SA_MAX_DATA_SZ		U16_MAX
 
@@ -163,7 +170,7 @@ struct sa_tfm_ctx;
  * the following range, so avoid using it.
  */
 #define SA_UNSAFE_DATA_SZ_MIN	240
-#define SA_UNSAFE_DATA_SZ_MAX	256
+#define SA_UNSAFE_DATA_SZ_MAX	255
 
 /**
  * struct sa_crypto_data - Crypto driver instance data
@@ -180,6 +187,7 @@ struct sa_tfm_ctx;
  * @dma_rx1: Pointer to DMA rx channel for sizes < 256 Bytes
  * @dma_rx2: Pointer to DMA rx channel for sizes > 256 Bytes
  * @dma_tx: Pointer to DMA TX channel
+ * @fallback_sz: SW fallback limit for crypto algorithms
  */
 struct sa_crypto_data {
 	void __iomem *base;
@@ -197,6 +205,7 @@ struct sa_crypto_data {
 	struct dma_chan		*dma_rx1;
 	struct dma_chan		*dma_rx2;
 	struct dma_chan		*dma_tx;
+	int			fallback_sz;
 };
 
 /**
@@ -265,6 +274,7 @@ struct sa_cmdl_upd_info {
  * struct sa_ctx_info: SA context information
  * @sc: Pointer to security context
  * @sc_phys: Security context physical address that is passed on to SA2UL
+ * @sc_id: Security context ID
  * @cmdl_size: Command label size
  * @cmdl: Command label for a particular iteration
  * @cmdl_upd_info: structure holding command label updation info
@@ -281,22 +291,14 @@ struct sa_ctx_info {
 	u32		epib[SA_DMA_NUM_EPIB_WORDS];
 };
 
-struct sa_sham_hmac_ctx {
-	struct crypto_shash	*shash;
-	u8			ipad[SHA512_BLOCK_SIZE] SA_ALIGNED;
-	u8			opad[SHA512_BLOCK_SIZE] SA_ALIGNED;
-};
-
 /**
  * struct sa_tfm_ctx: TFM context structure
  * @dev_data: struct sa_crypto_data pointer
  * @enc: struct sa_ctx_info for encryption
  * @dec: struct sa_ctx_info for decryption
- * @auth: struct sa_ctx_info for authentication
  * @keylen: encrption/decryption keylength
+ * @iv_idx: Initialization vector index
  * @key: encryption key
- * @shash: software hash crypto_hash
- * @authkey: authentication key
  * @fallback: SW fallback algorithm
  */
 struct sa_tfm_ctx {
@@ -307,35 +309,33 @@ struct sa_tfm_ctx {
 	int keylen;
 	int iv_idx;
 	u32 key[AES_KEYSIZE_256 / sizeof(u32)];
-	struct sa_sham_hmac_ctx base[0];
-	struct crypto_shash	*shash;
 	u8 authkey[SHA512_BLOCK_SIZE];
+	struct crypto_shash	*shash;
 	/* for fallback */
 	union {
-		struct crypto_ahash		*ahash;
 		struct crypto_sync_skcipher	*skcipher;
+		struct crypto_ahash		*ahash;
+		struct crypto_aead		*aead;
 	} fallback;
 };
 
+#define SHA_BUFLEN		SA_MAX_DATA_SZ
+
 /**
- * struct sa_dma_req_ctx: Structure used for tx dma request
+ * struct sa_sha_req_ctx: Structure used for sha request
  * @dev_data: struct sa_crypto_data pointer
  * @cmdl: Complete command label with psdata and epib included
  * @src: source payload scatterlist pointer
  * @src_nents: Number of nodes in source scatterlist
- * @pkt: packet dma
  */
-struct sa_dma_req_ctx {
-	struct sa_crypto_data *dev_data;
-	u32		cmdl[SA_MAX_CMDL_WORDS + SA_PSDATA_CTX_WORDS];
-	struct scatterlist *src;
-	unsigned int	src_nents;
-	bool		pkt;
-	u32 mode;
-	struct scatterlist *sg_next;
-	int len;
-	int buf_free;
-	int offset;
+struct sa_sha_req_ctx {
+	struct sa_crypto_data	*dev_data;
+	u32			cmdl[SA_MAX_CMDL_WORDS + SA_PSDATA_CTX_WORDS];
+	struct scatterlist	sgl[2];
+	int			len;
+	bool			fallback_active;
+	struct ahash_request	fallback_req;
+	u8			buffer[0] SA_ALIGNED;
 };
 
 enum sa_submode {
@@ -399,11 +399,14 @@ enum sa_eng_algo_id {
 	SA_NUM_ENG_ALGOS
 };
 
+/**
+ * struct sa_eng_info: Security accelerator engine info
+ * @eng_id: Engine ID
+ * @sc_size: security context size
+ */
 struct sa_eng_info {
 	u8	eng_id;
 	u16	sc_size;
 };
-
-extern struct device *sa_ks2_dev;
 
 #endif /* _K3_SA2UL_ */
