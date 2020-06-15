@@ -6,14 +6,14 @@
 
 #include "am33xx.dtsi"
 #include "am335x-bone-common.dtsi"
-/* #include "am335x-bone-jtag.dtsi" */
+#include "am335x-bone-common-univ.dtsi"
 
 / {
 	model = "TI AM335x BeagleBone";
 	compatible = "ti,am335x-bone", "ti,am33xx";
 
 	chosen {
-		base_dtb = "am335x-bone.dts";
+		base_dtb = "am335x-bone-uboot-univ.dts";
 		base_dtb_timestamp = __TIMESTAMP__;
 	};
 };

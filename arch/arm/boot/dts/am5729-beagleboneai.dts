@@ -24,6 +24,8 @@
 
 	chosen {
 		stdout-path = &uart1;
+		base_dtb = "am5729-beagleboneai.dts";
+		base_dtb_timestamp = __TIMESTAMP__;
 	};
 
 	memory@0 {
@@ -164,6 +166,14 @@
 	};
 };
 
+&dra7_pmx_core {
+	pmic_pins_default: pmic_pins_default {
+		pinctrl-single,pins = <
+			DRA7XX_CORE_IOPAD(0x3690, PIN_INPUT_PULLUP | MUX_MODE14) /* F21: gpio6_16.gpio6_16 - PMIC_INT */
+		>;
+	};
+};
+
 &vip2 {
 	status = "okay";
 };
@@ -177,6 +187,9 @@
 		reg = <0x58>;
 		interrupt-parent = <&gpio6>;
 		interrupts = <16 IRQ_TYPE_LEVEL_LOW>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&pmic_pins_default>;
 
 		#interrupt-cells = <2>;
 		interrupt-controller;
@@ -423,7 +436,7 @@
 
 &cpsw_emac0 {
 	phy-handle = <&phy0>;
-	phy-mode = "rgmii";
+	phy-mode = "rgmii-rxid";
 };
 
 &mmc1 {
