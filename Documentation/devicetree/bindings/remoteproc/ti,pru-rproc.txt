@@ -32,32 +32,6 @@ Required Properties:
 - firmware-name  : should contain the name of the default firmware image file
                    located on the firmware search path
 
-Optional Properties:
---------------------
-The virtio based communication between the MPU and a PRU core _requires_
-either the 'mboxes' property, or the set of 'interrupt-parent', 'interrupts'
-and 'interrupt-names' properties to be defined. The latter option is the
-preferred choice. The 'mboxes' property is not applicable for 66AK2G and
-DA850/OMAP-L138 SoCs.
-
-- mboxes           : OMAP Mailbox specifier denoting the sub-mailbox, if using
-                     a mailbox for IPC signalling between host and a PRU core.
-                     The specifier format is as per the bindings,
-                         Documentation/devicetree/bindings/mailbox/omap-mailbox.txt
-                     This property should match with the sub-mailbox node used
-                     in the corresponding firmware image.
-- interrupt-parent : phandle to the PRUSS INTC node. Should be defined if
-                     interrupts property is to be used.
-- interrupts       : array of interrupt specifiers if using PRU system events
-                     for IPC signalling between host and a PRU core. This
-                     property should match with the PRU system event used in
-                     the corresponding firmware image.
-- interrupt-names  : should use one of the following names for each interrupt,
-                     the name should match the corresponding PRU system event
-                     number,
-                         "vring" - for PRU to HOST virtqueue signalling
-                         "kick"  - for HOST to PRU virtqueue signalling
-
 
 Example:
 --------
@@ -87,9 +61,6 @@ Example:
 				      <0x22400 0x100>;
 				reg-names = "iram", "control", "debug";
 				firmware-name = "am335x-pru0-fw";
-				interrupt-parent = <&pruss_intc>;
-				interrupts = <16>, <17>;
-				interrupt-names = "vring", "kick";
 			};
 
 			pru1: pru@38000 {
@@ -99,10 +70,6 @@ Example:
 				      <0x24400 0x100>;
 				reg-names = "iram", "control", "debug";
 				firmware-name = "am335x-pru1-fw";
-				interrupt-parent = <&pruss_intc>;
-				interrupts = <18>, <19>;
-				interrupt-names = "vring", "kick";
-				/* mboxes = <&mailbox &mbox_pru1>; */
 			};
 		};
 	};
