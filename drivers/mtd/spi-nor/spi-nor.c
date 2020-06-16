@@ -2541,28 +2541,6 @@ static const struct flash_info *spi_nor_read_id(struct spi_nor *nor)
 	return ERR_PTR(-ENODEV);
 }
 
-static int spi_nor_select_mode(struct spi_nor *nor, enum spi_nor_mode mode)
-{
-	int ret;
-
-	if (nor->mode == mode)
-		return 0;
-
-	if (!nor->params.change_mode)
-		return -ENOTSUPP;
-
-	ret = nor->params.change_mode(nor, mode);
-	if (ret)
-		return ret;
-
-	if (nor->params.adjust_op)
-		nor->params.adjust_op(nor, mode);
-
-	nor->mode = mode;
-
-	return ret;
-}
-
 static int spi_nor_read(struct mtd_info *mtd, loff_t from, size_t len,
 			size_t *retlen, u_char *buf)
 {
@@ -2574,8 +2552,6 @@ static int spi_nor_read(struct mtd_info *mtd, loff_t from, size_t len,
 	ret = spi_nor_lock_and_prep(nor, SPI_NOR_OPS_READ);
 	if (ret)
 		return ret;
-
-	spi_nor_select_mode(nor, nor->preferred_mode);
 
 	while (len) {
 		loff_t addr = from;
@@ -2600,7 +2576,6 @@ static int spi_nor_read(struct mtd_info *mtd, loff_t from, size_t len,
 	ret = 0;
 
 read_err:
-	spi_nor_select_mode(nor, SPI_NOR_MODE_SPI);
 	spi_nor_unlock_and_unprep(nor, SPI_NOR_OPS_READ);
 	return ret;
 }
