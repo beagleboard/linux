@@ -1827,7 +1827,7 @@ static const struct cqspi_driver_platdata k2g_qspi = {
 };
 
 static const struct cqspi_driver_platdata am654_ospi = {
-	.hwcaps_mask = CQSPI_BASE_HWCAPS_MASK | SNOR_HWCAPS_READ_8_8_8,
+	.hwcaps_mask = CQSPI_BASE_HWCAPS_MASK | SNOR_HWCAPS_READ_1_1_8,
 	.quirks = CQSPI_NEEDS_WR_DELAY,
 };
 
