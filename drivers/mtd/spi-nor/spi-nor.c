@@ -267,6 +267,9 @@ struct flash_info {
 
 #define JEDEC_MFR(info)	((info)->id[0])
 
+static int spi_nor_default_setup(struct spi_nor *nor,
+				 const struct spi_nor_hwcaps *hwcaps);
+
 static void
 spi_nor_set_read_settings(struct spi_nor_read_command *read,
 			  u8 num_mode_clocks,
@@ -2524,6 +2527,114 @@ static struct spi_nor_fixups s28hs512t_fixups = {
 	.post_bfpt = s28hs512t_post_bfpt_fixup,
 };
 
+static int spi_nor_micron_octal_dtr_enable(struct spi_nor *nor, bool enable)
+{
+	struct spi_mem_op op;
+	u8 *buf = nor->bouncebuf;
+	u8 addr_width;
+	int ret;
+
+	if (enable)
+		addr_width = 3;
+	else
+		addr_width = 4;
+
+	ret = write_enable(nor);
+	if (ret)
+		return ret;
+
+	if (enable)
+		*buf = SPINOR_MT_OCT_DTR;
+	else
+		*buf = SPINOR_MT_EXSPI;
+	op = (struct spi_mem_op)
+		SPI_MEM_OP(SPI_MEM_OP_CMD(SPINOR_OP_MT_WR_ANY_REG, 1),
+			   SPI_MEM_OP_ADDR(addr_width, SPINOR_REG_MT_CFR0V, 1),
+			   SPI_MEM_OP_NO_DUMMY,
+			   SPI_MEM_OP_DATA_OUT(1, buf, 1));
+
+	if (!enable)
+		spi_nor_spimem_setup_op(nor, &op, SNOR_PROTO_8_8_8_DTR);
+
+	ret = spi_mem_exec_op(nor->spimem, &op);
+	if (ret) {
+		dev_err(nor->dev, "Failed to enable octal DTR mode\n");
+		return ret;
+	}
+
+	return 0;
+}
+
+static int mt35xu512aba_setup(struct spi_nor *nor,
+			      const struct spi_nor_hwcaps *hwcaps)
+{
+	struct spi_mem_op op;
+	u8 *buf = nor->bouncebuf;
+	u8 addr_width = 3;
+	int ret;
+
+	if (!nor->spimem) {
+		dev_err(nor->dev,
+			"operation not supported for non-spimem drivers\n");
+		return -ENOTSUPP;
+	}
+
+	/* Set dummy cycles for Fast Read to the default of 20. */
+	ret = write_enable(nor);
+	if (ret)
+		return ret;
+
+	*buf = 20;
+	op = (struct spi_mem_op)
+		SPI_MEM_OP(SPI_MEM_OP_CMD(SPINOR_OP_MT_WR_ANY_REG, 1),
+			   SPI_MEM_OP_ADDR(addr_width, SPINOR_REG_MT_CFR1V, 1),
+			   SPI_MEM_OP_NO_DUMMY,
+			   SPI_MEM_OP_DATA_OUT(1, buf, 1));
+	ret = spi_mem_exec_op(nor->spimem, &op);
+	if (ret)
+		return ret;
+
+	ret = spi_nor_wait_till_ready(nor);
+	if (ret)
+		return ret;
+
+
+	return spi_nor_default_setup(nor, hwcaps);
+}
+
+static void mt35xu512aba_default_init(struct spi_nor *nor)
+{
+	nor->params.octal_dtr_enable = spi_nor_micron_octal_dtr_enable;
+	nor->params.setup = mt35xu512aba_setup;
+}
+
+static void mt35xu512aba_post_sfdp_fixup(struct spi_nor *nor)
+{
+	/* Set the Fast Read settings. */
+	nor->params.hwcaps.mask |= SNOR_HWCAPS_READ_8_8_8_DTR;
+	spi_nor_set_read_settings(&nor->params.reads[SNOR_CMD_READ_8_8_8_DTR],
+				  0, 20, SPINOR_OP_MT_DTR_RD,
+				  SNOR_PROTO_8_8_8_DTR);
+
+	nor->params.hwcaps.mask |= SNOR_HWCAPS_PP_8_8_8_DTR;
+
+	nor->cmd_ext_type = SPI_NOR_EXT_REPEAT;
+	nor->params.rdsr_dummy = 8;
+	nor->params.rdsr_addr_nbytes = 0;
+
+	/*
+	 * The BFPT quad enable field is set to a reserved value so the quad
+	 * enable function is ignored by spi_nor_parse_bfpt(). Make sure we
+	 * disable it.
+	 */
+	nor->params.quad_enable = NULL;
+}
+
+static struct spi_nor_fixups mt35xu512aba_fixups = {
+	.default_init = mt35xu512aba_default_init,
+	.post_sfdp = mt35xu512aba_post_sfdp_fixup,
+};
+
 /* NOTE: double check command sets and memory organization when you add
  * more nor chips.  This current list focusses on newer chips, which
  * have been converging on command sets which including JEDEC ID.
@@ -2707,7 +2818,8 @@ static const struct flash_info spi_nor_ids[] = {
 	{
 		"mt35xu512aba", INFO(0x2c5b1a, 0, 128 * 1024, 512,
 			SECT_4K | USE_FSR | SPI_NOR_OCTAL_READ |
-			SPI_NOR_4B_OPCODES)
+			SPI_NOR_4B_OPCODES | SPI_NOR_OCTAL_DTR_READ)
+		.fixups = &mt35xu512aba_fixups,
 	},
 	{ "mt35xu02g",  INFO(0x2c5b1c, 0, 128 * 1024, 2048,
 			     SECT_4K | USE_FSR | SPI_NOR_OCTAL_READ |
