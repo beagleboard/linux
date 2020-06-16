@@ -621,7 +621,6 @@ struct spi_nor {
 			size_t len, u_char *read_buf);
 	ssize_t (*write)(struct spi_nor *nor, loff_t to,
 			size_t len, const u_char *write_buf);
-	int (*calibrate)(struct spi_nor *nor, void *calib_data, size_t len);
 	int (*erase)(struct spi_nor *nor, loff_t offs);
 
 	int (*clear_sr_bp)(struct spi_nor *nor);
