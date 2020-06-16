@@ -484,6 +484,8 @@ static ssize_t spi_nor_write_data(struct spi_nor *nor, loff_t to, size_t len,
 static int read_sr(struct spi_nor *nor)
 {
 	int ret;
+	u8 addr_bytes = nor->params.rdsr_addr_nbytes;
+	u8 dummy = nor->params.rdsr_dummy;
 
 	if (nor->spimem) {
 		struct spi_mem_op op =
@@ -491,6 +493,12 @@ static int read_sr(struct spi_nor *nor)
 				   SPI_MEM_OP_NO_ADDR,
 				   SPI_MEM_OP_NO_DUMMY,
 				   SPI_MEM_OP_DATA_IN(1, nor->bouncebuf, 1));
+
+		if (spi_nor_protocol_is_dtr(nor->reg_proto)) {
+			op.addr.nbytes = addr_bytes;
+			op.addr.val = 0;
+			op.dummy.nbytes = dummy;
+		}
 
 		spi_nor_spimem_setup_op(nor, &op, nor->reg_proto);
 
@@ -519,6 +527,8 @@ static int read_sr(struct spi_nor *nor)
 static int read_fsr(struct spi_nor *nor)
 {
 	int ret;
+	u8 addr_bytes = nor->params.rdsr_addr_nbytes;
+	u8 dummy = nor->params.rdsr_dummy;
 
 	if (nor->spimem) {
 		struct spi_mem_op op =
@@ -526,6 +536,12 @@ static int read_fsr(struct spi_nor *nor)
 				   SPI_MEM_OP_NO_ADDR,
 				   SPI_MEM_OP_NO_DUMMY,
 				   SPI_MEM_OP_DATA_IN(1, nor->bouncebuf, 1));
+
+		if (spi_nor_protocol_is_dtr(nor->reg_proto)) {
+			op.addr.nbytes = addr_bytes;
+			op.addr.val = 0;
+			op.dummy.nbytes = dummy;
+		}
 
 		spi_nor_spimem_setup_op(nor, &op, nor->reg_proto);
 
