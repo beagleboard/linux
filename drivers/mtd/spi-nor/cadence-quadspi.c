@@ -617,20 +617,14 @@ static int cqspi_write_setup(struct spi_nor *nor)
 
 	/* Set opcode. */
 	reg = nor->program_opcode << CQSPI_REG_WR_INSTR_OPCODE_LSB;
-	reg |= f_pdata->data_width << CQSPI_REG_WR_INSTR_TYPE_DATA_LSB;
-	reg |= f_pdata->addr_width << CQSPI_REG_WR_INSTR_TYPE_ADDR_LSB;
 	writel(reg, reg_base + CQSPI_REG_WR_INSTR);
-	reg = readl(reg_base + CQSPI_REG_RD_INSTR);
-	reg &= ~(CQSPI_REG_RD_INSTR_TYPE_INSTR_MASK <<
-			CQSPI_REG_RD_INSTR_TYPE_INSTR_LSB);
-	reg |= f_pdata->inst_width << CQSPI_REG_RD_INSTR_TYPE_INSTR_LSB;
+	reg = cqspi_calc_rdreg(nor, nor->program_opcode);
 	writel(reg, reg_base + CQSPI_REG_RD_INSTR);
 
 	reg = readl(reg_base + CQSPI_REG_SIZE);
 	reg &= ~CQSPI_REG_SIZE_ADDRESS_MASK;
 	reg |= (nor->addr_width - 1);
 	writel(reg, reg_base + CQSPI_REG_SIZE);
-
 	return 0;
 }
 
@@ -1088,24 +1082,6 @@ static int cqspi_set_protocol(struct spi_nor *nor, const int read)
 		case SNOR_PROTO_1_1_8:
 			f_pdata->data_width = CQSPI_INST_TYPE_OCTAL;
 			break;
-		case SNOR_PROTO_8_8_8_DTR:
-			f_pdata->inst_width = CQSPI_INST_TYPE_OCTAL;
-			f_pdata->data_width = CQSPI_INST_TYPE_OCTAL;
-			f_pdata->addr_width = CQSPI_INST_TYPE_OCTAL;
-			break;
-		default:
-			return -EINVAL;
-		}
-	} else {
-		switch (nor->write_proto) {
-		case SNOR_PROTO_1_1_1:
-			f_pdata->data_width = CQSPI_INST_TYPE_SINGLE;
-			break;
-		case SNOR_PROTO_8_8_8_DTR:
-			f_pdata->data_width = CQSPI_INST_TYPE_OCTAL;
-			f_pdata->addr_width = CQSPI_INST_TYPE_OCTAL;
-			f_pdata->inst_width = CQSPI_INST_TYPE_OCTAL;
-			break;
 		default:
 			return -EINVAL;
 		}
@@ -1132,14 +1108,8 @@ static ssize_t cqspi_write(struct spi_nor *nor, loff_t to,
 		return ret;
 
 	if (f_pdata->use_direct_mode) {
-		if (nor->mode == SPI_NOR_MODE_OPI_DTR)
-			cqspi_phy_dtr_enable(nor, true);
-
 		memcpy_toio(cqspi->ahb_base + to, buf, len);
 		ret = cqspi_wait_idle(cqspi);
-
-		if (nor->mode == SPI_NOR_MODE_OPI_DTR)
-			cqspi_phy_dtr_enable(nor, false);
 	} else {
 		ret = cqspi_indirect_write_execute(nor, to, buf, len);
 	}
@@ -1358,13 +1328,6 @@ static int cqspi_read_reg(struct spi_nor *nor, u8 opcode, u8 *buf, int len)
 	int ret;
 
 	ret = cqspi_set_protocol(nor, 0);
-	if (ret)
-		return ret;
-
-	ret = cqspi_read_setup(nor);
-	if (ret)
-		return ret;
-
 	if (!ret)
 		ret = cqspi_command_read(nor, &opcode, 1, buf, len);
 
@@ -1376,21 +1339,8 @@ static int cqspi_write_reg(struct spi_nor *nor, u8 opcode, u8 *buf, int len)
 	int ret;
 
 	ret = cqspi_set_protocol(nor, 0);
-	if (ret)
-		return ret;
-
-	ret = cqspi_write_setup(nor);
-	if (ret)
-		return ret;
-
-	if (nor->mode == SPI_NOR_MODE_OPI_DTR)
-		cqspi_phy_dtr_enable(nor, true);
-
 	if (!ret)
 		ret = cqspi_command_write(nor, opcode, buf, len);
-
-	if (nor->mode == SPI_NOR_MODE_OPI_DTR)
-		cqspi_phy_dtr_enable(nor, false);
 
 	return ret;
 }
