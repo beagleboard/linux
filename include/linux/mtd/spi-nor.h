@@ -598,6 +598,10 @@ struct flash_info;
  * @read_opcode:	the read opcode
  * @read_dummy:		the dummy needed by the read operation
  * @program_opcode:	the program opcode
+ * @max_freq:		the maximum frequency the flash can be operated at. 0
+ *			means the controller gets to decide the frequency. This
+ *			is recommended for most cases, except when some commands
+ *			lower need lower speeds like the Read SFDP command.
  * @sst_write_second:	used by the SST write operation
  * @flags:		flag options for the current SPI-NOR (SNOR_F_*)
  * @cmd_ext_type:	the command opcode extension type for DTR mode.
@@ -637,6 +641,7 @@ struct spi_nor {
 	u8			read_opcode;
 	u8			read_dummy;
 	u8			program_opcode;
+	u32			max_freq;
 	enum spi_nor_protocol	read_proto;
 	enum spi_nor_protocol	write_proto;
 	enum spi_nor_protocol	reg_proto;
