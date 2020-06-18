@@ -1039,6 +1039,8 @@ static int bcm_sf2_sw_probe(struct platform_device *pdev)
 	spin_lock_init(&priv->indir_lock);
 	mutex_init(&priv->stats_mutex);
 
+	/* Balance of_node_put() done by of_find_node_by_name() */
+	of_node_get(dn);
 	ports = of_find_node_by_name(dn, "ports");
 	if (ports) {
 		bcm_sf2_identify_ports(priv, ports);
