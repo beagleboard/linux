@@ -334,6 +334,7 @@ static void send_hsr_supervision_frame(struct hsr_port *master,
 	spin_unlock_irqrestore(&master->hsr->seqnr_lock, irqflags);
 
 	hsr_forward_skb(skb, master);
+	INC_CNT_TX_SUP(master->hsr);
 	return;
 
 out:

@@ -144,8 +144,30 @@ static struct sk_buff *frame_get_stripped_skb(struct hsr_frame_info *frame,
 	return skb_clone(frame->skb_std, GFP_ATOMIC);
 }
 
-static void prp_set_lan_id(struct prp_rct *trailer,
-			   struct hsr_port *port)
+/* only prp skb should be passed in */
+static void prp_update_lre_error_stats(struct sk_buff *skb,
+				       struct hsr_port *port)
+{
+	int lan_id;
+	struct prp_rct *trailer = skb_get_PRP_rct(skb);
+
+	if (!trailer) {
+		INC_CNT_RX_ERROR(port->type, port->hsr);
+		return;
+	}
+
+	lan_id = get_prp_lan_id(trailer);
+
+	if (port->type == HSR_PT_SLAVE_A) {
+		if (lan_id & 1)
+			INC_CNT_RX_WRONG_LAN(port->type, port->hsr);
+	} else {
+		if (!(lan_id & 1))
+			INC_CNT_RX_WRONG_LAN(port->type, port->hsr);
+	}
+}
+
+static void prp_set_lan_id(struct prp_rct *trailer, struct hsr_port *port)
 {
 	int lane_id;
 
@@ -326,6 +348,7 @@ static int hsr_xmit(struct sk_buff *skb, struct hsr_port *port,
 		 */
 		ether_addr_copy(eth_hdr(skb)->h_source, port->dev->dev_addr);
 	}
+	INC_CNT_TX(port->type, port->hsr);
 	return dev_queue_xmit(skb);
 }
 
@@ -393,6 +416,10 @@ static void hsr_forward_do(struct hsr_frame_info *frame)
 
 		if (!skb) {
 			frame->port_rcv->dev->stats.rx_dropped++;
+			if (frame->port_rcv->type == HSR_PT_SLAVE_A ||
+			    frame->port_rcv->type ==  HSR_PT_SLAVE_B)
+				INC_CNT_RX_ERROR(frame->port_rcv->type,
+						 port->hsr);
 			continue;
 		}
 
@@ -526,6 +553,13 @@ void hsr_forward_skb(struct sk_buff *skb, struct hsr_port *port)
 	    (frame.skb_prp && port->hsr->prot_version <= HSR_V1))
 		goto out_drop;
 
+	/* Check for LAN_ID only for PRP */
+	if (frame.skb_prp) {
+		if (port->type == HSR_PT_SLAVE_A  ||
+		    port->type == HSR_PT_SLAVE_B)
+			prp_update_lre_error_stats(frame.skb_prp, port);
+	}
+
 	hsr_register_frame_in(frame.node_src, port, frame.sequence_nr);
 	hsr_forward_do(&frame);
 	/* Gets called for ingress frames as well as egress from master port.
@@ -545,6 +579,7 @@ void hsr_forward_skb(struct sk_buff *skb, struct hsr_port *port)
 	return;
 
 out_drop:
+	INC_CNT_RX_ERROR(port->type, port->hsr);
 	port->dev->stats.tx_dropped++;
 	kfree_skb(skb);
 }

@@ -80,27 +80,90 @@ void hsr_debugfs_rename(struct net_device *dev)
 	struct hsr_priv *priv = netdev_priv(dev);
 	struct dentry *d;
 
-	d = debugfs_rename(hsr_debugfs_root_dir, priv->node_tbl_root,
+	d = debugfs_rename(hsr_debugfs_root_dir, priv->root_dir,
 			   hsr_debugfs_root_dir, dev->name);
 	if (IS_ERR(d))
 		netdev_warn(dev, "failed to rename\n");
 	else
-		priv->node_tbl_root = d;
+		priv->root_dir = d;
 }
 
-static const struct file_operations hsr_fops = {
+static const struct file_operations hsr_node_table_fops = {
 	.open	= hsr_node_table_open,
 	.read	= seq_read,
 	.llseek = seq_lseek,
 	.release = single_release,
 };
 
+/* hsr_stats_show - Formats and prints stats in the device
+ */
+static int
+hsr_stats_show(struct seq_file *sfp, void *data)
+{
+	struct hsr_priv *priv = (struct hsr_priv *)sfp->private;
+	struct hsr_port *master;
+
+	rcu_read_lock();
+	master = hsr_port_get_hsr(priv, HSR_PT_MASTER);
+	rcu_read_unlock();
+
+	seq_puts(sfp, "LRE Stats entries\n");
+	seq_printf(sfp, "cnt_tx_a = %d\n", priv->stats.cnt_tx_a);
+	seq_printf(sfp, "cnt_tx_b = %d\n", priv->stats.cnt_tx_b);
+	/* actually lre_tx_c is whatever sent to the application interface. So
+	 * same as rx_packets
+	 */
+	seq_printf(sfp, "cnt_tx_c = %ld\n", master->dev->stats.rx_packets);
+	seq_printf(sfp, "cnt_tx_sup = %d\n", priv->stats.cnt_tx_sup);
+	seq_printf(sfp, "cnt_rx_wrong_lan_a = %d\n",
+		   priv->stats.cnt_rx_wrong_lan_a);
+	seq_printf(sfp, "cnt_rx_wrong_lan_b = %d\n",
+		   priv->stats.cnt_rx_wrong_lan_b);
+	seq_printf(sfp, "cnt_rx_a = %d\n", priv->stats.cnt_rx_a);
+	seq_printf(sfp, "cnt_rx_b = %d\n", priv->stats.cnt_rx_b);
+	/* actually lre_rx_c is whatever received from the application
+	 * interface,  So same as tx_packets
+	 */
+	seq_printf(sfp, "cnt_rx_c = %ld\n", master->dev->stats.tx_packets);
+	seq_printf(sfp, "cnt_rx_errors_a = %d\n", priv->stats.cnt_rx_errors_a);
+	seq_printf(sfp, "cnt_rx_errors_b = %d\n", priv->stats.cnt_rx_errors_b);
+	if (priv->prot_version <= HSR_V1) {
+		seq_printf(sfp, "cnt_own_rx_a = %d\n",
+			   priv->stats.cnt_own_rx_a);
+		seq_printf(sfp, "cnt_own_rx_b = %d\n",
+			   priv->stats.cnt_own_rx_b);
+	}
+	seq_puts(sfp, "\n");
+	return 0;
+}
+
+/* hsr_stats_open - open stats file
+ *
+ * Description:
+ * This routine opens a debugfs file stats of specific hsr or
+ * prp device
+ */
+static int
+hsr_stats_open(struct inode *inode, struct file *filp)
+{
+	return single_open(filp, hsr_stats_show, inode->i_private);
+}
+
+static const struct file_operations hsr_stats_fops = {
+	.owner	= THIS_MODULE,
+	.open	= hsr_stats_open,
+	.read	= seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
 /* hsr_debugfs_init - create hsr node_table file for dumping
- * the node table
+ * the node table and lre stats
  *
  * Description:
  * When debugfs is configured this routine sets up the node_table file per
- * hsr device for dumping the node_table entries
+ * hsr device for dumping the node_table entries and stats file for
+ * lre stats dump.
  */
 void hsr_debugfs_init(struct hsr_priv *priv, struct net_device *hsr_dev)
 {
@@ -108,23 +171,38 @@ void hsr_debugfs_init(struct hsr_priv *priv, struct net_device *hsr_dev)
 
 	de = debugfs_create_dir(hsr_dev->name, hsr_debugfs_root_dir);
 	if (IS_ERR(de)) {
-		pr_err("Cannot create hsr debugfs directory\n");
+		pr_err("Cannot create hsr debugfs root directory %s\n",
+		       hsr_dev->name);
 		return;
 	}
 
-	priv->node_tbl_root = de;
+	priv->root_dir = de;
 
 	de = debugfs_create_file("node_table", S_IFREG | 0444,
-				 priv->node_tbl_root, priv,
-				 &hsr_fops);
+				 priv->root_dir, priv, &hsr_node_table_fops);
 	if (IS_ERR(de)) {
 		pr_err("Cannot create hsr node_table file\n");
-		debugfs_remove(priv->node_tbl_root);
-		priv->node_tbl_root = NULL;
-		return;
+		goto error_nt;
 	}
 	priv->node_tbl_file = de;
-}
+
+	de = debugfs_create_file("stats", S_IFREG | 0444, priv->root_dir, priv,
+				 &hsr_stats_fops);
+	if (IS_ERR(de)) {
+		pr_err("Cannot create hsr-prp stats directory\n");
+		goto error_stats;
+	}
+	priv->stats_file = de;
+
+	return;
+
+error_stats:
+	debugfs_remove(priv->node_tbl_file);
+	priv->node_tbl_file = NULL;
+error_nt:
+	debugfs_remove(priv->root_dir);
+	priv->root_dir = NULL;
+} /* end of hst_debugfs_init */
 
 /* hsr_debugfs_term - Tear down debugfs intrastructure
  *
@@ -137,8 +215,10 @@ hsr_debugfs_term(struct hsr_priv *priv)
 {
 	debugfs_remove(priv->node_tbl_file);
 	priv->node_tbl_file = NULL;
-	debugfs_remove(priv->node_tbl_root);
-	priv->node_tbl_root = NULL;
+	debugfs_remove(priv->stats_file);
+	priv->stats_file = NULL;
+	debugfs_remove(priv->root_dir);
+	priv->root_dir = NULL;
 }
 
 void hsr_debugfs_create_root(void)
