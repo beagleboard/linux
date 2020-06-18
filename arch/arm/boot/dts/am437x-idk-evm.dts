@@ -187,6 +187,8 @@
 
 		pinctrl-0 = <&pruss1_eth_default>;
 		pinctrl-names = "default";
+		interrupts = <20>, <21>;
+		interrupt-names = "rx_lre_hp", "rx_lre_lp";
 
 		pruss1_emac0: ethernet-mii0 {
 			phy-handle = <&pruss1_eth0_phy>;
