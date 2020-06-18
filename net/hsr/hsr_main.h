@@ -13,6 +13,7 @@
 #include <linux/netdevice.h>
 #include <linux/list.h>
 #include <linux/if_vlan.h>
+#include <net/lredev.h>
 
 /* Time constants as specified in the HSR specification (IEC-62439-3 2010)
  * Table 8.
@@ -183,17 +184,7 @@ static inline void set_prp_LSDU_size(struct prp_rct *rct, u16 LSDU_size)
 					  0xF000) | (LSDU_size & 0x0FFF));
 }
 
-struct hsr_lre_if_stats {
-	u32	cnt_tx_a;
-	u32	cnt_tx_b;
-	u32	cnt_rx_wrong_lan_a;
-	u32	cnt_rx_wrong_lan_b;
-	u32	cnt_rx_a;
-	u32	cnt_rx_b;
-	u32	cnt_rx_errors_a;
-	u32	cnt_rx_errors_b;
-	u32	cnt_own_rx_a; /* For HSR only */
-	u32	cnt_own_rx_b; /* For HSR only */
+struct hsr_prp_debug_stats {
 	u32	cnt_tx_sup;
 };
 
@@ -218,7 +209,10 @@ struct hsr_priv {
 	struct list_head	self_node_db;	/* MACs of slaves */
 	struct timer_list	announce_timer;	/* Supervision frame dispatch */
 	struct timer_list	prune_timer;
-	struct hsr_lre_if_stats stats;	/* lre interface stats */
+	struct hsr_prp_debug_stats dbg_stats;	/* debug stats */
+	struct lre_stats lre_stats;	/* lre interface stats */
+	unsigned int		rx_offloaded : 1;   /* lre handle in hw */
+	unsigned int		l2_fwd_offloaded : 1; /* L2 forward in hw */
 	int announce_count;
 	u16 sequence_nr;
 	u16 sup_sequence_nr;	/* For HSRv1 separate seq_nr for supervision */
@@ -296,20 +290,24 @@ static inline bool prp_check_lsdu_size(struct sk_buff *skb,
 	return (expected_lsdu_size == get_prp_LSDU_size(rct));
 }
 
-#define INC_CNT_TX(type, priv) (((type) == HSR_PT_SLAVE_A) ? \
-		(priv)->stats.cnt_tx_a++ : (priv)->stats.cnt_tx_b++)
-#define INC_CNT_RX_WRONG_LAN(type, priv) (((type) == HSR_PT_SLAVE_A) ? \
-		(priv)->stats.cnt_rx_wrong_lan_a++ : \
-		(priv)->stats.cnt_rx_wrong_lan_b++)
-#define INC_CNT_RX(type, priv) (((type) == HSR_PT_SLAVE_A) ? \
-		(priv)->stats.cnt_rx_a++ : (priv)->stats.cnt_rx_b++)
-#define INC_CNT_RX_ERROR(type, priv) (((type) == HSR_PT_SLAVE_A) ? \
-		(priv)->stats.cnt_rx_errors_a++ : \
-		(priv)->stats.cnt_rx_errors_b++)
-#define INC_CNT_OWN_RX(type, priv) (((type) == HSR_PT_SLAVE_A) ? \
-		(priv)->stats.cnt_own_rx_a++ : \
-		(priv)->stats.cnt_own_rx_b++)
-#define INC_CNT_TX_SUP(priv) ((priv)->stats.cnt_tx_sup++)
+#define INC_CNT_TX_AB(type, priv) (((type) == HSR_PT_SLAVE_A) ? \
+		(priv)->lre_stats.cnt_tx_a++ : \
+		(priv)->lre_stats.cnt_tx_b++)
+#define INC_CNT_TX_C(priv) ((priv)->lre_stats.cnt_tx_c++)
+#define INC_CNT_RX_WRONG_LAN_AB(type, priv) (((type) == HSR_PT_SLAVE_A) ? \
+		(priv)->lre_stats.cnt_errwronglan_a++ : \
+		(priv)->lre_stats.cnt_errwronglan_b++)
+#define INC_CNT_RX_AB(type, priv) (((type) == HSR_PT_SLAVE_A) ? \
+		(priv)->lre_stats.cnt_rx_a++ : \
+		(priv)->lre_stats.cnt_rx_b++)
+#define INC_CNT_RX_C(priv) ((priv)->lre_stats.cnt_rx_c++)
+#define INC_CNT_RX_ERROR_AB(type, priv) (((type) == HSR_PT_SLAVE_A) ? \
+		(priv)->lre_stats.cnt_errors_a++ : \
+		(priv)->lre_stats.cnt_errors_b++)
+#define INC_CNT_OWN_RX_AB(type, priv) (((type) == HSR_PT_SLAVE_A) ? \
+		(priv)->lre_stats.cnt_own_rx_a++ : \
+		(priv)->lre_stats.cnt_own_rx_b++)
+#define INC_CNT_TX_SUP(priv) ((priv)->dbg_stats.cnt_tx_sup++)
 
 #if IS_ENABLED(CONFIG_DEBUG_FS)
 void hsr_debugfs_rename(struct net_device *dev);
@@ -332,4 +330,13 @@ static inline void hsr_debugfs_remove_root(void)
 {}
 #endif
 
-#endif /*  __HSR_PRIVATE_H */
+int hsr_lredev_attr_set(struct hsr_priv *hsr,
+			struct lredev_attr *attr);
+int hsr_lredev_attr_get(struct hsr_priv *hsr,
+			struct lredev_attr *attr);
+int hsr_lredev_get_node_table(struct hsr_priv *hsr,
+			      struct lre_node_table_entry table[],
+			      int size);
+int  hsr_lredev_get_lre_stats(struct hsr_priv *hsr,
+			      struct lre_stats *stats);
+#endif /* __HSR_PRIVATE_H */

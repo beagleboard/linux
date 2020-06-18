@@ -70,6 +70,8 @@ enum {
 	NETIF_F_HW_VLAN_STAG_RX_BIT,	/* Receive VLAN STAG HW acceleration */
 	NETIF_F_HW_VLAN_STAG_FILTER_BIT,/* Receive filtering on VLAN STAGs */
 	NETIF_F_HW_L2FW_DOFFLOAD_BIT,	/* Allow L2 Forwarding in Hardware */
+	NETIF_F_HW_HSR_RX_OFFLOAD_BIT,	/* HSR Rx handling in HW/firmware */
+	NETIF_F_HW_PRP_RX_OFFLOAD_BIT,	/* PRP Rx handling in HW/firmware */
 
 	NETIF_F_HW_TC_BIT,		/* Offload TC infrastructure */
 	NETIF_F_HW_ESP_BIT,		/* Hardware ESP transformation offload */
@@ -150,6 +152,8 @@ enum {
 #define NETIF_F_GSO_UDP_L4	__NETIF_F(GSO_UDP_L4)
 #define NETIF_F_HW_TLS_TX	__NETIF_F(HW_TLS_TX)
 #define NETIF_F_HW_TLS_RX	__NETIF_F(HW_TLS_RX)
+#define NETIF_F_HW_HSR_RX_OFFLOAD __NETIF_F(HW_HSR_RX_OFFLOAD)
+#define NETIF_F_HW_PRP_RX_OFFLOAD __NETIF_F(HW_PRP_RX_OFFLOAD)
 
 /* Finds the next feature with the highest number of the range of start till 0.
  */

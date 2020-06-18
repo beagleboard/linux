@@ -125,9 +125,120 @@ int hsr_get_max_mtu(struct hsr_priv *hsr)
 
 	if (mtu_max < HSR_HLEN)
 		return 0;
-	return mtu_max - HSR_HLEN;
+
+	/* For offloaded keep the mtu same as ETH_DATA_LEN as
+	 * h/w is expected to extend the frame to accommodate RCT
+	 * or TAG
+	 */
+	if (!hsr->rx_offloaded)
+		return mtu_max - HSR_HLEN;
+
+	return mtu_max;
 }
 
+int hsr_lredev_attr_get(struct hsr_priv *hsr, struct lredev_attr *attr)
+{
+	struct hsr_port *port_a = hsr_port_get_hsr(hsr, HSR_PT_SLAVE_A);
+	struct net_device *slave_a_dev;
+
+	if (!port_a)
+		return -EINVAL;
+
+	slave_a_dev = port_a->dev;
+	if (slave_a_dev && slave_a_dev->lredev_ops &&
+	    slave_a_dev->lredev_ops->lredev_attr_get)
+		return slave_a_dev->lredev_ops->lredev_attr_get(slave_a_dev,
+								attr);
+	return -EINVAL;
+}
+
+int hsr_lredev_attr_set(struct hsr_priv *hsr, struct lredev_attr *attr)
+{
+	struct hsr_port *port_a = hsr_port_get_hsr(hsr, HSR_PT_SLAVE_A);
+	struct net_device *slave_a_dev;
+
+	if (!port_a)
+		return -EINVAL;
+
+	slave_a_dev = port_a->dev;
+	if (slave_a_dev && slave_a_dev->lredev_ops &&
+	    slave_a_dev->lredev_ops->lredev_attr_set)
+		return slave_a_dev->lredev_ops->lredev_attr_set(slave_a_dev,
+								attr);
+	return -EINVAL;
+}
+
+static int _hsr_lredev_get_node_table(struct hsr_priv *hsr,
+				      struct lre_node_table_entry table[],
+				      int size)
+{
+	struct hsr_node *node;
+	int i = 0;
+
+	rcu_read_lock();
+
+	list_for_each_entry_rcu(node, &hsr->node_db, mac_list) {
+		if (hsr_addr_is_self(hsr, node->macaddress_A))
+			continue;
+		memcpy(&table[i].mac_address[0],
+		       &node->macaddress_A[0], ETH_ALEN);
+		table[i].time_last_seen_a = node->time_in[HSR_PT_SLAVE_A];
+		table[i].time_last_seen_b = node->time_in[HSR_PT_SLAVE_B];
+		if (hsr->prot_version == PRP_V1)
+			table[i].node_type = IEC62439_3_DANP;
+		else if (hsr->prot_version <= HSR_V1)
+			table[i].node_type = IEC62439_3_DANH;
+		else
+			continue;
+		i++;
+	}
+	rcu_read_unlock();
+
+	return i;
+}
+
+int hsr_lredev_get_node_table(struct hsr_priv *hsr,
+			      struct lre_node_table_entry table[],
+			      int size)
+{
+	struct hsr_port *port_a = hsr_port_get_hsr(hsr, HSR_PT_SLAVE_A);
+	struct net_device *slave_a_dev;
+	int ret = -EINVAL;
+
+	if (!port_a)
+		return ret;
+
+	if (!hsr->rx_offloaded)
+		return _hsr_lredev_get_node_table(hsr, table, size);
+
+	slave_a_dev = port_a->dev;
+
+	if (slave_a_dev && slave_a_dev->lredev_ops &&
+	    slave_a_dev->lredev_ops->lredev_get_node_table)
+		ret =
+		slave_a_dev->lredev_ops->lredev_get_node_table(slave_a_dev,
+							       table,
+							       size);
+	return ret;
+}
+
+int hsr_lredev_get_lre_stats(struct hsr_priv *hsr, struct lre_stats *stats)
+{
+	struct hsr_port *port_a = hsr_port_get_hsr(hsr, HSR_PT_SLAVE_A);
+	struct net_device *slave_a_dev;
+	int ret = -EINVAL;
+
+	if (!port_a)
+		return ret;
+
+	slave_a_dev = port_a->dev;
+
+	if (slave_a_dev && slave_a_dev->lredev_ops &&
+	    slave_a_dev->lredev_ops->lredev_get_stats)
+		ret =
+		slave_a_dev->lredev_ops->lredev_get_stats(slave_a_dev, stats);
+	return ret;
+}
 static int hsr_dev_change_mtu(struct net_device *dev, int new_mtu)
 {
 	struct hsr_priv *hsr;
@@ -246,6 +357,7 @@ static int hsr_dev_xmit(struct sk_buff *skb, struct net_device *dev)
 	if (master) {
 		skb->dev = master->dev;
 		hsr_forward_skb(skb, master);
+		INC_CNT_RX_C(hsr);
 	} else {
 		atomic_long_inc(&dev->tx_dropped);
 		dev_kfree_skb_any(skb);
@@ -631,7 +743,8 @@ int hsr_dev_finalize(struct net_device *hsr_dev, struct net_device *slave[2],
 	hsr->sup_sequence_nr = HSR_SUP_SEQNR_START;
 
 	timer_setup(&hsr->announce_timer, hsr_announce, 0);
-	timer_setup(&hsr->prune_timer, hsr_prune_nodes, 0);
+	if (!hsr->rx_offloaded)
+		timer_setup(&hsr->prune_timer, hsr_prune_nodes, 0);
 
 	ether_addr_copy(hsr->sup_multicast_addr, def_multicast_addr);
 	hsr->sup_multicast_addr[ETH_ALEN - 1] = multicast_spec;
@@ -653,6 +766,33 @@ int hsr_dev_finalize(struct net_device *hsr_dev, struct net_device *slave[2],
 	if (res)
 		goto err_add_master;
 
+	if (hsr->prot_version == PRP_V1) {
+		if ((slave[0]->features & NETIF_F_HW_HSR_RX_OFFLOAD) ||
+		    (slave[1]->features & NETIF_F_HW_HSR_RX_OFFLOAD)) {
+			res = -EINVAL;
+			goto err_add_master;
+		}
+	} else {
+		if ((slave[0]->features & NETIF_F_HW_PRP_RX_OFFLOAD) ||
+		    (slave[1]->features & NETIF_F_HW_PRP_RX_OFFLOAD)) {
+			res = -EINVAL;
+			goto err_add_master;
+		}
+	}
+
+	/* HSR/PRP LRE Rx offload supported in lower device? */
+	if (((slave[0]->features & NETIF_F_HW_HSR_RX_OFFLOAD) &&
+	     (slave[1]->features & NETIF_F_HW_HSR_RX_OFFLOAD)) ||
+	     ((slave[0]->features & NETIF_F_HW_PRP_RX_OFFLOAD) &&
+	     (slave[1]->features & NETIF_F_HW_PRP_RX_OFFLOAD)))
+		hsr->rx_offloaded = true;
+
+	/* HSR LRE L2 forward offload supported in lower device for hsr? */
+	if (hsr->prot_version < PRP_V1 &&
+	    ((slave[0]->features & NETIF_F_HW_L2FW_DOFFLOAD) &&
+	    (slave[1]->features & NETIF_F_HW_L2FW_DOFFLOAD)))
+		hsr->l2_fwd_offloaded = true;
+
 	if ((slave[0]->features & NETIF_F_HW_VLAN_CTAG_FILTER) &&
 	    (slave[1]->features & NETIF_F_HW_VLAN_CTAG_FILTER))
 		hsr_dev->features |= NETIF_F_HW_VLAN_CTAG_FILTER;
@@ -670,7 +810,24 @@ int hsr_dev_finalize(struct net_device *hsr_dev, struct net_device *slave[2],
 		goto err_add_slaves;
 
 	hsr_debugfs_init(hsr, hsr_dev);
-	mod_timer(&hsr->prune_timer, jiffies + msecs_to_jiffies(PRUNE_PERIOD));
+
+	/* For LRE rx offload, pruning is expected to happen
+	 * at the hardware or firmware . So don't do this in software
+	 */
+	if (!hsr->rx_offloaded)
+		mod_timer(&hsr->prune_timer,
+			  jiffies + msecs_to_jiffies(PRUNE_PERIOD));
+	/* for offloaded case, expect both slaves have the
+	 * same MAC address configured. If not fail.
+	 */
+	if (hsr->rx_offloaded &&
+	    !ether_addr_equal(slave[0]->dev_addr,
+			      slave[1]->dev_addr)) {
+		netdev_err(hsr_dev,
+			   "Slave's MAC addr must be same. So change it\n");
+		res = -EINVAL;
+		goto err_add_slaves;
+	}
 
 	return 0;
 

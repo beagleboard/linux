@@ -152,7 +152,7 @@ static void prp_update_lre_error_stats(struct sk_buff *skb,
 	struct prp_rct *trailer = skb_get_PRP_rct(skb);
 
 	if (!trailer) {
-		INC_CNT_RX_ERROR(port->type, port->hsr);
+		INC_CNT_RX_ERROR_AB(port->type, port->hsr);
 		return;
 	}
 
@@ -160,10 +160,10 @@ static void prp_update_lre_error_stats(struct sk_buff *skb,
 
 	if (port->type == HSR_PT_SLAVE_A) {
 		if (lan_id & 1)
-			INC_CNT_RX_WRONG_LAN(port->type, port->hsr);
+			INC_CNT_RX_WRONG_LAN_AB(port->type, port->hsr);
 	} else {
 		if (!(lan_id & 1))
-			INC_CNT_RX_WRONG_LAN(port->type, port->hsr);
+			INC_CNT_RX_WRONG_LAN_AB(port->type, port->hsr);
 	}
 }
 
@@ -329,14 +329,21 @@ static struct sk_buff *frame_get_tagged_skb(struct hsr_frame_info *frame,
 	return create_tagged_skb(frame->skb_std, frame, port);
 }
 
-static void hsr_deliver_master(struct sk_buff *skb, struct net_device *dev,
-			       struct hsr_node *node_src)
+static void hsr_deliver_master(struct sk_buff *skb, struct hsr_node *node_src,
+			       struct hsr_port *port)
 {
+	struct hsr_priv *hsr = port->hsr;
+	struct net_device *dev = port->dev;
 	bool was_multicast_frame;
 	int res;
 
 	was_multicast_frame = (skb->pkt_type == PACKET_MULTICAST);
-	hsr_addr_subst_source(node_src, skb);
+	/* For LRE offloaded case, assume same MAC address is on both
+	 * interfaces of the remote node and hence no need to substitute
+	 * the source MAC address.
+	 */
+	if (!port->hsr->rx_offloaded)
+		hsr_addr_subst_source(node_src, skb);
 	skb_pull(skb, ETH_HLEN);
 	res = netif_rx(skb);
 	if (res == NET_RX_DROP) {
@@ -346,13 +353,15 @@ static void hsr_deliver_master(struct sk_buff *skb, struct net_device *dev,
 		dev->stats.rx_bytes += skb->len;
 		if (was_multicast_frame)
 			dev->stats.multicast++;
+		INC_CNT_TX_C(hsr);
 	}
 }
 
 static int hsr_xmit(struct sk_buff *skb, struct hsr_port *port,
 		    struct hsr_frame_info *frame)
 {
-	if (frame->port_rcv->type == HSR_PT_MASTER) {
+	if (!port->hsr->rx_offloaded &&
+	    frame->port_rcv->type == HSR_PT_MASTER) {
 		hsr_addr_subst_dest(frame->node_src, skb, port);
 
 		/* Address substitution (IEC62439-3 pp 26, 50): replace mac
@@ -360,7 +369,7 @@ static int hsr_xmit(struct sk_buff *skb, struct hsr_port *port,
 		 */
 		ether_addr_copy(eth_hdr(skb)->h_source, port->dev->dev_addr);
 	}
-	INC_CNT_TX(port->type, port->hsr);
+	INC_CNT_TX_AB(port->type, port->hsr);
 	return dev_queue_xmit(skb);
 }
 
@@ -395,30 +404,41 @@ static void hsr_forward_do(struct hsr_frame_info *frame)
 			continue;
 
 		/* Don't send frame over port where it has been sent before.
-		 * Also fro SAN, this shouldn't be done.
+		 * Also if rx LRE is offloaded, hardware does duplication
+		 * detection and discard and send only one copy to the upper
+		 * device and thus discard duplicate detection. For PRP, frame
+		 * could be from a SAN for which bypass duplicate discard here.
 		 */
-		if (!frame->is_from_san &&
+		if (!port->hsr->rx_offloaded && !frame->is_from_san &&
 		    hsr_register_frame_out(port, frame->node_src,
 					   frame->sequence_nr))
 			continue;
 
-		if (frame->is_supervision && port->type == HSR_PT_MASTER) {
+		/* In LRE offloaded case, don't expect supervision frames from
+		 * slave ports for host as they get processed at the h/w or
+		 * firmware.
+		 */
+		if (frame->is_supervision &&
+		    port->type == HSR_PT_MASTER && !port->hsr->rx_offloaded) {
 			if (frame->skb_hsr)
 				skb = frame->skb_hsr;
 			else if (frame->skb_prp)
 				skb = frame->skb_prp;
-
 			if (skb)
 				hsr_handle_sup_frame(skb, frame->node_src,
 						     frame->port_rcv);
 			continue;
 		}
 
-		if (port->hsr->prot_version == PRP_V1 &&
-		    ((frame->port_rcv->type == HSR_PT_SLAVE_A &&
-		    port->type ==  HSR_PT_SLAVE_B) ||
-		    (frame->port_rcv->type == HSR_PT_SLAVE_B &&
-		    port->type ==  HSR_PT_SLAVE_A)))
+		/* if L2 forward is offloaded, or protocol is PRP,
+		 * don't forward frame across slaves.
+		 */
+		if ((port->hsr->l2_fwd_offloaded ||
+		     port->hsr->prot_version == PRP_V1) &&
+		     ((frame->port_rcv->type == HSR_PT_SLAVE_A &&
+		     port->type ==  HSR_PT_SLAVE_B) ||
+		     (frame->port_rcv->type == HSR_PT_SLAVE_B &&
+		     port->type ==  HSR_PT_SLAVE_A)))
 			continue;
 
 		if (port->type != HSR_PT_MASTER)
@@ -430,14 +450,14 @@ static void hsr_forward_do(struct hsr_frame_info *frame)
 			frame->port_rcv->dev->stats.rx_dropped++;
 			if (frame->port_rcv->type == HSR_PT_SLAVE_A ||
 			    frame->port_rcv->type ==  HSR_PT_SLAVE_B)
-				INC_CNT_RX_ERROR(frame->port_rcv->type,
-						 port->hsr);
+				INC_CNT_RX_ERROR_AB(frame->port_rcv->type,
+						    port->hsr);
 			continue;
 		}
 
 		skb->dev = port->dev;
 		if (port->type == HSR_PT_MASTER)
-			hsr_deliver_master(skb, port->dev, frame->node_src);
+			hsr_deliver_master(skb, frame->node_src, port);
 		else
 			hsr_xmit(skb, port, frame);
 	}
@@ -473,11 +493,25 @@ static int hsr_fill_frame_info(struct hsr_frame_info *frame,
 
 	memset(frame, 0, sizeof(*frame));
 	frame->is_supervision = is_supervision_frame(port->hsr, skb);
-	frame->node_src = hsr_get_node(port, &hsr->node_db, skb,
-				       frame->is_supervision,
-				       port->type);
-	if (!frame->node_src)
-		return -1; /* Unknown node and !is_supervision, or no mem */
+
+	/* When offloaded, don't expect Supervision frame which
+	 * is terminated at h/w or f/w that offload the LRE
+	 */
+	if (frame->is_supervision && hsr->rx_offloaded &&
+	    port->type != HSR_PT_MASTER)
+		return -1;
+
+	/* For Offloaded case, there is no need for node list since
+	 * firmware/hardware implements LRE function.
+	 */
+	if (!hsr->rx_offloaded) {
+		frame->node_src = hsr_get_node(port, &hsr->node_db, skb,
+					       frame->is_supervision,
+					       port->type);
+		/* Unknown node and !is_supervision, or no mem */
+		if (!frame->node_src)
+			return -1;
+	}
 
 	ethhdr = (struct ethhdr *)skb_mac_header(skb);
 	frame->is_vlan = false;
@@ -569,7 +603,10 @@ void hsr_forward_skb(struct sk_buff *skb, struct hsr_port *port)
 			prp_update_lre_error_stats(frame.skb_prp, port);
 	}
 
-	hsr_register_frame_in(frame.node_src, port, frame.sequence_nr);
+	/* No need to register frame when rx offload is supported */
+	if (!port->hsr->rx_offloaded)
+		hsr_register_frame_in(frame.node_src, port,
+				      frame.sequence_nr);
 	hsr_forward_do(&frame);
 	/* Gets called for ingress frames as well as egress from master port.
 	 * So check and increment stats for master port only here.
@@ -588,7 +625,7 @@ void hsr_forward_skb(struct sk_buff *skb, struct hsr_port *port)
 	return;
 
 out_drop:
-	INC_CNT_RX_ERROR(port->type, port->hsr);
+	INC_CNT_RX_ERROR_AB(port->type, port->hsr);
 	port->dev->stats.tx_dropped++;
 	kfree_skb(skb);
 }
