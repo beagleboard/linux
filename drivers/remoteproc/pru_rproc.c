@@ -16,7 +16,6 @@
 #include <linux/omap-mailbox.h>
 #include <linux/pruss.h>
 #include <linux/pruss_driver.h>
-#include <linux/pruss_intc.h>
 #include <linux/irqchip/irq-pruss-intc.h>
 #include <linux/remoteproc.h>
 
@@ -692,7 +691,8 @@ static void pru_rproc_kick(struct rproc *rproc, int vq_id)
 		names[pru->data->type], pru->id);
 
 	if (pru->irq_kick > 0) {
-		ret = pruss_intc_trigger(pru->irq_kick);
+		ret = irq_set_irqchip_state(pru->irq_kick,
+					    IRQCHIP_STATE_PENDING, true);
 		if (ret < 0)
 			dev_err(dev, "pruss_intc_trigger failed: %d\n", ret);
 	} else if (pru->mbox) {
