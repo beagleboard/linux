@@ -294,7 +294,7 @@ static int emac_get_ts_info(struct net_device *ndev,
 		SOF_TIMESTAMPING_SOFTWARE |
 		SOF_TIMESTAMPING_RAW_HARDWARE;
 
-	info->phc_index = ptp_clock_index(emac->iep.ptp_clock);
+	info->phc_index = ptp_clock_index(icss_iep_get_ptp_clock(emac->iep));
 	info->tx_types = BIT(HWTSTAMP_TX_OFF) | BIT(HWTSTAMP_TX_ON);
 	info->rx_filters = BIT(HWTSTAMP_FILTER_NONE) | BIT(HWTSTAMP_FILTER_ALL);
 

@@ -162,10 +162,19 @@ config TI_PRUETH
 	---help---
 	  Support single or dual EMAC over PRUSS.
 
+config TI_ICSS_IEP
+	tristate "TI PRU ICSS IEP driver"
+	depends on TI_PRUSS
+	default TI_PRUSS
+	help
+	  This enables support for the PRU-ICSS Industrial Ethernet Peripheral
+	  within a PRU-ICSS subsystem present on various TI SoCs.
+
 config TI_ICSSG_PRUETH
 	tristate "TI Gigabit PRU Ethernet driver"
 	select TI_DAVINCI_MDIO
 	select NET_PTP_CLASSIFY
+	select TI_ICSS_IEP
 	imply PTP_1588_CLOCK
 	depends on PRU_REMOTEPROC
 	depends on ARCH_K3 && OF && TI_K3_UDMA_GLUE_LAYER

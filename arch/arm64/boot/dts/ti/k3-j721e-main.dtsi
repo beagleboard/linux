@@ -1621,7 +1621,6 @@
 		assigned-clocks = <&k3_clks 91 1>;
 		assigned-clock-parents = <&k3_clks 91 2>;
 		bus-width = <8>;
-		mmc-hs400-1_8v;
 		mmc-ddr-1_8v;
 		ti,otap-del-sel-legacy = <0x0>;
 		ti,otap-del-sel-mmc-hs = <0x0>;
@@ -1834,13 +1833,13 @@
 		};
 
 		icssg0_iep0: iep@2e000 {
-			compatible = "syscon";
+			compatible = "ti,am654-icss-iep";
 			reg = <0x2e000 0x1000>;
 			clocks = <&icssg0_iepclk_mux>;
 		};
 
 		icssg0_iep1: iep@2f000 {
-			compatible = "syscon";
+			compatible = "ti,am654-icss-iep";
 			reg = <0x2f000 0x1000>;
 			clocks = <&icssg0_iepclk_mux>;
 		};
@@ -1992,13 +1991,13 @@
 		};
 
 		icssg1_iep0: iep@2e000 {
-			compatible = "syscon";
+			compatible = "ti,am654-icss-iep";
 			reg = <0x2e000 0x1000>;
 			clocks = <&icssg1_iepclk_mux>;
 		};
 
 		icssg1_iep1: iep@2f000 {
-			compatible = "syscon";
+			compatible = "ti,am654-icss-iep";
 			reg = <0x2f000 0x1000>;
 			clocks = <&icssg1_iepclk_mux>;
 		};
