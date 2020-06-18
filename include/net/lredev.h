@@ -125,6 +125,7 @@ struct lredev_ops {
 					 int size);
 	int	(*lredev_get_stats)(struct net_device *dev,
 				    struct lre_stats *stats);
+	int	(*lredev_set_sv_vlan_id)(struct net_device *dev, u16 vid);
 };
 
 #endif

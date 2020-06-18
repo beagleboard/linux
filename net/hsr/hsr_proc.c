@@ -538,6 +538,56 @@ static const struct file_operations clear_nt_fops = {
 	.release	= single_release,
 };
 
+static int disable_sv_show(struct seq_file *sfp, void *v)
+{
+	struct hsr_priv *priv = (struct hsr_priv *)sfp->private;
+
+	seq_printf(sfp, "%u\n", priv->disable_sv_frame);
+	return 0;
+}
+
+static int disable_sv_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, disable_sv_show, PDE_DATA(inode));
+}
+
+static ssize_t disable_sv_store(struct file *file,
+				const char __user *buffer,
+				size_t count, loff_t *pos)
+{
+	struct hsr_priv *priv = (struct hsr_priv *)PDE_DATA(file_inode(file));
+	char cmd_buffer[BUF_SIZE];
+	int ret = -EINVAL;
+	u32 val;
+
+	if (count > (sizeof(cmd_buffer) - 1))
+		goto err;
+
+	if (copy_from_user(cmd_buffer, buffer, count)) {
+		ret = -EFAULT;
+		goto err;
+	}
+	cmd_buffer[count] = '\0';
+	ret = kstrtou32(cmd_buffer, 0, &val);
+	if (ret < 0 || val > 1)
+		goto err;
+
+	priv->disable_sv_frame = val;
+
+	return  count;
+err:
+	return ret;
+}
+
+static const struct file_operations disable_sv_fops = {
+	.owner		= THIS_MODULE,
+	.open		= disable_sv_open,
+	.read		= seq_read,
+	.write		= disable_sv_store,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+};
+
 int hsr_create_procfs(struct hsr_priv *priv, struct net_device *ndev)
 {
 	int ret = -ENODEV;
@@ -583,7 +633,16 @@ int hsr_create_procfs(struct hsr_priv *priv, struct net_device *ndev)
 	if (!priv->dlrmt_file)
 		goto fail_dlrmt;
 
+	priv->disable_sv_file = proc_create_data("disable-sv-frame", 0644,
+						 priv->dir, &disable_sv_fops,
+						 (void *)priv);
+	if (!priv->disable_sv_file)
+		goto fail_disable_sv;
+
 	return 0;
+fail_disable_sv:
+	if (priv->dlrmt_file)
+		remove_proc_entry("dlrmt", priv->dir);
 fail_dlrmt:
 	if (priv->clear_nt_file)
 		remove_proc_entry("clear-nt", priv->dir);
@@ -609,6 +668,7 @@ fail_lre_stats:
 
 void hsr_remove_procfs(struct hsr_priv *priv, struct net_device *ndev)
 {
+	remove_proc_entry("disable-sv-frame", priv->dir);
 	remove_proc_entry("dlrmt", priv->dir);
 	remove_proc_entry("clear-nt", priv->dir);
 	remove_proc_entry("prp-tr", priv->dir);

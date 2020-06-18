@@ -141,8 +141,21 @@ struct hsrv0_ethhdr_sp {
 	struct hsr_sup_tag	hsr_sup;
 } __packed;
 
+struct hsrv0_ethhdr_vlan_sp {
+	struct ethhdr		ethhdr;
+	struct vlan_hdr		vlanHdr;
+	struct hsr_sup_tag	hsr_sup;
+} __packed;
+
 struct hsrv1_ethhdr_sp {
 	struct ethhdr		ethhdr;
+	struct hsr_tag		hsr;
+	struct hsr_sup_tag	hsr_sup;
+} __packed;
+
+struct hsrv1_ethhdr_vlan_sp {
+	struct ethhdr		ethhdr;
+	struct vlan_hdr		vlanHdr;
 	struct hsr_tag		hsr;
 	struct hsr_sup_tag	hsr_sup;
 } __packed;
@@ -225,6 +238,13 @@ struct hsr_priv {
 	u8 net_id;		/* for PRP, it occupies most significant 3 bits
 				 * of lan_id
 				 */
+	/* Below are used when SV frames are to be sent with VLAN tag */
+	u8 use_vlan_for_sv;
+	u16 sv_frame_vid;
+	u8 sv_frame_dei;
+	u8 sv_frame_pcp;
+	/* To enable/disable SV frame transmission */
+	u8 disable_sv_frame;
 	/* value of hsr mode */
 	enum iec62439_3_hsr_modes hsr_mode;
 	/* PRP Transparent Reception */
