@@ -5,12 +5,12 @@ Each PRUSS has dual PRU cores, each represented by a PRU node. Each PRU core
 has a dedicated Instruction RAM, Control and Debug register sets, and use
 the Data RAMs present within the PRUSS for code execution.
 
-The K3 SoCs containing ICSSG v1.0 (eg: AM65x SR1.0) have two additional PRU
-cores called RTUs with slightly different IP integration. The K3 SoCs
-containing the revised ICSSG v1.1 (eg: J721E, AM65x SR2.0) have an extra two
-auxiliary PRU cores called Tx_PRUs that augment the PRUs. Each RTU or Tx_PRU
-core can be used independently like a PRU, or alongside a corresponding PRU
-core to provide/implement auxiliary functionality/support.
+The K3 SoCs containing ICSSG v1.0 (eg: AM65x) have two additional PRU cores
+called RTUs with slightly different IP integration. The K3 SoCs containing
+the revised ICSSG v1.1 (eg: J721E) have an extra two auxiliary PRU cores
+called Tx_PRUs that augment the PRUs. Each RTU or Tx_PRU core can be used
+independently like a PRU, or alongside a corresponding PRU core to
+provide/implement auxiliary functionality/support.
 
 Each PRU, RTU or Tx_PRU core node should be defined as a child node of the
 corresponding PRUSS node. Each node can optionally be rendered inactive by
@@ -29,7 +29,6 @@ Required Properties:
                        "ti,k2g-pru" for 66AK2G family of SoCs
                        "ti,am654-pru" for PRUs in K3 AM65x family of SoCs
                        "ti,am654-rtu" for RTUs in K3 AM65x family of SoCs
-                       "ti,am654-tx-pru" for Tx_PRU in K3 AM65x SR2.0 SoCs
                        "ti,j721e-pru" for PRUs in K3 J721E family of SoCs
                        "ti,j721e-rtu" for RTUs in K3 J721E family of SoCs
                        "ti,j721e-tx-pru" for Tx_PRUs in K3 J721E family of SoCs
@@ -85,7 +84,7 @@ devices, so below are in addition to each node's bindings.
 
 Required Properties:
 --------------------
-- prus                 : phandles to the PRU, RTU or Tx_PRU nodes used
+- prus                 : phandles to the PRU or RTU nodes used
 
 Optional Properties:
 --------------------
