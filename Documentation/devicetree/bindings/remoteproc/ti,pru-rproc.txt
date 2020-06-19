@@ -59,43 +59,6 @@ DA850/OMAP-L138 SoCs.
                          "kick"  - for HOST to PRU virtqueue signalling
 
 
-Application/Consumer Nodes
-==========================
-A PRU application/consumer/user node typically uses one or more PRU device nodes
-to implement a PRU application/functionality. Each application/client node would
-need a reference to at least a PRU node, and optionally define some properties
-needed for hardware/firmware configuration. The below properties are a list of
-common properties supported by the PRU remoteproc infrastructure.
-
-The application nodes shall define their own bindings like regular platform
-devices, so below are in addition to each node's bindings.
-
-Required Properties:
---------------------
-- prus                 : phandles to the PRU or RTU nodes used
-
-Optional Properties:
---------------------
-- firmware-name        : firmwares for the PRU cores, the default firmware
-                         for the core from the PRU node will be used if not
-                         provided. The firmware names should correspond to
-                         the PRU cores listed in the 'prus' property
-- ti,pruss-gp-mux-sel  : array of values for the GP_MUX_SEL under PRUSS_GPCFG
-                         register for a PRU. This selects the internal muxing
-                         scheme for the PRU instance. If not provided, the
-                         default out-of-reset value (0) for the PRU core is
-                         used. Values should correspond to the PRU cores listed
-                         in the 'prus' property
-- ti,pru-interrupt-map : PRU interrupt mappings, containing an array of entries
-                         with each entry consisting of 4 cell-values. First one
-                         is an index towards the "prus" property to identify the
-                         PRU core for the interrupt map, second is the PRU
-                         System Event id, third is the PRU interrupt channel id
-                         and fourth is the PRU host interrupt id. If provided,
-                         this map will supercede any other configuration
-                         provided through firmware
-
-
 Example:
 --------
 
@@ -143,15 +106,3 @@ Example:
 			};
 		};
 	};
-
-3:	/* PRU application node example */
-	app_node: pru-app {
-		...
-		prus = <&pru0>, <&pru1>;
-		firmware-name = "pruss-app-fw", "pruss-app-fw-2";
-		ti,pruss-gp-mux-sel = <2>, <1>;
-		/* setup interrupts for prus:
-		   prus[0] => pru1_0: ev=16, chnl=2, host-irq=7,
-		   prus[1] => pru1_1: ev=19, chnl=1, host-irq=3 */
-		ti,pru-interrupt-map = <0 16 2 7 >, <1 19 1 3>;
-	}
