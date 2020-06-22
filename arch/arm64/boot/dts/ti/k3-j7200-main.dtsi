@@ -269,4 +269,14 @@
 		clocks = <&k3_clks 286 2>;
 		clock-names = "fclk";
 	};
+
+	timesync_router: timesync_router@a40000 {
+		compatible = "pinctrl-single";
+		reg = <0x0 0xa40000 0x0 0x800>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		#pinctrl-cells = <1>;
+		pinctrl-single,register-width = <32>;
+		pinctrl-single,function-mask = <0x000107ff>;
+	};
 };
