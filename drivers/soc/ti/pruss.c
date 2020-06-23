@@ -494,7 +494,7 @@ static int pruss_probe(struct platform_device *pdev)
 
 	if (!of_device_is_compatible(pdev->dev.of_node, "ti,am654-icssg") &&
 	    !of_device_is_compatible(pdev->dev.of_node, "ti,j721e-icssg"))
-		goto skip_mux;
+		goto skip_coreclk_mux;
 
 	ret = pruss_clk_mux_setup(pruss, pruss->core_clk_mux, "coreclk-mux",
 				  ICSSG_CFG_CORE_SYNC);
@@ -503,14 +503,14 @@ static int pruss_probe(struct platform_device *pdev)
 		goto rpm_put;
 	}
 
-	ret = pruss_clk_mux_setup(pruss, pruss->core_clk_mux, "iepclk-mux",
+skip_coreclk_mux:
+	ret = pruss_clk_mux_setup(pruss, pruss->iep_clk_mux, "iepclk-mux",
 				  PRUSS_CFG_IEPCLK);
 	if (ret) {
 		dev_err(dev, "failed to setup iepclk-mux\n");
 		goto rpm_put;
 	}
 
-skip_mux:
 	syscon_config.name = kasprintf(GFP_KERNEL, "%pOFn@%llx", np,
 				       (u64)res.start);
 	syscon_config.max_register = resource_size(&res) - 4;

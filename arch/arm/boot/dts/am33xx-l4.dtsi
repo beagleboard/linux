@@ -799,9 +799,16 @@
 					reg = <0x26000 0x2000>;
 				};
 
+				pruss_iepclk_mux: iepclk-mux {
+					#clock-cells = <0>;
+					clocks = <&l3_gclk>,        /* icss_iep_gclk */
+						 <&pruss_ocp_gclk>; /* icss_ocp_gclk */
+				};
+
 				pruss_iep: iep@2e000 {
-					compatible = "syscon";
+					compatible = "ti,am3356-icss-iep";
 					reg = <0x2e000 0x31c>;
+					clocks = <&pruss_iepclk_mux>;
 				};
 
 				pruss_mii_rt: mii-rt@32000 {

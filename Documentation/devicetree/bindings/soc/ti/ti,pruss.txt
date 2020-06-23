@@ -39,9 +39,10 @@ following sections.
 PRU-ICSS Node
 ==============
 Each PRU-ICSS subsystem instance is represented as a node by itself with the
-individual PRU processor cores, the memories node, an INTC node and an MDIO
-node represented as child nodes within this PRUSS node. This node shall be
-a child of the corresponding interconnect bus nodes or target-module nodes.
+individual PRU processor cores, the memories node, an INTC node, IEP nodes
+and an MDIO node represented as child nodes within this PRUSS node. This
+node shall be a child of the corresponding interconnect bus nodes or
+target-module nodes.
 
 Required Properties:
 --------------------
@@ -86,12 +87,11 @@ Required Properties:
                        "shrdram2" for Shared Data RAM,
 
 
-PRU-ICSS CFG, IEP, MII_RT Nodes
-================================
-The individual sub-modules CFG, IEP and MII_RT are represented as a syscon
+PRU-ICSS CFG, MII_RT Nodes
+==========================
+The individual sub-modules CFG and MII_RT are represented as a syscon
 node each for now with specific node names as below:
                   "cfg" for CFG sub-module,
-                  "iep" for IEP sub-module,
                   "mii-rt" for MII-RT sub-module,
 
 The following sub-modules are new and present only on ICSSG IP instances and
@@ -100,11 +100,6 @@ are applicable only for K3 SoCs. They are represented as follows:
 
 See Documentation/devicetree/bindings/mfd/syscon.txt for generic syscon
 binding details.
-
-Required Properties:
---------------------
-The following are required properties for IEP nodes
-- clocks        : phandle to IEP core clock.
 
 
 IEPCLK MUX Clock node
@@ -148,6 +143,12 @@ additional auxiliary PRU cores with slightly different IP integration. The
 bindings for this shall be defined in the file,
     Documentation/devicetree/bindings/remoteproc/ti,pru-rproc.txt
 
+IEP Node
+=========
+Each PRUSS has either 1 IEP (on AM335x, AM437x, AM57xx & 66AK2G SoCs) or 2
+IEPs (on K3 AM65x & J721E SoCs ). IEP is used for creating PTP clocks and
+generating PPS signals. Please refer to the corresponding binding document,
+Documentation/devicetree/bindings/net/ti,icss-iep.yaml
 
 MDIO Node
 ==========
@@ -200,9 +201,16 @@ Example:
 				reg = <0x26000 0x2000>;
 			};
 
+			pruss_iepclk_mux: iepclk-mux {
+				#clock-cells = <0>;
+				clocks = <&l3_gclk>,        /* icss_iep_gclk */
+					 <&pruss_ocp_gclk>; /* icss_ocp_gclk */
+			};
+
 			pruss_iep: iep@2e000 {
-				compatible = "syscon";
+				compatible = "ti,am3356-icss-iep";
 				reg = <0x2e000 0x31c>;
+				clocks = <&pruss_iepclk_mux>;
 			};
 
 			pruss_mii_rt: mii-rt@32000 {
@@ -294,9 +302,16 @@ Example:
 				reg = <0x26000 0x2000>;
 			};
 
+			pruss1_iepclk_mux: iepclk-mux {
+				#clock-cells = <0>;
+				clocks = <&sysclk_div>,     /* icss_iep_gclk */
+					 <&pruss_ocp_gclk>; /* icss_ocp_gclk */
+			};
+
 			pruss1_iep: iep@2e000 {
-				compatible = "syscon";
+				compatible = "ti,am3356-icss-iep";
 				reg = <0x2e000 0x31c>;
+				clocks = <&pruss1_iepclk_mux>;
 			};
 
 			pruss1_mii_rt: mii-rt@32000 {
