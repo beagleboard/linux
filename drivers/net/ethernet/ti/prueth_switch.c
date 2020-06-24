@@ -8,7 +8,6 @@
 #include <linux/remoteproc.h>
 #include <net/switchdev.h>
 #include "prueth.h"
-#include "icss_switch.h"
 #include "prueth_switch.h"
 #include "prueth_fdb_tbl.h"
 
@@ -46,7 +45,7 @@ u8 prueth_sw_port_get_stp_state(struct prueth *prueth, enum prueth_port port)
 	return state;
 }
 
-const struct prueth_queue_info sw_queue_infos[][4] = {
+const struct prueth_queue_info sw_queue_infos[][NUM_QUEUES] = {
 	[PRUETH_PORT_QUEUE_HOST] = {
 		[PRUETH_QUEUE1] = {
 			P0_Q1_BUFFER_OFFSET,
@@ -135,7 +134,7 @@ const struct prueth_queue_info sw_queue_infos[][4] = {
 	},
 };
 
-static const struct prueth_queue_info rx_queue_infos[][4] = {
+static const struct prueth_queue_info rx_queue_infos[][NUM_QUEUES] = {
 	[PRUETH_PORT_QUEUE_HOST] = {
 		[PRUETH_QUEUE1] = {
 			P0_Q1_BUFFER_OFFSET,

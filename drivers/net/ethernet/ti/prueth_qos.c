@@ -9,7 +9,6 @@
 #include <net/pkt_cls.h>
 
 #include "icss_mii_rt.h"
-#include "icss_switch.h"
 #include "icss_vlan_mcast_filter_mmap.h"
 #include "prueth.h"
 

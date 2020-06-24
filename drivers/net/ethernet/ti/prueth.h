@@ -11,6 +11,8 @@
 #include <linux/types.h>
 #include <linux/pruss.h>
 
+#include "icss_switch.h"
+
 #define PRUETH_NUMQUEUES	5
 
 /* PRUSS local memory map */
@@ -367,7 +369,6 @@ void prueth_init_timer(struct prueth *prueth);
 void prueth_start_timer(struct prueth *prueth);
 int emac_ndo_setup_tc(struct net_device *dev, enum tc_setup_type type,
 		      void *type_data);
-
-extern const struct prueth_queue_desc queue_descs[][4];
+extern const struct prueth_queue_desc queue_descs[][NUM_QUEUES];
 
 #endif /* __NET_TI_PRUETH_H */

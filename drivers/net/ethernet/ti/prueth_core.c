@@ -28,7 +28,6 @@
 
 #include "prueth.h"
 #include "icss_mii_rt.h"
-#include "icss_switch.h"
 #include "icss_vlan_mcast_filter_mmap.h"
 #include "prueth_switch.h"
 #include "icss_iep.h"
@@ -101,7 +100,7 @@ void prueth_set_reg(struct prueth *prueth, enum prueth_mem region,
 	prueth_write_reg(prueth, region, reg, val);
 }
 
-static const struct prueth_queue_info queue_infos[][4] = {
+static const struct prueth_queue_info queue_infos[][NUM_QUEUES] = {
 	[PRUETH_PORT_QUEUE_HOST] = {
 		[PRUETH_QUEUE1] = {
 			P0_Q1_BUFFER_OFFSET,
@@ -182,7 +181,7 @@ static const struct prueth_queue_info queue_infos[][4] = {
 	},
 };
 
-const struct prueth_queue_desc queue_descs[][4] = {
+const struct prueth_queue_desc queue_descs[][NUM_QUEUES] = {
 	[PRUETH_PORT_QUEUE_HOST] = {
 		{ .rd_ptr = P0_Q1_BD_OFFSET, .wr_ptr = P0_Q1_BD_OFFSET, },
 		{ .rd_ptr = P0_Q2_BD_OFFSET, .wr_ptr = P0_Q2_BD_OFFSET, },
