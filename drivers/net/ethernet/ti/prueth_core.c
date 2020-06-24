@@ -558,18 +558,14 @@ static int prueth_tx_enqueue(struct prueth_emac *emac, struct sk_buff *skb,
 	else
 		dram = emac->prueth->mem[emac->dram].va;
 
-	ret = skb_padto(skb, EMAC_MIN_PKTLEN);
-	if (ret) {
+	if (eth_skb_pad(skb)) {
 		if (netif_msg_tx_err(emac) && net_ratelimit())
 			netdev_err(ndev, "packet pad failed");
 		return ret;
 	}
 	src_addr = skb->data;
 
-	/* pad packet if needed */
 	pktlen = skb->len;
-	if (pktlen < EMAC_MIN_PKTLEN)
-		pktlen = EMAC_MIN_PKTLEN;
 
 	/* Get the tx queue */
 	queue_desc = emac->tx_queue_descs + queue_id;
