@@ -146,7 +146,7 @@ static int emac_flower_parse_policer(struct prueth_emac *emac,
 	/* Calculate number of packets per second for given bps
 	 * assuming min ethernet packet size
 	 */
-	pps = div_u64(rate_bytes_per_sec,  EMAC_MIN_PKTLEN);
+	pps = div_u64(rate_bytes_per_sec, ETH_ZLEN);
 	/* Convert that to packets per 100ms */
 	pps /= MSEC_PER_SEC / PRUETH_NSP_TIMER_MS;
 

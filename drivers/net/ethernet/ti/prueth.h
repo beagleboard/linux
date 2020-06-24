@@ -18,7 +18,6 @@
 
 #define EMAC_POLL_WEIGHT	(64) /* Default NAPI poll weight */
 #define EMAC_MAX_PKTLEN		(ETH_HLEN + VLAN_HLEN + ETH_DATA_LEN)
-#define EMAC_MIN_PKTLEN		(60)
 
 #define PRUETH_NSP_TIMER_MS	(100) /* Refresh NSP counters every 100ms */
 /**
