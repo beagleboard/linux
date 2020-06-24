@@ -4,7 +4,7 @@
  * Author(s):
  *	2011-2014 Arvid Brodin, arvid.brodin@alten.se
  *
- * Routines for handling Netlink messages for HSR.
+ * Routines for handling Netlink messages for HSR and PRP.
  */
 
 #include "hsr_netlink.h"
@@ -22,6 +22,7 @@ static const struct nla_policy hsr_policy[IFLA_HSR_MAX + 1] = {
 	[IFLA_HSR_VERSION]	= { .type = NLA_U8 },
 	[IFLA_HSR_SUPERVISION_ADDR]	= { .len = ETH_ALEN },
 	[IFLA_HSR_SEQ_NR]		= { .type = NLA_U16 },
+	[IFLA_HSR_PROTOCOL]		= { .type = NLA_U8 },
 };
 
 /* Here, it seems a netdevice has already been allocated for us, and the
@@ -32,7 +33,9 @@ static int hsr_newlink(struct net *src_net, struct net_device *dev,
 		       struct netlink_ext_ack *extack)
 {
 	struct net_device *link[2];
-	unsigned char multicast_spec, hsr_version;
+	unsigned char multicast_spec;
+	enum hsr_version proto_version;
+	u8 proto = HSR_PROTOCOL_HSR;
 
 	if (!data) {
 		netdev_info(dev, "HSR: No slave devices specified\n");
@@ -61,22 +64,39 @@ static int hsr_newlink(struct net *src_net, struct net_device *dev,
 	else
 		multicast_spec = nla_get_u8(data[IFLA_HSR_MULTICAST_SPEC]);
 
+	if (data[IFLA_HSR_PROTOCOL])
+		proto = nla_get_u8(data[IFLA_HSR_PROTOCOL]);
+
+	if (proto >= HSR_PROTOCOL_MAX) {
+		NL_SET_ERR_MSG_MOD(extack, "Unsupported protocol\n");
+		return -EINVAL;
+	}
+
 	if (!data[IFLA_HSR_VERSION]) {
-		hsr_version = 0;
+		proto_version = HSR_V0;
 	} else {
-		hsr_version = nla_get_u8(data[IFLA_HSR_VERSION]);
-		if (hsr_version > 1) {
+		if (proto == HSR_PROTOCOL_PRP) {
+			NL_SET_ERR_MSG_MOD(extack, "PRP version unsupported\n");
+			return -EINVAL;
+		}
+
+		proto_version = nla_get_u8(data[IFLA_HSR_VERSION]);
+		if (proto_version > HSR_V1) {
 			NL_SET_ERR_MSG_MOD(extack,
-					   "Only versions 0..1 are supported");
+					   "Only HSR version 0/1 supported\n");
 			return -EINVAL;
 		}
 	}
 
-	return hsr_dev_finalize(dev, link, multicast_spec, hsr_version);
+	if (proto == HSR_PROTOCOL_PRP)
+		proto_version = PRP_V1;
+
+	return hsr_dev_finalize(dev, link, multicast_spec, proto_version);
 }
 
 static int hsr_fill_info(struct sk_buff *skb, const struct net_device *dev)
 {
+	u8 proto = HSR_PROTOCOL_HSR;
 	struct hsr_priv *hsr;
 	struct hsr_port *port;
 	int res;
@@ -104,6 +124,10 @@ static int hsr_fill_info(struct sk_buff *skb, const struct net_device *dev)
 	if (nla_put(skb, IFLA_HSR_SUPERVISION_ADDR, ETH_ALEN,
 		    hsr->sup_multicast_addr) ||
 	    nla_put_u16(skb, IFLA_HSR_SEQ_NR, hsr->sequence_nr))
+		goto nla_put_failure;
+	if (hsr->prot_version == PRP_V1)
+		proto = HSR_PROTOCOL_PRP;
+	if (nla_put_u8(skb, IFLA_HSR_PROTOCOL, proto))
 		goto nla_put_failure;
 
 	return 0;
