@@ -176,8 +176,6 @@
 		status = "okay";
 		compatible = "ti,am57-prueth";
 		prus = <&pru1_0>, <&pru1_1>;
-		firmware-name = "ti-pruss/am57xx-pru0-prueth-fw.elf",
-				"ti-pruss/am57xx-pru1-prueth-fw.elf";
 		ti,pruss-gp-mux-sel = <0>,	/* GP, default */
 				      <4>;	/* MII2, needed for PRUSS1_MII1 */
 		sram = <&ocmcram1>;
