@@ -9,7 +9,6 @@ Required properties:
                         "ti,k2g-prueth" for 66AK2G SoCs
 
 - prus             : list of pHandles to the PRU nodes
-- firmware-name	   : list of strings containing firmware path.
 - sram	           : pHandle to OCMC SRAM node
 - interrupt-parent : pHandle to the PRUSS INTC node
 - mii-rt	   : pHandle to MII_RT module's syscon regmap
@@ -21,8 +20,7 @@ Either one or both children can be present. If only one
 child is present driver operates in single EMAC mode.
 
 For single mode operation with the 2nd PRU, you still need
-to provide both PRUs and firmware-names but the firmware-name
-for the first PRU can be NULL. See 2nd example.
+to provide both PRUs. See 2nd example.
 
 Required properties for children:
 - phy-handle       : See ethernet.txt file in the same directory.
@@ -48,8 +46,6 @@ Example (am572x-idk board, dual-emac):
 	pruss2_eth {
 		compatible = "ti,am57-prueth";
 		prus = <&pru2_0>, <&pru2_1>;
-		firmware-name = "ti-pruss/am57xx-pru0-prueth-fw.elf",
-				"ti-pruss/am57xx-pru1-prueth-fw.elf";
 		sram = <&ocmcram1>;
 		interrupt-parent = <&pruss2_intc>;
 		mii-rt = <&pruss2_mii_rt>;
@@ -79,8 +75,6 @@ Example (am572x-idk board, single-emac):
 	pruss2_eth {
 		compatible = "ti,am57-prueth";
 		prus = <&pru2_0>, <&pru2_1>;
-		firmware-name = "",
-				"ti-pruss/am57xx-pru1-prueth-fw.elf";
 		sram = <&ocmcram1>;
 		interrupt-parent = <&pruss2_intc>;
 		mii-rt = <&pruss2_mii_rt>;
