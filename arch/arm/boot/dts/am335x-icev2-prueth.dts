@@ -23,8 +23,6 @@
 	pruss_eth {
 		compatible = "ti,am3359-prueth";
 		prus = <&pru0>, <&pru1>;
-		firmware-name = "ti-pruss/am335x-pru0-prueth-fw.elf",
-				"ti-pruss/am335x-pru1-prueth-fw.elf";
 		sram = <&ocmcram>;
 		interrupt-parent = <&pruss_intc>;
 		mii-rt = <&pruss_mii_rt>;
