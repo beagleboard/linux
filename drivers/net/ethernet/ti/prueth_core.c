@@ -980,6 +980,10 @@ static int emac_ndo_open(struct net_device *ndev)
 		ret = prueth_sw_emac_config(emac);
 		if (ret)
 			return ret;
+
+		ret = prueth_sw_init_fdb_table(prueth);
+		if (ret)
+			return ret;
 	} else {
 		prueth_emac_config(emac);
 	}
@@ -991,7 +995,7 @@ static int emac_ndo_open(struct net_device *ndev)
 		ret = icss_iep_init(prueth->iep, NULL, NULL, 0);
 		if (ret) {
 			netdev_err(ndev, "Failed to initialize iep: %d\n", ret);
-			return ret;
+			goto free_mem;
 		}
 	}
 
@@ -1053,6 +1057,9 @@ rproc_shutdown:
 iep_exit:
 	if (!prueth->emac_configured)
 		icss_iep_exit(prueth->iep);
+free_mem:
+	if (PRUETH_IS_SWITCH(prueth))
+		prueth_sw_free_fdb_table(prueth);
 	return ret;
 }
 
@@ -1096,6 +1103,10 @@ static int emac_ndo_stop(struct net_device *ndev)
 	if (PRUETH_IS_EMAC(emac->prueth) && emac->tx_irq > 0)
 		free_irq(emac->tx_irq, ndev);
 	free_irq(emac->rx_irq, ndev);
+
+	/* free table memory of the switch */
+	if (PRUETH_IS_SWITCH(emac->prueth))
+		prueth_sw_free_fdb_table(prueth);
 
 	if (netif_msg_drv(emac))
 		dev_notice(&ndev->dev, "stopped\n");

@@ -49,6 +49,9 @@ int prueth_sw_shutdown_prus(struct prueth_emac *emac, struct net_device *ndev);
 int prueth_sw_register_notifiers(struct prueth *prueth);
 void prueth_sw_unregister_notifiers(struct prueth *prueth);
 bool prueth_sw_port_dev_check(const struct net_device *ndev);
+int prueth_sw_init_fdb_table(struct prueth *prueth);
+void prueth_sw_free_fdb_table(struct prueth *prueth);
+
 
 extern const struct prueth_queue_info sw_queue_infos[][4];
 
