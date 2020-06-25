@@ -234,8 +234,6 @@
 	pruss0_eth {
 		compatible = "ti,k2g-prueth";
 		prus = <&pru0_0>, <&pru0_1>;
-		firmware-name = "ti-pruss/k2g-pru0-prueth-fw.elf",
-				"ti-pruss/k2g-pru1-prueth-fw.elf";
 		ti,pruss-gp-mux-sel = <2>,	/* MII, needed for PR0_MII0 & PR0_MII1 */
 				      <2>;	/* MII, needed for PR0_MII1 & PR0_MII1 */
 		sram = <&msm_ram>;
@@ -268,8 +266,6 @@
 	pruss1_eth {
 		compatible = "ti,k2g-prueth";
 		prus = <&pru1_0>, <&pru1_1>;
-		firmware-name = "ti-pruss/k2g-pru0-prueth-fw.elf",
-				"ti-pruss/k2g-pru1-prueth-fw.elf";
 		ti,pruss-gp-mux-sel = <2>,	/* MII, needed for PR1_MII0 & PR1_MII1 */
 				      <2>;	/* MII, needed for PR1_MII1 & PR1_MII1 */
 		sram = <&msm_ram>;
