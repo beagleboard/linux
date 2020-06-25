@@ -975,15 +975,19 @@ static int emac_ndo_open(struct net_device *ndev)
 
 	netif_carrier_off(ndev);
 
+	mutex_lock(&prueth->mlock);
+	if (!prueth->emac_configured)
+		prueth_hostinit(prueth);
+
 	/* reset and start PRU firmware */
 	if (PRUETH_IS_SWITCH(prueth)) {
 		ret = prueth_sw_emac_config(emac);
 		if (ret)
-			return ret;
+			goto unlock_mutex;
 
 		ret = prueth_sw_init_fdb_table(prueth);
 		if (ret)
-			return ret;
+			goto unlock_mutex;
 	} else {
 		prueth_emac_config(emac);
 	}
@@ -1035,7 +1039,9 @@ static int emac_ndo_open(struct net_device *ndev)
 
 	/* enable the port */
 	prueth_port_enable(emac, true);
+	prueth->emac_configured |= BIT(emac->port_id);
 
+	mutex_unlock(&prueth->mlock);
 	if (emac->nsp_enabled)
 		prueth_start_timer(emac->prueth);
 
@@ -1060,6 +1066,8 @@ iep_exit:
 free_mem:
 	if (PRUETH_IS_SWITCH(prueth))
 		prueth_sw_free_fdb_table(prueth);
+unlock_mutex:
+	mutex_unlock(&prueth->mlock);
 	return ret;
 }
 
@@ -1074,10 +1082,11 @@ static int emac_ndo_stop(struct net_device *ndev)
 	struct prueth_emac *emac = netdev_priv(ndev);
 	struct prueth *prueth = emac->prueth;
 
+	mutex_lock(&prueth->mlock);
 	prueth->emac_configured &= ~BIT(emac->port_id);
 
 	/* disable the mac port */
-	prueth_port_enable(emac, 0);
+	prueth_port_enable(emac, false);
 
 	/* stop PHY */
 	phy_stop(emac->phydev);
@@ -1108,6 +1117,8 @@ static int emac_ndo_stop(struct net_device *ndev)
 	if (PRUETH_IS_SWITCH(emac->prueth))
 		prueth_sw_free_fdb_table(prueth);
 
+	mutex_unlock(&prueth->mlock);
+
 	if (netif_msg_drv(emac))
 		dev_notice(&ndev->dev, "stopped\n");
 
@@ -1137,8 +1148,6 @@ static void prueth_change_to_switch_mode(struct prueth *prueth)
 	}
 
 	prueth->eth_type = PRUSS_ETHTYPE_SWITCH;
-
-	prueth_hostinit(prueth);
 
 	for (i = 0; i < PRUETH_NUM_MACS; i++) {
 		emac = prueth->emac[i];
@@ -1180,7 +1189,6 @@ static void prueth_change_to_emac_mode(struct prueth *prueth)
 	}
 
 	prueth->eth_type = PRUSS_ETHTYPE_EMAC;
-	prueth_hostinit(prueth);
 
 	for (i = 0; i < PRUETH_NUM_MACS; i++) {
 		emac = prueth->emac[i];
@@ -2131,6 +2139,7 @@ static int prueth_probe(struct platform_device *pdev)
 		prueth->mem[PRUETH_MEM_OCMC].size);
 
 	/* setup netdev interfaces */
+	mutex_init(&prueth->mlock);
 	if (eth0_node) {
 		ret = prueth_netdev_init(prueth, eth0_node);
 		if (ret) {
