@@ -180,8 +180,6 @@
 	pruss1_eth {
 		compatible = "ti,am4376-prueth";
 		prus = <&pru1_0>, <&pru1_1>;
-		firmware-name = "ti-pruss/am437x-pru0-prueth-fw.elf",
-				"ti-pruss/am437x-pru1-prueth-fw.elf";
 		sram = <&ocmcram>;
 		interrupt-parent = <&pruss1_intc>;
 		mii-rt = <&pruss1_mii_rt>;
