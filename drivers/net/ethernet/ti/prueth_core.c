@@ -988,8 +988,7 @@ static int emac_ndo_open(struct net_device *ndev)
 	}
 
 	ret = request_irq(emac->rx_irq, emac_rx_hardirq,
-			  IRQF_TRIGGER_HIGH | IRQF_ONESHOT,
-			  ndev->name, ndev);
+			  IRQF_TRIGGER_HIGH, ndev->name, ndev);
 	if (ret) {
 		netdev_err(ndev, "unable to request RX IRQ\n");
 		goto rproc_shutdown;
@@ -997,8 +996,7 @@ static int emac_ndo_open(struct net_device *ndev)
 
 	if (PRUETH_IS_EMAC(prueth)) {
 		ret = request_irq(emac->tx_irq, emac_tx_hardirq,
-				  IRQF_TRIGGER_HIGH | IRQF_ONESHOT,
-				  ndev->name, ndev);
+				  IRQF_TRIGGER_HIGH, ndev->name, ndev);
 		if (ret) {
 			netdev_err(ndev, "unable to request TX IRQ\n");
 			goto free_rx_irq;
