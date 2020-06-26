@@ -202,6 +202,57 @@ const struct prueth_queue_desc queue_descs[][NUM_QUEUES] = {
 	}
 };
 
+static enum hrtimer_restart prueth_timer(struct hrtimer *timer)
+{
+	struct prueth *prueth = container_of(timer, struct prueth,
+					     tbl_check_timer);
+	enum hrtimer_restart ret = HRTIMER_NORESTART;
+	struct prueth_emac *emac;
+	enum prueth_mac mac;
+	unsigned long flags;
+
+	hrtimer_forward_now(timer, ms_to_ktime(PRUETH_NSP_TIMER_MS));
+	for (mac = PRUETH_MAC0; mac <= PRUETH_MAC1; mac++) {
+		emac = prueth->emac[mac];
+
+		/* skip if in single emac mode */
+		if (!emac)
+			continue;
+
+		if (!netif_running(emac->ndev))
+			continue;
+
+		spin_lock_irqsave(&emac->nsp_lock, flags);
+
+		if (!emac->nsp_enabled) {
+			spin_unlock_irqrestore(&emac->nsp_lock, flags);
+			continue;
+		}
+
+		ret = HRTIMER_RESTART;
+		prueth_enable_nsp(emac);
+		spin_unlock_irqrestore(&emac->nsp_lock, flags);
+	}
+
+	return ret;
+}
+
+void prueth_init_timer(struct prueth *prueth)
+{
+	hrtimer_init(&prueth->tbl_check_timer, CLOCK_MONOTONIC,
+		     HRTIMER_MODE_REL);
+	prueth->tbl_check_timer.function = prueth_timer;
+}
+
+void prueth_start_timer(struct prueth *prueth)
+{
+	if (hrtimer_active(&prueth->tbl_check_timer))
+		return;
+
+	hrtimer_start(&prueth->tbl_check_timer,
+		      ms_to_ktime(PRUETH_NSP_TIMER_MS), HRTIMER_MODE_REL);
+}
+
 static void prueth_hostconfig(struct prueth *prueth)
 {
 	void __iomem *sram_base = prueth->mem[PRUETH_MEM_SHARED_RAM].va;

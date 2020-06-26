@@ -391,7 +391,7 @@ struct prueth {
 	u8 base_mac[ETH_ALEN];
 };
 
-void prueth_init_timer(struct prueth *prueth);
+void prueth_enable_nsp(struct prueth_emac *emac);
 void prueth_start_timer(struct prueth *prueth);
 int emac_ndo_setup_tc(struct net_device *dev, enum tc_setup_type type,
 		      void *type_data);

@@ -18,67 +18,20 @@ static void emac_nsp_enable(void __iomem *counter, u16 credit)
 	       counter);
 }
 
-static enum hrtimer_restart prueth_timer(struct hrtimer *timer)
+void prueth_enable_nsp(struct prueth_emac *emac)
 {
-	struct prueth *prueth = container_of(timer, struct prueth,
-					     tbl_check_timer);
-	enum hrtimer_restart ret = HRTIMER_NORESTART;
-	struct prueth_emac *emac;
-	enum prueth_mac mac;
-	unsigned long flags;
-	void __iomem *dram;
+	struct prueth *prueth = emac->prueth;
+	void __iomem *dram = prueth->mem[emac->dram].va;
 
-	hrtimer_forward_now(timer, ms_to_ktime(PRUETH_NSP_TIMER_MS));
-	for (mac = PRUETH_MAC0; mac <= PRUETH_MAC1; mac++) {
-		emac = prueth->emac[mac];
-
-		/* skip if in single emac mode */
-		if (!emac)
-			continue;
-
-		if (!netif_running(emac->ndev))
-			continue;
-
-		spin_lock_irqsave(&emac->nsp_lock, flags);
-
-		if (!emac->nsp_enabled) {
-			spin_unlock_irqrestore(&emac->nsp_lock, flags);
-			continue;
-		}
-
-		ret = HRTIMER_RESTART;
-		dram = prueth->mem[emac->dram].va;
-
-		if (emac->nsp_bc.cookie)
-			emac_nsp_enable(dram + STORM_PREVENTION_OFFSET_BC,
-					emac->nsp_bc.credit);
-		if (emac->nsp_mc.cookie)
-			emac_nsp_enable(dram + STORM_PREVENTION_OFFSET_MC,
-					emac->nsp_mc.credit);
-		if (emac->nsp_uc.cookie)
-			emac_nsp_enable(dram + STORM_PREVENTION_OFFSET_UC,
-					emac->nsp_uc.credit);
-
-		spin_unlock_irqrestore(&emac->nsp_lock, flags);
-	}
-
-	return ret;
-}
-
-void prueth_init_timer(struct prueth *prueth)
-{
-	hrtimer_init(&prueth->tbl_check_timer, CLOCK_MONOTONIC,
-		     HRTIMER_MODE_REL);
-	prueth->tbl_check_timer.function = prueth_timer;
-}
-
-void prueth_start_timer(struct prueth *prueth)
-{
-	if (hrtimer_active(&prueth->tbl_check_timer))
-		return;
-
-	hrtimer_start(&prueth->tbl_check_timer, ms_to_ktime(PRUETH_NSP_TIMER_MS),
-		      HRTIMER_MODE_REL);
+	if (emac->nsp_bc.cookie)
+		emac_nsp_enable(dram + STORM_PREVENTION_OFFSET_BC,
+				emac->nsp_bc.credit);
+	if (emac->nsp_mc.cookie)
+		emac_nsp_enable(dram + STORM_PREVENTION_OFFSET_MC,
+				emac->nsp_mc.credit);
+	if (emac->nsp_uc.cookie)
+		emac_nsp_enable(dram + STORM_PREVENTION_OFFSET_UC,
+				emac->nsp_uc.credit);
 }
 
 static int emac_flower_parse_policer(struct prueth_emac *emac,
