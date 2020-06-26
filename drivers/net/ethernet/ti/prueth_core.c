@@ -202,7 +202,7 @@ const struct prueth_queue_desc queue_descs[][NUM_QUEUES] = {
 	}
 };
 
-static int prueth_hostconfig(struct prueth *prueth)
+static void prueth_hostconfig(struct prueth *prueth)
 {
 	void __iomem *sram_base = prueth->mem[PRUETH_MEM_SHARED_RAM].va;
 	void __iomem *sram;
@@ -237,8 +237,6 @@ static int prueth_hostconfig(struct prueth *prueth)
 	sram = sram_base + HOST_QUEUE_DESC_OFFSET;
 	memcpy_toio(sram, queue_descs[PRUETH_PORT_QUEUE_HOST],
 		    sizeof(queue_descs[PRUETH_PORT_QUEUE_HOST]));
-
-	return 0;
 }
 
 #define prueth_mii_set(dir, port, mask, set) \
@@ -301,7 +299,7 @@ static void prueth_clearmem(struct prueth *prueth, enum prueth_mem region)
 	memset_io(prueth->mem[region].va, 0, prueth->mem[region].size);
 }
 
-static int prueth_hostinit(struct prueth *prueth)
+static void prueth_hostinit(struct prueth *prueth)
 {
 	/* Clear shared RAM */
 	prueth_clearmem(prueth, PRUETH_MEM_SHARED_RAM);
@@ -323,11 +321,9 @@ static int prueth_hostinit(struct prueth *prueth)
 
 	/* Configure MII_RT */
 	prueth_mii_init(prueth);
-
-	return 0;
 }
 
-static int prueth_port_enable(struct prueth_emac *emac, bool enable)
+static void prueth_port_enable(struct prueth_emac *emac, bool enable)
 {
 	void __iomem *port_ctrl, *vlan_ctrl;
 	struct prueth *prueth = emac->prueth;
@@ -338,11 +334,9 @@ static int prueth_port_enable(struct prueth_emac *emac, bool enable)
 
 	writeb(!!enable, port_ctrl);
 	writeb(!!enable, vlan_ctrl);
-
-	return 0;
 }
 
-static int prueth_emac_config(struct prueth_emac *emac)
+static void prueth_emac_config(struct prueth_emac *emac)
 {
 	struct prueth *prueth = emac->prueth;
 
@@ -383,8 +377,6 @@ static int prueth_emac_config(struct prueth_emac *emac)
 
 	/* Set in constant table C30 of PRU0 to OCMC memory */
 	pru_rproc_set_ctable(emac->pru, PRU_C30, ocmcaddr);
-
-	return 0;
 }
 
 /* update phy/port status information for firmware */
@@ -958,10 +950,13 @@ static int emac_ndo_open(struct net_device *ndev)
 	netif_carrier_off(ndev);
 
 	/* reset and start PRU firmware */
-	if (PRUETH_IS_SWITCH(prueth))
-		prueth_sw_emac_config(emac);
-	else
+	if (PRUETH_IS_SWITCH(prueth)) {
+		ret = prueth_sw_emac_config(emac);
+		if (ret)
+			return ret;
+	} else {
 		prueth_emac_config(emac);
+	}
 
 	/* restore stats */
 	emac_set_stats(emac, &emac->stats);
@@ -2127,11 +2122,7 @@ static int prueth_probe(struct platform_device *pdev)
 		goto netdev_exit;
 	}
 
-	ret = prueth_hostinit(prueth);
-	if (ret) {
-		dev_err(dev, "hostinit failed: %d\n", ret);
-		goto iep_put;
-	}
+	prueth_hostinit(prueth);
 
 	/* register the network devices */
 	if (eth0_node) {

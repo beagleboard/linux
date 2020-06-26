@@ -51,7 +51,7 @@ void prueth_sw_port_set_stp_state(struct prueth *prueth,
 		&t->port2_stp_cfg->state : &t->port1_stp_cfg->state);
 }
 
-int prueth_sw_hostconfig(struct prueth *prueth);
+void prueth_sw_hostconfig(struct prueth *prueth);
 int prueth_sw_emac_config(struct prueth_emac *emac);
 void prueth_sw_fdb_tbl_init(struct prueth *prueth);
 int prueth_sw_learn_fdb(struct prueth_emac *emac, u8 *src_mac);

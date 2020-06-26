@@ -265,7 +265,7 @@ static const struct prueth_queue_desc col_queue_descs[3] = {
 		.rd_ptr = END_OF_BD_POOL, .wr_ptr = END_OF_BD_POOL, }
 };
 
-int prueth_sw_hostconfig(struct prueth *prueth)
+void prueth_sw_hostconfig(struct prueth *prueth)
 {
 	void __iomem *dram1_base = prueth->mem[PRUETH_MEM_DRAM1].va;
 	void __iomem *dram;
@@ -304,8 +304,6 @@ int prueth_sw_hostconfig(struct prueth *prueth)
 	dram = dram1_base + P0_QUEUE_DESC_OFFSET;
 	memcpy_toio(dram, queue_descs[PRUETH_PORT_QUEUE_HOST],
 		    sizeof(queue_descs[PRUETH_PORT_QUEUE_HOST]));
-
-	return 0;
 }
 
 static int prueth_sw_port_config(struct prueth *prueth,
