@@ -335,7 +335,7 @@ static void prueth_mii_init(struct prueth *prueth)
 	prueth_mii_set(TX, 1, AUTO_PREAMBLE,
 		       PRUSS_MII_RT_TXCFG_TX_AUTO_PREAMBLE);
 	prueth_mii_set(TX, 1, 32_MODE_EN, PRUSS_MII_RT_TXCFG_TX_32_MODE_EN);
-	if (PRUETH_IS_SWITCH(prueth))
+	if (!PRUETH_IS_EMAC(prueth))
 		prueth_mii_set(TX, 1, MUX_SEL, 0x0);
 	else
 		prueth_mii_set(TX, 1, MUX_SEL, PRUSS_MII_RT_TXCFG_TX_MUX_SEL);
@@ -343,6 +343,55 @@ static void prueth_mii_init(struct prueth *prueth)
 		       TX_START_DELAY << PRUSS_MII_RT_TXCFG_TX_START_DELAY_SHIFT);
 	prueth_mii_set(TX, 1, CLK_DELAY_MASK,
 		       TX_CLK_DELAY_100M << PRUSS_MII_RT_TXCFG_TX_CLK_DELAY_SHIFT);
+
+	/* Min frame length should be set to 64 to allow receive of standard
+	 * Ethernet frames such as PTP, LLDP that will not have the tag/rct.
+	 * Actual size written to register is size - 1 per TRM. This also
+	 * includes CRC/FCS.
+	 */
+	regmap_update_bits(prueth->mii_rt,
+			   PRUSS_MII_RT_RX_FRMS0,
+			   PRUSS_MII_RT_RX_FRMS_MIN_FRM_MASK,
+			   (PRUSS_MII_RT_RX_FRMS_MIN_FRM - 1) <<
+			   PRUSS_MII_RT_RX_FRMS_MIN_FRM_SHIFT);
+
+	regmap_update_bits(prueth->mii_rt,
+			   PRUSS_MII_RT_RX_FRMS1,
+			   PRUSS_MII_RT_RX_FRMS_MIN_FRM_MASK,
+			   (PRUSS_MII_RT_RX_FRMS_MIN_FRM - 1) <<
+			   PRUSS_MII_RT_RX_FRMS_MIN_FRM_SHIFT);
+
+	/* For EMAC, set Max frame size to 1522 i.e size with VLAN and for
+	 * HSR/PRP set it to 1528 i.e size with tag or rct. Actual size
+	 * written to register is size - 1 as per TRM. Since driver
+	 * support run time change of protocol, driver must overwrite
+	 * the values based on Ethernet type.
+	 */
+	if (PRUETH_IS_LRE(prueth)) {
+		regmap_update_bits(prueth->mii_rt,
+				   PRUSS_MII_RT_RX_FRMS0,
+				   PRUSS_MII_RT_RX_FRMS_MAX_FRM_MASK,
+				   (PRUSS_MII_RT_RX_FRMS_MAX_FRM_LRE - 1) <<
+				   PRUSS_MII_RT_RX_FRMS_MAX_FRM_SHIFT);
+
+		regmap_update_bits(prueth->mii_rt,
+				   PRUSS_MII_RT_RX_FRMS1,
+				   PRUSS_MII_RT_RX_FRMS_MAX_FRM_MASK,
+				   (PRUSS_MII_RT_RX_FRMS_MAX_FRM_LRE - 1) <<
+				   PRUSS_MII_RT_RX_FRMS_MAX_FRM_SHIFT);
+	} else {
+		regmap_update_bits(prueth->mii_rt,
+				   PRUSS_MII_RT_RX_FRMS0,
+				   PRUSS_MII_RT_RX_FRMS_MAX_FRM_MASK,
+				   (PRUSS_MII_RT_RX_FRMS_MAX - 1) <<
+				   PRUSS_MII_RT_RX_FRMS_MAX_FRM_SHIFT);
+
+		regmap_update_bits(prueth->mii_rt,
+				   PRUSS_MII_RT_RX_FRMS1,
+				   PRUSS_MII_RT_RX_FRMS_MAX_FRM_MASK,
+				   (PRUSS_MII_RT_RX_FRMS_MAX - 1) <<
+				   PRUSS_MII_RT_RX_FRMS_MAX_FRM_SHIFT);
+	}
 }
 
 static void prueth_clearmem(struct prueth *prueth, enum prueth_mem region)

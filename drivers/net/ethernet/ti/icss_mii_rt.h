@@ -8,6 +8,10 @@
 #ifndef __NET_PRUSS_MII_RT_H__
 #define __NET_PRUSS_MII_RT_H__
 
+#include <linux/if_ether.h>
+
+#include "icss_lre_firmware.h"
+
 /* PRUSS_MII_RT Registers */
 #define PRUSS_MII_RT_RXCFG0		0x0
 #define PRUSS_MII_RT_RXCFG1		0x4
@@ -68,6 +72,14 @@
 #define PRUSS_MII_RT_RX_FRMS_MAX_FRM_SHIFT	16
 #define PRUSS_MII_RT_RX_FRMS_MAX_FRM_MASK	GENMASK(31, 16)
 
+/* Min/Max in MII_RT_RX_FRMS */
+/* For EMAC and Switch */
+#define PRUSS_MII_RT_RX_FRMS_MAX	(VLAN_ETH_FRAME_LEN + ETH_FCS_LEN)
+#define PRUSS_MII_RT_RX_FRMS_MIN_FRM	(64)
+
+/* for HSR and PRP */
+#define PRUSS_MII_RT_RX_FRMS_MAX_FRM_LRE	(PRUSS_MII_RT_RX_FRMS_MAX + \
+						 ICSS_LRE_TAG_RCT_SIZE)
 /* PRUSS_MII_RT_RX_PCNT0/1 bits */
 #define PRUSS_MII_RT_RX_PCNT_MIN_PCNT_SHIFT	0
 #define PRUSS_MII_RT_RX_PCNT_MIN_PCNT_MASK	GENMASK(3, 0)
