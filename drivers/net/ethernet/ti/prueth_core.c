@@ -994,7 +994,7 @@ static int emac_ndo_open(struct net_device *ndev)
 		goto rproc_shutdown;
 	}
 
-	if (PRUETH_IS_EMAC(prueth)) {
+	if (PRUETH_IS_EMAC(prueth) && emac->tx_irq > 0) {
 		ret = request_irq(emac->tx_irq, emac_tx_hardirq,
 				  IRQF_TRIGGER_HIGH, ndev->name, ndev);
 		if (ret) {
@@ -1072,7 +1072,7 @@ static int emac_ndo_stop(struct net_device *ndev)
 		icss_iep_exit(prueth->iep);
 
 	/* free rx and tx interrupts */
-	if (PRUETH_IS_EMAC(emac->prueth))
+	if (PRUETH_IS_EMAC(emac->prueth) && emac->tx_irq > 0)
 		free_irq(emac->tx_irq, ndev);
 	free_irq(emac->rx_irq, ndev);
 
@@ -1205,7 +1205,8 @@ static int emac_ndo_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 fail_tx:
 	if (ret == -ENOBUFS) {
 		/* no free TX queue */
-		netif_stop_queue(ndev);
+		if (emac->tx_irq > 0)
+			netif_stop_queue(ndev);
 		ret = NETDEV_TX_BUSY;
 	} else {
 		/* error */
@@ -1734,10 +1735,8 @@ static int prueth_netdev_init(struct prueth *prueth,
 	}
 	emac->tx_irq = of_irq_get_byname(eth_node, "tx");
 	if (emac->tx_irq < 0) {
-		ret = emac->tx_irq;
-		if (ret != -EPROBE_DEFER)
-			dev_err(prueth->dev, "could not get tx irq\n");
-		goto free;
+		if (emac->tx_irq != -EPROBE_DEFER)
+			dev_dbg(prueth->dev, "tx irq not configured\n");
 	}
 
 	emac->msg_enable = netif_msg_init(debug_level, PRUETH_EMAC_DEBUG);
