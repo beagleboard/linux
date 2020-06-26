@@ -8,17 +8,6 @@
 #include "prueth.h"
 #include "prueth_fdb_tbl.h"
 
-/* PRU Ethernet Type - Ethernet functionality (protocol
- * implemented) provided by the PRU firmware being loaded.
- */
-enum pruss_ethtype {
-	PRUSS_ETHTYPE_EMAC = 0,
-	PRUSS_ETHTYPE_SWITCH = 3,
-};
-
-#define PRUETH_IS_EMAC(p)	((p)->eth_type == PRUSS_ETHTYPE_EMAC)
-#define PRUETH_IS_SWITCH(p)	((p)->eth_type == PRUSS_ETHTYPE_SWITCH)
-
 struct prueth_col_rx_context_info {
 	u16 buffer_offset;
 	u16 buffer_offset2;

@@ -21,6 +21,18 @@
 #define EMAC_POLL_WEIGHT	(64) /* Default NAPI poll weight */
 #define EMAC_MAX_PKTLEN		(ETH_HLEN + VLAN_HLEN + ETH_DATA_LEN)
 
+/* PRU Ethernet Type - Ethernet functionality (protocol
+ * implemented) provided by the PRU firmware being loaded.
+ */
+enum pruss_ethtype {
+	PRUSS_ETHTYPE_EMAC = 0,
+	PRUSS_ETHTYPE_SWITCH = 3,
+	PRUSS_ETHTYPE_MAX,
+};
+
+#define PRUETH_IS_EMAC(p)	((p)->eth_type == PRUSS_ETHTYPE_EMAC)
+#define PRUETH_IS_SWITCH(p)	((p)->eth_type == PRUSS_ETHTYPE_SWITCH)
+
 #define PRUETH_NSP_TIMER_MS	(100) /* Refresh NSP counters every 100ms */
 /**
  * struct prueth_queue_desc - Queue descriptor
@@ -252,11 +264,18 @@ enum prueth_mem {
 };
 
 /**
+ * @fw_name: firmware names of firmware to run on PRU
+ */
+struct prueth_firmware {
+	const char *fw_name[PRUSS_ETHTYPE_MAX];
+};
+
+/**
  * struct prueth_private_data - PRU Ethernet private data
  * @fw_names: firmware names to be used for PRUSS ethernet usecases
  */
 struct prueth_private_data {
-	const char *fw_names[PRUSS_NUM_PRUS];
+	struct prueth_firmware fw_pru[PRUSS_NUM_PRUS];
 };
 
 struct nsp_counter {
@@ -347,6 +366,7 @@ struct prueth {
 	struct regmap *mii_rt;
 	struct icss_iep *iep;
 	struct hrtimer tbl_check_timer;
+	const struct prueth_private_data *fw_data;
 
 	struct device_node *eth_node[PRUETH_NUM_MACS];
 	struct prueth_emac *emac[PRUETH_NUM_MACS];

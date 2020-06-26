@@ -963,12 +963,17 @@ static int prueth_sw_purge_fdb(struct prueth_emac *emac)
 
 int prueth_sw_boot_prus(struct prueth *prueth, struct net_device *ndev)
 {
+	const struct prueth_firmware *pru_firmwares;
+	const char *fw_name, *fw_name1;
 	int ret;
-	char *fw_name = "ti-pruss/am57xx-pru0-prusw-fw.elf";
-	char *fw_name1 = "ti-pruss/am57xx-pru1-prusw-fw.elf";
 
 	if (prueth->emac_configured)
 		return 0;
+
+	pru_firmwares = &prueth->fw_data->fw_pru[PRUSS_PRU0];
+	fw_name = pru_firmwares->fw_name[PRUSS_ETHTYPE_SWITCH];
+	pru_firmwares = &prueth->fw_data->fw_pru[PRUSS_PRU1];
+	fw_name1 = pru_firmwares->fw_name[PRUSS_ETHTYPE_SWITCH];
 
 	ret = rproc_set_firmware(prueth->pru0, fw_name);
 	if (ret) {
@@ -1014,11 +1019,16 @@ rproc0_shutdown:
 int prueth_sw_shutdown_prus(struct prueth_emac *emac, struct net_device *ndev)
 {
 	struct prueth *prueth = emac->prueth;
-	char *fw_name = "ti-pruss/am57xx-pru0-prueth-fw.elf";
-	char *fw_name1 = "ti-pruss/am57xx-pru1-prueth-fw.elf";
+	const struct prueth_firmware *pru_firmwares;
+	const char *fw_name, *fw_name1;
 
 	if (prueth->emac_configured)
 		return 0;
+
+	pru_firmwares = &prueth->fw_data->fw_pru[PRUSS_PRU0];
+	fw_name = pru_firmwares->fw_name[PRUSS_ETHTYPE_EMAC];
+	pru_firmwares = &prueth->fw_data->fw_pru[PRUSS_PRU1];
+	fw_name1 = pru_firmwares->fw_name[PRUSS_ETHTYPE_EMAC];
 
 	rproc_shutdown(prueth->pru0);
 	rproc_shutdown(prueth->pru1);
