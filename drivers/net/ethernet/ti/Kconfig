@@ -159,6 +159,8 @@ config TI_PRUETH
 	tristate "TI PRU Ethernet EMAC driver"
 	depends on PRU_REMOTEPROC
 	depends on NET_SWITCHDEV
+	select TI_ICSS_IEP
+	imply PTP_1588_CLOCK
 	---help---
 	  Support single or dual EMAC over PRUSS.
 

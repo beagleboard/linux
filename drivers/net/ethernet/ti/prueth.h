@@ -318,7 +318,7 @@ struct prueth_emac {
  * @mem: PRUSS memory resources we need to access
  * @sram_pool: OCMC ram pool for buffers
  * @mii_rt: regmap to mii_rt block
- * @iep: regmap to IEP block
+ * @iep: Pointer to ICSS IEP data
  * @tbl_check_timer: HR timer for refreshing NSP counters
  *
  * @eth_node: node for each emac node
@@ -344,7 +344,7 @@ struct prueth {
 	struct pruss_mem_region mem[PRUETH_MEM_MAX];
 	struct gen_pool *sram_pool;
 	struct regmap *mii_rt;
-	struct regmap *iep;
+	struct icss_iep *iep;
 	struct hrtimer tbl_check_timer;
 
 	struct device_node *eth_node[PRUETH_NUM_MACS];

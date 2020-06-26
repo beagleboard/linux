@@ -1840,6 +1840,9 @@ struct net_device {
 #endif
 	const struct net_device_ops *netdev_ops;
 	const struct ethtool_ops *ethtool_ops;
+#if IS_ENABLED(CONFIG_HSR)
+	const struct lredev_ops *lredev_ops;
+#endif
 #ifdef CONFIG_NET_L3_MASTER_DEV
 	const struct l3mdev_ops	*l3mdev_ops;
 #endif

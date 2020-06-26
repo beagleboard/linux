@@ -18,9 +18,9 @@
 
 static rx_handler_result_t hsr_handle_frame(struct sk_buff **pskb)
 {
+	struct hsr_priv *hsr = NULL;
 	struct sk_buff *skb = *pskb;
 	struct hsr_port *port;
-	struct hsr_priv *hsr;
 	u16 protocol;
 
 	/* Packets from dev_loopback_xmit() do not have L2 header, bail out */
@@ -40,6 +40,7 @@ static rx_handler_result_t hsr_handle_frame(struct sk_buff **pskb)
 
 	if (hsr_addr_is_self(port->hsr, eth_hdr(skb)->h_source)) {
 		/* Directly kill frames sent by ourselves */
+		INC_CNT_OWN_RX_AB(port->type, hsr);
 		kfree_skb(skb);
 		goto finish_consume;
 	}
@@ -49,7 +50,7 @@ static rx_handler_result_t hsr_handle_frame(struct sk_buff **pskb)
 	 */
 	protocol = eth_hdr(skb)->h_proto;
 	if (protocol != htons(ETH_P_PRP) && protocol != htons(ETH_P_HSR) &&
-	    hsr->prot_version <= HSR_V1)
+	    hsr->prot_version <= HSR_V1 && !hsr->rx_offloaded)
 		goto finish_pass;
 
 	/* Frame is a HSR or PRP frame or frame form a SAN. For
@@ -61,9 +62,11 @@ static rx_handler_result_t hsr_handle_frame(struct sk_buff **pskb)
 	if (skb_mac_header(skb) != skb->data) {
 		WARN_ONCE(1, "%s:%d: Malformed frame at source port %s)\n",
 			  __func__, __LINE__, port->dev->name);
+		INC_CNT_RX_ERROR_AB(port->type, hsr);
 		goto finish_consume;
 	}
 
+	INC_CNT_RX_AB(port->type, hsr);
 	hsr_forward_skb(skb, port);
 
 finish_consume:
@@ -71,6 +74,8 @@ finish_consume:
 	return RX_HANDLER_CONSUMED;
 
 finish_pass:
+	if (hsr)
+		INC_CNT_RX_ERROR_AB(port->type, hsr);
 	rcu_read_unlock(); /* hsr->node_db, hsr->ports */
 	return RX_HANDLER_PASS;
 }
@@ -123,9 +128,15 @@ static int hsr_portdev_setup(struct net_device *dev, struct hsr_port *port)
 	int res;
 
 	dev_hold(dev);
-	res = dev_set_promiscuity(dev, 1);
-	if (res)
-		goto fail_promiscuity;
+	/* Don't use promiscuous mode for offload since L2 frame forward
+	 * happens at the offloaded hardware.
+	 */
+	if (!port->hsr->rx_offloaded) {
+		res = dev_set_promiscuity(dev, 1);
+		if (res)
+			goto fail_promiscuity;
+	}
+
 
 	/* FIXME:
 	 * What does net device "adjacency" mean? Should we do
@@ -140,7 +151,8 @@ static int hsr_portdev_setup(struct net_device *dev, struct hsr_port *port)
 	return 0;
 
 fail_rx_handler:
-	dev_set_promiscuity(dev, -1);
+	if (!port->hsr->rx_offloaded)
+		dev_set_promiscuity(dev, -1);
 fail_promiscuity:
 	dev_put(dev);
 

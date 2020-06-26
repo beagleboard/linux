@@ -80,27 +80,77 @@ void hsr_debugfs_rename(struct net_device *dev)
 	struct hsr_priv *priv = netdev_priv(dev);
 	struct dentry *d;
 
-	d = debugfs_rename(hsr_debugfs_root_dir, priv->node_tbl_root,
+	d = debugfs_rename(hsr_debugfs_root_dir, priv->root_dir,
 			   hsr_debugfs_root_dir, dev->name);
 	if (IS_ERR(d))
 		netdev_warn(dev, "failed to rename\n");
 	else
-		priv->node_tbl_root = d;
+		priv->root_dir = d;
 }
 
-static const struct file_operations hsr_fops = {
+static const struct file_operations hsr_node_table_fops = {
 	.open	= hsr_node_table_open,
 	.read	= seq_read,
 	.llseek = seq_lseek,
 	.release = single_release,
 };
 
-/* hsr_debugfs_init - create hsr node_table file for dumping
- * the node table
+/* hsr_lre_info_show - Formats and prints debug info in the device
+ */
+static int
+hsr_lre_info_show(struct seq_file *sfp, void *data)
+{
+	struct hsr_priv *priv = (struct hsr_priv *)sfp->private;
+	bool prp = priv->prot_version > HSR_V1;
+
+	seq_puts(sfp, "LRE debug information\n");
+	seq_printf(sfp, "Protocol : %s\n", prp ? "PRP" : "HSR");
+	seq_printf(sfp, "net_id: %d\n", priv->net_id);
+	seq_printf(sfp, "Rx Offloaded: %s\n",
+		   priv->rx_offloaded ? "Yes" : "No");
+	if (!prp)
+		seq_printf(sfp, "L2 fw Offloaded: %s\n",
+			   priv->l2_fwd_offloaded ? "Yes" : "No");
+	seq_printf(sfp, "vlan tag used in sv frame : %s\n",
+		   priv->use_vlan_for_sv ? "Yes" : "No");
+	if (priv->use_vlan_for_sv) {
+		seq_printf(sfp, "SV Frame VID : %d\n",
+			   priv->sv_frame_vid);
+		seq_printf(sfp, "SV Frame PCP : %d\n",
+			   priv->sv_frame_pcp);
+		seq_printf(sfp, "SV Frame DEI : %d\n",
+			   priv->sv_frame_dei);
+	}
+	seq_printf(sfp, "cnt_tx_sup = %d\n", priv->dbg_stats.cnt_tx_sup);
+	seq_printf(sfp, "disable SV Frame = %d\n", priv->disable_sv_frame);
+	seq_puts(sfp, "\n");
+	return 0;
+}
+
+/* hsr_lre_info_open - open lre info file
  *
  * Description:
- * When debugfs is configured this routine sets up the node_table file per
- * hsr device for dumping the node_table entries
+ * This routine opens a debugfs file lre_info of specific hsr or
+ * prp device
+ */
+static int
+hsr_lre_info_open(struct inode *inode, struct file *filp)
+{
+	return single_open(filp, hsr_lre_info_show, inode->i_private);
+}
+
+static const struct file_operations hsr_lre_info_fops = {
+	.owner	= THIS_MODULE,
+	.open	= hsr_lre_info_open,
+	.read	= seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
+/* hsr_debugfs_init - create debugfs to dump lre specific debug information
+ *
+ * Description:
+ * dump lre info of hsr or prp device
  */
 void hsr_debugfs_init(struct hsr_priv *priv, struct net_device *hsr_dev)
 {
@@ -108,23 +158,38 @@ void hsr_debugfs_init(struct hsr_priv *priv, struct net_device *hsr_dev)
 
 	de = debugfs_create_dir(hsr_dev->name, hsr_debugfs_root_dir);
 	if (IS_ERR(de)) {
-		pr_err("Cannot create hsr debugfs directory\n");
+		pr_err("Cannot create hsr debugfs root directory %s\n",
+		       hsr_dev->name);
 		return;
 	}
 
-	priv->node_tbl_root = de;
+	priv->root_dir = de;
 
 	de = debugfs_create_file("node_table", S_IFREG | 0444,
-				 priv->node_tbl_root, priv,
-				 &hsr_fops);
+				 priv->root_dir, priv, &hsr_node_table_fops);
 	if (IS_ERR(de)) {
 		pr_err("Cannot create hsr node_table file\n");
-		debugfs_remove(priv->node_tbl_root);
-		priv->node_tbl_root = NULL;
-		return;
+		goto error_nt;
 	}
 	priv->node_tbl_file = de;
-}
+
+	de = debugfs_create_file("lre_info", S_IFREG | 0444,
+				 priv->root_dir, priv, &hsr_lre_info_fops);
+	if (IS_ERR(de)) {
+		pr_err("Cannot create hsr-prp lre_info file\n");
+		goto error_lre_info;
+	}
+	priv->lre_info_file = de;
+
+	return;
+
+error_lre_info:
+	debugfs_remove(priv->node_tbl_file);
+	priv->node_tbl_file = NULL;
+error_nt:
+	debugfs_remove(priv->root_dir);
+	priv->root_dir = NULL;
+} /* end of hst_debugfs_init */
 
 /* hsr_debugfs_term - Tear down debugfs intrastructure
  *
@@ -137,8 +202,10 @@ hsr_debugfs_term(struct hsr_priv *priv)
 {
 	debugfs_remove(priv->node_tbl_file);
 	priv->node_tbl_file = NULL;
-	debugfs_remove(priv->node_tbl_root);
-	priv->node_tbl_root = NULL;
+	debugfs_remove(priv->lre_info_file);
+	priv->lre_info_file = NULL;
+	debugfs_remove(priv->root_dir);
+	priv->root_dir = NULL;
 }
 
 void hsr_debugfs_create_root(void)

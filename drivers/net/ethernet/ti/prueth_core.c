@@ -31,6 +31,7 @@
 #include "icss_switch.h"
 #include "icss_vlan_mcast_filter_mmap.h"
 #include "prueth_switch.h"
+#include "icss_iep.h"
 
 #define PRUETH_MODULE_VERSION "0.2"
 #define PRUETH_MODULE_DESCRIPTION "PRUSS Ethernet driver"
@@ -323,11 +324,6 @@ static int prueth_hostinit(struct prueth *prueth)
 
 	/* Configure MII_RT */
 	prueth_mii_init(prueth);
-
-	/* Enable IEP Counter */
-	regmap_update_bits(prueth->iep, PRUSS_IEP_GLOBAL_CFG,
-			   PRUSS_IEP_GLOBAL_CFG_CNT_ENABLE,
-			   PRUSS_IEP_GLOBAL_CFG_CNT_ENABLE);
 
 	return 0;
 }
@@ -2011,12 +2007,6 @@ static int prueth_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	prueth->iep = syscon_regmap_lookup_by_phandle(np, "iep");
-	if (IS_ERR(prueth->iep)) {
-		dev_err(dev, "couldn't get iep syscon regmap\n");
-		return -ENODEV;
-	}
-
 	if (eth0_node) {
 		prueth->pru0 = pru_rproc_get(np, 0);
 		if (IS_ERR(prueth->pru0)) {
@@ -2125,10 +2115,24 @@ static int prueth_probe(struct platform_device *pdev)
 		}
 	}
 
+	prueth->iep = icss_iep_get(np);
+	if (IS_ERR(prueth->iep)) {
+		ret = PTR_ERR(prueth->iep);
+		prueth->iep = NULL;
+		goto skip_iep;
+	}
+
+	ret = icss_iep_init(prueth->iep, NULL, NULL, 0);
+	if (ret) {
+		dev_err(dev, "failed to init iep\n");
+		goto netdev_exit;
+	}
+
+skip_iep:
 	ret = prueth_hostinit(prueth);
 	if (ret) {
 		dev_err(dev, "hostinit failed: %d\n", ret);
-		goto netdev_exit;
+		goto iep_exit;
 	}
 
 	/* register the network devices */
@@ -2136,7 +2140,7 @@ static int prueth_probe(struct platform_device *pdev)
 		ret = register_netdev(prueth->emac[PRUETH_MAC0]->ndev);
 		if (ret) {
 			dev_err(dev, "can't register netdev for port MII0");
-			goto netdev_exit;
+			goto iep_exit;
 		}
 
 		prueth->registered_netdevs[PRUETH_MAC0] = prueth->emac[PRUETH_MAC0]->ndev;
@@ -2173,6 +2177,13 @@ netdev_unregister:
 			continue;
 		unregister_netdev(prueth->registered_netdevs[i]);
 	}
+
+iep_exit:
+	if (prueth->iep) {
+		icss_iep_exit(prueth->iep);
+		icss_iep_put(prueth->iep);
+	}
+	prueth->iep = NULL;
 
 netdev_exit:
 	for (i = 0; i < PRUETH_NUM_MACS; i++) {
@@ -2244,6 +2255,11 @@ static int prueth_remove(struct platform_device *pdev)
 	for (i = PRUETH_MEM_DRAM0; i < PRUETH_MEM_OCMC; i++) {
 		if (prueth->mem[i].va)
 			pruss_release_mem_region(prueth->pruss, &prueth->mem[i]);
+	}
+
+	if (prueth->iep) {
+		icss_iep_exit(prueth->iep);
+		icss_iep_put(prueth->iep);
 	}
 
 	pruss_put(prueth->pruss);
