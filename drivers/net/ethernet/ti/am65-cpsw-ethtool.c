@@ -451,7 +451,7 @@ static int am65_cpsw_set_channels(struct net_device *ndev,
 	/* Check if interface is up. Can change the num queues when
 	 * the interface is down.
 	 */
-	if (netif_running(ndev))
+	if (common->usage_count)
 		return -EBUSY;
 
 	am65_cpsw_nuss_remove_tx_chns(common);
@@ -751,6 +751,9 @@ static int am65_cpsw_set_ethtool_priv_flags(struct net_device *ndev, u32 flags)
 	iet_fpe = !!(flags & AM65_CPSW_PRIV_IET_FRAME_PREEMPTION);
 	mac_verify = !!(flags & AM65_CPSW_PRIV_IET_MAC_VERIFY);
 
+	if (common->usage_count)
+		return -EBUSY;
+
 	if ((common->est_enabled || common->iet_enabled || iet_fpe) && rrobin) {
 		netdev_err(ndev,
 			   "p0-rx-ptype-rrobin flag conflicts with QOS\n");
@@ -761,9 +764,6 @@ static int am65_cpsw_set_ethtool_priv_flags(struct net_device *ndev, u32 flags)
 		netdev_err(ndev, "IET fpe needs at least 2 h/w queues\n");
 		return -EINVAL;
 	}
-
-	if (netif_running(ndev))
-		return -EBUSY;
 
 	if (mac_verify && (!iet->fpe_configured && !iet_fpe)) {
 		netdev_err(ndev, "Enable IET FPE for IET MAC verify\n");
