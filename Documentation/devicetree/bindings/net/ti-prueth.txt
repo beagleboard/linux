@@ -48,8 +48,9 @@ Optional properties for children:
 			  for small size frames. So use it only if
 			  specific application uses mostly MTU or near
 			  MTU size frames.
-- interrupts		: Add interrupt sources for Tx if
-			  interrupt-names "tx" used.
+			  add "emac_ptp_tx" when ptp is needed with Dual EMAC
+- interrupts		: should contain an array of PRUSS system event
+			  numbers for each entry in interrupt-names.
 
 Example (am572x-idk board, dual-emac):
 ======================================
@@ -64,8 +65,8 @@ Example (am572x-idk board, dual-emac):
 		pruss2_emac0: ethernet-mii0 {
 			phy-handle = <&pruss2_eth0_phy>;
 			phy-mode = "mii";
-			interrupts = <20>, <22>;
-			interrupt-names = "rx", "tx";
+			interrupts = <20>, <22>, <26>;
+			interrupt-names = "rx", "tx", "emac_ptp_tx";
 			/* Filled in by bootloader */
 			local-mac-address = [00 00 00 00 00 00];
 		};
@@ -73,8 +74,8 @@ Example (am572x-idk board, dual-emac):
 		pruss2_emac1: ethernet-mii1 {
 			phy-handle = <&pruss2_eth1_phy>;
 			phy-mode = "mii";
-			interrupts = <21>, <23>;
-			interrupt-names = "rx", "tx";
+			interrupts = <21>, <23>, <27>;
+			interrupt-names = "rx", "tx", "emac_ptp_tx";
 			/* Filled in by bootloader */
 			local-mac-address = [00 00 00 00 00 00];
 		};
@@ -93,8 +94,8 @@ Example (am572x-idk board, single-emac):
 		pruss2_emac1: ethernet-mii1 {
 			phy-handle = <&pruss2_eth1_phy>;
 			phy-mode = "mii";
-			interrupts = <21>, <23>;
-			interrupt-names = "rx", "tx";
+			interrupts = <21>, <23>, <27>;
+			interrupt-names = "rx", "tx", "emac_ptp_tx";
 			/* Filled in by bootloader */
 			local-mac-address = [00 00 00 00 00 00];
 		};
