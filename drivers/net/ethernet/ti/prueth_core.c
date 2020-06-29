@@ -15,6 +15,7 @@
 #include <linux/kernel.h>
 #include <linux/mfd/syscon.h>
 #include <linux/module.h>
+#include <linux/net_tstamp.h>
 #include <linux/of.h>
 #include <linux/of_irq.h>
 #include <linux/of_mdio.h>
@@ -22,6 +23,7 @@
 #include <linux/of_platform.h>
 #include <linux/phy.h>
 #include <linux/pruss.h>
+#include <linux/ptp_classify.h>
 #include <linux/regmap.h>
 #include <linux/remoteproc.h>
 #include <net/pkt_cls.h>
@@ -149,6 +151,28 @@ static inline void prueth_write_reg(struct prueth *prueth,
 				    unsigned int reg, u32 val)
 {
 	writel_relaxed(val, prueth->mem[region].va + reg);
+}
+
+static inline void prueth_ptp_ts_enable(struct prueth_emac *emac)
+{
+	void __iomem *sram = emac->prueth->mem[PRUETH_MEM_SHARED_RAM].va;
+	u8 val = 0;
+
+	if (emac->ptp_tx_enable)
+		val = TIMESYNC_CTRL_FORCED_2STEP | TIMESYNC_CTRL_BG_ENABLE;
+
+	writeb(val, sram + TIMESYNC_CTRL_VAR_OFFSET);
+}
+
+static inline void prueth_ptp_tx_ts_enable(struct prueth_emac *emac, bool enable)
+{
+	emac->ptp_tx_enable = enable;
+	prueth_ptp_ts_enable(emac);
+}
+
+static inline bool prueth_ptp_tx_ts_is_enabled(struct prueth_emac *emac)
+{
+	return !!emac->ptp_tx_enable;
 }
 
 static inline
@@ -715,6 +739,178 @@ static irqreturn_t emac_rx_hardirq(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+static u8 prueth_ptp_ts_event_type(struct sk_buff *skb)
+{
+	unsigned int ptp_class = ptp_classify_raw(skb);
+	u8 *msgtype, *data = skb->data, event_type;
+	unsigned int offset = 0;
+	u16 *seqid;
+
+	if (ptp_class == PTP_CLASS_NONE)
+		return PRUETH_PTP_TS_EVENTS;
+
+	if (ptp_class & PTP_CLASS_VLAN)
+		offset += VLAN_HLEN;
+
+	switch (ptp_class & PTP_CLASS_PMASK) {
+	case PTP_CLASS_IPV4:
+		offset += ETH_HLEN + IPV4_HLEN(data + offset) + UDP_HLEN;
+		break;
+	case PTP_CLASS_IPV6:
+		offset += ETH_HLEN + IP6_HLEN + UDP_HLEN;
+		break;
+	case PTP_CLASS_L2:
+		offset += ETH_HLEN;
+		break;
+	default:
+		return PRUETH_PTP_TS_EVENTS;
+	}
+
+	if (skb->len + ETH_HLEN < offset + OFF_PTP_SEQUENCE_ID + sizeof(*seqid))
+		return PRUETH_PTP_TS_EVENTS;
+
+	if (unlikely(ptp_class & PTP_CLASS_V1))
+		msgtype = data + offset + OFF_PTP_CONTROL;
+	else
+		msgtype = data + offset;
+
+	/*
+	 * Treat E2E Delay Req/Resp messages sane as P2P peer delay req/resp
+	 * in driver here since firmware stores timestamps in the same memory
+	 * location for either (since they cannot operate simultaneously
+	 * anyway)
+	 */
+	switch (*msgtype & 0xf) {
+	case PTP_SYNC_MSG_ID:
+		event_type = PRUETH_PTP_SYNC;
+		break;
+	case PTP_DLY_REQ_MSG_ID:
+	case PTP_PDLY_REQ_MSG_ID:
+		event_type = PRUETH_PTP_DLY_REQ;
+		break;
+	case PTP_DLY_RESP_MSG_ID:
+	case PTP_PDLY_RSP_MSG_ID:
+		event_type = PRUETH_PTP_DLY_RESP;
+		break;
+	default:
+		event_type = PRUETH_PTP_TS_EVENTS;
+	}
+
+	return event_type;
+}
+
+static void prueth_ptp_tx_ts_reset(struct prueth_emac *emac, u8 event)
+{
+	void __iomem *sram = emac->prueth->mem[PRUETH_MEM_SHARED_RAM].va;
+	u32 ts_notify_offs, ts_offs;
+
+	ts_offs = prueth_tx_ts_offs_get(emac->port_id - 1, event);
+	ts_notify_offs = prueth_tx_ts_notify_offs_get(emac->port_id - 1, event);
+
+	writeb(0, sram + ts_notify_offs);
+	memset_io(sram + ts_offs, 0, sizeof(u64));
+}
+
+static int prueth_ptp_tx_ts_enqueue(struct prueth_emac *emac, struct sk_buff *skb)
+{
+	unsigned long flags;
+	u8 event;
+
+	event = prueth_ptp_ts_event_type(skb);
+	if (event == PRUETH_PTP_TS_EVENTS) {
+		netdev_err(emac->ndev, "invalid PTP event\n");
+		return -EINVAL;
+	}
+
+	spin_lock_irqsave(&emac->ptp_skb_lock, flags);
+	if (emac->ptp_skb[event]) {
+		dev_consume_skb_any(emac->ptp_skb[event]);
+		prueth_ptp_tx_ts_reset(emac, event);
+		netdev_warn(emac->ndev, "Dropped event waiting for tx ts.\n");
+	}
+
+	skb_get(skb);
+	emac->ptp_skb[event] = skb;
+	spin_unlock_irqrestore(&emac->ptp_skb_lock, flags);
+
+	return 0;
+}
+
+static irqreturn_t prueth_ptp_tx_irq_handle(int irq, void *dev)
+{
+	struct net_device *ndev = (struct net_device *)dev;
+	struct prueth_emac *emac = netdev_priv(ndev);
+
+	if (unlikely(netif_queue_stopped(ndev)))
+		netif_wake_queue(ndev);
+
+	if (prueth_ptp_tx_ts_is_enabled(emac))
+		return IRQ_WAKE_THREAD;
+
+	return IRQ_HANDLED;
+}
+
+static u64 prueth_ptp_ts_get(struct prueth_emac *emac, u32 ts_offs)
+{
+	void __iomem *sram = emac->prueth->mem[PRUETH_MEM_SHARED_RAM].va;
+	u64 cycles;
+
+	memcpy_fromio(&cycles, sram + ts_offs, sizeof(cycles));
+	memset_io(sram + ts_offs, 0, sizeof(cycles));
+
+	return cycles;
+}
+
+static void prueth_ptp_tx_ts_get(struct prueth_emac *emac, u8 event)
+{
+	struct skb_shared_hwtstamps ssh;
+	struct sk_buff *skb;
+	unsigned long flags;
+	u64 ns;
+
+	/* get the msg from list */
+	spin_lock_irqsave(&emac->ptp_skb_lock, flags);
+	skb = emac->ptp_skb[event];
+	emac->ptp_skb[event] = NULL;
+	spin_unlock_irqrestore(&emac->ptp_skb_lock, flags);
+	if (!skb) {
+		netdev_err(emac->ndev, "no tx msg %u found waiting for ts\n",
+			   event);
+		return;
+	}
+
+	/* get timestamp */
+	ns = prueth_ptp_ts_get(emac,
+			       prueth_tx_ts_offs_get(emac->port_id - 1, event));
+	memset(&ssh, 0, sizeof(ssh));
+	ssh.hwtstamp = ns_to_ktime(ns);
+	skb_tstamp_tx(skb, &ssh);
+
+	dev_consume_skb_any(skb);
+}
+
+static irqreturn_t prueth_ptp_tx_irq_work(int irq, void *dev)
+{
+	struct prueth_emac *emac = netdev_priv(dev);
+	u32 ts_notify_offs, ts_notify_mask, i;
+	void __iomem *sram;
+
+	/* get and reset the ts notifications */
+	sram = emac->prueth->mem[PRUETH_MEM_SHARED_RAM].va;
+	for (i = 0; i < PRUETH_PTP_TS_EVENTS; i++) {
+		ts_notify_offs = prueth_tx_ts_notify_offs_get(emac->port_id - 1,
+							      i);
+		memcpy_fromio(&ts_notify_mask, sram + ts_notify_offs,
+			      PRUETH_PTP_TS_NOTIFY_SIZE);
+		memset_io(sram + ts_notify_offs, 0, PRUETH_PTP_TS_NOTIFY_SIZE);
+
+		if (ts_notify_mask & PRUETH_PTP_TS_NOTIFY_MASK)
+			prueth_ptp_tx_ts_get(emac, i);
+	}
+
+	return IRQ_HANDLED;
+}
+
 /**
  * prueth_tx_enqueue - queue a packet to firmware for transmission
  *
@@ -827,6 +1023,12 @@ static int prueth_tx_enqueue(struct prueth_emac *emac, struct sk_buff *skb,
 		memcpy(dst_addr, src_addr, remaining);
 	} else {
 		memcpy(dst_addr, src_addr, pktlen);
+	}
+
+	if (skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP &&
+	    prueth_ptp_tx_ts_is_enabled(emac)) {
+		skb_shinfo(skb)->tx_flags |= SKBTX_IN_PROGRESS;
+		prueth_ptp_tx_ts_enqueue(emac, skb);
 	}
 
 	/* update first buffer descriptor */
@@ -1266,6 +1468,30 @@ static int emac_request_irqs(struct prueth_emac *emac)
 		return ret;
 	}
 
+	if (PRUETH_IS_EMAC(emac->prueth) && emac->tx_irq > 0) {
+		ret = request_irq(emac->tx_irq, emac_tx_hardirq,
+				  IRQF_TRIGGER_HIGH, ndev->name, ndev);
+		if (ret) {
+			netdev_err(ndev, "unable to request TX IRQ\n");
+			free_irq(emac->rx_irq, ndev);
+			return ret;
+		}
+	}
+
+	if (emac->emac_ptp_tx_irq) {
+		ret = request_threaded_irq(emac->emac_ptp_tx_irq,
+					   prueth_ptp_tx_irq_handle,
+					   prueth_ptp_tx_irq_work,
+					   IRQF_TRIGGER_HIGH | IRQF_ONESHOT,
+					   ndev->name, ndev);
+		if (ret) {
+			netdev_err(ndev, "unable to request PTP TX IRQ\n");
+			free_irq(emac->rx_irq, ndev);
+			free_irq(emac->tx_irq, ndev);
+		}
+
+	}
+
 	return ret;
 }
 
@@ -1395,15 +1621,6 @@ static int emac_ndo_open(struct net_device *ndev)
 		}
 	}
 
-	if (PRUETH_IS_EMAC(prueth) && emac->tx_irq > 0) {
-		ret = request_irq(emac->tx_irq, emac_tx_hardirq,
-				  IRQF_TRIGGER_HIGH, ndev->name, ndev);
-		if (ret) {
-			netdev_err(ndev, "unable to request TX IRQ\n");
-			goto free_rx_irq;
-		}
-	}
-
 	/* start PHY */
 	phy_start(emac->phydev);
 
@@ -1425,8 +1642,6 @@ static int emac_ndo_open(struct net_device *ndev)
 
 	return 0;
 
-free_rx_irq:
-	free_irq(emac->rx_irq, ndev);
 rproc_shutdown:
 	if (!PRUETH_IS_EMAC(prueth))
 		prueth_sw_shutdown_prus(emac, ndev);
@@ -1452,6 +1667,7 @@ static int emac_ndo_stop(struct net_device *ndev)
 {
 	struct prueth_emac *emac = netdev_priv(ndev);
 	struct prueth *prueth = emac->prueth;
+	int i;
 
 	mutex_lock(&prueth->mlock);
 	prueth->emac_configured &= ~BIT(emac->port_id);
@@ -1499,6 +1715,15 @@ static int emac_ndo_stop(struct net_device *ndev)
 	 */
 	if (PRUETH_IS_EMAC(emac->prueth) || PRUETH_IS_SWITCH(prueth)) {
 		free_irq(emac->rx_irq, ndev);
+		free_irq(emac->emac_ptp_tx_irq, ndev);
+		prueth_ptp_tx_ts_enable(emac, 0);
+		for (i = 0; i < PRUETH_PTP_TS_EVENTS; i++) {
+			if (emac->ptp_skb[i]) {
+				prueth_ptp_tx_ts_reset(emac, i);
+				dev_consume_skb_any(emac->ptp_skb[i]);
+				emac->ptp_skb[i] = NULL;
+			}
+		}
 	} else {
 		/* Free interrupts on last port */
 		prueth_lre_free_irqs(emac);
@@ -2410,10 +2635,17 @@ static int prueth_netdev_init(struct prueth *prueth,
 			dev_dbg(prueth->dev, "tx irq not configured\n");
 	}
 
+	emac->emac_ptp_tx_irq = of_irq_get_byname(eth_node, "emac_ptp_tx");
+	if (emac->emac_ptp_tx_irq < 0) {
+		emac->emac_ptp_tx_irq = 0;
+		dev_err(prueth->dev, "could not get ptp tx irq. Skipping PTP support\n");
+	}
+
 	emac->msg_enable = netif_msg_init(debug_level, PRUETH_EMAC_DEBUG);
 	spin_lock_init(&emac->lock);
 	spin_lock_init(&emac->nsp_lock);
 	spin_lock_init(&emac->addr_lock);
+	spin_lock_init(&emac->ptp_skb_lock);
 
 	/* get mac address from DT and set private and netdev addr */
 	mac_addr = of_get_mac_address(eth_node);

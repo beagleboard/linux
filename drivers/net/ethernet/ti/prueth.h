@@ -14,6 +14,7 @@
 #include <net/lredev.h>
 
 #include "icss_switch.h"
+#include "prueth_ptp.h"
 
 #define PRUETH_NUMQUEUES	5
 
@@ -377,6 +378,11 @@ struct prueth_emac {
 	bool nsp_enabled;
 
 	int offload_fwd_mark;
+
+	struct sk_buff *ptp_skb[PRUETH_PTP_TS_EVENTS];
+	spinlock_t ptp_skb_lock;	/* serialize access */
+	int emac_ptp_tx_irq;
+	bool ptp_tx_enable;
 };
 
 struct prueth_ndev_priority {
