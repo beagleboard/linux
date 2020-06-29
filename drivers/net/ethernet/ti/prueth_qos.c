@@ -32,6 +32,10 @@ static enum hrtimer_restart prueth_timer(struct hrtimer *timer)
 	for (mac = PRUETH_MAC0; mac <= PRUETH_MAC1; mac++) {
 		emac = prueth->emac[mac];
 
+		/* skip if in single emac mode */
+		if (!emac)
+			continue;
+
 		if (!netif_running(emac->ndev))
 			continue;
 
