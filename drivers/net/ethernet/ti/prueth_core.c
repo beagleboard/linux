@@ -744,8 +744,8 @@ static int prueth_tx_enqueue(struct prueth_emac *emac, struct sk_buff *skb,
 	return 0;
 }
 
-static void parse_packet_info(u32 buffer_descriptor,
-			      struct prueth_packet_info *pkt_info)
+void parse_packet_info(struct prueth *prueth, u32 buffer_descriptor,
+		       struct prueth_packet_info *pkt_info)
 {
 	pkt_info->shadow = !!(buffer_descriptor & PRUETH_BD_SHADOW_MASK);
 	pkt_info->port = (buffer_descriptor & PRUETH_BD_PORT_MASK) >>
@@ -762,9 +762,9 @@ static void parse_packet_info(u32 buffer_descriptor,
 /* get packet from queue
  * negative for error
  */
-static int emac_rx_packet(struct prueth_emac *emac, u16 *bd_rd_ptr,
-			  struct prueth_packet_info pkt_info,
-			  const struct prueth_queue_info *rxqueue)
+int emac_rx_packet(struct prueth_emac *emac, u16 *bd_rd_ptr,
+		   struct prueth_packet_info pkt_info,
+		   const struct prueth_queue_info *rxqueue)
 {
 	struct net_device *ndev = emac->ndev;
 	int read_block, update_block, pkt_block_size;
@@ -915,7 +915,7 @@ static int emac_rx_packets(struct prueth_emac *emac, int quota)
 		while (bd_rd_ptr != bd_wr_ptr) {
 			/* get packet info from the read buffer descriptor */
 			rd_buf_desc = readl(shared_ram + bd_rd_ptr);
-			parse_packet_info(rd_buf_desc, &pkt_info);
+			parse_packet_info(prueth, rd_buf_desc, &pkt_info);
 
 			if (pkt_info.length <= 0) {
 				/* a packet length of zero will cause us to
@@ -1021,11 +1021,8 @@ static int emac_napi_poll(struct napi_struct *napi, int budget)
 	int num_rx_packets;
 
 	num_rx_packets = emac_rx_packets(emac, budget);
-	if (num_rx_packets < budget) {
-		napi_complete(napi);
-
-		enable_irq(emac->rx_irq);
-	}
+	if (num_rx_packets < budget)
+		emac_finish_napi(emac, napi, emac->rx_irq);
 
 	return num_rx_packets;
 }

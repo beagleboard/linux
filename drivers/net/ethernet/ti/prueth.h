@@ -10,6 +10,7 @@
 
 #include <linux/types.h>
 #include <linux/pruss.h>
+#include <net/lredev.h>
 
 #include "icss_switch.h"
 
@@ -82,6 +83,7 @@ struct prueth_queue_info {
 
 /**
  * struct prueth_packet_info - Info about a packet in buffer
+ * @start_offset: start offset of the frame in the buffer for HSR/PRP
  * @shadow: this packet is stored in the collision queue
  * @port: port packet is on
  * @length: length of packet
@@ -91,6 +93,7 @@ struct prueth_queue_info {
  * @flood: packet is to be flooded
  */
 struct prueth_packet_info {
+	bool start_offset;
 	bool shadow;
 	unsigned int port;
 	unsigned int length;
@@ -268,6 +271,24 @@ enum prueth_mem {
 	PRUETH_MEM_MAX,
 };
 
+/* Firmware offsets/size information */
+struct prueth_fw_offsets {
+	u32 index_array_offset;
+	u32 bin_array_offset;
+	u32 nt_array_offset;
+	u32 index_array_loc;
+	u32 bin_array_loc;
+	u32 nt_array_loc;
+	u32 index_array_max_entries;
+	u32 bin_array_max_entries;
+	u32 nt_array_max_entries;
+	/* IEP wrap is used in the rx packet ordering logic and
+	 * is different for ICSSM v1.0 vs 2.1
+	 */
+	u32 iep_wrap;
+	u16 hash_mask;
+};
+
 /**
  * @fw_name: firmware names of firmware to run on PRU
  */
@@ -334,6 +355,11 @@ struct prueth_emac {
 	int offload_fwd_mark;
 };
 
+struct prueth_ndev_priority {
+	struct net_device *ndev;
+	int priority;
+};
+
 /**
  * struct prueth - PRUeth structure
  * @dev: device
@@ -372,7 +398,19 @@ struct prueth {
 	struct icss_iep *iep;
 	struct hrtimer tbl_check_timer;
 	const struct prueth_private_data *fw_data;
+	struct prueth_fw_offsets *fw_offsets;
 
+	/* HSR-PRP */
+	struct prueth_ndev_priority *hp, *lp;
+	/* NAPI for lp and hp queue scans */
+	struct napi_struct napi_lpq;
+	struct napi_struct napi_hpq;
+	int rx_lpq_irq;
+	int rx_hpq_irq;
+	unsigned int hsr_mode;
+	unsigned int tbl_check_mask;
+	enum iec62439_3_tr_modes prp_tr_mode;
+	struct node_tbl	*nt;
 	struct device_node *eth_node[PRUETH_NUM_MACS];
 	struct prueth_emac *emac[PRUETH_NUM_MACS];
 	struct net_device *registered_netdevs[PRUETH_NUM_MACS];
@@ -400,6 +438,20 @@ void prueth_enable_nsp(struct prueth_emac *emac);
 void prueth_start_timer(struct prueth *prueth);
 int emac_ndo_setup_tc(struct net_device *dev, enum tc_setup_type type,
 		      void *type_data);
+void parse_packet_info(struct prueth *prueth, u32 buffer_descriptor,
+		       struct prueth_packet_info *pkt_info);
+int emac_rx_packet(struct prueth_emac *emac, u16 *bd_rd_ptr,
+		   struct prueth_packet_info pkt_info,
+		   const struct prueth_queue_info *rxqueue);
+
 extern const struct prueth_queue_desc queue_descs[][NUM_QUEUES];
+
+static inline void emac_finish_napi(struct prueth_emac *emac,
+				    struct napi_struct *napi,
+				    int irq)
+{
+	napi_complete(napi);
+	enable_irq(irq);
+}
 
 #endif /* __NET_TI_PRUETH_H */
