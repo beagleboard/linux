@@ -1455,7 +1455,7 @@ skip_mgm:
 		dev_notice(&ndev->dev, "started\n");
 
 	if (!emac->is_sr1)
-		emac_set_port_state(emac, ICSSG_PORT_STATE_FORWARD);
+		emac_set_port_state(emac, ICSSG_EMAC_PORT_FORWARD);
 
 	return 0;
 

@@ -263,7 +263,6 @@ void icssg_config_sr1(struct prueth *prueth, struct prueth_emac *emac,
 		      int slice);
 int icssg_config_sr2(struct prueth *prueth, struct prueth_emac *emac,
 		     int slice);
-int emac_send_command_sr2(struct prueth_emac *emac, struct icssg_cmd *cmd);
 int emac_set_port_state(struct prueth_emac *emac,
 			enum icssg_port_state_cmd state);
 
