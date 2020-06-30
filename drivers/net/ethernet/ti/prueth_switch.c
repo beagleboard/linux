@@ -994,9 +994,9 @@ int prueth_sw_boot_prus(struct prueth *prueth, struct net_device *ndev)
 		return 0;
 
 	pru_firmwares = &prueth->fw_data->fw_pru[PRUSS_PRU0];
-	fw_name = pru_firmwares->fw_name[PRUSS_ETHTYPE_SWITCH];
+	fw_name = pru_firmwares->fw_name[prueth->eth_type];
 	pru_firmwares = &prueth->fw_data->fw_pru[PRUSS_PRU1];
-	fw_name1 = pru_firmwares->fw_name[PRUSS_ETHTYPE_SWITCH];
+	fw_name1 = pru_firmwares->fw_name[prueth->eth_type];
 
 	ret = rproc_set_firmware(prueth->pru0, fw_name);
 	if (ret) {

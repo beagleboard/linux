@@ -10,6 +10,7 @@
 
 #include <linux/types.h>
 #include <linux/pruss.h>
+#include <linux/types.h>
 #include <net/lredev.h>
 
 #include "icss_switch.h"
@@ -282,6 +283,8 @@ struct prueth_fw_offsets {
 	u32 index_array_max_entries;
 	u32 bin_array_max_entries;
 	u32 nt_array_max_entries;
+	u32 vlan_ctrl_byte;
+	u32 vlan_filter_tbl;
 	/* IEP wrap is used in the rx packet ordering logic and
 	 * is different for ICSSM v1.0 vs 2.1
 	 */
@@ -301,7 +304,11 @@ struct prueth_firmware {
  * @fw_names: firmware names to be used for PRUSS ethernet usecases
  */
 struct prueth_private_data {
-	struct prueth_firmware fw_pru[PRUSS_NUM_PRUS];
+	const struct prueth_firmware fw_pru[PRUSS_NUM_PRUS];
+	/* TODO: need to get this from firmware */
+	bool rev_2_1;
+	bool support_lre;
+	bool support_switch;
 };
 
 struct nsp_counter {
@@ -401,6 +408,7 @@ struct prueth {
 	struct prueth_fw_offsets *fw_offsets;
 
 	/* HSR-PRP */
+	bool support_lre;
 	struct prueth_ndev_priority *hp, *lp;
 	/* NAPI for lp and hp queue scans */
 	struct napi_struct napi_lpq;
@@ -411,9 +419,11 @@ struct prueth {
 	unsigned int tbl_check_mask;
 	enum iec62439_3_tr_modes prp_tr_mode;
 	struct node_tbl	*nt;
+
 	struct device_node *eth_node[PRUETH_NUM_MACS];
 	struct prueth_emac *emac[PRUETH_NUM_MACS];
 	struct net_device *registered_netdevs[PRUETH_NUM_MACS];
+	struct device_node *prueth_np;
 
 	struct net_device *hw_bridge_dev;
 	struct fdb_tbl *fdb_tbl;

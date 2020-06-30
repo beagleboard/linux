@@ -77,4 +77,13 @@
 #define ICSS_EMAC_FW_VLAN_FILTER_ADD_VLAN_VID_CMD                      0x00
 #define ICSS_EMAC_FW_VLAN_FILTER_REMOVE_VLAN_VID_CMD                   0x01
 
+/* Switch defines for VLAN/MC filtering */
+/* SRAM
+ * VLAN filter defines & offsets
+ */
+#define ICSS_LRE_FW_VLAN_FLTR_CTRL_BYTE                          0x1FE
+/* one bit field | 0 : VLAN filter disabled
+ *               | 1 : VLAN filter enabled
+ */
+
 #endif /* ICSS_MULTICAST_FILTER_MM_H */
