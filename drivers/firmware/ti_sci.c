@@ -1703,14 +1703,14 @@ fail:
  * @subtype:		Resource assignment subtype that is being requested
  *			from the given device.
  * @s_host:		Host processor ID to which the resources are allocated
- * @range_start:	Start index of the resource range
- * @range_num:		Number of resources in the range
+ * @desc:		Pointer to ti_sci_resource_desc to be updated with the
+ *			resource range start index and number of resources
  *
  * Return: 0 if all went fine, else return appropriate error.
  */
 static int ti_sci_get_resource_range(const struct ti_sci_handle *handle,
 				     u32 dev_id, u8 subtype, u8 s_host,
-				     u16 *range_start, u16 *range_num)
+				     struct ti_sci_resource_desc *desc)
 {
 	struct ti_sci_msg_resp_get_resource_range *resp;
 	struct ti_sci_msg_req_get_resource_range *req;
@@ -1721,7 +1721,7 @@ static int ti_sci_get_resource_range(const struct ti_sci_handle *handle,
 
 	if (IS_ERR(handle))
 		return PTR_ERR(handle);
-	if (!handle)
+	if (!handle || !desc)
 		return -EINVAL;
 
 	info = handle_to_ti_sci_info(handle);
@@ -1751,11 +1751,14 @@ static int ti_sci_get_resource_range(const struct ti_sci_handle *handle,
 
 	if (!ti_sci_is_response_ack(resp)) {
 		ret = -ENODEV;
-	} else if (!resp->range_start && !resp->range_num) {
+	} else if (!resp->range_num && !resp->range_num_sec) {
+		/* Neither of the two resource range is valid */
 		ret = -ENODEV;
 	} else {
-		*range_start = resp->range_start;
-		*range_num = resp->range_num;
+		desc->start = resp->range_start;
+		desc->num = resp->range_num;
+		desc->start_sec = resp->range_start_sec;
+		desc->num_sec = resp->range_num_sec;
 	};
 
 fail:
@@ -1771,18 +1774,18 @@ fail:
  * @dev_id:		TISCI device ID.
  * @subtype:		Resource assignment subtype that is being requested
  *			from the given device.
- * @range_start:	Start index of the resource range
- * @range_num:		Number of resources in the range
+ * @desc:		Pointer to ti_sci_resource_desc to be updated with the
+ *			resource range start index and number of resources
  *
  * Return: 0 if all went fine, else return appropriate error.
  */
 static int ti_sci_cmd_get_resource_range(const struct ti_sci_handle *handle,
 					 u32 dev_id, u8 subtype,
-					 u16 *range_start, u16 *range_num)
+					 struct ti_sci_resource_desc *desc)
 {
 	return ti_sci_get_resource_range(handle, dev_id, subtype,
 					 TI_SCI_IRQ_SECONDARY_HOST_INVALID,
-					 range_start, range_num);
+					 desc);
 }
 
 /**
@@ -1793,18 +1796,17 @@ static int ti_sci_cmd_get_resource_range(const struct ti_sci_handle *handle,
  * @subtype:		Resource assignment subtype that is being requested
  *			from the given device.
  * @s_host:		Host processor ID to which the resources are allocated
- * @range_start:	Start index of the resource range
- * @range_num:		Number of resources in the range
+ * @desc:		Pointer to ti_sci_resource_desc to be updated with the
+ *			resource range start index and number of resources
  *
  * Return: 0 if all went fine, else return appropriate error.
  */
 static
 int ti_sci_cmd_get_resource_range_from_shost(const struct ti_sci_handle *handle,
 					     u32 dev_id, u8 subtype, u8 s_host,
-					     u16 *range_start, u16 *range_num)
+					     struct ti_sci_resource_desc *desc)
 {
-	return ti_sci_get_resource_range(handle, dev_id, subtype, s_host,
-					 range_start, range_num);
+	return ti_sci_get_resource_range(handle, dev_id, subtype, s_host, desc);
 }
 
 /**
@@ -3158,12 +3160,18 @@ u16 ti_sci_get_free_resource(struct ti_sci_resource *res)
 
 	raw_spin_lock_irqsave(&res->lock, flags);
 	for (set = 0; set < res->sets; set++) {
-		free_bit = find_first_zero_bit(res->desc[set].res_map,
-					       res->desc[set].num);
-		if (free_bit != res->desc[set].num) {
-			set_bit(free_bit, res->desc[set].res_map);
+		struct ti_sci_resource_desc *desc = &res->desc[set];
+		int res_count = desc->num + desc->num_sec;
+
+		free_bit = find_first_zero_bit(desc->res_map, res_count);
+		if (free_bit != res_count) {
+			set_bit(free_bit, desc->res_map);
 			raw_spin_unlock_irqrestore(&res->lock, flags);
-			return res->desc[set].start + free_bit;
+
+			if (desc->num && free_bit < desc->num)
+				return desc->start + free_bit;
+			else
+				return desc->start_sec + free_bit;
 		}
 	}
 	raw_spin_unlock_irqrestore(&res->lock, flags);
@@ -3184,10 +3192,14 @@ void ti_sci_release_resource(struct ti_sci_resource *res, u16 id)
 
 	raw_spin_lock_irqsave(&res->lock, flags);
 	for (set = 0; set < res->sets; set++) {
-		if (res->desc[set].start <= id &&
-		    (res->desc[set].num + res->desc[set].start) > id)
-			clear_bit(id - res->desc[set].start,
-				  res->desc[set].res_map);
+		struct ti_sci_resource_desc *desc = &res->desc[set];
+
+		if (desc->num && desc->start <= id &&
+		    (desc->start + desc->num) > id)
+			clear_bit(id - desc->start, desc->res_map);
+		else if (desc->num_sec && desc->start_sec <= id &&
+			 (desc->start_sec + desc->num_sec) > id)
+			clear_bit(id - desc->start_sec, desc->res_map);
 	}
 	raw_spin_unlock_irqrestore(&res->lock, flags);
 }
@@ -3204,7 +3216,7 @@ u32 ti_sci_get_num_resources(struct ti_sci_resource *res)
 	u32 set, count = 0;
 
 	for (set = 0; set < res->sets; set++)
-		count += res->desc[set].num;
+		count += res->desc[set].num + res->desc[set].num_sec;
 
 	return count;
 }
@@ -3228,7 +3240,7 @@ devm_ti_sci_get_resource_sets(const struct ti_sci_handle *handle,
 {
 	struct ti_sci_resource *res;
 	bool valid_set = false;
-	int i, ret;
+	int i, ret, res_count;
 
 	res = devm_kzalloc(dev, sizeof(*res), GFP_KERNEL);
 	if (!res)
@@ -3243,23 +3255,23 @@ devm_ti_sci_get_resource_sets(const struct ti_sci_handle *handle,
 	for (i = 0; i < res->sets; i++) {
 		ret = handle->ops.rm_core_ops.get_range(handle, dev_id,
 							sub_types[i],
-							&res->desc[i].start,
-							&res->desc[i].num);
+							&res->desc[i]);
 		if (ret) {
 			dev_dbg(dev, "dev = %d subtype %d not allocated for this host\n",
 				dev_id, sub_types[i]);
-			res->desc[i].start = 0;
-			res->desc[i].num = 0;
+			memset(&res->desc[i], 0, sizeof(res->desc[i]));
 			continue;
 		}
 
-		dev_dbg(dev, "dev = %d, subtype = %d, start = %d, num = %d\n",
+		dev_dbg(dev, "dev/sub_type: %d/%d, start/num: %d/%d | %d/%d\n",
 			dev_id, sub_types[i], res->desc[i].start,
-			res->desc[i].num);
+			res->desc[i].num, res->desc[i].start_sec,
+			res->desc[i].num_sec);
 
 		valid_set = true;
+		res_count = res->desc[i].num + res->desc[i].num_sec;
 		res->desc[i].res_map =
-			devm_kzalloc(dev, BITS_TO_LONGS(res->desc[i].num) *
+			devm_kzalloc(dev, BITS_TO_LONGS(res_count) *
 				     sizeof(*res->desc[i].res_map), GFP_KERNEL);
 		if (!res->desc[i].res_map)
 			return ERR_PTR(-ENOMEM);
