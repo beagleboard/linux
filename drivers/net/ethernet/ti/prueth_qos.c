@@ -23,6 +23,9 @@ void prueth_enable_nsp(struct prueth_emac *emac)
 	struct prueth *prueth = emac->prueth;
 	void __iomem *dram = prueth->mem[emac->dram].va;
 
+	if (PRUETH_IS_LRE(prueth) && --emac->nsp_timer_count)
+		return;
+
 	if (emac->nsp_bc.cookie)
 		emac_nsp_enable(dram + STORM_PREVENTION_OFFSET_BC,
 				emac->nsp_bc.credit);
@@ -32,6 +35,9 @@ void prueth_enable_nsp(struct prueth_emac *emac)
 	if (emac->nsp_uc.cookie)
 		emac_nsp_enable(dram + STORM_PREVENTION_OFFSET_UC,
 				emac->nsp_uc.credit);
+
+	if (PRUETH_IS_LRE(prueth))
+		emac->nsp_timer_count = PRUETH_NSP_TIMER_COUNT;
 }
 
 static int emac_flower_parse_policer(struct prueth_emac *emac,
@@ -117,7 +123,7 @@ static int emac_flower_parse_policer(struct prueth_emac *emac,
 		   "%scast filter set to %d packets per %dms\n", str,
 		   nsp->credit, PRUETH_NSP_TIMER_MS);
 
-	prueth_start_timer(emac->prueth);
+	prueth_start_timer(emac);
 
 	return 0;
 }

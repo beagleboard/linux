@@ -23,6 +23,12 @@
 #define EMAC_POLL_WEIGHT	(64) /* Default NAPI poll weight */
 #define EMAC_MAX_PKTLEN		(ETH_HLEN + VLAN_HLEN + ETH_DATA_LEN)
 
+/* default timer for NSP and HSR/PRP */
+#define PRUETH_TIMER_MS		(10)
+#define PRUETH_NSP_TIMER_COUNT	(10)
+/* NSP counter refresh every 100 msec */
+#define PRUETH_NSP_TIMER_MS	(PRUETH_TIMER_MS * PRUETH_NSP_TIMER_COUNT)
+
 /* PRU Ethernet Type - Ethernet functionality (protocol
  * implemented) provided by the PRU firmware being loaded.
  */
@@ -40,7 +46,6 @@ enum pruss_ethtype {
 #define PRUETH_IS_PRP(p)	((p)->eth_type == PRUSS_ETHTYPE_PRP)
 #define PRUETH_IS_LRE(p)	(PRUETH_IS_HSR(p) || PRUETH_IS_PRP(p))
 
-#define PRUETH_NSP_TIMER_MS	(100) /* Refresh NSP counters every 100ms */
 /**
  * struct prueth_queue_desc - Queue descriptor
  * @rd_ptr:	Read pointer, points to a buffer descriptor in Shared PRU RAM.
@@ -354,6 +359,7 @@ struct prueth_emac {
 	spinlock_t lock;	/* serialize access */
 	spinlock_t nsp_lock;	/* serialize access to nsp_counters */
 
+	u8 nsp_timer_count;
 	struct nsp_counter nsp_bc;
 	struct nsp_counter nsp_mc;
 	struct nsp_counter nsp_uc;
@@ -445,7 +451,7 @@ struct prueth {
 };
 
 void prueth_enable_nsp(struct prueth_emac *emac);
-void prueth_start_timer(struct prueth *prueth);
+void prueth_start_timer(struct prueth_emac *emac);
 int emac_ndo_setup_tc(struct net_device *dev, enum tc_setup_type type,
 		      void *type_data);
 void parse_packet_info(struct prueth *prueth, u32 buffer_descriptor,

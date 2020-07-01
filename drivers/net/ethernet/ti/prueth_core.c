@@ -250,11 +250,20 @@ static enum hrtimer_restart prueth_timer(struct hrtimer *timer)
 	struct prueth *prueth = container_of(timer, struct prueth,
 					     tbl_check_timer);
 	enum hrtimer_restart ret = HRTIMER_NORESTART;
+	unsigned int timeout = PRUETH_NSP_TIMER_MS;
 	struct prueth_emac *emac;
 	enum prueth_mac mac;
 	unsigned long flags;
 
-	hrtimer_forward_now(timer, ms_to_ktime(PRUETH_NSP_TIMER_MS));
+	if (PRUETH_IS_LRE(prueth))
+		timeout = PRUETH_TIMER_MS;
+
+	hrtimer_forward_now(timer, ms_to_ktime(timeout));
+	if (PRUETH_IS_LRE(prueth) &&
+	    prueth->emac_configured !=
+	    (BIT(PRUETH_PORT_MII0) | BIT(PRUETH_PORT_MII1)))
+		return HRTIMER_RESTART;
+
 	for (mac = PRUETH_MAC0; mac <= PRUETH_MAC1; mac++) {
 		emac = prueth->emac[mac];
 
@@ -287,13 +296,20 @@ void prueth_init_timer(struct prueth *prueth)
 	prueth->tbl_check_timer.function = prueth_timer;
 }
 
-void prueth_start_timer(struct prueth *prueth)
+void prueth_start_timer(struct prueth_emac *emac)
 {
-	if (hrtimer_active(&prueth->tbl_check_timer))
+	unsigned int timeout = PRUETH_NSP_TIMER_MS;
+
+	if (hrtimer_active(&emac->prueth->tbl_check_timer))
 		return;
 
-	hrtimer_start(&prueth->tbl_check_timer,
-		      ms_to_ktime(PRUETH_NSP_TIMER_MS), HRTIMER_MODE_REL);
+	if (PRUETH_IS_LRE(emac->prueth)) {
+		timeout = PRUETH_TIMER_MS;
+		emac->nsp_timer_count = PRUETH_NSP_TIMER_COUNT;
+	}
+
+	hrtimer_start(&emac->prueth->tbl_check_timer, ms_to_ktime(timeout),
+		      HRTIMER_MODE_REL);
 }
 
 static void prueth_hostconfig(struct prueth *prueth)
@@ -1312,7 +1328,8 @@ static int emac_ndo_open(struct net_device *ndev)
 
 	/* timer used for NSP as well for HSR/PRP */
 	if (emac->nsp_enabled)
-		prueth_start_timer(emac->prueth);
+		prueth_start_timer(emac);
+
 	prueth->emac_configured |= BIT(emac->port_id);
 	mutex_unlock(&prueth->mlock);
 
@@ -1368,6 +1385,7 @@ static int emac_ndo_stop(struct net_device *ndev)
 	} else {
 		/* HSR/PRP. Disable NAPI when last port is down */
 		if (!prueth->emac_configured) {
+			hrtimer_cancel(&prueth->tbl_check_timer);
 			napi_disable(&prueth->napi_lpq);
 			napi_disable(&prueth->napi_hpq);
 		}
