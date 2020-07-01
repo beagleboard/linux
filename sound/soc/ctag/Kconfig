@@ -1,0 +1,6 @@
+config  SND_DAVINCI_SOC_CTAG_FACE_2_4
+        tristate "SoC Audio Support for CTAG face-2-4 Audio Card (AD1938)"
+        depends on SND_SOC_DAVINCI_MCASP
+        select SND_SOC_AD193X_SPI
+        help
+          Say Y if you want to add support for CTAG face-2-4 Audio Card
