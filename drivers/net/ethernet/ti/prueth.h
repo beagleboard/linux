@@ -436,6 +436,7 @@ struct prueth {
 	u32 rem_cnt;
 	/* lock between kthread worker and rx packet processing code */
 	spinlock_t nt_lock;
+	struct lre_statistics *lre_stats;
 
 	struct device_node *eth_node[PRUETH_NUM_MACS];
 	struct prueth_emac *emac[PRUETH_NUM_MACS];

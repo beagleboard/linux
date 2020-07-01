@@ -929,6 +929,330 @@ void prueth_lre_process_check_flags_event(struct prueth *prueth)
 	writel(prueth->tbl_check_mask, dram + ICSS_LRE_HOST_TIMER_CHECK_FLAGS);
 }
 
+#define PRUETH_LRE_STAT_OFS(m) offsetof(struct lre_statistics, m)
+static const struct {
+	char string[ETH_GSTRING_LEN];
+	u32 offset;
+} prueth_ethtool_lre_stats[] = {
+	{"lreTxA", PRUETH_LRE_STAT_OFS(cnt_tx_a)},
+	{"lreTxB", PRUETH_LRE_STAT_OFS(cnt_tx_b)},
+	{"lreTxC", PRUETH_LRE_STAT_OFS(cnt_tx_c)},
+
+	{"lreErrWrongLanA", PRUETH_LRE_STAT_OFS(cnt_errwronglan_a)},
+	{"lreErrWrongLanB", PRUETH_LRE_STAT_OFS(cnt_errwronglan_b)},
+	{"lreErrWrongLanC", PRUETH_LRE_STAT_OFS(cnt_errwronglan_c)},
+
+	{"lreRxA", PRUETH_LRE_STAT_OFS(cnt_rx_a)},
+	{"lreRxB", PRUETH_LRE_STAT_OFS(cnt_rx_b)},
+	{"lreRxC", PRUETH_LRE_STAT_OFS(cnt_rx_c)},
+
+	{"lreErrorsA", PRUETH_LRE_STAT_OFS(cnt_errors_a)},
+	{"lreErrorsB", PRUETH_LRE_STAT_OFS(cnt_errors_b)},
+	{"lreErrorsC", PRUETH_LRE_STAT_OFS(cnt_errors_c)},
+
+	{"lreNodes", PRUETH_LRE_STAT_OFS(cnt_nodes)},
+	{"lreProxyNodes", PRUETH_LRE_STAT_OFS(cnt_proxy_nodes)},
+
+	{"lreUniqueRxA", PRUETH_LRE_STAT_OFS(cnt_unique_rx_a)},
+	{"lreUniqueRxB", PRUETH_LRE_STAT_OFS(cnt_unique_rx_b)},
+	{"lreUniqueRxC", PRUETH_LRE_STAT_OFS(cnt_unique_rx_c)},
+
+	{"lreDuplicateRxA", PRUETH_LRE_STAT_OFS(cnt_duplicate_rx_a)},
+	{"lreDuplicateRxB", PRUETH_LRE_STAT_OFS(cnt_duplicate_rx_b)},
+	{"lreDuplicateRxC", PRUETH_LRE_STAT_OFS(cnt_duplicate_rx_c)},
+
+	{"lreMultiRxA", PRUETH_LRE_STAT_OFS(cnt_multiple_rx_a)},
+	{"lreMultiRxB", PRUETH_LRE_STAT_OFS(cnt_multiple_rx_b)},
+	{"lreMultiRxC", PRUETH_LRE_STAT_OFS(cnt_multiple_rx_c)},
+
+	{"lreOwnRxA", PRUETH_LRE_STAT_OFS(cnt_own_rx_a)},
+	{"lreOwnRxB", PRUETH_LRE_STAT_OFS(cnt_own_rx_b)},
+
+	{"lreDuplicateDiscard", PRUETH_LRE_STAT_OFS(duplicate_discard)},
+	{"lreTransRecept", PRUETH_LRE_STAT_OFS(transparent_reception)},
+
+	{"lreNtLookupErrA", PRUETH_LRE_STAT_OFS(node_table_lookup_error_a)},
+	{"lreNtLookupErrB", PRUETH_LRE_STAT_OFS(node_table_lookup_error_b)},
+	{"lreNodeTableFull", PRUETH_LRE_STAT_OFS(node_table_full)},
+	{"lreMulticastDropped", PRUETH_LRE_STAT_OFS(lre_multicast_dropped)},
+	{"lreVlanDropped", PRUETH_LRE_STAT_OFS(lre_vlan_dropped)},
+	{"lrePaceTimerExpired", PRUETH_LRE_STAT_OFS(lre_intr_tmr_exp)},
+	{"lreTotalRxA", PRUETH_LRE_STAT_OFS(lre_total_rx_a)},
+	{"lreTotalRxB", PRUETH_LRE_STAT_OFS(lre_total_rx_b)},
+	{"lreOverflowPru0", PRUETH_LRE_STAT_OFS(lre_overflow_pru0)},
+	{"lreOverflowPru1", PRUETH_LRE_STAT_OFS(lre_overflow_pru1)},
+	{"lreDDCountPru0", PRUETH_LRE_STAT_OFS(lre_cnt_dd_pru0)},
+	{"lreDDCountPru1", PRUETH_LRE_STAT_OFS(lre_cnt_dd_pru1)},
+	{"lreCntSupPru0", PRUETH_LRE_STAT_OFS(lre_cnt_sup_pru0)},
+	{"lreCntSupPru1", PRUETH_LRE_STAT_OFS(lre_cnt_sup_pru1)},
+};
+
+void prueth_lre_set_stats(struct prueth *prueth,
+			  struct lre_statistics *pstats)
+{
+	void __iomem *sram = prueth->mem[PRUETH_MEM_SHARED_RAM].va;
+
+	if (prueth->emac_configured)
+		return;
+
+	/* These two are actually not statistics, so keep original */
+	pstats->duplicate_discard = readl(sram + ICSS_LRE_DUPLICATE_DISCARD);
+	pstats->transparent_reception =
+		readl(sram + ICSS_LRE_TRANSPARENT_RECEPTION);
+	memcpy_fromio(sram + ICSS_LRE_START + 4, pstats, sizeof(*pstats));
+}
+
+void prueth_lre_get_stats(struct prueth *prueth,
+			  struct lre_statistics *pstats)
+{
+	void __iomem *sram = prueth->mem[PRUETH_MEM_SHARED_RAM].va;
+
+	memcpy_fromio(pstats, sram + ICSS_LRE_CNT_TX_A, sizeof(*pstats));
+}
+
+int prueth_lre_get_sset_count(struct prueth *prueth)
+{
+	if (!PRUETH_IS_LRE(prueth))
+		return 0;
+
+	return ARRAY_SIZE(prueth_ethtool_lre_stats);
+}
+
+void prueth_lre_get_strings(struct prueth *prueth, u8 *data)
+{
+	int i;
+
+	if (!PRUETH_IS_LRE(prueth))
+		return;
+
+	for (i = 0; i < ARRAY_SIZE(prueth_ethtool_lre_stats); i++) {
+		memcpy(data, prueth_ethtool_lre_stats[i].string,
+		       ETH_GSTRING_LEN);
+		data += ETH_GSTRING_LEN;
+	}
+}
+
+void prueth_lre_update_stats(struct prueth *prueth, u64 *data)
+{
+	struct lre_statistics lre_stats;
+	void *ptr;
+	u32 val;
+	int i;
+
+	if (!PRUETH_IS_LRE(prueth))
+		return;
+
+	prueth_lre_get_stats(prueth, &lre_stats);
+	for (i = 0; i < ARRAY_SIZE(prueth_ethtool_lre_stats); i++) {
+		ptr = &lre_stats;
+		ptr += prueth_ethtool_lre_stats[i].offset;
+		val = *(u32 *)ptr;
+		data[i] = val;
+	}
+}
+
+static int prueth_lre_attr_get(struct net_device *ndev,
+			       struct lredev_attr *attr)
+{
+	struct prueth_emac *emac = netdev_priv(ndev);
+	struct prueth *prueth = emac->prueth;
+	void __iomem *sram = prueth->mem[PRUETH_MEM_SHARED_RAM].va;
+	void __iomem *dram0 = prueth->mem[PRUETH_MEM_DRAM0].va;
+	void __iomem *dram1 = prueth->mem[PRUETH_MEM_DRAM1].va;
+	int ret = 0;
+
+	netdev_dbg(ndev, "%d:%s, id %d\n", __LINE__, __func__, attr->id);
+
+	switch (attr->id) {
+	case LREDEV_ATTR_ID_HSR_MODE:
+		if (!PRUETH_IS_HSR(prueth))
+			return -EPERM;
+		attr->mode = readl(dram0 + ICSS_LRE_HSR_MODE);
+		break;
+	case LREDEV_ATTR_ID_DD_MODE:
+		attr->dd_mode = readl(sram + ICSS_LRE_DUPLICATE_DISCARD);
+		break;
+	case LREDEV_ATTR_ID_PRP_TR:
+		if (!PRUETH_IS_PRP(prueth))
+			return -EINVAL;
+		attr->tr_mode = prueth->prp_tr_mode;
+		break;
+	case LREDEV_ATTR_ID_DLRMT:
+		attr->dl_reside_max_time =
+			readl(dram1 + ICSS_LRE_DUPLI_FORGET_TIME) * 10;
+		break;
+	case LREDEV_ATTR_ID_CLEAR_NT:
+		attr->clear_nt_cmd = prueth->node_table_clear_last_cmd;
+		break;
+	default:
+		ret = -EINVAL;
+		break;
+	}
+
+	return ret;
+}
+
+static int prueth_lre_attr_set(struct net_device *ndev,
+			       struct lredev_attr *attr)
+{
+	struct prueth_emac *emac = netdev_priv(ndev);
+	struct prueth *prueth = emac->prueth;
+	void __iomem *sram = prueth->mem[PRUETH_MEM_SHARED_RAM].va;
+	void __iomem *dram0 = prueth->mem[PRUETH_MEM_DRAM0].va;
+	void __iomem *dram1 = prueth->mem[PRUETH_MEM_DRAM1].va;
+	int ret = 0;
+
+	netdev_dbg(ndev, "%d:%s, id = %d\n", __LINE__, __func__, attr->id);
+
+	switch (attr->id) {
+	case LREDEV_ATTR_ID_HSR_MODE:
+		if (!PRUETH_IS_HSR(prueth))
+			return -EPERM;
+		prueth->hsr_mode = attr->mode;
+		writel(prueth->hsr_mode, dram0 + ICSS_LRE_HSR_MODE);
+		break;
+	case LREDEV_ATTR_ID_DD_MODE:
+		writel(attr->dd_mode, sram + ICSS_LRE_DUPLICATE_DISCARD);
+		break;
+	case LREDEV_ATTR_ID_PRP_TR:
+		if (!PRUETH_IS_PRP(prueth))
+			return -EINVAL;
+		prueth->prp_tr_mode = attr->tr_mode;
+		break;
+	case LREDEV_ATTR_ID_DLRMT:
+		/* input is in milli seconds. Firmware expects in unit
+		 * of 10 msec
+		 */
+		writel((attr->dl_reside_max_time / 10),
+		       dram1 + ICSS_LRE_DUPLI_FORGET_TIME);
+		break;
+	case LREDEV_ATTR_ID_CLEAR_NT:
+		/* need to return last cmd received for corresponding
+		 * get command. So save it
+		 */
+		prueth->node_table_clear_last_cmd = attr->clear_nt_cmd;
+		if (attr->clear_nt_cmd == IEC62439_3_CLEAR_NT)
+			prueth->node_table_clear = 1;
+		else
+			prueth->node_table_clear = 0;
+		break;
+	default:
+		ret = -EINVAL;
+		break;
+	}
+
+	return ret;
+}
+
+static int emac_lredev_update_node_entry(struct node_tbl_t *node,
+					 struct lre_node_table_entry table[],
+					 int j)
+{
+	u8 val, is_hsr, updated = 1;
+
+	table[j].time_last_seen_a = node->time_last_seen_a;
+	table[j].time_last_seen_b = node->time_last_seen_b;
+
+	is_hsr = node->status & ICSS_LRE_NT_REM_NODE_HSR_BIT;
+	val = (node->status & ICSS_LRE_NT_REM_NODE_TYPE_MASK) >>
+					ICSS_LRE_NT_REM_NODE_TYPE_SHIFT;
+	switch (val) {
+	case ICSS_LRE_NT_REM_NODE_TYPE_DAN:
+		if (is_hsr)
+			table[j].node_type = IEC62439_3_DANH;
+		else
+			table[j].node_type = IEC62439_3_DANP;
+		break;
+
+	case ICSS_LRE_NT_REM_NODE_TYPE_REDBOX:
+		if (is_hsr)
+			table[j].node_type = IEC62439_3_REDBOXH;
+		else
+			table[j].node_type = IEC62439_3_REDBOXP;
+		break;
+
+	case ICSS_LRE_NT_REM_NODE_TYPE_VDAN:
+		if (is_hsr)
+			table[j].node_type = IEC62439_3_VDANH;
+		else
+			table[j].node_type = IEC62439_3_VDANP;
+		break;
+	default:
+		updated = 0;
+		break;
+	}
+
+	return updated;
+}
+
+static int prueth_lre_get_node_table(struct net_device *ndev,
+				     struct lre_node_table_entry table[],
+				     int size)
+{
+	struct prueth_emac *emac = netdev_priv(ndev);
+	struct prueth *prueth = emac->prueth;
+	struct node_tbl *nt = prueth->nt;
+	struct bin_tbl_t *bin;
+	struct node_tbl_t *node;
+	int i, j = 0, updated;
+	unsigned long flags;
+
+	netdev_dbg(ndev, "%d:%s\n", __LINE__, __func__);
+
+	if (size < nt->nt_lre_cnt->lre_cnt)
+		netdev_warn(ndev,
+			    "actual table size %d is < required size %d\n",
+			    size,  nt->nt_lre_cnt->lre_cnt);
+
+	spin_lock_irqsave(&prueth->nt_lock, flags);
+	for (i = 0; i < nt->bin_array_max_entries; i++) {
+		if (nt->bin_array->bin_tbl[i].node_tbl_offset <
+		    nt->nt_array_max_entries) {
+			bin =  &nt->bin_array->bin_tbl[i];
+			if (WARN_ON(bin->node_tbl_offset >=
+					nt->nt_array_max_entries))
+				continue;
+			node =  &nt->nt_array->node_tbl[bin->node_tbl_offset];
+
+			if (!(node->entry_state & 0x1))
+				continue;
+
+			updated = emac_lredev_update_node_entry(node, table, j);
+			if (updated) {
+				table[j].mac_address[0] = bin->src_mac_id[3];
+				table[j].mac_address[1] = bin->src_mac_id[2];
+				table[j].mac_address[2] = bin->src_mac_id[1];
+				table[j].mac_address[3] = bin->src_mac_id[0];
+				table[j].mac_address[4] = bin->src_mac_id[5];
+				table[j].mac_address[5] = bin->src_mac_id[4];
+				j++;
+			}
+		}
+	}
+	spin_unlock_irqrestore(&prueth->nt_lock, flags);
+
+	return j;
+}
+
+static int prueth_lre_get_lre_stats(struct net_device *ndev,
+				    struct lre_stats *stats)
+{
+	struct prueth_emac *emac = netdev_priv(ndev);
+	struct prueth *prueth = emac->prueth;
+	void __iomem *sram = prueth->mem[PRUETH_MEM_SHARED_RAM].va;
+
+	memcpy_fromio(stats, sram + ICSS_LRE_CNT_TX_A, sizeof(*stats));
+
+	return 0;
+}
+
+const struct lredev_ops prueth_lredev_ops = {
+	.lredev_attr_get = prueth_lre_attr_get,
+	.lredev_attr_set = prueth_lre_attr_set,
+	.lredev_get_node_table = prueth_lre_get_node_table,
+	.lredev_get_stats = prueth_lre_get_lre_stats,
+};
+
 int prueth_lre_init_node_table(struct prueth *prueth)
 {
 	/* HSR/PRP: initialize node table when first port is up */

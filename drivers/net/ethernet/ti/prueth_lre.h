@@ -25,6 +25,63 @@
 #define LRE_ERR				-1
 #define LRE_SV_FRAME_OFFSET		20
 
+/* Link Redundancy Entity stats counters */
+struct lre_statistics {
+	u32 cnt_tx_a;
+	u32 cnt_tx_b;
+	u32 cnt_tx_c;
+
+	u32 cnt_errwronglan_a;
+	u32 cnt_errwronglan_b;
+	u32 cnt_errwronglan_c;
+
+	u32 cnt_rx_a;
+	u32 cnt_rx_b;
+	u32 cnt_rx_c;
+
+	u32 cnt_errors_a;
+	u32 cnt_errors_b;
+	u32 cnt_errors_c;
+
+	u32 cnt_nodes;
+	u32 cnt_proxy_nodes;
+
+	u32 cnt_unique_rx_a;
+	u32 cnt_unique_rx_b;
+	u32 cnt_unique_rx_c;
+
+	u32 cnt_duplicate_rx_a;
+	u32 cnt_duplicate_rx_b;
+	u32 cnt_duplicate_rx_c;
+
+	u32 cnt_multiple_rx_a;
+	u32 cnt_multiple_rx_b;
+	u32 cnt_multiple_rx_c;
+
+	u32 cnt_own_rx_a;
+	u32 cnt_own_rx_b;
+
+	u32 duplicate_discard;
+	u32 transparent_reception;
+
+	u32 node_table_lookup_error_a;
+	u32 node_table_lookup_error_b;
+	u32 node_table_full;
+	u32 lre_multicast_dropped;
+	u32 lre_vlan_dropped;
+	u32 lre_intr_tmr_exp;
+
+	/* additional debug counters */
+	u32 lre_total_rx_a; /* count of all frames received at port-A */
+	u32 lre_total_rx_b; /* count of all frames received at port-B */
+	u32 lre_overflow_pru0; /* count of overflow frames to host on PRU 0 */
+	u32 lre_overflow_pru1; /* count of overflow frames to host on PRU 1 */
+	u32 lre_cnt_dd_pru0; /* count of DD frames to host on PRU 0 */
+	u32 lre_cnt_dd_pru1; /* count of DD frames to host on PRU 1 */
+	u32 lre_cnt_sup_pru0; /* count of supervisor frames to host on PRU 0 */
+	u32 lre_cnt_sup_pru1; /* count of supervisor frames to host on PRU 1 */
+} __packed;
+
 /* node table info */
 struct prueth_lre_node {
 	u8 mac[6];
@@ -127,6 +184,13 @@ int prueth_lre_init_node_table(struct prueth *prueth);
 int prueth_lre_request_irqs(struct prueth_emac *emac);
 void prueth_lre_free_irqs(struct prueth_emac *emac);
 irqreturn_t prueth_lre_emac_rx_hardirq(int irq, void *dev_id);
+int prueth_lre_get_sset_count(struct prueth *prueth);
+void prueth_lre_get_strings(struct prueth *prueth, u8 *data);
+void prueth_lre_update_stats(struct prueth *prueth, u64 *data);
+void prueth_lre_set_stats(struct prueth *prueth,
+			  struct lre_statistics *pstats);
+void prueth_lre_get_stats(struct prueth *prueth,
+			  struct lre_statistics *pstats);
 void prueth_lre_config_check_flags(struct prueth *prueth);
 int prueth_lre_napi_poll_lpq(struct napi_struct *napi, int budget);
 int prueth_lre_napi_poll_hpq(struct napi_struct *napi, int budget);
@@ -134,5 +198,7 @@ void prueth_lre_free_memory(struct prueth *prueth);
 void prueth_lre_process_check_flags_event(struct prueth *prueth);
 int prueth_lre_nt_insert(struct prueth *prueth,
 			 u8 *mac, int port, int sv_frame, int proto);
+
+extern const struct lredev_ops prueth_lredev_ops;
 
 #endif /* __NET_TI_PRUETH_LRE_H */

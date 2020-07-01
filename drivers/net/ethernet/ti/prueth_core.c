@@ -1333,6 +1333,8 @@ static int emac_ndo_open(struct net_device *ndev)
 
 	/* restore stats */
 	emac_set_stats(emac, &emac->stats);
+	if (PRUETH_IS_LRE(prueth))
+		prueth_lre_set_stats(prueth, prueth->lre_stats);
 
 	if (!prueth->emac_configured) {
 		ret = icss_iep_init(prueth->iep, NULL, NULL, 0);
@@ -1460,8 +1462,10 @@ static int emac_ndo_stop(struct net_device *ndev)
 	else
 		rproc_shutdown(emac->pru);
 
-	/* save stats */
+	/* save and lre stats */
 	emac_get_stats(emac, &emac->stats);
+	if (PRUETH_IS_LRE(prueth) && !prueth->emac_configured)
+		prueth_lre_get_stats(prueth, prueth->lre_stats);
 
 	if (!prueth->emac_configured)
 		icss_iep_exit(prueth->iep);
@@ -2131,9 +2135,15 @@ static const struct {
 
 static int emac_get_sset_count(struct net_device *ndev, int stringset)
 {
+	struct prueth_emac *emac = netdev_priv(ndev);
+	int a_size;
+
 	switch (stringset) {
 	case ETH_SS_STATS:
-		return ARRAY_SIZE(prueth_ethtool_stats);
+		a_size = ARRAY_SIZE(prueth_ethtool_stats);
+		a_size += prueth_lre_get_sset_count(emac->prueth);
+
+		return a_size;
 	default:
 		return -EOPNOTSUPP;
 	}
@@ -2141,6 +2151,7 @@ static int emac_get_sset_count(struct net_device *ndev, int stringset)
 
 static void emac_get_strings(struct net_device *ndev, u32 stringset, u8 *data)
 {
+	struct prueth_emac *emac = netdev_priv(ndev);
 	u8 *p = data;
 	int i;
 
@@ -2151,6 +2162,7 @@ static void emac_get_strings(struct net_device *ndev, u32 stringset, u8 *data)
 			       ETH_GSTRING_LEN);
 			p += ETH_GSTRING_LEN;
 		}
+		prueth_lre_get_strings(emac->prueth, p);
 		break;
 	default:
 		break;
@@ -2174,6 +2186,7 @@ static void emac_get_ethtool_stats(struct net_device *ndev,
 		val = *(u32 *)ptr;
 		data[i] = val;
 	}
+	prueth_lre_update_stats(emac->prueth, &data[i]);
 }
 
 /* Ethtool support for EMAC adapter */
@@ -2355,6 +2368,8 @@ static int prueth_netdev_init(struct prueth *prueth,
 
 	ndev->netdev_ops = &emac_netdev_ops;
 	ndev->ethtool_ops = &emac_ethtool_ops;
+	if (prueth->support_lre)
+		ndev->lredev_ops = &prueth_lredev_ops;
 
 	if (PRUETH_IS_EMAC(prueth) || PRUETH_IS_SWITCH(prueth))
 		netif_napi_add(ndev, &emac->napi, emac_napi_poll,
@@ -2709,6 +2724,14 @@ static int prueth_probe(struct platform_device *pdev)
 					  sizeof(struct prueth_ndev_priority),
 					  GFP_KERNEL);
 		if (!prueth->hp) {
+			ret = -ENOMEM;
+			goto free_pool;
+		}
+
+		prueth->lre_stats = devm_kzalloc(dev,
+						 sizeof(*prueth->lre_stats),
+						 GFP_KERNEL);
+		if (!prueth->lre_stats) {
 			ret = -ENOMEM;
 			goto free_pool;
 		}
