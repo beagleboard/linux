@@ -11,6 +11,9 @@
 #include <linux/device.h>
 #include <linux/regmap.h>
 #include <linux/slab.h>
+#include <linux/of.h>
+#include <linux/of_device.h>
+#include <linux/of_gpio.h>
 #include <sound/core.h>
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
@@ -19,13 +22,6 @@
 #include <sound/tlv.h>
 
 #include "ad193x.h"
-
-/* codec private data */
-struct ad193x_priv {
-	struct regmap *regmap;
-	enum ad193x_type type;
-	int sysclk;
-};
 
 /*
  * AD193X volume/mute/de-emphasis etc. controls
@@ -351,12 +347,29 @@ static struct snd_soc_dai_driver ad193x_dai = {
 	.ops = &ad193x_dai_ops,
 };
 
+static int ad193x_reset(struct snd_soc_component *component)
+{
+	struct ad193x_priv *ad193x = snd_soc_component_get_drvdata(component);
+
+	if (gpio_is_valid(ad193x->reset_gpio)) {
+		gpio_direction_output(ad193x->reset_gpio, 0);
+		mdelay(1);
+		gpio_set_value(ad193x->reset_gpio, 1);
+		mdelay(1);
+	}
+
+	return 0;
+}
+
 static int ad193x_component_probe(struct snd_soc_component *component)
 {
 	struct ad193x_priv *ad193x = snd_soc_component_get_drvdata(component);
 	struct snd_soc_dapm_context *dapm = snd_soc_component_get_dapm(component);
 	int num, ret;
-
+	
+	/* Reset codec */
+	ad193x_reset(component);
+	
 	/* default setting for ad193x */
 
 	/* unmute dac channels */
@@ -427,10 +440,18 @@ const struct regmap_config ad193x_regmap_config = {
 };
 EXPORT_SYMBOL_GPL(ad193x_regmap_config);
 
+
+static const struct of_device_id ad193x_spi_dt_ids[] = {
+	{ .compatible = "analog,ad1938", },
+	{/*sentinel*/},
+};
+MODULE_DEVICE_TABLE(of, ad193x_spi_dt_ids);
+
 int ad193x_probe(struct device *dev, struct regmap *regmap,
 		 enum ad193x_type type)
 {
 	struct ad193x_priv *ad193x;
+	int ret = 0;
 
 	if (IS_ERR(regmap))
 		return PTR_ERR(regmap);
@@ -438,6 +459,17 @@ int ad193x_probe(struct device *dev, struct regmap *regmap,
 	ad193x = devm_kzalloc(dev, sizeof(*ad193x), GFP_KERNEL);
 	if (ad193x == NULL)
 		return -ENOMEM;
+		
+	if (of_match_device(ad193x_spi_dt_ids, dev))
+			ad193x->reset_gpio = of_get_named_gpio(dev->of_node, "reset-gpio", 0);
+
+	if (gpio_is_valid(ad193x->reset_gpio)) {
+		ret = devm_gpio_request(dev, ad193x->reset_gpio,
+					"AD193x Reset");	
+		if (ret < 0)
+			return ret;
+	}
+
 
 	ad193x->regmap = regmap;
 	ad193x->type = type;
