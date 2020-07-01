@@ -19,6 +19,14 @@ enum ad193x_type {
 	AD1934,
 };
 
+/* codec private data */
+struct ad193x_priv {
+	struct regmap *regmap;
+	enum ad193x_type type;
+	int sysclk;
+	int reset_gpio;
+};
+
 extern const struct regmap_config ad193x_regmap_config;
 int ad193x_probe(struct device *dev, struct regmap *regmap,
 		 enum ad193x_type type);
