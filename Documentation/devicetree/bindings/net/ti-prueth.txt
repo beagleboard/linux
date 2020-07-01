@@ -14,6 +14,16 @@ Required properties:
 - mii-rt	   : pHandle to MII_RT module's syscon regmap
 - iep		   : pHandle to IEP module's syscon regmap
 
+Optional properties:
+
+Following required if HSR and PRP driver offload is supported
+on the platform:-
+
+- interrupt-names  : should contain "rx_lre_hp", "rx_lre_lp"
+- interrupts       : should contain an array of PRUSS system event
+		     numbers used as the interrupt sources for
+		     rx_lre_hp and rx_lre_lp interrupts respectively
+
 Must contain children, one for each of the MAC ports.
 Children must be named ethernet-mii0 and ethernet-mii1.
 Either one or both children can be present. If only one
