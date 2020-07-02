@@ -1077,7 +1077,7 @@ int symbol__annotate(struct symbol *sym, struct map *map, size_t privsize)
 	struct dso *dso = map->dso;
 	char *filename = dso__build_id_filename(dso, NULL, 0);
 	bool free_filename = true;
-	char command[PATH_MAX * 2];
+	char *command;
 	FILE *file;
 	int err = 0;
 	char symfs_filename[PATH_MAX];
@@ -1192,7 +1192,7 @@ fallback:
 		strcpy(symfs_filename, tmp);
 	}
 
-	snprintf(command, sizeof(command),
+	err = asprintf(&command,
 		 "%s %s%s --start-address=0x%016" PRIx64
 		 " --stop-address=0x%016" PRIx64
 		 " -l -d %s %s -C %s 2>/dev/null|grep -v %s|expand",
@@ -1205,6 +1205,11 @@ fallback:
 		 symbol_conf.annotate_src ? "-S" : "",
 		 symfs_filename, filename);
 
+	if (err < 0) {
+		pr_err("Failure allocating memory for the command to run\n");
+		goto out_remove_tmp;
+	}
+
 	pr_debug("Executing: %s\n", command);
 
 	file = popen(command, "r");
@@ -1214,7 +1219,7 @@ fallback:
 		 * If we were using debug info should retry with
 		 * original binary.
 		 */
-		goto out_remove_tmp;
+		goto out_free_command;
 	}
 
 	nline = 0;
@@ -1236,6 +1241,9 @@ fallback:
 		delete_last_nop(sym);
 
 	pclose(file);
+
+out_free_command:
+	free(command);
 
 out_remove_tmp:
 	if (dso__needs_decompress(dso))
