@@ -904,6 +904,13 @@ static void prueth_sw_fdb_work(struct work_struct *work)
 	struct prueth_emac *emac = fdb_work->emac;
 
 	rtnl_lock();
+
+	/* Interface is not up */
+	if (!emac->prueth->fdb_tbl) {
+		rtnl_unlock();
+		return;
+	}
+
 	switch (fdb_work->event) {
 	case FDB_LEARN:
 		prueth_sw_insert_fdb_entry(emac, fdb_work->addr, 0);
@@ -1035,6 +1042,10 @@ static int prueth_switchdev_attr_set(struct net_device *ndev,
 	struct prueth *prueth = emac->prueth;
 	int err = 0;
 	u8 o_state;
+
+	/* Interface is not up */
+	if (!prueth->fdb_tbl)
+		return 0;
 
 	switch (attr->id) {
 	case SWITCHDEV_ATTR_ID_PORT_STP_STATE:
