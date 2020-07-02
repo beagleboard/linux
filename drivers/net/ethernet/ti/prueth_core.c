@@ -107,17 +107,33 @@ static struct prueth_fw_offsets fw_offsets_v2_1 = {
 
 static void prueth_set_fw_offsets(struct prueth *prueth)
 {
-	/* Set VLAN filter table offsets */
+	/* Set VLAN/Multicast filter control and table offsets */
 	if (PRUETH_IS_EMAC(prueth) || PRUETH_IS_SWITCH(prueth)) {
 		prueth->fw_offsets->vlan_ctrl_byte  =
 			ICSS_EMAC_FW_VLAN_FILTER_CTRL_BITMAP_OFFSET;
 		prueth->fw_offsets->vlan_filter_tbl =
 			ICSS_EMAC_FW_VLAN_FLTR_TBL_BASE_ADDR;
+
+		prueth->fw_offsets->mc_ctrl_byte  =
+			ICSS_EMAC_FW_MULTICAST_FILTER_CTRL_OFFSET;
+		prueth->fw_offsets->mc_filter_mask =
+			ICSS_EMAC_FW_MULTICAST_FILTER_MASK_OFFSET;
+		prueth->fw_offsets->mc_filter_tbl =
+			ICSS_EMAC_FW_MULTICAST_FILTER_TABLE;
+
 	} else {
 		prueth->fw_offsets->vlan_ctrl_byte  =
 			ICSS_LRE_FW_VLAN_FLTR_CTRL_BYTE;
 		prueth->fw_offsets->vlan_filter_tbl =
 			ICSS_LRE_FW_VLAN_FLTR_TBL_BASE_ADDR;
+
+		prueth->fw_offsets->mc_ctrl_byte  =
+			ICSS_LRE_FW_MULTICAST_TABLE_SEARCH_OP_CONTROL_BIT;
+		prueth->fw_offsets->mc_filter_mask =
+			ICSS_LRE_FW_MULTICAST_FILTER_MASK;
+		prueth->fw_offsets->mc_filter_tbl =
+			ICSS_LRE_FW_MULTICAST_FILTER_TABLE;
+
 	}
 }
 
@@ -1716,11 +1732,15 @@ static struct net_device_stats *emac_ndo_get_stats(struct net_device *ndev)
 static void emac_mc_filter_ctrl(struct prueth_emac *emac, bool enable)
 {
 	struct prueth *prueth = emac->prueth;
+	void __iomem *ram = prueth->mem[emac->dram].va;
+	u32 mc_ctrl_byte = prueth->fw_offsets->mc_ctrl_byte;
 	void __iomem *mc_filter_ctrl;
 	u32 reg;
 
-	mc_filter_ctrl = prueth->mem[emac->dram].va +
-			 ICSS_EMAC_FW_MULTICAST_FILTER_CTRL_OFFSET;
+	if (PRUETH_IS_LRE(prueth))
+		ram = prueth->mem[PRUETH_MEM_DRAM1].va;
+
+	mc_filter_ctrl = ram + mc_ctrl_byte;
 
 	if (enable)
 		reg = ICSS_EMAC_FW_MULTICAST_FILTER_CTRL_ENABLED;
@@ -1734,10 +1754,14 @@ static void emac_mc_filter_ctrl(struct prueth_emac *emac, bool enable)
 static void emac_mc_filter_reset(struct prueth_emac *emac)
 {
 	struct prueth *prueth = emac->prueth;
+	void __iomem *ram = prueth->mem[emac->dram].va;
+	u32 mc_filter_tbl_base = prueth->fw_offsets->mc_filter_tbl;
 	void __iomem *mc_filter_tbl;
 
-	mc_filter_tbl = prueth->mem[emac->dram].va +
-			 ICSS_EMAC_FW_MULTICAST_FILTER_TABLE;
+	if (PRUETH_IS_LRE(prueth))
+		ram = prueth->mem[PRUETH_MEM_DRAM1].va;
+
+	mc_filter_tbl = ram + mc_filter_tbl_base;
 	memset_io(mc_filter_tbl, 0, ICSS_EMAC_FW_MULTICAST_TABLE_SIZE_BYTES);
 }
 
@@ -1746,10 +1770,14 @@ static void emac_mc_filter_hashmask(struct prueth_emac *emac,
 				    u8 mask[ICSS_EMAC_FW_MULTICAST_FILTER_MASK_SIZE_BYTES])
 {
 	struct prueth *prueth = emac->prueth;
+	void __iomem *ram = prueth->mem[emac->dram].va;
+	u32 mc_filter_mask_base = prueth->fw_offsets->mc_filter_mask;
 	void __iomem *mc_filter_mask;
 
-	mc_filter_mask = prueth->mem[emac->dram].va +
-			 ICSS_EMAC_FW_MULTICAST_FILTER_MASK_OFFSET;
+	if (PRUETH_IS_LRE(prueth))
+		ram = prueth->mem[PRUETH_MEM_DRAM1].va;
+
+	mc_filter_mask = ram + mc_filter_mask_base;
 	memcpy_toio(mc_filter_mask, mask,
 		    ICSS_EMAC_FW_MULTICAST_FILTER_MASK_SIZE_BYTES);
 }
@@ -1757,10 +1785,14 @@ static void emac_mc_filter_hashmask(struct prueth_emac *emac,
 static void emac_mc_filter_bin_allow(struct prueth_emac *emac, u8 hash)
 {
 	struct prueth *prueth = emac->prueth;
+	u32 mc_filter_tbl_base = prueth->fw_offsets->mc_filter_tbl;
 	void __iomem *mc_filter_tbl;
+	void __iomem *ram = prueth->mem[emac->dram].va;
 
-	mc_filter_tbl = prueth->mem[emac->dram].va +
-			 ICSS_EMAC_FW_MULTICAST_FILTER_TABLE;
+	if (PRUETH_IS_LRE(prueth))
+		ram = prueth->mem[PRUETH_MEM_DRAM1].va;
+
+	mc_filter_tbl = ram + mc_filter_tbl_base;
 	writeb(ICSS_EMAC_FW_MULTICAST_FILTER_HOST_RCV_ALLOWED,
 	       mc_filter_tbl + hash);
 }
@@ -1789,65 +1821,75 @@ static void emac_ndo_set_rx_mode(struct net_device *ndev)
 	struct prueth *prueth = emac->prueth;
 	void __iomem *sram = prueth->mem[PRUETH_MEM_SHARED_RAM].va;
 	u32 reg = readl(sram + EMAC_PROMISCUOUS_MODE_OFFSET);
-	u32 mask;
 	bool promisc = ndev->flags & IFF_PROMISC;
 	struct netdev_hw_addr *ha;
+	unsigned long flags;
+	u32 mask;
 	u8 hash;
 
-	/* HSR/PRP mc related features not yet supported */
-	if (PRUETH_IS_LRE(prueth))
-		return;
-
-	/* Will be here for Switch/EMAC only */
 	if (PRUETH_IS_SWITCH(prueth)) {
 		netdev_dbg(ndev,
-			   "%s: promisc mode not supported for switch\n",
+			   "%s: promisc/mc filtering not supported for switch\n",
 			   __func__);
 		return;
 	}
 
-	switch (emac->port_id) {
-	case PRUETH_PORT_MII0:
-		mask = EMAC_P1_PROMISCUOUS_BIT;
-		break;
-	case PRUETH_PORT_MII1:
-		mask = EMAC_P2_PROMISCUOUS_BIT;
-		break;
-	default:
-		netdev_err(ndev, "%s: invalid port\n", __func__);
+	if (promisc && PRUETH_IS_LRE(prueth)) {
+		netdev_dbg(ndev,
+			   "%s: promisc mode not supported for LRE\n",
+			   __func__);
 		return;
 	}
+
+	/* for LRE, it is a shared table. So lock the access */
+	spin_lock_irqsave(&emac->addr_lock, flags);
 
 	/* Disable and reset multicast filter, allows allmulti */
 	emac_mc_filter_ctrl(emac, false);
 	emac_mc_filter_reset(emac);
 	emac_mc_filter_hashmask(emac, emac->mc_filter_mask);
 
-	if (promisc) {
-		/* Enable promiscuous mode */
-		reg |= mask;
-	} else {
-		/* Disable promiscuous mode */
-		reg &= ~mask;
+	if (PRUETH_IS_EMAC(prueth)) {
+		switch (emac->port_id) {
+		case PRUETH_PORT_MII0:
+			mask = EMAC_P1_PROMISCUOUS_BIT;
+			break;
+		case PRUETH_PORT_MII1:
+			mask = EMAC_P2_PROMISCUOUS_BIT;
+			break;
+		default:
+			netdev_err(ndev, "%s: invalid port\n", __func__);
+			goto unlock;
+		}
+
+		if (promisc) {
+			/* Enable promiscuous mode */
+			reg |= mask;
+		} else {
+			/* Disable promiscuous mode */
+			reg &= ~mask;
+		}
+
+		writel(reg, sram + EMAC_PROMISCUOUS_MODE_OFFSET);
+
+		if (promisc)
+			goto unlock;
 	}
 
-	writel(reg, sram + EMAC_PROMISCUOUS_MODE_OFFSET);
-
-	if (promisc)
-		return;
-
 	if (ndev->flags & IFF_ALLMULTI)
-		return;
+		goto unlock;
 
 	emac_mc_filter_ctrl(emac, true);	/* all multicast blocked */
 
 	if (netdev_mc_empty(ndev))
-		return;
+		goto unlock;
 
 	netdev_for_each_mc_addr(ha, ndev) {
 		hash = emac_get_mc_hash(ha->addr, emac->mc_filter_mask);
 		emac_mc_filter_bin_allow(emac, hash);
 	}
+unlock:
+	spin_unlock_irqrestore(&emac->addr_lock, flags);
 }
 
 static int emac_ndo_ioctl(struct net_device *ndev, struct ifreq *ifr, int cmd)

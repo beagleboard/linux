@@ -292,6 +292,9 @@ struct prueth_fw_offsets {
 	u32 nt_array_max_entries;
 	u32 vlan_ctrl_byte;
 	u32 vlan_filter_tbl;
+	u32 mc_ctrl_byte;
+	u32 mc_filter_mask;
+	u32 mc_filter_tbl;
 	/* IEP wrap is used in the rx packet ordering logic and
 	 * is different for ICSSM v1.0 vs 2.1
 	 */
