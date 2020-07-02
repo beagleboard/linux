@@ -971,16 +971,24 @@ static int emac_ndo_open(struct net_device *ndev)
 	/* restore stats */
 	emac_set_stats(emac, &emac->stats);
 
+	if (!prueth->emac_configured) {
+		ret = icss_iep_init(prueth->iep, NULL, NULL, 0);
+		if (ret) {
+			netdev_err(ndev, "Failed to initialize iep: %d\n", ret);
+			return ret;
+		}
+	}
+
 	if (PRUETH_IS_SWITCH(prueth)) {
 		ret = prueth_sw_boot_prus(prueth, ndev);
 		if (ret)
-			return ret;
+			goto iep_exit;
 	} else {
 		/* boot the PRU */
 		ret = rproc_boot(emac->pru);
 		if (ret) {
 			netdev_err(ndev, "failed to boot PRU: %d\n", ret);
-			return ret;
+			goto iep_exit;
 		}
 	}
 
@@ -1028,7 +1036,9 @@ rproc_shutdown:
 		prueth_sw_shutdown_prus(emac, ndev);
 	else
 		rproc_shutdown(emac->pru);
-
+iep_exit:
+	if (!prueth->emac_configured)
+		icss_iep_exit(prueth->iep);
 	return ret;
 }
 
@@ -1064,6 +1074,9 @@ static int emac_ndo_stop(struct net_device *ndev)
 
 	/* save stats */
 	emac_get_stats(emac, &emac->stats);
+
+	if (!prueth->emac_configured)
+		icss_iep_exit(prueth->iep);
 
 	/* free rx and tx interrupts */
 	if (PRUETH_IS_EMAC(emac->prueth))
@@ -2118,21 +2131,14 @@ static int prueth_probe(struct platform_device *pdev)
 	prueth->iep = icss_iep_get(np);
 	if (IS_ERR(prueth->iep)) {
 		ret = PTR_ERR(prueth->iep);
-		prueth->iep = NULL;
-		goto skip_iep;
-	}
-
-	ret = icss_iep_init(prueth->iep, NULL, NULL, 0);
-	if (ret) {
-		dev_err(dev, "failed to init iep\n");
+		dev_err(dev, "unable to get IEP\n");
 		goto netdev_exit;
 	}
 
-skip_iep:
 	ret = prueth_hostinit(prueth);
 	if (ret) {
 		dev_err(dev, "hostinit failed: %d\n", ret);
-		goto iep_exit;
+		goto iep_put;
 	}
 
 	/* register the network devices */
@@ -2140,7 +2146,7 @@ skip_iep:
 		ret = register_netdev(prueth->emac[PRUETH_MAC0]->ndev);
 		if (ret) {
 			dev_err(dev, "can't register netdev for port MII0");
-			goto iep_exit;
+			goto iep_put;
 		}
 
 		prueth->registered_netdevs[PRUETH_MAC0] = prueth->emac[PRUETH_MAC0]->ndev;
@@ -2178,13 +2184,8 @@ netdev_unregister:
 		unregister_netdev(prueth->registered_netdevs[i]);
 	}
 
-iep_exit:
-	if (prueth->iep) {
-		icss_iep_exit(prueth->iep);
-		icss_iep_put(prueth->iep);
-	}
-	prueth->iep = NULL;
-
+iep_put:
+	icss_iep_put(prueth->iep);
 netdev_exit:
 	for (i = 0; i < PRUETH_NUM_MACS; i++) {
 		struct device_node *eth_node;
@@ -2257,10 +2258,7 @@ static int prueth_remove(struct platform_device *pdev)
 			pruss_release_mem_region(prueth->pruss, &prueth->mem[i]);
 	}
 
-	if (prueth->iep) {
-		icss_iep_exit(prueth->iep);
-		icss_iep_put(prueth->iep);
-	}
+	icss_iep_put(prueth->iep);
 
 	pruss_put(prueth->pruss);
 
