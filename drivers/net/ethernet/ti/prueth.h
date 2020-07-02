@@ -382,6 +382,7 @@ struct prueth_emac {
 	struct sk_buff *ptp_skb[PRUETH_PTP_TS_EVENTS];
 	spinlock_t ptp_skb_lock;	/* serialize access */
 	int emac_ptp_tx_irq;
+	int hsr_ptp_tx_irq;
 	bool ptp_tx_enable;
 };
 
@@ -488,6 +489,8 @@ int emac_rx_packet(struct prueth_emac *emac, u16 *bd_rd_ptr,
 		   const struct prueth_queue_info *rxqueue);
 int emac_add_del_vid(struct prueth_emac *emac,
 		     bool add, __be16 proto, u16 vid);
+irqreturn_t prueth_ptp_tx_irq_handle(int irq, void *dev);
+irqreturn_t prueth_ptp_tx_irq_work(int irq, void *dev);
 
 extern const struct prueth_queue_desc queue_descs[][NUM_QUEUES];
 
