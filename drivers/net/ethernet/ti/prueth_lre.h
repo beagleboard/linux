@@ -19,6 +19,12 @@
 #define PRUETH_LRE_INDEX_TBL_MAX_ENTRIES	256
 #define PRUETH_LRE_BIN_TBL_MAX_ENTRIES		256
 #define PRUETH_LRE_NODE_TBL_MAX_ENTRIES		256
+#define LRE_PROTO_HSR			0
+#define LRE_PROTO_PRP			1
+#define LRE_OK				0
+#define LRE_ERR				-1
+#define LRE_SV_FRAME_OFFSET		20
+
 /* node table info */
 struct prueth_lre_node {
 	u8 mac[6];
@@ -38,6 +44,21 @@ struct prueth_lre_node {
 	u16 time_last_seen_a;
 	u16 time_last_seen_b;
 } __packed;
+
+/* NT queue definitions */
+struct nt_queue_entry {
+	u8 mac[ETH_ALEN];
+	unsigned int sv_frame:1;
+	unsigned int proto:1;
+	int port_id:6;
+};
+
+struct nt_queue_t {
+	struct nt_queue_entry nt_queue[PRUETH_MAC_QUEUE_MAX];
+	int rd_ind;
+	int wr_ind;
+	bool full;
+};
 
 struct node_index_tbl_t {
 	u16 bin_offset;
@@ -110,5 +131,8 @@ void prueth_lre_config_check_flags(struct prueth *prueth);
 int prueth_lre_napi_poll_lpq(struct napi_struct *napi, int budget);
 int prueth_lre_napi_poll_hpq(struct napi_struct *napi, int budget);
 void prueth_lre_free_memory(struct prueth *prueth);
+void prueth_lre_process_check_flags_event(struct prueth *prueth);
+int prueth_lre_nt_insert(struct prueth *prueth,
+			 u8 *mac, int port, int sv_frame, int proto);
 
 #endif /* __NET_TI_PRUETH_LRE_H */

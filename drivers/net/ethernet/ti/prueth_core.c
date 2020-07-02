@@ -37,6 +37,8 @@
 #define PRUETH_MODULE_DESCRIPTION "PRUSS Ethernet driver"
 
 #define OCMC_RAM_SIZE		(SZ_64K - SZ_8K)
+#define PRUETH_ETH_TYPE_OFFSET		12
+#define PRUETH_ETH_TYPE_UPPER_SHIFT	8
 
 /* TX Minimum Inter packet gap */
 #define TX_MIN_IPG		0xb8
@@ -284,6 +286,11 @@ static enum hrtimer_restart prueth_timer(struct hrtimer *timer)
 		ret = HRTIMER_RESTART;
 		prueth_enable_nsp(emac);
 		spin_unlock_irqrestore(&emac->nsp_lock, flags);
+	}
+
+	if (PRUETH_IS_LRE(prueth)) {
+		ret = HRTIMER_RESTART;
+		prueth_lre_process_check_flags_event(prueth);
 	}
 
 	return ret;
@@ -854,6 +861,11 @@ void parse_packet_info(struct prueth *prueth, u32 buffer_descriptor,
 			   PRUETH_BD_LENGTH_SHIFT;
 	pkt_info->broadcast = !!(buffer_descriptor & PRUETH_BD_BROADCAST_MASK);
 	pkt_info->error = !!(buffer_descriptor & PRUETH_BD_ERROR_MASK);
+	if (PRUETH_IS_LRE(prueth))
+		pkt_info->sv_frame = !!(buffer_descriptor &
+					PRUETH_BD_SUP_HSR_FRAME_MASK);
+	else
+		pkt_info->sv_frame = false;
 	pkt_info->lookup_success = !!(buffer_descriptor &
 				      PRUETH_BD_LOOKUP_SUCCESS_MASK);
 	pkt_info->flood = !!(buffer_descriptor & PRUETH_BD_SW_FLOOD_MASK);
@@ -868,17 +880,20 @@ int emac_rx_packet(struct prueth_emac *emac, u16 *bd_rd_ptr,
 {
 	struct net_device *ndev = emac->ndev;
 	struct prueth *prueth = emac->prueth;
+	const struct prueth_private_data *fw_data = prueth->fw_data;
 	int read_block, update_block, pkt_block_size;
 	unsigned int buffer_desc_count;
 	bool buffer_wrapped = false;
 	struct sk_buff *skb;
 	void *src_addr;
 	void *dst_addr;
-
+	void *nt_dst_addr;
+	u8 macid[6];
 	/* OCMC RAM is not cached and read order is not important */
 	void *ocmc_ram = (__force void *)emac->prueth->mem[PRUETH_MEM_OCMC].va;
 	unsigned int actual_pkt_len;
-	u16 start_offset = 0;
+	u16 start_offset = 0, type;
+	u8 offset = 0, *ptr;
 
 	if (PRUETH_IS_HSR(prueth))
 		start_offset = (pkt_info.start_offset ?
@@ -919,6 +934,7 @@ int emac_rx_packet(struct prueth_emac *emac, u16 *bd_rd_ptr,
 		return -ENOMEM;
 	}
 	dst_addr = skb->data;
+	nt_dst_addr = dst_addr;
 
 	/* Get the start address of the first buffer from
 	 * the read buffer description
@@ -962,15 +978,60 @@ int emac_rx_packet(struct prueth_emac *emac, u16 *bd_rd_ptr,
 		memcpy(dst_addr, src_addr, actual_pkt_len);
 	}
 
-	skb_put(skb, actual_pkt_len);
-	if (PRUETH_IS_SWITCH(emac->prueth)) {
-		skb->offload_fwd_mark = emac->offload_fwd_mark;
-		if (!pkt_info.lookup_success)
-			prueth_sw_learn_fdb(emac, skb->data + ETH_ALEN);
+	/* Check if VLAN tag is present since SV payload location will change
+	 * based on that
+	 */
+	if (PRUETH_IS_LRE(prueth)) {
+		ptr = nt_dst_addr + PRUETH_ETH_TYPE_OFFSET;
+		type = (*ptr++) << PRUETH_ETH_TYPE_UPPER_SHIFT;
+		type |= *ptr++;
+		if (type == ETH_P_8021Q)
+			offset = 4;
 	}
 
-	skb->protocol = eth_type_trans(skb, ndev);
-	netif_receive_skb(skb);
+	/* TODO. The check for FW_REV_V1_0 is a workaround since
+	 * lookup of MAC address in Node table by this version of firmware
+	 * is not reliable. Once this issue is fixed in firmware, this driver
+	 * check has to be removed.
+	 */
+	if (PRUETH_IS_LRE(prueth) &&
+	    (!pkt_info.lookup_success || !fw_data->rev_2_1)) {
+		if (PRUETH_IS_PRP(prueth)) {
+			memcpy(macid,
+			       ((pkt_info.sv_frame) ?
+				nt_dst_addr + LRE_SV_FRAME_OFFSET + offset :
+				nt_dst_addr + ICSS_LRE_TAG_RCT_SIZE),
+				ICSS_LRE_TAG_RCT_SIZE);
+
+			prueth_lre_nt_insert(prueth, macid, emac->port_id,
+					     pkt_info.sv_frame,
+					     LRE_PROTO_PRP);
+
+		} else if (pkt_info.sv_frame) {
+			memcpy(macid,
+			       nt_dst_addr + LRE_SV_FRAME_OFFSET + offset,
+			       ICSS_LRE_TAG_RCT_SIZE);
+			prueth_lre_nt_insert(prueth, macid, emac->port_id,
+					     pkt_info.sv_frame,
+					     LRE_PROTO_HSR);
+		}
+	}
+
+	if (!pkt_info.sv_frame) {
+		skb_put(skb, actual_pkt_len);
+
+		if (PRUETH_IS_SWITCH(emac->prueth)) {
+			skb->offload_fwd_mark = emac->offload_fwd_mark;
+			if (!pkt_info.lookup_success)
+				prueth_sw_learn_fdb(emac, skb->data + ETH_ALEN);
+		}
+
+		/* send packet up the stack */
+		skb->protocol = eth_type_trans(skb, ndev);
+		netif_receive_skb(skb);
+	} else {
+		dev_kfree_skb_any(skb);
+	}
 
 	/* update stats */
 	ndev->stats.rx_bytes += actual_pkt_len;
@@ -1327,7 +1388,7 @@ static int emac_ndo_open(struct net_device *ndev)
 	prueth_port_enable(emac, true);
 
 	/* timer used for NSP as well for HSR/PRP */
-	if (emac->nsp_enabled)
+	if (emac->nsp_enabled || PRUETH_IS_LRE(prueth))
 		prueth_start_timer(emac);
 
 	prueth->emac_configured |= BIT(emac->port_id);
@@ -2337,7 +2398,8 @@ static void prueth_netdev_exit(struct prueth *prueth,
 	if (PRUETH_IS_EMAC(prueth) || PRUETH_IS_SWITCH(prueth)) {
 		netif_napi_del(&emac->napi);
 	} else {
-		if (emac->port_id == PRUETH_PORT_MII0) {
+		if (prueth->support_lre &&
+		    emac->port_id == PRUETH_PORT_MII0) {
 			netif_napi_del(&prueth->napi_hpq);
 			netif_napi_del(&prueth->napi_lpq);
 		}
@@ -2502,7 +2564,6 @@ static int prueth_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, prueth);
 
 	prueth->dev = dev;
-
 	prueth->fw_data = match->data;
 	prueth->prueth_np = np;
 

@@ -95,6 +95,7 @@ struct prueth_queue_info {
  * @length: length of packet
  * @broadcast: this packet is a broadcast packet
  * @error: this packet has an error
+ * @sv_frame: indicate if the frame is a SV frame for HSR/PRP
  * @lookup_success: src mac found in FDB
  * @flood: packet is to be flooded
  */
@@ -105,6 +106,7 @@ struct prueth_packet_info {
 	unsigned int length;
 	bool broadcast;
 	bool error;
+	bool sv_frame;
 	bool lookup_success;
 	bool flood;
 };
@@ -422,9 +424,18 @@ struct prueth {
 	int rx_lpq_irq;
 	int rx_hpq_irq;
 	unsigned int hsr_mode;
+	unsigned int tbl_check_period;
+	unsigned int node_table_clear;
+	unsigned int node_table_clear_last_cmd;
 	unsigned int tbl_check_mask;
 	enum iec62439_3_tr_modes prp_tr_mode;
 	struct node_tbl	*nt;
+	struct nt_queue_t *mac_queue;
+	struct kthread_worker *nt_kworker;
+	struct kthread_work nt_work;
+	u32 rem_cnt;
+	/* lock between kthread worker and rx packet processing code */
+	spinlock_t nt_lock;
 
 	struct device_node *eth_node[PRUETH_NUM_MACS];
 	struct prueth_emac *emac[PRUETH_NUM_MACS];
