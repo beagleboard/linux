@@ -1246,11 +1246,23 @@ static int prueth_lre_get_lre_stats(struct net_device *ndev,
 	return 0;
 }
 
+static int prueth_lre_set_sv_vlan_id(struct net_device *ndev, u16 vid)
+{
+	struct prueth_emac *emac = netdev_priv(ndev);
+	struct prueth *prueth = emac->prueth;
+
+	if (!PRUETH_IS_LRE(prueth))
+		return 0;
+
+	return emac_add_del_vid(emac, true, htons(ETH_P_8021Q), vid);
+}
+
 const struct lredev_ops prueth_lredev_ops = {
 	.lredev_attr_get = prueth_lre_attr_get,
 	.lredev_attr_set = prueth_lre_attr_set,
 	.lredev_get_node_table = prueth_lre_get_node_table,
 	.lredev_get_stats = prueth_lre_get_lre_stats,
+	.lredev_set_sv_vlan_id = prueth_lre_set_sv_vlan_id,
 };
 
 int prueth_lre_init_node_table(struct prueth *prueth)

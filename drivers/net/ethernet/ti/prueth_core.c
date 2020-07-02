@@ -1899,8 +1899,8 @@ static int emac_ndo_ioctl(struct net_device *ndev, struct ifreq *ifr, int cmd)
 	return phy_mii_ioctl(emac->phydev, ifr, cmd);
 }
 
-static int emac_add_del_vid(struct prueth_emac *emac,
-			    bool add, __be16 proto, u16 vid)
+int emac_add_del_vid(struct prueth_emac *emac,
+		     bool add, __be16 proto, u16 vid)
 {
 	struct prueth *prueth = emac->prueth;
 	u32 vlan_filter_tbl = prueth->fw_offsets->vlan_filter_tbl;

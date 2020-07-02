@@ -475,6 +475,8 @@ void parse_packet_info(struct prueth *prueth, u32 buffer_descriptor,
 int emac_rx_packet(struct prueth_emac *emac, u16 *bd_rd_ptr,
 		   struct prueth_packet_info pkt_info,
 		   const struct prueth_queue_info *rxqueue);
+int emac_add_del_vid(struct prueth_emac *emac,
+		     bool add, __be16 proto, u16 vid);
 
 extern const struct prueth_queue_desc queue_descs[][NUM_QUEUES];
 
