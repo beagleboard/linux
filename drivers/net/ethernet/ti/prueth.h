@@ -360,6 +360,7 @@ struct prueth_emac {
 
 	spinlock_t lock;	/* serialize access */
 	spinlock_t nsp_lock;	/* serialize access to nsp_counters */
+	spinlock_t addr_lock;	/* serialize access to VLAN/MC filter table */
 
 	u8 nsp_timer_count;
 	struct nsp_counter nsp_bc;

@@ -85,5 +85,6 @@
 /* one bit field | 0 : VLAN filter disabled
  *               | 1 : VLAN filter enabled
  */
+#define ICSS_LRE_FW_VLAN_FLTR_TBL_BASE_ADDR                      0x200
 
 #endif /* ICSS_MULTICAST_FILTER_MM_H */

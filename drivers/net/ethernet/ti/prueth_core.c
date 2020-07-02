@@ -116,6 +116,8 @@ static void prueth_set_fw_offsets(struct prueth *prueth)
 	} else {
 		prueth->fw_offsets->vlan_ctrl_byte  =
 			ICSS_LRE_FW_VLAN_FLTR_CTRL_BYTE;
+		prueth->fw_offsets->vlan_filter_tbl =
+			ICSS_LRE_FW_VLAN_FLTR_TBL_BASE_ADDR;
 	}
 }
 
@@ -516,12 +518,7 @@ static void prueth_port_enable(struct prueth_emac *emac, bool enable)
 	if (PRUETH_IS_LRE(prueth))
 		ram = prueth->mem[PRUETH_MEM_SHARED_RAM].va;
 	vlan_ctrl = ram + vlan_ctrl_offset;
-
-	/* For LRE disable VLAN filtering for now */
-	if (PRUETH_IS_LRE(prueth))
-		writeb(0, vlan_ctrl);
-	else
-		writeb(!!enable, vlan_ctrl);
+	writeb(!!enable, vlan_ctrl);
 }
 
 static void prueth_emac_config(struct prueth_emac *emac)
@@ -1866,12 +1863,9 @@ static int emac_add_del_vid(struct prueth_emac *emac,
 	struct prueth *prueth = emac->prueth;
 	u32 vlan_filter_tbl = prueth->fw_offsets->vlan_filter_tbl;
 	void __iomem *ram = prueth->mem[emac->dram].va;
+	unsigned long flags;
 	u8 bit_index, val;
 	u16 byte_index;
-
-	/* HSR/PRP vlan filtering not yet supported */
-	if (PRUETH_IS_LRE(prueth))
-		return 0;
 
 	if (proto != htons(ETH_P_8021Q))
 		return -EINVAL;
@@ -1879,17 +1873,24 @@ static int emac_add_del_vid(struct prueth_emac *emac,
 	if (vid >= ICSS_EMAC_FW_VLAN_FILTER_VID_MAX)
 		return -EINVAL;
 
+	if (PRUETH_IS_LRE(prueth))
+		ram =  prueth->mem[PRUETH_MEM_SHARED_RAM].va;
+
 	/* By default, VLAN ID 0 (priority tagged packets) is routed to
 	 * host, so nothing to be done if vid = 0
 	 */
 	if (!vid)
 		return 0;
 
+	/* for LRE, it is a shared table. So lock the access */
+	spin_lock_irqsave(&emac->addr_lock, flags);
+
 	/* VLAN filter table is 512 bytes (4096 bit) bitmap.
 	 * Each bit controls enabling or disabling corresponding
 	 * VID. Therefore byte index that controls a given VID is
 	 * can calculated as vid / 8 and the bit within that byte
-	 * that controls VID is given by vid % 8.
+	 * that controls VID is given by vid % 8. Allow untagged
+	 * frames to host by default.
 	 */
 	byte_index = vid / BITS_PER_BYTE;
 	bit_index = vid % BITS_PER_BYTE;
@@ -1899,6 +1900,8 @@ static int emac_add_del_vid(struct prueth_emac *emac,
 	else
 		val &= ~BIT(bit_index);
 	writeb(val, ram + vlan_filter_tbl + byte_index);
+
+	spin_unlock_irqrestore(&emac->addr_lock, flags);
 
 	netdev_dbg(emac->ndev, "%s VID bit at index %d and bit %d\n",
 		   add ? "Setting" : "Clearing", byte_index, bit_index);
@@ -2296,6 +2299,7 @@ static int prueth_netdev_init(struct prueth *prueth,
 	emac->msg_enable = netif_msg_init(debug_level, PRUETH_EMAC_DEBUG);
 	spin_lock_init(&emac->lock);
 	spin_lock_init(&emac->nsp_lock);
+	spin_lock_init(&emac->addr_lock);
 
 	/* get mac address from DT and set private and netdev addr */
 	mac_addr = of_get_mac_address(eth_node);
