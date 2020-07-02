@@ -188,8 +188,8 @@
 		ethernet-mii0 {
 			phy-handle = <&pruss1_eth0_phy>;
 			phy-mode = "mii";
-			interrupts = <20>, <26>;
-			interrupt-names = "rx", "emac_ptp_tx";
+			interrupts = <20>, <26>, <23>;
+			interrupt-names = "rx", "emac_ptp_tx", "hsr_ptp_tx";
 			ti,no-half-duplex;
 			/* Filled in by bootloader */
 			local-mac-address = [00 00 00 00 00 00];
@@ -198,8 +198,8 @@
 		ethernet-mii1 {
 			phy-handle = <&pruss1_eth1_phy>;
 			phy-mode = "mii";
-			interrupts = <21>, <27>;
-			interrupt-names = "rx", "emac_ptp_tx";
+			interrupts = <21>, <27>, <24>;
+			interrupt-names = "rx", "emac_ptp_tx", "hsr_ptp_tx";
 			ti,no-half-duplex;
 			/* Filled in by bootloader */
 			local-mac-address = [00 00 00 00 00 00];
