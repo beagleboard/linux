@@ -768,7 +768,7 @@ static int prueth_sw_insert_fdb_entry(struct prueth_emac *emac,
 	u8 hash_val, mac_tbl_idx;
 	s16 ret;
 
-	other_emac = prueth->emac[other_port_id(emac->port_id)];
+	other_emac = prueth->emac[other_port_id(emac->port_id) - 1];
 
 	if (fdb->total_entries == FDB_MAC_TBL_MAX_ENTRIES)
 		return -ENOMEM;

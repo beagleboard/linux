@@ -795,7 +795,7 @@ static int emac_rx_packets(struct prueth_emac *emac, int quota)
 	int i, ret, used = 0;
 	struct prueth_emac *other_emac;
 
-	other_emac = prueth->emac[other_port_id(emac->port_id)];
+	other_emac = prueth->emac[other_port_id(emac->port_id) - 1];
 
 	if (PRUETH_IS_SWITCH(prueth)) {
 		start_queue = PRUETH_QUEUE1;
