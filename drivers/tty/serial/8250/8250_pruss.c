@@ -24,10 +24,10 @@
 #define PRUSS_UART_RX_EN	BIT(13)
 #define PRUSS_UART_FREE_RUN	BIT(0)
 
-#define PRUSS_UART_MDR		13
-#define PRUSS_UART_MDR_OSM_SEL	BIT(0)
-#define PRUSS_UART_MDR_16X_MODE	0
-#define PRUSS_UART_MDR_13X_MODE	1
+#define PRUSS_UART_MDR			13
+#define PRUSS_UART_MDR_OSM_SEL_MASK	BIT(0)
+#define PRUSS_UART_MDR_16X_MODE		0
+#define PRUSS_UART_MDR_13X_MODE		1
 
 struct pruss8250_info {
 	struct rproc *pru;
@@ -123,12 +123,12 @@ static void pruss8250_set_divisor(struct uart_port *port, unsigned int baud,
 				  unsigned int quot, unsigned int quot_frac)
 {
 	serial8250_do_set_divisor(port, baud, quot, quot_frac);
-	if (quot_frac == PRUSS_UART_MDR_13X_MODE)
-		/* set mdr for 13x */
-		serial_port_out(port, PRUSS_UART_MDR, PRUSS_UART_MDR_OSM_SEL);
-	else
-		/* set mdr for 16x */
-		serial_port_out(port, PRUSS_UART_MDR, ~PRUSS_UART_MDR_OSM_SEL);
+	/*
+	 * quot_frac holds the MDR over-sampling mode
+	 * which is set in pruss8250_get_divisor()
+	 */
+	quot_frac &= PRUSS_UART_MDR_OSM_SEL_MASK;
+	serial_port_out(port, PRUSS_UART_MDR, quot_frac);
 }
 
 static int pruss8250_probe(struct platform_device *pdev)

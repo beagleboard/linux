@@ -636,8 +636,8 @@ static void hsr_change_rx_flags(struct net_device *dev, int change)
 		case HSR_PT_SLAVE_B:
 			if (change & IFF_ALLMULTI)
 				dev_set_allmulti(port->dev,
-						 dev->flags &
-						 IFF_ALLMULTI ? 1 : -1);
+						 (dev->flags &
+						 IFF_ALLMULTI) ? 1 : -1);
 			break;
 		default:
 			break;
