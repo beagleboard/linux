@@ -607,6 +607,13 @@ static int hsr_fill_frame_info(struct hsr_frame_info *frame,
 	    port->type != HSR_PT_MASTER)
 		return -1;
 
+	if (frame->is_supervision) {
+		if (port->type == HSR_PT_SLAVE_A)
+			INC_CNT_RX_SUP_A(hsr);
+		else if (port->type == HSR_PT_SLAVE_B)
+			INC_CNT_RX_SUP_B(hsr);
+	}
+
 	/* For Offloaded case, there is no need for node list since
 	 * firmware/hardware implements LRE function.
 	 */
