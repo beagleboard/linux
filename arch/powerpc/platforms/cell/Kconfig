@@ -45,6 +45,7 @@ config SPU_FS
 	tristate "SPU file system"
 	default m
 	depends on PPC_CELL
+	depends on COREDUMP
 	select SPU_BASE
 	select MEMORY_HOTPLUG
 	help
