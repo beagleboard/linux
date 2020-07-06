@@ -218,7 +218,8 @@ void hsr_del_port(struct hsr_port *port)
 			dev_set_mtu(master->dev, hsr_get_max_mtu(hsr));
 		}
 		netdev_rx_handler_unregister(port->dev);
-		dev_set_promiscuity(port->dev, -1);
+		if (!port->hsr->rx_offloaded)
+			dev_set_promiscuity(port->dev, -1);
 	}
 
 	/* FIXME?
