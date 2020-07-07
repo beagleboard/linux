@@ -370,9 +370,11 @@ static int k3_r5_rproc_prepare(struct rproc *rproc)
 
 	ret = cluster->mode ? k3_r5_lockstep_release(cluster) :
 			      k3_r5_split_release(core);
-	if (ret)
+	if (ret) {
 		dev_err(dev, "unable to enable cores for TCM loading, ret = %d\n",
 			ret);
+		return ret;
+	}
 
 	/*
 	 * Zero out both TCMs unconditionally (access from v8 Arm core is not
@@ -385,7 +387,7 @@ static int k3_r5_rproc_prepare(struct rproc *rproc)
 	dev_dbg(dev, "zeroing out BTCM memory\n");
 	memset(core->mem[1].cpu_addr, 0x00, core->mem[1].size);
 
-	return ret;
+	return 0;
 }
 
 /*
