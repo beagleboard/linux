@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-/*
- * Copyright (C) 2016-2017 Texas Instruments Incorporated - http://www.ti.com/
+/* Copyright (C) 2020 Texas Instruments Incorporated - http://www.ti.com/
  *
  */
 
@@ -10,18 +9,10 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/netdevice.h>
+#include <linux/phy.h>
 #include "am65-cpsw-qos.h"
 
-#define AM65_CPSW_DEBUG	(NETIF_MSG_HW		| NETIF_MSG_WOL		| \
-			 NETIF_MSG_DRV		| NETIF_MSG_LINK	| \
-			 NETIF_MSG_IFUP		| NETIF_MSG_INTR	| \
-			 NETIF_MSG_PROBE	| NETIF_MSG_TIMER	| \
-			 NETIF_MSG_IFDOWN	| NETIF_MSG_RX_ERR	| \
-			 NETIF_MSG_TX_ERR	| NETIF_MSG_TX_DONE	| \
-			 NETIF_MSG_PKTDATA	| NETIF_MSG_TX_QUEUED	| \
-			 NETIF_MSG_RX_STATUS)
-
-#define	am65_nav_dbg(dev, arg...) dev_err(dev, arg)
+struct am65_cpts;
 
 #define HOST_PORT_NUM		0
 
@@ -34,7 +25,7 @@ struct am65_cpsw_slave_data {
 	struct cpsw_sl			*mac_sl;
 	struct device_node		*phy_node;
 	struct phy_device		*phy;
-	int				phy_if;
+	phy_interface_t			phy_if;
 	struct phy			*ifphy;
 	bool				rx_pause;
 	bool				tx_pause;
@@ -114,11 +105,8 @@ struct am65_cpsw_common {
 	u32			nuss_ver;
 	u32			cpsw_ver;
 	u32			bus_freq_mhz;
-	struct am65_cpts *cpts;
-
 	bool			pf_p0_rx_ptype_rrobin;
-	u32			cur_txq;
-
+	struct am65_cpts	*cpts;
 	int			est_enabled;
 	int			iet_enabled;
 };
@@ -146,14 +134,14 @@ struct am65_cpsw_ndev_priv {
 #define am65_common_get_host(common) (&(common)->host)
 #define am65_common_get_port(common, id) (&(common)->ports[(id) - 1])
 
-#define am65_cpsw_napi_to_common(napi) \
-	container_of(napi, struct am65_cpsw_common, napi)
-#define am65_cpsw_napi_to_tx_chn(napi) \
-	container_of(napi, struct am65_cpsw_tx_chn, napi)
+#define am65_cpsw_napi_to_common(pnapi) \
+	container_of(pnapi, struct am65_cpsw_common, napi_rx)
+#define am65_cpsw_napi_to_tx_chn(pnapi) \
+	container_of(pnapi, struct am65_cpsw_tx_chn, napi_tx)
 
 #define AM65_CPSW_DRV_NAME "am65-cpsw-nuss"
 
-#define AM65_CPSW_IS_CPSW2G(common) (common->port_num == 1)
+#define AM65_CPSW_IS_CPSW2G(common) ((common)->port_num == 1)
 
 extern const struct ethtool_ops am65_cpsw_ethtool_ops_slave;
 
@@ -161,11 +149,5 @@ void am65_cpsw_nuss_adjust_link(struct net_device *ndev);
 void am65_cpsw_nuss_set_p0_ptype(struct am65_cpsw_common *common);
 void am65_cpsw_nuss_remove_tx_chns(struct am65_cpsw_common *common);
 int am65_cpsw_nuss_update_tx_chns(struct am65_cpsw_common *common, int num_tx);
-
-#define	am65_ndev_dbg(ndev, arg...) \
-	do {                                                          \
-		struct device *dev = am65_ndev_to_common(ndev)->dev;  \
-		dev_err(dev, arg); \
-	} while (0)
 
 #endif /* AM65_CPSW_NUSS_H_ */

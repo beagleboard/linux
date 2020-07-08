@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
-/*
- * Texas Instruments K3 AM65 Ethernet Switch SubSystem Driver ethtool ops
+/* Texas Instruments K3 AM65 Ethernet Switch SubSystem Driver ethtool ops
  *
- * Copyright (C) 2016-2018 Texas Instruments Incorporated - http://www.ti.com/
+ * Copyright (C) 2020 Texas Instruments Incorporated - http://www.ti.com/
  *
  */
 
@@ -14,8 +13,6 @@
 #include "am65-cpsw-nuss.h"
 #include "cpsw_ale.h"
 #include "am65-cpts.h"
-
-#define AM65_CPSW_DRV_VER "0.1"
 
 #define AM65_CPSW_REGDUMP_VER 0x1
 
@@ -32,11 +29,30 @@ enum {
 	AM65_CPSW_REGDUMP_MOD_LAST,
 };
 
+/**
+ * struct am65_cpsw_regdump_hdr - regdump record header
+ *
+ * @module_id: CPSW module ID
+ * @len: CPSW module registers space length in u32
+ */
+
 struct am65_cpsw_regdump_hdr {
 	u32 module_id;
 	u32 len;
-} __packed;
+};
 
+/**
+ * struct am65_cpsw_regdump_item - regdump module description
+ *
+ * @hdr: CPSW module header
+ * @start_ofs: CPSW module registers start addr
+ * @end_ofs: CPSW module registers end addr
+ *
+ * Registers dump provided in the format:
+ *  u32 : module ID
+ *  u32 : dump length
+ *  u32[..len]: registers values
+ */
 struct am65_cpsw_regdump_item {
 	struct am65_cpsw_regdump_hdr hdr;
 	u32 start_ofs;
@@ -47,7 +63,7 @@ struct am65_cpsw_regdump_item {
 	.hdr.module_id = (mod), \
 	.hdr.len = (((u32 *)(end)) - ((u32 *)(start)) + 1) * sizeof(u32) * 2 + \
 		   sizeof(struct am65_cpsw_regdump_hdr), \
-	.start_ofs = start, \
+	.start_ofs = (start), \
 	.end_ofs = end, \
 }
 
@@ -385,7 +401,7 @@ static void am65_cpsw_ethtool_op_complete(struct net_device *ndev)
 	int ret;
 
 	ret = pm_runtime_put(common->dev);
-	if (ret < 0)
+	if (ret < 0 && ret != -EBUSY)
 		dev_err(common->dev, "ethtool complete failed %d\n", ret);
 }
 
@@ -396,7 +412,6 @@ static void am65_cpsw_get_drvinfo(struct net_device *ndev,
 
 	strlcpy(info->driver, dev_driver_string(common->dev),
 		sizeof(info->driver));
-	strlcpy(info->version, AM65_CPSW_DRV_VER, sizeof(info->version));
 	strlcpy(info->bus_info, dev_name(common->dev), sizeof(info->bus_info));
 }
 
@@ -419,14 +434,10 @@ static void am65_cpsw_get_channels(struct net_device *ndev,
 {
 	struct am65_cpsw_common *common = am65_ndev_to_common(ndev);
 
-	ch->max_combined = 0;
 	ch->max_rx = AM65_CPSW_MAX_RX_QUEUES;
 	ch->max_tx = AM65_CPSW_MAX_TX_QUEUES;
-	ch->max_other = 0;
-	ch->other_count = 0;
 	ch->rx_count = AM65_CPSW_MAX_RX_QUEUES;
 	ch->tx_count = common->tx_ch_num;
-	ch->combined_count = 0;
 }
 
 static int am65_cpsw_set_channels(struct net_device *ndev,
@@ -434,14 +445,7 @@ static int am65_cpsw_set_channels(struct net_device *ndev,
 {
 	struct am65_cpsw_common *common = am65_ndev_to_common(ndev);
 
-	if (chs->combined_count)
-		return -EINVAL;
-
 	if (!chs->rx_count || !chs->tx_count)
-		return -EINVAL;
-
-	if (chs->rx_count != 1 ||
-	    chs->tx_count > AM65_CPSW_MAX_TX_QUEUES)
 		return -EINVAL;
 
 	/* Check if interface is up. Can change the num queues when
@@ -461,9 +465,7 @@ static void am65_cpsw_get_ringparam(struct net_device *ndev,
 	struct am65_cpsw_common *common = am65_ndev_to_common(ndev);
 
 	/* not supported */
-	ering->tx_max_pending = 0;
 	ering->tx_pending = common->tx_chns[0].descs_num;
-	ering->rx_max_pending = 0;
 	ering->rx_pending = common->rx_chns.descs_num;
 }
 
@@ -570,7 +572,7 @@ static int am65_cpsw_nway_reset(struct net_device *ndev)
 	if (!salve->phy || phy_is_pseudo_fixed_link(salve->phy))
 		return -EOPNOTSUPP;
 
-	return genphy_restart_aneg(salve->phy);
+	return phy_restart_aneg(salve->phy);
 }
 
 static int am65_cpsw_get_regs_len(struct net_device *ndev)
@@ -679,11 +681,13 @@ static void am65_cpsw_get_ethtool_stats(struct net_device *ndev,
 					struct ethtool_stats *stats, u64 *data)
 {
 	struct am65_cpsw_common *common = am65_ndev_to_common(ndev);
-	struct am65_cpsw_host *host_p = am65_common_get_host(common);
-	struct am65_cpsw_port *port = am65_ndev_to_port(ndev);
 	const struct am65_cpsw_ethtool_stat *hw_stats;
+	struct am65_cpsw_host *host_p;
+	struct am65_cpsw_port *port;
 	u32 i, num_stats;
 
+	host_p = am65_common_get_host(common);
+	port = am65_ndev_to_port(ndev);
 	num_stats = ARRAY_SIZE(am65_host_stats);
 	hw_stats = am65_host_stats;
 	for (i = 0; i < num_stats; i++)
@@ -697,11 +701,13 @@ static void am65_cpsw_get_ethtool_stats(struct net_device *ndev,
 					hw_stats[i].offset);
 }
 
-#if IS_ENABLED(CONFIG_TI_AM65_CPTS)
 static int am65_cpsw_get_ethtool_ts_info(struct net_device *ndev,
 					 struct ethtool_ts_info *info)
 {
 	struct am65_cpsw_common *common = am65_ndev_to_common(ndev);
+
+	if (!IS_ENABLED(CONFIG_TI_AM65_CPTS))
+		return ethtool_op_get_ts_info(ndev, info);
 
 	info->so_timestamping =
 		SOF_TIMESTAMPING_TX_HARDWARE |
@@ -715,9 +721,6 @@ static int am65_cpsw_get_ethtool_ts_info(struct net_device *ndev,
 	info->rx_filters = BIT(HWTSTAMP_FILTER_NONE) | BIT(HWTSTAMP_FILTER_ALL);
 	return 0;
 }
-#else
-#define am65_cpsw_get_ethtool_ts_info ethtool_op_get_ts_info
-#endif
 
 static u32 am65_cpsw_get_ethtool_priv_flags(struct net_device *ndev)
 {
@@ -804,4 +807,3 @@ const struct ethtool_ops am65_cpsw_ethtool_ops_slave = {
 	.set_eee		= am65_cpsw_set_eee,
 	.nway_reset		= am65_cpsw_nway_reset,
 };
-EXPORT_SYMBOL_GPL(am65_cpsw_ethtool_ops_slave);

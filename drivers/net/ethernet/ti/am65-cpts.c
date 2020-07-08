@@ -161,7 +161,7 @@ struct am65_cpts {
 	struct ptp_clock_info ptp_info;
 	struct ptp_clock *ptp_clock;
 	int phc_index;
-	struct clk *clk_mux;
+	struct clk_hw *clk_mux_hw;
 	struct device_node *clk_mux_np;
 	struct clk *refclk;
 	u32 refclk_freq;
@@ -935,11 +935,12 @@ int am65_cpts_phc_index(struct am65_cpts *cpts)
 }
 EXPORT_SYMBOL_GPL(am65_cpts_phc_index);
 
-static void cpts_of_free_clk_provider(void *data)
+static void cpts_free_clk_mux(void *data)
 {
 	struct am65_cpts *cpts = data;
 
 	of_clk_del_provider(cpts->clk_mux_np);
+	clk_hw_unregister_mux(cpts->clk_mux_hw);
 	of_node_put(cpts->clk_mux_np);
 }
 
@@ -948,11 +949,11 @@ static int cpts_of_mux_clk_setup(struct am65_cpts *cpts,
 {
 	unsigned int num_parents;
 	const char **parent_names;
+	char *clk_mux_name;
 	void __iomem *reg;
-	int ret;
-	char *clk_mux_name = NULL;
+	int ret = -EINVAL;
 
-	cpts->clk_mux_np = of_get_child_by_name(node, "cpts_refclk_mux");
+	cpts->clk_mux_np = of_get_child_by_name(node, "refclk-mux");
 	if (!cpts->clk_mux_np)
 		return 0;
 
@@ -960,50 +961,52 @@ static int cpts_of_mux_clk_setup(struct am65_cpts *cpts,
 	if (num_parents < 1) {
 		dev_err(cpts->dev, "mux-clock %pOF must have parents\n",
 			cpts->clk_mux_np);
-		return -EINVAL;
+		goto mux_fail;
 	}
 
 	parent_names = devm_kcalloc(cpts->dev, sizeof(char *), num_parents,
 				    GFP_KERNEL);
-	if (!parent_names)
-		return -ENOMEM;
+	if (!parent_names) {
+		ret = -ENOMEM;
+		goto mux_fail;
+	}
 
 	of_clk_parent_fill(cpts->clk_mux_np, parent_names, num_parents);
 
 	clk_mux_name = devm_kasprintf(cpts->dev, GFP_KERNEL, "%s.%pOFn",
 				      dev_name(cpts->dev), cpts->clk_mux_np);
-	if (!clk_mux_name)
-		return -ENOMEM;
-
-	reg = &cpts->reg->rftclk_sel;
-	/* WARN: dev must be NULL to avoid recursive incrementing
-	 * of module refcnt
-	 */
-	cpts->clk_mux = clk_register_mux(NULL, clk_mux_name,
-					 parent_names, num_parents,
-					 0, reg, 0, 5, 0, NULL);
-	if (IS_ERR(cpts->clk_mux))
-		return PTR_ERR(cpts->clk_mux);
-
-	ret = devm_add_action_or_reset(cpts->dev,
-				       (void(*)(void *))clk_unregister_mux,
-				       cpts->clk_mux);
-	if (ret) {
-		dev_err(cpts->dev, "failed to add clkmux reset action %d", ret);
-		return ret;
+	if (!clk_mux_name) {
+		ret = -ENOMEM;
+		goto mux_fail;
 	}
 
-	ret = of_clk_add_provider(cpts->clk_mux_np, of_clk_src_simple_get,
-				  cpts->clk_mux);
-	if (ret)
-		return ret;
+	reg = &cpts->reg->rftclk_sel;
+	/* dev must be NULL to avoid recursive incrementing
+	 * of module refcnt
+	 */
+	cpts->clk_mux_hw = clk_hw_register_mux(NULL, clk_mux_name,
+					       parent_names, num_parents,
+					       0, reg, 0, 5, 0, NULL);
+	if (IS_ERR(cpts->clk_mux_hw)) {
+		ret = PTR_ERR(cpts->clk_mux_hw);
+		goto mux_fail;
+	}
 
-	ret = devm_add_action_or_reset(cpts->dev,
-				       cpts_of_free_clk_provider,
-				       cpts->clk_mux_np);
+	ret = of_clk_add_hw_provider(cpts->clk_mux_np, of_clk_hw_simple_get,
+				     cpts->clk_mux_hw);
+	if (ret)
+		goto clk_hw_register;
+
+	ret = devm_add_action_or_reset(cpts->dev, cpts_free_clk_mux, cpts);
 	if (ret)
 		dev_err(cpts->dev, "failed to add clkmux reset action %d", ret);
 
+	return ret;
+
+clk_hw_register:
+	clk_hw_unregister_mux(cpts->clk_mux_hw);
+mux_fail:
+	of_node_put(cpts->clk_mux_np);
 	return ret;
 }
 
