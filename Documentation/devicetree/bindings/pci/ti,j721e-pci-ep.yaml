@@ -17,6 +17,7 @@ properties:
   compatible:
       enum:
           - ti,j721e-pcie-ep
+          - ti,j7200-pcie-ep
 
   reg:
     maxItems: 4
