@@ -27,14 +27,21 @@ for the first PRU can be NULL. See 2nd example.
 Required properties for children:
 - phy-handle       : See ethernet.txt file in the same directory.
 - phy-mode         : See ethernet.txt file in the same directory.
-- interrupt-names  : should be "rx" and "tx"
+- interrupt-names  : should be "rx"
 - interrupts       : should contain an array of PRUSS system event
-                     numbers used as the interrupt sources for Rx
-                     and Tx respectively.
+                     numbers used as the interrupt sources for Rx.
 
 Optional properties for children:
 - local-mac-address	: mac address for the port.
 - ti,no-half-duplex	: disable half-duplex.
+- interrupt-names	: add "tx" when using Dual EMAC firmware to
+			  get a better egress performance at MTU size.
+			  Note that this reduces the performance
+			  for small size frames. So use it only if
+			  specific application uses mostly MTU or near
+			  MTU size frames.
+- interrupts		: Add interrupt sources for Tx if
+			  interrupt-names "tx" used.
 
 Example (am572x-idk board, dual-emac):
 ======================================
