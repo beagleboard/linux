@@ -41,7 +41,7 @@
 		#size-cells = <1>;
 		ranges = <0x0 0x0 0x40f00000 0x20000>;
 
-		phy_gmii_sel: phy-gmii-sel {
+		phy_gmii_sel: phy@4040 {
 			compatible = "ti,am654-phy-gmii-sel";
 			reg = <0x4040 0x4>;
 			#phy-cells = <1>;
@@ -314,14 +314,14 @@
 			    "tx4", "tx5", "tx6", "tx7",
 			    "rx";
 
-		ports {
+		ethernet-ports {
 			#address-cells = <1>;
 			#size-cells = <0>;
 
 			cpsw_port1: port@1 {
 				reg = <1>;
 				ti,mac-only;
-				ti,label = "port1";
+				label = "port1";
 				ti,syscon-efuse = <&mcu_conf 0x200>;
 				phys = <&phy_gmii_sel 1>;
 			};
@@ -337,7 +337,9 @@
 			bus_freq = <1000000>;
 		};
 
-		cpts {
+		cpts@3d000 {
+			compatible = "ti,am65-cpts";
+			reg = <0x0 0x3d000 0x0 0x400>;
 			clocks = <&k3_clks 18 2>;
 			clock-names = "cpts";
 			interrupts-extended = <&gic500 GIC_SPI 858 IRQ_TYPE_LEVEL_HIGH>;
