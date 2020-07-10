@@ -37,7 +37,7 @@ Properties:
 - interrupt-names : should be "cpts"
 
 Required Sub-nodes:
-- cpts_refclk_mux: CPTS reference clock multiplexer clock
+- refclk-mux : CPTS reference clock multiplexer clock
 	Required properties:
 	- clocks : List of phandle and clock specifier pairs, one pair
 		for each possible CPTS reference clock input
@@ -73,13 +73,12 @@ cpts@310d0000 {
 	ti,cpts-periodic-outputs = <6>;
 	ti,cpts-ext-ts-inputs = <8>;
 
-	main_cpts_mux: cpts_refclk_mux {
+	main_cpts_mux: refclk-mux {
 		#clock-cells = <0>;
 		clocks = <&k3_clks 118 5>, <&k3_clks 118 11>,
 			<&k3_clks 157 91>, <&k3_clks 157 77>,
 			<&k3_clks 157 102>, <&k3_clks 157 80>,
 			<&k3_clks 120 3>, <&k3_clks 121 3>;
-		cpts-mux-tbl = <0>, <1>;
 		assigned-clocks = <&main_cpts_mux>;
 		assigned-clock-parents = <&k3_clks 118 11>;
 	};
@@ -98,7 +97,7 @@ mcu_cpsw: cpsw_nuss@046000000 {
 		ti,cpts-ext-ts-inputs = <4>;
 		ti,cpts-periodic-outputs = <2>;
 
-		mcu_cpsw_cpts_mux: cpts_refclk_mux {
+		mcu_cpsw_cpts_mux: refclk-mux {
 			#clock-cells = <0>;
 			clocks = <&k3_clks 118 5>, <&k3_clks 118 11>,
 				<&k3_clks 157 91>, <&k3_clks 157 77>,

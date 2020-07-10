@@ -39,13 +39,13 @@ Required properties:
 
 Required Sub-nodes:
 
-- ports	: contains CPSW NUSS ports descriptions
+- ethernet-ports : contains CPSW NUSS ports descriptions
 	Required properties - all ports:
 	- reg : CPSW NUSS port number. Should be for TI am654 SoC
 		1.. - external Ethernet ports
 
 	Optional properties - all ports:
-	- ti,label : Describes the label associated with this port
+	- label : Describes the label associated with this port
 
 	Required properties for - external Ethernet ports:
 	- phy-mode : operation mode of the PHY interface [1]
