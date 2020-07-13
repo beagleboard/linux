@@ -19,7 +19,8 @@
 #include <linux/dma/ti-cppi5.h>
 #include <linux/dma/k3-udma-glue.h>
 #include <linux/rpmsg-remotedev/rpmsg-remotedev.h>
-#include <linux/soc/ti/k3-navss-desc-pool.h>
+
+#include "k3-cppi-desc-pool.h"
 
 #define VIRT_CPSW_DRV_VER "0.1"
 
@@ -41,7 +42,7 @@
 
 struct virt_cpsw_tx_chn {
 	struct device *dev;
-	struct k3_knav_desc_pool *desc_pool;
+	struct k3_cppi_desc_pool *desc_pool;
 	struct k3_udma_glue_tx_channel *tx_chn;
 	u32 descs_num;
 	unsigned int irq;
@@ -50,7 +51,7 @@ struct virt_cpsw_tx_chn {
 
 struct virt_cpsw_rx_chn {
 	struct device *dev;
-	struct k3_knav_desc_pool *desc_pool;
+	struct k3_cppi_desc_pool *desc_pool;
 	struct k3_udma_glue_rx_channel *rx_chn;
 	u32 descs_num;
 	unsigned int irq;
@@ -120,7 +121,7 @@ static void virt_cpsw_nuss_ndo_host_tx_timeout(struct net_device *ndev)
 			   netif_tx_queue_stopped(netif_txq),
 			   jiffies_to_msecs(jiffies - trans_start),
 			   dql_avail(&netif_txq->dql),
-			   k3_knav_pool_avail(tx_chn->desc_pool));
+			   k3_cppi_desc_pool_avail(tx_chn->desc_pool));
 
 		if (netif_tx_queue_stopped(netif_txq)) {
 			/* try recover if stopped by us */
@@ -141,16 +142,16 @@ static int virt_cpsw_nuss_rx_push(struct virt_cpsw_common *common,
 	u32 pkt_len = skb_tailroom(skb);
 	void *swdata;
 
-	desc_rx = k3_knav_pool_alloc(rx_chn->desc_pool);
+	desc_rx = k3_cppi_desc_pool_alloc(rx_chn->desc_pool);
 	if (!desc_rx) {
 		dev_err(dev, "Failed to allocate RXFDQ descriptor\n");
 		return -ENOMEM;
 	}
-	desc_dma = k3_knav_pool_virt2dma(rx_chn->desc_pool, desc_rx);
+	desc_dma = k3_cppi_desc_pool_virt2dma(rx_chn->desc_pool, desc_rx);
 
 	buf_dma = dma_map_single(dev, skb->data, pkt_len, DMA_FROM_DEVICE);
 	if (unlikely(dma_mapping_error(dev, buf_dma))) {
-		k3_knav_pool_free(rx_chn->desc_pool, desc_rx);
+		k3_cppi_desc_pool_free(rx_chn->desc_pool, desc_rx);
 		dev_err(dev, "Failed to map rx skb buffer\n");
 		return -EINVAL;
 	}
@@ -299,13 +300,13 @@ static void virt_cpsw_nuss_rx_cleanup(void *data, dma_addr_t desc_dma)
 	u32 buf_dma_len;
 	void **swdata;
 
-	desc_rx = k3_knav_pool_dma2virt(rx_chn->desc_pool, desc_dma);
+	desc_rx = k3_cppi_desc_pool_dma2virt(rx_chn->desc_pool, desc_dma);
 	swdata = cppi5_hdesc_get_swdata(desc_rx);
 	skb = *swdata;
 	cppi5_hdesc_get_obuf(desc_rx, &buf_dma, &buf_dma_len);
 
 	dma_unmap_single(rx_chn->dev, buf_dma, buf_dma_len, DMA_FROM_DEVICE);
-	k3_knav_pool_free(rx_chn->desc_pool, desc_rx);
+	k3_cppi_desc_pool_free(rx_chn->desc_pool, desc_rx);
 
 	dev_kfree_skb_any(skb);
 }
@@ -375,7 +376,7 @@ static int virt_cpsw_nuss_rx_packets(struct virt_cpsw_common *common,
 		return 0;
 	}
 
-	desc_rx = k3_knav_pool_dma2virt(rx_chn->desc_pool, desc_dma);
+	desc_rx = k3_cppi_desc_pool_dma2virt(rx_chn->desc_pool, desc_dma);
 	dev_dbg(dev, "%s flow_idx: %u desc %pad\n",
 		__func__, flow_idx, &desc_dma);
 
@@ -395,7 +396,7 @@ static int virt_cpsw_nuss_rx_packets(struct virt_cpsw_common *common,
 
 	dma_unmap_single(dev, buf_dma, buf_dma_len, DMA_FROM_DEVICE);
 
-	k3_knav_pool_free(rx_chn->desc_pool, desc_rx);
+	k3_cppi_desc_pool_free(rx_chn->desc_pool, desc_rx);
 
 	if (unlikely(!netif_running(skb->dev))) {
 		dev_kfree_skb_any(skb);
@@ -482,8 +483,8 @@ static void virt_cpsw_nuss_xmit_free(struct virt_cpsw_tx_chn *tx_chn,
 
 	next_desc_dma = cppi5_hdesc_get_next_hbdesc(first_desc);
 	while (next_desc_dma) {
-		next_desc = k3_knav_pool_dma2virt(tx_chn->desc_pool,
-						  next_desc_dma);
+		next_desc = k3_cppi_desc_pool_dma2virt(tx_chn->desc_pool,
+						       next_desc_dma);
 		cppi5_hdesc_get_obuf(next_desc, &buf_dma, &buf_dma_len);
 
 		dma_unmap_page(dev, buf_dma, buf_dma_len,
@@ -491,10 +492,10 @@ static void virt_cpsw_nuss_xmit_free(struct virt_cpsw_tx_chn *tx_chn,
 
 		next_desc_dma = cppi5_hdesc_get_next_hbdesc(next_desc);
 
-		k3_knav_pool_free(tx_chn->desc_pool, next_desc);
+		k3_cppi_desc_pool_free(tx_chn->desc_pool, next_desc);
 	}
 
-	k3_knav_pool_free(tx_chn->desc_pool, first_desc);
+	k3_cppi_desc_pool_free(tx_chn->desc_pool, first_desc);
 }
 
 static void virt_cpsw_nuss_tx_cleanup(void *data, dma_addr_t desc_dma)
@@ -504,7 +505,7 @@ static void virt_cpsw_nuss_tx_cleanup(void *data, dma_addr_t desc_dma)
 	struct sk_buff *skb;
 	void **swdata;
 
-	desc_tx = k3_knav_pool_dma2virt(tx_chn->desc_pool, desc_dma);
+	desc_tx = k3_cppi_desc_pool_dma2virt(tx_chn->desc_pool, desc_dma);
 	swdata = cppi5_hdesc_get_swdata(desc_tx);
 	skb = *(swdata);
 	virt_cpsw_nuss_xmit_free(tx_chn, tx_chn->dev, desc_tx);
@@ -542,7 +543,8 @@ static int virt_cpsw_nuss_tx_compl_packets(struct virt_cpsw_common *common,
 			break;
 		}
 
-		desc_tx = k3_knav_pool_dma2virt(tx_chn->desc_pool, desc_dma);
+		desc_tx = k3_cppi_desc_pool_dma2virt(tx_chn->desc_pool,
+						     desc_dma);
 		swdata = cppi5_hdesc_get_swdata(desc_tx);
 		skb = *(swdata);
 		virt_cpsw_nuss_xmit_free(tx_chn, dev, desc_tx);
@@ -576,7 +578,8 @@ static int virt_cpsw_nuss_tx_compl_packets(struct virt_cpsw_common *common,
 		 */
 		__netif_tx_lock(netif_txq, smp_processor_id());
 		if (netif_running(ndev) &&
-		    (k3_knav_pool_avail(tx_chn->desc_pool) >= MAX_SKB_FRAGS))
+		    (k3_cppi_desc_pool_avail(tx_chn->desc_pool) >=
+		     MAX_SKB_FRAGS))
 			netif_tx_wake_queue(netif_txq);
 
 		__netif_tx_unlock(netif_txq);
@@ -660,7 +663,7 @@ static netdev_tx_t virt_cpsw_nuss_ndo_xmit(struct sk_buff *skb,
 		goto drop_stop_q;
 	}
 
-	first_desc = k3_knav_pool_alloc(tx_chn->desc_pool);
+	first_desc = k3_cppi_desc_pool_alloc(tx_chn->desc_pool);
 	if (!first_desc) {
 		dev_dbg(dev, "Failed to allocate descriptor\n");
 		dma_unmap_single(dev, buf_dma, pkt_len, DMA_TO_DEVICE);
@@ -703,7 +706,7 @@ static netdev_tx_t virt_cpsw_nuss_ndo_xmit(struct sk_buff *skb,
 		skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
 		u32 frag_size = skb_frag_size(frag);
 
-		next_desc = k3_knav_pool_alloc(tx_chn->desc_pool);
+		next_desc = k3_cppi_desc_pool_alloc(tx_chn->desc_pool);
 
 		if (!next_desc) {
 			dev_err(dev, "Failed to allocate descriptor\n");
@@ -715,7 +718,7 @@ static netdev_tx_t virt_cpsw_nuss_ndo_xmit(struct sk_buff *skb,
 					   DMA_TO_DEVICE);
 		if (unlikely(dma_mapping_error(dev, buf_dma))) {
 			dev_err(dev, "Failed to map tx skb page\n");
-			k3_knav_pool_free(tx_chn->desc_pool, next_desc);
+			k3_cppi_desc_pool_free(tx_chn->desc_pool, next_desc);
 			ret = -EINVAL;
 			ndev->stats.tx_errors++;
 			goto drop_free_descs;
@@ -725,7 +728,8 @@ static netdev_tx_t virt_cpsw_nuss_ndo_xmit(struct sk_buff *skb,
 		cppi5_hdesc_attach_buf(next_desc,
 				       buf_dma, frag_size, buf_dma, frag_size);
 
-		desc_dma = k3_knav_pool_virt2dma(tx_chn->desc_pool, next_desc);
+		desc_dma = k3_cppi_desc_pool_virt2dma(tx_chn->desc_pool,
+						      next_desc);
 		cppi5_hdesc_link_hbdesc(cur_desc, desc_dma);
 
 		pkt_len += frag_size;
@@ -742,7 +746,7 @@ done_tx:
 	netdev_tx_sent_queue(netif_txq, pkt_len);
 
 	cppi5_hdesc_set_pktlen(first_desc, pkt_len);
-	desc_dma = k3_knav_pool_virt2dma(tx_chn->desc_pool, first_desc);
+	desc_dma = k3_cppi_desc_pool_virt2dma(tx_chn->desc_pool, first_desc);
 	ret = k3_udma_glue_push_tx_chn(tx_chn->tx_chn, first_desc, desc_dma);
 	if (ret) {
 		dev_err(dev, "can't push desc %d\n", ret);
@@ -750,14 +754,15 @@ done_tx:
 		goto drop_free_descs;
 	}
 
-	if (k3_knav_pool_avail(tx_chn->desc_pool) < MAX_SKB_FRAGS) {
+	if (k3_cppi_desc_pool_avail(tx_chn->desc_pool) < MAX_SKB_FRAGS) {
 		netif_tx_stop_queue(netif_txq);
 		/* Barrier, so that stop_queue visible to other cpus */
 		smp_mb__after_atomic();
 		dev_err(dev, "netif_tx_stop_queue %d\n", 0);
 
 		/* re-check for smp */
-		if (k3_knav_pool_avail(tx_chn->desc_pool) >= MAX_SKB_FRAGS) {
+		if (k3_cppi_desc_pool_avail(tx_chn->desc_pool) >=
+		    MAX_SKB_FRAGS) {
 			netif_tx_wake_queue(netif_txq);
 			dev_err(dev, "netif_tx_wake_queue %d\n", 0);
 		}
@@ -937,7 +942,7 @@ static void virt_cpsw_nuss_free_tx_chns(void *data)
 		k3_udma_glue_release_tx_chn(tx_chn->tx_chn);
 
 	if (!IS_ERR_OR_NULL(tx_chn->desc_pool))
-		k3_knav_pool_destroy(tx_chn->desc_pool);
+		k3_cppi_desc_pool_destroy(tx_chn->desc_pool);
 
 	memset(tx_chn, 0, sizeof(*tx_chn));
 }
@@ -975,10 +980,10 @@ static int virt_cpsw_nuss_init_tx_chns(struct virt_cpsw_common *common)
 	tx_chn->dev = dev;
 	tx_chn->id = 0;
 	tx_chn->descs_num = max_desc_num;
-	tx_chn->desc_pool = k3_knav_pool_create_name(dev,
-						     tx_chn->descs_num,
-						     hdesc_size,
-						     tx_chn_name);
+	tx_chn->desc_pool = k3_cppi_desc_pool_create_name(dev,
+							  tx_chn->descs_num,
+							  hdesc_size,
+							  tx_chn_name);
 	if (IS_ERR(tx_chn->desc_pool)) {
 		ret = PTR_ERR(tx_chn->desc_pool);
 		dev_err(dev, "Failed to create poll %d\n", ret);
@@ -1017,7 +1022,7 @@ static void virt_cpsw_nuss_free_rx_chns(void *data)
 		k3_udma_glue_release_rx_chn(rx_chn->rx_chn);
 
 	if (!IS_ERR_OR_NULL(rx_chn->desc_pool))
-		k3_knav_pool_destroy(rx_chn->desc_pool);
+		k3_cppi_desc_pool_destroy(rx_chn->desc_pool);
 }
 
 static int virt_cpsw_nuss_init_rx_chns(struct virt_cpsw_common *common)
@@ -1057,8 +1062,9 @@ static int virt_cpsw_nuss_init_rx_chns(struct virt_cpsw_common *common)
 	/* init all flows */
 	rx_chn->dev = dev;
 	rx_chn->descs_num = max_desc_num;
-	rx_chn->desc_pool = k3_knav_pool_create_name(dev, rx_chn->descs_num,
-						     hdesc_size, "rx");
+	rx_chn->desc_pool = k3_cppi_desc_pool_create_name(dev,
+							  rx_chn->descs_num,
+							  hdesc_size, "rx");
 	if (IS_ERR(rx_chn->desc_pool)) {
 		ret = PTR_ERR(rx_chn->desc_pool);
 		dev_err(dev, "Failed to create rx poll %d\n", ret);
