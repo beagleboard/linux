@@ -87,7 +87,7 @@ enum prueth_mac {
 };
 
 struct prueth_tx_chn {
-	struct k3_knav_desc_pool *desc_pool;
+	struct k3_cppi_desc_pool *desc_pool;
 	struct k3_udma_glue_tx_channel *tx_chn;
 	u32 descs_num;
 	spinlock_t lock;	/* to serialize */
@@ -96,7 +96,7 @@ struct prueth_tx_chn {
 
 struct prueth_rx_chn {
 	struct device *dev;
-	struct k3_knav_desc_pool *desc_pool;
+	struct k3_cppi_desc_pool *desc_pool;
 	struct k3_udma_glue_rx_channel *rx_chn;
 	u32 descs_num;
 	spinlock_t lock;	/* to serialize */
