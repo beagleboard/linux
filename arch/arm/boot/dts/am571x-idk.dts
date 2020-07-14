@@ -176,20 +176,20 @@
 		status = "okay";
 		compatible = "ti,am57-prueth";
 		prus = <&pru1_0>, <&pru1_1>;
-		firmware-name = "ti-pruss/am57xx-pru0-prueth-fw.elf",
-				"ti-pruss/am57xx-pru1-prueth-fw.elf";
 		ti,pruss-gp-mux-sel = <0>,	/* GP, default */
 				      <4>;	/* MII2, needed for PRUSS1_MII1 */
 		sram = <&ocmcram1>;
 		interrupt-parent = <&pruss1_intc>;
 		mii-rt = <&pruss1_mii_rt>;
+		interrupts = <20>, <21>;
+		interrupt-names = "rx_lre_hp", "rx_lre_lp";
 		iep = <&pruss1_iep>;
 
 		ethernet-mii0 {
 			phy-handle = <&pruss1_eth0_phy>;
 			phy-mode = "mii";
-			interrupts = <20>, <22>;
-			interrupt-names = "rx", "tx";
+			interrupts = <20>;
+			interrupt-names = "rx";
 			ti,no-half-duplex;
 			/* Filled in by bootloader */
 			local-mac-address = [00 00 00 00 00 00];
@@ -198,8 +198,8 @@
 		ethernet-mii1 {
 			phy-handle = <&pruss1_eth1_phy>;
 			phy-mode = "mii";
-			interrupts = <21>, <23>;
-			interrupt-names = "rx", "tx";
+			interrupts = <21>;
+			interrupt-names = "rx";
 			ti,no-half-duplex;
 			/* Filled in by bootloader */
 			local-mac-address = [00 00 00 00 00 00];

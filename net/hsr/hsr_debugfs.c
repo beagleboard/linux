@@ -122,6 +122,8 @@ hsr_lre_info_show(struct seq_file *sfp, void *data)
 			   priv->sv_frame_dei);
 	}
 	seq_printf(sfp, "cnt_tx_sup = %d\n", priv->dbg_stats.cnt_tx_sup);
+	seq_printf(sfp, "cnt_rx_sup_A = %d\n", priv->dbg_stats.cnt_rx_sup_a);
+	seq_printf(sfp, "cnt_rx_sup_B = %d\n", priv->dbg_stats.cnt_rx_sup_b);
 	seq_printf(sfp, "disable SV Frame = %d\n", priv->disable_sv_frame);
 	seq_puts(sfp, "\n");
 	return 0;

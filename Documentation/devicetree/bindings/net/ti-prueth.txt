@@ -9,11 +9,20 @@ Required properties:
                         "ti,k2g-prueth" for 66AK2G SoCs
 
 - prus             : list of pHandles to the PRU nodes
-- firmware-name	   : list of strings containing firmware path.
 - sram	           : pHandle to OCMC SRAM node
 - interrupt-parent : pHandle to the PRUSS INTC node
 - mii-rt	   : pHandle to MII_RT module's syscon regmap
 - iep		   : pHandle to IEP module's syscon regmap
+
+Optional properties:
+
+Following required if HSR and PRP driver offload is supported
+on the platform:-
+
+- interrupt-names  : should contain "rx_lre_hp", "rx_lre_lp"
+- interrupts       : should contain an array of PRUSS system event
+		     numbers used as the interrupt sources for
+		     rx_lre_hp and rx_lre_lp interrupts respectively
 
 Must contain children, one for each of the MAC ports.
 Children must be named ethernet-mii0 and ethernet-mii1.
@@ -21,28 +30,32 @@ Either one or both children can be present. If only one
 child is present driver operates in single EMAC mode.
 
 For single mode operation with the 2nd PRU, you still need
-to provide both PRUs and firmware-names but the firmware-name
-for the first PRU can be NULL. See 2nd example.
+to provide both PRUs. See 2nd example.
 
 Required properties for children:
 - phy-handle       : See ethernet.txt file in the same directory.
 - phy-mode         : See ethernet.txt file in the same directory.
-- interrupt-names  : should be "rx" and "tx"
+- interrupt-names  : should be "rx"
 - interrupts       : should contain an array of PRUSS system event
-                     numbers used as the interrupt sources for Rx
-                     and Tx respectively.
+                     numbers used as the interrupt sources for Rx.
 
 Optional properties for children:
 - local-mac-address	: mac address for the port.
 - ti,no-half-duplex	: disable half-duplex.
+- interrupt-names	: add "tx" when using Dual EMAC firmware to
+			  get a better egress performance at MTU size.
+			  Note that this reduces the performance
+			  for small size frames. So use it only if
+			  specific application uses mostly MTU or near
+			  MTU size frames.
+- interrupts		: Add interrupt sources for Tx if
+			  interrupt-names "tx" used.
 
 Example (am572x-idk board, dual-emac):
 ======================================
 	pruss2_eth {
 		compatible = "ti,am57-prueth";
 		prus = <&pru2_0>, <&pru2_1>;
-		firmware-name = "ti-pruss/am57xx-pru0-prueth-fw.elf",
-				"ti-pruss/am57xx-pru1-prueth-fw.elf";
 		sram = <&ocmcram1>;
 		interrupt-parent = <&pruss2_intc>;
 		mii-rt = <&pruss2_mii_rt>;
@@ -72,8 +85,6 @@ Example (am572x-idk board, single-emac):
 	pruss2_eth {
 		compatible = "ti,am57-prueth";
 		prus = <&pru2_0>, <&pru2_1>;
-		firmware-name = "",
-				"ti-pruss/am57xx-pru1-prueth-fw.elf";
 		sram = <&ocmcram1>;
 		interrupt-parent = <&pruss2_intc>;
 		mii-rt = <&pruss2_mii_rt>;

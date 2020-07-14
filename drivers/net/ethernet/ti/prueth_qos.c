@@ -9,7 +9,6 @@
 #include <net/pkt_cls.h>
 
 #include "icss_mii_rt.h"
-#include "icss_switch.h"
 #include "icss_vlan_mcast_filter_mmap.h"
 #include "prueth.h"
 
@@ -19,63 +18,26 @@ static void emac_nsp_enable(void __iomem *counter, u16 credit)
 	       counter);
 }
 
-static enum hrtimer_restart prueth_timer(struct hrtimer *timer)
+void prueth_enable_nsp(struct prueth_emac *emac)
 {
-	struct prueth *prueth = container_of(timer, struct prueth,
-					     tbl_check_timer);
-	enum hrtimer_restart ret = HRTIMER_NORESTART;
-	struct prueth_emac *emac;
-	enum prueth_mac mac;
-	unsigned long flags;
-	void __iomem *dram;
+	struct prueth *prueth = emac->prueth;
+	void __iomem *dram = prueth->mem[emac->dram].va;
 
-	hrtimer_forward_now(timer, ms_to_ktime(PRUETH_NSP_TIMER_MS));
-	for (mac = PRUETH_MAC0; mac <= PRUETH_MAC1; mac++) {
-		emac = prueth->emac[mac];
-
-		if (!netif_running(emac->ndev))
-			continue;
-
-		spin_lock_irqsave(&emac->nsp_lock, flags);
-
-		if (!emac->nsp_enabled) {
-			spin_unlock_irqrestore(&emac->nsp_lock, flags);
-			continue;
-		}
-
-		ret = HRTIMER_RESTART;
-		dram = prueth->mem[emac->dram].va;
-
-		if (emac->nsp_bc.cookie)
-			emac_nsp_enable(dram + STORM_PREVENTION_OFFSET_BC,
-					emac->nsp_bc.credit);
-		if (emac->nsp_mc.cookie)
-			emac_nsp_enable(dram + STORM_PREVENTION_OFFSET_MC,
-					emac->nsp_mc.credit);
-		if (emac->nsp_uc.cookie)
-			emac_nsp_enable(dram + STORM_PREVENTION_OFFSET_UC,
-					emac->nsp_uc.credit);
-
-		spin_unlock_irqrestore(&emac->nsp_lock, flags);
-	}
-
-	return ret;
-}
-
-void prueth_init_timer(struct prueth *prueth)
-{
-	hrtimer_init(&prueth->tbl_check_timer, CLOCK_MONOTONIC,
-		     HRTIMER_MODE_REL);
-	prueth->tbl_check_timer.function = prueth_timer;
-}
-
-void prueth_start_timer(struct prueth *prueth)
-{
-	if (hrtimer_active(&prueth->tbl_check_timer))
+	if (PRUETH_IS_LRE(prueth) && --emac->nsp_timer_count)
 		return;
 
-	hrtimer_start(&prueth->tbl_check_timer, ms_to_ktime(PRUETH_NSP_TIMER_MS),
-		      HRTIMER_MODE_REL);
+	if (emac->nsp_bc.cookie)
+		emac_nsp_enable(dram + STORM_PREVENTION_OFFSET_BC,
+				emac->nsp_bc.credit);
+	if (emac->nsp_mc.cookie)
+		emac_nsp_enable(dram + STORM_PREVENTION_OFFSET_MC,
+				emac->nsp_mc.credit);
+	if (emac->nsp_uc.cookie)
+		emac_nsp_enable(dram + STORM_PREVENTION_OFFSET_UC,
+				emac->nsp_uc.credit);
+
+	if (PRUETH_IS_LRE(prueth))
+		emac->nsp_timer_count = PRUETH_NSP_TIMER_COUNT;
 }
 
 static int emac_flower_parse_policer(struct prueth_emac *emac,
@@ -146,7 +108,7 @@ static int emac_flower_parse_policer(struct prueth_emac *emac,
 	/* Calculate number of packets per second for given bps
 	 * assuming min ethernet packet size
 	 */
-	pps = div_u64(rate_bytes_per_sec,  EMAC_MIN_PKTLEN);
+	pps = div_u64(rate_bytes_per_sec, ETH_ZLEN);
 	/* Convert that to packets per 100ms */
 	pps /= MSEC_PER_SEC / PRUETH_NSP_TIMER_MS;
 
@@ -161,7 +123,7 @@ static int emac_flower_parse_policer(struct prueth_emac *emac,
 		   "%scast filter set to %d packets per %dms\n", str,
 		   nsp->credit, PRUETH_NSP_TIMER_MS);
 
-	prueth_start_timer(emac->prueth);
+	prueth_start_timer(emac);
 
 	return 0;
 }

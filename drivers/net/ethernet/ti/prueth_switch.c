@@ -8,7 +8,6 @@
 #include <linux/remoteproc.h>
 #include <net/switchdev.h>
 #include "prueth.h"
-#include "icss_switch.h"
 #include "prueth_switch.h"
 #include "prueth_fdb_tbl.h"
 
@@ -46,7 +45,7 @@ u8 prueth_sw_port_get_stp_state(struct prueth *prueth, enum prueth_port port)
 	return state;
 }
 
-const struct prueth_queue_info sw_queue_infos[][4] = {
+const struct prueth_queue_info sw_queue_infos[][NUM_QUEUES] = {
 	[PRUETH_PORT_QUEUE_HOST] = {
 		[PRUETH_QUEUE1] = {
 			P0_Q1_BUFFER_OFFSET,
@@ -135,7 +134,7 @@ const struct prueth_queue_info sw_queue_infos[][4] = {
 	},
 };
 
-static const struct prueth_queue_info rx_queue_infos[][4] = {
+static const struct prueth_queue_info rx_queue_infos[][NUM_QUEUES] = {
 	[PRUETH_PORT_QUEUE_HOST] = {
 		[PRUETH_QUEUE1] = {
 			P0_Q1_BUFFER_OFFSET,
@@ -266,7 +265,16 @@ static const struct prueth_queue_desc col_queue_descs[3] = {
 		.rd_ptr = END_OF_BD_POOL, .wr_ptr = END_OF_BD_POOL, }
 };
 
-int prueth_sw_hostconfig(struct prueth *prueth)
+void prueth_sw_free_fdb_table(struct prueth *prueth)
+{
+	if (prueth->emac_configured)
+		return;
+
+	kfree(prueth->fdb_tbl);
+	prueth->fdb_tbl = NULL;
+}
+
+void prueth_sw_hostconfig(struct prueth *prueth)
 {
 	void __iomem *dram1_base = prueth->mem[PRUETH_MEM_DRAM1].va;
 	void __iomem *dram;
@@ -305,8 +313,6 @@ int prueth_sw_hostconfig(struct prueth *prueth)
 	dram = dram1_base + P0_QUEUE_DESC_OFFSET;
 	memcpy_toio(dram, queue_descs[PRUETH_PORT_QUEUE_HOST],
 		    sizeof(queue_descs[PRUETH_PORT_QUEUE_HOST]));
-
-	return 0;
 }
 
 static int prueth_sw_port_config(struct prueth *prueth,
@@ -964,14 +970,33 @@ static int prueth_sw_purge_fdb(struct prueth_emac *emac)
 	return 0;
 }
 
+int prueth_sw_init_fdb_table(struct prueth *prueth)
+{
+	if (prueth->emac_configured)
+		return 0;
+
+	prueth->fdb_tbl = kmalloc(sizeof(*prueth->fdb_tbl), GFP_KERNEL);
+	if (!prueth->fdb_tbl)
+		return -ENOMEM;
+
+	prueth_sw_fdb_tbl_init(prueth);
+
+	return 0;
+}
+
 int prueth_sw_boot_prus(struct prueth *prueth, struct net_device *ndev)
 {
+	const struct prueth_firmware *pru_firmwares;
+	const char *fw_name, *fw_name1;
 	int ret;
-	char *fw_name = "ti-pruss/am57xx-pru0-prusw-fw.elf";
-	char *fw_name1 = "ti-pruss/am57xx-pru1-prusw-fw.elf";
 
 	if (prueth->emac_configured)
 		return 0;
+
+	pru_firmwares = &prueth->fw_data->fw_pru[PRUSS_PRU0];
+	fw_name = pru_firmwares->fw_name[prueth->eth_type];
+	pru_firmwares = &prueth->fw_data->fw_pru[PRUSS_PRU1];
+	fw_name1 = pru_firmwares->fw_name[prueth->eth_type];
 
 	ret = rproc_set_firmware(prueth->pru0, fw_name);
 	if (ret) {
@@ -997,18 +1022,8 @@ int prueth_sw_boot_prus(struct prueth *prueth, struct net_device *ndev)
 		goto rproc0_shutdown;
 	}
 
-	prueth->fdb_tbl = kmalloc(sizeof(*prueth->fdb_tbl), GFP_KERNEL);
-	if (!prueth->fdb_tbl) {
-		ret = -ENOMEM;
-		goto rproc1_shutdown;
-	}
-
-	prueth_sw_fdb_tbl_init(prueth);
-
 	return 0;
 
-rproc1_shutdown:
-	rproc_shutdown(prueth->pru1);
 rproc0_shutdown:
 	rproc_shutdown(prueth->pru0);
 	return ret;
@@ -1017,19 +1032,12 @@ rproc0_shutdown:
 int prueth_sw_shutdown_prus(struct prueth_emac *emac, struct net_device *ndev)
 {
 	struct prueth *prueth = emac->prueth;
-	char *fw_name = "ti-pruss/am57xx-pru0-prueth-fw.elf";
-	char *fw_name1 = "ti-pruss/am57xx-pru1-prueth-fw.elf";
 
 	if (prueth->emac_configured)
 		return 0;
 
 	rproc_shutdown(prueth->pru0);
 	rproc_shutdown(prueth->pru1);
-	rproc_set_firmware(prueth->pru0, fw_name);
-	rproc_set_firmware(prueth->pru1, fw_name1);
-
-	kfree(prueth->fdb_tbl);
-	prueth->fdb_tbl = NULL;
 
 	return 0;
 }
