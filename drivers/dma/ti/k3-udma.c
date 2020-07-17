@@ -94,9 +94,6 @@ struct udma_match_data {
 	u32 flags;
 	u32 statictr_z_mask;
 	u32 rchan_oes_offset;
-
-	u8 tpl_levels;
-	u32 level_start_idx[];
 };
 
 struct udma_hwdesc {
@@ -122,6 +119,9 @@ struct udma_dev {
 	struct device *dev;
 	void __iomem *mmrs[MMR_LAST];
 	const struct udma_match_data *match_data;
+
+	u8 tpl_levels;
+	u32 tpl_start_idx[3];
 
 	size_t desc_align; /* alignment to use for descriptors */
 
@@ -1212,10 +1212,10 @@ static struct udma_##res *__udma_reserve_##res(struct udma_dev *ud,	\
 	} else {							\
 		int start;						\
 									\
-		if (tpl >= ud->match_data->tpl_levels)			\
-			tpl = ud->match_data->tpl_levels - 1;		\
+		if (tpl >= ud->tpl_levels)				\
+			tpl = ud->tpl_levels - 1;			\
 									\
-		start = ud->match_data->level_start_idx[tpl];		\
+		start = ud->tpl_start_idx[tpl];				\
 									\
 		id = find_next_zero_bit(ud->res##_map, ud->res##_cnt,	\
 					start);				\
@@ -1268,7 +1268,6 @@ static int udma_get_rchan(struct udma_chan *uc)
 static int udma_get_chan_pair(struct udma_chan *uc)
 {
 	struct udma_dev *ud = uc->ud;
-	const struct udma_match_data *match_data = ud->match_data;
 	int chan_id, end;
 
 	if ((uc->tchan && uc->rchan) && uc->tchan->id == uc->rchan->id) {
@@ -1290,7 +1289,7 @@ static int udma_get_chan_pair(struct udma_chan *uc)
 	/* Can be optimized, but let's have it like this for now */
 	end = min(ud->tchan_cnt, ud->rchan_cnt);
 	/* Try to use the highest TPL channel pair for MEM_TO_MEM channels */
-	chan_id = match_data->level_start_idx[match_data->tpl_levels - 1];
+	chan_id = ud->tpl_start_idx[ud->tpl_levels - 1];
 	for (; chan_id < end; chan_id++) {
 		if (!test_bit(chan_id, ud->tchan_map) &&
 		    !test_bit(chan_id, ud->rchan_map))
@@ -3133,11 +3132,6 @@ static struct udma_match_data am654_main_data = {
 	.enable_memcpy_support = true,
 	.statictr_z_mask = GENMASK(11, 0),
 	.rchan_oes_offset = 0x200,
-	.tpl_levels = 2,
-	.level_start_idx = {
-		[0] = 8, /* Normal channels */
-		[1] = 0, /* High Throughput channels */
-	},
 };
 
 static struct udma_match_data am654_mcu_data = {
@@ -3145,11 +3139,6 @@ static struct udma_match_data am654_mcu_data = {
 	.enable_memcpy_support = true, /* TEST: DMA domains */
 	.statictr_z_mask = GENMASK(11, 0),
 	.rchan_oes_offset = 0x200,
-	.tpl_levels = 2,
-	.level_start_idx = {
-		[0] = 2, /* Normal channels */
-		[1] = 0, /* High Throughput channels */
-	},
 };
 
 static struct udma_match_data j721e_main_data = {
@@ -3158,12 +3147,6 @@ static struct udma_match_data j721e_main_data = {
 	.flags = UDMA_FLAG_PDMA_ACC32 | UDMA_FLAG_PDMA_BURST | UDMA_FLAG_TDTYPE,
 	.statictr_z_mask = GENMASK(23, 0),
 	.rchan_oes_offset = 0x400,
-	.tpl_levels = 3,
-	.level_start_idx = {
-		[0] = 16, /* Normal channels */
-		[1] = 4, /* High Throughput channels */
-		[2] = 0, /* Ultra High Throughput channels */
-	},
 };
 
 static struct udma_match_data j721e_mcu_data = {
@@ -3172,11 +3155,6 @@ static struct udma_match_data j721e_mcu_data = {
 	.flags = UDMA_FLAG_PDMA_ACC32 | UDMA_FLAG_PDMA_BURST | UDMA_FLAG_TDTYPE,
 	.statictr_z_mask = GENMASK(23, 0),
 	.rchan_oes_offset = 0x400,
-	.tpl_levels = 2,
-	.level_start_idx = {
-		[0] = 2, /* Normal channels */
-		[1] = 0, /* High Throughput channels */
-	},
 };
 
 static const struct of_device_id udma_of_match[] = {
@@ -3244,6 +3222,27 @@ static int udma_setup_resources(struct udma_dev *ud)
 	ud->echan_cnt = UDMA_CAP2_ECHAN_CNT(cap2);
 	ud->rchan_cnt = UDMA_CAP2_RCHAN_CNT(cap2);
 	ch_count  = ud->tchan_cnt + ud->rchan_cnt;
+
+	/* Set up the throughput level start indexes */
+	if (of_device_is_compatible(dev->of_node,
+				    "ti,am654-navss-main-udmap")) {
+		ud->tpl_levels = 2;
+		ud->tpl_start_idx[0] = 8;
+	} else if (of_device_is_compatible(dev->of_node,
+					   "ti,am654-navss-mcu-udmap")) {
+		ud->tpl_levels = 2;
+		ud->tpl_start_idx[0] = 2;
+	} else if (UDMA_CAP3_UCHAN_CNT(cap3)) {
+		ud->tpl_levels = 3;
+		ud->tpl_start_idx[1] = UDMA_CAP3_UCHAN_CNT(cap3);
+		ud->tpl_start_idx[0] = ud->tpl_start_idx[1] +
+				       UDMA_CAP3_HCHAN_CNT(cap3);
+	} else if (UDMA_CAP3_HCHAN_CNT(cap3)) {
+		ud->tpl_levels = 2;
+		ud->tpl_start_idx[0] = UDMA_CAP3_HCHAN_CNT(cap3);
+	} else {
+		ud->tpl_levels = 1;
+	}
 
 	ud->tchan_map = devm_kmalloc_array(dev, BITS_TO_LONGS(ud->tchan_cnt),
 					   sizeof(unsigned long), GFP_KERNEL);
