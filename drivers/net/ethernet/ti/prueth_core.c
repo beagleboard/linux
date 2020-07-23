@@ -895,8 +895,8 @@ int emac_rx_packet(struct prueth_emac *emac, u16 *bd_rd_ptr,
 	struct prueth *prueth = emac->prueth;
 	const struct prueth_private_data *fw_data = prueth->fw_data;
 	int read_block, update_block, pkt_block_size;
+	bool buffer_wrapped = false, prp_rct = false;
 	unsigned int buffer_desc_count;
-	bool buffer_wrapped = false;
 	struct sk_buff *skb;
 	void *src_addr;
 	void *dst_addr;
@@ -911,6 +911,8 @@ int emac_rx_packet(struct prueth_emac *emac, u16 *bd_rd_ptr,
 	if (PRUETH_IS_HSR(prueth))
 		start_offset = (pkt_info.start_offset ?
 				ICSS_LRE_TAG_RCT_SIZE : 0);
+	else if (PRUETH_IS_PRP(prueth) && pkt_info.start_offset)
+		prp_rct = true;
 
 	/* the PRU firmware deals mostly in pointers already
 	 * offset into ram, we would like to deal in indexes
@@ -1029,6 +1031,12 @@ int emac_rx_packet(struct prueth_emac *emac, u16 *bd_rd_ptr,
 					     LRE_PROTO_HSR);
 		}
 	}
+
+	/* For PRP, firmware always send us RCT. So skip Tag if
+	 * prp_tr_mode is IEC62439_3_TR_REMOVE_RCT
+	 */
+	if (prp_rct && prueth->prp_tr_mode == IEC62439_3_TR_REMOVE_RCT)
+		actual_pkt_len -= ICSS_LRE_TAG_RCT_SIZE;
 
 	if (!pkt_info.sv_frame) {
 		skb_put(skb, actual_pkt_len);
