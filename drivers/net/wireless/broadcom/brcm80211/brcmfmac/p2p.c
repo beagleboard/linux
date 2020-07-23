@@ -2092,8 +2092,7 @@ static struct wireless_dev *brcmf_p2p_create_p2pdev(struct brcmf_p2p_info *p2p,
 	/* firmware requires unique mac address for p2pdev interface */
 	if (addr && ether_addr_equal(addr, pri_ifp->mac_addr)) {
 		bphy_err(drvr, "discovery vif must be different from primary interface\n");
-		err = -EINVAL;
-		goto fail;
+		return ERR_PTR(-EINVAL);
 	}
 
 	brcmf_p2p_generate_bss_mac(p2p, addr);
