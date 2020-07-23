@@ -13,6 +13,5 @@ obj-$(CONFIG_TI_SCI_PM_DOMAINS)		+= ti_sci_pm_domains.o
 obj-$(CONFIG_TI_SCI_INTA_MSI_DOMAIN)	+= ti_sci_inta_msi.o
 obj-$(CONFIG_TI_PRUSS)			+= pruss.o
 obj-$(CONFIG_TI_K3_RINGACC)		+= k3-ringacc.o
-obj-$(CONFIG_TI_K3_UDMA_DESC_POOL)	+= k3-navss-desc-pool.o
 obj-$(CONFIG_TI_PAT)			+= ti-pat.o
 obj-$(CONFIG_TI_K3_SOCINFO)		+= k3-socinfo.o

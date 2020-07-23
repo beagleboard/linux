@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
-/*
- * TI K3 CPPI5 descriptors pool API
+/* TI K3 CPPI5 descriptors pool API
  *
- * Copyright (C) 2018 Texas Instruments Incorporated - http://www.ti.com
+ * Copyright (C) 2020 Texas Instruments Incorporated - http://www.ti.com
  */
 
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
@@ -12,18 +11,20 @@
 #include <linux/err.h>
 #include <linux/genalloc.h>
 #include <linux/kernel.h>
-#include <linux/soc/ti/k3-navss-desc-pool.h>
 
-struct k3_knav_desc_pool {
+#include "k3-cppi-desc-pool.h"
+
+struct k3_cppi_desc_pool {
 	struct device		*dev;
 	dma_addr_t		dma_addr;
 	void			*cpumem;	/* dma_alloc map */
-	size_t			desc_size, mem_size;
+	size_t			desc_size;
+	size_t			mem_size;
 	size_t			num_desc;
 	struct gen_pool		*gen_pool;
 };
 
-void k3_knav_pool_destroy(struct k3_knav_desc_pool *pool)
+void k3_cppi_desc_pool_destroy(struct k3_cppi_desc_pool *pool)
 {
 	if (!pool)
 		return;
@@ -38,16 +39,15 @@ void k3_knav_pool_destroy(struct k3_knav_desc_pool *pool)
 
 	gen_pool_destroy(pool->gen_pool);	/* frees pool->name */
 }
-EXPORT_SYMBOL_GPL(k3_knav_pool_destroy);
 
-struct k3_knav_desc_pool *k3_knav_pool_create_name(struct device *dev,
-						   size_t size,
-						   size_t desc_size,
-						   const char *name)
+struct k3_cppi_desc_pool *
+k3_cppi_desc_pool_create_name(struct device *dev, size_t size,
+			      size_t desc_size,
+			      const char *name)
 {
-	struct k3_knav_desc_pool *pool;
-	int ret = -ENOMEM;
+	struct k3_cppi_desc_pool *pool;
 	const char *pool_name = NULL;
+	int ret = -ENOMEM;
 
 	pool = devm_kzalloc(dev, sizeof(*pool), GFP_KERNEL);
 	if (!pool)
@@ -58,13 +58,14 @@ struct k3_knav_desc_pool *k3_knav_pool_create_name(struct device *dev,
 	pool->num_desc	= size;
 	pool->mem_size	= pool->num_desc * pool->desc_size;
 
-	pool_name = kstrdup_const(name ? name : dev_name(pool->dev), GFP_KERNEL);
+	pool_name = kstrdup_const(name ? name : dev_name(pool->dev),
+				  GFP_KERNEL);
 	if (!pool_name)
 		return ERR_PTR(-ENOMEM);
 
 	pool->gen_pool = gen_pool_create(ilog2(pool->desc_size), -1);
-	if (IS_ERR(pool->gen_pool)) {
-		ret = PTR_ERR(pool->gen_pool);
+	if (!pool->gen_pool) {
+		ret = -ENOMEM;
 		dev_err(pool->dev, "pool create failed %d\n", ret);
 		kfree_const(pool_name);
 		goto gen_pool_create_fail;
@@ -97,34 +98,29 @@ gen_pool_create_fail:
 	devm_kfree(pool->dev, pool);
 	return ERR_PTR(ret);
 }
-EXPORT_SYMBOL_GPL(k3_knav_pool_create_name);
 
-dma_addr_t k3_knav_pool_virt2dma(struct k3_knav_desc_pool *pool, void *addr)
+dma_addr_t k3_cppi_desc_pool_virt2dma(struct k3_cppi_desc_pool *pool,
+				      void *addr)
 {
 	return addr ? pool->dma_addr + (addr - pool->cpumem) : 0;
 }
-EXPORT_SYMBOL_GPL(k3_knav_pool_virt2dma);
 
-void *k3_knav_pool_dma2virt(struct k3_knav_desc_pool *pool, dma_addr_t dma)
+void *k3_cppi_desc_pool_dma2virt(struct k3_cppi_desc_pool *pool, dma_addr_t dma)
 {
 	return dma ? pool->cpumem + (dma - pool->dma_addr) : NULL;
 }
-EXPORT_SYMBOL_GPL(k3_knav_pool_dma2virt);
 
-void *k3_knav_pool_alloc(struct k3_knav_desc_pool *pool)
+void *k3_cppi_desc_pool_alloc(struct k3_cppi_desc_pool *pool)
 {
 	return (void *)gen_pool_alloc(pool->gen_pool, pool->desc_size);
 }
-EXPORT_SYMBOL_GPL(k3_knav_pool_alloc);
 
-void k3_knav_pool_free(struct k3_knav_desc_pool *pool, void *addr)
+void k3_cppi_desc_pool_free(struct k3_cppi_desc_pool *pool, void *addr)
 {
 	gen_pool_free(pool->gen_pool, (unsigned long)addr, pool->desc_size);
 }
-EXPORT_SYMBOL_GPL(k3_knav_pool_free);
 
-size_t k3_knav_pool_avail(struct k3_knav_desc_pool *pool)
+size_t k3_cppi_desc_pool_avail(struct k3_cppi_desc_pool *pool)
 {
 	return gen_pool_avail(pool->gen_pool) / pool->desc_size;
 }
-EXPORT_SYMBOL_GPL(k3_knav_pool_avail);

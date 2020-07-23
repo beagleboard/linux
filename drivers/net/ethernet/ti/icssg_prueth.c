@@ -26,10 +26,10 @@
 #include <linux/regmap.h>
 #include <linux/remoteproc.h>
 #include <linux/dma/ti-cppi5.h>
-#include <linux/soc/ti/k3-navss-desc-pool.h>
 
 #include "icssg_prueth.h"
 #include "icss_mii_rt.h"
+#include "k3-cppi-desc-pool.h"
 
 #define PRUETH_MODULE_VERSION "0.1"
 #define PRUETH_MODULE_DESCRIPTION "PRUSS ICSSG Ethernet driver"
@@ -75,7 +75,7 @@ static void prueth_cleanup_rx_chns(struct prueth_emac *emac,
 		k3_udma_glue_release_rx_chn(rx_chn->rx_chn);
 
 	if (rx_chn->desc_pool)
-		k3_knav_pool_destroy(rx_chn->desc_pool);
+		k3_cppi_desc_pool_destroy(rx_chn->desc_pool);
 }
 
 static void prueth_cleanup_tx_chns(struct prueth_emac *emac)
@@ -86,7 +86,7 @@ static void prueth_cleanup_tx_chns(struct prueth_emac *emac)
 		k3_udma_glue_release_tx_chn(tx_chn->tx_chn);
 
 	if (tx_chn->desc_pool)
-		k3_knav_pool_destroy(tx_chn->desc_pool);
+		k3_cppi_desc_pool_destroy(tx_chn->desc_pool);
 }
 
 static int prueth_init_tx_chns(struct prueth_emac *emac)
@@ -123,8 +123,10 @@ static int prueth_init_tx_chns(struct prueth_emac *emac)
 
 	tx_chn->descs_num = PRUETH_MAX_TX_DESC;
 	spin_lock_init(&tx_chn->lock);
-	tx_chn->desc_pool = k3_knav_pool_create_name(dev, tx_chn->descs_num,
-						     hdesc_size, tx_chn_name);
+	tx_chn->desc_pool = k3_cppi_desc_pool_create_name(dev,
+							  tx_chn->descs_num,
+							  hdesc_size,
+							  tx_chn_name);
 	if (IS_ERR(tx_chn->desc_pool)) {
 		ret = PTR_ERR(tx_chn->desc_pool);
 		tx_chn->desc_pool = NULL;
@@ -185,8 +187,10 @@ static int prueth_init_rx_chns(struct prueth_emac *emac,
 	rx_chn->dev = dev;
 	rx_chn->descs_num = max_desc_num;
 	spin_lock_init(&rx_chn->lock);
-	rx_chn->desc_pool = k3_knav_pool_create_name(dev, rx_chn->descs_num,
-						     hdesc_size, rx_chn_name);
+	rx_chn->desc_pool = k3_cppi_desc_pool_create_name(dev,
+							  rx_chn->descs_num,
+							  hdesc_size,
+							  rx_chn_name);
 	if (IS_ERR(rx_chn->desc_pool)) {
 		ret = PTR_ERR(rx_chn->desc_pool);
 		rx_chn->desc_pool = NULL;
@@ -272,16 +276,16 @@ static int prueth_dma_rx_push(struct prueth_emac *emac,
 	u32 pkt_len = skb_tailroom(skb);
 	void **swdata;
 
-	desc_rx = k3_knav_pool_alloc(rx_chn->desc_pool);
+	desc_rx = k3_cppi_desc_pool_alloc(rx_chn->desc_pool);
 	if (!desc_rx) {
 		netdev_err(ndev, "rx push: failed to allocate descriptor\n");
 		return -ENOMEM;
 	}
-	desc_dma = k3_knav_pool_virt2dma(rx_chn->desc_pool, desc_rx);
+	desc_dma = k3_cppi_desc_pool_virt2dma(rx_chn->desc_pool, desc_rx);
 
 	buf_dma = dma_map_single(dev, skb->data, pkt_len, DMA_FROM_DEVICE);
 	if (unlikely(dma_mapping_error(dev, buf_dma))) {
-		k3_knav_pool_free(rx_chn->desc_pool, desc_rx);
+		k3_cppi_desc_pool_free(rx_chn->desc_pool, desc_rx);
 		netdev_err(ndev, "rx push: failed to map rx pkt buffer\n");
 		return -EINVAL;
 	}
@@ -344,7 +348,7 @@ static int emac_rx_packet(struct prueth_emac *emac, u32 flow_id)
 	if (desc_dma & 0x1) /* Teardown ? */
 		return 0;
 
-	desc_rx = k3_knav_pool_dma2virt(rx_chn->desc_pool, desc_dma);
+	desc_rx = k3_cppi_desc_pool_dma2virt(rx_chn->desc_pool, desc_dma);
 
 	swdata = cppi5_hdesc_get_swdata(desc_rx);
 	skb = *swdata;
@@ -361,7 +365,7 @@ static int emac_rx_packet(struct prueth_emac *emac, u32 flow_id)
 	cppi5_desc_get_tags_ids(&desc_rx->hdr, &port_id, NULL);
 
 	dma_unmap_single(dev, buf_dma, buf_dma_len, DMA_FROM_DEVICE);
-	k3_knav_pool_free(rx_chn->desc_pool, desc_rx);
+	k3_cppi_desc_pool_free(rx_chn->desc_pool, desc_rx);
 
 	skb->dev = ndev;
 	if (!netif_running(skb->dev)) {
@@ -405,14 +409,14 @@ static void prueth_rx_cleanup(void *data, dma_addr_t desc_dma)
 	u32 buf_dma_len;
 	void **swdata;
 
-	desc_rx = k3_knav_pool_dma2virt(rx_chn->desc_pool, desc_dma);
+	desc_rx = k3_cppi_desc_pool_dma2virt(rx_chn->desc_pool, desc_dma);
 	swdata = cppi5_hdesc_get_swdata(desc_rx);
 	skb = *swdata;
 	cppi5_hdesc_get_obuf(desc_rx, &buf_dma, &buf_dma_len);
 
 	dma_unmap_single(rx_chn->dev, buf_dma, buf_dma_len,
 			 DMA_FROM_DEVICE);
-	k3_knav_pool_free(rx_chn->desc_pool, desc_rx);
+	k3_cppi_desc_pool_free(rx_chn->desc_pool, desc_rx);
 
 	dev_kfree_skb_any(skb);
 }
@@ -435,8 +439,8 @@ static void prueth_xmit_free(struct prueth_tx_chn *tx_chn,
 
 	next_desc_dma = cppi5_hdesc_get_next_hbdesc(first_desc);
 	while (next_desc_dma) {
-		next_desc = k3_knav_pool_dma2virt(tx_chn->desc_pool,
-						  next_desc_dma);
+		next_desc = k3_cppi_desc_pool_dma2virt(tx_chn->desc_pool,
+						       next_desc_dma);
 		cppi5_hdesc_get_obuf(next_desc, &buf_dma, &buf_dma_len);
 
 		dma_unmap_page(dev, buf_dma, buf_dma_len,
@@ -444,10 +448,10 @@ static void prueth_xmit_free(struct prueth_tx_chn *tx_chn,
 
 		next_desc_dma = cppi5_hdesc_get_next_hbdesc(next_desc);
 
-		k3_knav_pool_free(tx_chn->desc_pool, next_desc);
+		k3_cppi_desc_pool_free(tx_chn->desc_pool, next_desc);
 	}
 
-	k3_knav_pool_free(tx_chn->desc_pool, first_desc);
+	k3_cppi_desc_pool_free(tx_chn->desc_pool, first_desc);
 }
 
 static int emac_get_tx_ts(struct prueth_emac *emac,
@@ -502,7 +506,7 @@ static int emac_send_command_sr1(struct prueth_emac *emac, u32 cmd)
 
 	tx_chn = &emac->tx_chns;
 
-	first_desc = k3_knav_pool_alloc(tx_chn->desc_pool);
+	first_desc = k3_cppi_desc_pool_alloc(tx_chn->desc_pool);
 	if (!first_desc) {
 		netdev_err(emac->ndev,
 				"cmd %x: failed to allocate descriptor\n", cmd);
@@ -523,7 +527,7 @@ static int emac_send_command_sr1(struct prueth_emac *emac, u32 cmd)
 	*swdata = data;
 
 	cppi5_hdesc_set_pktlen(first_desc, pkt_len);
-	desc_dma = k3_knav_pool_virt2dma(tx_chn->desc_pool, first_desc);
+	desc_dma = k3_cppi_desc_pool_virt2dma(tx_chn->desc_pool, first_desc);
 
 	/* send command */
 	reinit_completion(&emac->cmd_complete);
@@ -690,7 +694,7 @@ static int emac_ndo_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 		goto drop_stop_q;
 	}
 
-	first_desc = k3_knav_pool_alloc(tx_chn->desc_pool);
+	first_desc = k3_cppi_desc_pool_alloc(tx_chn->desc_pool);
 	if (!first_desc) {
 		netdev_dbg(ndev, "tx: failed to allocate descriptor\n");
 		dma_unmap_single(dev, buf_dma, pkt_len, DMA_TO_DEVICE);
@@ -734,7 +738,7 @@ static int emac_ndo_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 		skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
 		u32 frag_size = skb_frag_size(frag);
 
-		next_desc = k3_knav_pool_alloc(tx_chn->desc_pool);
+		next_desc = k3_cppi_desc_pool_alloc(tx_chn->desc_pool);
 		if (!next_desc) {
 			netdev_err(ndev,
 				   "tx: failed to allocate frag. descriptor\n");
@@ -746,7 +750,7 @@ static int emac_ndo_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 					   DMA_TO_DEVICE);
 		if (dma_mapping_error(dev, buf_dma)) {
 			netdev_err(ndev, "tx: Failed to map skb page\n");
-			k3_knav_pool_free(tx_chn->desc_pool, next_desc);
+			k3_cppi_desc_pool_free(tx_chn->desc_pool, next_desc);
 			ret = -EINVAL;
 			goto cleanup_tx_ts;
 		}
@@ -755,7 +759,8 @@ static int emac_ndo_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 		cppi5_hdesc_attach_buf(next_desc,
 				       buf_dma, frag_size, buf_dma, frag_size);
 
-		desc_dma = k3_knav_pool_virt2dma(tx_chn->desc_pool, next_desc);
+		desc_dma = k3_cppi_desc_pool_virt2dma(tx_chn->desc_pool,
+						      next_desc);
 		cppi5_hdesc_link_hbdesc(cur_desc, desc_dma);
 
 		pkt_len += frag_size;
@@ -768,7 +773,7 @@ tx_push:
 	netdev_sent_queue(ndev, org_pkt_len);
 
 	cppi5_hdesc_set_pktlen(first_desc, pkt_len);
-	desc_dma = k3_knav_pool_virt2dma(tx_chn->desc_pool, first_desc);
+	desc_dma = k3_cppi_desc_pool_virt2dma(tx_chn->desc_pool, first_desc);
 	/* cppi5_desc_dump(first_desc, 64); */
 
 	skb_tx_timestamp(skb);	/* SW timestamp if SKBTX_IN_PROGRESS not set */
@@ -778,7 +783,7 @@ tx_push:
 		goto drop_free_descs;
 	}
 
-	if (k3_knav_pool_avail(tx_chn->desc_pool) < MAX_SKB_FRAGS)
+	if (k3_cppi_desc_pool_avail(tx_chn->desc_pool) < MAX_SKB_FRAGS)
 		netif_stop_queue(ndev);
 
 	return NETDEV_TX_OK;
@@ -837,7 +842,8 @@ static int emac_tx_complete_packets(struct prueth_emac *emac, int budget)
 			break;
 		}
 
-		desc_tx = k3_knav_pool_dma2virt(tx_chn->desc_pool, desc_dma);
+		desc_tx = k3_cppi_desc_pool_dma2virt(tx_chn->desc_pool,
+						     desc_dma);
 		swdata = cppi5_hdesc_get_swdata(desc_tx);
 
 		/* was this command's TX complete? */
@@ -869,7 +875,8 @@ static int emac_tx_complete_packets(struct prueth_emac *emac, int budget)
 		 */
 		netif_tx_lock(ndev);
 		if (netif_running(ndev) &&
-		    (k3_knav_pool_avail(tx_chn->desc_pool) >= MAX_SKB_FRAGS))
+		    (k3_cppi_desc_pool_avail(tx_chn->desc_pool) >=
+		     MAX_SKB_FRAGS))
 			netif_wake_queue(ndev);
 		netif_tx_unlock(ndev);
 	}
@@ -885,7 +892,7 @@ static void prueth_tx_cleanup(void *data, dma_addr_t desc_dma)
 	struct sk_buff *skb;
 	void **swdata;
 
-	desc_tx = k3_knav_pool_dma2virt(tx_chn->desc_pool, desc_dma);
+	desc_tx = k3_cppi_desc_pool_dma2virt(tx_chn->desc_pool, desc_dma);
 	swdata = cppi5_hdesc_get_swdata(desc_tx);
 	skb = *(swdata);
 	prueth_xmit_free(tx_chn, emac->prueth->dev, desc_tx);
@@ -931,7 +938,7 @@ static struct sk_buff *prueth_process_rx_mgm(struct prueth_emac *emac,
 	if (desc_dma & 0x1) /* Teardown ? */
 		return NULL;
 
-	desc_rx = k3_knav_pool_dma2virt(rx_chn->desc_pool, desc_dma);
+	desc_rx = k3_cppi_desc_pool_dma2virt(rx_chn->desc_pool, desc_dma);
 
 	/* Fix FW bug about incorrect PSDATA size */
 	if (cppi5_hdesc_get_psdata_size(desc_rx) != PRUETH_NAV_PS_DATA_SIZE) {
@@ -945,7 +952,7 @@ static struct sk_buff *prueth_process_rx_mgm(struct prueth_emac *emac,
 	pkt_len = cppi5_hdesc_get_pktlen(desc_rx);
 
 	dma_unmap_single(dev, buf_dma, buf_dma_len, DMA_FROM_DEVICE);
-	k3_knav_pool_free(rx_chn->desc_pool, desc_rx);
+	k3_cppi_desc_pool_free(rx_chn->desc_pool, desc_rx);
 
 	new_skb = netdev_alloc_skb_ip_align(ndev, PRUETH_MAX_PKT_SIZE);
 	/* if allocation fails we drop the packet but push the
