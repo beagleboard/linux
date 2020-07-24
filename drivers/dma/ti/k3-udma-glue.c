@@ -658,8 +658,6 @@ static int k3_udma_glue_cfg_rx_flow(struct k3_udma_glue_rx_channel *rx_chn,
 
 err_ringrxfdq_free:
 	k3_ringacc_ring_free(flow->ringrxfdq);
-
-err_ringrx_free:
 	k3_ringacc_ring_free(flow->ringrx);
 
 err_rflow_put:
