@@ -57,13 +57,13 @@ static inline void am65_cpts_rx_enable(struct am65_cpts *cpts, bool en)
 {
 }
 
-static s64 am65_cpts_ns_gettime(struct am65_cpts *cpts)
+static inline s64 am65_cpts_ns_gettime(struct am65_cpts *cpts)
 {
 	return 0;
 }
 
-static int am65_cpts_estf_enable(struct am65_cpts *cpts,
-				 struct am65_cpts_estf_cfg *req)
+static inline int am65_cpts_estf_enable(struct am65_cpts *cpts,
+					struct am65_cpts_estf_cfg *req)
 {
 	return 0;
 }
