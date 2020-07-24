@@ -895,8 +895,8 @@ int emac_rx_packet(struct prueth_emac *emac, u16 *bd_rd_ptr,
 	struct prueth *prueth = emac->prueth;
 	const struct prueth_private_data *fw_data = prueth->fw_data;
 	int read_block, update_block, pkt_block_size;
+	bool buffer_wrapped = false, prp_rct = false;
 	unsigned int buffer_desc_count;
-	bool buffer_wrapped = false;
 	struct sk_buff *skb;
 	void *src_addr;
 	void *dst_addr;
@@ -911,6 +911,8 @@ int emac_rx_packet(struct prueth_emac *emac, u16 *bd_rd_ptr,
 	if (PRUETH_IS_HSR(prueth))
 		start_offset = (pkt_info.start_offset ?
 				ICSS_LRE_TAG_RCT_SIZE : 0);
+	else if (PRUETH_IS_PRP(prueth) && pkt_info.start_offset)
+		prp_rct = true;
 
 	/* the PRU firmware deals mostly in pointers already
 	 * offset into ram, we would like to deal in indexes
@@ -1029,6 +1031,12 @@ int emac_rx_packet(struct prueth_emac *emac, u16 *bd_rd_ptr,
 					     LRE_PROTO_HSR);
 		}
 	}
+
+	/* For PRP, firmware always send us RCT. So skip Tag if
+	 * prp_tr_mode is IEC62439_3_TR_REMOVE_RCT
+	 */
+	if (prp_rct && prueth->prp_tr_mode == IEC62439_3_TR_REMOVE_RCT)
+		actual_pkt_len -= ICSS_LRE_TAG_RCT_SIZE;
 
 	if (!pkt_info.sv_frame) {
 		skb_put(skb, actual_pkt_len);
@@ -2234,6 +2242,68 @@ static void emac_get_ethtool_stats(struct net_device *ndev,
 	prueth_lre_update_stats(emac->prueth, &data[i]);
 }
 
+static int emac_get_regs_len(struct net_device *ndev)
+{
+	struct prueth_emac *emac = netdev_priv(ndev);
+	struct prueth *prueth = emac->prueth;
+
+	/* VLAN Table at the end of the memory map, after MultiCast
+	 * filter region. So VLAN table base +
+	 * size will give the entire size of reg dump in case of
+	 * Dual-EMAC firmware.
+	 */
+	if (PRUETH_IS_EMAC(prueth)) {
+		return ICSS_EMAC_FW_VLAN_FLTR_TBL_BASE_ADDR +
+		       ICSS_EMAC_FW_VLAN_FILTER_TABLE_SIZE_BYTES;
+	}
+
+	/* MultiCast table and VLAN filter table are in different
+	 * memories in case of HSR/PRP firmware. Therefore add the sizes
+	 * of individual region.
+	 */
+	if (PRUETH_IS_LRE(prueth)) {
+		return ICSS_LRE_FW_VLAN_FLTR_TBL_BASE_ADDR +
+		       ICSS_EMAC_FW_VLAN_FILTER_TABLE_SIZE_BYTES +
+		       ICSS_LRE_FW_MULTICAST_FILTER_TABLE +
+		       ICSS_EMAC_FW_MULTICAST_TABLE_SIZE_BYTES;
+	}
+
+	return 0;
+}
+
+static void emac_get_regs(struct net_device *ndev, struct ethtool_regs *regs,
+			  void *p)
+{
+	struct prueth_emac *emac = netdev_priv(ndev);
+	struct prueth *prueth = emac->prueth;
+	void __iomem *ram;
+	u8 *reg = p;
+
+	regs->version = PRUETH_REG_DUMP_GET_VER(prueth);
+
+	/* Dump firmware's VLAN and MC tables */
+	if (PRUETH_IS_EMAC(prueth)) {
+		ram = prueth->mem[emac->dram].va;
+		memcpy_fromio(reg, ram, emac_get_regs_len(ndev));
+		return;
+	}
+
+	if (PRUETH_IS_LRE(prueth)) {
+		size_t len = ICSS_LRE_FW_VLAN_FLTR_TBL_BASE_ADDR +
+			     ICSS_EMAC_FW_VLAN_FILTER_TABLE_SIZE_BYTES;
+
+		ram =  prueth->mem[PRUETH_MEM_SHARED_RAM].va;
+		memcpy_fromio(reg, ram, len);
+
+		reg += len;
+
+		ram = prueth->mem[PRUETH_MEM_DRAM1].va;
+		len = ICSS_LRE_FW_MULTICAST_FILTER_TABLE +
+		      ICSS_EMAC_FW_MULTICAST_TABLE_SIZE_BYTES;
+		memcpy_fromio(reg, ram, len);
+	}
+}
+
 /* Ethtool support for EMAC adapter */
 static const struct ethtool_ops emac_ethtool_ops = {
 	.get_drvinfo = emac_get_drvinfo,
@@ -2244,6 +2314,8 @@ static const struct ethtool_ops emac_ethtool_ops = {
 	.get_sset_count = emac_get_sset_count,
 	.get_strings = emac_get_strings,
 	.get_ethtool_stats = emac_get_ethtool_stats,
+	.get_regs = emac_get_regs,
+	.get_regs_len = emac_get_regs_len,
 };
 
 /* get emac_port corresponding to eth_node name */
