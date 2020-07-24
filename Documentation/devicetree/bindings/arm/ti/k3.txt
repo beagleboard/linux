@@ -16,6 +16,9 @@ architecture it uses, using one of the following compatible values:
 - J721E
   compatible = "ti,j721e";
 
+- J7200
+  compatible = "ti,j7200";
+
 Boards
 ------
 
