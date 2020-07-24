@@ -46,6 +46,11 @@ enum pruss_ethtype {
 #define PRUETH_IS_PRP(p)	((p)->eth_type == PRUSS_ETHTYPE_PRP)
 #define PRUETH_IS_LRE(p)	(PRUETH_IS_HSR(p) || PRUETH_IS_PRP(p))
 
+#define PRUETH_REG_DUMP_VER		1
+
+/* Encoding: 32-16: Reserved, 16-8: Reg dump version, 8-0: Ethertype  */
+#define PRUETH_REG_DUMP_GET_VER(x)	((PRUETH_REG_DUMP_VER << 8) | ((x)->eth_type))
+
 /**
  * struct prueth_queue_desc - Queue descriptor
  * @rd_ptr:	Read pointer, points to a buffer descriptor in Shared PRU RAM.
