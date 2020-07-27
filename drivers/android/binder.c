@@ -1427,6 +1427,10 @@ static void binder_transaction(struct binder_proc *proc,
 			return_error = BR_DEAD_REPLY;
 			goto err_dead_binder;
 		}
+		if (WARN_ON(proc == target_proc)) {
+			return_error = BR_FAILED_REPLY;
+			goto err_invalid_target_handle;
+		}
 		if (security_binder_transaction(proc->tsk,
 						target_proc->tsk) < 0) {
 			return_error = BR_FAILED_REPLY;
@@ -1830,6 +1834,11 @@ static int binder_thread_write(struct binder_proc *proc,
 			ptr += sizeof(uint32_t);
 			if (target == 0 && binder_context_mgr_node &&
 			    (cmd == BC_INCREFS || cmd == BC_ACQUIRE)) {
+				if (binder_context_mgr_node->proc == proc) {
+					binder_user_error("%d:%d context manager tried to acquire desc 0\n",
+							  proc->pid, thread->pid);
+					return -EINVAL;
+				}
 				ref = binder_get_ref_for_node(proc,
 					       binder_context_mgr_node);
 				if (ref->desc != target) {
