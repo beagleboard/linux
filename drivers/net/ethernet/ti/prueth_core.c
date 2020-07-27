@@ -31,6 +31,7 @@
 #include "prueth.h"
 #include "icss_mii_rt.h"
 #include "icss_vlan_mcast_filter_mmap.h"
+#include "prueth_ecap.h"
 #include "prueth_lre.h"
 #include "prueth_switch.h"
 #include "icss_iep.h"
@@ -1598,6 +1599,7 @@ static int emac_ndo_open(struct net_device *ndev)
 {
 	struct prueth_emac *emac = netdev_priv(ndev);
 	struct prueth *prueth = emac->prueth;
+	struct prueth_ecap *ecap = prueth->ecap;
 	int ret;
 
 	/* set h/w MAC as user might have re-configured */
@@ -1646,6 +1648,10 @@ static int emac_ndo_open(struct net_device *ndev)
 			goto free_mem;
 		}
 	}
+
+	/* initialize ecap for interrupt pacing */
+	if (!IS_ERR(ecap))
+		ecap->init(emac);
 
 	if (!PRUETH_IS_EMAC(prueth)) {
 		ret = prueth_sw_boot_prus(prueth, ndev);
@@ -2684,6 +2690,34 @@ static int emac_get_ts_info(struct net_device *ndev,
 	return 0;
 }
 
+static int emac_get_coalesce(struct net_device *ndev,
+			     struct ethtool_coalesce *coal)
+{
+	struct prueth_emac *emac = netdev_priv(ndev);
+	struct prueth *prueth = emac->prueth;
+	struct prueth_ecap *ecap = prueth->ecap;
+
+	if (IS_ERR(ecap))
+		return -EOPNOTSUPP;
+
+	return ecap->get_coalesce(emac, &coal->use_adaptive_rx_coalesce,
+				  &coal->rx_coalesce_usecs);
+}
+
+static int emac_set_coalesce(struct net_device *ndev,
+			     struct ethtool_coalesce *coal)
+{
+	struct prueth_emac *emac = netdev_priv(ndev);
+	struct prueth *prueth = emac->prueth;
+	struct prueth_ecap *ecap = prueth->ecap;
+
+	if (IS_ERR(ecap))
+		return -EOPNOTSUPP;
+
+	return ecap->set_coalesce(emac, coal->use_adaptive_rx_coalesce,
+				  coal->rx_coalesce_usecs);
+}
+
 /* Ethtool support for EMAC adapter */
 static const struct ethtool_ops emac_ethtool_ops = {
 	.get_drvinfo = emac_get_drvinfo,
@@ -2696,6 +2730,8 @@ static const struct ethtool_ops emac_ethtool_ops = {
 	.get_ethtool_stats = emac_get_ethtool_stats,
 	.get_regs = emac_get_regs,
 	.get_regs_len = emac_get_regs_len,
+	.get_coalesce = emac_get_coalesce,
+	.set_coalesce = emac_set_coalesce,
 };
 
 /* get emac_port corresponding to eth_node name */
@@ -3285,6 +3321,19 @@ static int prueth_probe(struct platform_device *pdev)
 		goto netdev_exit;
 	}
 
+	/* Make rx interrupt pacing optional so that users can use ECAP for
+	 * other use cases if needed
+	 */
+	prueth->ecap = prueth_ecap_get(np);
+	if (IS_ERR(prueth->ecap)) {
+		ret = PTR_ERR(prueth->ecap);
+		if (ret != -EPROBE_DEFER)
+			dev_info(dev,
+				 "No ECAP. Rx interrupt pacing disabled\n");
+		else
+			goto iep_put;
+	}
+
 	prueth_set_fw_offsets(prueth);
 	prueth_hostinit(prueth);
 
@@ -3293,7 +3342,7 @@ static int prueth_probe(struct platform_device *pdev)
 		ret = register_netdev(prueth->emac[PRUETH_MAC0]->ndev);
 		if (ret) {
 			dev_err(dev, "can't register netdev for port MII0");
-			goto iep_put;
+			goto ecap_put;
 		}
 
 		prueth->registered_netdevs[PRUETH_MAC0] = prueth->emac[PRUETH_MAC0]->ndev;
@@ -3331,6 +3380,9 @@ netdev_unregister:
 		unregister_netdev(prueth->registered_netdevs[i]);
 	}
 
+ecap_put:
+	if (!IS_ERR(prueth->ecap))
+		prueth_ecap_put(prueth->ecap);
 iep_put:
 	icss_iep_put(prueth->iep);
 netdev_exit:
@@ -3406,6 +3458,8 @@ static int prueth_remove(struct platform_device *pdev)
 			pruss_release_mem_region(prueth->pruss, &prueth->mem[i]);
 	}
 
+	if (!IS_ERR(prueth->ecap))
+		prueth_ecap_put(prueth->ecap);
 	icss_iep_put(prueth->iep);
 
 	pruss_put(prueth->pruss);
