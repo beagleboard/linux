@@ -220,6 +220,10 @@ static void vgacon_scrollback_update(struct vc_data *c, int t, int count)
 	p = (void *) (c->vc_origin + t * c->vc_size_row);
 
 	while (count--) {
+		if ((vgacon_scrollback_tail + c->vc_size_row) >
+		    vgacon_scrollback_size)
+			vgacon_scrollback_tail = 0;
+
 		scr_memcpyw(vgacon_scrollback + vgacon_scrollback_tail,
 			    p, c->vc_size_row);
 		vgacon_scrollback_cnt++;
