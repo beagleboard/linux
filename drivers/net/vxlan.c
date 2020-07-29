@@ -921,6 +921,7 @@ static int vxlan_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb,
 		struct vxlan_fdb *f;
 		int err;
 
+		rcu_read_lock();
 		hlist_for_each_entry_rcu(f, &vxlan->fdb_head[h], hlist) {
 			struct vxlan_rdst *rd;
 
@@ -933,12 +934,15 @@ static int vxlan_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb,
 						     cb->nlh->nlmsg_seq,
 						     RTM_NEWNEIGH,
 						     NLM_F_MULTI, rd);
-				if (err < 0)
+				if (err < 0) {
+					rcu_read_unlock();
 					goto out;
+				}
 skip:
 				++idx;
 			}
 		}
+		rcu_read_unlock();
 	}
 out:
 	return idx;
