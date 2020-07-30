@@ -34,6 +34,18 @@
 #define PTP_EV_PORT 319
 #define PTP_GEN_BIT 0x08 /* indicates general message, if set in message type */
 
+/* PTP message types */
+#define PTP_SYNC_MSG_ID			0x0
+#define PTP_DLY_REQ_MSG_ID		0x1
+#define PTP_PDLY_REQ_MSG_ID		0x2
+#define PTP_PDLY_RSP_MSG_ID		0x3
+#define PTP_FOLLOW_UP_MSG_ID		0x8
+#define PTP_DLY_RESP_MSG_ID		0x9
+#define PTP_PDLY_RESP_FLW_UP_MSG_ID	0xa
+#define PTP_ANNOUNCE_MSG_ID		0xb
+#define PTP_SIGNAL_MSG_ID		0xc
+#define PTP_MGMT_MSG_ID			0xd
+
 #define OFF_PTP_SOURCE_UUID	22 /* PTPv1 only */
 #define OFF_PTP_SEQUENCE_ID	30
 #define OFF_PTP_CONTROL		32 /* PTPv1 only */

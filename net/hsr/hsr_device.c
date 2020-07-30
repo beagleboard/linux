@@ -12,11 +12,18 @@
 #include <linux/etherdevice.h>
 #include <linux/rtnetlink.h>
 #include <linux/pkt_sched.h>
+#include <linux/net_tstamp.h>
 #include "hsr_device.h"
 #include "hsr_slave.h"
 #include "hsr_framereg.h"
 #include "hsr_main.h"
 #include "hsr_forward.h"
+
+static inline bool is_slave_port(struct hsr_port *p)
+{
+	return (p->type == HSR_PT_SLAVE_A) ||
+	       (p->type == HSR_PT_SLAVE_B);
+}
 
 static bool is_admin_up(struct net_device *dev)
 {
@@ -687,6 +694,31 @@ err:
 	return ret;
 }
 
+static int hsr_dev_ioctl(struct net_device *hsr_dev, struct ifreq *req, int cmd)
+{
+	struct hsr_priv *priv = netdev_priv(hsr_dev);
+	const struct net_device_ops *ops;
+	struct hsr_port *port;
+	int ret = -ENOTSUPP;
+
+	if (cmd != SIOCSHWTSTAMP && cmd != SIOCGHWTSTAMP)
+		return ret;
+
+	hsr_for_each_port(priv, port) {
+		if (is_slave_port(port)) {
+			ops = port->dev->netdev_ops;
+			if (ops && ops->ndo_do_ioctl) {
+				ret = ops->ndo_do_ioctl(port->dev, req, cmd);
+
+				if (cmd == SIOCGHWTSTAMP || cmd < 0)
+					return ret;
+			}
+		}
+	}
+
+	return ret;
+}
+
 static int hsr_ndo_vlan_rx_kill_vid(struct net_device *dev,
 				    __be16 proto, u16 vid)
 {
@@ -724,6 +756,33 @@ static const struct net_device_ops hsr_device_ops = {
 	.ndo_set_rx_mode = hsr_ndo_set_rx_mode,
 	.ndo_vlan_rx_add_vid = hsr_ndo_vlan_rx_add_vid,
 	.ndo_vlan_rx_kill_vid = hsr_ndo_vlan_rx_kill_vid,
+	.ndo_do_ioctl = hsr_dev_ioctl,
+};
+
+static int hsr_get_ts_info(struct net_device *dev,
+			       struct ethtool_ts_info *info)
+{
+	struct hsr_priv *priv = netdev_priv(dev);
+	struct hsr_port *port;
+	const struct ethtool_ops *ops;
+	int ret = -ENOTSUPP;
+
+	hsr_for_each_port(priv, port) {
+		if (is_slave_port(port)) {
+			ops = port->dev->ethtool_ops;
+			if (ops && ops->get_ts_info) {
+				ret = ops->get_ts_info(port->dev, info);
+				return ret;
+			}
+		}
+	}
+
+	return ret;
+}
+
+static const struct ethtool_ops hsr_ethtool_ops = {
+	.get_link = ethtool_op_get_link,
+	.get_ts_info = hsr_get_ts_info,
 };
 
 static struct device_type hsr_type = {
@@ -738,6 +797,7 @@ void hsr_dev_setup(struct net_device *dev)
 	dev->min_mtu = 0;
 	dev->header_ops = &hsr_header_ops;
 	dev->netdev_ops = &hsr_device_ops;
+	dev->ethtool_ops = &hsr_ethtool_ops;
 	SET_NETDEV_DEVTYPE(dev, &hsr_type);
 	dev->priv_flags |= IFF_NO_QUEUE;
 

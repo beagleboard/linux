@@ -858,6 +858,19 @@ int prueth_lre_request_irqs(struct prueth_emac *emac)
 	struct prueth *prueth = emac->prueth;
 	int ret;
 
+	if (emac->hsr_ptp_tx_irq) {
+		ret = request_threaded_irq(emac->hsr_ptp_tx_irq,
+					   prueth_ptp_tx_irq_handle,
+					   prueth_ptp_tx_irq_work,
+					   IRQF_TRIGGER_HIGH | IRQF_ONESHOT,
+					   emac->ndev->name, emac->ndev);
+		if (ret) {
+			netdev_err(emac->ndev, "unable to request PTP TX IRQ\n");
+			return ret;
+		}
+
+	}
+
 	/* HSR/PRP. Request irq when first port is initialized */
 	if (prueth->emac_configured)
 		return 0;
@@ -866,16 +879,23 @@ int prueth_lre_request_irqs(struct prueth_emac *emac)
 			  IRQF_TRIGGER_HIGH, "eth_hp_int", prueth->hp);
 	if (ret) {
 		netdev_err(emac->ndev, "unable to request RX HPQ IRQ\n");
-		return ret;
+		goto free_ptp_irq;
 	}
 
 	ret = request_irq(prueth->rx_lpq_irq, prueth_lre_emac_rx_hardirq,
 			  IRQF_TRIGGER_HIGH, "eth_lp_int", prueth->lp);
 	if (ret) {
 		netdev_err(emac->ndev, "unable to request RX LPQ IRQ\n");
-		free_irq(prueth->rx_hpq_irq, prueth->hp);
-		return ret;
+		goto free_rx_hpq_irq;
 	}
+
+	return 0;
+
+free_rx_hpq_irq:
+	free_irq(prueth->rx_hpq_irq, prueth->hp);
+free_ptp_irq:
+	if (emac->hsr_ptp_tx_irq)
+		free_irq(emac->hsr_ptp_tx_irq, emac->ndev);
 
 	return ret;
 }
