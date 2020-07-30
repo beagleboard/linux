@@ -2072,7 +2072,7 @@ static void emac_mc_filter_hashmask(struct prueth_emac *emac,
 		    ICSS_EMAC_FW_MULTICAST_FILTER_MASK_SIZE_BYTES);
 }
 
-static void emac_mc_filter_bin_allow(struct prueth_emac *emac, u8 hash)
+static void emac_mc_filter_bin_update(struct prueth_emac *emac, u8 hash, u8 val)
 {
 	struct prueth *prueth = emac->prueth;
 	u32 mc_filter_tbl_base = prueth->fw_offsets->mc_filter_tbl;
@@ -2083,11 +2083,20 @@ static void emac_mc_filter_bin_allow(struct prueth_emac *emac, u8 hash)
 		ram = prueth->mem[PRUETH_MEM_DRAM1].va;
 
 	mc_filter_tbl = ram + mc_filter_tbl_base;
-	writeb(ICSS_EMAC_FW_MULTICAST_FILTER_HOST_RCV_ALLOWED,
-	       mc_filter_tbl + hash);
+	writeb(val, mc_filter_tbl + hash);
 }
 
-static u8 emac_get_mc_hash(u8 *mac, u8 *mask)
+void emac_mc_filter_bin_allow(struct prueth_emac *emac, u8 hash)
+{
+	emac_mc_filter_bin_update(emac, hash, ICSS_EMAC_FW_MULTICAST_FILTER_HOST_RCV_ALLOWED);
+}
+
+void emac_mc_filter_bin_disallow(struct prueth_emac *emac, u8 hash)
+{
+	emac_mc_filter_bin_update(emac, hash, ICSS_EMAC_FW_MULTICAST_FILTER_HOST_RCV_NOT_ALLOWED);
+}
+
+u8 emac_get_mc_hash(u8 *mac, u8 *mask)
 {
 	int j;
 	u8 hash;
@@ -2116,13 +2125,6 @@ static void emac_ndo_set_rx_mode(struct net_device *ndev)
 	unsigned long flags;
 	u32 mask;
 	u8 hash;
-
-	if (PRUETH_IS_SWITCH(prueth)) {
-		netdev_dbg(ndev,
-			   "%s: promisc/mc filtering not supported for switch\n",
-			   __func__);
-		return;
-	}
 
 	if (promisc && PRUETH_IS_LRE(prueth)) {
 		netdev_dbg(ndev,
@@ -2166,7 +2168,7 @@ static void emac_ndo_set_rx_mode(struct net_device *ndev)
 			goto unlock;
 	}
 
-	if (ndev->flags & IFF_ALLMULTI)
+	if (ndev->flags & IFF_ALLMULTI && !PRUETH_IS_SWITCH(prueth))
 		goto unlock;
 
 	emac_mc_filter_ctrl(emac, true);	/* all multicast blocked */
@@ -2177,6 +2179,14 @@ static void emac_ndo_set_rx_mode(struct net_device *ndev)
 	netdev_for_each_mc_addr(ha, ndev) {
 		hash = emac_get_mc_hash(ha->addr, emac->mc_filter_mask);
 		emac_mc_filter_bin_allow(emac, hash);
+	}
+
+	/* Add bridge device's MC addresses as well */
+	if (prueth->hw_bridge_dev) {
+		netdev_for_each_mc_addr(ha, prueth->hw_bridge_dev) {
+			hash = emac_get_mc_hash(ha->addr, emac->mc_filter_mask);
+			emac_mc_filter_bin_allow(emac, hash);
+		}
 	}
 unlock:
 	spin_unlock_irqrestore(&emac->addr_lock, flags);

@@ -1075,6 +1075,68 @@ static int prueth_switchdev_attr_set(struct net_device *ndev,
 	return err;
 }
 
+static int prueth_switchdev_obj_add(struct net_device *ndev,
+				    const struct switchdev_obj *obj,
+				    struct switchdev_trans *trans,
+				    struct netlink_ext_ack *extack)
+{
+	struct prueth_emac *emac = netdev_priv(ndev);
+	struct prueth *prueth = emac->prueth;
+	struct switchdev_obj_port_mdb *mdb;
+	int ret = 0;
+	u8 hash;
+
+	if (switchdev_trans_ph_prepare(trans))
+		return 0;
+
+	switch (obj->id) {
+	case SWITCHDEV_OBJ_ID_HOST_MDB:
+		mdb = SWITCHDEV_OBJ_PORT_MDB(obj);
+		dev_dbg(prueth->dev, "MDB add: %s: vid %u:%pM  port: %x\n",
+			ndev->name, mdb->vid, mdb->addr, emac->port_id);
+		hash = emac_get_mc_hash(mdb->addr, emac->mc_filter_mask);
+		emac_mc_filter_bin_allow(emac, hash);
+		break;
+	default:
+		ret = -EOPNOTSUPP;
+		break;
+	}
+
+	return ret;
+}
+
+static int prueth_switchdev_obj_del(struct net_device *ndev,
+				    const struct switchdev_obj *obj)
+{
+	struct prueth_emac *emac = netdev_priv(ndev);
+	struct prueth *prueth = emac->prueth;
+	struct switchdev_obj_port_mdb *mdb;
+	struct netdev_hw_addr *ha;
+	u8 hash, tmp_hash;
+	int ret = 0;
+
+	switch (obj->id) {
+	case SWITCHDEV_OBJ_ID_HOST_MDB:
+		mdb = SWITCHDEV_OBJ_PORT_MDB(obj);
+		dev_dbg(prueth->dev, "MDB del: %s: vid %u:%pM  port: %x\n",
+			ndev->name, mdb->vid, mdb->addr, emac->port_id);
+		hash = emac_get_mc_hash(mdb->addr, emac->mc_filter_mask);
+		netdev_for_each_mc_addr(ha, prueth->hw_bridge_dev) {
+			tmp_hash = emac_get_mc_hash(ha->addr, emac->mc_filter_mask);
+			/* Another MC address is in the bin. Don't disable. */
+			if (tmp_hash == hash)
+				return 0;
+		}
+		emac_mc_filter_bin_disallow(emac, hash);
+		break;
+	default:
+		ret = -EOPNOTSUPP;
+		break;
+	}
+
+	return ret;
+}
+
 /* switchdev notifiers */
 static int prueth_sw_switchdev_blocking_event(struct notifier_block *unused,
 					      unsigned long event, void *ptr)
@@ -1092,6 +1154,18 @@ static int prueth_sw_switchdev_blocking_event(struct notifier_block *unused,
 		err = switchdev_handle_port_attr_set(ndev, ptr,
 						     prueth_sw_port_dev_check,
 						     prueth_switchdev_attr_set);
+		return notifier_from_errno(err);
+
+	case SWITCHDEV_PORT_OBJ_ADD:
+		err = switchdev_handle_port_obj_add(ndev, ptr,
+						    prueth_sw_port_dev_check,
+						    prueth_switchdev_obj_add);
+		return notifier_from_errno(err);
+
+	case SWITCHDEV_PORT_OBJ_DEL:
+		err = switchdev_handle_port_obj_del(ndev, ptr,
+						    prueth_sw_port_dev_check,
+						    prueth_switchdev_obj_del);
 		return notifier_from_errno(err);
 	default:
 		break;

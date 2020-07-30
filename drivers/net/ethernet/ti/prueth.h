@@ -505,4 +505,7 @@ static inline void emac_finish_napi(struct prueth_emac *emac,
 	enable_irq(irq);
 }
 
+void emac_mc_filter_bin_allow(struct prueth_emac *emac, u8 hash);
+void emac_mc_filter_bin_disallow(struct prueth_emac *emac, u8 hash);
+u8 emac_get_mc_hash(u8 *mac, u8 *mask);
 #endif /* __NET_TI_PRUETH_H */
