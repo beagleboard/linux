@@ -349,7 +349,7 @@ static enum hrtimer_restart prueth_timer(struct hrtimer *timer)
 	return ret;
 }
 
-void prueth_init_timer(struct prueth *prueth)
+static void prueth_init_timer(struct prueth *prueth)
 {
 	hrtimer_init(&prueth->tbl_check_timer, CLOCK_MONOTONIC,
 		     HRTIMER_MODE_REL);
