@@ -2608,7 +2608,7 @@ static int emac_get_regs_len(struct net_device *ndev)
 	 * size will give the entire size of reg dump in case of
 	 * Dual-EMAC firmware.
 	 */
-	if (PRUETH_IS_EMAC(prueth)) {
+	if (PRUETH_IS_EMAC(prueth) || PRUETH_IS_SWITCH(prueth)) {
 		return ICSS_EMAC_FW_VLAN_FLTR_TBL_BASE_ADDR +
 		       ICSS_EMAC_FW_VLAN_FILTER_TABLE_SIZE_BYTES;
 	}
@@ -2638,7 +2638,7 @@ static void emac_get_regs(struct net_device *ndev, struct ethtool_regs *regs,
 	regs->version = PRUETH_REG_DUMP_GET_VER(prueth);
 
 	/* Dump firmware's VLAN and MC tables */
-	if (PRUETH_IS_EMAC(prueth)) {
+	if (PRUETH_IS_EMAC(prueth) || PRUETH_IS_SWITCH(prueth)) {
 		ram = prueth->mem[emac->dram].va;
 		memcpy_fromio(reg, ram, emac_get_regs_len(ndev));
 		return;
