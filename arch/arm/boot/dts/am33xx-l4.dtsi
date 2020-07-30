@@ -832,6 +832,11 @@
 					clocks = <&pruss_iepclk_mux>;
 				};
 
+				pruss_ecap: ecap@30000 {
+					compatible = "ti,pruss-ecap";
+					reg = <0x30000 0x60>;
+				};
+
 				pruss_mii_rt: mii-rt@32000 {
 					compatible = "ti,pruss-mii", "syscon";
 					reg = <0x32000 0x58>;
