@@ -168,6 +168,7 @@
 		interrupts = <20>, <21>;
 		interrupt-names = "rx_lre_hp", "rx_lre_lp";
 		iep = <&pruss2_iep>;
+		ecap = <&pruss2_ecap>;
 
 		pruss2_emac0: ethernet-mii0 {
 			phy-handle = <&pruss2_eth0_phy>;
