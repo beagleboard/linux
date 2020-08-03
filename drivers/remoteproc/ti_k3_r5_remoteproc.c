@@ -2,7 +2,7 @@
 /*
  * TI K3 R5F (MCU) Remote Processor driver
  *
- * Copyright (C) 2017-2020 Texas Instruments Incorporated - http://www.ti.com/
+ * Copyright (C) 2017-2020 Texas Instruments Incorporated - https://www.ti.com/
  *	Suman Anna <s-anna@ti.com>
  */
 
@@ -20,7 +20,6 @@
 #include <linux/remoteproc.h>
 #include <linux/omap-mailbox.h>
 #include <linux/reset.h>
-#include <linux/soc/ti/ti_sci_protocol.h>
 
 #include "omap_remoteproc.h"
 #include "remoteproc_internal.h"
