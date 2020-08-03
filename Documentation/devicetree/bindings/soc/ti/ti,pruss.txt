@@ -157,6 +157,15 @@ MDIO module used within the PRU-ICSS is an instance of the MDIO Controller
 used in TI Davinci SoCs. Please refer to the corresponding binding document,
 Documentation/devicetree/bindings/net/davinci-mdio.txt for details.
 
+eCAP Node
+=========
+Each PRUSS includes an Enhanced Capture (eCAP) module that can provide some
+time-stamp features using its capture input. The eCAP module used within the
+PRU-ICSS is similar to other instances used within the PWM subsystems. This
+is typically used for providing interrupt pacing for host traffic on various
+PRU Ethernet usecases such as Dual-EMAC, HSR or PRP. Please refer to the
+corresponding binding document,
+Documentation/devicetree/bindings/net/ti,pruss-ecap.yaml
 
 Example:
 ========
@@ -211,6 +220,11 @@ Example:
 				compatible = "ti,am3356-icss-iep";
 				reg = <0x2e000 0x31c>;
 				clocks = <&pruss_iepclk_mux>;
+			};
+
+			pruss_ecap: ecap@30000 {
+				compatible = "ti,pruss-ecap";
+				reg = <0x30000 0x60>;
 			};
 
 			pruss_mii_rt: mii-rt@32000 {
@@ -312,6 +326,11 @@ Example:
 				compatible = "ti,am3356-icss-iep";
 				reg = <0x2e000 0x31c>;
 				clocks = <&pruss1_iepclk_mux>;
+			};
+
+			pruss1_ecap: ecap@30000 {
+				compatible = "ti,pruss-ecap";
+				reg = <0x30000 0x60>;
 			};
 
 			pruss1_mii_rt: mii-rt@32000 {
