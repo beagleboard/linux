@@ -812,6 +812,11 @@
 					clocks = <&pruss_iepclk_mux>;
 				};
 
+				pruss_ecap: ecap@30000 {
+					compatible = "ti,pruss-ecap";
+					reg = <0x30000 0x60>;
+				};
+
 				pruss_uart: serial@28000 {
 					compatible = "ti,pruss-uart";
 					reg = <0x28000 0x38>;
