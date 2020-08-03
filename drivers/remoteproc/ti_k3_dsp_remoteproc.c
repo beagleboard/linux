@@ -23,17 +23,41 @@
 #define KEYSTONE_RPROC_LOCAL_ADDRESS_MASK	(SZ_16M - 1)
 
 /**
- * struct k3_dsp_rproc_mem - internal memory structure
+ * struct k3_dsp_mem - internal memory structure
  * @cpu_addr: MPU virtual address of the memory region
  * @bus_addr: Bus address used to access the memory region
  * @dev_addr: Device address of the memory region from DSP view
  * @size: Size of the memory region
  */
-struct k3_dsp_rproc_mem {
+struct k3_dsp_mem {
 	void __iomem *cpu_addr;
 	phys_addr_t bus_addr;
 	u32 dev_addr;
 	size_t size;
+};
+
+/**
+ * struct k3_dsp_mem_data - memory definitions for a DSP
+ * @name: name for this memory entry
+ * @dev_addr: device address for the memory entry
+ */
+struct k3_dsp_mem_data {
+	const char *name;
+	const u32 dev_addr;
+};
+
+/**
+ * struct k3_dsp_dev_data - device data structure for a DSP
+ * @mems: pointer to memory definitions for a DSP
+ * @num_mems: number of memory regions in @mems
+ * @boot_align_addr: boot vector address alignment granularity
+ * @uses_lreset: flag to denote the need for local reset management
+ */
+struct k3_dsp_dev_data {
+	const struct k3_dsp_mem_data *mems;
+	u32 num_mems;
+	u32 boot_align_addr;
+	bool uses_lreset;
 };
 
 /**
@@ -45,28 +69,28 @@ struct k3_dsp_rproc_mem {
  * @rmem: reserved memory regions data
  * @num_rmems: number of reserved memory regions
  * @reset: reset control handle
+ * @data: pointer to DSP-specific device data
  * @tsp: TI-SCI processor control handle
  * @ti_sci: TI-SCI handle
  * @ti_sci_id: TI-SCI device identifier
  * @mbox: mailbox channel handle
  * @client: mailbox client to request the mailbox channel
- * @uses_lreset: flag to denote the need for local reset management
  * @ipc_only: flag to indicate IPC-only mode
  */
 struct k3_dsp_rproc {
 	struct device *dev;
 	struct rproc *rproc;
-	struct k3_dsp_rproc_mem *mem;
+	struct k3_dsp_mem *mem;
 	int num_mems;
-	struct k3_dsp_rproc_mem *rmem;
+	struct k3_dsp_mem *rmem;
 	int num_rmems;
 	struct reset_control *reset;
+	const struct k3_dsp_dev_data *data;
 	struct ti_sci_proc *tsp;
 	const struct ti_sci_handle *ti_sci;
 	u32 ti_sci_id;
 	struct mbox_chan *mbox;
 	struct mbox_client client;
-	unsigned int uses_lreset : 1;
 	unsigned int ipc_only : 1;
 };
 
@@ -151,7 +175,7 @@ static int k3_dsp_rproc_reset(struct k3_dsp_rproc *kproc)
 		return ret;
 	}
 
-	if (kproc->uses_lreset)
+	if (kproc->data->uses_lreset)
 		return ret;
 
 	ret = kproc->ti_sci->ops.dev_ops.put_device(kproc->ti_sci,
@@ -171,7 +195,7 @@ static int k3_dsp_rproc_release(struct k3_dsp_rproc *kproc)
 	struct device *dev = kproc->dev;
 	int ret;
 
-	if (kproc->uses_lreset)
+	if (kproc->data->uses_lreset)
 		goto lreset;
 
 	ret = kproc->ti_sci->ops.dev_ops.get_device(kproc->ti_sci,
@@ -215,7 +239,7 @@ static int k3_dsp_rproc_prepare(struct rproc *rproc)
 		return 0;
 
 	/* local reset is no-op on C71x processors */
-	if (!kproc->uses_lreset)
+	if (!kproc->data->uses_lreset)
 		return 0;
 
 	ret = kproc->ti_sci->ops.dev_ops.get_device(kproc->ti_sci,
@@ -247,7 +271,7 @@ static int k3_dsp_rproc_unprepare(struct rproc *rproc)
 		return 0;
 
 	/* local reset is no-op on C71x processors */
-	if (!kproc->uses_lreset)
+	if (!kproc->data->uses_lreset)
 		return 0;
 
 	ret = kproc->ti_sci->ops.dev_ops.put_device(kproc->ti_sci,
@@ -310,9 +334,9 @@ static int k3_dsp_rproc_start(struct rproc *rproc)
 	}
 
 	boot_addr = rproc->bootaddr;
-	if (boot_addr & (SZ_1K - 1)) {
-		dev_err(dev, "invalid boot address 0x%x, must be aligned on a 1KB boundary\n",
-			boot_addr);
+	if (boot_addr & (kproc->data->boot_align_addr - 1)) {
+		dev_err(dev, "invalid boot address 0x%x, must be aligned on a 0x%x boundary\n",
+			boot_addr, kproc->data->boot_align_addr);
 		ret = -EINVAL;
 		goto put_mbox;
 	}
@@ -446,53 +470,47 @@ static const char *k3_dsp_rproc_get_firmware(struct device *dev)
 static int k3_dsp_rproc_of_get_memories(struct platform_device *pdev,
 					struct k3_dsp_rproc *kproc)
 {
-	static const char * const mem_names[] = {"l2sram", "l1pram", "l1dram"};
+	const struct k3_dsp_dev_data *data = kproc->data;
 	struct device *dev = &pdev->dev;
-	struct device_node *np = dev->of_node;
 	struct resource *res;
 	int num_mems = 0;
 	int i;
 
-	num_mems = ARRAY_SIZE(mem_names);
+	num_mems = kproc->data->num_mems;
 	kproc->mem = devm_kcalloc(kproc->dev, num_mems,
 				  sizeof(*kproc->mem), GFP_KERNEL);
 	if (!kproc->mem)
 		return -ENOMEM;
 
 	for (i = 0; i < num_mems; i++) {
-		/* C71x cores only have a L1P Cache, there are no L1P SRAMs */
-		if (of_device_is_compatible(np, "ti,j721e-c71-dsp") &&
-		    !strcmp(mem_names[i], "l1pram"))
-			continue;
-
 		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
-						   mem_names[i]);
+						   data->mems[i].name);
 		if (!res) {
 			dev_err(dev, "found no memory resource for %s\n",
-				mem_names[i]);
+				data->mems[i].name);
 			return -EINVAL;
 		}
 		if (!devm_request_mem_region(dev, res->start,
 					     resource_size(res),
 					     dev_name(dev))) {
 			dev_err(dev, "could not request %s region for resource\n",
-				mem_names[i]);
+				data->mems[i].name);
 			return -EBUSY;
 		}
 
 		kproc->mem[i].cpu_addr = devm_ioremap_wc(dev, res->start,
 							 resource_size(res));
 		if (IS_ERR(kproc->mem[i].cpu_addr)) {
-			dev_err(dev, "failed to map %s memory\n", mem_names[i]);
+			dev_err(dev, "failed to map %s memory\n",
+				data->mems[i].name);
 			return PTR_ERR(kproc->mem[i].cpu_addr);
 		}
 		kproc->mem[i].bus_addr = res->start;
-		kproc->mem[i].dev_addr =
-				res->start & KEYSTONE_RPROC_LOCAL_ADDRESS_MASK;
+		kproc->mem[i].dev_addr = data->mems[i].dev_addr;
 		kproc->mem[i].size = resource_size(res);
 
 		dev_dbg(dev, "memory %8s: bus addr %pa size 0x%zx va %pK da 0x%x\n",
-			mem_names[i], &kproc->mem[i].bus_addr,
+			data->mems[i].name, &kproc->mem[i].bus_addr,
 			kproc->mem[i].size, kproc->mem[i].cpu_addr,
 			kproc->mem[i].dev_addr);
 
@@ -635,6 +653,7 @@ static int k3_dsp_rproc_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct device_node *np = dev->of_node;
+	const struct k3_dsp_dev_data *data;
 	struct k3_dsp_rproc *kproc;
 	struct rproc *rproc;
 	const char *fw_name;
@@ -642,6 +661,10 @@ static int k3_dsp_rproc_probe(struct platform_device *pdev)
 	bool p_state = false;
 	int ret = 0;
 	int ret1;
+
+	data = of_device_get_match_data(dev);
+	if (!data)
+		return -ENODEV;
 
 	fw_name = k3_dsp_rproc_get_firmware(dev);
 	if (IS_ERR(fw_name))
@@ -657,7 +680,7 @@ static int k3_dsp_rproc_probe(struct platform_device *pdev)
 	kproc = rproc->priv;
 	kproc->rproc = rproc;
 	kproc->dev = dev;
-	kproc->uses_lreset = 1;
+	kproc->data = data;
 
 	/* C71x is a 64-bit processor, so customize rproc elf loader ops */
 	if (of_device_is_compatible(np, "ti,j721e-c71-dsp")) {
@@ -668,8 +691,6 @@ static int k3_dsp_rproc_probe(struct platform_device *pdev)
 				rproc_elf64_find_loaded_rsc_table;
 		rproc->ops->get_boot_addr = rproc_elf64_get_boot_addr;
 		rproc->ops->load = rproc_elf64_load_segments;
-
-		kproc->uses_lreset = 0;
 	}
 
 	kproc->ti_sci = ti_sci_get_by_phandle(np, "ti,sci");
@@ -740,7 +761,7 @@ static int k3_dsp_rproc_probe(struct platform_device *pdev)
 		 * doesn't execute bogus code in .prepare() when the module
 		 * reset is released.
 		 */
-		if (kproc->uses_lreset) {
+		if (data->uses_lreset) {
 			ret = reset_control_status(kproc->reset);
 			if (ret < 0) {
 				dev_err(dev, "failed to get reset status, status = %d\n",
@@ -808,9 +829,35 @@ static int k3_dsp_rproc_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct k3_dsp_mem_data c66_mems[] = {
+	{ .name = "l2sram", .dev_addr = 0x800000 },
+	{ .name = "l1pram", .dev_addr = 0xe00000 },
+	{ .name = "l1dram", .dev_addr = 0xf00000 },
+};
+
+/* C71x cores only have a L1P Cache, there are no L1P SRAMs */
+static const struct k3_dsp_mem_data c71_mems[] = {
+	{ .name = "l2sram", .dev_addr = 0x800000 },
+	{ .name = "l1dram", .dev_addr = 0xe00000 },
+};
+
+static const struct k3_dsp_dev_data c66_data = {
+	.mems = c66_mems,
+	.num_mems = ARRAY_SIZE(c66_mems),
+	.boot_align_addr = SZ_1K,
+	.uses_lreset = true,
+};
+
+static const struct k3_dsp_dev_data c71_data = {
+	.mems = c71_mems,
+	.num_mems = ARRAY_SIZE(c71_mems),
+	.boot_align_addr = SZ_2M,
+	.uses_lreset = false,
+};
+
 static const struct of_device_id k3_dsp_of_match[] = {
-	{ .compatible = "ti,j721e-c66-dsp", },
-	{ .compatible = "ti,j721e-c71-dsp", },
+	{ .compatible = "ti,j721e-c66-dsp", .data = &c66_data, },
+	{ .compatible = "ti,j721e-c71-dsp", .data = &c71_data, },
 	{ /* sentinel */ },
 };
 MODULE_DEVICE_TABLE(of, k3_dsp_of_match);
