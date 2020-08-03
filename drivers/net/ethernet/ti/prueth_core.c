@@ -758,9 +758,14 @@ static u8 prueth_ptp_ts_event_type(struct sk_buff *skb)
 	unsigned int offset = 0, ptp_class;
 	u16 *seqid;
 
+	if (skb_vlan_tagged(skb)) {
+		__skb_pull(skb, VLAN_HLEN);
+		changed += VLAN_HLEN;
+	}
+
 	if (sred && (sred->ethertype == ETH_P_HSR)) {
 		__skb_pull(skb, ICSS_LRE_TAG_RCT_SIZE);
-		changed = ICSS_LRE_TAG_RCT_SIZE;
+		changed += ICSS_LRE_TAG_RCT_SIZE;
 	}
 
 	ptp_class = ptp_classify_raw(skb);
