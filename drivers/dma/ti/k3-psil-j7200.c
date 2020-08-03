@@ -137,6 +137,8 @@ static struct psil_ep j7200_src_ep_map[] = {
 	/* SA2UL */
 	PSIL_SA2UL(0x7500, 0),
 	PSIL_SA2UL(0x7501, 0),
+	PSIL_SA2UL(0x7502, 0),
+	PSIL_SA2UL(0x7503, 0),
 };
 
 /* PSI-L destination thread IDs, used for TX (DMA_MEM_TO_DEV) */
@@ -161,6 +163,7 @@ static struct psil_ep j7200_dst_ep_map[] = {
 	PSIL_ETHERNET(0xf007),
 	/* SA2UL */
 	PSIL_SA2UL(0xf500, 1),
+	PSIL_SA2UL(0xf501, 1),
 };
 
 struct psil_ep_map j7200_ep_map = {
