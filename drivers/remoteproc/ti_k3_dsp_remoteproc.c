@@ -11,7 +11,6 @@
 #include <linux/of_device.h>
 #include <linux/of_reserved_mem.h>
 #include <linux/platform_device.h>
-#include <linux/pm_runtime.h>
 #include <linux/remoteproc.h>
 #include <linux/mailbox_client.h>
 #include <linux/omap-mailbox.h>
@@ -711,23 +710,14 @@ static int k3_dsp_rproc_probe(struct platform_device *pdev)
 		goto free_tsp;
 	}
 
-	/* enable clock for accessing DSP internal memories */
-	pm_runtime_enable(dev);
-	ret = pm_runtime_get_sync(dev);
-	if (ret < 0) {
-		dev_err(dev, "failed to enable clock, status = %d\n", ret);
-		pm_runtime_put_noidle(dev);
-		goto disable_rpm;
-	}
-
 	ret = k3_dsp_rproc_of_get_memories(pdev, kproc);
 	if (ret)
-		goto disable_clk;
+		goto release_tsp;
 
 	ret = k3_dsp_reserved_mem_init(kproc);
 	if (ret) {
 		dev_err(dev, "reserved memory init failed, ret = %d\n", ret);
-		goto disable_clk;
+		goto release_tsp;
 	}
 
 	ret = kproc->ti_sci->ops.dev_ops.is_on(kproc->ti_sci, kproc->ti_sci_id,
@@ -779,10 +769,7 @@ static int k3_dsp_rproc_probe(struct platform_device *pdev)
 
 release_mem:
 	k3_dsp_reserved_mem_exit(kproc);
-disable_clk:
-	pm_runtime_put_sync(dev);
-disable_rpm:
-	pm_runtime_disable(dev);
+release_tsp:
 	ret1 = ti_sci_proc_release(kproc->tsp);
 	if (ret1)
 		dev_err(dev, "failed to release proc, ret = %d\n", ret1);
@@ -804,8 +791,6 @@ static int k3_dsp_rproc_remove(struct platform_device *pdev)
 	int ret;
 
 	rproc_del(kproc->rproc);
-	pm_runtime_put_sync(&pdev->dev);
-	pm_runtime_disable(&pdev->dev);
 
 	ret = ti_sci_proc_release(kproc->tsp);
 	if (ret)
