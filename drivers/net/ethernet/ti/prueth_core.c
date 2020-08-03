@@ -753,11 +753,12 @@ static irqreturn_t emac_rx_hardirq(int irq, void *dev_id)
 
 static u8 prueth_ptp_ts_event_type(struct sk_buff *skb)
 {
+	struct skb_redundant_info *sred = skb_redinfo(skb);
 	u8 *msgtype, *data, event_type, changed = 0;
 	unsigned int offset = 0, ptp_class;
 	u16 *seqid;
 
-	if (eth_hdr(skb)->h_proto == htons(ETH_P_HSR)) {
+	if (sred && (sred->ethertype == ETH_P_HSR)) {
 		__skb_pull(skb, ICSS_LRE_TAG_RCT_SIZE);
 		changed = ICSS_LRE_TAG_RCT_SIZE;
 	}
@@ -1247,7 +1248,6 @@ int emac_rx_packet(struct prueth_emac *emac, u16 *bd_rd_ptr,
 		ptr = nt_dst_addr + PRUETH_ETH_TYPE_OFFSET;
 		type = (*ptr++) << PRUETH_ETH_TYPE_UPPER_SHIFT;
 		type |= *ptr++;
-		eth_hdr(skb)->h_proto = htons(type);
 		if (type == ETH_P_8021Q)
 			offset = 4;
 	}
