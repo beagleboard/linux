@@ -1,0 +1,110 @@
+/*
+ * Copyright (C) 2013 CircuitCo
+ *
+ * Virtual cape for SPI0 on connector pins P9.22 P9.21 P9.18 P9.17
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/board/am335x-bbw-bbb-base.h>
+#include <dt-bindings/pinctrl/am33xx.h>
+
+/ {
+	compatible = "ti,beaglebone", "ti,beaglebone-black", "ti,beaglebone-green";
+
+	/* identification */
+	part-number = "BB-SPIDEV0";
+	version = "00A0";
+
+	/* state the resources this cape uses */
+	exclusive-use =
+		/* the pin header uses */
+		"P9.17",	/* P9_17 (A16) spi0_cs0.spi0_cs0 */
+		"P9.18",	/* P9_18 (B16) spi0_d1.spi0_d1 */
+		"P9.21",	/* P9_21 (B17) spi0_d0.spi0_d0 */
+		"P9.22",	/* P9_22 (A17) spi0_sclk.spi0_sclk */
+		/* the hardware ip uses */
+		"spi0";
+
+	/*
+	 * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+	 */
+	fragment@0 {
+		target-path="/";
+		__overlay__ {
+
+			chosen {
+				overlays {
+					BB-SPIDEV0-00A0 = __TIMESTAMP__;
+				};
+			};
+		};
+	};
+
+	/*
+	 * Free up the pins used by the cape from the pinmux helpers.
+	 */
+	fragment@1 {
+		target = <&ocp>;
+		__overlay__ {
+			P9_17_pinmux { status = "disabled"; };	/* P9_17 (A16) spi0_cs0.spi0_cs0 */
+			P9_18_pinmux { status = "disabled"; };	/* P9_18 (B16) spi0_d1.spi0_d1 */
+			P9_21_pinmux { status = "disabled"; };	/* P9_21 (B17) spi0_d0.spi0_d0 */
+			P9_22_pinmux { status = "disabled"; };	/* P9_22 (A17) spi0_sclk.spi0_sclk */
+		};
+	};
+
+	fragment@2 {
+		target = <&am33xx_pinmux>;
+		__overlay__ {
+			bb_spi0_pins: pinmux_bb_spi0_pins {
+				pinctrl-single,pins = <
+					AM33XX_PADCONF(AM335X_PIN_SPI0_SCLK, PIN_INPUT, MUX_MODE0) /* P9_22 (A17) spi0_sclk.spi0_sclk */
+					AM33XX_PADCONF(AM335X_PIN_SPI0_D0, PIN_INPUT, MUX_MODE0)   /* P9_21 (B17) spi0_d0.spi0_d0 */
+					AM33XX_PADCONF(AM335X_PIN_SPI0_D1, PIN_INPUT, MUX_MODE0)   /* P9_18 (B16) spi0_d1.spi0_d1 */
+					AM33XX_PADCONF(AM335X_PIN_SPI0_CS0, PIN_INPUT, MUX_MODE0)  /* P9_17 (A16) spi0_cs0.spi0_cs0 */
+				>;
+			};
+		};
+	};
+
+	fragment@3 {
+		target = <&spi0>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			status = "okay";
+			pinctrl-names = "default";
+			pinctrl-0 = <&bb_spi0_pins>;
+
+			channel@0 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				compatible = "spidev";
+				symlink = "spi/0.0";
+
+				reg = <0>;
+				spi-max-frequency = <16000000>;
+				spi-cpha;
+			};
+
+			channel@1 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				compatible = "spidev";
+				symlink = "spi/0.1";
+
+				reg = <1>;
+				spi-max-frequency = <16000000>;
+			};
+		};
+	};
+};
