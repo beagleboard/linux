@@ -654,22 +654,6 @@ static const struct rproc_ops k3_r5_rproc_ops = {
 	.da_to_va	= k3_r5_rproc_da_to_va,
 };
 
-static const char *k3_r5_rproc_get_firmware(struct device *dev)
-{
-	const char *fw_name;
-	int ret;
-
-	ret = of_property_read_string(dev->of_node, "firmware-name",
-				      &fw_name);
-	if (ret) {
-		dev_err(dev, "failed to parse firmware-name property, ret = %d\n",
-			ret);
-		return ERR_PTR(ret);
-	}
-
-	return fw_name;
-}
-
 /*
  * Internal R5F Core configuration
  *
@@ -1001,9 +985,10 @@ static int k3_r5_cluster_rproc_init(struct platform_device *pdev)
 	core1 = list_last_entry(&cluster->cores, struct k3_r5_core, elem);
 	list_for_each_entry(core, &cluster->cores, elem) {
 		cdev = core->dev;
-		fw_name = k3_r5_rproc_get_firmware(cdev);
-		if (IS_ERR(fw_name)) {
-			ret = PTR_ERR(fw_name);
+		ret = rproc_of_parse_firmware(cdev, 0, &fw_name);
+		if (ret) {
+			dev_err(dev, "failed to parse firmware-name property, ret = %d\n",
+				ret);
 			goto out;
 		}
 
