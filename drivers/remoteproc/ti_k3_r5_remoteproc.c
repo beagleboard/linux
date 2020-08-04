@@ -12,13 +12,13 @@
 #include <linux/kernel.h>
 #include <linux/mailbox_client.h>
 #include <linux/module.h>
-#include <linux/of_device.h>
 #include <linux/of_address.h>
+#include <linux/of_device.h>
 #include <linux/of_reserved_mem.h>
+#include <linux/omap-mailbox.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
 #include <linux/remoteproc.h>
-#include <linux/omap-mailbox.h>
 #include <linux/reset.h>
 
 #include "omap_remoteproc.h"
@@ -80,6 +80,7 @@ struct k3_r5_cluster {
 
 /**
  * struct k3_r5_core - K3 R5 core structure
+ * @elem: linked list item
  * @dev: cached device pointer
  * @rproc: rproc handle representing this core
  * @mem: internal memory regions data
@@ -782,7 +783,7 @@ out:
 static int k3_r5_reserved_mem_init(struct k3_r5_rproc *kproc)
 {
 	struct device *dev = kproc->dev;
-	struct device_node *np = dev->of_node;
+	struct device_node *np = dev_of_node(dev);
 	struct device_node *rmem_np;
 	struct reserved_mem *rmem;
 	int num_rmems;
@@ -833,7 +834,16 @@ static int k3_r5_reserved_mem_init(struct k3_r5_rproc *kproc)
 		of_node_put(rmem_np);
 
 		kproc->rmem[i].bus_addr = rmem->base;
-		/* 64-bit address regions currently not supported */
+		/*
+		 * R5Fs do not have an MMU, but have a Region Address Translator
+		 * (RAT) module that provides a fixed entry translation between
+		 * the 32-bit processor addresses to 64-bit bus addresses. The
+		 * RAT is programmable only by the R5F cores. Support for RAT
+		 * is currently not supported, so 64-bit address regions are not
+		 * supported. The absence of MMUs implies that the R5F device
+		 * addresses/supported memory regions are restricted to 32-bit
+		 * bus addresses, and are identical
+		 */
 		kproc->rmem[i].dev_addr = (u32)rmem->base;
 		kproc->rmem[i].size = rmem->size;
 		kproc->rmem[i].cpu_addr = ioremap_wc(rmem->base, rmem->size);
@@ -854,10 +864,8 @@ static int k3_r5_reserved_mem_init(struct k3_r5_rproc *kproc)
 	return 0;
 
 unmap_rmem:
-	for (i--; i >= 0; i--) {
-		if (kproc->rmem[i].cpu_addr)
-			iounmap(kproc->rmem[i].cpu_addr);
-	}
+	for (i--; i >= 0; i--)
+		iounmap(kproc->rmem[i].cpu_addr);
 	kfree(kproc->rmem);
 release_rmem:
 	of_reserved_mem_device_release(dev);
@@ -1160,7 +1168,7 @@ static int k3_r5_core_of_get_internal_memories(struct platform_device *pdev,
 		}
 		core->mem[i].size = resource_size(res);
 
-		dev_dbg(dev, "memory %8s: bus addr %pa size 0x%zx va %pK da 0x%x\n",
+		dev_dbg(dev, "memory %5s: bus addr %pa size 0x%zx va %pK da 0x%x\n",
 			mem_names[i], &core->mem[i].bus_addr,
 			core->mem[i].size, core->mem[i].cpu_addr,
 			core->mem[i].dev_addr);
@@ -1218,7 +1226,7 @@ static int k3_r5_core_of_get_sram_memories(struct platform_device *pdev,
 			return -ENOMEM;
 		}
 
-		dev_dbg(dev, "memory    sram%d: bus addr %pa size 0x%zx va %pK da 0x%x\n",
+		dev_dbg(dev, "memory sram%d: bus addr %pa size 0x%zx va %pK da 0x%x\n",
 			i, &core->sram[i].bus_addr,
 			core->sram[i].size, core->sram[i].cpu_addr,
 			core->sram[i].dev_addr);
@@ -1236,7 +1244,7 @@ struct ti_sci_proc *k3_r5_core_of_get_tsp(struct device *dev,
 	u32 temp[2];
 	int ret;
 
-	ret = of_property_read_u32_array(dev->of_node, "ti,sci-proc-ids",
+	ret = of_property_read_u32_array(dev_of_node(dev), "ti,sci-proc-ids",
 					 temp, 2);
 	if (ret < 0)
 		return ERR_PTR(ret);
@@ -1257,7 +1265,7 @@ struct ti_sci_proc *k3_r5_core_of_get_tsp(struct device *dev,
 static int k3_r5_core_of_init(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
-	struct device_node *np = dev->of_node;
+	struct device_node *np = dev_of_node(dev);
 	struct k3_r5_core *core;
 	int ret;
 
@@ -1271,6 +1279,10 @@ static int k3_r5_core_of_init(struct platform_device *pdev)
 	}
 
 	core->dev = dev;
+	/*
+	 * Use SoC Power-on-Reset values as default if no DT properties are
+	 * used to dictate the TCM configurations
+	 */
 	core->atcm_enable = 0;
 	core->btcm_enable = 1;
 	core->loczrama = 1;
@@ -1394,7 +1406,7 @@ static int k3_r5_cluster_of_init(struct platform_device *pdev)
 {
 	struct k3_r5_cluster *cluster = platform_get_drvdata(pdev);
 	struct device *dev = &pdev->dev;
-	struct device_node *np = dev->of_node;
+	struct device_node *np = dev_of_node(dev);
 	struct platform_device *cpdev;
 	struct device_node *child;
 	struct k3_r5_core *core;
@@ -1431,7 +1443,7 @@ fail:
 static int k3_r5_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
-	struct device_node *np = dev->of_node;
+	struct device_node *np = dev_of_node(dev);
 	struct k3_r5_cluster *cluster;
 	int ret;
 	int num_cores;
@@ -1460,7 +1472,6 @@ static int k3_r5_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, cluster);
 
-	dev_dbg(dev, "creating child devices for R5F cores\n");
 	ret = devm_of_platform_populate(dev);
 	if (ret) {
 		dev_err(dev, "devm_of_platform_populate failed, ret = %d\n",
