@@ -7,13 +7,13 @@
  */
 
 #include <linux/io.h>
+#include <linux/mailbox_client.h>
 #include <linux/module.h>
 #include <linux/of_device.h>
 #include <linux/of_reserved_mem.h>
+#include <linux/omap-mailbox.h>
 #include <linux/platform_device.h>
 #include <linux/remoteproc.h>
-#include <linux/mailbox_client.h>
-#include <linux/omap-mailbox.h>
 #include <linux/reset.h>
 
 #include "omap_remoteproc.h"
@@ -111,7 +111,7 @@ struct k3_dsp_rproc {
 static void k3_dsp_rproc_mbox_callback(struct mbox_client *client, void *data)
 {
 	struct k3_dsp_rproc *kproc = container_of(client, struct k3_dsp_rproc,
-						client);
+						  client);
 	struct device *dev = kproc->rproc->dev.parent;
 	const char *name = kproc->rproc->name;
 	u32 msg = omap_mbox_message(data);
@@ -199,7 +199,7 @@ static int k3_dsp_rproc_release(struct k3_dsp_rproc *kproc)
 		goto lreset;
 
 	ret = kproc->ti_sci->ops.dev_ops.get_device(kproc->ti_sci,
-						   kproc->ti_sci_id);
+						    kproc->ti_sci_id);
 	if (ret) {
 		dev_err(dev, "module-reset deassert failed, ret = %d\n", ret);
 		return ret;
@@ -497,14 +497,6 @@ static int k3_dsp_rproc_of_get_memories(struct platform_device *pdev,
 			data->mems[i].name, &kproc->mem[i].bus_addr,
 			kproc->mem[i].size, kproc->mem[i].cpu_addr,
 			kproc->mem[i].dev_addr);
-
-		/* zero out memories to start in a pristine state */
-		/*
-		 * FIXME: comment out until kernel crash is fixed, possible
-		 * issue with local resets.
-		 * memset((__force void *)kproc->mem[i].cpu_addr, 0,
-		 *      kproc->mem[i].size);
-		 */
 	}
 	kproc->num_mems = num_mems;
 
@@ -586,10 +578,8 @@ static int k3_dsp_reserved_mem_init(struct k3_dsp_rproc *kproc)
 	return 0;
 
 unmap_rmem:
-	for (i--; i >= 0; i--) {
-		if (kproc->rmem[i].cpu_addr)
-			iounmap(kproc->rmem[i].cpu_addr);
-	}
+	for (i--; i >= 0; i--)
+		iounmap(kproc->rmem[i].cpu_addr);
 	kfree(kproc->rmem);
 release_rmem:
 	of_reserved_mem_device_release(kproc->dev);
