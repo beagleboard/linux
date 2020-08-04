@@ -451,22 +451,6 @@ static const struct rproc_ops k3_dsp_rproc_ops = {
 	.da_to_va	= k3_dsp_rproc_da_to_va,
 };
 
-static const char *k3_dsp_rproc_get_firmware(struct device *dev)
-{
-	const char *fw_name;
-	int ret;
-
-	ret = of_property_read_string(dev->of_node, "firmware-name",
-				      &fw_name);
-	if (ret) {
-		dev_err(dev, "failed to parse firmware-name property, ret = %d\n",
-			ret);
-		return ERR_PTR(ret);
-	}
-
-	return fw_name;
-}
-
 static int k3_dsp_rproc_of_get_memories(struct platform_device *pdev,
 					struct k3_dsp_rproc *kproc)
 {
@@ -666,9 +650,12 @@ static int k3_dsp_rproc_probe(struct platform_device *pdev)
 	if (!data)
 		return -ENODEV;
 
-	fw_name = k3_dsp_rproc_get_firmware(dev);
-	if (IS_ERR(fw_name))
-		return PTR_ERR(fw_name);
+	ret = rproc_of_parse_firmware(dev, 0, &fw_name);
+	if (ret) {
+		dev_err(dev, "failed to parse firmware-name property, ret = %d\n",
+			ret);
+		return ret;
+	}
 
 	rproc = rproc_alloc(dev, dev_name(dev), &k3_dsp_rproc_ops, fw_name,
 			    sizeof(*kproc));
