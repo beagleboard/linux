@@ -670,6 +670,37 @@ static const char *k3_r5_rproc_get_firmware(struct device *dev)
 	return fw_name;
 }
 
+/*
+ * Internal R5F Core configuration
+ *
+ * Each R5FSS has a cluster-level setting for configuring the processor
+ * subsystem either in a safety/fault-tolerant LockStep mode or a performance
+ * oriented Split mode. Each R5F core has a number of settings to either
+ * enable/disable each of the TCMs, control which TCM appears at the R5F core's
+ * address 0x0. These settings need to be configured before the resets for the
+ * corresponding core are released. These settings are all protected and managed
+ * by the System Processor.
+ *
+ * This function is used to pre-configure these settings for each R5F core, and
+ * the configuration is all done through various ti_sci_proc functions that
+ * communicate with the System Processor. The function also ensures that both
+ * the cores are halted before the .prepare() step.
+ *
+ * The function is called from k3_r5_cluster_rproc_init() and is invoked either
+ * once (in LockStep mode) or twice (in Split mode). Support for LockStep-mode
+ * is dictated by an eFUSE register bit, and the config settings retrieved from
+ * DT are adjusted accordingly as per the permitted cluster mode. All cluster
+ * level settings like Cluster mode and TEINIT (exception handling state
+ * dictating ARM or Thumb mode) can only be set and retrieved using Core0.
+ *
+ * The function behavior is different based on the cluster mode. The R5F cores
+ * are configured independently as per their individual settings in Split mode.
+ * They are identically configured in LockStep mode using the primary Core0
+ * settings. However, some individual settings cannot be set in LockStep mode.
+ * This is overcome by switching to Split-mode initially and then programming
+ * both the cores with the same settings, before reconfiguing again for
+ * LockStep mode.
+ */
 static int k3_r5_rproc_configure(struct k3_r5_rproc *kproc)
 {
 	struct k3_r5_cluster *cluster = kproc->cluster;
@@ -733,7 +764,7 @@ static int k3_r5_rproc_configure(struct k3_r5_rproc *kproc)
 		 * and TEINIT config is only allowed with Core0.
 		 */
 		list_for_each_entry(temp, &cluster->cores, elem) {
-			ret = k3_r5_core_halt(core);
+			ret = k3_r5_core_halt(temp);
 			if (ret)
 				goto out;
 
