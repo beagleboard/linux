@@ -368,8 +368,8 @@ static int k3_r5_rproc_prepare(struct rproc *rproc)
 	if (kproc->ipc_only)
 		return 0;
 
-	ret = cluster->mode ? k3_r5_lockstep_release(cluster) :
-			      k3_r5_split_release(core);
+	ret = (cluster->mode == CLUSTER_MODE_LOCKSTEP) ?
+		k3_r5_lockstep_release(cluster) : k3_r5_split_release(core);
 	if (ret) {
 		dev_err(dev, "unable to enable cores for TCM loading, ret = %d\n",
 			ret);
@@ -411,8 +411,8 @@ static int k3_r5_rproc_unprepare(struct rproc *rproc)
 	if (kproc->ipc_only)
 		return 0;
 
-	ret = cluster->mode ? k3_r5_lockstep_reset(cluster) :
-			      k3_r5_split_reset(core);
+	ret = (cluster->mode == CLUSTER_MODE_LOCKSTEP) ?
+		k3_r5_lockstep_reset(cluster) : k3_r5_split_reset(core);
 	if (ret)
 		dev_err(dev, "unable to disable cores, ret = %d\n", ret);
 
@@ -488,7 +488,7 @@ static int k3_r5_rproc_start(struct rproc *rproc)
 		goto put_mbox;
 
 	/* unhalt/run all applicable cores */
-	if (cluster->mode) {
+	if (cluster->mode == CLUSTER_MODE_LOCKSTEP) {
 		list_for_each_entry_reverse(core, &cluster->cores, elem) {
 			ret = k3_r5_core_run(core);
 			if (ret)
@@ -549,7 +549,7 @@ static int k3_r5_rproc_stop(struct rproc *rproc)
 	}
 
 	/* halt all applicable cores */
-	if (cluster->mode) {
+	if (cluster->mode == CLUSTER_MODE_LOCKSTEP) {
 		list_for_each_entry(core, &cluster->cores, elem) {
 			ret = k3_r5_core_halt(core);
 			if (ret) {
@@ -697,7 +697,7 @@ static int k3_r5_rproc_configure(struct k3_r5_rproc *kproc)
 	int ret;
 
 	core0 = list_first_entry(&cluster->cores, struct k3_r5_core, elem);
-	core = cluster->mode ? core0 : kproc->core;
+	core = (cluster->mode == CLUSTER_MODE_LOCKSTEP) ? core0 : kproc->core;
 
 	ret = ti_sci_proc_get_status(core->tsp, &boot_vec, &cfg, &ctrl,
 				     &stat);
@@ -708,9 +708,9 @@ static int k3_r5_rproc_configure(struct k3_r5_rproc *kproc)
 		boot_vec, cfg, ctrl, stat);
 
 	lockstep_en = !!(stat & PROC_BOOT_STATUS_FLAG_R5_LOCKSTEP_PERMITTED);
-	if (!lockstep_en && cluster->mode) {
+	if (!lockstep_en && cluster->mode == CLUSTER_MODE_LOCKSTEP) {
 		dev_err(cluster->dev, "lockstep mode not permitted, force configuring for split-mode\n");
-		cluster->mode = 0;
+		cluster->mode = CLUSTER_MODE_SPLIT;
 	}
 
 	/* always enable ARM mode and set boot vector to 0 */
@@ -741,7 +741,7 @@ static int k3_r5_rproc_configure(struct k3_r5_rproc *kproc)
 	else
 		clr_cfg |= PROC_BOOT_CFG_FLAG_R5_TCM_RSTBASE;
 
-	if (cluster->mode) {
+	if (cluster->mode == CLUSTER_MODE_LOCKSTEP) {
 		/*
 		 * work around system firmware limitations to make sure both
 		 * cores are programmed symmetrically in LockStep. LockStep
@@ -932,7 +932,8 @@ static int k3_r5_rproc_configure_mode(struct k3_r5_rproc *kproc)
 	atcm_enable = cfg & PROC_BOOT_CFG_FLAG_R5_ATCM_EN ?  1 : 0;
 	btcm_enable = cfg & PROC_BOOT_CFG_FLAG_R5_BTCM_EN ?  1 : 0;
 	loczrama = cfg & PROC_BOOT_CFG_FLAG_R5_TCM_RSTBASE ?  1 : 0;
-	mode = cfg & PROC_BOOT_CFG_FLAG_R5_LOCKSTEP ?  1 : 0;
+	mode = cfg & PROC_BOOT_CFG_FLAG_R5_LOCKSTEP ?
+			CLUSTER_MODE_LOCKSTEP : CLUSTER_MODE_SPLIT;
 	halted = ctrl & PROC_BOOT_CTRL_FLAG_R5_CORE_HALT;
 
 	/*
@@ -1042,7 +1043,7 @@ init_rmem:
 			dev_warn(dev, "device does not have an alias id or platform device id\n");
 
 		/* create only one rproc in lockstep mode */
-		if (cluster->mode)
+		if (cluster->mode == CLUSTER_MODE_LOCKSTEP)
 			break;
 	}
 
@@ -1057,7 +1058,7 @@ err_config:
 	core->rproc = NULL;
 out:
 	/* undo core0 upon any failures on core1 in split-mode */
-	if (!cluster->mode && core == core1) {
+	if (cluster->mode == CLUSTER_MODE_SPLIT && core == core1) {
 		core = list_prev_entry(core, elem);
 		rproc = core->rproc;
 		kproc = rproc->priv;
@@ -1078,7 +1079,7 @@ static int k3_r5_cluster_rproc_exit(struct platform_device *pdev)
 	 * split-mode has two rprocs associated with each core, and requires
 	 * that core1 be powered down first
 	 */
-	core = cluster->mode ?
+	core = (cluster->mode == CLUSTER_MODE_LOCKSTEP) ?
 		list_first_entry(&cluster->cores, struct k3_r5_core, elem) :
 		list_last_entry(&cluster->cores, struct k3_r5_core, elem);
 
