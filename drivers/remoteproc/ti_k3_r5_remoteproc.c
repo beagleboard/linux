@@ -70,9 +70,11 @@ enum cluster_mode {
 
 /**
  * struct k3_r5_soc_data - match data to handle SoC variations
+ * @tcm_is_double: flag to denote the larger unified TCMs in certain modes
  * @tcm_ecc_autoinit: flag to denote the auto-initialization of TCMs for ECC
  */
 struct k3_r5_soc_data {
+	bool tcm_is_double;
 	bool tcm_ecc_autoinit;
 };
 
@@ -915,6 +917,43 @@ static void k3_r5_reserved_mem_exit(struct k3_r5_rproc *kproc)
 }
 
 /*
+ * Each R5F core within a typical R5FSS instance has a total of 64 KB of TCMs,
+ * split equally into two 32 KB banks between ATCM and BTCM. The TCMs from both
+ * cores are usable in Split-mode, but only the Core0 TCMs can be used in
+ * LockStep-mode. The newer revisions of the R5FSS IP maximizes these TCMs by
+ * leveraging the Core1 TCMs as well in certain modes where they would have
+ * otherwise been unusable (Eg: LockStep-mode on J7200 SoCs). This is done by
+ * making a Core1 TCM visible immediately after the corresponding Core0 TCM.
+ * The SoC memory map uses the larger 64 KB sizes for the Core0 TCMs, and the
+ * dts representation reflects this increased size on supported SoCs. The Core0
+ * TCM sizes therefore have to be adjusted to only half the original size in
+ * Split mode.
+ */
+static void k3_r5_adjust_tcm_sizes(struct k3_r5_rproc *kproc)
+{
+	struct k3_r5_cluster *cluster = kproc->cluster;
+	struct k3_r5_core *core = kproc->core;
+	struct device *cdev = core->dev;
+	struct k3_r5_core *core0;
+
+	if (cluster->mode == CLUSTER_MODE_LOCKSTEP ||
+	    !cluster->soc_data->tcm_is_double)
+		return;
+
+	core0 = list_first_entry(&cluster->cores, struct k3_r5_core, elem);
+	if (core == core0) {
+		WARN_ON(core->mem[0].size != SZ_64K);
+		WARN_ON(core->mem[1].size != SZ_64K);
+
+		core->mem[0].size /= 2;
+		core->mem[1].size /= 2;
+
+		dev_dbg(cdev, "adjusted TCM sizes, ATCM = 0x%zx BTCM = 0x%zx\n",
+			core->mem[0].size, core->mem[1].size);
+	}
+}
+
+/*
  * This function checks and configures a R5F core for IPC-only or remoteproc
  * mode. The driver is configured to be in IPC-only mode for a R5F core when
  * the core has been loaded and started by a bootloader. The IPC-only mode is
@@ -1065,6 +1104,8 @@ static int k3_r5_cluster_rproc_init(struct platform_device *pdev)
 		}
 
 init_rmem:
+		k3_r5_adjust_tcm_sizes(kproc);
+
 		ret = k3_r5_reserved_mem_init(kproc);
 		if (ret) {
 			dev_err(dev, "reserved memory init failed, ret = %d\n",
@@ -1547,10 +1588,12 @@ static int k3_r5_probe(struct platform_device *pdev)
 }
 
 static const struct k3_r5_soc_data am65_j721e_soc_data = {
+	.tcm_is_double = false,
 	.tcm_ecc_autoinit = false,
 };
 
 static const struct k3_r5_soc_data j7200_soc_data = {
+	.tcm_is_double = true,
 	.tcm_ecc_autoinit = true,
 };
 
