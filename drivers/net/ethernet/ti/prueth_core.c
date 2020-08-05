@@ -2915,8 +2915,10 @@ static int prueth_netdev_init(struct prueth *prueth,
 
 	ndev->netdev_ops = &emac_netdev_ops;
 	ndev->ethtool_ops = &emac_ethtool_ops;
+#if (IS_ENABLED(CONFIG_HSR))
 	if (prueth->support_lre)
 		ndev->lredev_ops = &prueth_lredev_ops;
+#endif
 
 	if (PRUETH_IS_EMAC(prueth) || PRUETH_IS_SWITCH(prueth))
 		netif_napi_add(ndev, &emac->napi, emac_napi_poll,
