@@ -640,13 +640,6 @@ static netdev_tx_t virt_cpsw_nuss_ndo_xmit(struct sk_buff *skb,
 	void **swdata;
 	u32 *psdata;
 
-	/* frag list based linkage is not supported for now. */
-	if (skb_shinfo(skb)->frag_list) {
-		dev_err_ratelimited(dev, "NETIF_F_FRAGLIST not supported\n");
-		ret = -EINVAL;
-		goto drop_free_skb;
-	}
-
 	/* padding enabled in hw */
 	pkt_len = skb_headlen(skb);
 
@@ -658,16 +651,15 @@ static netdev_tx_t virt_cpsw_nuss_ndo_xmit(struct sk_buff *skb,
 				 DMA_TO_DEVICE);
 	if (unlikely(dma_mapping_error(dev, buf_dma))) {
 		dev_err(dev, "Failed to map tx skb buffer\n");
-		ret = -EINVAL;
 		ndev->stats.tx_errors++;
-		goto drop_stop_q;
+		goto drop_free_skb;
 	}
 
 	first_desc = k3_cppi_desc_pool_alloc(tx_chn->desc_pool);
 	if (!first_desc) {
 		dev_dbg(dev, "Failed to allocate descriptor\n");
 		dma_unmap_single(dev, buf_dma, pkt_len, DMA_TO_DEVICE);
-		goto drop_stop_q_busy;
+		goto busy_stop_q;
 	}
 
 	cppi5_hdesc_init(first_desc, CPPI5_INFO0_HDESC_EPIB_PRESENT,
@@ -707,11 +699,9 @@ static netdev_tx_t virt_cpsw_nuss_ndo_xmit(struct sk_buff *skb,
 		u32 frag_size = skb_frag_size(frag);
 
 		next_desc = k3_cppi_desc_pool_alloc(tx_chn->desc_pool);
-
 		if (!next_desc) {
 			dev_err(dev, "Failed to allocate descriptor\n");
-			ret = -ENOMEM;
-			goto drop_free_descs;
+			goto busy_free_descs;
 		}
 
 		buf_dma = skb_frag_dma_map(dev, frag, 0, frag_size,
@@ -719,7 +709,6 @@ static netdev_tx_t virt_cpsw_nuss_ndo_xmit(struct sk_buff *skb,
 		if (unlikely(dma_mapping_error(dev, buf_dma))) {
 			dev_err(dev, "Failed to map tx skb page\n");
 			k3_cppi_desc_pool_free(tx_chn->desc_pool, next_desc);
-			ret = -EINVAL;
 			ndev->stats.tx_errors++;
 			goto drop_free_descs;
 		}
@@ -750,6 +739,8 @@ done_tx:
 	ret = k3_udma_glue_push_tx_chn(tx_chn->tx_chn, first_desc, desc_dma);
 	if (ret) {
 		dev_err(dev, "can't push desc %d\n", ret);
+		/* inform bql */
+		netdev_tx_completed_queue(netif_txq, 1, pkt_len);
 		ndev->stats.tx_errors++;
 		goto drop_free_descs;
 	}
@@ -772,14 +763,14 @@ done_tx:
 
 drop_free_descs:
 	virt_cpsw_nuss_xmit_free(tx_chn, dev, first_desc);
-drop_stop_q:
-	netif_tx_stop_queue(netif_txq);
 drop_free_skb:
 	ndev->stats.tx_dropped++;
 	dev_kfree_skb_any(skb);
-	return ret;
+	return NETDEV_TX_OK;
 
-drop_stop_q_busy:
+busy_free_descs:
+	virt_cpsw_nuss_xmit_free(tx_chn, dev, first_desc);
+busy_stop_q:
 	netif_tx_stop_queue(netif_txq);
 	return NETDEV_TX_BUSY;
 }
