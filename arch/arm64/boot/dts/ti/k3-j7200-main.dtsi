@@ -40,6 +40,17 @@
 		};
 	};
 
+	main_gpio_intr: interrupt-controller0 {
+		compatible = "ti,sci-intr";
+		ti,intr-trigger-type = <1>;
+		interrupt-controller;
+		interrupt-parent = <&gic500>;
+		#interrupt-cells = <1>;
+		ti,sci = <&dmsc>;
+		ti,sci-dev-id = <131>;
+		ti,interrupt-ranges = <8 392 56>;
+	};
+
 	main_navss: navss@30000000 {
 		compatible = "simple-mfd";
 		#address-cells = <2>;
