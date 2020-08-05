@@ -2,12 +2,14 @@
 /*
  * Texas Instruments TI-SCI Processor Controller Helper Functions
  *
- * Copyright (C) 2018-2020 Texas Instruments Incorporated - http://www.ti.com/
- *	Suman Anna
+ * Copyright (C) 2018-2020 Texas Instruments Incorporated - https://www.ti.com/
+ *	Suman Anna <s-anna@ti.com>
  */
 
 #ifndef REMOTEPROC_TI_SCI_PROC_H
 #define REMOTEPROC_TI_SCI_PROC_H
+
+#include <linux/soc/ti/ti_sci_protocol.h>
 
 /**
  * struct ti_sci_proc - structure representing a processor control client
