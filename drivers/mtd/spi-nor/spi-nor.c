@@ -417,6 +417,30 @@ static ssize_t spi_nor_spimem_xfer_data(struct spi_nor *nor,
 	return op->data.nbytes;
 }
 
+/*
+ * Return a template of the spi-mem op for performing a read operation.
+ * The caller is expected to fill in the address, the data length, and
+ * the data buffer.
+ */
+static struct spi_mem_op spi_nor_spimem_read_op(struct spi_nor *nor)
+{
+	struct spi_mem_op op =
+			SPI_MEM_OP(SPI_MEM_OP_CMD(nor->read_opcode, 1),
+				   SPI_MEM_OP_ADDR(nor->addr_width, 0, 1),
+				   SPI_MEM_OP_DUMMY(nor->read_dummy, 1),
+				   SPI_MEM_OP_DATA_IN(1, NULL, 1));
+	spi_nor_spimem_setup_op(nor, &op, nor->read_proto);
+
+	/* convert the dummy cycles to the number of bytes */
+	op.dummy.nbytes = (nor->read_dummy * op.dummy.buswidth) / 8;
+	if (spi_nor_protocol_is_dtr(nor->read_proto))
+		op.dummy.nbytes *= 2;
+
+	op.max_freq = nor->max_freq;
+
+	return op;
+}
+
 /**
  * spi_nor_spimem_read_data() - read data from flash's memory region via
  *                              spi-mem
@@ -430,18 +454,11 @@ static ssize_t spi_nor_spimem_xfer_data(struct spi_nor *nor,
 static ssize_t spi_nor_spimem_read_data(struct spi_nor *nor, loff_t from,
 					size_t len, u8 *buf)
 {
-	struct spi_mem_op op =
-		SPI_MEM_OP(SPI_MEM_OP_CMD(nor->read_opcode, 1),
-			   SPI_MEM_OP_ADDR(nor->addr_width, from, 1),
-			   SPI_MEM_OP_DUMMY(nor->read_dummy, 1),
-			   SPI_MEM_OP_DATA_IN(len, buf, 1));
+	struct spi_mem_op op = spi_nor_spimem_read_op(nor);
 
-	spi_nor_spimem_setup_op(nor, &op, nor->read_proto);
-
-	/* convert the dummy cycles to the number of bytes */
-	op.dummy.nbytes = (nor->read_dummy * op.dummy.buswidth) / 8;
-	if (spi_nor_protocol_is_dtr(nor->read_proto))
-		op.dummy.nbytes *= 2;
+	op.addr.val = from;
+	op.data.nbytes = len;
+	op.data.buf.in = buf;
 
 	return spi_nor_spimem_xfer_data(nor, &op);
 }
