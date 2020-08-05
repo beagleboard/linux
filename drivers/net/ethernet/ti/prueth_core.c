@@ -1458,7 +1458,7 @@ static void emac_set_stats(struct prueth_emac *emac,
 
 /**
  * emac_napi_poll - EMAC NAPI Poll function
- * @ndev: EMAC network adapter
+ * @napi: ptr to napi instance associated with the emac
  * @budget: Number of receive packets to process (as told by NAPI layer)
  *
  * NAPI Poll function implemented to process packets as per budget. We check
@@ -2354,6 +2354,7 @@ static int emac_get_port_parent_id(struct net_device *dev,
 /**
  * emac_ndo_set_features - function to set feature flag
  * @ndev: The network adapter device
+ * @features: feature flags in the netdevice
  *
  * Called when ethtool -K option is invoked by user
  *
