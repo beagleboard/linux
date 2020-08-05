@@ -5562,6 +5562,7 @@ int spi_nor_scan(struct spi_nor *nor, const char *name,
 	struct mtd_info *mtd = &nor->mtd;
 	struct device_node *np = spi_nor_get_flash_node(nor);
 	struct spi_nor_flash_parameter *params = &nor->params;
+	struct spi_mem_op op;
 	int ret;
 	int i;
 
@@ -5686,6 +5687,9 @@ int spi_nor_scan(struct spi_nor *nor, const char *name,
 	ret = spi_nor_init(nor);
 	if (ret)
 		return ret;
+
+	op = spi_nor_spimem_read_op(nor);
+	spi_mem_set_calibration_read_op(nor->spimem, &op);
 
 	dev_info(dev, "%s (%lld Kbytes)\n", info->name,
 			(long long)mtd->size >> 10);
