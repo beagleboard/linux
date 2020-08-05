@@ -1748,6 +1748,8 @@ static int emac_ndo_stop(struct net_device *ndev)
 		/* HSR/PRP. Disable NAPI when last port is down */
 		if (!prueth->emac_configured) {
 			hrtimer_cancel(&prueth->tbl_check_timer);
+			kthread_cancel_work_sync(&prueth->nt_work);
+			kthread_destroy_worker(prueth->nt_kworker);
 			napi_disable(&prueth->napi_lpq);
 			napi_disable(&prueth->napi_hpq);
 		}
