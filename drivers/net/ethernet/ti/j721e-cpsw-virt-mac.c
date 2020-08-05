@@ -338,13 +338,9 @@ static void virt_cpsw_nuss_rx_csum(struct sk_buff *skb, u32 csum_info)
 	if ((csum_info & (AM65_CPSW_RX_PSD_IPV6_VALID |
 			  AM65_CPSW_RX_PSD_IPV4_VALID)) &&
 			  !(csum_info & AM65_CPSW_RX_PSD_CSUM_ERR)) {
-		if (csum_info & AM65_CPSW_RX_PSD_IS_FRAGMENT) {
-			skb->ip_summed = CHECKSUM_COMPLETE;
-			skb->csum = csum_unfold(csum_info &
-						AM65_CPSW_RX_PSD_CSUM_ADD);
-		} else {
+		/* csum for fragmented packets is unsupported */
+		if (!(csum_info & AM65_CPSW_RX_PSD_IS_FRAGMENT))
 			skb->ip_summed = CHECKSUM_UNNECESSARY;
-		}
 	}
 }
 
