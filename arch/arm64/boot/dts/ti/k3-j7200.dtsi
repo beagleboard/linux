@@ -30,6 +30,10 @@
 		serial9 = &main_uart7;
 		serial10 = &main_uart8;
 		serial11 = &main_uart9;
+		rproc0 = &mcu_r5fss0_core0;
+		rproc1 = &mcu_r5fss0_core1;
+		rproc2 = &main_r5fss0_core0;
+		rproc3 = &main_r5fss0_core1;
 	};
 
 	cpus {
