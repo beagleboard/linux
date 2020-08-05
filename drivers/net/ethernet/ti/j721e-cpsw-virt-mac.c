@@ -758,13 +758,13 @@ done_tx:
 		netif_tx_stop_queue(netif_txq);
 		/* Barrier, so that stop_queue visible to other cpus */
 		smp_mb__after_atomic();
-		dev_err(dev, "netif_tx_stop_queue %d\n", 0);
+		dev_dbg(dev, "netif_tx_stop_queue %d\n", 0);
 
 		/* re-check for smp */
 		if (k3_cppi_desc_pool_avail(tx_chn->desc_pool) >=
 		    MAX_SKB_FRAGS) {
 			netif_tx_wake_queue(netif_txq);
-			dev_err(dev, "netif_tx_wake_queue %d\n", 0);
+			dev_dbg(dev, "netif_tx_wake_queue %d\n", 0);
 		}
 	}
 
