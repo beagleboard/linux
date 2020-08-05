@@ -446,6 +446,19 @@ int spi_mem_adjust_op_size(struct spi_mem *mem, struct spi_mem_op *op)
 }
 EXPORT_SYMBOL_GPL(spi_mem_adjust_op_size);
 
+int spi_mem_set_calibration_read_op(struct spi_mem *mem,
+				    struct spi_mem_op *op)
+{
+	struct spi_controller *ctlr = mem->spi->controller;
+
+	if (!ctlr->mem_ops || !ctlr->mem_ops->set_calibration_read_op)
+		return -ENOTSUPP;
+
+	ctlr->mem_ops->set_calibration_read_op(mem, op);
+	return 0;
+}
+EXPORT_SYMBOL_GPL(spi_mem_set_calibration_read_op);
+
 static ssize_t spi_mem_no_dirmap_read(struct spi_mem_dirmap_desc *desc,
 				      u64 offs, size_t len, void *buf)
 {
