@@ -2,7 +2,7 @@
 /*
  * TI K3 R5F (MCU) Remote Processor driver
  *
- * Copyright (C) 2017-2020 Texas Instruments Incorporated - http://www.ti.com/
+ * Copyright (C) 2017-2020 Texas Instruments Incorporated - https://www.ti.com/
  *	Suman Anna <s-anna@ti.com>
  */
 
@@ -12,15 +12,14 @@
 #include <linux/kernel.h>
 #include <linux/mailbox_client.h>
 #include <linux/module.h>
-#include <linux/of_device.h>
 #include <linux/of_address.h>
+#include <linux/of_device.h>
 #include <linux/of_reserved_mem.h>
+#include <linux/omap-mailbox.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
 #include <linux/remoteproc.h>
-#include <linux/omap-mailbox.h>
 #include <linux/reset.h>
-#include <linux/soc/ti/ti_sci_protocol.h>
 
 #include "omap_remoteproc.h"
 #include "remoteproc_internal.h"
@@ -81,6 +80,7 @@ struct k3_r5_cluster {
 
 /**
  * struct k3_r5_core - K3 R5 core structure
+ * @elem: linked list item
  * @dev: cached device pointer
  * @rproc: rproc handle representing this core
  * @mem: internal memory regions data
@@ -369,11 +369,13 @@ static int k3_r5_rproc_prepare(struct rproc *rproc)
 	if (kproc->ipc_only)
 		return 0;
 
-	ret = cluster->mode ? k3_r5_lockstep_release(cluster) :
-			      k3_r5_split_release(core);
-	if (ret)
+	ret = (cluster->mode == CLUSTER_MODE_LOCKSTEP) ?
+		k3_r5_lockstep_release(cluster) : k3_r5_split_release(core);
+	if (ret) {
 		dev_err(dev, "unable to enable cores for TCM loading, ret = %d\n",
 			ret);
+		return ret;
+	}
 
 	/*
 	 * Zero out both TCMs unconditionally (access from v8 Arm core is not
@@ -386,7 +388,7 @@ static int k3_r5_rproc_prepare(struct rproc *rproc)
 	dev_dbg(dev, "zeroing out BTCM memory\n");
 	memset(core->mem[1].cpu_addr, 0x00, core->mem[1].size);
 
-	return ret;
+	return 0;
 }
 
 /*
@@ -410,8 +412,8 @@ static int k3_r5_rproc_unprepare(struct rproc *rproc)
 	if (kproc->ipc_only)
 		return 0;
 
-	ret = cluster->mode ? k3_r5_lockstep_reset(cluster) :
-			      k3_r5_split_reset(core);
+	ret = (cluster->mode == CLUSTER_MODE_LOCKSTEP) ?
+		k3_r5_lockstep_reset(cluster) : k3_r5_split_reset(core);
 	if (ret)
 		dev_err(dev, "unable to disable cores, ret = %d\n", ret);
 
@@ -487,7 +489,7 @@ static int k3_r5_rproc_start(struct rproc *rproc)
 		goto put_mbox;
 
 	/* unhalt/run all applicable cores */
-	if (cluster->mode) {
+	if (cluster->mode == CLUSTER_MODE_LOCKSTEP) {
 		list_for_each_entry_reverse(core, &cluster->cores, elem) {
 			ret = k3_r5_core_run(core);
 			if (ret)
@@ -548,7 +550,7 @@ static int k3_r5_rproc_stop(struct rproc *rproc)
 	}
 
 	/* halt all applicable cores */
-	if (cluster->mode) {
+	if (cluster->mode == CLUSTER_MODE_LOCKSTEP) {
 		list_for_each_entry(core, &cluster->cores, elem) {
 			ret = k3_r5_core_halt(core);
 			if (ret) {
@@ -653,22 +655,37 @@ static const struct rproc_ops k3_r5_rproc_ops = {
 	.da_to_va	= k3_r5_rproc_da_to_va,
 };
 
-static const char *k3_r5_rproc_get_firmware(struct device *dev)
-{
-	const char *fw_name;
-	int ret;
-
-	ret = of_property_read_string(dev->of_node, "firmware-name",
-				      &fw_name);
-	if (ret) {
-		dev_err(dev, "failed to parse firmware-name property, ret = %d\n",
-			ret);
-		return ERR_PTR(ret);
-	}
-
-	return fw_name;
-}
-
+/*
+ * Internal R5F Core configuration
+ *
+ * Each R5FSS has a cluster-level setting for configuring the processor
+ * subsystem either in a safety/fault-tolerant LockStep mode or a performance
+ * oriented Split mode. Each R5F core has a number of settings to either
+ * enable/disable each of the TCMs, control which TCM appears at the R5F core's
+ * address 0x0. These settings need to be configured before the resets for the
+ * corresponding core are released. These settings are all protected and managed
+ * by the System Processor.
+ *
+ * This function is used to pre-configure these settings for each R5F core, and
+ * the configuration is all done through various ti_sci_proc functions that
+ * communicate with the System Processor. The function also ensures that both
+ * the cores are halted before the .prepare() step.
+ *
+ * The function is called from k3_r5_cluster_rproc_init() and is invoked either
+ * once (in LockStep mode) or twice (in Split mode). Support for LockStep-mode
+ * is dictated by an eFUSE register bit, and the config settings retrieved from
+ * DT are adjusted accordingly as per the permitted cluster mode. All cluster
+ * level settings like Cluster mode and TEINIT (exception handling state
+ * dictating ARM or Thumb mode) can only be set and retrieved using Core0.
+ *
+ * The function behavior is different based on the cluster mode. The R5F cores
+ * are configured independently as per their individual settings in Split mode.
+ * They are identically configured in LockStep mode using the primary Core0
+ * settings. However, some individual settings cannot be set in LockStep mode.
+ * This is overcome by switching to Split-mode initially and then programming
+ * both the cores with the same settings, before reconfiguing again for
+ * LockStep mode.
+ */
 static int k3_r5_rproc_configure(struct k3_r5_rproc *kproc)
 {
 	struct k3_r5_cluster *cluster = kproc->cluster;
@@ -681,7 +698,7 @@ static int k3_r5_rproc_configure(struct k3_r5_rproc *kproc)
 	int ret;
 
 	core0 = list_first_entry(&cluster->cores, struct k3_r5_core, elem);
-	core = cluster->mode ? core0 : kproc->core;
+	core = (cluster->mode == CLUSTER_MODE_LOCKSTEP) ? core0 : kproc->core;
 
 	ret = ti_sci_proc_get_status(core->tsp, &boot_vec, &cfg, &ctrl,
 				     &stat);
@@ -692,9 +709,9 @@ static int k3_r5_rproc_configure(struct k3_r5_rproc *kproc)
 		boot_vec, cfg, ctrl, stat);
 
 	lockstep_en = !!(stat & PROC_BOOT_STATUS_FLAG_R5_LOCKSTEP_PERMITTED);
-	if (!lockstep_en && cluster->mode) {
+	if (!lockstep_en && cluster->mode == CLUSTER_MODE_LOCKSTEP) {
 		dev_err(cluster->dev, "lockstep mode not permitted, force configuring for split-mode\n");
-		cluster->mode = 0;
+		cluster->mode = CLUSTER_MODE_SPLIT;
 	}
 
 	/* always enable ARM mode and set boot vector to 0 */
@@ -725,14 +742,14 @@ static int k3_r5_rproc_configure(struct k3_r5_rproc *kproc)
 	else
 		clr_cfg |= PROC_BOOT_CFG_FLAG_R5_TCM_RSTBASE;
 
-	if (cluster->mode) {
+	if (cluster->mode == CLUSTER_MODE_LOCKSTEP) {
 		/*
 		 * work around system firmware limitations to make sure both
 		 * cores are programmed symmetrically in LockStep. LockStep
 		 * and TEINIT config is only allowed with Core0.
 		 */
 		list_for_each_entry(temp, &cluster->cores, elem) {
-			ret = k3_r5_core_halt(core);
+			ret = k3_r5_core_halt(temp);
 			if (ret)
 				goto out;
 
@@ -766,7 +783,7 @@ out:
 static int k3_r5_reserved_mem_init(struct k3_r5_rproc *kproc)
 {
 	struct device *dev = kproc->dev;
-	struct device_node *np = dev->of_node;
+	struct device_node *np = dev_of_node(dev);
 	struct device_node *rmem_np;
 	struct reserved_mem *rmem;
 	int num_rmems;
@@ -817,7 +834,16 @@ static int k3_r5_reserved_mem_init(struct k3_r5_rproc *kproc)
 		of_node_put(rmem_np);
 
 		kproc->rmem[i].bus_addr = rmem->base;
-		/* 64-bit address regions currently not supported */
+		/*
+		 * R5Fs do not have an MMU, but have a Region Address Translator
+		 * (RAT) module that provides a fixed entry translation between
+		 * the 32-bit processor addresses to 64-bit bus addresses. The
+		 * RAT is programmable only by the R5F cores. Support for RAT
+		 * is currently not supported, so 64-bit address regions are not
+		 * supported. The absence of MMUs implies that the R5F device
+		 * addresses/supported memory regions are restricted to 32-bit
+		 * bus addresses, and are identical
+		 */
 		kproc->rmem[i].dev_addr = (u32)rmem->base;
 		kproc->rmem[i].size = rmem->size;
 		kproc->rmem[i].cpu_addr = ioremap_wc(rmem->base, rmem->size);
@@ -838,10 +864,8 @@ static int k3_r5_reserved_mem_init(struct k3_r5_rproc *kproc)
 	return 0;
 
 unmap_rmem:
-	for (i--; i >= 0; i--) {
-		if (kproc->rmem[i].cpu_addr)
-			iounmap(kproc->rmem[i].cpu_addr);
-	}
+	for (i--; i >= 0; i--)
+		iounmap(kproc->rmem[i].cpu_addr);
 	kfree(kproc->rmem);
 release_rmem:
 	of_reserved_mem_device_release(dev);
@@ -916,7 +940,8 @@ static int k3_r5_rproc_configure_mode(struct k3_r5_rproc *kproc)
 	atcm_enable = cfg & PROC_BOOT_CFG_FLAG_R5_ATCM_EN ?  1 : 0;
 	btcm_enable = cfg & PROC_BOOT_CFG_FLAG_R5_BTCM_EN ?  1 : 0;
 	loczrama = cfg & PROC_BOOT_CFG_FLAG_R5_TCM_RSTBASE ?  1 : 0;
-	mode = cfg & PROC_BOOT_CFG_FLAG_R5_LOCKSTEP ?  1 : 0;
+	mode = cfg & PROC_BOOT_CFG_FLAG_R5_LOCKSTEP ?
+			CLUSTER_MODE_LOCKSTEP : CLUSTER_MODE_SPLIT;
 	halted = ctrl & PROC_BOOT_CTRL_FLAG_R5_CORE_HALT;
 
 	/*
@@ -969,9 +994,10 @@ static int k3_r5_cluster_rproc_init(struct platform_device *pdev)
 	core1 = list_last_entry(&cluster->cores, struct k3_r5_core, elem);
 	list_for_each_entry(core, &cluster->cores, elem) {
 		cdev = core->dev;
-		fw_name = k3_r5_rproc_get_firmware(cdev);
-		if (IS_ERR(fw_name)) {
-			ret = PTR_ERR(fw_name);
+		ret = rproc_of_parse_firmware(cdev, 0, &fw_name);
+		if (ret) {
+			dev_err(dev, "failed to parse firmware-name property, ret = %d\n",
+				ret);
 			goto out;
 		}
 
@@ -1025,7 +1051,7 @@ init_rmem:
 			dev_warn(dev, "device does not have an alias id or platform device id\n");
 
 		/* create only one rproc in lockstep mode */
-		if (cluster->mode)
+		if (cluster->mode == CLUSTER_MODE_LOCKSTEP)
 			break;
 	}
 
@@ -1040,7 +1066,7 @@ err_config:
 	core->rproc = NULL;
 out:
 	/* undo core0 upon any failures on core1 in split-mode */
-	if (!cluster->mode && core == core1) {
+	if (cluster->mode == CLUSTER_MODE_SPLIT && core == core1) {
 		core = list_prev_entry(core, elem);
 		rproc = core->rproc;
 		kproc = rproc->priv;
@@ -1061,7 +1087,7 @@ static int k3_r5_cluster_rproc_exit(struct platform_device *pdev)
 	 * split-mode has two rprocs associated with each core, and requires
 	 * that core1 be powered down first
 	 */
-	core = cluster->mode ?
+	core = (cluster->mode == CLUSTER_MODE_LOCKSTEP) ?
 		list_first_entry(&cluster->cores, struct k3_r5_core, elem) :
 		list_last_entry(&cluster->cores, struct k3_r5_core, elem);
 
@@ -1087,7 +1113,7 @@ static int k3_r5_core_of_get_internal_memories(struct platform_device *pdev,
 	struct device *dev = &pdev->dev;
 	struct resource *res;
 	int num_mems;
-	int i, ret;
+	int i;
 
 	num_mems = ARRAY_SIZE(mem_names);
 	core->mem = devm_kcalloc(dev, num_mems, sizeof(*core->mem), GFP_KERNEL);
@@ -1100,16 +1126,14 @@ static int k3_r5_core_of_get_internal_memories(struct platform_device *pdev,
 		if (!res) {
 			dev_err(dev, "found no memory resource for %s\n",
 				mem_names[i]);
-			ret = -EINVAL;
-			goto fail;
+			return -EINVAL;
 		}
 		if (!devm_request_mem_region(dev, res->start,
 					     resource_size(res),
 					     dev_name(dev))) {
 			dev_err(dev, "could not request %s region for resource\n",
 				mem_names[i]);
-			ret = -EBUSY;
-			goto fail;
+			return -EBUSY;
 		}
 
 		/*
@@ -1123,10 +1147,7 @@ static int k3_r5_core_of_get_internal_memories(struct platform_device *pdev,
 							resource_size(res));
 		if (IS_ERR(core->mem[i].cpu_addr)) {
 			dev_err(dev, "failed to map %s memory\n", mem_names[i]);
-			ret = PTR_ERR(core->mem[i].cpu_addr);
-			devm_release_mem_region(dev, res->start,
-						resource_size(res));
-			goto fail;
+			return PTR_ERR(core->mem[i].cpu_addr);
 		}
 		core->mem[i].bus_addr = res->start;
 
@@ -1147,7 +1168,7 @@ static int k3_r5_core_of_get_internal_memories(struct platform_device *pdev,
 		}
 		core->mem[i].size = resource_size(res);
 
-		dev_dbg(dev, "memory %8s: bus addr %pa size 0x%zx va %pK da 0x%x\n",
+		dev_dbg(dev, "memory %5s: bus addr %pa size 0x%zx va %pK da 0x%x\n",
 			mem_names[i], &core->mem[i].bus_addr,
 			core->mem[i].size, core->mem[i].cpu_addr,
 			core->mem[i].dev_addr);
@@ -1155,16 +1176,6 @@ static int k3_r5_core_of_get_internal_memories(struct platform_device *pdev,
 	core->num_mems = num_mems;
 
 	return 0;
-
-fail:
-	for (i--; i >= 0; i--) {
-		devm_iounmap(dev, core->mem[i].cpu_addr);
-		devm_release_mem_region(dev, core->mem[i].bus_addr,
-					core->mem[i].size);
-	}
-	if (core->mem)
-		devm_kfree(dev, core->mem);
-	return ret;
 }
 
 static int k3_r5_core_of_get_sram_memories(struct platform_device *pdev,
@@ -1184,42 +1195,38 @@ static int k3_r5_core_of_get_sram_memories(struct platform_device *pdev,
 		return 0;
 	}
 
-	core->sram = kcalloc(num_sram, sizeof(*core->sram), GFP_KERNEL);
+	core->sram = devm_kcalloc(dev, num_sram, sizeof(*core->sram),
+				  GFP_KERNEL);
 	if (!core->sram)
 		return -ENOMEM;
 
 	for (i = 0; i < num_sram; i++) {
 		sram_np = of_parse_phandle(np, "sram", i);
-		if (!sram_np) {
-			ret = -EINVAL;
-			goto fail;
-		}
+		if (!sram_np)
+			return -EINVAL;
 
 		if (!of_device_is_available(sram_np)) {
 			of_node_put(sram_np);
-			ret = -EINVAL;
-			goto fail;
+			return -EINVAL;
 		}
 
 		ret = of_address_to_resource(sram_np, 0, &res);
 		of_node_put(sram_np);
-		if (ret) {
-			ret = -EINVAL;
-			goto fail;
-		}
+		if (ret)
+			return -EINVAL;
+
 		core->sram[i].bus_addr = res.start;
 		core->sram[i].dev_addr = res.start;
 		core->sram[i].size = resource_size(&res);
-		core->sram[i].cpu_addr = ioremap_wc(res.start,
-						    resource_size(&res));
+		core->sram[i].cpu_addr = devm_ioremap_wc(dev, res.start,
+							 resource_size(&res));
 		if (!core->sram[i].cpu_addr) {
 			dev_err(dev, "failed to parse and map sram%d memory at %pad\n",
 				i, &res.start);
-			ret = -ENOMEM;
-			goto fail;
+			return -ENOMEM;
 		}
 
-		dev_dbg(dev, "memory    sram%d: bus addr %pa size 0x%zx va %pK da 0x%x\n",
+		dev_dbg(dev, "memory sram%d: bus addr %pa size 0x%zx va %pK da 0x%x\n",
 			i, &core->sram[i].bus_addr,
 			core->sram[i].size, core->sram[i].cpu_addr,
 			core->sram[i].dev_addr);
@@ -1227,15 +1234,6 @@ static int k3_r5_core_of_get_sram_memories(struct platform_device *pdev,
 	core->num_sram = num_sram;
 
 	return 0;
-
-fail:
-	for (i--; i >= 0; i--) {
-		if (core->sram[i].cpu_addr)
-			iounmap(core->sram[i].cpu_addr);
-	}
-	kfree(core->sram);
-
-	return ret;
 }
 
 static
@@ -1246,12 +1244,12 @@ struct ti_sci_proc *k3_r5_core_of_get_tsp(struct device *dev,
 	u32 temp[2];
 	int ret;
 
-	ret = of_property_read_u32_array(dev->of_node, "ti,sci-proc-ids",
+	ret = of_property_read_u32_array(dev_of_node(dev), "ti,sci-proc-ids",
 					 temp, 2);
 	if (ret < 0)
 		return ERR_PTR(ret);
 
-	tsp = kzalloc(sizeof(*tsp), GFP_KERNEL);
+	tsp = devm_kzalloc(dev, sizeof(*tsp), GFP_KERNEL);
 	if (!tsp)
 		return ERR_PTR(-ENOMEM);
 
@@ -1267,15 +1265,24 @@ struct ti_sci_proc *k3_r5_core_of_get_tsp(struct device *dev,
 static int k3_r5_core_of_init(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
-	struct device_node *np = dev->of_node;
+	struct device_node *np = dev_of_node(dev);
 	struct k3_r5_core *core;
-	int ret, ret1, i;
+	int ret;
 
-	core = devm_kzalloc(dev, sizeof(*core), GFP_KERNEL);
-	if (!core)
+	if (!devres_open_group(dev, k3_r5_core_of_init, GFP_KERNEL))
 		return -ENOMEM;
 
+	core = devm_kzalloc(dev, sizeof(*core), GFP_KERNEL);
+	if (!core) {
+		ret = -ENOMEM;
+		goto err;
+	}
+
 	core->dev = dev;
+	/*
+	 * Use SoC Power-on-Reset values as default if no DT properties are
+	 * used to dictate the TCM configurations
+	 */
 	core->atcm_enable = 0;
 	core->btcm_enable = 1;
 	core->loczrama = 1;
@@ -1283,22 +1290,22 @@ static int k3_r5_core_of_init(struct platform_device *pdev)
 	ret = of_property_read_u32(np, "atcm-enable", &core->atcm_enable);
 	if (ret < 0 && ret != -EINVAL) {
 		dev_err(dev, "invalid format for atcm-enable, ret = %d\n", ret);
-		goto err_of;
+		goto err;
 	}
 
 	ret = of_property_read_u32(np, "btcm-enable", &core->btcm_enable);
 	if (ret < 0 && ret != -EINVAL) {
 		dev_err(dev, "invalid format for btcm-enable, ret = %d\n", ret);
-		goto err_of;
+		goto err;
 	}
 
 	ret = of_property_read_u32(np, "loczrama", &core->loczrama);
 	if (ret < 0 && ret != -EINVAL) {
 		dev_err(dev, "invalid format for loczrama, ret = %d\n", ret);
-		goto err_of;
+		goto err;
 	}
 
-	core->ti_sci = ti_sci_get_by_phandle(np, "ti,sci");
+	core->ti_sci = devm_ti_sci_get_by_phandle(dev, "ti,sci");
 	if (IS_ERR(core->ti_sci)) {
 		ret = PTR_ERR(core->ti_sci);
 		if (ret != -EPROBE_DEFER) {
@@ -1306,23 +1313,25 @@ static int k3_r5_core_of_init(struct platform_device *pdev)
 				ret);
 		}
 		core->ti_sci = NULL;
-		goto err_of;
+		goto err;
 	}
 
 	ret = of_property_read_u32(np, "ti,sci-dev-id", &core->ti_sci_id);
 	if (ret) {
 		dev_err(dev, "missing 'ti,sci-dev-id' property\n");
-		goto err_sci_id;
+		goto err;
 	}
 
-	core->reset = reset_control_get_exclusive(dev, NULL);
-	if (IS_ERR(core->reset)) {
-		ret = PTR_ERR(core->reset);
+	core->reset = devm_reset_control_get_exclusive(dev, NULL);
+	if (IS_ERR_OR_NULL(core->reset)) {
+		ret = PTR_ERR_OR_ZERO(core->reset);
+		if (!ret)
+			ret = -ENODEV;
 		if (ret != -EPROBE_DEFER) {
 			dev_err(dev, "failed to get reset handle, ret = %d\n",
 				ret);
 		}
-		goto err_sci_id;
+		goto err;
 	}
 
 	core->tsp = k3_r5_core_of_get_tsp(dev, core->ti_sci);
@@ -1330,53 +1339,35 @@ static int k3_r5_core_of_init(struct platform_device *pdev)
 		dev_err(dev, "failed to construct ti-sci proc control, ret = %d\n",
 			ret);
 		ret = PTR_ERR(core->tsp);
-		goto err_sci_proc;
-	}
-
-	ret = ti_sci_proc_request(core->tsp);
-	if (ret < 0) {
-		dev_err(dev, "ti_sci_proc_request failed, ret = %d\n", ret);
-		goto err_proc;
+		goto err;
 	}
 
 	ret = k3_r5_core_of_get_internal_memories(pdev, core);
 	if (ret) {
 		dev_err(dev, "failed to get internal memories, ret = %d\n",
 			ret);
-		goto err_intmem;
+		goto err;
 	}
 
 	ret = k3_r5_core_of_get_sram_memories(pdev, core);
 	if (ret) {
 		dev_err(dev, "failed to get sram memories, ret = %d\n", ret);
-		goto err_sram;
+		goto err;
+	}
+
+	ret = ti_sci_proc_request(core->tsp);
+	if (ret < 0) {
+		dev_err(dev, "ti_sci_proc_request failed, ret = %d\n", ret);
+		goto err;
 	}
 
 	platform_set_drvdata(pdev, core);
+	devres_close_group(dev, k3_r5_core_of_init);
 
 	return 0;
 
-err_sram:
-	for (i = 0; i < core->num_mems; i++) {
-		devm_iounmap(dev, core->mem[i].cpu_addr);
-		devm_release_mem_region(dev, core->mem[i].bus_addr,
-					core->mem[i].size);
-	}
-	devm_kfree(dev, core->mem);
-err_intmem:
-	ret1 = ti_sci_proc_release(core->tsp);
-	if (ret1)
-		dev_err(dev, "failed to release proc, ret1 = %d\n", ret1);
-err_proc:
-	kfree(core->tsp);
-err_sci_proc:
-	reset_control_put(core->reset);
-err_sci_id:
-	ret1 = ti_sci_put_handle(core->ti_sci);
-	if (ret1)
-		dev_err(dev, "failed to put ti_sci handle, ret = %d\n", ret1);
-err_of:
-	devm_kfree(dev, core);
+err:
+	devres_release_group(dev, k3_r5_core_of_init);
 	return ret;
 }
 
@@ -1384,49 +1375,41 @@ err_of:
  * free the resources explicitly since driver model is not being used
  * for the child R5F devices
  */
-static int k3_r5_core_of_exit(struct platform_device *pdev)
+static void k3_r5_core_of_exit(struct platform_device *pdev)
 {
 	struct k3_r5_core *core = platform_get_drvdata(pdev);
 	struct device *dev = &pdev->dev;
-	int i, ret;
-
-	for (i = 0; i < core->num_sram; i++)
-		iounmap(core->sram[i].cpu_addr);
-	kfree(core->sram);
-
-	for (i = 0; i < core->num_mems; i++) {
-		devm_release_mem_region(dev, core->mem[i].bus_addr,
-					core->mem[i].size);
-		devm_iounmap(dev, core->mem[i].cpu_addr);
-	}
-	if (core->mem)
-		devm_kfree(dev, core->mem);
+	int ret;
 
 	ret = ti_sci_proc_release(core->tsp);
 	if (ret)
 		dev_err(dev, "failed to release proc, ret = %d\n", ret);
 
-	kfree(core->tsp);
-	reset_control_put(core->reset);
-
-	ret = ti_sci_put_handle(core->ti_sci);
-	if (ret)
-		dev_err(dev, "failed to put ti_sci handle, ret = %d\n", ret);
-
 	platform_set_drvdata(pdev, NULL);
-	devm_kfree(dev, core);
+	devres_release_group(dev, k3_r5_core_of_init);
+}
 
-	return ret;
+static void k3_r5_cluster_of_exit(struct platform_device *pdev)
+{
+	struct k3_r5_cluster *cluster = platform_get_drvdata(pdev);
+	struct platform_device *cpdev;
+	struct k3_r5_core *core, *temp;
+
+	list_for_each_entry_safe_reverse(core, temp, &cluster->cores, elem) {
+		list_del(&core->elem);
+		cpdev = to_platform_device(core->dev);
+		k3_r5_core_of_exit(cpdev);
+	}
 }
 
 static int k3_r5_cluster_of_init(struct platform_device *pdev)
 {
 	struct k3_r5_cluster *cluster = platform_get_drvdata(pdev);
 	struct device *dev = &pdev->dev;
-	struct device_node *np = dev->of_node;
+	struct device_node *np = dev_of_node(dev);
 	struct platform_device *cpdev;
 	struct device_node *child;
-	struct k3_r5_core *core, *temp;
+	struct k3_r5_core *core;
 	int ret;
 
 	for_each_available_child_of_node(np, child) {
@@ -1453,43 +1436,16 @@ static int k3_r5_cluster_of_init(struct platform_device *pdev)
 	return 0;
 
 fail:
-	list_for_each_entry_safe_reverse(core, temp, &cluster->cores, elem) {
-		list_del(&core->elem);
-		cpdev = to_platform_device(core->dev);
-		if (k3_r5_core_of_exit(cpdev))
-			dev_err(dev, "k3_r5_core_of_exit cleanup failed\n");
-	}
-	return ret;
-}
-
-static int k3_r5_cluster_of_exit(struct platform_device *pdev)
-{
-	struct k3_r5_cluster *cluster = platform_get_drvdata(pdev);
-	struct device *dev = &pdev->dev;
-	struct platform_device *cpdev;
-	struct k3_r5_core *core, *temp;
-	int ret;
-
-	list_for_each_entry_safe_reverse(core, temp, &cluster->cores, elem) {
-		list_del(&core->elem);
-		cpdev = to_platform_device(core->dev);
-		ret = k3_r5_core_of_exit(cpdev);
-		if (ret) {
-			dev_err(dev, "k3_r5_core_of_exit failed, ret = %d\n",
-				ret);
-			break;
-		}
-	}
-
+	k3_r5_cluster_of_exit(pdev);
 	return ret;
 }
 
 static int k3_r5_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
-	struct device_node *np = dev->of_node;
+	struct device_node *np = dev_of_node(dev);
 	struct k3_r5_cluster *cluster;
-	int ret, ret1;
+	int ret;
 	int num_cores;
 
 	cluster = devm_kzalloc(dev, sizeof(*cluster), GFP_KERNEL);
@@ -1516,60 +1472,39 @@ static int k3_r5_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, cluster);
 
-	dev_dbg(dev, "creating child devices for R5F cores\n");
-	ret = of_platform_populate(np, NULL, NULL, dev);
+	ret = devm_of_platform_populate(dev);
 	if (ret) {
-		dev_err(dev, "of_platform_populate failed, ret = %d\n", ret);
+		dev_err(dev, "devm_of_platform_populate failed, ret = %d\n",
+			ret);
 		return ret;
 	}
 
 	ret = k3_r5_cluster_of_init(pdev);
 	if (ret) {
 		dev_err(dev, "k3_r5_cluster_of_init failed, ret = %d\n", ret);
-		goto fail_of;
+		return ret;
 	}
+
+	ret = devm_add_action_or_reset(dev,
+				       (void(*)(void *))k3_r5_cluster_of_exit,
+				       pdev);
+	if (ret)
+		return ret;
 
 	ret = k3_r5_cluster_rproc_init(pdev);
 	if (ret) {
 		dev_err(dev, "k3_r5_cluster_rproc_init failed, ret = %d\n",
 			ret);
-		goto fail_rproc;
+		return ret;
 	}
+
+	ret = devm_add_action_or_reset(dev,
+				       (void(*)(void *))k3_r5_cluster_rproc_exit,
+				       pdev);
+	if (ret)
+		return ret;
 
 	return 0;
-
-fail_rproc:
-	ret1 = k3_r5_cluster_of_exit(pdev);
-	if (ret1)
-		dev_err(dev, "k3_r5_cluster_of_exit failed, ret = %d\n", ret1);
-fail_of:
-	of_platform_depopulate(dev);
-	return ret;
-}
-
-static int k3_r5_remove(struct platform_device *pdev)
-{
-	struct device *dev = &pdev->dev;
-	int ret;
-
-	ret = k3_r5_cluster_rproc_exit(pdev);
-	if (ret) {
-		dev_err(dev, "k3_r5_cluster_rproc_exit failed, ret = %d\n",
-			ret);
-		goto fail;
-	}
-
-	ret = k3_r5_cluster_of_exit(pdev);
-	if (ret) {
-		dev_err(dev, "k3_r5_cluster_of_exit failed, ret = %d\n", ret);
-		goto fail;
-	}
-
-	dev_dbg(dev, "removing child devices for R5F cores\n");
-	of_platform_depopulate(dev);
-
-fail:
-	return ret;
 }
 
 static const struct of_device_id k3_r5_of_match[] = {
@@ -1581,7 +1516,6 @@ MODULE_DEVICE_TABLE(of, k3_r5_of_match);
 
 static struct platform_driver k3_r5_rproc_driver = {
 	.probe = k3_r5_probe,
-	.remove = k3_r5_remove,
 	.driver = {
 		.name = "k3_r5_rproc",
 		.of_match_table = k3_r5_of_match,
