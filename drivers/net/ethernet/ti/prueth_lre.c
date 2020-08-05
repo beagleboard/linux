@@ -117,7 +117,7 @@ static u16 get_hash(u8 *mac, u16 hash_mask)
 	return hash;
 }
 
-void pru_spin_lock(struct node_tbl *nt)
+static void pru_spin_lock(struct node_tbl *nt)
 {
 	while (1) {
 		nt->nt_info->arm_lock = 1;
@@ -264,7 +264,7 @@ static void inc_time(u16 *t)
 		*t = ICSS_LRE_MAX_FORGET_TIME;
 }
 
-void node_table_update_time(struct node_tbl *nt)
+static void node_table_update_time(struct node_tbl *nt)
 {
 	int j;
 	u16 ofs;
@@ -467,7 +467,7 @@ static int node_table_insert_from_queue(struct node_tbl *nt,
 	return LRE_OK;
 }
 
-void node_table_check_and_remove(struct node_tbl *nt, u16 forget_time)
+static void node_table_check_and_remove(struct node_tbl *nt, u16 forget_time)
 {
 	int j, end_bin;
 	u16 node;
@@ -527,7 +527,7 @@ static int pop_queue(struct prueth *prueth, spinlock_t *lock)
 	return ret;
 }
 
-void pop_queue_process(struct prueth *prueth, spinlock_t *lock)
+static void pop_queue_process(struct prueth *prueth, spinlock_t *lock)
 {
 	while (pop_queue(prueth, lock) == 0)
 		;
