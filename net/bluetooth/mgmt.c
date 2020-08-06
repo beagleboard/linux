@@ -628,7 +628,8 @@ static u32 get_supported_settings(struct hci_dev *hdev)
 
 		if (lmp_ssp_capable(hdev)) {
 			settings |= MGMT_SETTING_SSP;
-			settings |= MGMT_SETTING_HS;
+			if (IS_ENABLED(CONFIG_BT_HS))
+				settings |= MGMT_SETTING_HS;
 		}
 
 		if (lmp_sc_capable(hdev))
@@ -2280,6 +2281,10 @@ static int set_link_security(struct sock *sk, struct hci_dev *hdev, void *data,
 	int err;
 
 	BT_DBG("request for %s", hdev->name);
+
+	if (!IS_ENABLED(CONFIG_BT_HS))
+		return mgmt_cmd_status(sk, hdev->id, MGMT_OP_SET_HS,
+				       MGMT_STATUS_NOT_SUPPORTED);
 
 	status = mgmt_bredr_support(hdev);
 	if (status)
