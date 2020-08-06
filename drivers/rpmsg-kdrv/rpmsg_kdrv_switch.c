@@ -123,7 +123,7 @@ rpmsg_kdrv_switch_attach(struct rpmsg_remotedev *rdev,
 	}
 
 	req->header.message_type = RPMSG_KDRV_TP_ETHSWITCH_ATTACH;
-	req->cpsw_type = RPMSG_KDRV_TP_ETHSWITCH_CPSWTYPE_9G;
+	req->cpsw_type = RPMSG_KDRV_TP_ETHSWITCH_CPSWTYPE_MAIN_CPSW;
 
 	ret = rpmsg_kdrv_send_request_with_response(rpdev, kddev->device_id,
 						    req, sizeof(*req),
@@ -183,7 +183,7 @@ rpmsg_kdrv_switch_attach_ext(struct rpmsg_remotedev *rdev,
 	}
 
 	req->header.message_type = RPMSG_KDRV_TP_ETHSWITCH_ATTACH_EXT;
-	req->cpsw_type = RPMSG_KDRV_TP_ETHSWITCH_CPSWTYPE_9G;
+	req->cpsw_type = RPMSG_KDRV_TP_ETHSWITCH_CPSWTYPE_MAIN_CPSW;
 
 	ret = rpmsg_kdrv_send_request_with_response(rpdev, kddev->device_id,
 						    req, sizeof(*req),
