@@ -27,6 +27,7 @@
 		interrupt-parent = <&pruss_intc>;
 		mii-rt = <&pruss_mii_rt>;
 		iep = <&pruss_iep>;
+		ecap = <&pruss_ecap>;
 		pinctrl-0 = <&pruss_eth_default>;
 		pinctrl-names = "default";
 		interrupts = <20>, <21>;
