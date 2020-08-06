@@ -283,6 +283,7 @@ static void sdhci_am654_set_power(struct sdhci_host *host, unsigned char mode,
 	sdhci_set_power_noreg(host, mode, vdd);
 }
 
+#define MAX_POWER_ON_TIMEOUT	1500 /* ms */
 static void sdhci_am654_write_b(struct sdhci_host *host, u8 val, int reg)
 {
 	unsigned char timing = host->mmc->ios.timing;
@@ -302,6 +303,26 @@ static void sdhci_am654_write_b(struct sdhci_host *host, u8 val, int reg)
 	}
 
 	writeb(val, host->ioaddr + reg);
+	if (reg == SDHCI_POWER_CONTROL && (val & SDHCI_POWER_ON)) {
+		/*
+		 * Power on will not happen until the card detect debounce
+		 * timer expires. Wait at least 1.5 seconds for the power on
+		 * bit to be set
+		 */
+		ktime_t timeout = ktime_add_ms(ktime_get(),
+					       MAX_POWER_ON_TIMEOUT);
+		do {
+			if (ktime_compare(ktime_get(), timeout) > 0) {
+				dev_warn(mmc_dev(host->mmc),
+					 "Power on failed\n");
+
+				return;
+			}
+
+			writeb(val, host->ioaddr + reg);
+			usleep_range(1000, 10000);
+		} while (!(readb(host->ioaddr + reg) & SDHCI_POWER_ON));
+	}
 }
 
 static int sdhci_am654_execute_tuning(struct mmc_host *mmc, u32 opcode)
