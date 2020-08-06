@@ -184,6 +184,7 @@
 		interrupt-parent = <&pruss1_intc>;
 		mii-rt = <&pruss1_mii_rt>;
 		iep = <&pruss1_iep>;
+		ecap = <&pruss1_ecap>;
 
 		pinctrl-0 = <&pruss1_eth_default>;
 		pinctrl-names = "default";

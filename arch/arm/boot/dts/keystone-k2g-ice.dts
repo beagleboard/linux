@@ -240,6 +240,7 @@
 		interrupt-parent = <&pruss0_intc>;
 		mii-rt = <&pruss0_mii_rt>;
 		iep = <&pruss0_iep>;
+		ecap = <&pruss0_ecap>;
 
 		pruss0_emac0: ethernet-mii0 {
 			phy-handle = <&pruss0_eth0_phy>;
@@ -272,6 +273,7 @@
 		interrupt-parent = <&pruss1_intc>;
 		mii-rt = <&pruss1_mii_rt>;
 		iep = <&pruss1_iep>;
+		ecap = <&pruss1_ecap>;
 
 		pruss1_emac0: ethernet-mii0 {
 			phy-handle = <&pruss1_eth0_phy>;

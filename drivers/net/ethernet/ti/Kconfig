@@ -172,6 +172,15 @@ config TI_ICSS_IEP
 	  This enables support for the PRU-ICSS Industrial Ethernet Peripheral
 	  within a PRU-ICSS subsystem present on various TI SoCs.
 
+config TI_PRUETH_ECAP
+	tristate "TI PRUETH ECAP driver"
+	depends on TI_PRUSS
+	default TI_PRUSS
+	help
+	  This enables support for the PRU-ICSS Enhanced Capture (eCAP) driver
+	  used for rx interrupt pacing support in PRU Driver/firmwares
+	  (Dual EMAC, HSR, PRP).
+
 config TI_ICSSG_PRUETH
 	tristate "TI Gigabit PRU Ethernet driver"
 	select TI_DAVINCI_MDIO

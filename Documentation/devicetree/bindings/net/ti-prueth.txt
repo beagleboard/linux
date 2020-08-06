@@ -23,6 +23,7 @@ on the platform:-
 - interrupts       : should contain an array of PRUSS system event
 		     numbers used as the interrupt sources for
 		     rx_lre_hp and rx_lre_lp interrupts respectively
+- ecap		   : pHandle to the eCAP module's node
 
 Must contain children, one for each of the MAC ports.
 Children must be named ethernet-mii0 and ethernet-mii1.
@@ -62,6 +63,7 @@ Example (am572x-idk board, dual-emac):
 		interrupt-parent = <&pruss2_intc>;
 		mii-rt = <&pruss2_mii_rt>;
 		iep = <&pruss2_iep>;
+		ecap = <&pruss2_ecap>;
 
 		pruss2_emac0: ethernet-mii0 {
 			phy-handle = <&pruss2_eth0_phy>;
@@ -91,6 +93,7 @@ Example (am572x-idk board, single-emac):
 		interrupt-parent = <&pruss2_intc>;
 		mii-rt = <&pruss2_mii_rt>;
 		iep = <&pruss2_iep>;
+		ecap = <&pruss2_ecap>;
 
 		pruss2_emac1: ethernet-mii1 {
 			phy-handle = <&pruss2_eth1_phy>;

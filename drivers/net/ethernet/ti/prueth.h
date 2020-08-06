@@ -430,6 +430,7 @@ struct prueth {
 	struct gen_pool *sram_pool;
 	struct regmap *mii_rt;
 	struct icss_iep *iep;
+	struct prueth_ecap *ecap;
 	struct hrtimer tbl_check_timer;
 	const struct prueth_private_data *fw_data;
 	struct prueth_fw_offsets *fw_offsets;
