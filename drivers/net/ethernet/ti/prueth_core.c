@@ -1777,7 +1777,8 @@ static int emac_ndo_stop(struct net_device *ndev)
 	 */
 	if (PRUETH_IS_EMAC(emac->prueth) || PRUETH_IS_SWITCH(prueth)) {
 		free_irq(emac->rx_irq, ndev);
-		free_irq(emac->emac_ptp_tx_irq, ndev);
+		if (emac->emac_ptp_tx_irq)
+			free_irq(emac->emac_ptp_tx_irq, ndev);
 		prueth_ptp_tx_ts_enable(emac, 0);
 		prueth_ptp_rx_ts_enable(emac, 0);
 		for (i = 0; i < PRUETH_PTP_TS_EVENTS; i++) {
