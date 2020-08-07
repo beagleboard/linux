@@ -377,13 +377,13 @@
 		};
 	};
 
-	main_crypto: crypto@4E00000 {
+	main_crypto: crypto@4e00000 {
 		compatible = "ti,j721e-sa2ul";
-		reg = <0x0 0x4E00000 0x0 0x1200>;
+		reg = <0x0 0x4e00000 0x0 0x1200>;
 		power-domains = <&k3_pds 264 TI_SCI_PD_EXCLUSIVE>;
 		#address-cells = <2>;
 		#size-cells = <2>;
-		ranges = <0x0 0x04E00000 0x00 0x04E00000 0x0 0x30000>;
+		ranges = <0x0 0x04e00000 0x00 0x04e00000 0x0 0x30000>;
 
 		status = "okay";
 

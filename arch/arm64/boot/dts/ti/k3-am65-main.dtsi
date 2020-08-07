@@ -112,16 +112,16 @@
 		power-domains = <&k3_pds 148 TI_SCI_PD_EXCLUSIVE>;
 	};
 
-	crypto: crypto@4E00000 {
+	crypto: crypto@4e00000 {
 		compatible = "ti,sa2ul-crypto";
 		label = "crypto-aes-gbe";
-		reg = <0x0 0x4E00000 0x0 0x1200>;
+		reg = <0x0 0x4e00000 0x0 0x1200>;
 		power-domains = <&k3_pds 136 TI_SCI_PD_EXCLUSIVE>;
 		clocks = <&k3_clks 136 0>, <&k3_clks 136 1>, <&k3_clks 136 2>;
 		clock-names = "x2_clk", "pka_in_clk", "x1_clk";
 		#address-cells = <2>;
 		#size-cells = <2>;
-		ranges = <0x0 0x04E00000 0x00 0x04E00000 0x0 0x30000>;
+		ranges = <0x0 0x04e00000 0x00 0x04e00000 0x0 0x30000>;
 		status = "okay";
 
 		dmas = <&main_udmap 0xc000>, <&main_udmap 0x4000>,
