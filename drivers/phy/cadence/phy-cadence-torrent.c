@@ -1747,9 +1747,6 @@ static int cdns_torrent_phy_probe(struct platform_device *pdev)
 	if (subnodes == 0) {
 		dev_err(dev, "No available link subnodes found\n");
 		return -EINVAL;
-	} else if (subnodes != 1) {
-		dev_err(dev, "Driver supports only one link subnode.\n");
-		return -EINVAL;
 	}
 
 	for_each_available_child_of_node(dev->of_node, child) {
@@ -1767,14 +1764,6 @@ static int cdns_torrent_phy_probe(struct platform_device *pdev)
 		if (of_property_read_u32(child, "reg",
 					 &cdns_phy->phys[node].mlane)) {
 			dev_err(dev, "%s: No \"reg\"-property.\n",
-				child->full_name);
-			ret = -EINVAL;
-			goto put_child;
-		}
-
-		if (cdns_phy->phys[node].mlane != 0) {
-			dev_err(dev,
-				"%s: Driver supports only lane-0 as master lane.\n",
 				child->full_name);
 			ret = -EINVAL;
 			goto put_child;
@@ -1852,10 +1841,6 @@ static int cdns_torrent_phy_probe(struct platform_device *pdev)
 			torrent_attr.mode = PHY_MODE_DP;
 
 			phy_set_attrs(gphy, torrent_attr);
-		} else {
-			dev_err(dev, "Driver supports only PHY_TYPE_DP\n");
-			ret = -ENOTSUPP;
-			goto put_child;
 		}
 		cdns_phy->phys[node].phy = gphy;
 		phy_set_drvdata(gphy, &cdns_phy->phys[node]);
