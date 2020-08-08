@@ -334,3 +334,9 @@
 	ti,driver-strength-ohm = <50>;
 	disable-wp;
 };
+
+&tscadc0 {
+	adc {
+		ti,adc-channels = <0 1 2 3 4 5 6 7>;
+	};
+};
