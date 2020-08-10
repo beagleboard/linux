@@ -32,11 +32,21 @@ struct hsr_frame_info {
 	struct skb_redundant_info *sred;
 };
 
-static inline int is_hsr_l2ptp(struct sk_buff *skb)
+static inline struct hsr_ethhdr *hsr_get_ethhdr(struct sk_buff *skb, struct hsr_frame_info *frame)
 {
-	struct hsr_ethhdr *hsr_ethhdr;
+	u8 *hdr;
 
-	hsr_ethhdr = (struct hsr_ethhdr *)skb_mac_header(skb);
+	hdr = skb_mac_header(skb);
+	if (frame->is_vlan)
+		return (struct hsr_ethhdr *)(hdr + VLAN_HLEN);
+	else
+		return (struct hsr_ethhdr *)hdr;
+
+}
+
+static inline int is_hsr_l2ptp(struct sk_buff *skb, struct hsr_frame_info *frame)
+{
+	struct hsr_ethhdr *hsr_ethhdr = hsr_get_ethhdr(skb, frame);
 
 	return (hsr_ethhdr->ethhdr.h_proto == htons(ETH_P_HSR) &&
 		hsr_ethhdr->hsr_tag.encap_proto == htons(ETH_P_1588));
@@ -346,10 +356,9 @@ static struct sk_buff *create_tagged_skb(struct sk_buff *skb_o,
 	skb->sk = skb_o->sk;
 
 	/* TODO: should check socket option instead? */
-	if (is_hsr_l2ptp(skb)) {
+	if (is_hsr_l2ptp(skb, frame)) {
 		sred = skb_redinfo(skb);
-		/* assumes no vlan */
-		hsr_ethhdr = (struct hsr_ethhdr *)skb_mac_header(skb);
+		hsr_ethhdr = hsr_get_ethhdr(skb, frame);
 		sred->io_port = (PTP_EVT_OUT | BIT(port->type - 1));
 		sred->ethertype = ntohs(hsr_ethhdr->ethhdr.h_proto);
 		s = ntohs(hsr_ethhdr->hsr_tag.path_and_LSDU_size);
@@ -473,14 +482,13 @@ static void stripped_skb_get_shared_info(struct sk_buff *skb_stripped,
 	skb_hsr = frame->skb_hsr;
 	skb = skb_stripped;
 
-	if (is_hsr_l2ptp(skb_hsr)) {
+	if (is_hsr_l2ptp(skb_hsr, frame)) {
 		skb_hwtstamps(skb)->hwtstamp = skb_hwtstamps(skb_hsr)->hwtstamp;
 		skb_redinfo_hwtstamps(skb)->hwtstamp =
 			skb_redinfo_hwtstamps(skb_hsr)->hwtstamp;
 
 		sred = skb_redinfo(skb);
-		/* assumes no vlan */
-		hsr_ethhdr = (struct hsr_ethhdr *)skb_mac_header(skb_hsr);
+		hsr_ethhdr = hsr_get_ethhdr(skb, frame);
 		sred->io_port = (PTP_MSG_IN | BIT(port_rcv->type - 1));
 		sred->ethertype = ntohs(hsr_ethhdr->ethhdr.h_proto);
 		s = ntohs(hsr_ethhdr->hsr_tag.path_and_LSDU_size);

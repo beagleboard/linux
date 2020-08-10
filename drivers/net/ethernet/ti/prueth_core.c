@@ -753,18 +753,19 @@ static irqreturn_t emac_rx_hardirq(int irq, void *dev_id)
 
 static u8 prueth_ptp_ts_event_type(struct sk_buff *skb)
 {
+	struct skb_redundant_info *sred = skb_redinfo(skb);
 	u8 *msgtype, *data, event_type, changed = 0;
 	unsigned int offset = 0, ptp_class;
 	u16 *seqid;
 
-	if (eth_hdr(skb)->h_proto == htons(ETH_P_HSR)) {
-		/* This 6-byte shift is just a trick to skip
-		 * the size of a hsr tag so that the same
-		 * pruptp_ts_msgtype can be re-used to parse
-		 * hsr tagged skbs
-		 */
-		skb->data += 6;
-		changed = 6;
+	if (skb_vlan_tagged(skb)) {
+		__skb_pull(skb, VLAN_HLEN);
+		changed += VLAN_HLEN;
+	}
+
+	if (sred && (sred->ethertype == ETH_P_HSR)) {
+		__skb_pull(skb, ICSS_LRE_TAG_RCT_SIZE);
+		changed += ICSS_LRE_TAG_RCT_SIZE;
 	}
 
 	ptp_class = ptp_classify_raw(skb);
@@ -824,7 +825,7 @@ static u8 prueth_ptp_ts_event_type(struct sk_buff *skb)
 	}
 
 exit:
-	skb->data -= changed;
+	__skb_push(skb, changed);
 
 	return event_type;
 }
@@ -1252,7 +1253,6 @@ int emac_rx_packet(struct prueth_emac *emac, u16 *bd_rd_ptr,
 		ptr = nt_dst_addr + PRUETH_ETH_TYPE_OFFSET;
 		type = (*ptr++) << PRUETH_ETH_TYPE_UPPER_SHIFT;
 		type |= *ptr++;
-		eth_hdr(skb)->h_proto = htons(type);
 		if (type == ETH_P_8021Q)
 			offset = 4;
 	}
@@ -1769,6 +1769,17 @@ static int emac_ndo_stop(struct net_device *ndev)
 	if (!prueth->emac_configured)
 		icss_iep_exit(prueth->iep);
 
+	/* Cleanup ptp related stuff for all protocols */
+	prueth_ptp_tx_ts_enable(emac, 0);
+	prueth_ptp_rx_ts_enable(emac, 0);
+	for (i = 0; i < PRUETH_PTP_TS_EVENTS; i++) {
+		if (emac->ptp_skb[i]) {
+			prueth_ptp_tx_ts_reset(emac, i);
+			dev_consume_skb_any(emac->ptp_skb[i]);
+			emac->ptp_skb[i] = NULL;
+		}
+	}
+
 	/* free rx and tx interrupts */
 	if (PRUETH_IS_EMAC(emac->prueth) && emac->tx_irq > 0)
 		free_irq(emac->tx_irq, ndev);
@@ -1777,17 +1788,12 @@ static int emac_ndo_stop(struct net_device *ndev)
 	 */
 	if (PRUETH_IS_EMAC(emac->prueth) || PRUETH_IS_SWITCH(prueth)) {
 		free_irq(emac->rx_irq, ndev);
-		free_irq(emac->emac_ptp_tx_irq, ndev);
-		prueth_ptp_tx_ts_enable(emac, 0);
-		prueth_ptp_rx_ts_enable(emac, 0);
-		for (i = 0; i < PRUETH_PTP_TS_EVENTS; i++) {
-			if (emac->ptp_skb[i]) {
-				prueth_ptp_tx_ts_reset(emac, i);
-				dev_consume_skb_any(emac->ptp_skb[i]);
-				emac->ptp_skb[i] = NULL;
-			}
-		}
+		if (emac->emac_ptp_tx_irq)
+			free_irq(emac->emac_ptp_tx_irq, ndev);
 	} else {
+		if (emac->hsr_ptp_tx_irq)
+			free_irq(emac->hsr_ptp_tx_irq, emac->ndev);
+
 		/* Free interrupts on last port */
 		prueth_lre_free_irqs(emac);
 	}
