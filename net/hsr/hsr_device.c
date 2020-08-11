@@ -686,7 +686,7 @@ static int hsr_ndo_vlan_rx_add_vid(struct net_device *dev,
 			break;
 		default:
 			break;
-		};
+		}
 	}
 err:
 	rcu_read_unlock();
@@ -738,7 +738,7 @@ static int hsr_ndo_vlan_rx_kill_vid(struct net_device *dev,
 			break;
 		default:
 			break;
-		};
+		}
 	}
 	rcu_read_unlock();
 

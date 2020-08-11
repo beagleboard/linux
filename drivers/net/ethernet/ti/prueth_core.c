@@ -1458,7 +1458,7 @@ static void emac_set_stats(struct prueth_emac *emac,
 
 /**
  * emac_napi_poll - EMAC NAPI Poll function
- * @ndev: EMAC network adapter
+ * @napi: ptr to napi instance associated with the emac
  * @budget: Number of receive packets to process (as told by NAPI layer)
  *
  * NAPI Poll function implemented to process packets as per budget. We check
@@ -1748,6 +1748,8 @@ static int emac_ndo_stop(struct net_device *ndev)
 		/* HSR/PRP. Disable NAPI when last port is down */
 		if (!prueth->emac_configured) {
 			hrtimer_cancel(&prueth->tbl_check_timer);
+			kthread_cancel_work_sync(&prueth->nt_work);
+			kthread_destroy_worker(prueth->nt_kworker);
 			napi_disable(&prueth->napi_lpq);
 			napi_disable(&prueth->napi_hpq);
 		}
@@ -2358,6 +2360,7 @@ static int emac_get_port_parent_id(struct net_device *dev,
 /**
  * emac_ndo_set_features - function to set feature flag
  * @ndev: The network adapter device
+ * @features: feature flags in the netdevice
  *
  * Called when ethtool -K option is invoked by user
  *
@@ -2921,8 +2924,10 @@ static int prueth_netdev_init(struct prueth *prueth,
 
 	ndev->netdev_ops = &emac_netdev_ops;
 	ndev->ethtool_ops = &emac_ethtool_ops;
+#if (IS_ENABLED(CONFIG_HSR))
 	if (prueth->support_lre)
 		ndev->lredev_ops = &prueth_lredev_ops;
+#endif
 
 	if (PRUETH_IS_EMAC(prueth) || PRUETH_IS_SWITCH(prueth))
 		netif_napi_add(ndev, &emac->napi, emac_napi_poll,
