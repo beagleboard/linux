@@ -6,6 +6,7 @@
 /dts-v1/;
 
 #include "k3-j7200-som-p0.dtsi"
+#include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/mux/mux-j7200-wiz.h>
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/mux/mux-j7200-wiz.h>
@@ -410,4 +411,18 @@
 		cdns,phy-type = <PHY_TYPE_QSGMII>;
 		resets = <&serdes_wiz0 3>;
 	};
+};
+
+&pcie1_rc {
+	reset-gpios = <&exp1 2 GPIO_ACTIVE_HIGH>;
+	phys = <&serdes0_pcie_link>;
+	phy-names = "pcie_phy";
+	num-lanes = <2>;
+};
+
+&pcie1_ep {
+	phys = <&serdes0_pcie_link>;
+	phy-names = "pcie_phy";
+	num-lanes = <2>;
+	status = "disabled";
 };
