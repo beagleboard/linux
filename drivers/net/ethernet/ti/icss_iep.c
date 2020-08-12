@@ -515,7 +515,7 @@ EXPORT_SYMBOL_GPL(icss_iep_exit);
 
 static const struct of_device_id icss_iep_of_match[];
 
-int icss_iep_probe(struct platform_device *pdev)
+static int icss_iep_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct icss_iep *iep;
