@@ -472,16 +472,6 @@
 		power-domains = <&k3_pds 193 TI_SCI_PD_EXCLUSIVE>;
 	};
 
-	timesync_router: timesync_router@a40000 {
-		compatible = "pinctrl-single";
-		reg = <0x0 0xa40000 0x0 0x800>;
-		#address-cells = <1>;
-		#size-cells = <0>;
-		#pinctrl-cells = <1>;
-		pinctrl-single,register-width = <32>;
-		pinctrl-single,function-mask = <0x000107ff>;
-	};
-
 	main_r5fss0: r5fss@5c00000 {
 		compatible = "ti,j7200-r5fss";
 		lockstep-mode = <0>;

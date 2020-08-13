@@ -1601,16 +1601,6 @@
 		status = "disabled";
 	};
 
-	timesync_router: timesync_router@A40000 {
-		compatible = "pinctrl-single";
-		reg = <0x0 0xa40000 0x0 0x800>;
-		#address-cells = <1>;
-		#size-cells = <0>;
-		#pinctrl-cells = <1>;
-		pinctrl-single,register-width = <32>;
-		pinctrl-single,function-mask = <0x000107ff>;
-	};
-
 	main_sdhci0: sdhci@4f80000 {
 		compatible = "ti,j721e-sdhci-8bit";
 		reg = <0x0 0x4f80000 0x0 0x1000>, <0x0 0x4f88000 0x0 0x400>;
