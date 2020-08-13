@@ -172,5 +172,9 @@
 		cdns,phy-mode;
 		#address-cells = <1>;
 		#size-cells = <1>;
+		partition@3fc0000 {
+			label = "ospi.phypattern";
+			reg = <0x3fc0000 0x40000>;
+		};
 	};
 };
