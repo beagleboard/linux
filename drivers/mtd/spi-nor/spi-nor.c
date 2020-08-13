@@ -5561,6 +5561,7 @@ int spi_nor_scan(struct spi_nor *nor, const char *name,
 	struct device *dev = nor->dev;
 	struct mtd_info *mtd = &nor->mtd;
 	struct device_node *np = spi_nor_get_flash_node(nor);
+	struct device_node *child;
 	struct spi_nor_flash_parameter *params = &nor->params;
 	struct spi_mem_op op;
 	int ret;
@@ -5688,8 +5689,40 @@ int spi_nor_scan(struct spi_nor *nor, const char *name,
 	if (ret)
 		return ret;
 
-	op = spi_nor_spimem_read_op(nor);
-	spi_mem_set_calibration_read_op(nor->spimem, &op);
+	/*
+	 * Find out if a PHY pattern partition is present.
+	 *
+	 * TODO: Teach the mtd core to find the partition for us so we don't
+	 * have to repeat the parsing logic here that mtd already has.
+	 */
+	child = NULL;
+	do {
+		int len;
+		char *label = NULL;
+
+		child = of_get_next_child(np, child);
+		if (child)
+			label = (char *)of_get_property(child, "label", &len);
+
+		if (label && !strcmp(label, "ospi.phypattern")) {
+			const __be32 *reg;
+			int a_cells, s_cells;
+
+			reg = of_get_property(child, "reg", &len);
+			if (!reg)
+				continue;
+
+			a_cells = of_n_addr_cells(child);
+			s_cells = of_n_size_cells(child);
+			if (len / 4 != a_cells + s_cells)
+				continue;
+
+			op = spi_nor_spimem_read_op(nor);
+			op.addr.val = of_read_number(reg, a_cells);
+			spi_mem_set_calibration_read_op(nor->spimem, &op);
+			break;
+		}
+	} while (child);
 
 	dev_info(dev, "%s (%lld Kbytes)\n", info->name,
 			(long long)mtd->size >> 10);
