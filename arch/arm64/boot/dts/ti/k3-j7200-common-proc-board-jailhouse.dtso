@@ -1,0 +1,48 @@
+// SPDX-License-Identifier: GPL-2.0
+/**
+ * Overlay for runnning Jailhouse hypervisor
+ * on k3-j7200-evm board
+ *
+ * Copyright (C) 2020 Texas Instruments Incorporated - https://www.ti.com/
+ *
+ * Authors:
+ *  Nikhil Devshatwar <nikhil.nd@ti.com>
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/soc/ti,sci_pm_domain.h>
+#include <dt-bindings/pinctrl/k3.h>
+#include <dt-bindings/gpio/gpio.h>
+
+/dts-v1/;
+/plugin/;
+
+&reserved_memory {
+	#address-cells = <2>;
+	#size-cells = <2>;
+
+	/* Reserved for Jailhouse, IVSHMEM, baremetal apps */
+	hyp_mem: jailhouse@89fa00000 {
+		reg = <0x8 0x9fa00000 0x0 0x600000>;
+		alignment = <0x1000>;
+		no-map;
+	};
+
+	/* Reserved for Linux inmate */
+	inmate_mem: inmate@8a0000000 {
+		reg = <0x8 0xa0000000 0x0 0x60000000>;
+		alignment = <0x1000>;
+		no-map;
+	};
+};
+
+&main_uart1 {
+	status = "disabled";
+};
+
+&main_sdhci0 {
+	status = "disabled";
+};

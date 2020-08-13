@@ -26,4 +26,5 @@ dtb-$(CONFIG_ARCH_K3_J721E_SOC) += k3-j721e-common-proc-board.dtb \
 				   k3-j7200-common-proc-board.dtb \
 				   k3-j721e-common-proc-board-infotainment.dtbo \
 				   k3-j721e-pcie-backplane.dtbo \
-				   k3-j721e-common-proc-board-jailhouse.dtbo
+				   k3-j721e-common-proc-board-jailhouse.dtbo \
+				   k3-j7200-common-proc-board-jailhouse.dtbo
