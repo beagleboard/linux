@@ -7,6 +7,7 @@
 
 #include "k3-j7200-som-p0.dtsi"
 #include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/mux/mux-j7200-wiz.h>
 #include <dt-bindings/net/ti-dp83867.h>
 
 / {
@@ -364,4 +365,9 @@
 &usb0 {
 	dr_mode = "otg";
 	maximum-speed = "high-speed";
+};
+
+&serdes_ln_ctrl {
+	idle-states = <SERDES0_LANE0_PCIE1_LANE0>, <SERDES0_LANE1_PCIE1_LANE1>,
+		      <SERDES0_LANE2_QSGMII_LANE1>, <SERDES0_LANE3_IP4_UNUSED>;
 };
