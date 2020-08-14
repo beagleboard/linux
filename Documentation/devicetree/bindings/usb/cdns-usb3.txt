@@ -29,6 +29,8 @@ Optional properties:
  - cdns,on-chip-buff-size : size of memory intended as internal memory for endpoints
 	buffers expressed in KB
 
+ - cdns,phyrst-a-enable: Enable resetting of PHY if Rx fail is detected
+
 Example:
 	usb@f3000000 {
 		compatible = "cdns,usb3";
