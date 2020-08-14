@@ -91,7 +91,7 @@ struct gpio_desc *of_get_named_gpiod_flags(struct device_node *np,
 					 &gg_data.gpiospec);
 	if (ret) {
 		pr_debug("%s: can't parse '%s' property of node '%s[%d]'\n",
-			__func__, propname, np->full_name, index);
+			__func__, propname, np ? np->full_name : NULL, index);
 		return ERR_PTR(ret);
 	}
 
