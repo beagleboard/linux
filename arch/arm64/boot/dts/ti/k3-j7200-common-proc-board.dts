@@ -377,6 +377,7 @@
 &serdes_ln_ctrl {
 	idle-states = <SERDES0_LANE0_PCIE1_LANE0>, <SERDES0_LANE1_PCIE1_LANE1>,
 		      <SERDES0_LANE2_QSGMII_LANE1>, <SERDES0_LANE3_IP4_UNUSED>;
+	status = "disabled";
 };
 
 &usbss0 {
@@ -393,6 +394,10 @@
 
 &dummy_cmn_refclk {
 	clock-frequency = <100000000>;
+};
+
+&serdes_wiz0 {
+	status = "disabled";
 };
 
 &serdes0 {
@@ -418,6 +423,7 @@
 	phys = <&serdes0_pcie_link>;
 	phy-names = "pcie_phy";
 	num-lanes = <2>;
+	status = "disabled";
 };
 
 &pcie1_ep {
