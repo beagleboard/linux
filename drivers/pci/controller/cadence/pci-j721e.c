@@ -28,6 +28,10 @@
 #define STATUS_CLR_REG_SYS_0	0x700
 #define INTx_EN(num)		(1 << (num))
 
+#define ENABLE_REG_SYS_1	0x104
+#define STATUS_REG_SYS_1	0x504
+#define SYS1_INTx_EN(num)	(1 << (22 + (num)))
+
 #define J721E_PCIE_USER_CMD_STATUS	0x4
 #define LINK_TRAINING_ENABLE		BIT(0)
 
@@ -39,6 +43,14 @@ enum link_status {
 	LINK_TRAINING_IN_PROGRESS,
 	LINK_UP_DL_IN_PROGRESS,
 	LINK_UP_DL_COMPLETED,
+};
+
+#define USER_EOI_REG		0xC8
+enum eoi_reg {
+	EOI_DOWNSTREAM_INTERRUPT,
+	EOI_FLR_INTERRUPT,
+	EOI_LEGACY_INTERRUPT,
+	EOI_POWER_STATE_INTERRUPT,
 };
 
 #define J721E_MODE_RC			BIT(7)
@@ -58,6 +70,7 @@ struct j721e_pcie {
 	void __iomem		*user_cfg_base;
 	void __iomem		*intd_cfg_base;
 	struct irq_domain	*legacy_irq_domain;
+	bool			is_intc_v1;
 };
 
 enum j721e_pcie_mode {
@@ -67,6 +80,9 @@ enum j721e_pcie_mode {
 
 struct j721e_pcie_data {
 	enum j721e_pcie_mode	mode;
+	bool			is_intc_v1;
+	bool			byte_access_allowed;
+	const struct cdns_pcie_ops *ops;
 };
 
 static inline u32 j721e_pcie_user_readl(struct j721e_pcie *pcie, u32 offset)
@@ -92,6 +108,30 @@ static inline void j721e_pcie_intd_writel(struct j721e_pcie *pcie, u32 offset,
 }
 
 static void j721e_pcie_legacy_irq_handler(struct irq_desc *desc)
+{
+	struct j721e_pcie *pcie = irq_desc_get_handler_data(desc);
+	struct irq_chip *chip = irq_desc_get_chip(desc);
+	int virq;
+	u32 reg;
+	int i;
+
+	chained_irq_enter(chip, desc);
+
+	for (i = 0; i < PCI_NUM_INTX; i++) {
+		reg = j721e_pcie_intd_readl(pcie, STATUS_REG_SYS_1);
+		if (!(reg & SYS1_INTx_EN(i)))
+			continue;
+
+		virq = irq_find_mapping(pcie->legacy_irq_domain, i);
+		generic_handle_irq(virq);
+		j721e_pcie_user_writel(pcie, USER_EOI_REG,
+				       EOI_LEGACY_INTERRUPT);
+	}
+
+	chained_irq_exit(chip, desc);
+}
+
+static void j721e_pcie_v1_legacy_irq_handler(struct irq_desc *desc)
 {
 	int i;
 	u32 reg;
@@ -149,8 +189,14 @@ static int j721e_pcie_config_legacy_irq(struct j721e_pcie *pcie)
 		dev_err(dev, "Failed to parse and map legacy irq\n");
 		return -EINVAL;
 	}
-	irq_set_chained_handler_and_data(irq, j721e_pcie_legacy_irq_handler,
-					 pcie);
+
+	if (pcie->is_intc_v1) {
+		irq_set_chained_handler_and_data(irq, j721e_pcie_v1_legacy_irq_handler,
+						 pcie);
+	} else {
+		irq_set_chained_handler_and_data(irq, j721e_pcie_legacy_irq_handler,
+						 pcie);
+	}
 
 	legacy_irq_domain = irq_domain_add_linear(intc_node, PCI_NUM_INTX,
 						  &j721e_pcie_intx_domain_ops,
@@ -161,10 +207,18 @@ static int j721e_pcie_config_legacy_irq(struct j721e_pcie *pcie)
 	}
 	pcie->legacy_irq_domain = legacy_irq_domain;
 
-	for (i = 0; i < PCI_NUM_INTX; i++) {
-		reg = j721e_pcie_intd_readl(pcie, ENABLE_REG_SYS_0);
-		reg |= INTx_EN(i);
-		j721e_pcie_intd_writel(pcie, ENABLE_REG_SYS_0, reg);
+	if (pcie->is_intc_v1) {
+		for (i = 0; i < PCI_NUM_INTX; i++) {
+			reg = j721e_pcie_intd_readl(pcie, ENABLE_REG_SYS_0);
+			reg |= INTx_EN(i);
+			j721e_pcie_intd_writel(pcie, ENABLE_REG_SYS_0, reg);
+		}
+	} else {
+		for (i = 0; i < PCI_NUM_INTX; i++) {
+			reg = j721e_pcie_intd_readl(pcie, ENABLE_REG_SYS_1);
+			reg |= SYS1_INTx_EN(i);
+			j721e_pcie_intd_writel(pcie, ENABLE_REG_SYS_1, reg);
+		}
 	}
 
 	return 0;
@@ -205,9 +259,15 @@ static bool j721e_pcie_link_up(struct cdns_pcie *cdns_pcie)
 	return false;
 }
 
-static const struct cdns_pcie_ops j721e_ops_ops = {
+static const struct cdns_pcie_ops j721e_pcie_ops = {
 	.read = cdns_platform_pcie_read32,
 	.write = cdns_platform_pcie_write32,
+	.start_link = j721e_pcie_start_link,
+	.stop_link = j721e_pcie_stop_link,
+	.link_up = j721e_pcie_link_up,
+};
+
+static const struct cdns_pcie_ops j7200_pcie_ops = {
 	.start_link = j721e_pcie_start_link,
 	.stop_link = j721e_pcie_stop_link,
 	.link_up = j721e_pcie_link_up,
@@ -338,10 +398,21 @@ static struct pci_ops cdns_ti_pcie_host_ops = {
 
 static const struct j721e_pcie_data j721e_pcie_rc_data = {
 	.mode = PCI_MODE_RC,
+	.is_intc_v1 = true,
+	.byte_access_allowed = false,
+	.ops = &j721e_pcie_ops,
 };
 
 static const struct j721e_pcie_data j721e_pcie_ep_data = {
 	.mode = PCI_MODE_EP,
+	.ops = &j721e_pcie_ops,
+};
+
+static const struct j721e_pcie_data j7200_pcie_rc_data = {
+	.mode = PCI_MODE_RC,
+	.is_intc_v1 = false,
+	.byte_access_allowed = true,
+	.ops = &j7200_pcie_ops,
 };
 
 static const struct of_device_id of_j721e_pcie_match[] = {
@@ -353,6 +424,10 @@ static const struct of_device_id of_j721e_pcie_match[] = {
 		.compatible = "ti,j721e-pcie-ep",
 		.data = &j721e_pcie_ep_data,
 	},
+	{
+		.compatible = "ti,j7200-pcie-host",
+		.data = &j7200_pcie_rc_data,
+	},
 	{},
 };
 
@@ -361,9 +436,11 @@ static int j721e_pcie_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct device_node *node = dev->of_node;
 	const struct of_device_id *match;
+	const struct cdns_pcie_ops *ops;
 	struct pci_host_bridge *bridge;
 	struct j721e_pcie_data *data;
 	struct cdns_pcie *cdns_pcie;
+	bool byte_access_allowed;
 	struct j721e_pcie *pcie;
 	struct cdns_pcie_rc *rc;
 	struct cdns_pcie_ep *ep;
@@ -380,6 +457,8 @@ static int j721e_pcie_probe(struct platform_device *pdev)
 
 	data = (struct j721e_pcie_data *)match->data;
 	mode = (u32)data->mode;
+	byte_access_allowed = data->byte_access_allowed;
+	ops = data->ops;
 
 	pcie = devm_kzalloc(dev, sizeof(*pcie), GFP_KERNEL);
 	if (!pcie)
@@ -388,6 +467,7 @@ static int j721e_pcie_probe(struct platform_device *pdev)
 	pcie->dev = dev;
 	pcie->node = node;
 	pcie->mode = mode;
+	pcie->is_intc_v1 = data->is_intc_v1;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "intd_cfg");
 	base = devm_ioremap_resource(dev, res);
@@ -440,12 +520,13 @@ static int j721e_pcie_probe(struct platform_device *pdev)
 			goto err_get_sync;
 		}
 
-		bridge->ops = &cdns_ti_pcie_host_ops;
+		if (!byte_access_allowed)
+			bridge->ops = &cdns_ti_pcie_host_ops;
 		rc = pci_host_bridge_priv(bridge);
 
 		cdns_pcie = &rc->pcie;
 		cdns_pcie->dev = dev;
-		cdns_pcie->ops = &j721e_ops_ops;
+		cdns_pcie->ops = ops;
 		pcie->cdns_pcie = cdns_pcie;
 
 		gpiod = devm_gpiod_get_optional(dev, "reset", GPIOD_OUT_LOW);
@@ -494,7 +575,7 @@ static int j721e_pcie_probe(struct platform_device *pdev)
 
 		cdns_pcie = &ep->pcie;
 		cdns_pcie->dev = dev;
-		cdns_pcie->ops = &j721e_ops_ops;
+		cdns_pcie->ops = ops;
 		pcie->cdns_pcie = cdns_pcie;
 
 		ret = cdns_pcie_init_phy(dev, cdns_pcie);

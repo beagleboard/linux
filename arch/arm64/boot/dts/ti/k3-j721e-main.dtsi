@@ -947,7 +947,7 @@
 			clock-names = "refclk";
 			#address-cells = <1>;
 			#size-cells = <0>;
-			torrent_phy_dp: torrent-phy@0{
+			torrent_phy_dp: link@0{
 				reg = <0>;
 				resets = <&serdes_wiz4 1>;
 				cdns,phy-type = <PHY_TYPE_DP>;

@@ -114,10 +114,12 @@ struct phy_ops {
 /**
  * struct phy_attrs - represents phy attributes
  * @bus_width: Data path width implemented by PHY
+ * @max_link_rate: Maximum link rate supported by PHY (in Mbps)
  * @mode: PHY mode
  */
 struct phy_attrs {
 	u32			bus_width;
+	u32			max_link_rate;
 	enum phy_mode		mode;
 };
 
@@ -229,6 +231,20 @@ static inline int phy_get_bus_width(struct phy *phy)
 static inline void phy_set_bus_width(struct phy *phy, int bus_width)
 {
 	phy->attrs.bus_width = bus_width;
+}
+
+static inline void phy_get_attrs(struct phy *phy, struct phy_attrs *attrs)
+{
+	mutex_lock(&phy->mutex);
+	memcpy(attrs, &phy->attrs, sizeof(struct phy_attrs));
+	mutex_unlock(&phy->mutex);
+}
+
+static inline void phy_set_attrs(struct phy *phy, struct phy_attrs attrs)
+{
+	mutex_lock(&phy->mutex);
+	memcpy(&phy->attrs, &attrs, sizeof(struct phy_attrs));
+	mutex_unlock(&phy->mutex);
 }
 struct phy *phy_get(struct device *dev, const char *string);
 struct phy *phy_optional_get(struct device *dev, const char *string);
@@ -384,6 +400,16 @@ static inline int phy_get_bus_width(struct phy *phy)
 }
 
 static inline void phy_set_bus_width(struct phy *phy, int bus_width)
+{
+	return;
+}
+
+static inline void phy_get_attrs(struct phy *phy, struct phy_attrs *attrs)
+{
+	return;
+}
+
+static inline void phy_set_attrs(struct phy *phy, struct phy_attrs attrs)
 {
 	return;
 }
