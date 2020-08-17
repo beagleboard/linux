@@ -31,9 +31,12 @@
 
 #define IEP_CMP_CFG_SHADOW_EN		BIT(17)
 #define IEP_CMP_CFG_CMP0_RST_CNT_EN	BIT(0)
-#define IEP_CMP_CFG_CMP_EN(cmp)		(1 << ((cmp) + 1))
+#define IEP_CMP_CFG_CMP_EN(cmp)		(GENMASK(16, 1) & (1 << ((cmp) + 1)))
 
 #define IEP_CMP_STATUS(cmp)		(1 << (cmp))
+
+#define IEP_SYNC_CTRL_SYNC_EN		BIT(0)
+#define IEP_SYNC_CTRL_SYNC_N_EN(n)	(GENMASK(2, 1) & (BIT(1) << (n)))
 
 #define IEP_MIN_CMP	0
 #define IEP_MAX_CMP	15
@@ -66,6 +69,8 @@ enum {
 	ICSS_IEP_CMP_STAT_REG,
 	ICSS_IEP_CMP0_REG0,
 	ICSS_IEP_CMP0_REG1,
+	ICSS_IEP_CMP1_REG0,
+	ICSS_IEP_CMP1_REG1,
 
 	ICSS_IEP_CMP8_REG0,
 	ICSS_IEP_CMP8_REG1,
@@ -108,6 +113,8 @@ struct icss_iep {
 	const struct icss_iep_clockops *ops;
 	void *clockops_data;
 	u32 cycle_time_ns;
+	u32 perout_enabled;
+	bool pps_enabled;
 };
 
 /**
@@ -393,9 +400,123 @@ static int icss_iep_ptp_settime(struct ptp_clock_info *ptp,
 	return 0;
 }
 
+static int icss_iep_perout_enable_hw(struct icss_iep *iep,
+				     struct ptp_perout_request *req, int on)
+{
+	int ret;
+	u64 cmp;
+
+	if (!iep->ops || !iep->ops->perout_enable)
+		return -ENXIO;
+
+	if (on) {
+		ret = iep->ops->perout_enable(iep->clockops_data, req, on,
+					      &cmp);
+		if (ret)
+			return ret;
+
+		/* Configure CMP */
+		regmap_write(iep->map, ICSS_IEP_CMP1_REG0, lower_32_bits(cmp));
+		regmap_write(iep->map, ICSS_IEP_CMP1_REG1, upper_32_bits(cmp));
+		/* Configure SYNC */
+		regmap_write(iep->map, ICSS_IEP_SYNC_PWIDTH_REG, 1000000); /* 1ms pulse width */
+		regmap_write(iep->map, ICSS_IEP_SYNC0_PERIOD_REG, 0);
+		regmap_write(iep->map, ICSS_IEP_SYNC_START_REG, 0);
+		regmap_write(iep->map, ICSS_IEP_SYNC_CTRL_REG, 0); /* one-shot mode */
+		/* Enable CMP 1 */
+		regmap_update_bits(iep->map, ICSS_IEP_CMP_CFG_REG,
+				   IEP_CMP_CFG_CMP_EN(1), IEP_CMP_CFG_CMP_EN(1));
+	} else {
+		/* Disale CMP 1 */
+		regmap_update_bits(iep->map, ICSS_IEP_CMP_CFG_REG,
+				   IEP_CMP_CFG_CMP_EN(1), 0);
+
+		/* clear regs */
+		regmap_write(iep->map, ICSS_IEP_CMP1_REG0, 0);
+		regmap_write(iep->map, ICSS_IEP_CMP1_REG1, 0);
+	}
+
+	return 0;
+}
+
+static int icss_iep_perout_enable(struct icss_iep *iep,
+				  struct ptp_perout_request *req, int on)
+{
+	int ret = 0;
+
+	mutex_lock(&iep->ptp_clk_mutex);
+
+	if (iep->pps_enabled) {
+		ret = -EBUSY;
+		goto exit;
+	}
+
+	if (iep->perout_enabled == !!on)
+		goto exit;
+
+	ret = icss_iep_perout_enable_hw(iep, req, on);
+	if (!ret)
+		iep->perout_enabled = !!on;
+
+exit:
+	mutex_unlock(&iep->ptp_clk_mutex);
+
+	return ret;
+}
+
+static int icss_iep_pps_enable(struct icss_iep *iep, int on)
+{
+	int ret = 0;
+	struct timespec64 ts;
+	struct ptp_clock_request rq;
+	u64 ns;
+
+	mutex_lock(&iep->ptp_clk_mutex);
+
+	if (iep->perout_enabled) {
+		ret = -EBUSY;
+		goto exit;
+	}
+
+	if (iep->pps_enabled == !!on)
+		goto exit;
+
+	rq.perout.index = 0;
+	if (on) {
+		ns = icss_iep_gettime(iep);
+		ts = ns_to_timespec64(ns);
+		rq.perout.period.sec = 1;
+		rq.perout.period.nsec = 0;
+		rq.perout.start.sec = ts.tv_sec + 2;
+		rq.perout.start.nsec = 0;
+		ret = icss_iep_perout_enable_hw(iep, &rq.perout, on);
+	} else {
+		ret = icss_iep_perout_enable_hw(iep, &rq.perout, on);
+	}
+
+	if (!ret)
+		iep->pps_enabled = !!on;
+
+exit:
+	mutex_unlock(&iep->ptp_clk_mutex);
+
+	return ret;
+}
+
 static int icss_iep_ptp_enable(struct ptp_clock_info *ptp,
 			       struct ptp_clock_request *rq, int on)
 {
+	struct icss_iep *iep = container_of(ptp, struct icss_iep, ptp_info);
+
+	switch (rq->type) {
+	case PTP_CLK_REQ_PEROUT:
+		return icss_iep_perout_enable(iep, &rq->perout, on);
+	case PTP_CLK_REQ_PPS:
+		return icss_iep_pps_enable(iep, on);
+	default:
+		break;
+	}
+
 	return -EOPNOTSUPP;
 }
 
@@ -485,6 +606,9 @@ int icss_iep_init(struct icss_iep *iep, const struct icss_iep_clockops *clkops,
 
 	iep->clk_tick_time = def_inc;
 	iep->ptp_info = icss_iep_ptp_info;
+
+	iep->ptp_info.n_per_out = 1;
+	iep->ptp_info.pps = 1;
 
 	iep->ptp_clock = ptp_clock_register(&iep->ptp_info, dev);
 	if (IS_ERR(iep->ptp_clock)) {
@@ -624,6 +748,8 @@ static const struct icss_iep_plat_data am654_icss_iep_plat_data = {
 		[ICSS_IEP_CMP_STAT_REG] = 0x74,
 		[ICSS_IEP_CMP0_REG0] = 0x78,
 		[ICSS_IEP_CMP0_REG1] = 0x7c,
+		[ICSS_IEP_CMP1_REG0] = 0x80,
+		[ICSS_IEP_CMP1_REG1] = 0x84,
 
 		[ICSS_IEP_CMP8_REG0] = 0xc0,
 		[ICSS_IEP_CMP8_REG1] = 0xc4,
@@ -664,6 +790,8 @@ static const struct icss_iep_plat_data am57xx_icss_iep_plat_data = {
 		[ICSS_IEP_CMP_STAT_REG] = 0x74,
 		[ICSS_IEP_CMP0_REG0] = 0x78,
 		[ICSS_IEP_CMP0_REG1] = 0x7c,
+		[ICSS_IEP_CMP1_REG0] = 0x80,
+		[ICSS_IEP_CMP1_REG1] = 0x84,
 
 		[ICSS_IEP_CMP8_REG0] = 0xc0,
 		[ICSS_IEP_CMP8_REG1] = 0xc4,
