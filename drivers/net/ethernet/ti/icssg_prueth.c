@@ -1693,6 +1693,58 @@ static void prueth_iep_settime(void *clockops_data, u64 ns)
 	netdev_err(emac->ndev, "settime timeout\n");
 }
 
+static int prueth_perout_enable(void *clockops_data,
+				struct ptp_perout_request *req, int on,
+				u64 *cmp)
+{
+	/* Any firmware specific stuff for PPS/PEROUT handling */
+	struct prueth_emac *emac = clockops_data;
+	struct timespec64 ts;
+	u64 ns_period;
+	u32 reduction_factor = 0, offset = 0;
+
+	if (!on)
+		return 0;
+
+	ts.tv_sec = req->period.sec;
+	ts.tv_nsec = req->period.nsec;
+	ns_period = timespec64_to_ns(&ts);
+
+	/* f/w doesn't support period less than cycle time */
+	if (ns_period < IEP_DEFAULT_CYCLE_TIME_NS)
+		return -ENXIO;
+
+	reduction_factor = ns_period / IEP_DEFAULT_CYCLE_TIME_NS;
+	offset = ns_period % IEP_DEFAULT_CYCLE_TIME_NS;
+
+	/* f/w requires at least 1uS within a cycle so CMP
+	 * can trigger after SYNC is enabled
+	 */
+	if (offset < 5 * NSEC_PER_USEC)
+		offset = 5 * NSEC_PER_USEC;
+
+	/* if offset is close to cycle time then we will miss
+	 * the CMP event for last tick when IEP rolls over.
+	 * In normal mode, IEP tick is 4ns.
+	 * In slow compensation it could be 0ns or 8ns at
+	 * every slow compensation cycle.
+	 */
+	if (offset > IEP_DEFAULT_CYCLE_TIME_NS - 8)
+		offset = IEP_DEFAULT_CYCLE_TIME_NS - 8;
+
+	/* we're in shadow mode so need to set upper 32-bits */
+	*cmp = (u64)offset << 32;
+
+	writel(reduction_factor, emac->prueth->shram.va +
+		TIMESYNC_FW_WC_SYNCOUT_REDUCTION_FACTOR_OFFSET);
+
+	/* HACK: till f/w supports START_TIME cyclcount we set it to 0 */
+	writel(0, emac->prueth->shram.va +
+		TIMESYNC_FW_WC_SYNCOUT_START_TIME_CYCLECOUNT_OFFSET);
+
+	return 0;
+}
+
 static int emac_set_timestamp_mode(struct prueth_emac *emac,
 				   struct hwtstamp_config *config)
 {
@@ -1811,6 +1863,7 @@ const struct icss_iep_clockops prueth_iep_clockops = {
 	.settime = prueth_iep_settime,
 	.gettime = prueth_iep_gettime,
 	/* FIXME: add adjtime to use relative mode */
+	.perout_enable = prueth_perout_enable,
 };
 
 static int prueth_netdev_init(struct prueth *prueth,
