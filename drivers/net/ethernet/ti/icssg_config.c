@@ -221,6 +221,34 @@ void icssg_config_sr1(struct prueth *prueth, struct prueth_emac *emac,
 	memcpy_toio(va, &prueth->config[slice], sizeof(prueth->config[slice]));
 }
 
+static void emac_r30_cmd_init(struct prueth_emac *emac)
+{
+	int i;
+	struct icssg_r30_cmd *p;
+
+	p = emac->dram.va + MGR_R30_CMD_OFFSET;
+
+	for (i = 0; i < 4; i++)
+		writel(EMAC_NONE, &p->cmd[i]);
+}
+
+static int emac_r30_is_done(struct prueth_emac *emac)
+{
+	const struct icssg_r30_cmd *p;
+	int i;
+	u32 cmd;
+
+	p = emac->dram.va + MGR_R30_CMD_OFFSET;
+
+	for (i = 0; i < 4; i++) {
+		cmd = readl(&p->cmd[i]);
+		if (cmd != EMAC_NONE)
+			return 0;
+	}
+
+	return 1;
+}
+
 int icssg_config_sr2(struct prueth *prueth, struct prueth_emac *emac, int slice)
 {
 	void *config = emac->dram.va + ICSSG_CONFIG_OFFSET;
@@ -288,101 +316,66 @@ int icssg_config_sr2(struct prueth *prueth, struct prueth_emac *emac, int slice)
 	addr += PRUETH_EMAC_RX_CTX_BUF_SIZE;
 	rxq_ctx->end = cpu_to_le32(addr);
 
+	emac_r30_cmd_init(emac);
 	return 0;
 }
 
-int emac_send_command_sr2(struct prueth_emac *emac, struct icssg_cmd *cmd)
-{
-	struct prueth *prueth = emac->prueth;
-	int slice = prueth_emac_slice(emac);
-	int ret = 0;
-	int addr;
-	int timeout = 10;
-	u32 response[4];
-
-	/* only one command at a time allowed to firmware */
-	mutex_lock(&emac->cmd_lock);
-	cmd->seq = emac->cmd_seq++;
-
-	/* f/w will have already pushed some free buffers for us in pool */
-	addr = icssg_queue_pop(prueth, slice == 0 ?
-			       ICSSG_CMD_POP_SLICE0 : ICSSG_CMD_POP_SLICE1);
-	if (addr < 0) {
-		netdev_err(emac->ndev, "send_cmd: no free buf\n");
-		goto unlock;
-	}
-
-	memcpy_toio(prueth->shram.va + addr + 4, cmd, sizeof(*cmd));
-
-	/* send cmd to f/w cmd queue */
-	icssg_queue_push(prueth, slice == 0 ?
-			 ICSSG_CMD_PUSH_SLICE0 : ICSSG_CMD_PUSH_SLICE1, addr);
-
-	/* wait for response on response queue */
-	while (!timeout) {
-		addr = icssg_queue_pop(prueth, slice == 0 ?
-				       ICSSG_RSP_POP_SLICE0 : ICSSG_RSP_POP_SLICE1);
-		if (addr >= 0)
-			break;
-		mdelay(1);
-		timeout--;
-	}
-
-	if (addr < 0) {
-		netdev_err(emac->ndev, "timeout waiting for command response\n");
-		goto unlock;
-	}
-
-	memcpy_fromio(response, prueth->shram.va + addr + 4, sizeof(*cmd));
-
-	/* return buffer back for to pool */
-	icssg_queue_push(prueth, slice == 0 ?
-			 ICSSG_RSP_PUSH_SLICE0 : ICSSG_RSP_PUSH_SLICE1, addr);
-
-unlock:
-	mutex_unlock(&emac->cmd_lock);
-
-	return ret;
-}
-
-#define EMAC_NONE	0xffff0000
-
 /* commands to program ICSSG R30 registers */
-static u32 emac_r30_bitmask_v2[][3] = {
-	{ 0, 0, 0 },
-	{ 0, 0, 0 },
-	{ 0xffff0004, 0xffff0100, 0xffff0100 }, /* EMAC_PORT_DISABLE */
-	{ 0xfffb0040, 0xfeff0200, 0xfeff0200 }, /* EMAC_PORT_BLOCK */
-	{ 0xffbb0000, 0xfcff0000, 0xdcff0000 }, /* EMAC_PORT_FORWARD */
-	{ 0xffbb0000, 0xfcff0000, 0xfcff2000 }, /*EMAC_PORT_FORWARD_WO_LEARNING */
-	{ EMAC_NONE,  0xffff0020, EMAC_NONE  }, /*TAS Trigger List change */
-	{ EMAC_NONE,  0xdfff1000, EMAC_NONE  }, /*TAS set state ENABLE*/
-	{ EMAC_NONE,  0xefff2000, EMAC_NONE  }, /*TAS set state RESET*/
-	{ EMAC_NONE,  0xcfff0000, EMAC_NONE  }, /*TAS set state DISABLE*/
-	{ EMAC_NONE,  EMAC_NONE,  0xffff0400 }, /*UC flooding ENABLE*/
-	{ EMAC_NONE,  EMAC_NONE,  0xfbff0000 }, /*UC flooding DISABLE*/
-	{ EMAC_NONE,  0xffff4000, EMAC_NONE  }, /*Preemption on Tx ENABLE*/
-	{ EMAC_NONE,  0xbfff0000, EMAC_NONE  }, /*Preemption on Tx DISABLE*/
-	{ 0xffff0001, EMAC_NONE,  EMAC_NONE  }, /* ACCEPT ALL */
-	{ 0xfffe0002, EMAC_NONE,  EMAC_NONE  }, /* ACCEPT TAGGED */
-	{ 0xfffc0000, EMAC_NONE,  EMAC_NONE  }, /*ACCEPT UNTAGGED and PRIO */
+/* FIXME: fix hex magic numbers with macros */
+static struct icssg_r30_cmd emac_r32_bitmask[] = {
+	{{0xffff0004, 0xffff0100, 0xffff0100, EMAC_NONE}},	/* EMAC_PORT_DISABLE */
+	{{0xfffb0040, 0xfeff0200, 0xfeff0200, EMAC_NONE}},	/* EMAC_PORT_BLOCK */
+	{{0xffbb0000, 0xfcff0000, 0xdcff0000, EMAC_NONE}},	/* EMAC_PORT_FORWARD */
+	{{0xffbb0000, 0xfcff0000, 0xfcff2000, EMAC_NONE}},	/* EMAC_PORT_FORWARD_WO_LEARNING */
+	{{0xffff0001, EMAC_NONE,  EMAC_NONE, EMAC_NONE}},	/* ACCEPT ALL */
+	{{0xfffe0002, EMAC_NONE,  EMAC_NONE, EMAC_NONE}},	/* ACCEPT TAGGED */
+	{{0xfffc0000, EMAC_NONE,  EMAC_NONE, EMAC_NONE}},	/* ACCEPT UNTAGGED and PRIO */
+	{{EMAC_NONE,  0xffff0020, EMAC_NONE, EMAC_NONE}},	/* TAS Trigger List change */
+	{{EMAC_NONE,  0xdfff1000, EMAC_NONE, EMAC_NONE}},	/* TAS set state ENABLE*/
+	{{EMAC_NONE,  0xefff2000, EMAC_NONE, EMAC_NONE}},	/* TAS set state RESET*/
+	{{EMAC_NONE,  0xcfff0000, EMAC_NONE, EMAC_NONE}},	/* TAS set state DISABLE*/
+	{{EMAC_NONE,  EMAC_NONE,  0xffff0400, EMAC_NONE}},	/* UC flooding ENABLE*/
+	{{EMAC_NONE,  EMAC_NONE,  0xfbff0000, EMAC_NONE}},	/* UC flooding DISABLE*/
+	{{EMAC_NONE,  0xffff4000, EMAC_NONE, EMAC_NONE}},	/* Preemption on Tx ENABLE*/
+	{{EMAC_NONE,  0xbfff0000, EMAC_NONE, EMAC_NONE}}	/* Preemption on Tx DISABLE*/
 };
 
 int emac_set_port_state(struct prueth_emac *emac,
-			enum icssg_port_state_cmd state)
+			enum icssg_port_state_cmd cmd)
 {
-	struct icssg_cmd cmd;
+	struct icssg_r30_cmd *p;
+	int ret = -ETIMEDOUT;
+	int timeout = 10;
+	int i;
 
-	memset(&cmd, 0, sizeof(cmd));
-	cmd.hdr = ICSSG_FW_MGMT_CMD_HEADER;
-	cmd.type = ICSSG_FW_MGMT_CMD_TYPE;
-	cmd.param = state;
+	p = emac->dram.va + MGR_R30_CMD_OFFSET;
 
-	/* FIXME: if (port_num == 2)  pCmd->commandParam |= (1 << 4); */
+	if (cmd >= ICSSG_EMAC_PORT_MAX_COMMANDS) {
+		netdev_err(emac->ndev, "invalid port command\n");
+		return -EINVAL;
+	}
 
-	cmd.data[0] = emac_r30_bitmask_v2[state][0];
-	cmd.data[1] = emac_r30_bitmask_v2[state][1];
-	cmd.data[2] = emac_r30_bitmask_v2[state][2];
+	/* only one command at a time allowed to firmware */
+	mutex_lock(&emac->cmd_lock);
 
-	return emac_send_command_sr2(emac, &cmd);
+	for (i = 0; i < 4; i++)
+		writel(emac_r32_bitmask[cmd].cmd[i], &p->cmd[i]);
+
+	/* wait for done */
+	while (timeout) {
+		if (emac_r30_is_done(emac)) {
+			ret = 0;
+			break;
+		}
+
+		usleep_range(1000, 2000);
+		timeout--;
+	}
+
+	if (ret == -ETIMEDOUT)
+		netdev_err(emac->ndev, "timeout waiting for command done\n");
+
+	mutex_unlock(&emac->cmd_lock);
+
+	return ret;
 }

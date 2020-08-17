@@ -105,32 +105,53 @@ struct icssg_rxq_ctx {
 
 /* Load time Fiwmware Configuration */
 
-struct icssg_cmd {
-	/* Optional parameter for TX to FW, ERROR code for RX from FW */
-	u8 param;
-	u8 seq;
-	/* Command Type */
-	u8 type;
-	/* Command Header */
-	u8 hdr;
-	__le32 data[3];
-} __packed;
-
 #define ICSSG_FW_MGMT_CMD_HEADER	0x81
 #define ICSSG_FW_MGMT_FDB_CMD_TYPE	0x03
 #define ICSSG_FW_MGMT_CMD_TYPE		0x04
 #define ICSSG_FW_MGMT_PKT		0x80000000
 
+struct icssg_r30_cmd {
+	u32 cmd[4];
+} __packed;
+
 enum icssg_port_state_cmd {
-	ICSSG_PORT_STATE_DISABLE = 2,
-	ICSSG_PORT_STATE_BLOCKING,
-	ICSSG_PORT_STATE_FORWARD,
-	ICSSG_PORT_STATE_FORWARD_WO_LEARNING,
-	ICSSG_PORT_STATE_TAS_TRIGGER,
-	ICSSG_PORT_STATE_TAS_ENABLE,
-	ICSSG_PORT_STATE_TAS_RESET,
-	ICSSG_PORT_STATE_TAS_DISABLE,
+	ICSSG_EMAC_PORT_DISABLE = 0,
+	ICSSG_EMAC_PORT_BLOCK,
+	ICSSG_EMAC_PORT_FORWARD,
+	ICSSG_EMAC_PORT_FORWARD_WO_LEARNING,
+	ICSSG_EMAC_PORT_ACCEPT_ALL,
+	ICSSG_EMAC_PORT_ACCEPT_TAGGED,
+	ICSSG_EMAC_PORT_ACCEPT_UNTAGGED_N_PRIO,
+	ICSSG_EMAC_PORT_TAS_TRIGGER,
+	ICSSG_EMAC_PORT_TAS_ENABLE,
+	ICSSG_EMAC_PORT_TAS_RESET,
+	ICSSG_EMAC_PORT_TAS_DISABLE,
+	ICSSG_EMAC_PORT_UC_FLOODING_ENABLE,
+	ICSSG_EMAC_PORT_UC_FLOODING_DISABLE,
+	ICSSG_EMAC_PORT_PREMPT_TX_ENABLE,
+	ICSSG_EMAC_PORT_PREMPT_TX_DISABLE,
+	ICSSG_EMAC_PORT_MAX_COMMANDS
 };
+
+#define EMAC_NONE           0xffff0000
+#define EMAC_PRU0_P_DI      0xffff0004
+#define EMAC_PRU1_P_DI      0xffff0040
+#define EMAC_TX_P_DI        0xffff0100
+
+#define EMAC_PRU0_P_EN      0xfffb0000
+#define EMAC_PRU1_P_EN      0xffbf0000
+#define EMAC_TX_P_EN        0xfeff0000
+
+#define EMAC_P_BLOCK        0xffff0040
+#define EMAC_TX_P_BLOCK     0xffff0200
+#define EMAC_P_UNBLOCK      0xffbf0000
+#define EMAC_TX_P_UNBLOCK   0xfdff0000
+#define EMAC_LEAN_EN        0xfff70000
+#define EMAC_LEAN_DI        0xffff0008
+
+#define EMAC_ACCEPT_ALL     0xffff0001
+#define EMAC_ACCEPT_TAG     0xfffe0002
+#define EMAC_ACCEPT_PRIOR   0xfffc0000
 
 /* Config area lies in DRAM */
 #define ICSSG_CONFIG_OFFSET			0x0
