@@ -1,0 +1,495 @@
+/*
+ * Copyright (C) 2020 Deepak Khatri <deepaklorkhatri7@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+#include <dt-bindings/board/am5729-bone-pins.h>
+#include <dt-bindings/gpio/gpio.h>
+
+/********/
+/* LEDs */
+/********/
+&{/} {
+	leds {
+		pinctrl-names = "default";
+		compatible = "gpio-leds";
+
+		led_P8_03 {
+			gpios = <&gpio1 24 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		led_P8_04 {
+			gpios = <&gpio1 25 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		led_P8_05 {
+			gpios = <&gpio7 1 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		led_P8_06 {
+			gpios = <&gpio7 2 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		led_P8_07 {
+			gpios = <&gpio6 5 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		led_P8_08 {
+			gpios = <&gpio6 6 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		led_P8_09 {
+			gpios = <&gpio6 18 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		led_P8_10 {
+			gpios = <&gpio6 4 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		led_P8_11 {
+			gpios = <&gpio3 11 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		led_P8_12 {
+			gpios = <&gpio3 10 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		led_P8_13 {
+			gpios = <&gpio4 11 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		led_P8_14 {
+			gpios = <&gpio4 13 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		led_P8_15 {
+			gpios = <&gpio4 3 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		led_P8_16 {
+			gpios = <&gpio4 29 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		led_P8_17 {
+			gpios = <&gpio8 18 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		led_P8_18 {
+			gpios = <&gpio4 9 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		led_P8_19 {
+			gpios = <&gpio4 10 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		led_P8_20 {
+			gpios = <&gpio6 30 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		led_P8_21 {
+			gpios = <&gpio6 29 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		led_P8_22 {
+			gpios = <&gpio1 23 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		led_P8_23 {
+			gpios = <&gpio1 22 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		led_P8_24 {
+			gpios = <&gpio7 0 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		led_P8_25 {
+			gpios = <&gpio6 31 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		led_P8_26 {
+			gpios = <&gpio4 28 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		led_P8_27 {
+			gpios = <&gpio4 23 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		led_P8_28 {
+			gpios = <&gpio4 19 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		led_P8_29 {
+			gpios = <&gpio4 22 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		led_P8_30 {
+			gpios = <&gpio4 20 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		led_P8_31 {
+			gpios = <&gpio8 14 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		led_P8_32 {
+			gpios = <&gpio8 15 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		led_P8_33 {
+			gpios = <&gpio8 13 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		led_P8_34 {
+			gpios = <&gpio8 11 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		led_P8_35 {
+			gpios = <&gpio8 12 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		led_P8_36 {
+			gpios = <&gpio8 10 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		led_P8_37 {
+			gpios = <&gpio8 8 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		led_P8_38 {
+			gpios = <&gpio8 9 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		led_P8_39 {
+			gpios = <&gpio8 6 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		led_P8_40 {
+			gpios = <&gpio8 7 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		led_P8_41 {
+			gpios = <&gpio8 4 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		led_P8_42 {
+			gpios = <&gpio8 5 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		led_P8_43 {
+			gpios = <&gpio8 2 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		led_P8_44 {
+			gpios = <&gpio8 3 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		led_P8_45 {
+			gpios = <&gpio8 0 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		led_P8_46 {
+			gpios = <&gpio8 1 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		led_P9_11 {
+			gpios = <&gpio8 17 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		led_P9_12 {
+			gpios = <&gpio5 0 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		led_P9_13 {
+			gpios = <&gpio6 12 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		led_P9_14 {
+			gpios = <&gpio4 25 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		led_P9_15 {
+			gpios = <&gpio3 12 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		led_P9_16 {
+			gpios = <&gpio4 26 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		led_P9_17 {
+			gpios = <&gpio7 17 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		led_P9_18 {
+			gpios = <&gpio7 16 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		led_P9_19 {
+			gpios = <&gpio7 3 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		led_P9_20 {
+			gpios = <&gpio7 4 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		led_P9_21 {
+			gpios = <&gpio3 3 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		led_P9_22 {
+			gpios = <&gpio6 19 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		led_P9_23 {
+			gpios = <&gpio7 11 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		led_P9_24 {
+			gpios = <&gpio6 15 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		led_P9_25 {
+			gpios = <&gpio6 17 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		led_P9_26 {
+			gpios = <&gpio6 14 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		led_P9_27 {
+			gpios = <&gpio4 15 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		led_P9_28 {
+			gpios = <&gpio4 17 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		led_P9_29 {
+			gpios = <&gpio5 11 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		led_P9_30 {
+			gpios = <&gpio5 12 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		led_P9_31 {
+			gpios = <&gpio5 10 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		led_P9_41 {
+			gpios = <&gpio6 20 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+
+		led_P9_42 {
+			gpios = <&gpio4 18 GPIO_ACTIVE_HIGH>;
+			status = "disabled";
+		};
+	};
+};
+
+// For dummy refrence when peripheral is not available.
+&{/} {
+	not_available: not_available {
+		// Use &not_available phandle when bus not available!
+		// This node is responsible to create these entries,
+		// /sys/firmware/devicetree/base/__symbols__/not_available
+		// /sys/firmware/devicetree/base/not_available
+	};
+};
+
+// UARTs
+bone_uart_1: &uart10 {
+	symlink = "bone/uart/1";
+};
+
+bone_uart_2: &uart3 {
+	symlink = "bone/uart/2";
+};
+
+bone_uart_3: &not_available {
+	// not available on BBAI
+};
+
+bone_uart_4: &uart5 {
+	symlink = "bone/uart/4";
+};
+
+bone_uart_5: &uart8 {
+	symlink = "bone/uart/5";
+};
+
+// I2Cs
+bone_i2c_1: &i2c5 {
+	symlink = "bone/i2c/1";
+};
+
+bone_i2c_2: &i2c4 {
+	// Already in use for cape EEPROM reading.
+	symlink = "bone/i2c/2";
+};
+
+bone_i2c_2a: &not_available {
+	// Not available on BBAI
+};
+
+bone_i2c_3: &i2c3 {
+	symlink = "bone/i2c/3";
+};
+
+// SPIs
+bone_spi_0: &mcspi2 {
+
+};
+
+bone_spi_1: &mcspi3 {
+
+};
+
+// PWMs
+bone_pwm_0: &not_available {
+	// Not available on BBAI
+};
+
+bone_pwm_1: &ehrpwm2 {
+
+};
+
+bone_pwm_2: &ehrpwm1 {
+
+};
+
+// CAN
+bone_can_0: &not_available {
+	// Not available on BBAI
+};
+
+bone_can_1: &dcan2 {
+
+};
+
+// PWM_TIMERs
+bone_timer_0: &timer10 {
+
+};
+
+bone_timer_1: &timer11 {
+
+};
+
+bone_timer_2: &timer12 {
+
+};
+
+bone_timer_3: &timer13 {
+
+};
+
+bone_timer_4: &timer14 {
+
+};
+
+bone_timer_5: &timer15 {
+
+};
+
+// McASP
+bone_mcasp_0: &mcasp1 {
+
+};
+
+// eQEP
+bone_eqep_0: &eqep2{
+
+};
+
+bone_eqep_1: &eqep0{
+
+};
+
+bone_eqep_2: &eqep1{
+
+};
+
+// ADC
+// No internal ADC, STMPE811 Touch Controller is used!
+// bone_adc label is created in am5729-beagleboneai.dts
+
+// Enable all pwmss
+&epwmss0 {
+	status = "okay";
+};
+
+&epwmss1 {
+	status = "okay";
+};
+
+&epwmss2 {
+	status = "okay";
+};
