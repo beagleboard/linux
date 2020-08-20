@@ -94,6 +94,19 @@ include/uapi/linux/eventpoll.h:CONFIG_PM_SLEEP
 include/uapi/linux/hw_breakpoint.h:CONFIG_HAVE_MIXED_BREAKPOINTS_REGS
 include/uapi/linux/pktcdvd.h:CONFIG_CDROM_PKTCDVD_WCACHE
 include/uapi/linux/raw.h:CONFIG_MAX_RAW_DEVS
+include/uapi/linux/net_switch_config.h:CONFIG_SWITCH_INVALID
+include/uapi/linux/net_switch_config.h:CONFIG_SWITCH_ADD_MULTICAST
+include/uapi/linux/net_switch_config.h:CONFIG_SWITCH_DEL_MULTICAST
+include/uapi/linux/net_switch_config.h:CONFIG_SWITCH_ADD_VLAN
+include/uapi/linux/net_switch_config.h:CONFIG_SWITCH_DEL_VLAN
+include/uapi/linux/net_switch_config.h:CONFIG_SWITCH_SET_PORT_CONFIG
+include/uapi/linux/net_switch_config.h:CONFIG_SWITCH_GET_PORT_CONFIG
+include/uapi/linux/net_switch_config.h:CONFIG_SWITCH_ADD_UNKNOWN_VLAN_INFO
+include/uapi/linux/net_switch_config.h:CONFIG_SWITCH_GET_PORT_STATE
+include/uapi/linux/net_switch_config.h:CONFIG_SWITCH_SET_PORT_STATE
+include/uapi/linux/net_switch_config.h:CONFIG_SWITCH_GET_PORT_VLAN_CONFIG
+include/uapi/linux/net_switch_config.h:CONFIG_SWITCH_SET_PORT_VLAN_CONFIG
+include/uapi/linux/net_switch_config.h:CONFIG_SWITCH_RATELIMIT
 "
 
 for c in $configs
