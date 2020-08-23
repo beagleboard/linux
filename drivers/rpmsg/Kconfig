@@ -81,4 +81,16 @@ config RPMSG_PRU
 
 	  If unsure, say N.
 
+config CONFIG_RPMSG_GPIOHIP_INTERFACE
+	tristate "A rpmsg driver  with gpiochip interface"
+	default m
+	depends on RPMSG_VIRTIO
+	depends on REMOTEPROC
+	help
+	  This driver provides provides gpiochip inteface which can be accessed
+	  in userspace using libgpiod. You would see a char dev interface in
+          "/dev" using this driver. Follow the README from the following
+          repo for more info.
+          https://github.com/deebot/Beaglebone-BidirectionBus
+
 endmenu
