@@ -145,7 +145,7 @@
 	 * the moment, just use a fake OCP bus entry to represent the whole bus
 	 * hierarchy.
 	 */
-	ocp {
+	ocp: ocp {
 		compatible = "ti,dra7-l3-noc", "simple-bus";
 		#address-cells = <1>;
 		#size-cells = <1>;
@@ -900,6 +900,7 @@
 			interrupts = <GIC_SPI 32 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "timer1";
 			ti,timer-alwon;
+			ti,timer-pwm;
 			clock-names = "fck";
 			clocks = <&wkupaon_clkctrl DRA7_TIMER1_CLKCTRL 24>;
 		};
@@ -910,6 +911,7 @@
 			interrupts = <GIC_SPI 33 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "timer2";
 			clocks = <&l4per_clkctrl DRA7_TIMER2_CLKCTRL 24>;
+			ti,timer-pwm;
 			clock-names = "fck";
 		};
 
@@ -919,6 +921,7 @@
 			interrupts = <GIC_SPI 34 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "timer3";
 			clocks = <&l4per_clkctrl DRA7_TIMER3_CLKCTRL 24>;
+			ti,timer-pwm;
 			clock-names = "fck";
 		};
 
@@ -928,6 +931,7 @@
 			interrupts = <GIC_SPI 35 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "timer4";
 			clocks = <&l4per_clkctrl DRA7_TIMER4_CLKCTRL 24>;
+			ti,timer-pwm;
 			clock-names = "fck";
 		};
 
@@ -937,6 +941,7 @@
 			interrupts = <GIC_SPI 36 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "timer5";
 			clocks = <&ipu_clkctrl DRA7_TIMER5_CLKCTRL 24>;
+			ti,timer-pwm;
 			clock-names = "fck";
 		};
 
@@ -946,6 +951,7 @@
 			interrupts = <GIC_SPI 37 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "timer6";
 			clocks = <&ipu_clkctrl DRA7_TIMER6_CLKCTRL 24>;
+			ti,timer-pwm;
 			clock-names = "fck";
 		};
 
@@ -955,6 +961,7 @@
 			interrupts = <GIC_SPI 38 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "timer7";
 			clocks = <&ipu_clkctrl DRA7_TIMER7_CLKCTRL 24>;
+			ti,timer-pwm;
 			clock-names = "fck";
 		};
 
@@ -964,6 +971,7 @@
 			interrupts = <GIC_SPI 39 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "timer8";
 			clocks = <&ipu_clkctrl DRA7_TIMER8_CLKCTRL 24>;
+			ti,timer-pwm;
 			clock-names = "fck";
 		};
 
@@ -973,6 +981,7 @@
 			interrupts = <GIC_SPI 40 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "timer9";
 			clocks = <&l4per_clkctrl DRA7_TIMER9_CLKCTRL 24>;
+			ti,timer-pwm;
 			clock-names = "fck";
 		};
 
@@ -982,6 +991,7 @@
 			interrupts = <GIC_SPI 41 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "timer10";
 			clocks = <&l4per_clkctrl DRA7_TIMER10_CLKCTRL 24>;
+			ti,timer-pwm;
 			clock-names = "fck";
 		};
 
@@ -991,6 +1001,7 @@
 			interrupts = <GIC_SPI 42 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "timer11";
 			clocks = <&l4per_clkctrl DRA7_TIMER11_CLKCTRL 24>;
+			ti,timer-pwm;
 			clock-names = "fck";
 		};
 
@@ -1000,6 +1011,7 @@
 			interrupts = <GIC_SPI 90 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "timer12";
 			ti,timer-alwon;
+			ti,timer-pwm;
 			ti,timer-secure;
 			clocks = <&wkupaon_clkctrl DRA7_TIMER12_CLKCTRL 24>;
 			clock-names = "fck";
@@ -1011,6 +1023,7 @@
 			interrupts = <GIC_SPI 339 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "timer13";
 			clocks = <&l4per_clkctrl DRA7_TIMER13_CLKCTRL 24>;
+			ti,timer-pwm;
 			clock-names = "fck";
 		};
 
@@ -1020,6 +1033,7 @@
 			interrupts = <GIC_SPI 340 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "timer14";
 			clocks = <&l4per_clkctrl DRA7_TIMER14_CLKCTRL 24>;
+			ti,timer-pwm;
 			clock-names = "fck";
 		};
 
@@ -1029,6 +1043,7 @@
 			interrupts = <GIC_SPI 341 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "timer15";
 			clocks = <&l4per_clkctrl DRA7_TIMER15_CLKCTRL 24>;
+			ti,timer-pwm;
 			clock-names = "fck";
 		};
 
@@ -1038,6 +1053,7 @@
 			interrupts = <GIC_SPI 342 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "timer16";
 			clocks = <&l4per_clkctrl DRA7_TIMER16_CLKCTRL 24>;
+			ti,timer-pwm;
 			clock-names = "fck";
 		};
 
@@ -2248,6 +2264,15 @@
 				status = "disabled";
 			};
 
+			eqep0: eqep@0x4843e180 {
+				compatible = "ti,am33xx-eqep";
+				reg = <0x4843e180 0x80>;
+				clocks = <&l4_root_clk_div>;
+				clock-names = "fck";
+				interrupt-parent = <&crossbar_mpu>;
+				interrupts = <GIC_SPI 210 IRQ_TYPE_LEVEL_HIGH>;
+			};
+
 			ecap0: ecap@4843e100 {
 				compatible = "ti,dra746-ecap",
 					     "ti,am3352-ecap";
@@ -2278,6 +2303,15 @@
 				status = "disabled";
 			};
 
+			eqep1: eqep@0x48440180 {
+				compatible = "ti,am33xx-eqep";
+				reg = <0x48440180 0x80>;
+				clocks = <&l4_root_clk_div>;
+				clock-names = "fck";
+				interrupt-parent = <&crossbar_mpu>;
+				interrupts = <GIC_SPI 211 IRQ_TYPE_LEVEL_HIGH>;
+			};
+
 			ecap1: ecap@48440100 {
 				compatible = "ti,dra746-ecap",
 					     "ti,am3352-ecap";
@@ -2306,6 +2340,15 @@
 				clocks = <&ehrpwm2_tbclk>, <&l4_root_clk_div>;
 				clock-names = "tbclk", "fck";
 				status = "disabled";
+			};
+
+			eqep2: eqep@0x48442180 {
+				compatible = "ti,am33xx-eqep";
+				reg = <0x48442180 0x80>;
+				clocks = <&l4_root_clk_div>;
+				clock-names = "fck";
+				interrupt-parent = <&crossbar_mpu>;
+				interrupts = <GIC_SPI 212 IRQ_TYPE_LEVEL_HIGH>;
 			};
 
 			ecap2: ecap@48442100 {
