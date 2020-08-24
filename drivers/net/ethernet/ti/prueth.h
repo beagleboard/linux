@@ -382,6 +382,7 @@ struct prueth_emac {
 	int offload_fwd_mark;
 
 	struct sk_buff *ptp_skb[PRUETH_PTP_TS_EVENTS];
+	struct sk_buff *ptp_ct_skb[PRUETH_PTP_TS_EVENTS];
 	spinlock_t ptp_skb_lock;	/* serialize access */
 	int emac_ptp_tx_irq;
 	int hsr_ptp_tx_irq;

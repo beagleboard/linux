@@ -57,6 +57,8 @@ enum {
 	PRUETH_PTP_TS_EVENTS,
 };
 
+#define PTP_EVENT_MASK			0xf
+
 #define PRUETH_PTP_TS_SIZE		12
 #define PRUETH_PTP_TS_NOTIFY_SIZE	1
 #define PRUETH_PTP_TS_NOTIFY_MASK	0xff
