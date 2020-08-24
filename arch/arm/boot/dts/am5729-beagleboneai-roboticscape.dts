@@ -1,0 +1,238 @@
+/*
+ * Copyright (C) 2014-2019 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+#include "am5729-beagleboneai.dts"
+
+/ {
+	chosen {
+		base_dtb = "am5729-beagleboneai-roboticscape.dts";
+		base_dtb_timestamp = __TIMESTAMP__;
+	};
+
+	rcleds {
+		compatible = "gpio-leds";
+		pinctrl-names = "default";
+		pinctrl-0 = <&cape_pins_rc>;
+
+		red_led {
+			label = "red";
+			gpios = <&gpio6 5 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+
+		green_led {
+			label = "green";
+			gpios = <&gpio6 6 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+
+		batt_1_led {
+			label = "bat25";
+			gpios = <&gpio8 18 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+
+		batt_2_led {
+			label = "bat50";
+			gpios = <&gpio4 9 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+
+		batt_3_led {
+			label = "bat75";
+			gpios = <&gpio4 28 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+
+		batt_4_led {
+			label = "bat100";
+			gpios = <&gpio4 13 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+	};
+};
+
+&ocp {
+	pruss1_shmem: pruss_shmem@4b200000 {
+		status = "okay";
+		compatible = "ti,pruss-shmem";
+		reg = <0x4b200000 0x020000>;
+	};
+
+	pruss2_shmem: pruss_shmem@4b280000 {
+		status = "okay";
+		compatible = "ti,pruss-shmem";
+		reg = <0x4b280000 0x020000>;
+	};
+};
+
+&dra7_pmx_core {
+	cape_pins_rc: cape_pins_rc {
+		pinctrl-single,pins = <
+			DRA7XX_CORE_IOPAD(0x379C, MUX_MODE15) /* AB8: P8.3: mmc3_dat6.off */
+			DRA7XX_CORE_IOPAD(0x37A0, MUX_MODE15) /* AB5: P8.4: mmc3_dat7.off */
+			DRA7XX_CORE_IOPAD(0x378C, MUX_MODE15) /* AC9: P8.5: mmc3_dat2.off */
+			DRA7XX_CORE_IOPAD(0x3790, MUX_MODE15) /* AC3: P8.6: mmc3_dat3.off */
+			DRA7XX_CORE_IOPAD(0x36EC, PIN_OUTPUT | MUX_MODE14) /* G14: mcasp1_axr14.gpio6_5 - P8_7 - RED */
+			DRA7XX_CORE_IOPAD(0x36F0, PIN_OUTPUT | MUX_MODE14) /* F14: mcasp1_axr15.gpio6_6 - P8_8 - GREEN */
+			DRA7XX_CORE_IOPAD(0x3698, PIN_INPUT_PULLUP | MUX_MODE14) /* E17: P8.9: xref_clk1.gpio6_18 - PAUSE */
+			DRA7XX_CORE_IOPAD(0x36E8, PIN_INPUT_PULLUP | MUX_MODE14) /* A13: P8.10: mcasp1_axr13.gpio6_4 - MODE */
+			DRA7XX_CORE_IOPAD(0x3510, PIN_INPUT | MUX_MODE10) /* AH4: P8.11: vin1a_d7.eQEP2B_in - QEP2B */
+			DRA7XX_CORE_IOPAD(0x350C, PIN_INPUT | MUX_MODE10) /* AG6: P8.12: vin1a_d6.eQEP2A_in - QEP2A */
+			DRA7XX_CORE_IOPAD(0x3590, PIN_OUTPUT | MUX_MODE10) /* D3: P8.13: vin2a_d10.ehrpwm2B - PWM2B */
+			DRA7XX_CORE_IOPAD(0x3598, PIN_OUTPUT | MUX_MODE14) /* D5: vin2a_d12.gpio4_13 - P8_14 - BAT100 */
+			DRA7XX_CORE_IOPAD(0x3570, MUX_MODE15) /* D1: P8.15a: vin2a_d2.off */
+			DRA7XX_CORE_IOPAD(0x35B4, PIN_INPUT | MUX_MODE12) /* A3: P8.15b: vin2a_d19.pr1_pru1_gpi16 - QEP4B */
+			DRA7XX_CORE_IOPAD(0x35BC, PIN_INPUT | MUX_MODE12) /* B4: P8.16: vin2a_d21.pr1_pru1_gpi18 - QEP4A */
+			DRA7XX_CORE_IOPAD(0x3624, PIN_OUTPUT | MUX_MODE14) /* A7: vout1_d18.gpio8_18 - P8_17 - BAT25 */
+			DRA7XX_CORE_IOPAD(0x3588, PIN_OUTPUT | MUX_MODE14) /* F5: vin2a_d8.gpio4_9 - P8_18 - BAT50 */
+			DRA7XX_CORE_IOPAD(0x358C, PIN_OUTPUT | MUX_MODE10) /* E6: P8.19: vin2a_d9.ehrpwm2A - PWM2A */
+			DRA7XX_CORE_IOPAD(0x3780, MUX_MODE15) /* AC4: P8.20: mmc3_cmd.off */
+			DRA7XX_CORE_IOPAD(0x377C, MUX_MODE15) /* AD4: P8.21: mmc3_clk.off */
+			DRA7XX_CORE_IOPAD(0x3798, MUX_MODE15) /* AD6: P8.22: mmc3_dat5.off */
+			DRA7XX_CORE_IOPAD(0x3794, MUX_MODE15) /* AC8: P8.23: mmc3_dat4.off */
+			DRA7XX_CORE_IOPAD(0x3788, MUX_MODE15) /* AC6: P8.24: mmc3_dat1.off */
+			DRA7XX_CORE_IOPAD(0x3784, MUX_MODE15) /* AC7: P8.25: mmc3_dat0.off */
+			DRA7XX_CORE_IOPAD(0x35B8, PIN_OUTPUT | MUX_MODE14) /* B3: vin2a_d20.gpio4_28 - P8_26 - BAT75 */
+			DRA7XX_CORE_IOPAD(0x35D8, MUX_MODE15) /* E11: P8.27a: vout1_vsync.off */
+			DRA7XX_CORE_IOPAD(0x3628, PIN_OUTPUT | MUX_MODE13) /* A8: P8.27b: vout1_d19.pr2_pru0_gpo16 - SVO1 */
+			DRA7XX_CORE_IOPAD(0x35C8, MUX_MODE15) /* D11: P8.28a: vout1_clk.off */
+			DRA7XX_CORE_IOPAD(0x362C, PIN_OUTPUT | MUX_MODE13) /* C9: P8.28b: vout1_d20.pr2_pru0_gpo17 - SVO2 */
+			DRA7XX_CORE_IOPAD(0x35D4, MUX_MODE15) /* C11: P8.29a: vout1_hsync.off */
+			DRA7XX_CORE_IOPAD(0x3630, PIN_OUTPUT | MUX_MODE13) /* A9: P8.29b: vout1_d21.pr2_pru0_gpo18 - SVO3 */
+			DRA7XX_CORE_IOPAD(0x35CC, MUX_MODE15) /* B10: P8.30a: vout1_de.off */
+			DRA7XX_CORE_IOPAD(0x3634, PIN_OUTPUT | MUX_MODE13) /* B9: P8.30b: vout1_d22.pr2_pru0_gpo19 - SVO4 */
+			DRA7XX_CORE_IOPAD(0x3614, MUX_MODE15) /* C8: P8.31a: vout1_d14.off */
+			DRA7XX_CORE_IOPAD(0x373C, MUX_MODE15) /* G16: P8.31b: mcasp4_axr0.off */
+			DRA7XX_CORE_IOPAD(0x3618, MUX_MODE15) /* C7: P8.32a: vout1_d15.off */
+			DRA7XX_CORE_IOPAD(0x3740, MUX_MODE15) /* D17: P8.32b: mcasp4_axr1.off */
+			DRA7XX_CORE_IOPAD(0x3610, MUX_MODE15) /* C6: P8.33a: vout1_d13.off */
+			DRA7XX_CORE_IOPAD(0x34E8, PIN_INPUT | MUX_MODE10) /* AF9: P8.33b: vin1a_fld0.eQEP1B_in - QEP1B */
+			DRA7XX_CORE_IOPAD(0x3608, PIN_OUTPUT | MUX_MODE14) /* D8: P8.34a: vout1_d11.gpio8_11 - MDIR2B */
+			DRA7XX_CORE_IOPAD(0x3564, MUX_MODE15) /* G6: P8.34b: vin2a_vsync0.off */
+			DRA7XX_CORE_IOPAD(0x360C, MUX_MODE15) /* A5: P8.35a: vout1_d12.off */
+			DRA7XX_CORE_IOPAD(0x34E4, PIN_INPUT | MUX_MODE10) /* AD9: P8.35b: vin1a_de0.eQEP1A_in - QEP1A */
+			DRA7XX_CORE_IOPAD(0x3604, PIN_OUTPUT | MUX_MODE14) /* D7: P8.36a: vout1_d10.gpio8_10 - SERVO_EN */
+			DRA7XX_CORE_IOPAD(0x3568, MUX_MODE15) /* F2: P8.36b: vin2a_d0.off */
+			DRA7XX_CORE_IOPAD(0x35FC, MUX_MODE15) /* E8: P8.37a: vout1_d8.off */
+			DRA7XX_CORE_IOPAD(0x3738, PIN_OUTPUT | MUX_MODE3) /* A21: P8.37b: mcasp4_fsx.uart8_txd - UART5_TX */
+			DRA7XX_CORE_IOPAD(0x3600, MUX_MODE15) /* D9: P8.38a: vout1_d9.off */
+			DRA7XX_CORE_IOPAD(0x3734, PIN_INPUT | MUX_MODE3) /* C18: P8.38b: mcasp4_aclkx.uart8_rxd - UART5_RX */
+			DRA7XX_CORE_IOPAD(0x35F4, PIN_OUTPUT | MUX_MODE13) /* F8: P8.39: vout1_d6.pr2_pru0_gpo3 - SVO5 */
+			DRA7XX_CORE_IOPAD(0x35F8, PIN_OUTPUT | MUX_MODE13) /* E7: P8.40: vout1_d7.pr2_pru0_gpo4 - SVO6 */
+			DRA7XX_CORE_IOPAD(0x35EC, PIN_OUTPUT | MUX_MODE13) /* E9: P8.41: vout1_d4.pr2_pru0_gpo1 - SVO7 */
+			DRA7XX_CORE_IOPAD(0x35F0, PIN_OUTPUT | MUX_MODE13) /* F9: P8.42: vout1_d5.pr2_pru0_gpo2 - SVO8 */
+			DRA7XX_CORE_IOPAD(0x35E4, PIN_OUTPUT | MUX_MODE14 ) /* F10: P8.43: vout1_d2.gpio8_2 - MDIR3B */
+			DRA7XX_CORE_IOPAD(0x35E8, PIN_OUTPUT | MUX_MODE14 ) /* G11: P8.44: vout1_d3.gpio8_3 - MDIR3A */
+			DRA7XX_CORE_IOPAD(0x35DC, PIN_OUTPUT | MUX_MODE14 ) /* F11: P8.45a: vout1_d0.gpio8_0 - MDIR4A */
+			DRA7XX_CORE_IOPAD(0x361C, MUX_MODE15) /* B7: P8.45b: vout1_d16.off */
+			DRA7XX_CORE_IOPAD(0x35E0, PIN_OUTPUT | MUX_MODE14 ) /* G10: P8.46a: vout1_d1.gpio8_1 - MDIR4B */
+			DRA7XX_CORE_IOPAD(0x3638, MUX_MODE15) /* A10: P8.46b: vout1_d23.off */
+			DRA7XX_CORE_IOPAD(0x372C, PIN_INPUT | MUX_MODE4) /* B19: P9.11a: mcasp3_axr0.uart5_rxd - UART4_RX */
+			DRA7XX_CORE_IOPAD(0x3620, MUX_MODE15) /* B8: P9.11b: vout1_d17.off */
+			DRA7XX_CORE_IOPAD(0x36AC, PIN_OUTPUT | MUX_MODE14) /* B14: P9.12: mcasp1_aclkr.gpio5_0 - MDIR1A */
+			DRA7XX_CORE_IOPAD(0x3730, PIN_OUTPUT | MUX_MODE14) /* C17: P9.13: mcasp3_axr1.off - MDIR1B */
+			DRA7XX_CORE_IOPAD(0x35AC, PIN_OUTPUT | MUX_MODE10) /* D6: P9.14: vin2a_d17.ehrpwm3A - PWM1A */
+			DRA7XX_CORE_IOPAD(0x3514, PIN_OUTPUT | MUX_MODE14) /* AG4: P9.15: vin1a_d8.gpio3_12 - MDIR2A */
+			DRA7XX_CORE_IOPAD(0x35B0, PIN_OUTPUT | MUX_MODE10) /* C5: P9.16: vin2a_d18.ehrpwm3B - PWM1B */
+			DRA7XX_CORE_IOPAD(0x37CC, PIN_INPUT | MUX_MODE14) /* B24: P9.17a: spi2_cs0.gpio7_17 */
+			DRA7XX_CORE_IOPAD(0x36B8, PIN_INPUT_PULLUP | SLEWCONTROL | MUX_MODE10) /* F12: P9.17b: mcasp1_axr1.i2c5_scl - I2C1_SCL */
+			DRA7XX_CORE_IOPAD(0x37C8, PIN_INPUT | MUX_MODE14) /* G17: P9.18a: spi2_d0.gpio7_16 */
+			DRA7XX_CORE_IOPAD(0x36B4, PIN_INPUT_PULLUP | SLEWCONTROL | MUX_MODE10) /* G12: P9.18b: mcasp1_axr0.i2c5_sda - I2C1_SDA */
+			DRA7XX_CORE_IOPAD(0x3440, PIN_INPUT | MUX_MODE7) /* R6: P9.19a: gpmc_a0.i2c4_scl - I2C2_SCL */
+			DRA7XX_CORE_IOPAD(0x357C, PIN_INPUT | MUX_MODE12 ) /* F4: P9.19b: vin2a_d5.pr1_pru1_gpi2 */
+			DRA7XX_CORE_IOPAD(0x3444, PIN_INPUT | MUX_MODE7) /* T9: P9.20a: gpmc_a1.i2c4_sda - I2C2_SDA */
+			DRA7XX_CORE_IOPAD(0x3578, PIN_INPUT | MUX_MODE12) /* D2: P9.20b: vin2a_d4.pr1_pru1_gpi1 */
+			DRA7XX_CORE_IOPAD(0x34F0, MUX_MODE15) /* AF8: P9.21a: vin1a_vsync0.off */
+			DRA7XX_CORE_IOPAD(0x37C4, PIN_OUTPUT | MUX_MODE1) /* B22: P9.21b: spi2_d1.uart3_txd - UART2_TX */
+			DRA7XX_CORE_IOPAD(0x369C, MUX_MODE15) /* B26: P9.22a: xref_clk2.off */
+			DRA7XX_CORE_IOPAD(0x37C0, PIN_INPUT | MUX_MODE1) /* A26: P9.22b: spi2_sclk.uart3_rxd - UART2_RX */
+			DRA7XX_CORE_IOPAD(0x37B4, PIN_OUTPUT | MUX_MODE14) /* A22: P9.23: spi1_cs1.gpio7_11 - SPI1_SS2 */
+			DRA7XX_CORE_IOPAD(0x368C, PIN_OUTPUT | MUX_MODE3) /* F20: P9.24: gpio6_15.uart10_txd - UART1_TX */
+			DRA7XX_CORE_IOPAD(0x3694, PIN_INPUT | MUX_MODE14) /* D18: P9.25: xref_clk0.gpio6_17 - IMU_INT */
+			DRA7XX_CORE_IOPAD(0x3688, PIN_INPUT | MUX_MODE3) /* E21: P9.26a: gpio6_14.uart10_rxd - UART1_RX */
+			DRA7XX_CORE_IOPAD(0x3544, MUX_MODE15) /* AE2: P9.26b: vin1a_d20.off */
+			DRA7XX_CORE_IOPAD(0x35A0, PIN_INPUT | MUX_MODE10) /* C3: P9.27a: vin2a_d14.eQEP3B_in - QEP0B */
+			DRA7XX_CORE_IOPAD(0x36B0, MUX_MODE15) /* J14: P9.27b: mcasp1_fsr.off */
+			DRA7XX_CORE_IOPAD(0x36E0, PIN_OUTPUT | MUX_MODE3) /* A12: P9.28: mcasp1_axr11.spi3_cs0 - SPI1_SS1 */
+			DRA7XX_CORE_IOPAD(0x36D8, PIN_INPUT | MUX_MODE3) /* A11: P9.29a: mcasp1_axr9.spi3_d1 - SPI1_MISO */
+			DRA7XX_CORE_IOPAD(0x36A8, MUX_MODE15) /* D14: P9.29b: mcasp1_fsx.off */
+			DRA7XX_CORE_IOPAD(0x36DC, PIN_OUTPUT | MUX_MODE3) /* B13: P9.30: mcasp1_axr10.spi3_d0 - SPI1_MOSI */
+			DRA7XX_CORE_IOPAD(0x36D4, PIN_OUTPUT | MUX_MODE3) /* B12: P9.31a: mcasp1_axr8.spi3_sclk - SPI1_SCK */
+			DRA7XX_CORE_IOPAD(0x36A4, MUX_MODE15) /* C14: P9.31b: mcasp1_aclkx.off */
+			DRA7XX_CORE_IOPAD(0x36A0, PIN_OUTPUT | MUX_MODE14) /* C23: P9.41a: xref_clk3.gpio6_20 - MOT_STBY */
+			DRA7XX_CORE_IOPAD(0x3580, MUX_MODE15) /* C1: P9.41b: vin2a_d6.off */
+			DRA7XX_CORE_IOPAD(0x36E4, MUX_MODE15) /* E14: P9.42a: mcasp1_axr12.off */
+			DRA7XX_CORE_IOPAD(0x359C, PIN_INPUT | MUX_MODE10) /* C2: P9.42b: vin2a_d13.eQEP3A_in - QEP0A */
+		>;
+	};
+};
+
+&i2c5 {
+	status = "okay";
+	clock-frequency = <100000>;
+};
+
+&epwmss0 {
+	status = "okay";
+};
+
+&epwmss1 {
+	status = "okay";
+};
+
+&epwmss2 {
+	status = "okay";
+};
+
+&ehrpwm1 {
+	status = "okay";
+};
+
+&ehrpwm2 {
+	status = "okay";
+};
+
+&uart8 {
+	status = "okay";
+};
+
+&uart5 {
+	status = "okay";
+};
+
+&uart3 {
+	status = "okay";
+};
+
+&uart10 {
+	status = "okay";
+};
+
+&mcspi1 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	cs-gpios = <0>, <&gpio7 11 0>;
+
+	channel@0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "spidev";
+		reg = <0>;
+		spi-max-frequency = <24000000>;
+	};
+
+	channel@1 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "spidev";
+		reg = <1>;
+		spi-max-frequency = <24000000>;
+	};
+};
