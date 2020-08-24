@@ -300,14 +300,6 @@ static void unmap_range(struct kvm *kvm, pgd_t *pgdp,
 		next = kvm_pgd_addr_end(addr, end);
 		if (!pgd_none(*pgd))
 			unmap_puds(kvm, pgd, addr, next);
-		/*
-		 * If we are dealing with a large range in
-		 * stage2 table, release the kvm->mmu_lock
-		 * to prevent starvation and lockup detector
-		 * warnings.
-		 */
-		if (kvm && (next != end))
-			cond_resched_lock(&kvm->mmu_lock);
 	} while (pgd++, addr = next, addr != end);
 }
 
