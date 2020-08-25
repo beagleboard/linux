@@ -932,6 +932,8 @@ static void prueth_ptp_tx_ts_get(struct prueth_emac *emac, u8 event)
 		red_ssh = skb_redinfo_hwtstamps(skb);
 		memset(red_ssh, 0, sizeof(*red_ssh));
 		red_ssh->hwtstamp = ns_to_ktime(ns);
+		skb->protocol = eth_type_trans(skb, emac->ndev);
+		netif_receive_skb(skb);
 	} else {
 		memset(&ssh, 0, sizeof(ssh));
 		ssh.hwtstamp = ns_to_ktime(ns);
@@ -1138,7 +1140,7 @@ void parse_packet_info(struct prueth *prueth, u32 buffer_descriptor,
 	pkt_info->timestamp = !!(buffer_descriptor & PRUETH_BD_TIMESTAMP_MASK);
 }
 
-static void prueth_hsr_ptp_ct_tx_ts_enqueue(struct prueth_emac *emac, struct sk_buff *skb, u16 type)
+static int prueth_hsr_ptp_ct_tx_ts_enqueue(struct prueth_emac *emac, struct sk_buff *skb, u16 type)
 {
 	struct prueth_emac *other_emac = emac->prueth->emac[other_port_id(emac->port_id) - 1];
 	struct skb_shared_hwtstamps *red_ssh;
@@ -1162,7 +1164,7 @@ static void prueth_hsr_ptp_ct_tx_ts_enqueue(struct prueth_emac *emac, struct sk_
 
 	/* Store skbs for only cut through packets */
 	if (ptp_type != PTP_SYNC_MSG_ID && ptp_type != PTP_DLY_REQ_MSG_ID)
-		return;
+		return 0;
 
 	/* cut through packet might have already be forwarded before the rx packet has reached
 	 * the host. In this case tx irq handler ignores the interrupt as there is no skb stored.
@@ -1175,7 +1177,7 @@ static void prueth_hsr_ptp_ct_tx_ts_enqueue(struct prueth_emac *emac, struct sk_
 		memset(red_ssh, 0, sizeof(*red_ssh));
 		red_ssh->hwtstamp = ns_to_ktime(ns);
 
-		return;
+		return 0;
 	}
 
 	/* Store the skb so that tx irq handler will populate the ts */
@@ -1189,6 +1191,8 @@ static void prueth_hsr_ptp_ct_tx_ts_enqueue(struct prueth_emac *emac, struct sk_
 	skb_get(skb);
 	other_emac->ptp_ct_skb[event] = skb;
 	spin_unlock_irqrestore(&other_emac->ptp_skb_lock, flags);
+
+	return -EAGAIN;
 }
 
 /* get packet from queue
@@ -1216,6 +1220,7 @@ int emac_rx_packet(struct prueth_emac *emac, u16 *bd_rd_ptr,
 	u16 start_offset = 0, type;
 	u8 offset = 0, *ptr;
 	u64 ts;
+	int ret;
 
 	if (PRUETH_IS_HSR(prueth))
 		start_offset = (pkt_info.start_offset ?
@@ -1368,8 +1373,11 @@ int emac_rx_packet(struct prueth_emac *emac, u16 *bd_rd_ptr,
 			ssh = skb_hwtstamps(skb);
 			memset(ssh, 0, sizeof(*ssh));
 			ssh->hwtstamp = ns_to_ktime(ts);
-			if (PRUETH_IS_HSR(prueth))
-				prueth_hsr_ptp_ct_tx_ts_enqueue(emac, skb, type);
+			if (PRUETH_IS_HSR(prueth)) {
+				ret = prueth_hsr_ptp_ct_tx_ts_enqueue(emac, skb, type);
+				if (ret == -EAGAIN)
+					goto out;
+			}
 		}
 
 		/* send packet up the stack */
@@ -1378,6 +1386,7 @@ int emac_rx_packet(struct prueth_emac *emac, u16 *bd_rd_ptr,
 	} else {
 		dev_kfree_skb_any(skb);
 	}
+out:
 
 	/* update stats */
 	ndev->stats.rx_bytes += actual_pkt_len;
