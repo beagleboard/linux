@@ -1169,7 +1169,7 @@ static void prueth_hsr_ptp_ct_tx_ts_enqueue(struct prueth_emac *emac, struct sk_
 	 * So check if ts is already available before storing the skb.
 	 */
 	ns = prueth_ptp_ts_get(other_emac, prueth_tx_ts_offs_get(other_emac->port_id - 1, event));
-	if (ns) {
+	if (ns || !other_emac->link) {
 		/* Save the cut-through tx ts in skb redinfo. */
 		red_ssh = skb_redinfo_hwtstamps(skb);
 		memset(red_ssh, 0, sizeof(*red_ssh));
