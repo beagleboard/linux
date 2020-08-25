@@ -1,4 +1,10 @@
 # SPDX-License-Identifier: GPL-2.0-only
+config SND_AVB
+	tristate "Generic AVB driver"
+	select SND_PCM
+        help
+          Say 'Y' or 'M' to include support for the PCM AVB device.
+
 config SND_MPU401_UART
         tristate
         select SND_RAWMIDI
