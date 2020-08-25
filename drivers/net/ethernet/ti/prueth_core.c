@@ -1855,6 +1855,11 @@ static int emac_ndo_stop(struct net_device *ndev)
 			dev_consume_skb_any(emac->ptp_skb[i]);
 			emac->ptp_skb[i] = NULL;
 		}
+		if (emac->ptp_ct_skb[i]) {
+			prueth_ptp_tx_ts_reset(emac, i);
+			dev_consume_skb_any(emac->ptp_ct_skb[i]);
+			emac->ptp_ct_skb[i] = NULL;
+		}
 	}
 
 	/* free rx and tx interrupts */
