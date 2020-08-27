@@ -689,6 +689,8 @@ static void __exit mikrobus_exit(void)
 }
 module_exit(mikrobus_exit);
 
+EXPORT_SYMBOL(MIKROBUS_PINCTRL_STR);
+
 MODULE_AUTHOR("Vaishnav M A <vaishnav@beagleboard.org>");
 MODULE_DESCRIPTION("mikroBUS main module");
 MODULE_LICENSE("GPL v2");

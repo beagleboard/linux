@@ -389,7 +389,7 @@ int mikrobus_manifest_parse(struct addon_board_info *board, void *data,
 	manifest_size = le16_to_cpu(header->size);
 
 	if (manifest_size != size) {
-		pr_err("invalid manifest size(%zu < %zu)", size, manifest_size);
+		pr_err("invalid manifest size(%zu < %u)", size, manifest_size);
 		return -EINVAL;
 	}
 
@@ -405,7 +405,7 @@ int mikrobus_manifest_parse(struct addon_board_info *board, void *data,
 	while (size) {
 		desc_size = board_descriptor_add(board, desc, size);
 		if (desc_size < 0) {
-			pr_err("invalid manifest descriptor, size: %zu", desc_size);
+			pr_err("invalid manifest descriptor, size: %u", desc_size);
 			return -EINVAL;
 		}
 		desc = (void *)desc + desc_size;
