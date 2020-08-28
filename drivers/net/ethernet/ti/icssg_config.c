@@ -197,12 +197,35 @@ void icssg_config_ipg(struct prueth *prueth, int speed, int mii)
 	}
 }
 
+/* SR1: Set buffer sizes for the pools. There are 8 internal queues
+ * implemented in firmware, but only 4 tx channels/threads in the Egress
+ * direction to firmware. Need a high priority queue for management
+ * messages since they shouldn't be blocked even during high traffic
+ * situation. So use Q0-Q2 as data queues and Q3 as management queue
+ * in the max case. However for ease of configuration, use the max
+ * data queue + 1 for management message if we are not using max
+ * case.
+ *
+ * Allocate 4 MTU buffers per data queue.  Firmware requires
+ * pool sizes to be set for internal queues. Set the upper 5 queue
+ * pool size to min size of 128 bytes since there are only 3 tx
+ * data channels and management queue requires only minimum buffer.
+ * i.e lower queues are used by driver and highest priority queue
+ * from that is used for management message.
+ */
+
+static int emac_egress_buf_pool_size[] = {
+	PRUETH_EMAC_BUF_POOL_SIZE_SR1, PRUETH_EMAC_BUF_POOL_SIZE_SR1,
+	PRUETH_EMAC_BUF_POOL_SIZE_SR1, PRUETH_EMAC_BUF_POOL_MIN_SIZE_SR1,
+	PRUETH_EMAC_BUF_POOL_MIN_SIZE_SR1, PRUETH_EMAC_BUF_POOL_MIN_SIZE_SR1,
+	PRUETH_EMAC_BUF_POOL_MIN_SIZE_SR1, PRUETH_EMAC_BUF_POOL_MIN_SIZE_SR1};
+
 void icssg_config_sr1(struct prueth *prueth, struct prueth_emac *emac,
 		      int slice)
 {
 	void __iomem *va;
 	struct icssg_config_sr1 *config;
-	int i;
+	int i, index;
 
 	va = prueth->shram.va + slice * ICSSG_CONFIG_OFFSET_SLICE1;
 	config = &prueth->config[slice];
@@ -213,10 +236,12 @@ void icssg_config_sr1(struct prueth *prueth, struct prueth_emac *emac,
 	config->rx_flow_id = emac->rx_flow_id_base; /* flow id for host port */
 	config->rx_mgr_flow_id = emac->rx_mgm_flow_id_base; /* for mgm ch */
 
-	/* set buffer sizes for the pools. 0-7 are not used for dual-emac */
-	for (i = PRUETH_EMAC_BUF_POOL_START_SR1;
-	     i < PRUETH_NUM_BUF_POOLS_SR1; i++)
-		config->tx_buf_sz[i] = cpu_to_le32(PRUETH_EMAC_BUF_POOL_SIZE_SR1);
+	for (i = PRUETH_EMAC_BUF_POOL_START_SR1; i < PRUETH_NUM_BUF_POOLS_SR1;
+	     i++) {
+		index =  i - PRUETH_EMAC_BUF_POOL_START_SR1;
+		config->tx_buf_sz[i] =
+			cpu_to_le32(emac_egress_buf_pool_size[index]);
+	}
 
 	memcpy_toio(va, &prueth->config[slice], sizeof(prueth->config[slice]));
 }

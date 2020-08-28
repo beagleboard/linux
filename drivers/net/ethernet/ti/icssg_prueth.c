@@ -666,7 +666,8 @@ static int emac_send_command_sr1(struct prueth_emac *emac, u32 cmd)
 		goto err_unlock;
 	}
 
-	tx_chn = &emac->tx_chns[0];
+	/* highest priority channel for management messages */
+	tx_chn = &emac->tx_chns[emac->tx_ch_num - 1];
 
 	first_desc = k3_cppi_desc_pool_alloc(tx_chn->desc_pool);
 	if (!first_desc) {
@@ -1371,18 +1372,22 @@ static int emac_napi_rx_poll(struct napi_struct *napi_rx, int budget)
 static int emac_ndo_open(struct net_device *ndev)
 {
 	struct prueth_emac *emac = netdev_priv(ndev);
+	int ret, i, num_data_chn = emac->tx_ch_num;
 	struct prueth *prueth = emac->prueth;
 	int slice = prueth_emac_slice(emac);
 	struct device *dev = prueth->dev;
 	struct sk_buff *skb;
 	int max_rx_flows;
 	int rx_flow;
-	int ret, i;
 
 	/* clear SMEM of this slice */
 	if (emac->is_sr1) {
 		memset_io(prueth->shram.va + slice * ICSSG_CONFIG_OFFSET_SLICE1,
 			  0, ICSSG_CONFIG_OFFSET_SLICE1);
+		/* For SR1, high priority channel is used exclusively for
+		 * management messages. Do reduce number of data channels.
+		 */
+		num_data_chn--;
 	}
 
 	/* set h/w MAC as user might have re-configured */
@@ -1394,7 +1399,7 @@ static int emac_ndo_open(struct net_device *ndev)
 	netif_carrier_off(ndev);
 
 	/* Notify the stack of the actual queue counts. */
-	ret = netif_set_real_num_tx_queues(ndev, emac->tx_ch_num);
+	ret = netif_set_real_num_tx_queues(ndev, num_data_chn);
 	if (ret) {
 		dev_err(dev, "cannot set real number of tx queues\n");
 		return ret;
@@ -1974,12 +1979,12 @@ const struct icss_iep_clockops prueth_iep_clockops = {
 static int prueth_netdev_init(struct prueth *prueth,
 			      struct device_node *eth_node)
 {
+	int ret, num_tx_chn = PRUETH_MAX_TX_QUEUES;
+	struct prueth_emac *emac;
+	struct net_device *ndev;
 	enum prueth_port port;
 	enum prueth_mac mac;
-	struct net_device *ndev;
-	struct prueth_emac *emac;
 	const u8 *mac_addr;
-	int ret;
 
 	port = prueth_node_port(eth_node);
 	if (port < 0)
@@ -1989,7 +1994,11 @@ static int prueth_netdev_init(struct prueth *prueth,
 	if (mac < 0)
 		return -EINVAL;
 
-	ndev = alloc_etherdev_mq(sizeof(*emac), PRUETH_MAX_TX_QUEUES);
+	/* Use 1 channel for management messages on SR1 */
+	if (prueth->is_sr1)
+		num_tx_chn--;
+
+	ndev = alloc_etherdev_mq(sizeof(*emac), num_tx_chn);
 	if (!ndev)
 		return -ENOMEM;
 
@@ -2006,8 +2015,13 @@ static int prueth_netdev_init(struct prueth *prueth,
 
 	emac->is_sr1 = prueth->is_sr1;
 	emac->tx_ch_num = 1;
-	if (emac->is_sr1)
+	if (emac->is_sr1) {
+		/* use a dedicated high priority channel for management
+		 * messages which is +1 of highest priority data channel.
+		 */
+		emac->tx_ch_num++;
 		goto skip_irq;
+	}
 
 	emac->irq = of_irq_get(eth_node, 0);
 	if (emac->irq < 0) {
