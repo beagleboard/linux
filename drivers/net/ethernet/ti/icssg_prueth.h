@@ -90,7 +90,6 @@ struct prueth_tx_chn {
 	struct k3_cppi_desc_pool *desc_pool;
 	struct k3_udma_glue_tx_channel *tx_chn;
 	u32 descs_num;
-	spinlock_t lock;	/* to serialize */
 	unsigned int irq;
 };
 
@@ -99,7 +98,6 @@ struct prueth_rx_chn {
 	struct k3_cppi_desc_pool *desc_pool;
 	struct k3_udma_glue_rx_channel *rx_chn;
 	u32 descs_num;
-	spinlock_t lock;	/* to serialize */
 	unsigned int irq[ICSSG_MAX_RFLOWS];	/* separate irq per flow */
 };
 

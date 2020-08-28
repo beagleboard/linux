@@ -122,7 +122,6 @@ static int prueth_init_tx_chns(struct prueth_emac *emac)
 	snprintf(tx_chn_name, sizeof(tx_chn_name), "tx%d-0", slice);
 
 	tx_chn->descs_num = PRUETH_MAX_TX_DESC;
-	spin_lock_init(&tx_chn->lock);
 	tx_chn->desc_pool = k3_cppi_desc_pool_create_name(dev,
 							  tx_chn->descs_num,
 							  hdesc_size,
@@ -186,7 +185,6 @@ static int prueth_init_rx_chns(struct prueth_emac *emac,
 	/* init all flows */
 	rx_chn->dev = dev;
 	rx_chn->descs_num = max_desc_num;
-	spin_lock_init(&rx_chn->lock);
 	rx_chn->desc_pool = k3_cppi_desc_pool_create_name(dev,
 							  rx_chn->descs_num,
 							  hdesc_size,
