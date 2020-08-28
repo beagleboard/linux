@@ -1561,7 +1561,7 @@ static int emac_ndo_stop(struct net_device *ndev)
 	free_irq(emac->rx_chns.irq[rx_flow], emac);
 	free_irq(emac->tx_chns.irq, emac);
 
-	if (!emac->is_sr1)
+	if (emac->is_sr1)
 		prueth_cleanup_rx_chns(emac, &emac->rx_mgm_chn,
 				       PRUETH_MAX_RX_MGM_FLOWS);
 	prueth_cleanup_rx_chns(emac, &emac->rx_chns, max_rx_flows);
