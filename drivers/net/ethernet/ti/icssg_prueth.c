@@ -80,13 +80,67 @@ static void prueth_cleanup_rx_chns(struct prueth_emac *emac,
 
 static void prueth_cleanup_tx_chns(struct prueth_emac *emac)
 {
-	struct prueth_tx_chn *tx_chn = &emac->tx_chns;
+	int i;
 
-	if (tx_chn->tx_chn)
-		k3_udma_glue_release_tx_chn(tx_chn->tx_chn);
+	for (i = 0; i < emac->tx_ch_num; i++) {
+		struct prueth_tx_chn *tx_chn = &emac->tx_chns[i];
 
-	if (tx_chn->desc_pool)
-		k3_cppi_desc_pool_destroy(tx_chn->desc_pool);
+		if (tx_chn->tx_chn)
+			k3_udma_glue_release_tx_chn(tx_chn->tx_chn);
+
+		if (tx_chn->desc_pool)
+			k3_cppi_desc_pool_destroy(tx_chn->desc_pool);
+
+		/* Assume prueth_cleanup_tx_chns() is called at the
+		 * end after all channel resources are freed
+		 */
+		memset(tx_chn, 0, sizeof(*tx_chn));
+	}
+}
+
+static void prueth_ndev_del_tx_napi(struct prueth_emac *emac, int num)
+{
+	int i;
+
+	for (i = 0; i < num; i++) {
+		struct prueth_tx_chn *tx_chn = &emac->tx_chns[i];
+
+		if (tx_chn->irq)
+			free_irq(tx_chn->irq, tx_chn);
+		netif_napi_del(&tx_chn->napi_tx);
+	}
+}
+
+static int emac_tx_complete_packets(struct prueth_emac *emac, int chn,
+				    int budget);
+static int emac_napi_tx_poll(struct napi_struct *napi_tx, int budget);
+static irqreturn_t prueth_tx_irq(int irq, void *dev_id);
+
+static int prueth_ndev_add_tx_napi(struct prueth_emac *emac)
+{
+	struct prueth *prueth = emac->prueth;
+	int i, ret;
+
+	for (i = 0; i < emac->tx_ch_num; i++) {
+		struct prueth_tx_chn *tx_chn = &emac->tx_chns[i];
+
+		netif_tx_napi_add(emac->ndev, &tx_chn->napi_tx,
+				  emac_napi_tx_poll, NAPI_POLL_WEIGHT);
+		ret = request_irq(tx_chn->irq, prueth_tx_irq,
+				  IRQF_TRIGGER_HIGH, tx_chn->name,
+				  tx_chn);
+		if (ret) {
+			netif_napi_del(&tx_chn->napi_tx);
+			dev_err(prueth->dev, "unable to request TX IRQ %d\n",
+				tx_chn->irq);
+			goto fail;
+		}
+	}
+
+	return 0;
+fail:
+	prueth_ndev_del_tx_napi(emac, i);
+	return ret;
 }
 
 static int prueth_init_tx_chns(struct prueth_emac *emac)
@@ -100,10 +154,8 @@ static int prueth_init_tx_chns(struct prueth_emac *emac)
 		.flags = 0,
 		.size = PRUETH_MAX_TX_DESC,
 	};
+	int ret, slice, i;
 	u32 hdesc_size;
-	int ret, slice;
-	struct prueth_tx_chn *tx_chn = &emac->tx_chns;
-	char tx_chn_name[16];
 
 	slice = prueth_emac_slice(emac);
 	if (slice < 0)
@@ -118,34 +170,48 @@ static int prueth_init_tx_chns(struct prueth_emac *emac)
 	tx_cfg.tx_cfg = ring_cfg;
 	tx_cfg.txcq_cfg = ring_cfg;
 
-	/* To differentiate channels for SLICE0 vs SLICE1 */
-	snprintf(tx_chn_name, sizeof(tx_chn_name), "tx%d-0", slice);
+	for (i = 0; i < emac->tx_ch_num; i++) {
+		struct prueth_tx_chn *tx_chn = &emac->tx_chns[i];
 
-	tx_chn->descs_num = PRUETH_MAX_TX_DESC;
-	tx_chn->desc_pool = k3_cppi_desc_pool_create_name(dev,
-							  tx_chn->descs_num,
-							  hdesc_size,
-							  tx_chn_name);
-	if (IS_ERR(tx_chn->desc_pool)) {
-		ret = PTR_ERR(tx_chn->desc_pool);
-		tx_chn->desc_pool = NULL;
-		netdev_err(ndev, "Failed to create tx pool: %d\n", ret);
-		goto fail;
-	}
+		/* To differentiate channels for SLICE0 vs SLICE1 */
+		snprintf(tx_chn->name, sizeof(tx_chn->name),
+			 "tx%d-%d", slice, i);
 
-	tx_chn->tx_chn = k3_udma_glue_request_tx_chn(dev, tx_chn_name, &tx_cfg);
-	if (IS_ERR(tx_chn->tx_chn)) {
-		ret = PTR_ERR(tx_chn->tx_chn);
-		tx_chn->tx_chn = NULL;
-		netdev_err(ndev, "Failed to request tx dma ch: %d\n", ret);
-		goto fail;
-	}
+		tx_chn->emac = emac;
+		tx_chn->id = i;
+		tx_chn->descs_num = PRUETH_MAX_TX_DESC;
+		tx_chn->desc_pool =
+			k3_cppi_desc_pool_create_name(dev,
+						      tx_chn->descs_num,
+						      hdesc_size,
+						      tx_chn->name);
+		if (IS_ERR(tx_chn->desc_pool)) {
+			ret = PTR_ERR(tx_chn->desc_pool);
+			tx_chn->desc_pool = NULL;
+			netdev_err(ndev, "Failed to create tx pool: %d\n", ret);
+			goto fail;
+		}
 
-	tx_chn->irq = k3_udma_glue_tx_get_irq(tx_chn->tx_chn);
-	if (tx_chn->irq <= 0) {
-		ret = -EINVAL;
-		netdev_err(ndev, "failed to get tx irq\n");
-		goto fail;
+		tx_chn->tx_chn =
+			k3_udma_glue_request_tx_chn(dev, tx_chn->name,
+						    &tx_cfg);
+		if (IS_ERR(tx_chn->tx_chn)) {
+			ret = PTR_ERR(tx_chn->tx_chn);
+			tx_chn->tx_chn = NULL;
+			netdev_err(ndev,
+				   "Failed to request tx dma ch: %d\n", ret);
+			goto fail;
+		}
+
+		tx_chn->irq = k3_udma_glue_tx_get_irq(tx_chn->tx_chn);
+		if (tx_chn->irq <= 0) {
+			ret = -EINVAL;
+			netdev_err(ndev, "failed to get tx irq\n");
+			goto fail;
+		}
+
+		snprintf(tx_chn->name, sizeof(tx_chn->name), "%s-tx%d",
+			 dev_name(dev), tx_chn->id);
 	}
 
 	return 0;
@@ -502,7 +568,7 @@ static int emac_send_command_sr1(struct prueth_emac *emac, u32 cmd)
 		goto err_unlock;
 	}
 
-	tx_chn = &emac->tx_chns;
+	tx_chn = &emac->tx_chns[0];
 
 	first_desc = k3_cppi_desc_pool_alloc(tx_chn->desc_pool);
 	if (!first_desc) {
@@ -660,16 +726,16 @@ error:
 static int emac_ndo_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 {
 	struct prueth_emac *emac = netdev_priv(ndev);
-	int ret = 0;
 	struct device *dev = emac->prueth->dev;
 	struct cppi5_host_desc_t *first_desc, *next_desc, *cur_desc;
+	struct netdev_queue *netif_txq;
 	struct prueth_tx_chn *tx_chn;
 	dma_addr_t desc_dma, buf_dma;
-	u32 pkt_len;
-	int i;
-	void **swdata;
-	u32 *epib;
+	int i, ret = 0, q_idx;
 	bool in_tx_ts = 0;
+	void **swdata;
+	u32 pkt_len;
+	u32 *epib;
 
 	/* frag list based linkage is not supported for now. */
 	if (skb_shinfo(skb)->frag_list) {
@@ -679,7 +745,10 @@ static int emac_ndo_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 	}
 
 	pkt_len = skb_headlen(skb);
-	tx_chn = &emac->tx_chns;
+	q_idx = skb_get_queue_mapping(skb);
+
+	tx_chn = &emac->tx_chns[q_idx];
+	netif_txq = netdev_get_tx_queue(ndev, q_idx);
 
 	/* Map the linear buffer */
 	buf_dma = dma_map_single(dev, skb->data, pkt_len, DMA_TO_DEVICE);
@@ -720,6 +789,10 @@ static int emac_ndo_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 		}
 	}
 
+	/* set dst tag to indicate internal qid at the firmware which is at
+	 * bit8..bit15
+	 */
+	cppi5_desc_set_tags_ids(&first_desc->hdr, 0, (q_idx << 8));
 	cppi5_hdesc_attach_buf(first_desc, buf_dma, pkt_len, buf_dma, pkt_len);
 	swdata = cppi5_hdesc_get_swdata(first_desc);
 	*swdata = skb;
@@ -765,7 +838,7 @@ static int emac_ndo_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 
 tx_push:
 	/* report bql before sending packet */
-	netdev_sent_queue(ndev, pkt_len);
+	netdev_tx_sent_queue(netif_txq, pkt_len);
 
 	cppi5_hdesc_set_pktlen(first_desc, pkt_len);
 	desc_dma = k3_cppi_desc_pool_virt2dma(tx_chn->desc_pool, first_desc);
@@ -778,8 +851,15 @@ tx_push:
 		goto drop_free_descs;
 	}
 
-	if (k3_cppi_desc_pool_avail(tx_chn->desc_pool) < MAX_SKB_FRAGS)
-		netif_stop_queue(ndev);
+	if (k3_cppi_desc_pool_avail(tx_chn->desc_pool) < MAX_SKB_FRAGS) {
+		netif_tx_stop_queue(netif_txq);
+		/* Barrier, so that stop_queue visible to other cpus */
+		smp_mb__after_atomic();
+
+		if (k3_cppi_desc_pool_avail(tx_chn->desc_pool) >=
+		    MAX_SKB_FRAGS)
+			netif_tx_wake_queue(netif_txq);
+	}
 
 	return NETDEV_TX_OK;
 
@@ -793,7 +873,7 @@ cleanup_tx_ts:
 drop_free_descs:
 	prueth_xmit_free(tx_chn, dev, first_desc);
 drop_stop_q:
-	netif_stop_queue(ndev);
+	netif_tx_stop_queue(netif_txq);
 drop_free_skb:
 	dev_kfree_skb_any(skb);
 
@@ -804,7 +884,7 @@ drop_free_skb:
 	return ret;
 
 drop_stop_q_busy:
-	netif_stop_queue(ndev);
+	netif_tx_stop_queue(netif_txq);
 	return NETDEV_TX_BUSY;
 }
 
@@ -812,11 +892,13 @@ drop_stop_q_busy:
  * emac_tx_complete_packets - Check if TX completed packets upto budget.
  * Returns number of completed TX packets.
  */
-static int emac_tx_complete_packets(struct prueth_emac *emac, int budget)
+static int emac_tx_complete_packets(struct prueth_emac *emac, int chn,
+				    int budget)
 {
 	struct net_device *ndev = emac->ndev;
 	struct cppi5_host_desc_t *desc_tx;
 	struct device *dev = emac->prueth->dev;
+	struct netdev_queue *netif_txq;
 	struct prueth_tx_chn *tx_chn;
 	unsigned int total_bytes = 0;
 	struct sk_buff *skb;
@@ -824,7 +906,7 @@ static int emac_tx_complete_packets(struct prueth_emac *emac, int budget)
 	int res, num_tx = 0;
 	void **swdata;
 
-	tx_chn = &emac->tx_chns;
+	tx_chn = &emac->tx_chns[chn];
 
 	while (budget--) {
 		res = k3_udma_glue_pop_tx_chn(tx_chn->tx_chn, &desc_dma);
@@ -833,7 +915,8 @@ static int emac_tx_complete_packets(struct prueth_emac *emac, int budget)
 
 		/* teardown completion */
 		if (desc_dma & 0x1) {
-			complete(&emac->tdown_complete);
+			if (atomic_dec_and_test(&emac->tdown_cnt))
+				complete(&emac->tdown_complete);
 			break;
 		}
 
@@ -862,18 +945,19 @@ static int emac_tx_complete_packets(struct prueth_emac *emac, int budget)
 	if (!num_tx)
 		return 0;
 
-	netdev_completed_queue(ndev, num_tx, total_bytes);
+	netif_txq = netdev_get_tx_queue(ndev, chn);
+	netdev_tx_completed_queue(netif_txq, num_tx, total_bytes);
 
-	if (netif_queue_stopped(ndev)) {
+	if (netif_tx_queue_stopped(netif_txq)) {
 		/* If the the TX queue was stopped, wake it now
 		 * if we have enough room.
 		 */
-		netif_tx_lock(ndev);
+		__netif_tx_lock(netif_txq, smp_processor_id());
 		if (netif_running(ndev) &&
 		    (k3_cppi_desc_pool_avail(tx_chn->desc_pool) >=
 		     MAX_SKB_FRAGS))
-			netif_wake_queue(ndev);
-		netif_tx_unlock(ndev);
+			netif_tx_wake_queue(netif_txq);
+		__netif_tx_unlock(netif_txq);
 	}
 
 	return num_tx;
@@ -881,8 +965,8 @@ static int emac_tx_complete_packets(struct prueth_emac *emac, int budget)
 
 static void prueth_tx_cleanup(void *data, dma_addr_t desc_dma)
 {
-	struct prueth_emac *emac = data;
-	struct prueth_tx_chn *tx_chn = &emac->tx_chns;
+	struct prueth_tx_chn *tx_chn = data;
+	struct prueth_emac *emac = tx_chn->emac;
 	struct cppi5_host_desc_t *desc_tx;
 	struct sk_buff *skb;
 	void **swdata;
@@ -1065,10 +1149,10 @@ static irqreturn_t prueth_rx_irq(int irq, void *dev_id)
 
 static irqreturn_t prueth_tx_irq(int irq, void *dev_id)
 {
-	struct prueth_emac *emac = dev_id;
+	struct prueth_tx_chn *tx_chn = dev_id;
 
 	disable_irq_nosync(irq);
-	napi_schedule(&emac->napi_tx);
+	napi_schedule(&tx_chn->napi_tx);
 
 	return IRQ_HANDLED;
 }
@@ -1265,14 +1349,15 @@ static int emac_napi_rx_poll(struct napi_struct *napi_rx, int budget)
 
 static int emac_napi_tx_poll(struct napi_struct *napi_tx, int budget)
 {
-	struct prueth_emac *emac = prueth_napi_to_emac(napi_tx);
+	struct prueth_tx_chn *tx_chn = prueth_napi_to_tx_chn(napi_tx);
+	struct prueth_emac *emac = tx_chn->emac;
 	int num_tx_packets;
 
-	num_tx_packets = emac_tx_complete_packets(emac, budget);
+	num_tx_packets = emac_tx_complete_packets(emac, tx_chn->id, budget);
 
 	if (num_tx_packets < budget) {
 		napi_complete(napi_tx);
-		enable_irq(emac->tx_chns.irq);
+		enable_irq(tx_chn->irq);
 	}
 
 	return num_tx_packets;
@@ -1290,12 +1375,12 @@ static int emac_ndo_open(struct net_device *ndev)
 {
 	struct prueth_emac *emac = netdev_priv(ndev);
 	struct prueth *prueth = emac->prueth;
-	struct device *dev = prueth->dev;
-	int ret, i;
-	struct sk_buff *skb;
 	int slice = prueth_emac_slice(emac);
+	struct device *dev = prueth->dev;
+	struct sk_buff *skb;
 	int max_rx_flows;
 	int rx_flow;
+	int ret, i;
 
 	/* clear SMEM of this slice */
 	if (emac->is_sr1) {
@@ -1310,6 +1395,13 @@ static int emac_ndo_open(struct net_device *ndev)
 	icssg_class_default(prueth->miig_rt, slice, 0);
 
 	netif_carrier_off(ndev);
+
+	/* Notify the stack of the actual queue counts. */
+	ret = netif_set_real_num_tx_queues(ndev, emac->tx_ch_num);
+	if (ret) {
+		dev_err(dev, "cannot set real number of tx queues\n");
+		return ret;
+	}
 
 	init_completion(&emac->cmd_complete);
 	ret = prueth_init_tx_chns(emac);
@@ -1338,12 +1430,9 @@ static int emac_ndo_open(struct net_device *ndev)
 		}
 	}
 
-	ret = request_irq(emac->tx_chns.irq, prueth_tx_irq, IRQF_TRIGGER_HIGH,
-			  dev_name(dev), emac);
-	if (ret) {
-		dev_err(dev, "unable to request TX IRQ\n");
+	ret = prueth_ndev_add_tx_napi(emac);
+	if (ret)
 		goto cleanup_rx_mgm;
-	}
 
 	/* we use only the highest priority flow for now i.e. @irq[3] */
 	rx_flow = emac->is_sr1 ?
@@ -1352,7 +1441,7 @@ static int emac_ndo_open(struct net_device *ndev)
 			  IRQF_TRIGGER_HIGH, dev_name(dev), emac);
 	if (ret) {
 		dev_err(dev, "unable to request RX IRQ\n");
-		goto free_tx_irq;
+		goto cleanup_napi;
 	}
 
 	if (!emac->is_sr1)
@@ -1440,9 +1529,16 @@ skip_mgm_irq:
 	k3_udma_glue_enable_rx_chn(emac->rx_mgm_chn.rx_chn);
 skip_mgm:
 	k3_udma_glue_enable_rx_chn(emac->rx_chns.rx_chn);
-	k3_udma_glue_enable_tx_chn(emac->tx_chns.tx_chn);
 
-	napi_enable(&emac->napi_tx);
+	for (i = 0; i < emac->tx_ch_num; i++) {
+		ret = k3_udma_glue_enable_tx_chn(emac->tx_chns[i].tx_chn);
+		if (ret)
+			goto disable_tx_chan;
+	}
+
+	/* Enable NAPI in Tx and Rx direction */
+	for (i = 0; i < emac->tx_ch_num; i++)
+		napi_enable(&emac->tx_chns[i].napi_tx);
 	napi_enable(&emac->napi_rx);
 
 	if (netif_msg_drv(emac))
@@ -1453,6 +1549,12 @@ skip_mgm:
 
 	return 0;
 
+disable_tx_chan:
+	for (--i; i >= 0; i--)
+		k3_udma_glue_disable_tx_chn(emac->tx_chns[i].tx_chn);
+	k3_udma_glue_disable_rx_chn(emac->rx_chns.rx_chn);
+	if (emac->is_sr1)
+		k3_udma_glue_disable_rx_chn(emac->rx_mgm_chn.rx_chn);
 err:
 	if (!emac->is_sr1)
 		free_irq(emac->irq, emac);
@@ -1468,8 +1570,8 @@ free_rx_mgm_irq:
 			 emac);
 free_rx_irq:
 	free_irq(emac->rx_chns.irq[rx_flow], emac);
-free_tx_irq:
-	free_irq(emac->tx_chns.irq, emac);
+cleanup_napi:
+	prueth_ndev_del_tx_napi(emac, emac->tx_ch_num);
 cleanup_rx_mgm:
 	if (emac->is_sr1)
 		prueth_cleanup_rx_chns(emac, &emac->rx_mgm_chn,
@@ -1498,7 +1600,7 @@ static int emac_ndo_stop(struct net_device *ndev)
 			PRUETH_RX_FLOW_DATA_SR1 : PRUETH_RX_FLOW_DATA_SR2;
 
 	/* inform the upper layers. */
-	netif_stop_queue(ndev);
+	netif_tx_stop_all_queues(ndev);
 
 	/* block packets from wire */
 	phy_stop(emac->phydev);
@@ -1507,18 +1609,26 @@ static int emac_ndo_stop(struct net_device *ndev)
 	/* send shutdown command */
 	emac_shutdown(ndev);
 
+	atomic_set(&emac->tdown_cnt, emac->tx_ch_num);
+	/* ensure new tdown_cnt value is visible */
+	smp_mb__after_atomic();
 	/* tear down and disable UDMA channels */
 	reinit_completion(&emac->tdown_complete);
-	k3_udma_glue_tdown_tx_chn(emac->tx_chns.tx_chn, false);
+	for (i = 0; i < emac->tx_ch_num; i++)
+		k3_udma_glue_tdown_tx_chn(emac->tx_chns[i].tx_chn, false);
+
 	ret = wait_for_completion_timeout(&emac->tdown_complete,
 					  msecs_to_jiffies(1000));
 	if (!ret)
 		netdev_err(ndev, "tx teardown timeout\n");
 
-	k3_udma_glue_reset_tx_chn(emac->tx_chns.tx_chn,
-				  emac,
-				  prueth_tx_cleanup);
-	k3_udma_glue_disable_tx_chn(emac->tx_chns.tx_chn);
+	for (i = 0; i < emac->tx_ch_num; i++) {
+		k3_udma_glue_reset_tx_chn(emac->tx_chns[i].tx_chn,
+					  &emac->tx_chns[i],
+					  prueth_tx_cleanup);
+		k3_udma_glue_disable_tx_chn(emac->tx_chns[i].tx_chn);
+		napi_disable(&emac->tx_chns[i].napi_tx);
+	}
 
 	max_rx_flows = emac->is_sr1 ?
 			PRUETH_MAX_RX_FLOWS_SR1 : PRUETH_MAX_RX_FLOWS_SR2;
@@ -1541,7 +1651,6 @@ static int emac_ndo_stop(struct net_device *ndev)
 		k3_udma_glue_disable_rx_chn(emac->rx_mgm_chn.rx_chn);
 	}
 
-	napi_disable(&emac->napi_tx);
 	napi_disable(&emac->napi_rx);
 
 	/* stop PRUs */
@@ -1557,7 +1666,8 @@ static int emac_ndo_stop(struct net_device *ndev)
 			 emac);
 	}
 	free_irq(emac->rx_chns.irq[rx_flow], emac);
-	free_irq(emac->tx_chns.irq, emac);
+	prueth_ndev_del_tx_napi(emac, emac->tx_ch_num);
+	prueth_cleanup_tx_chns(emac);
 
 	if (emac->is_sr1)
 		prueth_cleanup_rx_chns(emac, &emac->rx_mgm_chn,
@@ -1882,7 +1992,7 @@ static int prueth_netdev_init(struct prueth *prueth,
 	if (mac < 0)
 		return -EINVAL;
 
-	ndev = alloc_etherdev(sizeof(*emac));
+	ndev = alloc_etherdev_mq(sizeof(*emac), PRUETH_MAX_TX_QUEUES);
 	if (!ndev)
 		return -ENOMEM;
 
@@ -1898,6 +2008,7 @@ static int prueth_netdev_init(struct prueth *prueth,
 	}
 
 	emac->is_sr1 = prueth->is_sr1;
+	emac->tx_ch_num = 1;
 	if (emac->is_sr1)
 		goto skip_irq;
 
@@ -1999,8 +2110,6 @@ skip_iep:
 	ndev->netdev_ops = &emac_netdev_ops;
 	ndev->ethtool_ops = &icssg_ethtool_ops;
 
-	netif_tx_napi_add(ndev, &emac->napi_tx,
-			  emac_napi_tx_poll, NAPI_POLL_WEIGHT);
 	netif_napi_add(ndev, &emac->napi_rx,
 		       emac_napi_rx_poll, NAPI_POLL_WEIGHT);
 
@@ -2040,7 +2149,7 @@ static void prueth_netdev_exit(struct prueth *prueth,
 		of_phy_deregister_fixed_link(emac->phy_node);
 
 	netif_napi_del(&emac->napi_rx);
-	netif_napi_del(&emac->napi_tx);
+
 	pruss_release_mem_region(prueth->pruss, &emac->dram);
 	free_netdev(emac->ndev);
 	prueth->emac[mac] = NULL;

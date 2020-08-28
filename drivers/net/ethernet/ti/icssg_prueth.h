@@ -87,10 +87,14 @@ enum prueth_mac {
 };
 
 struct prueth_tx_chn {
+	struct napi_struct napi_tx;
 	struct k3_cppi_desc_pool *desc_pool;
 	struct k3_udma_glue_tx_channel *tx_chn;
+	struct prueth_emac *emac;
+	u32 id;
 	u32 descs_num;
 	unsigned int irq;
+	char name[32];
 };
 
 struct prueth_rx_chn {
@@ -105,6 +109,11 @@ enum prueth_state_flags {
 	__STATE_TX_TS_IN_PROGRESS,
 };
 
+/* There are 4 Tx DMA channels, but the highest priority is CH3 (thread 3)
+ * and lower three are lower priority channels or threads.
+ */
+#define PRUETH_MAX_TX_QUEUES	4
+
 /* data for each emac port */
 struct prueth_emac {
 	bool is_sr1;
@@ -112,7 +121,6 @@ struct prueth_emac {
 	struct prueth *prueth;
 	struct net_device *ndev;
 	u8 mac_addr[6];
-	struct napi_struct napi_tx;
 	struct napi_struct napi_rx;
 	u32 msg_enable;
 
@@ -132,10 +140,12 @@ struct prueth_emac {
 	unsigned int tx_ts_enabled : 1;
 
 	/* DMA related */
-	struct prueth_tx_chn tx_chns;
+	struct prueth_tx_chn tx_chns[PRUETH_MAX_TX_QUEUES];
 	struct completion tdown_complete;
+	atomic_t tdown_cnt;
 	struct prueth_rx_chn rx_chns;
 	int rx_flow_id_base;
+	int tx_ch_num;
 
 	/* SR1.0 Management channel */
 	struct prueth_rx_chn rx_mgm_chn;
@@ -263,5 +273,7 @@ int icssg_config_sr2(struct prueth *prueth, struct prueth_emac *emac,
 		     int slice);
 int emac_set_port_state(struct prueth_emac *emac,
 			enum icssg_port_state_cmd state);
+#define prueth_napi_to_tx_chn(pnapi) \
+	container_of(pnapi, struct prueth_tx_chn, napi_tx)
 
 #endif /* __NET_TI_ICSSG_PRUETH_H */
