@@ -48,6 +48,11 @@
 #define ICSS_IEP_SLOW_COMPEN_REG_SUPPORT	BIT(1)
 #define ICSS_IEP_SHADOW_MODE_SUPPORT		BIT(2)
 
+#define LATCH_INDEX(ts_index)			((ts_index) + 6)
+#define IEP_CAP_CFG_CAPNR_1ST_EVENT_EN(n)	BIT(LATCH_INDEX(n))
+#define IEP_CAP_CFG_CAPNF_1ST_EVENT_EN(n)	BIT(LATCH_INDEX(n) + 1)
+#define IEP_CAP_CFG_CAP_ASYNC_EN(n)		BIT(LATCH_INDEX(n) + 10)
+
 enum {
 	ICSS_IEP_GLOBAL_CFG_REG,
 	ICSS_IEP_GLOBAL_STATUS_REG,
@@ -120,6 +125,7 @@ struct icss_iep {
 	bool pps_enabled;
 	int cap_cmp_irq;
 	struct ptp_clock_time period;
+	u32 latch_enable;
 };
 
 /**
@@ -512,7 +518,8 @@ irqreturn_t icss_iep_cap_cmp_handler(int irq, void *dev_id)
 {
 	struct icss_iep *iep = (struct icss_iep *)dev_id;
 	struct ptp_clock_event pevent;
-	unsigned int val, index = 0;
+	unsigned int val, index = 0, i;
+	irqreturn_t ret = IRQ_NONE;
 	u64 ns;
 
 	regmap_read(iep->map, ICSS_IEP_CMP_STAT_REG, &val);
@@ -529,9 +536,29 @@ irqreturn_t icss_iep_cap_cmp_handler(int irq, void *dev_id)
 		pevent.index = index;
 		ptp_clock_event(iep->ptp_clock, &pevent);
 		dev_dbg(iep->dev, "IEP:pps ts: %llu\n", ns);
+		ret = IRQ_HANDLED;
 	}
 
-	return IRQ_HANDLED;
+	regmap_read(iep->map, ICSS_IEP_CAPTURE_STAT_REG, &val);
+	if (!val)
+		return ret;
+
+	for (i = 0; i < iep->ptp_info.n_ext_ts; i++) {
+		if (val & IEP_CAP_CFG_CAPNR_1ST_EVENT_EN(i)) {
+			regmap_read(iep->map, ICSS_IEP_CAP6_RISE_REG0 + (i * 2), &val);
+			ns = val;
+			regmap_read(iep->map, ICSS_IEP_CAP6_RISE_REG0 + (i * 2) + 1, &val);
+			ns |= (u64)val << 32;
+			pevent.timestamp = ns;
+			pevent.type = PTP_CLOCK_EXTTS;
+			pevent.index = i;
+			ptp_clock_event(iep->ptp_clock, &pevent);
+			dev_dbg(iep->dev, "IEP:extts index=%d ts: %llu\n", i, ns);
+			ret = IRQ_HANDLED;
+		}
+	}
+
+	return ret;
 }
 
 static int icss_iep_pps_enable(struct icss_iep *iep, int on)
@@ -573,6 +600,37 @@ exit:
 	return ret;
 }
 
+static int icss_iep_extts_enable(struct icss_iep *iep, u32 index, int on)
+{
+	u32 val, cap, ret = 0;
+
+	mutex_lock(&iep->ptp_clk_mutex);
+
+	if (iep->ops && iep->ops->extts_enable) {
+		ret = iep->ops->extts_enable(iep->clockops_data, index, on);
+		goto exit;
+	}
+
+	if (!!(iep->latch_enable & BIT(index)) == !!on)
+		goto exit;
+
+	regmap_read(iep->map, ICSS_IEP_CAPTURE_CFG_REG, &val);
+	cap = IEP_CAP_CFG_CAP_ASYNC_EN(index) | IEP_CAP_CFG_CAPNR_1ST_EVENT_EN(index);
+	if (on) {
+		val |= cap;
+		iep->latch_enable |= BIT(index);
+	} else {
+		val &= ~cap;
+		iep->latch_enable &= ~BIT(index);
+	}
+	regmap_write(iep->map, ICSS_IEP_CAPTURE_CFG_REG, val);
+
+exit:
+	mutex_unlock(&iep->ptp_clk_mutex);
+
+	return ret;
+}
+
 static int icss_iep_ptp_enable(struct ptp_clock_info *ptp,
 			       struct ptp_clock_request *rq, int on)
 {
@@ -583,6 +641,8 @@ static int icss_iep_ptp_enable(struct ptp_clock_info *ptp,
 		return icss_iep_perout_enable(iep, &rq->perout, on);
 	case PTP_CLK_REQ_PPS:
 		return icss_iep_pps_enable(iep, on);
+	case PTP_CLK_REQ_EXTTS:
+		return icss_iep_extts_enable(iep, rq->extts.index, on);
 	default:
 		break;
 	}
@@ -688,6 +748,9 @@ int icss_iep_init(struct icss_iep *iep, const struct icss_iep_clockops *clkops,
 		iep->ptp_info.n_per_out = 1;
 		iep->ptp_info.pps = 1;
 	}
+
+	if (iep->cap_cmp_irq || (iep->ops && iep->ops->extts_enable))
+		iep->ptp_info.n_ext_ts = 2;
 
 	if (iep->cap_cmp_irq) {
 		ret = request_irq(iep->cap_cmp_irq, icss_iep_cap_cmp_handler, IRQF_TRIGGER_HIGH,
