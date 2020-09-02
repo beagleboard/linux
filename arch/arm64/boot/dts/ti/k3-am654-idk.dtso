@@ -197,6 +197,12 @@
 		>;
 	};
 
+	icssg0_iep0_pins_default: icssg0_iep0_pins_default {
+		pinctrl-single,pins = <
+			AM65X_IOPAD(0x0240, PIN_INPUT, 2) /* (U24) PRG0_PRU0_GPO19.PRG0_IEP0_EDC_SYNC_OUT0 */
+		>;
+	};
+
 	icssg1_mdio_pins_default: icssg1_mdio_pins_default {
 		pinctrl-single,pins = <
 			AM65X_IOPAD(0x0180, PIN_INPUT, 0) /* (AD18) PRG1_MDIO0_MDIO */
@@ -231,6 +237,12 @@
 			AM65X_IOPAD(0x010c, PIN_OUTPUT, 2) /* (AF21) PRG1_PRU0_GPO11.PRG1_RGMII1_TX_CTL */
 			AM65X_IOPAD(0x00f8, PIN_INPUT, 2) /* (AF22) PRG1_PRU0_GPO6.PRG1_RGMII1_RXC */
 			AM65X_IOPAD(0x00f0, PIN_INPUT, 2) /* (AG23) PRG1_PRU0_GPO4.PRG1_RGMII1_RX_CTL */
+		>;
+	};
+
+	icssg1_iep0_pins_default: icssg1_iep0_pins_default {
+		pinctrl-single,pins = <
+			AM65X_IOPAD(0x012c, PIN_INPUT, 2) /* (AG26) PRG1_PRU0_GPO19.PRG1_IEP0_EDC_SYNC_OUT0 */
 		>;
 	};
 
@@ -283,6 +295,11 @@
 	};
 };
 
+&icssg0_iep0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&icssg0_iep0_pins_default>;
+};
+
 &icssg1_mdio {
 	status = "okay";
 	pinctrl-names = "default";
@@ -301,6 +318,11 @@
 		ti,rx-internal-delay = <DP83867_RGMIIDCTL_2_00_NS>;
 		ti,fifo-depth = <DP83867_PHYCR_FIFO_DEPTH_4_B_NIB>;
 	};
+};
+
+&icssg1_iep0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&icssg1_iep0_pins_default>;
 };
 
 &m_can0 {

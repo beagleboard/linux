@@ -19,6 +19,9 @@ struct icss_iep_clockops {
 	void (*settime)(void *clockops_data, u64 ns);
 	void (*adjtime)(void *clockops_data, s64 delta);
 	u64 (*gettime)(void *clockops_data);
+	int (*perout_enable)(void *clockops_data,
+			     struct ptp_perout_request *req, int on,
+			     u64 *cmp);
 };
 
 struct icss_iep *icss_iep_get(struct device_node *np);

@@ -1793,9 +1793,11 @@ static int cqspi_direct_read_dma(struct cqspi_flash_pdata *f_pdata,
 	struct dma_async_tx_descriptor *tx;
 	dma_cookie_t cookie;
 	dma_addr_t dma_dst;
+	struct device *ddev;
 
-	dma_dst = dma_map_single(dev, buf, len, DMA_FROM_DEVICE);
-	if (dma_mapping_error(dev, dma_dst)) {
+	ddev = cqspi->rx_chan->device->dev;
+	dma_dst = dma_map_single(ddev, buf, len, DMA_FROM_DEVICE);
+	if (dma_mapping_error(ddev, dma_dst)) {
 		dev_err(dev, "dma mapping failed\n");
 		return -ENOMEM;
 	}
@@ -1829,7 +1831,7 @@ static int cqspi_direct_read_dma(struct cqspi_flash_pdata *f_pdata,
 	}
 
 err_unmap:
-	dma_unmap_single(dev, dma_dst, len, DMA_FROM_DEVICE);
+	dma_unmap_single(ddev, dma_dst, len, DMA_FROM_DEVICE);
 
 	return ret;
 }
