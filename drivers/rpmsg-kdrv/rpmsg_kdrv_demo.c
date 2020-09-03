@@ -22,7 +22,7 @@ struct rpmsg_kdrv_demo_private {
 	ssize_t data_len;
 };
 
-int rpmsg_kdrv_demo_get_data(struct rpmsg_remotedev *rdev, void *data, ssize_t len)
+static int rpmsg_kdrv_demo_get_data(struct rpmsg_remotedev *rdev, void *data, ssize_t len)
 {
 	struct rpmsg_kdrv_demo_private *priv = container_of(rdev, struct rpmsg_kdrv_demo_private, rdev);
 
@@ -38,7 +38,7 @@ int rpmsg_kdrv_demo_get_data(struct rpmsg_remotedev *rdev, void *data, ssize_t l
 	return priv->data_len;
 }
 
-int rpmsg_kdrv_demo_ping(struct rpmsg_remotedev *rdev, void *ping_data, ssize_t ping_len)
+static int rpmsg_kdrv_demo_ping(struct rpmsg_remotedev *rdev, void *ping_data, ssize_t ping_len)
 {
 	struct rpmsg_kdrv_demo_private *priv = container_of(rdev, struct rpmsg_kdrv_demo_private, rdev);
 	struct rpmsg_kdrv_device *kddev = priv->kddev;
@@ -89,7 +89,7 @@ out:
 	return ret;
 }
 
-int rpmsg_kdrv_demo_c2s_message(struct rpmsg_remotedev *rdev, void *c2s_msg_data, ssize_t len)
+static int rpmsg_kdrv_demo_c2s_message(struct rpmsg_remotedev *rdev, void *c2s_msg_data, ssize_t len)
 {
 	struct rpmsg_kdrv_demo_private *priv = container_of(rdev, struct rpmsg_kdrv_demo_private, rdev);
 	struct rpmsg_kdrv_device *kddev = priv->kddev;
@@ -120,7 +120,7 @@ int rpmsg_kdrv_demo_c2s_message(struct rpmsg_remotedev *rdev, void *c2s_msg_data
 }
 
 
-struct rpmsg_remotedev_demo_ops demo_ops = {
+static struct rpmsg_remotedev_demo_ops demo_ops = {
 	.get_data = rpmsg_kdrv_demo_get_data,
 	.ping = rpmsg_kdrv_demo_ping,
 	.c2s_message = rpmsg_kdrv_demo_c2s_message,
@@ -190,7 +190,7 @@ static int rpmsg_kdrv_demo_callback(struct rpmsg_kdrv_device *dev, void *msg, in
 }
 
 
-struct rpmsg_kdrv_driver rpmsg_kdrv_demo = {
+static struct rpmsg_kdrv_driver rpmsg_kdrv_demo = {
 	.drv.name = "rpmsg-kdrv-demo",
 	.device_type = RPMSG_KDRV_TP_DEVICE_TYPE_DEMO,
 	.probe = rpmsg_kdrv_demo_probe,
