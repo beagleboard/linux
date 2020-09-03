@@ -111,10 +111,139 @@ static void prueth_ndev_del_tx_napi(struct prueth_emac *emac, int num)
 	}
 }
 
+static void prueth_xmit_free(struct prueth_tx_chn *tx_chn,
+			     struct device *dev,
+			     struct cppi5_host_desc_t *desc)
+{
+	struct cppi5_host_desc_t *first_desc, *next_desc;
+	dma_addr_t buf_dma, next_desc_dma;
+	u32 buf_dma_len;
+
+	first_desc = desc;
+	next_desc = first_desc;
+
+	cppi5_hdesc_get_obuf(first_desc, &buf_dma, &buf_dma_len);
+
+	dma_unmap_single(dev, buf_dma, buf_dma_len,
+			 DMA_TO_DEVICE);
+
+	next_desc_dma = cppi5_hdesc_get_next_hbdesc(first_desc);
+	while (next_desc_dma) {
+		next_desc = k3_cppi_desc_pool_dma2virt(tx_chn->desc_pool,
+						       next_desc_dma);
+		cppi5_hdesc_get_obuf(next_desc, &buf_dma, &buf_dma_len);
+
+		dma_unmap_page(dev, buf_dma, buf_dma_len,
+			       DMA_TO_DEVICE);
+
+		next_desc_dma = cppi5_hdesc_get_next_hbdesc(next_desc);
+
+		k3_cppi_desc_pool_free(tx_chn->desc_pool, next_desc);
+	}
+
+	k3_cppi_desc_pool_free(tx_chn->desc_pool, first_desc);
+}
+
+/**
+ * emac_tx_complete_packets - Check if TX completed packets upto budget.
+ * Returns number of completed TX packets.
+ */
 static int emac_tx_complete_packets(struct prueth_emac *emac, int chn,
-				    int budget);
-static int emac_napi_tx_poll(struct napi_struct *napi_tx, int budget);
-static irqreturn_t prueth_tx_irq(int irq, void *dev_id);
+				    int budget)
+{
+	struct net_device *ndev = emac->ndev;
+	struct cppi5_host_desc_t *desc_tx;
+	struct device *dev = emac->prueth->dev;
+	struct netdev_queue *netif_txq;
+	struct prueth_tx_chn *tx_chn;
+	unsigned int total_bytes = 0;
+	struct sk_buff *skb;
+	dma_addr_t desc_dma;
+	int res, num_tx = 0;
+	void **swdata;
+
+	tx_chn = &emac->tx_chns[chn];
+
+	while (budget--) {
+		res = k3_udma_glue_pop_tx_chn(tx_chn->tx_chn, &desc_dma);
+		if (res == -ENODATA)
+			break;
+
+		/* teardown completion */
+		if (desc_dma & 0x1) {
+			if (atomic_dec_and_test(&emac->tdown_cnt))
+				complete(&emac->tdown_complete);
+			break;
+		}
+
+		desc_tx = k3_cppi_desc_pool_dma2virt(tx_chn->desc_pool,
+						     desc_dma);
+		swdata = cppi5_hdesc_get_swdata(desc_tx);
+
+		/* was this command's TX complete? */
+		if (emac->is_sr1 && *(swdata) == emac->cmd_data) {
+			prueth_xmit_free(tx_chn, dev, desc_tx);
+			budget++;	/* not a data packet */
+			continue;
+		}
+
+		skb = *(swdata);
+		prueth_xmit_free(tx_chn, dev, desc_tx);
+
+		ndev = skb->dev;
+		ndev->stats.tx_packets++;
+		ndev->stats.tx_bytes += skb->len;
+		total_bytes += skb->len;
+		napi_consume_skb(skb, budget);
+		num_tx++;
+	}
+
+	if (!num_tx)
+		return 0;
+
+	netif_txq = netdev_get_tx_queue(ndev, chn);
+	netdev_tx_completed_queue(netif_txq, num_tx, total_bytes);
+
+	if (netif_tx_queue_stopped(netif_txq)) {
+		/* If the the TX queue was stopped, wake it now
+		 * if we have enough room.
+		 */
+		__netif_tx_lock(netif_txq, smp_processor_id());
+		if (netif_running(ndev) &&
+		    (k3_cppi_desc_pool_avail(tx_chn->desc_pool) >=
+		     MAX_SKB_FRAGS))
+			netif_tx_wake_queue(netif_txq);
+		__netif_tx_unlock(netif_txq);
+	}
+
+	return num_tx;
+}
+
+static int emac_napi_tx_poll(struct napi_struct *napi_tx, int budget)
+{
+	struct prueth_tx_chn *tx_chn = prueth_napi_to_tx_chn(napi_tx);
+	struct prueth_emac *emac = tx_chn->emac;
+	int num_tx_packets;
+
+	num_tx_packets = emac_tx_complete_packets(emac, tx_chn->id, budget);
+
+	if (num_tx_packets < budget) {
+		napi_complete(napi_tx);
+		enable_irq(tx_chn->irq);
+	}
+
+	return num_tx_packets;
+}
+
+static irqreturn_t prueth_tx_irq(int irq, void *dev_id)
+{
+	struct prueth_tx_chn *tx_chn = dev_id;
+
+	disable_irq_nosync(irq);
+	napi_schedule(&tx_chn->napi_tx);
+
+	return IRQ_HANDLED;
+}
 
 static int prueth_ndev_add_tx_napi(struct prueth_emac *emac)
 {
@@ -485,38 +614,7 @@ static void prueth_rx_cleanup(void *data, dma_addr_t desc_dma)
 	dev_kfree_skb_any(skb);
 }
 
-static void prueth_xmit_free(struct prueth_tx_chn *tx_chn,
-			     struct device *dev,
-			     struct cppi5_host_desc_t *desc)
-{
-	struct cppi5_host_desc_t *first_desc, *next_desc;
-	dma_addr_t buf_dma, next_desc_dma;
-	u32 buf_dma_len;
 
-	first_desc = desc;
-	next_desc = first_desc;
-
-	cppi5_hdesc_get_obuf(first_desc, &buf_dma, &buf_dma_len);
-
-	dma_unmap_single(dev, buf_dma, buf_dma_len,
-			 DMA_TO_DEVICE);
-
-	next_desc_dma = cppi5_hdesc_get_next_hbdesc(first_desc);
-	while (next_desc_dma) {
-		next_desc = k3_cppi_desc_pool_dma2virt(tx_chn->desc_pool,
-						       next_desc_dma);
-		cppi5_hdesc_get_obuf(next_desc, &buf_dma, &buf_dma_len);
-
-		dma_unmap_page(dev, buf_dma, buf_dma_len,
-			       DMA_TO_DEVICE);
-
-		next_desc_dma = cppi5_hdesc_get_next_hbdesc(next_desc);
-
-		k3_cppi_desc_pool_free(tx_chn->desc_pool, next_desc);
-	}
-
-	k3_cppi_desc_pool_free(tx_chn->desc_pool, first_desc);
-}
 
 static int emac_get_tx_ts(struct prueth_emac *emac,
 			  struct emac_tx_ts_response *rsp)
@@ -888,81 +986,6 @@ drop_stop_q_busy:
 	return NETDEV_TX_BUSY;
 }
 
-/**
- * emac_tx_complete_packets - Check if TX completed packets upto budget.
- * Returns number of completed TX packets.
- */
-static int emac_tx_complete_packets(struct prueth_emac *emac, int chn,
-				    int budget)
-{
-	struct net_device *ndev = emac->ndev;
-	struct cppi5_host_desc_t *desc_tx;
-	struct device *dev = emac->prueth->dev;
-	struct netdev_queue *netif_txq;
-	struct prueth_tx_chn *tx_chn;
-	unsigned int total_bytes = 0;
-	struct sk_buff *skb;
-	dma_addr_t desc_dma;
-	int res, num_tx = 0;
-	void **swdata;
-
-	tx_chn = &emac->tx_chns[chn];
-
-	while (budget--) {
-		res = k3_udma_glue_pop_tx_chn(tx_chn->tx_chn, &desc_dma);
-		if (res == -ENODATA)
-			break;
-
-		/* teardown completion */
-		if (desc_dma & 0x1) {
-			if (atomic_dec_and_test(&emac->tdown_cnt))
-				complete(&emac->tdown_complete);
-			break;
-		}
-
-		desc_tx = k3_cppi_desc_pool_dma2virt(tx_chn->desc_pool,
-						     desc_dma);
-		swdata = cppi5_hdesc_get_swdata(desc_tx);
-
-		/* was this command's TX complete? */
-		if (emac->is_sr1 && *(swdata) == emac->cmd_data) {
-			prueth_xmit_free(tx_chn, dev, desc_tx);
-			budget++;	/* not a data packet */
-			continue;
-		}
-
-		skb = *(swdata);
-		prueth_xmit_free(tx_chn, dev, desc_tx);
-
-		ndev = skb->dev;
-		ndev->stats.tx_packets++;
-		ndev->stats.tx_bytes += skb->len;
-		total_bytes += skb->len;
-		napi_consume_skb(skb, budget);
-		num_tx++;
-	}
-
-	if (!num_tx)
-		return 0;
-
-	netif_txq = netdev_get_tx_queue(ndev, chn);
-	netdev_tx_completed_queue(netif_txq, num_tx, total_bytes);
-
-	if (netif_tx_queue_stopped(netif_txq)) {
-		/* If the the TX queue was stopped, wake it now
-		 * if we have enough room.
-		 */
-		__netif_tx_lock(netif_txq, smp_processor_id());
-		if (netif_running(ndev) &&
-		    (k3_cppi_desc_pool_avail(tx_chn->desc_pool) >=
-		     MAX_SKB_FRAGS))
-			netif_tx_wake_queue(netif_txq);
-		__netif_tx_unlock(netif_txq);
-	}
-
-	return num_tx;
-}
-
 static void prueth_tx_cleanup(void *data, dma_addr_t desc_dma)
 {
 	struct prueth_tx_chn *tx_chn = data;
@@ -1143,16 +1166,6 @@ static irqreturn_t prueth_rx_irq(int irq, void *dev_id)
 
 	disable_irq_nosync(irq);
 	napi_schedule(&emac->napi_rx);
-
-	return IRQ_HANDLED;
-}
-
-static irqreturn_t prueth_tx_irq(int irq, void *dev_id)
-{
-	struct prueth_tx_chn *tx_chn = dev_id;
-
-	disable_irq_nosync(irq);
-	napi_schedule(&tx_chn->napi_tx);
 
 	return IRQ_HANDLED;
 }
@@ -1345,22 +1358,6 @@ static int emac_napi_rx_poll(struct napi_struct *napi_rx, int budget)
 	}
 
 	return num_rx;
-}
-
-static int emac_napi_tx_poll(struct napi_struct *napi_tx, int budget)
-{
-	struct prueth_tx_chn *tx_chn = prueth_napi_to_tx_chn(napi_tx);
-	struct prueth_emac *emac = tx_chn->emac;
-	int num_tx_packets;
-
-	num_tx_packets = emac_tx_complete_packets(emac, tx_chn->id, budget);
-
-	if (num_tx_packets < budget) {
-		napi_complete(napi_tx);
-		enable_irq(tx_chn->irq);
-	}
-
-	return num_tx_packets;
 }
 
 /**
