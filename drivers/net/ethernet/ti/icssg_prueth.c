@@ -1480,12 +1480,6 @@ skip_mgm_irq:
 			goto stop;
 	}
 
-	/* Get attached phy details */
-	phy_attached_info(emac->phydev);
-
-	/* start PHY */
-	phy_start(emac->phydev);
-
 	/* prepare RX & TX */
 	for (i = 0; i < emac->rx_chns.descs_num; i++) {
 		skb = __netdev_alloc_skb_ip_align(NULL,
@@ -1542,6 +1536,12 @@ skip_mgm:
 	for (i = 0; i < emac->tx_ch_num; i++)
 		napi_enable(&emac->tx_chns[i].napi_tx);
 	napi_enable(&emac->napi_rx);
+
+	/* Get attached phy details */
+	phy_attached_info(emac->phydev);
+
+	/* start PHY */
+	phy_start(emac->phydev);
 
 	if (netif_msg_drv(emac))
 		dev_notice(&ndev->dev, "started\n");
