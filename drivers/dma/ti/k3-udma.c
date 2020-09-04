@@ -17,6 +17,7 @@
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
+#include <linux/sys_soc.h>
 #include <linux/of.h>
 #include <linux/of_dma.h>
 #include <linux/of_device.h>
@@ -93,6 +94,9 @@ struct udma_match_data {
 	bool enable_memcpy_support;
 	u32 flags;
 	u32 statictr_z_mask;
+};
+
+struct udma_soc_data {
 	u32 rchan_oes_offset;
 };
 
@@ -119,6 +123,7 @@ struct udma_dev {
 	struct device *dev;
 	void __iomem *mmrs[MMR_LAST];
 	const struct udma_match_data *match_data;
+	const struct udma_soc_data *soc_data;
 
 	u8 tpl_levels;
 	u32 tpl_start_idx[3];
@@ -1694,7 +1699,7 @@ static int udma_alloc_chan_resources(struct dma_chan *chan)
 {
 	struct udma_chan *uc = to_udma_chan(chan);
 	struct udma_dev *ud = to_udma_dev(chan->device);
-	const struct udma_match_data *match_data = ud->match_data;
+	const struct udma_soc_data *soc_data = ud->soc_data;
 	struct k3_ring *irq_ring;
 	u32 irq_udma_idx;
 	int ret;
@@ -1794,7 +1799,7 @@ static int udma_alloc_chan_resources(struct dma_chan *chan)
 					K3_PSIL_DST_THREAD_ID_OFFSET;
 
 		irq_ring = uc->rflow->r_ring;
-		irq_udma_idx = match_data->rchan_oes_offset + uc->rchan->id;
+		irq_udma_idx = soc_data->rchan_oes_offset + uc->rchan->id;
 
 		ret = udma_tisci_rx_channel_config(uc);
 		break;
@@ -3119,14 +3124,12 @@ static struct udma_match_data am654_main_data = {
 	.psil_base = 0x1000,
 	.enable_memcpy_support = true,
 	.statictr_z_mask = GENMASK(11, 0),
-	.rchan_oes_offset = 0x200,
 };
 
 static struct udma_match_data am654_mcu_data = {
 	.psil_base = 0x6000,
 	.enable_memcpy_support = true, /* TEST: DMA domains */
 	.statictr_z_mask = GENMASK(11, 0),
-	.rchan_oes_offset = 0x200,
 };
 
 static struct udma_match_data j721e_main_data = {
@@ -3134,7 +3137,6 @@ static struct udma_match_data j721e_main_data = {
 	.enable_memcpy_support = true,
 	.flags = UDMA_FLAG_PDMA_ACC32 | UDMA_FLAG_PDMA_BURST | UDMA_FLAG_TDTYPE,
 	.statictr_z_mask = GENMASK(23, 0),
-	.rchan_oes_offset = 0x400,
 };
 
 static struct udma_match_data j721e_mcu_data = {
@@ -3142,7 +3144,6 @@ static struct udma_match_data j721e_mcu_data = {
 	.enable_memcpy_support = false, /* MEM_TO_MEM is slow via MCU UDMA */
 	.flags = UDMA_FLAG_PDMA_ACC32 | UDMA_FLAG_PDMA_BURST | UDMA_FLAG_TDTYPE,
 	.statictr_z_mask = GENMASK(23, 0),
-	.rchan_oes_offset = 0x400,
 };
 
 static const struct of_device_id udma_of_match[] = {
@@ -3163,6 +3164,25 @@ static const struct of_device_id udma_of_match[] = {
 	{ /* Sentinel */ },
 };
 MODULE_DEVICE_TABLE(of, udma_of_match);
+
+struct udma_soc_data am654_soc_data = {
+	.rchan_oes_offset = 0x200,
+};
+
+struct udma_soc_data j721e_soc_data = {
+	.rchan_oes_offset = 0x400,
+};
+
+struct udma_soc_data j7200_soc_data = {
+	.rchan_oes_offset = 0x80,
+};
+
+static const struct soc_device_attribute k3_soc_devices[] = {
+	{ .family = "AM65X", .data = &am654_soc_data },
+	{ .family = "J721E", .data = &j721e_soc_data },
+	{ .family = "J7200", .data = &j7200_soc_data },
+	{ /* sentinel */ }
+};
 
 static int udma_get_mmrs(struct platform_device *pdev, struct udma_dev *ud)
 {
@@ -3311,12 +3331,12 @@ static int udma_setup_resources(struct udma_dev *ud)
 	for (j = 0; j < rm_res->sets; j++, i++) {
 		if (rm_res->desc[j].num) {
 			irq_res.desc[i].start = rm_res->desc[j].start +
-					ud->match_data->rchan_oes_offset;
+					ud->soc_data->rchan_oes_offset;
 			irq_res.desc[i].num = rm_res->desc[j].num;
 		}
 		if (rm_res->desc[j].num_sec) {
 			irq_res.desc[i].start_sec = rm_res->desc[j].start_sec +
-					ud->match_data->rchan_oes_offset;
+					ud->soc_data->rchan_oes_offset;
 			irq_res.desc[i].num_sec = rm_res->desc[j].num_sec;
 		}
 	}
@@ -3523,6 +3543,7 @@ static void udma_dbg_summary_show(struct seq_file *s,
 static int udma_probe(struct platform_device *pdev)
 {
 	struct device_node *navss_node = pdev->dev.parent->of_node;
+	const struct soc_device_attribute *soc;
 	struct device *dev = &pdev->dev;
 	struct udma_dev *ud;
 	const struct of_device_id *match;
@@ -3586,6 +3607,13 @@ static int udma_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 	ud->match_data = match->data;
+
+	soc = soc_device_match(k3_soc_devices);
+	if (!soc) {
+		dev_err(dev, "No compatible SoC found\n");
+		return -ENODEV;
+	}
+	ud->soc_data = soc->data;
 
 	dma_cap_set(DMA_SLAVE, ud->ddev.cap_mask);
 	dma_cap_set(DMA_CYCLIC, ud->ddev.cap_mask);
