@@ -361,14 +361,13 @@ static int prueth_init_rx_chns(struct prueth_emac *emac,
 	u32 fdqring_id;
 	u32 hdesc_size;
 	int i, ret = 0, slice;
-	char rx_chn_name[16];
 
 	slice = prueth_emac_slice(emac);
 	if (slice < 0)
 		return slice;
 
 	/* To differentiate channels for SLICE0 vs SLICE1 */
-	snprintf(rx_chn_name, sizeof(rx_chn_name), "%s%d", name, slice);
+	snprintf(rx_chn->name, sizeof(rx_chn->name), "%s%d", name, slice);
 
 	hdesc_size = cppi5_hdesc_calc_size(true, PRUETH_NAV_PS_DATA_SIZE,
 					   PRUETH_NAV_SW_DATA_SIZE);
@@ -383,7 +382,7 @@ static int prueth_init_rx_chns(struct prueth_emac *emac,
 	rx_chn->desc_pool = k3_cppi_desc_pool_create_name(dev,
 							  rx_chn->descs_num,
 							  hdesc_size,
-							  rx_chn_name);
+							  rx_chn->name);
 	if (IS_ERR(rx_chn->desc_pool)) {
 		ret = PTR_ERR(rx_chn->desc_pool);
 		rx_chn->desc_pool = NULL;
@@ -391,7 +390,8 @@ static int prueth_init_rx_chns(struct prueth_emac *emac,
 		goto fail;
 	}
 
-	rx_chn->rx_chn = k3_udma_glue_request_rx_chn(dev, rx_chn_name, &rx_cfg);
+	rx_chn->rx_chn = k3_udma_glue_request_rx_chn(dev, rx_chn->name,
+						     &rx_cfg);
 	if (IS_ERR(rx_chn->rx_chn)) {
 		ret = PTR_ERR(rx_chn->rx_chn);
 		rx_chn->rx_chn = NULL;
@@ -1361,6 +1361,35 @@ static int emac_napi_rx_poll(struct napi_struct *napi_rx, int budget)
 	return num_rx;
 }
 
+static int prueth_prepare_rx_chan(struct prueth_emac *emac,
+				  struct prueth_rx_chn *chn,
+				  int buf_size)
+{
+	struct sk_buff *skb;
+	int i, ret;
+
+	for (i = 0; i < chn->descs_num; i++) {
+		skb = __netdev_alloc_skb_ip_align(NULL, buf_size, GFP_KERNEL);
+		if (!skb) {
+			netdev_err(emac->ndev,
+				   "cannot allocate skb for rx chan %s\n",
+				   chn->name);
+			return -ENOMEM;
+		}
+
+		ret = prueth_dma_rx_push(emac, skb, chn);
+		if (ret < 0) {
+			netdev_err(emac->ndev,
+				   "cannot submit skb for rx chan %s ret %d\n",
+				   chn->name, ret);
+			kfree_skb(skb);
+			return ret;
+		}
+	}
+
+	return 0;
+}
+
 /**
  * emac_ndo_open - EMAC device open
  * @ndev: network adapter device
@@ -1376,7 +1405,6 @@ static int emac_ndo_open(struct net_device *ndev)
 	struct prueth *prueth = emac->prueth;
 	int slice = prueth_emac_slice(emac);
 	struct device *dev = prueth->dev;
-	struct sk_buff *skb;
 	int max_rx_flows;
 	int rx_flow;
 
@@ -1480,47 +1508,17 @@ skip_mgm_irq:
 			goto stop;
 	}
 
-	/* prepare RX & TX */
-	for (i = 0; i < emac->rx_chns.descs_num; i++) {
-		skb = __netdev_alloc_skb_ip_align(NULL,
-						  PRUETH_MAX_PKT_SIZE,
-						  GFP_KERNEL);
-		if (!skb) {
-			netdev_err(ndev, "cannot allocate skb\n");
-			ret = -ENOMEM;
-			goto free_rx_ts_irq;
-		}
-
-		ret = prueth_dma_rx_push(emac, skb, &emac->rx_chns);
-		if (ret < 0) {
-			netdev_err(ndev, "cannot submit skb for rx: %d\n",
-				   ret);
-			kfree_skb(skb);
-			goto free_rx_ts_irq;
-		}
-	}
+	/* Prepare RX */
+	ret = prueth_prepare_rx_chan(emac, &emac->rx_chns, PRUETH_MAX_PKT_SIZE);
+	if (ret)
+		goto free_rx_ts_irq;
 
 	if (!emac->is_sr1)
 		goto skip_mgm;
 
-	for (i = 0; i < emac->rx_mgm_chn.descs_num; i++) {
-		skb = __netdev_alloc_skb_ip_align(NULL,
-						  64,
-						  GFP_KERNEL);
-		if (!skb) {
-			netdev_err(ndev, "cannot allocate skb\n");
-			ret = -ENOMEM;
-			goto free_rx_ts_irq;
-		}
-
-		ret = prueth_dma_rx_push(emac, skb, &emac->rx_mgm_chn);
-		if (ret < 0) {
-			netdev_err(ndev, "cannot submit skb for rx_mgm: %d\n",
-				   ret);
-			kfree_skb(skb);
-			goto free_rx_ts_irq;
-		}
-	}
+	ret = prueth_prepare_rx_chan(emac, &emac->rx_mgm_chn, 64);
+	if (ret)
+		goto free_rx_ts_irq;
 
 	k3_udma_glue_enable_rx_chn(emac->rx_mgm_chn.rx_chn);
 skip_mgm:
