@@ -1003,7 +1003,7 @@ static void prueth_tx_cleanup(void *data, dma_addr_t desc_dma)
 	dev_kfree_skb_any(skb);
 }
 
-static irqreturn_t prueth_irq(int irq, void *dev_id)
+static irqreturn_t prueth_tx_ts_irq(int irq, void *dev_id)
 {
 	struct prueth_emac *emac = dev_id;
 
@@ -1464,17 +1464,17 @@ static int emac_ndo_open(struct net_device *ndev)
 				   dev_name(dev), emac);
 	if (ret) {
 		dev_err(dev, "unable to request RX Management TS IRQ\n");
-		goto free_rx_mgm_irq;
+		goto free_rx_mgm_rsp_irq;
 	}
 
 skip_mgm_irq:
 	/* reset and start PRU firmware */
 	ret = prueth_emac_start(prueth, emac);
 	if (ret)
-		goto free_rx_ts_irq;
+		goto free_rx_mgmt_ts_irq;
 
 	if (!emac->is_sr1) {
-		ret = request_threaded_irq(emac->irq, NULL, prueth_irq,
+		ret = request_threaded_irq(emac->irq, NULL, prueth_tx_ts_irq,
 					   IRQF_ONESHOT, dev_name(dev), emac);
 		if (ret)
 			goto stop;
@@ -1488,7 +1488,7 @@ skip_mgm_irq:
 		if (!skb) {
 			netdev_err(ndev, "cannot allocate skb\n");
 			ret = -ENOMEM;
-			goto err;
+			goto free_rx_ts_irq;
 		}
 
 		ret = prueth_dma_rx_push(emac, skb, &emac->rx_chns);
@@ -1496,7 +1496,7 @@ skip_mgm_irq:
 			netdev_err(ndev, "cannot submit skb for rx: %d\n",
 				   ret);
 			kfree_skb(skb);
-			goto err;
+			goto free_rx_ts_irq;
 		}
 	}
 
@@ -1510,7 +1510,7 @@ skip_mgm_irq:
 		if (!skb) {
 			netdev_err(ndev, "cannot allocate skb\n");
 			ret = -ENOMEM;
-			goto err;
+			goto free_rx_ts_irq;
 		}
 
 		ret = prueth_dma_rx_push(emac, skb, &emac->rx_mgm_chn);
@@ -1518,7 +1518,7 @@ skip_mgm_irq:
 			netdev_err(ndev, "cannot submit skb for rx_mgm: %d\n",
 				   ret);
 			kfree_skb(skb);
-			goto err;
+			goto free_rx_ts_irq;
 		}
 	}
 
@@ -1557,16 +1557,16 @@ disable_tx_chan:
 	k3_udma_glue_disable_rx_chn(emac->rx_chns.rx_chn);
 	if (emac->is_sr1)
 		k3_udma_glue_disable_rx_chn(emac->rx_mgm_chn.rx_chn);
-err:
+free_rx_ts_irq:
 	if (!emac->is_sr1)
 		free_irq(emac->irq, emac);
 stop:
 	prueth_emac_stop(emac);
-free_rx_ts_irq:
+free_rx_mgmt_ts_irq:
 	if (emac->is_sr1)
 		free_irq(emac->rx_mgm_chn.irq[PRUETH_RX_MGM_FLOW_TIMESTAMP],
 			 emac);
-free_rx_mgm_irq:
+free_rx_mgm_rsp_irq:
 	if (emac->is_sr1)
 		free_irq(emac->rx_mgm_chn.irq[PRUETH_RX_MGM_FLOW_RESPONSE],
 			 emac);
