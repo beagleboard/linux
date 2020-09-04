@@ -1390,6 +1390,32 @@ static int prueth_prepare_rx_chan(struct prueth_emac *emac,
 	return 0;
 }
 
+static void prueth_reset_tx_chan(struct prueth_emac *emac, int ch_num,
+				 bool free_skb)
+{
+	int i;
+
+	for (i = 0; i < ch_num; i++) {
+		if (free_skb)
+			k3_udma_glue_reset_tx_chn(emac->tx_chns[i].tx_chn,
+						  &emac->tx_chns[i],
+						  prueth_tx_cleanup);
+		k3_udma_glue_disable_tx_chn(emac->tx_chns[i].tx_chn);
+	}
+}
+
+static void prueth_reset_rx_chan(struct prueth_rx_chn *chn,
+				 int num_flows, bool disable)
+{
+	int i;
+
+	for (i = 0; i < num_flows; i++)
+		k3_udma_glue_reset_rx_chn(chn->rx_chn, i, chn,
+					  prueth_rx_cleanup, !!i);
+	if (disable)
+		k3_udma_glue_disable_rx_chn(chn->rx_chn);
+}
+
 /**
  * emac_ndo_open - EMAC device open
  * @ndev: network adapter device
@@ -1513,21 +1539,24 @@ skip_mgm_irq:
 	if (ret)
 		goto free_rx_ts_irq;
 
-	if (!emac->is_sr1)
-		goto skip_mgm;
+	if (emac->is_sr1) {
+		ret = prueth_prepare_rx_chan(emac, &emac->rx_mgm_chn, 64);
+		if (ret)
+			goto reset_rx_chn;
 
-	ret = prueth_prepare_rx_chan(emac, &emac->rx_mgm_chn, 64);
+		ret = k3_udma_glue_enable_rx_chn(emac->rx_mgm_chn.rx_chn);
+		if (ret)
+			goto reset_rx_chn;
+	}
+
+	ret = k3_udma_glue_enable_rx_chn(emac->rx_chns.rx_chn);
 	if (ret)
-		goto free_rx_ts_irq;
-
-	k3_udma_glue_enable_rx_chn(emac->rx_mgm_chn.rx_chn);
-skip_mgm:
-	k3_udma_glue_enable_rx_chn(emac->rx_chns.rx_chn);
+		goto reset_rx_mgm_chn;
 
 	for (i = 0; i < emac->tx_ch_num; i++) {
 		ret = k3_udma_glue_enable_tx_chn(emac->tx_chns[i].tx_chn);
 		if (ret)
-			goto disable_tx_chan;
+			goto reset_tx_chan;
 	}
 
 	/* Enable NAPI in Tx and Rx direction */
@@ -1549,12 +1578,17 @@ skip_mgm:
 
 	return 0;
 
-disable_tx_chan:
-	for (--i; i >= 0; i--)
-		k3_udma_glue_disable_tx_chn(emac->tx_chns[i].tx_chn);
-	k3_udma_glue_disable_rx_chn(emac->rx_chns.rx_chn);
+reset_tx_chan:
+	/* Since interface is not yet up, there is wouldn't be
+	 * any SKB for completion. So set false to free_skb
+	 */
+	prueth_reset_tx_chan(emac, i, false);
+reset_rx_mgm_chn:
 	if (emac->is_sr1)
-		k3_udma_glue_disable_rx_chn(emac->rx_mgm_chn.rx_chn);
+		prueth_reset_rx_chan(&emac->rx_mgm_chn,
+				     PRUETH_MAX_RX_MGM_FLOWS, true);
+reset_rx_chn:
+	prueth_reset_rx_chan(&emac->rx_chns, max_rx_flows, false);
 free_rx_ts_irq:
 	if (!emac->is_sr1)
 		free_irq(emac->irq, emac);
@@ -1622,33 +1656,20 @@ static int emac_ndo_stop(struct net_device *ndev)
 	if (!ret)
 		netdev_err(ndev, "tx teardown timeout\n");
 
-	for (i = 0; i < emac->tx_ch_num; i++) {
-		k3_udma_glue_reset_tx_chn(emac->tx_chns[i].tx_chn,
-					  &emac->tx_chns[i],
-					  prueth_tx_cleanup);
-		k3_udma_glue_disable_tx_chn(emac->tx_chns[i].tx_chn);
+	prueth_reset_tx_chan(emac, emac->tx_ch_num, true);
+	for (i = 0; i < emac->tx_ch_num; i++)
 		napi_disable(&emac->tx_chns[i].napi_tx);
-	}
 
 	max_rx_flows = emac->is_sr1 ?
 			PRUETH_MAX_RX_FLOWS_SR1 : PRUETH_MAX_RX_FLOWS_SR2;
 	k3_udma_glue_tdown_rx_chn(emac->rx_chns.rx_chn, true);
-	for (i = 0; i < max_rx_flows; i++)
-		k3_udma_glue_reset_rx_chn(emac->rx_chns.rx_chn, i,
-					  &emac->rx_chns,
-					  prueth_rx_cleanup, !!i);
 
-	k3_udma_glue_disable_rx_chn(emac->rx_chns.rx_chn);
-
+	prueth_reset_rx_chan(&emac->rx_chns, max_rx_flows, true);
 	if (emac->is_sr1) {
 		/* Teardown RX MGM channel */
 		k3_udma_glue_tdown_rx_chn(emac->rx_mgm_chn.rx_chn, true);
-		for (i = 0; i < PRUETH_MAX_RX_MGM_FLOWS; i++)
-			k3_udma_glue_reset_rx_chn(emac->rx_mgm_chn.rx_chn, i,
-						  &emac->rx_mgm_chn,
-						  prueth_rx_cleanup, !!i);
-
-		k3_udma_glue_disable_rx_chn(emac->rx_mgm_chn.rx_chn);
+		prueth_reset_rx_chan(&emac->rx_mgm_chn,
+				     PRUETH_MAX_RX_MGM_FLOWS, true);
 	}
 
 	napi_disable(&emac->napi_rx);
