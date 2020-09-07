@@ -7255,6 +7255,7 @@ static bool is_nice_reduction(const struct task_struct *p, const int nice)
 
 	return (nice_rlim <= task_rlimit(p, RLIMIT_NICE));
 }
+EXPORT_SYMBOL_GPL(can_nice);
 
 /*
  * can_nice - check if a task can reduce its nice value
