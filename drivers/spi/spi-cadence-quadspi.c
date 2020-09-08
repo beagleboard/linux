@@ -355,13 +355,19 @@ static int cqspi_phy_check_pattern(struct cqspi_flash_pdata *f_pdata,
 
 	ret = spi_mem_exec_op(mem, &op);
 	if (ret)
-		return ret;
+		goto out;
 
 	if (memcmp(read_data, phy_tuning_pattern,
-		   ARRAY_SIZE(phy_tuning_pattern)))
-		return -EAGAIN;
+		   ARRAY_SIZE(phy_tuning_pattern))) {
+		ret = -EAGAIN;
+		goto out;
+	}
 
-	return 0;
+	ret = 0;
+
+out:
+	kfree(read_data);
+	return ret;
 }
 
 static int cqspi_find_rx_low(struct cqspi_flash_pdata *f_pdata,
