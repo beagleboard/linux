@@ -179,157 +179,6 @@ static inline void vga_set_mem_top(struct vc_data *c)
 	write_vga(12, (c->vc_visible_origin - vga_vram_base) / 2);
 }
 
-#ifdef CONFIG_VGACON_SOFT_SCROLLBACK
-/* software scrollback */
-static void *vgacon_scrollback;
-static int vgacon_scrollback_tail;
-static int vgacon_scrollback_size;
-static int vgacon_scrollback_rows;
-static int vgacon_scrollback_cnt;
-static int vgacon_scrollback_cur;
-static int vgacon_scrollback_save;
-static int vgacon_scrollback_restore;
-
-static void vgacon_scrollback_init(int pitch)
-{
-	int rows = CONFIG_VGACON_SOFT_SCROLLBACK_SIZE * 1024/pitch;
-
-	if (vgacon_scrollback) {
-		vgacon_scrollback_cnt  = 0;
-		vgacon_scrollback_tail = 0;
-		vgacon_scrollback_cur  = 0;
-		vgacon_scrollback_rows = rows - 1;
-		vgacon_scrollback_size = rows * pitch;
-	}
-}
-
-static void vgacon_scrollback_startup(void)
-{
-	vgacon_scrollback = kcalloc(CONFIG_VGACON_SOFT_SCROLLBACK_SIZE, 1024, GFP_NOWAIT);
-	vgacon_scrollback_init(vga_video_num_columns * 2);
-}
-
-static void vgacon_scrollback_update(struct vc_data *c, int t, int count)
-{
-	void *p;
-
-	if (!vgacon_scrollback_size || c->vc_num != fg_console)
-		return;
-
-	p = (void *) (c->vc_origin + t * c->vc_size_row);
-
-	while (count--) {
-		if ((vgacon_scrollback_tail + c->vc_size_row) >
-		    vgacon_scrollback_size)
-			vgacon_scrollback_tail = 0;
-
-		scr_memcpyw(vgacon_scrollback + vgacon_scrollback_tail,
-			    p, c->vc_size_row);
-		vgacon_scrollback_cnt++;
-		p += c->vc_size_row;
-		vgacon_scrollback_tail += c->vc_size_row;
-
-		if (vgacon_scrollback_tail >= vgacon_scrollback_size)
-			vgacon_scrollback_tail = 0;
-
-		if (vgacon_scrollback_cnt > vgacon_scrollback_rows)
-			vgacon_scrollback_cnt = vgacon_scrollback_rows;
-
-		vgacon_scrollback_cur = vgacon_scrollback_cnt;
-	}
-}
-
-static void vgacon_restore_screen(struct vc_data *c)
-{
-	vgacon_scrollback_save = 0;
-
-	if (!vga_is_gfx && !vgacon_scrollback_restore) {
-		scr_memcpyw((u16 *) c->vc_origin, (u16 *) c->vc_screenbuf,
-			    c->vc_screenbuf_size > vga_vram_size ?
-			    vga_vram_size : c->vc_screenbuf_size);
-		vgacon_scrollback_restore = 1;
-		vgacon_scrollback_cur = vgacon_scrollback_cnt;
-	}
-}
-
-static void vgacon_scrolldelta(struct vc_data *c, int lines)
-{
-	int start, end, count, soff;
-
-	if (!lines) {
-		c->vc_visible_origin = c->vc_origin;
-		vga_set_mem_top(c);
-		return;
-	}
-
-	if (!vgacon_scrollback)
-		return;
-
-	if (!vgacon_scrollback_save) {
-		vgacon_cursor(c, CM_ERASE);
-		vgacon_save_screen(c);
-		vgacon_scrollback_save = 1;
-	}
-
-	vgacon_scrollback_restore = 0;
-	start = vgacon_scrollback_cur + lines;
-	end = start + abs(lines);
-
-	if (start < 0)
-		start = 0;
-
-	if (start > vgacon_scrollback_cnt)
-		start = vgacon_scrollback_cnt;
-
-	if (end < 0)
-		end = 0;
-
-	if (end > vgacon_scrollback_cnt)
-		end = vgacon_scrollback_cnt;
-
-	vgacon_scrollback_cur = start;
-	count = end - start;
-	soff = vgacon_scrollback_tail - ((vgacon_scrollback_cnt - end) *
-					 c->vc_size_row);
-	soff -= count * c->vc_size_row;
-
-	if (soff < 0)
-		soff += vgacon_scrollback_size;
-
-	count = vgacon_scrollback_cnt - start;
-
-	if (count > c->vc_rows)
-		count = c->vc_rows;
-
-	if (count) {
-		int copysize;
-
-		int diff = c->vc_rows - count;
-		void *d = (void *) c->vc_origin;
-		void *s = (void *) c->vc_screenbuf;
-
-		count *= c->vc_size_row;
-		/* how much memory to end of buffer left? */
-		copysize = min(count, vgacon_scrollback_size - soff);
-		scr_memcpyw(d, vgacon_scrollback + soff, copysize);
-		d += copysize;
-		count -= copysize;
-
-		if (count) {
-			scr_memcpyw(d, vgacon_scrollback, count);
-			d += count;
-		}
-
-		if (diff)
-			scr_memcpyw(d, s, diff * c->vc_size_row);
-	} else
-		vgacon_cursor(c, CM_MOVE);
-}
-#else
-#define vgacon_scrollback_startup(...) do { } while (0)
-#define vgacon_scrollback_init(...)    do { } while (0)
-#define vgacon_scrollback_update(...)  do { } while (0)
-
 static void vgacon_restore_screen(struct vc_data *c)
 {
 	if (c->vc_origin != c->vc_visible_origin)
@@ -365,7 +214,6 @@ static void vgacon_scrolldelta(struct vc_data *c, int lines)
 	}
 	vga_set_mem_top(c);
 }
-#endif /* CONFIG_VGACON_SOFT_SCROLLBACK */
 
 static const char *vgacon_startup(void)
 {
@@ -562,10 +410,7 @@ static const char *vgacon_startup(void)
 	vgacon_xres = screen_info.orig_video_cols * VGA_FONTWIDTH;
 	vgacon_yres = vga_scan_lines;
 
-	if (!vga_init_done) {
-		vgacon_scrollback_startup();
-		vga_init_done = 1;
-	}
+	vga_init_done = 1;
 
 	return display_desc;
 }
@@ -861,7 +706,6 @@ static int vgacon_switch(struct vc_data *c)
 			vgacon_doresize(c, c->vc_cols, c->vc_rows);
 	}
 
-	vgacon_scrollback_init(c->vc_size_row);
 	return 0;		/* Redrawing not needed */
 }
 
@@ -1391,7 +1235,6 @@ static int vgacon_scroll(struct vc_data *c, int t, int b, int dir,
 	oldo = c->vc_origin;
 	delta = lines * c->vc_size_row;
 	if (dir == SM_UP) {
-		vgacon_scrollback_update(c, t, lines);
 		if (c->vc_scr_end + delta >= vga_vram_end) {
 			scr_memcpyw((u16 *) vga_vram_base,
 				    (u16 *) (oldo + delta),
