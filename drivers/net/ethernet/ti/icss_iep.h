@@ -22,6 +22,7 @@ struct icss_iep_clockops {
 	int (*perout_enable)(void *clockops_data,
 			     struct ptp_perout_request *req, int on,
 			     u64 *cmp);
+	int (*extts_enable)(void *clockops_data, u32 index, int on);
 };
 
 struct icss_iep *icss_iep_get(struct device_node *np);

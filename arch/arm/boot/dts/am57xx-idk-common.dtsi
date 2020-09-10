@@ -165,8 +165,8 @@
 		sram = <&ocmcram1>;
 		interrupt-parent = <&pruss2_intc>;
 		mii-rt = <&pruss2_mii_rt>;
-		interrupts = <20>, <21>;
-		interrupt-names = "rx_lre_hp", "rx_lre_lp";
+		interrupts = <20>, <21>, <7>;
+		interrupt-names = "rx_lre_hp", "rx_lre_lp", "iep_cap_cmp";
 		iep = <&pruss2_iep>;
 		ecap = <&pruss2_ecap>;
 
