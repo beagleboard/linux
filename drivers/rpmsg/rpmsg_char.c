@@ -536,12 +536,19 @@ static void rpmsg_chrdev_remove(struct rpmsg_device *rpdev)
 	put_device(&ctrldev->dev);
 }
 
+static const struct rpmsg_device_id rpmsg_char_id_table[] = {
+	{ .name	= "rpmsg_chrdev" },
+	{ },
+};
+MODULE_DEVICE_TABLE(rpmsg, rpmsg_char_id_table);
+
 static struct rpmsg_driver rpmsg_chrdev_driver = {
 	.probe = rpmsg_chrdev_probe,
 	.remove = rpmsg_chrdev_remove,
 	.drv = {
 		.name = "rpmsg_chrdev",
 	},
+	.id_table = rpmsg_char_id_table,
 };
 
 static int rpmsg_char_init(void)
