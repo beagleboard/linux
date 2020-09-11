@@ -159,8 +159,12 @@ static inline void prueth_ptp_ts_enable(struct prueth_emac *emac)
 	void __iomem *sram = emac->prueth->mem[PRUETH_MEM_SHARED_RAM].va;
 	u8 val = 0;
 
-	if (emac->ptp_tx_enable)
-		val = TIMESYNC_CTRL_FORCED_2STEP | TIMESYNC_CTRL_BG_ENABLE;
+	if (emac->ptp_tx_enable) {
+		/* Disable fw background task */
+		val &= ~TIMESYNC_CTRL_BG_ENABLE;
+		/* Enable forced 2-step */
+		val |= TIMESYNC_CTRL_FORCED_2STEP;
+	}
 
 	writeb(val, sram + TIMESYNC_CTRL_VAR_OFFSET);
 }
