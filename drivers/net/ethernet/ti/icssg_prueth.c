@@ -361,14 +361,13 @@ static int prueth_init_rx_chns(struct prueth_emac *emac,
 	u32 fdqring_id;
 	u32 hdesc_size;
 	int i, ret = 0, slice;
-	char rx_chn_name[16];
 
 	slice = prueth_emac_slice(emac);
 	if (slice < 0)
 		return slice;
 
 	/* To differentiate channels for SLICE0 vs SLICE1 */
-	snprintf(rx_chn_name, sizeof(rx_chn_name), "%s%d", name, slice);
+	snprintf(rx_chn->name, sizeof(rx_chn->name), "%s%d", name, slice);
 
 	hdesc_size = cppi5_hdesc_calc_size(true, PRUETH_NAV_PS_DATA_SIZE,
 					   PRUETH_NAV_SW_DATA_SIZE);
@@ -383,7 +382,7 @@ static int prueth_init_rx_chns(struct prueth_emac *emac,
 	rx_chn->desc_pool = k3_cppi_desc_pool_create_name(dev,
 							  rx_chn->descs_num,
 							  hdesc_size,
-							  rx_chn_name);
+							  rx_chn->name);
 	if (IS_ERR(rx_chn->desc_pool)) {
 		ret = PTR_ERR(rx_chn->desc_pool);
 		rx_chn->desc_pool = NULL;
@@ -391,7 +390,8 @@ static int prueth_init_rx_chns(struct prueth_emac *emac,
 		goto fail;
 	}
 
-	rx_chn->rx_chn = k3_udma_glue_request_rx_chn(dev, rx_chn_name, &rx_cfg);
+	rx_chn->rx_chn = k3_udma_glue_request_rx_chn(dev, rx_chn->name,
+						     &rx_cfg);
 	if (IS_ERR(rx_chn->rx_chn)) {
 		ret = PTR_ERR(rx_chn->rx_chn);
 		rx_chn->rx_chn = NULL;
@@ -1003,7 +1003,7 @@ static void prueth_tx_cleanup(void *data, dma_addr_t desc_dma)
 	dev_kfree_skb_any(skb);
 }
 
-static irqreturn_t prueth_irq(int irq, void *dev_id)
+static irqreturn_t prueth_tx_ts_irq(int irq, void *dev_id)
 {
 	struct prueth_emac *emac = dev_id;
 
@@ -1361,6 +1361,61 @@ static int emac_napi_rx_poll(struct napi_struct *napi_rx, int budget)
 	return num_rx;
 }
 
+static int prueth_prepare_rx_chan(struct prueth_emac *emac,
+				  struct prueth_rx_chn *chn,
+				  int buf_size)
+{
+	struct sk_buff *skb;
+	int i, ret;
+
+	for (i = 0; i < chn->descs_num; i++) {
+		skb = __netdev_alloc_skb_ip_align(NULL, buf_size, GFP_KERNEL);
+		if (!skb) {
+			netdev_err(emac->ndev,
+				   "cannot allocate skb for rx chan %s\n",
+				   chn->name);
+			return -ENOMEM;
+		}
+
+		ret = prueth_dma_rx_push(emac, skb, chn);
+		if (ret < 0) {
+			netdev_err(emac->ndev,
+				   "cannot submit skb for rx chan %s ret %d\n",
+				   chn->name, ret);
+			kfree_skb(skb);
+			return ret;
+		}
+	}
+
+	return 0;
+}
+
+static void prueth_reset_tx_chan(struct prueth_emac *emac, int ch_num,
+				 bool free_skb)
+{
+	int i;
+
+	for (i = 0; i < ch_num; i++) {
+		if (free_skb)
+			k3_udma_glue_reset_tx_chn(emac->tx_chns[i].tx_chn,
+						  &emac->tx_chns[i],
+						  prueth_tx_cleanup);
+		k3_udma_glue_disable_tx_chn(emac->tx_chns[i].tx_chn);
+	}
+}
+
+static void prueth_reset_rx_chan(struct prueth_rx_chn *chn,
+				 int num_flows, bool disable)
+{
+	int i;
+
+	for (i = 0; i < num_flows; i++)
+		k3_udma_glue_reset_rx_chn(chn->rx_chn, i, chn,
+					  prueth_rx_cleanup, !!i);
+	if (disable)
+		k3_udma_glue_disable_rx_chn(chn->rx_chn);
+}
+
 /**
  * emac_ndo_open - EMAC device open
  * @ndev: network adapter device
@@ -1376,7 +1431,6 @@ static int emac_ndo_open(struct net_device *ndev)
 	struct prueth *prueth = emac->prueth;
 	int slice = prueth_emac_slice(emac);
 	struct device *dev = prueth->dev;
-	struct sk_buff *skb;
 	int max_rx_flows;
 	int rx_flow;
 
@@ -1464,84 +1518,57 @@ static int emac_ndo_open(struct net_device *ndev)
 				   dev_name(dev), emac);
 	if (ret) {
 		dev_err(dev, "unable to request RX Management TS IRQ\n");
-		goto free_rx_mgm_irq;
+		goto free_rx_mgm_rsp_irq;
 	}
 
 skip_mgm_irq:
 	/* reset and start PRU firmware */
 	ret = prueth_emac_start(prueth, emac);
 	if (ret)
-		goto free_rx_ts_irq;
+		goto free_rx_mgmt_ts_irq;
 
 	if (!emac->is_sr1) {
-		ret = request_threaded_irq(emac->irq, NULL, prueth_irq,
+		ret = request_threaded_irq(emac->irq, NULL, prueth_tx_ts_irq,
 					   IRQF_ONESHOT, dev_name(dev), emac);
 		if (ret)
 			goto stop;
 	}
 
-	/* Get attached phy details */
-	phy_attached_info(emac->phydev);
+	/* Prepare RX */
+	ret = prueth_prepare_rx_chan(emac, &emac->rx_chns, PRUETH_MAX_PKT_SIZE);
+	if (ret)
+		goto free_rx_ts_irq;
 
-	/* start PHY */
-	phy_start(emac->phydev);
+	if (emac->is_sr1) {
+		ret = prueth_prepare_rx_chan(emac, &emac->rx_mgm_chn, 64);
+		if (ret)
+			goto reset_rx_chn;
 
-	/* prepare RX & TX */
-	for (i = 0; i < emac->rx_chns.descs_num; i++) {
-		skb = __netdev_alloc_skb_ip_align(NULL,
-						  PRUETH_MAX_PKT_SIZE,
-						  GFP_KERNEL);
-		if (!skb) {
-			netdev_err(ndev, "cannot allocate skb\n");
-			ret = -ENOMEM;
-			goto err;
-		}
-
-		ret = prueth_dma_rx_push(emac, skb, &emac->rx_chns);
-		if (ret < 0) {
-			netdev_err(ndev, "cannot submit skb for rx: %d\n",
-				   ret);
-			kfree_skb(skb);
-			goto err;
-		}
+		ret = k3_udma_glue_enable_rx_chn(emac->rx_mgm_chn.rx_chn);
+		if (ret)
+			goto reset_rx_chn;
 	}
 
-	if (!emac->is_sr1)
-		goto skip_mgm;
-
-	for (i = 0; i < emac->rx_mgm_chn.descs_num; i++) {
-		skb = __netdev_alloc_skb_ip_align(NULL,
-						  64,
-						  GFP_KERNEL);
-		if (!skb) {
-			netdev_err(ndev, "cannot allocate skb\n");
-			ret = -ENOMEM;
-			goto err;
-		}
-
-		ret = prueth_dma_rx_push(emac, skb, &emac->rx_mgm_chn);
-		if (ret < 0) {
-			netdev_err(ndev, "cannot submit skb for rx_mgm: %d\n",
-				   ret);
-			kfree_skb(skb);
-			goto err;
-		}
-	}
-
-	k3_udma_glue_enable_rx_chn(emac->rx_mgm_chn.rx_chn);
-skip_mgm:
-	k3_udma_glue_enable_rx_chn(emac->rx_chns.rx_chn);
+	ret = k3_udma_glue_enable_rx_chn(emac->rx_chns.rx_chn);
+	if (ret)
+		goto reset_rx_mgm_chn;
 
 	for (i = 0; i < emac->tx_ch_num; i++) {
 		ret = k3_udma_glue_enable_tx_chn(emac->tx_chns[i].tx_chn);
 		if (ret)
-			goto disable_tx_chan;
+			goto reset_tx_chan;
 	}
 
 	/* Enable NAPI in Tx and Rx direction */
 	for (i = 0; i < emac->tx_ch_num; i++)
 		napi_enable(&emac->tx_chns[i].napi_tx);
 	napi_enable(&emac->napi_rx);
+
+	/* Get attached phy details */
+	phy_attached_info(emac->phydev);
+
+	/* start PHY */
+	phy_start(emac->phydev);
 
 	if (netif_msg_drv(emac))
 		dev_notice(&ndev->dev, "started\n");
@@ -1551,22 +1578,27 @@ skip_mgm:
 
 	return 0;
 
-disable_tx_chan:
-	for (--i; i >= 0; i--)
-		k3_udma_glue_disable_tx_chn(emac->tx_chns[i].tx_chn);
-	k3_udma_glue_disable_rx_chn(emac->rx_chns.rx_chn);
+reset_tx_chan:
+	/* Since interface is not yet up, there is wouldn't be
+	 * any SKB for completion. So set false to free_skb
+	 */
+	prueth_reset_tx_chan(emac, i, false);
+reset_rx_mgm_chn:
 	if (emac->is_sr1)
-		k3_udma_glue_disable_rx_chn(emac->rx_mgm_chn.rx_chn);
-err:
+		prueth_reset_rx_chan(&emac->rx_mgm_chn,
+				     PRUETH_MAX_RX_MGM_FLOWS, true);
+reset_rx_chn:
+	prueth_reset_rx_chan(&emac->rx_chns, max_rx_flows, false);
+free_rx_ts_irq:
 	if (!emac->is_sr1)
 		free_irq(emac->irq, emac);
 stop:
 	prueth_emac_stop(emac);
-free_rx_ts_irq:
+free_rx_mgmt_ts_irq:
 	if (emac->is_sr1)
 		free_irq(emac->rx_mgm_chn.irq[PRUETH_RX_MGM_FLOW_TIMESTAMP],
 			 emac);
-free_rx_mgm_irq:
+free_rx_mgm_rsp_irq:
 	if (emac->is_sr1)
 		free_irq(emac->rx_mgm_chn.irq[PRUETH_RX_MGM_FLOW_RESPONSE],
 			 emac);
@@ -1624,33 +1656,20 @@ static int emac_ndo_stop(struct net_device *ndev)
 	if (!ret)
 		netdev_err(ndev, "tx teardown timeout\n");
 
-	for (i = 0; i < emac->tx_ch_num; i++) {
-		k3_udma_glue_reset_tx_chn(emac->tx_chns[i].tx_chn,
-					  &emac->tx_chns[i],
-					  prueth_tx_cleanup);
-		k3_udma_glue_disable_tx_chn(emac->tx_chns[i].tx_chn);
+	prueth_reset_tx_chan(emac, emac->tx_ch_num, true);
+	for (i = 0; i < emac->tx_ch_num; i++)
 		napi_disable(&emac->tx_chns[i].napi_tx);
-	}
 
 	max_rx_flows = emac->is_sr1 ?
 			PRUETH_MAX_RX_FLOWS_SR1 : PRUETH_MAX_RX_FLOWS_SR2;
 	k3_udma_glue_tdown_rx_chn(emac->rx_chns.rx_chn, true);
-	for (i = 0; i < max_rx_flows; i++)
-		k3_udma_glue_reset_rx_chn(emac->rx_chns.rx_chn, i,
-					  &emac->rx_chns,
-					  prueth_rx_cleanup, !!i);
 
-	k3_udma_glue_disable_rx_chn(emac->rx_chns.rx_chn);
-
+	prueth_reset_rx_chan(&emac->rx_chns, max_rx_flows, true);
 	if (emac->is_sr1) {
 		/* Teardown RX MGM channel */
 		k3_udma_glue_tdown_rx_chn(emac->rx_mgm_chn.rx_chn, true);
-		for (i = 0; i < PRUETH_MAX_RX_MGM_FLOWS; i++)
-			k3_udma_glue_reset_rx_chn(emac->rx_mgm_chn.rx_chn, i,
-						  &emac->rx_mgm_chn,
-						  prueth_rx_cleanup, !!i);
-
-		k3_udma_glue_disable_rx_chn(emac->rx_mgm_chn.rx_chn);
+		prueth_reset_rx_chan(&emac->rx_mgm_chn,
+				     PRUETH_MAX_RX_MGM_FLOWS, true);
 	}
 
 	napi_disable(&emac->napi_rx);

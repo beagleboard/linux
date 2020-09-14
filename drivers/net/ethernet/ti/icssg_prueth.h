@@ -103,6 +103,7 @@ struct prueth_rx_chn {
 	struct k3_udma_glue_rx_channel *rx_chn;
 	u32 descs_num;
 	unsigned int irq[ICSSG_MAX_RFLOWS];	/* separate irq per flow */
+	char name[32];
 };
 
 enum prueth_state_flags {
