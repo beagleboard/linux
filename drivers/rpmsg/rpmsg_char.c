@@ -137,6 +137,8 @@ static int rpmsg_eptdev_open(struct inode *inode, struct file *filp)
 	}
 
 	eptdev->ept = ept;
+	if (eptdev->chinfo.src == RPMSG_ADDR_ANY)
+		eptdev->chinfo.src = ept->addr;
 	filp->private_data = eptdev;
 
 	return 0;
