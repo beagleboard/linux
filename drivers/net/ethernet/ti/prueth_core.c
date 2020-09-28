@@ -1373,7 +1373,7 @@ int emac_rx_packet(struct prueth_emac *emac, u16 *bd_rd_ptr,
 				prueth_sw_learn_fdb(emac, skb->data + ETH_ALEN);
 		}
 
-		if (prueth_ptp_rx_ts_is_enabled(emac)) {
+		if (prueth_ptp_rx_ts_is_enabled(emac) && pkt_info.timestamp) {
 			ssh = skb_hwtstamps(skb);
 			memset(ssh, 0, sizeof(*ssh));
 			ssh->hwtstamp = ns_to_ktime(ts);
