@@ -1448,6 +1448,9 @@ static int emac_ndo_open(struct net_device *ndev)
 	ether_addr_copy(emac->mac_addr, ndev->dev_addr);
 
 	icssg_class_set_mac_addr(prueth->miig_rt, slice, emac->mac_addr);
+	if (!emac->is_sr1)
+		icssg_ft1_set_mac_addr(prueth->miig_rt, slice, emac->mac_addr);
+
 	icssg_class_default(prueth->miig_rt, slice, 0);
 
 	netif_carrier_off(ndev);

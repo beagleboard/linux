@@ -441,3 +441,14 @@ void icssg_class_add_mcast(struct regmap *miig_rt, int slice,
 		slot++;
 	}
 }
+
+/* required for SR2 for SAV check */
+void icssg_ft1_set_mac_addr(struct regmap *miig_rt, int slice, u8 *mac_addr)
+{
+	u8 mask_addr[] = { 0, 0, 0, 0, 0, 0, };
+
+	rx_class_ft1_set_start_len(miig_rt, slice, 0, 6);
+	rx_class_ft1_set_da(miig_rt, slice, 0, mac_addr);
+	rx_class_ft1_set_da_mask(miig_rt, slice, 0, mask_addr);
+	rx_class_ft1_cfg_set_type(miig_rt, slice, 0, FT1_CFG_TYPE_EQ);
+}

@@ -247,6 +247,7 @@ void icssg_class_default(struct regmap *miig_rt, int slice, bool allmulti);
 void icssg_class_promiscuous(struct regmap *miig_rt, int slice);
 void icssg_class_add_mcast(struct regmap *miig_rt, int slice,
 			   struct net_device *ndev);
+void icssg_ft1_set_mac_addr(struct regmap *miig_rt, int slice, u8 *mac_addr);
 
 /* Buffer queue helpers */
 int icssg_queue_pop(struct prueth *prueth, u8 queue);
