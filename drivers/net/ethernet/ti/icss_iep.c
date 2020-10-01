@@ -514,7 +514,7 @@ exit:
 	return ret;
 }
 
-irqreturn_t icss_iep_cap_cmp_handler(int irq, void *dev_id)
+static irqreturn_t icss_iep_cap_cmp_handler(int irq, void *dev_id)
 {
 	struct icss_iep *iep = (struct icss_iep *)dev_id;
 	struct ptp_clock_event pevent;
