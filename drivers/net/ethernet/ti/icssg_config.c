@@ -282,7 +282,7 @@ int icssg_config_sr2(struct prueth *prueth, struct prueth_emac *emac, int slice)
 	struct icssg_buffer_pool_cfg *bpool_cfg;
 	struct icssg_rxq_ctx *rxq_ctx;
 	int i;
-	u32 addr;
+	u32 addr, mask;
 
 	rxq_ctx = emac->dram.va + HOST_RX_Q_PRE_CONTEXT_OFFSET;
 	memset_io(config, 0, TAS_GATE_MASK_LIST0);
@@ -292,6 +292,10 @@ int icssg_config_sr2(struct prueth *prueth, struct prueth_emac *emac, int slice)
 	/* set GPI mode */
 	pruss_cfg_gpimode(prueth->pruss, prueth->pru[slice],
 			  PRUSS_GPI_MODE_MII);
+
+	/* enable XFR shift for PRU and RTU */
+	mask = PRUSS_SPP_XFER_SHIFT_EN | PRUSS_SPP_RTU_XFR_SHIFT_EN;
+	pruss_cfg_update(prueth->pruss, PRUSS_CFG_SPP, mask, mask);
 
 	/* set C28 to 0x100 */
 	pru_rproc_set_ctable(prueth->pru[slice], PRU_C28, 0x100 << 8);
