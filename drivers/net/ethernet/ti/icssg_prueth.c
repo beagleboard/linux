@@ -1451,7 +1451,7 @@ static int emac_ndo_open(struct net_device *ndev)
 	if (!emac->is_sr1)
 		icssg_ft1_set_mac_addr(prueth->miig_rt, slice, emac->mac_addr);
 
-	icssg_class_default(prueth->miig_rt, slice, 0);
+	icssg_class_default(prueth->miig_rt, slice, 0, emac->is_sr1);
 
 	netif_carrier_off(ndev);
 
@@ -1725,6 +1725,32 @@ static void emac_ndo_tx_timeout(struct net_device *ndev)
 	/* TODO: can we recover or need to reboot firmware? */
 }
 
+static void emac_ndo_set_rx_mode_sr1(struct net_device *ndev)
+{
+	struct prueth_emac *emac = netdev_priv(ndev);
+	struct prueth *prueth = emac->prueth;
+	int slice = prueth_emac_slice(emac);
+	bool promisc = ndev->flags & IFF_PROMISC;
+	bool allmulti = ndev->flags & IFF_ALLMULTI;
+
+	if (promisc) {
+		icssg_class_promiscuous_sr1(prueth->miig_rt, slice);
+		return;
+	}
+
+	if (allmulti) {
+		icssg_class_default(prueth->miig_rt, slice, 1, emac->is_sr1);
+		return;
+	}
+
+	icssg_class_default(prueth->miig_rt, slice, 0, emac->is_sr1);
+	if (!netdev_mc_empty(ndev)) {
+		/* program multicast address list into Classifier */
+		icssg_class_add_mcast_sr1(prueth->miig_rt, slice, ndev);
+		return;
+	}
+}
+
 /**
  * emac_ndo_set_rx_mode - EMAC set receive mode function
  * @ndev: The EMAC network adapter
@@ -1736,24 +1762,31 @@ static void emac_ndo_set_rx_mode(struct net_device *ndev)
 {
 	struct prueth_emac *emac = netdev_priv(ndev);
 	struct prueth *prueth = emac->prueth;
-	int slice = prueth_emac_slice(emac);
 	bool promisc = ndev->flags & IFF_PROMISC;
 	bool allmulti = ndev->flags & IFF_ALLMULTI;
 
+	if (prueth->is_sr1) {
+		emac_ndo_set_rx_mode_sr1(ndev);
+		return;
+	}
+
+	emac_set_port_state(emac, ICSSG_EMAC_PORT_UC_FLOODING_DISABLE);
+	emac_set_port_state(emac, ICSSG_EMAC_PORT_MC_FLOODING_DISABLE);
+
 	if (promisc) {
-		icssg_class_promiscuous(prueth->miig_rt, slice);
+		emac_set_port_state(emac, ICSSG_EMAC_PORT_UC_FLOODING_ENABLE);
+		emac_set_port_state(emac, ICSSG_EMAC_PORT_MC_FLOODING_ENABLE);
 		return;
 	}
 
 	if (allmulti) {
-		icssg_class_default(prueth->miig_rt, slice, 1);
+		emac_set_port_state(emac, ICSSG_EMAC_PORT_MC_FLOODING_ENABLE);
 		return;
 	}
 
-	icssg_class_default(prueth->miig_rt, slice, 0);
 	if (!netdev_mc_empty(ndev)) {
-		/* program multicast address list into Classifier */
-		icssg_class_add_mcast(prueth->miig_rt, slice, ndev);
+	/* TODO: Add FDB entries for multicast. till then enable allmulti */
+		emac_set_port_state(emac, ICSSG_EMAC_PORT_MC_FLOODING_ENABLE);
 		return;
 	}
 }

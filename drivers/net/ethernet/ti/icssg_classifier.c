@@ -352,16 +352,21 @@ void icssg_class_disable(struct regmap *miig_rt, int slice)
 	regmap_write(miig_rt, offs[slice].rx_class_cfg2, 0);
 }
 
-void icssg_class_default(struct regmap *miig_rt, int slice, bool allmulti)
+void icssg_class_default(struct regmap *miig_rt, int slice, bool allmulti,
+			 bool is_sr1)
 {
 	u32 data;
 	int n;
+	int classifiers_in_use = ICSSG_NUM_CLASSIFIERS_IN_USE;
+
+	if (!is_sr1)
+		classifiers_in_use = 1;
 
 	/* defaults */
 	icssg_class_disable(miig_rt, slice);
 
 	/* Setup Classifier */
-	for (n = 0; n < ICSSG_NUM_CLASSIFIERS_IN_USE; n++) {
+	for (n = 0; n < classifiers_in_use; n++) {
 		/* match on Broadcast or MAC_PRU address */
 		data = RX_CLASS_FT_BC | RX_CLASS_FT_DA_P;
 
@@ -380,7 +385,7 @@ void icssg_class_default(struct regmap *miig_rt, int slice, bool allmulti)
 	regmap_write(miig_rt, offs[slice].rx_class_cfg2, 0);
 }
 
-void icssg_class_promiscuous(struct regmap *miig_rt, int slice)
+void icssg_class_promiscuous_sr1(struct regmap *miig_rt, int slice)
 {
 	u32 data;
 	u32 offset;
@@ -399,8 +404,8 @@ void icssg_class_promiscuous(struct regmap *miig_rt, int slice)
 	}
 }
 
-void icssg_class_add_mcast(struct regmap *miig_rt, int slice,
-			   struct net_device *ndev)
+void icssg_class_add_mcast_sr1(struct regmap *miig_rt, int slice,
+			       struct net_device *ndev)
 {
 	int slot;
 	struct netdev_hw_addr *ha;
@@ -431,7 +436,7 @@ void icssg_class_add_mcast(struct regmap *miig_rt, int slice,
 			netdev_dbg(ndev,
 				   "can't add more than %d MC addresses, enabling allmulti\n",
 				   FT1_NUM_SLOTS);
-			icssg_class_default(miig_rt, slice, 1);
+			icssg_class_default(miig_rt, slice, 1, 1);
 			break;
 		}
 
