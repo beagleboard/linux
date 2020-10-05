@@ -63,6 +63,8 @@ struct cqspi_flash_pdata {
 	bool	       		use_phy;
 	struct phy_setting	phy_setting;
 	struct spi_mem_op	phy_read_op;
+	u32			phy_tx_start;
+	u32			phy_tx_end;
 };
 
 struct cqspi_st {
@@ -575,8 +577,8 @@ static int cqspi_phy_calibrate(struct cqspi_flash_pdata *f_pdata,
 
 	f_pdata->use_phy = true;
 
-	/* Look for RX boundaries at TX = 16. */
-	rxlow.tx = 16;
+	/* Look for RX boundaries at lower TX range. */
+	rxlow.tx = f_pdata->phy_tx_start;
 
 	do {
 		dev_dbg(dev, "Searching for rxlow on TX = %d\n", rxlow.tx);
@@ -603,10 +605,10 @@ static int cqspi_phy_calibrate(struct cqspi_flash_pdata *f_pdata,
 	 */
 	if (rxlow.read_delay == rxhigh.read_delay) {
 		dev_dbg(dev,
-			"rxlow and rxhigh at the same read delay. Searching at TX = 48\n");
+			"rxlow and rxhigh at the same read delay.\n");
 
-		/* Look for RX boundaries at TX = 48. */
-		temp.tx = 48;
+		/* Look for RX boundaries at upper TX range. */
+		temp.tx = f_pdata->phy_tx_end;
 
 		do {
 			dev_dbg(dev, "Searching for rxlow on TX = %d\n",
@@ -2090,6 +2092,12 @@ static int cqspi_of_get_flash_pdata(struct platform_device *pdev,
 		dev_err(&pdev->dev, "couldn't determine spi-max-frequency\n");
 		return -ENXIO;
 	}
+
+	if (of_property_read_u32(np, "cdns,phy-tx-start", &f_pdata->phy_tx_start))
+		f_pdata->phy_tx_start = 16;
+
+	if (of_property_read_u32(np, "cdns,phy-tx-end", &f_pdata->phy_tx_end))
+		f_pdata->phy_tx_end = 48;
 
 	return 0;
 }
