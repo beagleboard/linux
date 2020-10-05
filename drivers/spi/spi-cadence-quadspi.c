@@ -277,6 +277,8 @@ struct cqspi_driver_platdata {
 #define CQSPI_PHY_HIGH_RX_BOUND		25
 #define CQSPI_PHY_LOW_TX_BOUND		32
 #define CQSPI_PHY_HIGH_TX_BOUND		48
+#define CQSPI_PHY_TX_LOOKUP_LOW_BOUND	24
+#define CQSPI_PHY_TX_LOOKUP_HIGH_BOUND	38
 
 #define CQSPI_PHY_DEFAULT_TEMP		45
 #define CQSPI_PHY_MIN_TEMP		-45
@@ -575,15 +577,19 @@ static int cqspi_phy_calibrate(struct cqspi_flash_pdata *f_pdata,
 
 	/* Look for RX boundaries at TX = 16. */
 	rxlow.tx = 16;
-	rxhigh.tx = 16;
 
-	rxlow.read_delay = CQSPI_PHY_INIT_RD;
-	ret = cqspi_find_rx_low(f_pdata, mem, &rxlow);
+	do {
+		dev_dbg(dev, "Searching for rxlow on TX = %d\n", rxlow.tx);
+		rxlow.read_delay = CQSPI_PHY_INIT_RD;
+		ret = cqspi_find_rx_low(f_pdata, mem, &rxlow);
+	} while (ret && ++rxlow.tx <= CQSPI_PHY_TX_LOOKUP_LOW_BOUND);
+
 	if (ret)
 		goto out;
 	dev_dbg(dev, "rxlow: RX: %d TX: %d RD: %d\n", rxlow.rx, rxlow.tx,
 		rxlow.read_delay);
 
+	rxhigh.tx = rxlow.tx;
 	rxhigh.read_delay = rxlow.read_delay;
 	cqspi_find_rx_high(f_pdata, mem, &rxhigh);
 	if (ret)
@@ -601,9 +607,14 @@ static int cqspi_phy_calibrate(struct cqspi_flash_pdata *f_pdata,
 
 		/* Look for RX boundaries at TX = 48. */
 		temp.tx = 48;
-		temp.read_delay = CQSPI_PHY_INIT_RD;
 
-		ret = cqspi_find_rx_low(f_pdata, mem, &temp);
+		do {
+			dev_dbg(dev, "Searching for rxlow on TX = %d\n",
+				temp.tx);
+			temp.read_delay = CQSPI_PHY_INIT_RD;
+			ret = cqspi_find_rx_low(f_pdata, mem, &temp);
+		} while (ret && --temp.tx >= CQSPI_PHY_TX_LOOKUP_HIGH_BOUND);
+
 		if (ret)
 			goto out;
 		dev_dbg(dev, "rxlow: RX: %d TX: %d RD: %d\n", temp.rx, temp.tx,
