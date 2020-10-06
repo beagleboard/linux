@@ -91,7 +91,7 @@ struct icssg_config_sr1 {
 #define PRUETH_NAV_SW_DATA_SIZE	16	/* SW related data size */
 #define PRUETH_MAX_TX_DESC	512
 #define PRUETH_MAX_RX_DESC	512
-#define PRUETH_MAX_RX_FLOWS_SR2	5	/* excluding default flow */
+#define PRUETH_MAX_RX_FLOWS_SR2	1	/* excluding default flow */
 #define PRUETH_RX_FLOW_DATA_SR2	0	/* FIXME: f/w bug to change to highest priority flow */
 
 #define PRUETH_EMAC_BUF_POOL_SIZE_SR2	SZ_8K
@@ -131,6 +131,8 @@ enum icssg_port_state_cmd {
 	ICSSG_EMAC_PORT_TAS_DISABLE,
 	ICSSG_EMAC_PORT_UC_FLOODING_ENABLE,
 	ICSSG_EMAC_PORT_UC_FLOODING_DISABLE,
+	ICSSG_EMAC_PORT_MC_FLOODING_ENABLE,
+	ICSSG_EMAC_PORT_MC_FLOODING_DISABLE,
 	ICSSG_EMAC_PORT_PREMPT_TX_ENABLE,
 	ICSSG_EMAC_PORT_PREMPT_TX_DISABLE,
 	ICSSG_EMAC_PORT_MAX_COMMANDS

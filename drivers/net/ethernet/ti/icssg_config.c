@@ -282,7 +282,7 @@ int icssg_config_sr2(struct prueth *prueth, struct prueth_emac *emac, int slice)
 	struct icssg_buffer_pool_cfg *bpool_cfg;
 	struct icssg_rxq_ctx *rxq_ctx;
 	int i;
-	u32 addr;
+	u32 addr, mask;
 
 	rxq_ctx = emac->dram.va + HOST_RX_Q_PRE_CONTEXT_OFFSET;
 	memset_io(config, 0, TAS_GATE_MASK_LIST0);
@@ -292,6 +292,10 @@ int icssg_config_sr2(struct prueth *prueth, struct prueth_emac *emac, int slice)
 	/* set GPI mode */
 	pruss_cfg_gpimode(prueth->pruss, prueth->pru[slice],
 			  PRUSS_GPI_MODE_MII);
+
+	/* enable XFR shift for PRU and RTU */
+	mask = PRUSS_SPP_XFER_SHIFT_EN | PRUSS_SPP_RTU_XFR_SHIFT_EN;
+	pruss_cfg_update(prueth->pruss, PRUSS_CFG_SPP, mask, mask);
 
 	/* set C28 to 0x100 */
 	pru_rproc_set_ctable(prueth->pru[slice], PRU_C28, 0x100 << 8);
@@ -304,7 +308,7 @@ int icssg_config_sr2(struct prueth *prueth, struct prueth_emac *emac, int slice)
 	flow_cfg->rx_base_flow = cpu_to_le32(emac->rx_flow_id_base);
 	flow_cfg->mgm_base_flow = 0;
 	*(cfg_byte_ptr + SPL_PKT_DEFAULT_PRIORITY) = 0;
-	*(cfg_byte_ptr + QUEUE_NUM_UNTAGGED) = 0x4;
+	*(cfg_byte_ptr + QUEUE_NUM_UNTAGGED) = 0x0;
 
 	/* Layout to have 64KB aligned buffer pool
 	 * |BPOOL0|BPOOL1|RX_CTX0|RX_CTX1|
@@ -361,6 +365,8 @@ static struct icssg_r30_cmd emac_r32_bitmask[] = {
 	{{EMAC_NONE,  0xcfff0000, EMAC_NONE, EMAC_NONE}},	/* TAS set state DISABLE*/
 	{{EMAC_NONE,  EMAC_NONE,  0xffff0400, EMAC_NONE}},	/* UC flooding ENABLE*/
 	{{EMAC_NONE,  EMAC_NONE,  0xfbff0000, EMAC_NONE}},	/* UC flooding DISABLE*/
+	{{EMAC_NONE,  EMAC_NONE,  0xffff0800, EMAC_NONE}},	/* MC flooding ENABLE*/
+	{{EMAC_NONE,  EMAC_NONE,  0xf7ff0000, EMAC_NONE}},	/* MC flooding DISABLE*/
 	{{EMAC_NONE,  0xffff4000, EMAC_NONE, EMAC_NONE}},	/* Preemption on Tx ENABLE*/
 	{{EMAC_NONE,  0xbfff0000, EMAC_NONE, EMAC_NONE}}	/* Preemption on Tx DISABLE*/
 };

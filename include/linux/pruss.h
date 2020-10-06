@@ -68,8 +68,10 @@
 #define PRUSS_MII_RT_EVENT_EN			BIT(0)
 
 /* PRUSS_SPP register bits */
-#define PRUSS_SPP_XFER_SHIFT_EN			BIT(1)
 #define PRUSS_SPP_PRU1_PAD_HP_EN		BIT(0)
+#define PRUSS_SPP_XFER_SHIFT_EN			BIT(1)
+#define PRUSS_SPP_XFR_BYTE_SHIFT_EN		BIT(2)
+#define PRUSS_SPP_RTU_XFR_SHIFT_EN		BIT(3)
 
 /**
  * enum pruss_gp_mux_sel - PRUSS GPI/O Mux modes for the
