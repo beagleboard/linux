@@ -1444,6 +1444,9 @@ static int kserdes_phy_enable_rx(struct phy *phy)
 	ret = kserdes_enable_lane_rx(sc, i, &sofs->lane_ofs[i],
 				     &dlevo.lane_dlev_out[i]);
 
+	if (ret)
+		return ret;
+
 	kserdes_clear_wait_after(sc, BIT(i));
 
 	return 0;
