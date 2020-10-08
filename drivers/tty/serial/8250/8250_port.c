@@ -1817,6 +1817,7 @@ int serial8250_handle_irq(struct uart_port *port, unsigned int iir)
 	unsigned long flags;
 	struct uart_8250_port *up = up_to_u8250p(port);
 	struct tty_struct *tty = port->state->port.tty;
+
 	bool skip_rx = false;
 
 	if (iir & UART_IIR_NO_INT)

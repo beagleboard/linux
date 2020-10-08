@@ -1700,6 +1700,7 @@ static int cal_start_streaming(struct vb2_queue *vq, unsigned int count)
 	pix_proc_config(ctx);
 	cal_wr_dma_config(ctx, ctx->v_fmt.fmt.pix.bytesperline,
 			  ctx->v_fmt.fmt.pix.height);
+
 	csi2_lane_config(ctx);
 
 	enable_irqs(ctx);
