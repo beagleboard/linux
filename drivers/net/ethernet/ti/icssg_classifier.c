@@ -9,6 +9,8 @@
 #include <linux/types.h>
 #include <linux/regmap.h>
 
+#include "icssg_prueth.h"
+
 #define ICSSG_NUM_CLASSIFIERS	16
 #define ICSSG_NUM_FT1_SLOTS	8
 #define ICSSG_NUM_FT3_SLOTS	16
