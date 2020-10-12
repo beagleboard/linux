@@ -59,6 +59,7 @@ static int m_can_plat_probe(struct platform_device *pdev)
 	struct m_can_classdev *mcan_class;
 	struct m_can_plat_priv *priv;
 	struct gpio_desc *stb;
+	struct gpio_desc *en;
 	struct resource *res;
 	void __iomem *addr;
 	void __iomem *mram_addr;
@@ -116,6 +117,16 @@ static int m_can_plat_probe(struct platform_device *pdev)
 	stb = devm_gpiod_get_optional(&pdev->dev, "stb", GPIOD_OUT_HIGH);
 	if (IS_ERR(stb)) {
 		ret = PTR_ERR(stb);
+		if (ret != -EPROBE_DEFER)
+			dev_err(&pdev->dev,
+				"gpio request failed, ret %d\n", ret);
+
+		goto failed_ret;
+	}
+
+	en = devm_gpiod_get_optional(&pdev->dev, "en", GPIOD_OUT_HIGH);
+	if (IS_ERR(en)) {
+		ret = PTR_ERR(en);
 		if (ret != -EPROBE_DEFER)
 			dev_err(&pdev->dev,
 				"gpio request failed, ret %d\n", ret);
