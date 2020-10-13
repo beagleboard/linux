@@ -7,6 +7,9 @@
 
 #define RX_SYNC_TIMESTAMP_OFFSET_P1             0x8    /* 8 bytes */
 #define RX_PDELAY_REQ_TIMESTAMP_OFFSET_P1       0x14   /* 12 bytes */
+
+#define DISABLE_PTP_FRAME_FORWARDING_CTRL_OFFSET 0x14	/* 1 byte */
+
 #define RX_PDELAY_RESP_TIMESTAMP_OFFSET_P1      0x20   /* 12 bytes */
 #define RX_SYNC_TIMESTAMP_OFFSET_P2             0x2c   /* 12 bytes */
 #define RX_PDELAY_REQ_TIMESTAMP_OFFSET_P2       0x38   /* 12 bytes */
