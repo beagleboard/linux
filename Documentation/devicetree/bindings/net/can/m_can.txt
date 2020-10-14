@@ -49,6 +49,7 @@ Optional Subnode:
 			  Documentation/devicetree/bindings/net/can/can-transceiver.txt
 			  for details.
 stb-gpios		: gpio node to toggle the STB (standby) signal on the transceiver
+en-gpios		: gpio node to toggle the En (enable) signal on the transceiver
 
 Example:
 SoC dtsi:
