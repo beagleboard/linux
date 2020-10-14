@@ -167,6 +167,9 @@ static inline void prueth_ptp_ts_enable(struct prueth_emac *emac)
 	}
 
 	writeb(val, sram + TIMESYNC_CTRL_VAR_OFFSET);
+	/* disable PTP forwarding for switch */
+	if (PRUETH_IS_SWITCH(emac->prueth))
+		writeb(1, sram + DISABLE_PTP_FRAME_FORWARDING_CTRL_OFFSET);
 }
 
 static inline void prueth_ptp_tx_ts_enable(struct prueth_emac *emac, bool enable)
