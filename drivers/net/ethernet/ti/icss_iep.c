@@ -126,6 +126,7 @@ struct icss_iep {
 	int cap_cmp_irq;
 	struct ptp_clock_time period;
 	u32 latch_enable;
+	struct hrtimer sync_timer;
 };
 
 /**
@@ -536,6 +537,10 @@ static irqreturn_t icss_iep_cap_cmp_handler(int irq, void *dev_id)
 		pevent.index = index;
 		ptp_clock_event(iep->ptp_clock, &pevent);
 		dev_dbg(iep->dev, "IEP:pps ts: %llu\n", ns);
+
+		hrtimer_start(&iep->sync_timer, ms_to_ktime(110), /* 100ms + buffer */
+			      HRTIMER_MODE_REL);
+
 		ret = IRQ_HANDLED;
 	}
 
@@ -661,6 +666,17 @@ static struct ptp_clock_info icss_iep_ptp_info = {
 	.enable		= icss_iep_ptp_enable,
 };
 
+static enum hrtimer_restart icss_iep_sync0_work(struct hrtimer *timer)
+{
+	struct icss_iep *iep = container_of(timer, struct icss_iep, sync_timer);
+
+	regmap_write(iep->map, ICSS_IEP_SYNC_CTRL_REG, 0);
+	regmap_write(iep->map, ICSS_IEP_SYNC_CTRL_REG,
+		     IEP_SYNC_CTRL_SYNC_N_EN(0) | IEP_SYNC_CTRL_SYNC_EN);
+
+	return HRTIMER_NORESTART;
+}
+
 struct icss_iep *icss_iep_get(struct device_node *np)
 {
 	struct platform_device *pdev;
@@ -704,6 +720,8 @@ struct icss_iep *icss_iep_get(struct device_node *np)
 			dev_err(iep->dev, "Request irq failed for cap_cmp %d\n", ret);
 			goto put_iep_device;
 		}
+		hrtimer_init(&iep->sync_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+		iep->sync_timer.function = icss_iep_sync0_work;
 	}
 
 	iep->ptp_info = icss_iep_ptp_info;
@@ -745,8 +763,10 @@ void icss_iep_put(struct icss_iep *iep)
 	iep->cap_cmp_irq = 0;
 	if (iep->ptp_clock)
 		ptp_clock_unregister(iep->ptp_clock);
-	if (iep->cap_cmp_irq)
+	if (iep->cap_cmp_irq) {
 		free_irq(iep->cap_cmp_irq, iep);
+		hrtimer_cancel(&iep->sync_timer);
+	}
 }
 EXPORT_SYMBOL_GPL(icss_iep_put);
 
