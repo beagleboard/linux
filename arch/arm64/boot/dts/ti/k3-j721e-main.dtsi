@@ -1245,7 +1245,7 @@
 		clock-names = "gpio";
 	};
 
-	main_rti0: rti@2200000 {
+	main_rti0: watchdog@2200000 {
 		compatible = "ti,rti-wdt";
 		reg = <0x0 0x2200000 0x0 0x100>;
 		clocks = <&k3_clks 252 1>;
@@ -1254,7 +1254,7 @@
 		assigned-clock-parents = <&k3_clks 252 5>;
 	};
 
-	main_rti1: rti@2210000 {
+	main_rti1: watchdog@2210000 {
 		compatible = "ti,rti-wdt";
 		reg = <0x0 0x2210000 0x0 0x100>;
 		clocks = <&k3_clks 253 1>;

@@ -8,7 +8,7 @@ Required properties:
 
 Example:
 
-main_rti0: rti@2200000 {
+main_rti0: watchdog@2200000 {
 	compatible = "ti,rti-wdt";
 	reg = <0x0 0x2200000 0x0 0x100>;
 	clocks = <&k3_clks 252 1>;
