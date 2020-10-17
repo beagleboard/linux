@@ -486,6 +486,16 @@ struct i3c_device_id {
 	const void *data;
 };
 
+/* serdev */
+
+#define SERDEV_NAME_SIZE	32
+#define SERDEV_MODULE_PREFIX	"serdev:"
+
+struct serdev_device_id {
+	char name[SERDEV_NAME_SIZE];
+	kernel_ulong_t driver_data;
+};
+
 /* spi */
 
 #define SPI_NAME_SIZE	32
