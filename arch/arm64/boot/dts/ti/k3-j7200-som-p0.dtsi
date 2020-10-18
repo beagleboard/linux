@@ -170,6 +170,7 @@
 		cdns,tslch-ns = <60>;
 		cdns,read-delay = <4>;
 		cdns,phy-mode;
+		cdns,phy-tx-start = <18>;
 		#address-cells = <1>;
 		#size-cells = <1>;
 		partition@3fc0000 {
