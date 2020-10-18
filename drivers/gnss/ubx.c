@@ -138,6 +138,14 @@ static const struct of_device_id ubx_of_match[] = {
 MODULE_DEVICE_TABLE(of, ubx_of_match);
 #endif
 
+static const struct serdev_device_id ubx_serdev_id[] = {
+	{ "neo-6m", },
+	{ "neo-8", },
+	{ "neo-m8", },
+	{}
+};
+MODULE_DEVICE_TABLE(serdev, ubx_serdev_id);
+
 static struct serdev_device_driver ubx_driver = {
 	.driver	= {
 		.name		= "gnss-ubx",
@@ -146,6 +154,7 @@ static struct serdev_device_driver ubx_driver = {
 	},
 	.probe	= ubx_probe,
 	.remove	= ubx_remove,
+	.id_table = ubx_serdev_id,
 };
 module_serdev_device_driver(ubx_driver);
 
