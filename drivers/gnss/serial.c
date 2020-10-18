@@ -110,10 +110,9 @@ static int gnss_serial_set_power(struct gnss_serial *gserial,
 static int gnss_serial_parse_dt(struct serdev_device *serdev)
 {
 	struct gnss_serial *gserial = serdev_device_get_drvdata(serdev);
-	struct device_node *node = serdev->dev.of_node;
 	u32 speed = 4800;
 
-	of_property_read_u32(node, "current-speed", &speed);
+	device_property_read_u32(&serdev->dev, "current-speed", &speed);
 
 	gserial->speed = speed;
 
