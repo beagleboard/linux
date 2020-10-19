@@ -714,7 +714,7 @@ static void emac_adjust_link(struct net_device *ndev)
 }
 
 /**
- * emac_tx_hardirq - EMAC Tx interrupt handler
+ * emac_tx_irq - EMAC Tx interrupt handler
  * @irq: interrupt number
  * @dev_id: pointer to net_device
  *
@@ -724,7 +724,7 @@ static void emac_adjust_link(struct net_device *ndev)
  *
  * Returns interrupt handled condition
  */
-static irqreturn_t emac_tx_hardirq(int irq, void *dev_id)
+static irqreturn_t emac_tx_irq(int irq, void *dev_id)
 {
 	struct net_device *ndev = (struct net_device *)dev_id;
 
@@ -735,7 +735,7 @@ static irqreturn_t emac_tx_hardirq(int irq, void *dev_id)
 }
 
 /**
- * emac_rx_hardirq - EMAC Rx interrupt handler
+ * emac_rx_irq - EMAC Rx interrupt handler
  * @irq: interrupt number
  * @dev_id: pointer to net_device
  *
@@ -744,7 +744,7 @@ static irqreturn_t emac_tx_hardirq(int irq, void *dev_id)
  *
  * Returns interrupt handled condition
  */
-static irqreturn_t emac_rx_hardirq(int irq, void *dev_id)
+static irqreturn_t emac_rx_irq(int irq, void *dev_id)
 {
 	struct net_device *ndev = (struct net_device *)dev_id;
 	struct prueth_emac *emac = netdev_priv(ndev);
@@ -1599,8 +1599,8 @@ static int emac_request_irqs(struct prueth_emac *emac)
 	struct net_device *ndev = emac->ndev;
 	int ret = 0;
 
-	ret = request_irq(emac->rx_irq, emac_rx_hardirq,
-			  IRQF_TRIGGER_HIGH | IRQF_ONESHOT,
+	ret = request_irq(emac->rx_irq, emac_rx_irq,
+			  IRQF_TRIGGER_HIGH,
 			  ndev->name, ndev);
 	if (ret) {
 		netdev_err(ndev, "unable to request RX IRQ\n");
@@ -1608,7 +1608,7 @@ static int emac_request_irqs(struct prueth_emac *emac)
 	}
 
 	if (PRUETH_IS_EMAC(emac->prueth) && emac->tx_irq > 0) {
-		ret = request_irq(emac->tx_irq, emac_tx_hardirq,
+		ret = request_irq(emac->tx_irq, emac_tx_irq,
 				  IRQF_TRIGGER_HIGH, ndev->name, ndev);
 		if (ret) {
 			netdev_err(ndev, "unable to request TX IRQ\n");
