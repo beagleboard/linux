@@ -231,19 +231,22 @@ static void prp_set_lan_id(struct prp_rct *trailer, struct hsr_port *port)
 }
 
 /* Tailroom for PRP rct should have been created before calling this */
-static void prp_fill_rct(struct sk_buff *skb, struct hsr_frame_info *frame,
-			 struct hsr_port *port)
+static struct sk_buff *prp_fill_rct(struct sk_buff *skb,
+				    struct hsr_frame_info *frame,
+				    struct hsr_port *port)
 {
 	struct prp_rct *trailer;
+	int min_size = ETH_ZLEN;
 	int lsdu_size;
 
 	if (!skb)
-		return;
+		return skb;
 
 	if (frame->is_vlan)
-		skb_put_padto(skb, VLAN_ETH_ZLEN);
-	else
-		skb_put_padto(skb, ETH_ZLEN);
+		min_size = VLAN_ETH_ZLEN;
+
+	if (skb_put_padto(skb, min_size))
+		return NULL;
 
 	trailer = (struct prp_rct *)skb_put(skb, HSR_HLEN);
 	lsdu_size = skb->len - 14;
@@ -253,6 +256,8 @@ static void prp_fill_rct(struct sk_buff *skb, struct hsr_frame_info *frame,
 	set_prp_LSDU_size(trailer, lsdu_size);
 	trailer->sequence_nr = htons(frame->sequence_nr);
 	trailer->PRP_suffix = htons(ETH_P_PRP);
+
+	return skb;
 }
 
 static void hsr_set_path_id(struct hsr_ethhdr *hsr_ethhdr,
@@ -268,15 +273,17 @@ static void hsr_set_path_id(struct hsr_ethhdr *hsr_ethhdr,
 	set_hsr_tag_path(&hsr_ethhdr->hsr_tag, path_id);
 }
 
-static void hsr_fill_tag(struct sk_buff *skb, struct hsr_frame_info *frame,
-			 struct hsr_port *port, u8 proto_version)
+static struct sk_buff *hsr_fill_tag(struct sk_buff *skb,
+				    struct hsr_frame_info *frame,
+				    struct hsr_port *port, u8 proto_version)
 {
 	struct hsr_ethhdr *hsr_ethhdr;
 	unsigned char *pc;
 	int lsdu_size;
 
 	/* pad to minimum packet size which is 60 + 6 (HSR tag) */
-	skb_put_padto(skb, ETH_ZLEN + HSR_HLEN);
+	if (skb_put_padto(skb, ETH_ZLEN + HSR_HLEN))
+		return NULL;
 
 	lsdu_size = skb->len - 14;
 	if (frame->is_vlan)
@@ -305,6 +312,8 @@ static void hsr_fill_tag(struct sk_buff *skb, struct hsr_frame_info *frame,
 	hsr_ethhdr->hsr_tag.encap_proto = hsr_ethhdr->ethhdr.h_proto;
 	hsr_ethhdr->ethhdr.h_proto = htons(proto_version ?
 			ETH_P_HSR : ETH_P_PRP);
+
+	return skb;
 }
 
 static struct sk_buff *create_tagged_skb(struct sk_buff *skb_o,
@@ -322,7 +331,7 @@ static struct sk_buff *create_tagged_skb(struct sk_buff *skb_o,
 		skb = skb_copy_expand(skb_o, skb_headroom(skb_o),
 				      skb_tailroom(skb_o) + HSR_HLEN,
 				      GFP_ATOMIC);
-		prp_fill_rct(skb, frame, port);
+		skb = prp_fill_rct(skb, frame, port);
 		return skb;
 	} else if ((port->hsr->prot_version == HSR_V1) &&
 		   (port->hsr->hsr_mode == IEC62439_3_HSR_MODE_T)) {
@@ -347,7 +356,9 @@ static struct sk_buff *create_tagged_skb(struct sk_buff *skb_o,
 	memmove(dst, src, movelen);
 	skb_reset_mac_header(skb);
 
-	hsr_fill_tag(skb, frame, port, port->hsr->prot_version);
+	skb = hsr_fill_tag(skb, frame, port, port->hsr->prot_version);
+	if (!skb)
+		return NULL;
 
 	if (REDINFO_T(skb) == DIRECTED_TX)
 		return skb;
