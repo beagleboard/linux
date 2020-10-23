@@ -55,6 +55,9 @@ static int init_display(struct fbtft_par *par)
 		write_reg(par, 0x3F);
 	else if (par->info->var.yres == 48)
 		write_reg(par, 0x2F);
+	else if (par->info->var.yres == 39)
+		/* https://libstock.mikroe.com/projects/download/1111/2577/1411057038_oled_b_click___e_mikroc_arm.zip */
+		write_reg(par, 0x27);
 	else
 		write_reg(par, 0x1F);
 
@@ -76,19 +79,27 @@ static int init_display(struct fbtft_par *par)
 	write_reg(par, 0x01);
 
 	/* Set Segment Re-map */
-	/* column address 127 is mapped to SEG0 */
-	write_reg(par, 0xA0 | 0x1);
+	if (par->info->var.yres == 39)
+		/* no segment re-map */
+		write_reg(par, 0xA0 | 0x0);
+	else
+		/* column address 127 is mapped to SEG0 */
+		write_reg(par, 0xA0 | 0x1);
 
 	/* Set COM Output Scan Direction */
-	/* remapped mode. Scan from COM[N-1] to COM0 */
-	write_reg(par, 0xC8);
+	if (par->info->var.yres == 39)
+		/* no columnt re-map mode. Scan from COM0 to COM[N-1] */
+		write_reg(par, 0xC0);
+	else
+		/* remapped mode. Scan from COM[N-1] to COM0 */
+		write_reg(par, 0xC8);
 
 	/* Set COM Pins Hardware Configuration */
 	write_reg(par, 0xDA);
 	if (par->info->var.yres == 64)
 		/* A[4]=1b, Alternative COM pin configuration */
 		write_reg(par, 0x12);
-	else if (par->info->var.yres == 48)
+	else if (par->info->var.yres == 48 || par->info->var.yres == 39)
 		/* A[4]=1b, Alternative COM pin configuration */
 		write_reg(par, 0x12);
 	else
@@ -97,12 +108,18 @@ static int init_display(struct fbtft_par *par)
 
 	/* Set Pre-charge Period */
 	write_reg(par, 0xD9);
-	write_reg(par, 0xF1);
+	if (par->info->var.yres == 39)
+		write_reg(par, 0x25);
+	else
+		write_reg(par, 0xF1);
 
 	/* Set VCOMH Deselect Level */
 	write_reg(par, 0xDB);
-	/* according to the datasheet, this value is out of bounds */
-	write_reg(par, 0x40);
+	if (par->info->var.yres == 39)
+		write_reg(par, 0x20);
+	else
+		/* according to the datasheet, this value is out of bounds */
+		write_reg(par, 0x40);
 
 	/* Entire Display ON */
 	/* Resume to RAM content display. Output follows RAM content */
@@ -133,6 +150,20 @@ static void set_addr_win_64x48(struct fbtft_par *par)
 	write_reg(par, 0x5);
 }
 
+static void set_addr_win_96x39(struct fbtft_par *par)
+{
+	/* Set Page Address */
+	write_reg(par, 0xB0);
+	/* Set Column Address */
+	write_reg(par, 0x21);
+	write_reg(par, 0x00);
+	write_reg(par, 0x5F);
+	/* Set Page Address Range */
+	write_reg(par, 0x22);
+	write_reg(par, 0x0);
+	write_reg(par, 0x4);
+}
+
 static void set_addr_win(struct fbtft_par *par, int xs, int ys, int xe, int ye)
 {
 	/* Set Lower Column Start Address for Page Addressing Mode */
@@ -144,6 +175,8 @@ static void set_addr_win(struct fbtft_par *par, int xs, int ys, int xe, int ye)
 
 	if (par->info->var.xres == 64 && par->info->var.yres == 48)
 		set_addr_win_64x48(par);
+	else if (par->info->var.xres == 96 && par->info->var.yres == 39)
+		set_addr_win_96x39(par);
 }
 
 static int blank(struct fbtft_par *par, bool on)
@@ -188,11 +221,19 @@ static int write_vmem(struct fbtft_par *par, size_t offset, size_t len)
 					*buf |= BIT(i);
 			buf++;
 		}
+		if (yres % 8) {
+			*buf = 0x00;
+			for (i = 0; i < (yres - (y * 8)); i++)
+				if (vmem16[(y * 8 + i) * xres + x])
+					*buf |= BIT(i);
+			buf++;
+			y++;
+		}
 	}
 
 	/* Write data */
 	gpiod_set_value(par->gpio.dc, 1);
-	ret = par->fbtftops.write(par, par->txbuf.buf, xres * yres / 8);
+	ret = par->fbtftops.write(par, par->txbuf.buf, xres * (yres / 8 + (yres % 8 != 0)));
 	if (ret < 0)
 		dev_err(par->info->device, "write failed and returned: %d\n",
 			ret);
