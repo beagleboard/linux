@@ -1,0 +1,46 @@
+/*
+ * Copyright (C) 2020 Deepak Khatri <deepaklorkhatri7@gmail.com>
+ * See Cape Interface Spec page for more info on Bone Buses
+ * https://elinux.org/Beagleboard:BeagleBone_cape_interface_spec
+ *
+ * Virtual cape for pr1_pru1_gpo* pins
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+/dts-v1/;
+/plugin/;
+
+/*
+* Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+*/
+&{/chosen} {
+    overlays {
+        BBAI-PRUOUT_PRU1_1 = __TIMESTAMP__;
+    };
+};
+
+/*
+ * Update the default pinmux of the pins.
+ * See these files for the phandles (&P9_* & &P8_*)
+ * BeagleBoard-DeviceTrees/v4.19.x-ti-overlays/src/arm/am335x-bone-common-univ.dtsi
+ * BeagleBoard-DeviceTrees/v4.19.x-ti-overlays/src/arm/am572x-bone-common-univ.dtsi
+ */
+&ocp {
+    P8_13_pinmux { pinctrl-0 = <&P8_13_pruout_pin>; }; /* pr1_pru1_gpo7 */
+    P8_14_pinmux { pinctrl-0 = <&P8_14_pruout_pin>; }; /* pr1_pru1_gpo9 */
+    P8_15_pinmux { pinctrl-0 = <&P8_15_pruout_pin>; }; /* pr1_pru1_gpo16 */
+    P8_16_pinmux { pinctrl-0 = <&P8_16_pruout_pin>; }; /* pr1_pru1_gpo18 */
+    P8_18_pinmux { pinctrl-0 = <&P8_18_pruout_pin>; }; /* pr1_pru1_gpo5 */
+    P8_19_pinmux { pinctrl-0 = <&P8_19_pruout_pin>; }; /* pr1_pru1_gpo6 */
+    P8_26_pinmux { pinctrl-0 = <&P8_26_pruout_pin>; }; /* pr1_pru1_gpo17 */
+
+    P9_14_pinmux { pinctrl-0 = <&P9_14_pruout_pin>; }; /* pr1_pru1_gpo14 */
+    P9_16_pinmux { pinctrl-0 = <&P9_16_pruout_pin>; }; /* pr1_pru1_gpo15 */
+    P9_19_pinmux { pinctrl-0 = <&P9_19_pruout_pin>; }; /* pr1_pru1_gpo2 */
+    P9_20_pinmux { pinctrl-0 = <&P9_20_pruout_pin>; }; /* pr1_pru1_gpo1 */
+    P9_27_pinmux { pinctrl-0 = <&P9_27_pruout_pin>; }; /* pr1_pru1_gpo11 */
+    P9_41_pinmux { pinctrl-0 = <&P9_41_pruout_pin>; }; /* pr1_pru1_gpo3 */
+    P9_42_pinmux { pinctrl-0 = <&P9_42_pruout_pin>; }; /* pr1_pru1_gpo10 */
+};
