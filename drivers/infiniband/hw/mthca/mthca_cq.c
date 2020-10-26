@@ -612,7 +612,7 @@ static inline int mthca_poll_one(struct mthca_dev *dev,
 			entry->opcode    = IB_WC_BIND_MW;
 			break;
 		default:
-			entry->opcode    = MTHCA_OPCODE_INVALID;
+			entry->opcode = 0xFF;
 			break;
 		}
 	} else {
