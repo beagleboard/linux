@@ -1674,6 +1674,7 @@ static int ti_sci_cmd_core_reboot(const struct ti_sci_handle *handle)
 		return ret;
 	}
 	req = (struct ti_sci_msg_req_reboot *)xfer->xfer_buf;
+	req->domain = 0;
 
 	ret = ti_sci_do_xfer(info, xfer);
 	if (ret) {
