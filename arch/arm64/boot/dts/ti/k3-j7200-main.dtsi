@@ -540,7 +540,7 @@
 		reg-names = "intd_cfg", "user_cfg", "reg", "cfg";
 		ti,syscon-pcie-ctrl = <&pcie1_ctrl>;
 		max-link-speed = <3>;
-		num-lanes = <2>;
+		num-lanes = <4>;
 		power-domains = <&k3_pds 240 TI_SCI_PD_EXCLUSIVE>;
 		clocks = <&k3_clks 240 6>;
 		clock-names = "fck";
