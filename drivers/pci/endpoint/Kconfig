@@ -28,6 +28,15 @@ config PCI_ENDPOINT_CONFIGFS
 	   configure the endpoint function and used to bind the
 	   function with a endpoint controller.
 
+config PCI_ENDPOINT_OF
+	bool "PCI Endpoint DeviceTree Support"
+	depends on PCI_ENDPOINT
+	depends on OF
+	help
+	   This will enable the endpoint bus support that can be used
+	   to configure the endpoint function and used to bind the
+	   function with a endpoint controller.
+
 source "drivers/pci/endpoint/functions/Kconfig"
 
 endmenu
