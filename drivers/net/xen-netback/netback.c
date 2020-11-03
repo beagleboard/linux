@@ -670,6 +670,10 @@ void xenvif_napi_schedule_or_enable_events(struct xenvif_queue *queue)
 
 	if (more_to_do)
 		napi_schedule(&queue->napi);
+	else if (xenvif_atomic_fetch_andnot(NETBK_TX_EOI | NETBK_COMMON_EOI,
+				     &queue->eoi_pending) &
+		 (NETBK_TX_EOI | NETBK_COMMON_EOI))
+		xen_irq_lateeoi(queue->tx_irq, 0);
 }
 
 static void tx_add_credit(struct xenvif_queue *queue)
@@ -2010,14 +2014,14 @@ static bool xenvif_rx_queue_ready(struct xenvif_queue *queue)
 	return queue->stalled && prod - cons >= 1;
 }
 
-static bool xenvif_have_rx_work(struct xenvif_queue *queue)
+bool xenvif_have_rx_work(struct xenvif_queue *queue, bool test_kthread)
 {
 	return (!skb_queue_empty(&queue->rx_queue)
 		&& xenvif_rx_ring_slots_available(queue))
 		|| (queue->vif->stall_timeout &&
 		    (xenvif_rx_queue_stalled(queue)
 		     || xenvif_rx_queue_ready(queue)))
-		|| kthread_should_stop()
+		|| (test_kthread && kthread_should_stop())
 		|| queue->vif->disabled;
 }
 
@@ -2048,15 +2052,20 @@ static void xenvif_wait_for_rx_work(struct xenvif_queue *queue)
 {
 	DEFINE_WAIT(wait);
 
-	if (xenvif_have_rx_work(queue))
+	if (xenvif_have_rx_work(queue, true))
 		return;
 
 	for (;;) {
 		long ret;
 
 		prepare_to_wait(&queue->wq, &wait, TASK_INTERRUPTIBLE);
-		if (xenvif_have_rx_work(queue))
+		if (xenvif_have_rx_work(queue, true))
 			break;
+		if (xenvif_atomic_fetch_andnot(NETBK_RX_EOI | NETBK_COMMON_EOI,
+					&queue->eoi_pending) &
+		    (NETBK_RX_EOI | NETBK_COMMON_EOI))
+			xen_irq_lateeoi(queue->rx_irq, 0);
+
 		ret = schedule_timeout(xenvif_rx_queue_timeout(queue));
 		if (!ret)
 			break;
