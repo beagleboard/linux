@@ -386,21 +386,6 @@ static void evtchn_fifo_resume(void)
 	event_array_pages = 0;
 }
 
-static const struct evtchn_ops evtchn_ops_fifo = {
-	.max_channels      = evtchn_fifo_max_channels,
-	.nr_channels       = evtchn_fifo_nr_channels,
-	.setup             = evtchn_fifo_setup,
-	.bind_to_cpu       = evtchn_fifo_bind_to_cpu,
-	.clear_pending     = evtchn_fifo_clear_pending,
-	.set_pending       = evtchn_fifo_set_pending,
-	.is_pending        = evtchn_fifo_is_pending,
-	.test_and_set_mask = evtchn_fifo_test_and_set_mask,
-	.mask              = evtchn_fifo_mask,
-	.unmask            = evtchn_fifo_unmask,
-	.handle_events     = evtchn_fifo_handle_events,
-	.resume            = evtchn_fifo_resume,
-};
-
 static int evtchn_fifo_alloc_control_block(unsigned cpu)
 {
 	void *control_block = NULL;
@@ -423,29 +408,34 @@ static int evtchn_fifo_alloc_control_block(unsigned cpu)
 	return ret;
 }
 
-static int evtchn_fifo_cpu_notification(struct notifier_block *self,
-						  unsigned long action,
-						  void *hcpu)
+static int evtchn_fifo_percpu_init(unsigned int cpu)
 {
-	int cpu = (long)hcpu;
-	int ret = 0;
-
-	switch (action) {
-	case CPU_UP_PREPARE:
-		if (!per_cpu(cpu_control_block, cpu))
-			ret = evtchn_fifo_alloc_control_block(cpu);
-		break;
-	case CPU_DEAD:
-		__evtchn_fifo_handle_events(cpu, true);
-		break;
-	default:
-		break;
-	}
-	return ret < 0 ? NOTIFY_BAD : NOTIFY_OK;
+	if (!per_cpu(cpu_control_block, cpu))
+		return evtchn_fifo_alloc_control_block(cpu);
+	return 0;
 }
 
-static struct notifier_block evtchn_fifo_cpu_notifier = {
-	.notifier_call	= evtchn_fifo_cpu_notification,
+static int evtchn_fifo_percpu_deinit(unsigned int cpu)
+{
+	__evtchn_fifo_handle_events(cpu, true);
+	return 0;
+}
+
+static const struct evtchn_ops evtchn_ops_fifo = {
+	.max_channels      = evtchn_fifo_max_channels,
+	.nr_channels       = evtchn_fifo_nr_channels,
+	.setup             = evtchn_fifo_setup,
+	.bind_to_cpu       = evtchn_fifo_bind_to_cpu,
+	.clear_pending     = evtchn_fifo_clear_pending,
+	.set_pending       = evtchn_fifo_set_pending,
+	.is_pending        = evtchn_fifo_is_pending,
+	.test_and_set_mask = evtchn_fifo_test_and_set_mask,
+	.mask              = evtchn_fifo_mask,
+	.unmask            = evtchn_fifo_unmask,
+	.handle_events     = evtchn_fifo_handle_events,
+	.resume            = evtchn_fifo_resume,
+	.percpu_init       = evtchn_fifo_percpu_init,
+	.percpu_deinit     = evtchn_fifo_percpu_deinit,
 };
 
 int __init xen_evtchn_fifo_init(void)
@@ -461,7 +451,6 @@ int __init xen_evtchn_fifo_init(void)
 
 	evtchn_ops = &evtchn_ops_fifo;
 
-	register_cpu_notifier(&evtchn_fifo_cpu_notifier);
 out:
 	put_cpu();
 	return ret;

@@ -33,6 +33,7 @@
 #include <linux/irqnr.h>
 #include <linux/pci.h>
 #include <linux/spinlock.h>
+#include <linux/cpu.h>
 
 #ifdef CONFIG_X86
 #include <asm/desc.h>
@@ -1832,6 +1833,50 @@ void xen_callback_vector(void) {}
 static bool fifo_events = true;
 module_param(fifo_events, bool, 0);
 
+static int xen_evtchn_cpu_prepare(unsigned int cpu)
+{
+	int ret = 0;
+
+	if (evtchn_ops->percpu_init)
+		ret = evtchn_ops->percpu_init(cpu);
+
+	return ret;
+}
+
+static int xen_evtchn_cpu_dead(unsigned int cpu)
+{
+	int ret = 0;
+
+	if (evtchn_ops->percpu_deinit)
+		ret = evtchn_ops->percpu_deinit(cpu);
+
+	return ret;
+}
+
+static int evtchn_cpu_notification(struct notifier_block *self,
+				   unsigned long action, void *hcpu)
+{
+	int cpu = (long)hcpu;
+	int ret = 0;
+
+	switch (action) {
+	case CPU_UP_PREPARE:
+		ret = xen_evtchn_cpu_prepare(cpu);
+		break;
+	case CPU_DEAD:
+		ret = xen_evtchn_cpu_dead(cpu);
+		break;
+	default:
+		break;
+	}
+
+	return ret < 0 ? NOTIFY_BAD : NOTIFY_OK;
+}
+
+static struct notifier_block evtchn_cpu_notifier = {
+	.notifier_call  = evtchn_cpu_notification,
+};
+
 void __init xen_init_IRQ(void)
 {
 	int ret = -EINVAL;
@@ -1840,6 +1885,8 @@ void __init xen_init_IRQ(void)
 		ret = xen_evtchn_fifo_init();
 	if (ret < 0)
 		xen_evtchn_2l_init();
+
+	register_cpu_notifier(&evtchn_cpu_notifier);
 
 	evtchn_to_irq = kcalloc(EVTCHN_ROW(xen_evtchn_max_channels()),
 				sizeof(*evtchn_to_irq), GFP_KERNEL);
