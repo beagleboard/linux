@@ -1281,9 +1281,6 @@ static int iio_buffer_update_demux(struct iio_dev *indio_dev,
 				       indio_dev->masklength,
 				       in_ind + 1);
 		while (in_ind != out_ind) {
-			in_ind = find_next_bit(indio_dev->active_scan_mask,
-					       indio_dev->masklength,
-					       in_ind + 1);
 			ch = iio_find_channel_from_si(indio_dev, in_ind);
 			if (ch->scan_type.repeat > 1)
 				length = ch->scan_type.storagebits / 8 *
@@ -1292,6 +1289,9 @@ static int iio_buffer_update_demux(struct iio_dev *indio_dev,
 				length = ch->scan_type.storagebits / 8;
 			/* Make sure we are aligned */
 			in_loc = roundup(in_loc, length) + length;
+			in_ind = find_next_bit(indio_dev->active_scan_mask,
+					       indio_dev->masklength,
+					       in_ind + 1);
 		}
 		ch = iio_find_channel_from_si(indio_dev, in_ind);
 		if (ch->scan_type.repeat > 1)
