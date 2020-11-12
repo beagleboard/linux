@@ -6,11 +6,14 @@
 /dts-v1/;
 
 #include "dra74x.dtsi"
+#include "am57xx-commercial-grade.dtsi"
 #include "dra74x-mmc-iodelay.dtsi"
 #include "dra74-ipu-dsp-common.dtsi"
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/pinctrl/dra.h>
+#include "bbai-bone-buses.dtsi"
+#include "am572x-bone-common-univ.dtsi"
 
 / {
 	model = "BeagleBoard.org BeagleBone AI";
@@ -20,11 +23,13 @@
 	aliases {
 		rtc0 = &tps659038_rtc;
 		rtc1 = &rtc;
-		display0 = &hdmi_conn;
+		display1 = &hdmi_conn;
 	};
 
 	chosen {
 		stdout-path = &uart1;
+		base_dtb = "am5729-beagleboneai.dts";
+		base_dtb_timestamp = __TIMESTAMP__;
 	};
 
 	memory@0 {
@@ -36,6 +41,12 @@
 		#address-cells = <2>;
 		#size-cells = <2>;
 		ranges;
+
+		cmem_block_mem_1_ocmc3: cmem_block_mem@40500000 {
+			reg = <0x0 0x40500000 0x0 0x100000>;
+			no-map;
+			status = "okay";
+		};
 
 		ipu2_memory_region: ipu2-memory@95800000 {
 			compatible = "shared-dma-pool";
@@ -65,7 +76,31 @@
 			status = "okay";
 		};
 
+                cmem_block_mem_0: cmem_block_mem@a0000000 {
+                        reg = <0x0 0xa0000000 0x0 0x18000000>;
+                        no-map;
+                        status = "okay";
+                };
 	};
+
+        cmem {
+                compatible = "ti,cmem";
+                #address-cells = <1>;
+                #size-cells = <0>;
+		#pool-size-cells = <2>;
+                status = "okay";
+
+                cmem_block_0: cmem_block@0 {
+                        reg = <0>;
+                        memory-region = <&cmem_block_mem_0>;
+                        cmem-buf-pools = <1 0x0 0x18000000>;
+                };
+
+		cmem_block_1: cmem_block@1 {
+			reg = <1>;
+			memory-region = <&cmem_block_mem_1_ocmc3>;
+		};
+        };
 
 	vdd_adc: gpioregulator-vdd_adc {
 		compatible = "regulator-gpio";
@@ -102,6 +137,8 @@
 
 	leds {
 		compatible = "gpio-leds";
+		pinctrl-names = "default";
+		pinctrl-0 = <&led_pins_default>;
 
 		led0 {
 			label = "beaglebone:green:usr0";
@@ -185,18 +222,256 @@
 	emmc_pwrseq: emmc_pwrseq {
 		compatible = "mmc-pwrseq-emmc";
 		reset-gpios = <&gpio5 7 GPIO_ACTIVE_LOW>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&emmc_pwrseq_pins_default>;
 	};
 
 	brcmf_pwrseq: brcmf_pwrseq {
 		compatible = "mmc-pwrseq-simple";
+		pinctrl-names = "default";
+		pinctrl-0 = <&brcmf_pwrseq_pins_default>;
 		reset-gpios = <&gpio3 22 GPIO_ACTIVE_LOW>,	/* BT-REG-ON */
 				<&gpio3 18 GPIO_ACTIVE_LOW>;	/* WL-REG-ON */
+	};
+
+	unused_pins: unused_pins {
+		compatible = "gpio-leds";
+		pinctrl-names = "default";
+		pinctrl-0 = <&unused_pins_default>;
 	};
 
 	extcon_usb1: extcon_usb1 {
 		compatible = "linux,extcon-usb-gpio";
 		ti,enable-id-detection;
 		id-gpio = <&gpio3 13 GPIO_ACTIVE_HIGH>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&extcon_usb1_pins_default>;
+	};
+};
+
+&ocp {
+	pruss1_shmem: pruss_shmem@4b200000 {
+		status = "okay";
+		compatible = "ti,pruss-shmem";
+		reg = <0x4b200000 0x020000>;
+	};
+
+	pruss2_shmem: pruss_shmem@4b280000 {
+		status = "okay";
+		compatible = "ti,pruss-shmem";
+		reg = <0x4b280000 0x020000>;
+	};
+};
+
+&dra7_pmx_core {
+	extcon_usb1_pins_default: extcon_usb1_pins_default {
+		pinctrl-single,pins = <
+			DRA7XX_CORE_IOPAD(0x3518, PIN_INPUT | MUX_MODE14) /* AG2: vin1a_d9.gpio3_13  - USR0 */
+		>;
+	};
+
+	led_pins_default: led_pins_default {
+		pinctrl-single,pins = <
+			DRA7XX_CORE_IOPAD(0x3528, PIN_OUTPUT | MUX_MODE14) /* AF6: vin1a_d13.gpio3_17  - USR0 */
+			DRA7XX_CORE_IOPAD(0x36c0, PIN_OUTPUT | MUX_MODE14) /* J11: mcasp1_axr3.gpio5_5 - USR1 */
+			DRA7XX_CORE_IOPAD(0x3520, PIN_OUTPUT | MUX_MODE14) /* AG5: vin1a_d12.gpio3_15  - USR2 */
+			DRA7XX_CORE_IOPAD(0x351c, PIN_OUTPUT | MUX_MODE14) /* AG3: vin1a_d10.gpio3_14  - USR3 */
+			DRA7XX_CORE_IOPAD(0x3500, PIN_OUTPUT | MUX_MODE14) /* AH6: vin1a_d3.gpio3_7    - USR4 */
+		>;
+	};
+
+	microsd_extra_pins_default: microsd_extra_pins_default {
+		pinctrl-single,pins = <
+			DRA7XX_CORE_IOPAD(0x376c, PIN_INPUT_PULLUP | MUX_MODE14) /* W7: mmc1_sdcd.gpio6_27 - MMC1_SDCD */
+		>;
+	};
+
+	ethphy_extra_pins_default: ethphy_extra_pins_default {
+		pinctrl-single,pins = <
+			DRA7XX_CORE_IOPAD(0x34c4, PIN_OUTPUT_PULLUP | MUX_MODE14) /* N1: gpmc_advn_ale.gpio2_23 - RGMII_RST */
+			DRA7XX_CORE_IOPAD(0x364c, PIN_INPUT | MUX_MODE14) /* Y1: uart3_txd.gpio5_19 - MII0_INT */
+		>;
+	};
+
+	emmc_pwrseq_pins_default: emmc_pwrseq_pins_default {
+		pinctrl-single,pins = <
+			DRA7XX_CORE_IOPAD(0x36c8, PIN_OUTPUT_PULLUP | MUX_MODE14) /* F13: mcasp1_axr5.gpio5_7 - eMMC_RSTn */
+		>;
+	};
+
+	brcmf_pwrseq_pins_default: brcmf_pwrseq_pins_default {
+		pinctrl-single,pins = <
+			DRA7XX_CORE_IOPAD(0x352c, PIN_OUTPUT_PULLUP | MUX_MODE14) /* AF3: vin1a_d14.gpio3_18 - WL_REG_ON */
+			DRA7XX_CORE_IOPAD(0x353c, PIN_OUTPUT_PULLUP | MUX_MODE14) /* AE5: vin1a_d18.gpio3_22 - BT_REG_ON */
+		>;
+	};
+
+	wifibt_extra_pins_default: wifibt_extra_pins_default {
+		pinctrl-single,pins = <
+			DRA7XX_CORE_IOPAD(0x3540, PIN_INPUT | MUX_MODE14) /* AE1: vin1a_d19.gpio3_23 - WL_HOST_WAKE */
+			DRA7XX_CORE_IOPAD(0x3450, PIN_INPUT | MUX_MODE8) /* P6: vin1a_d20.uart6_rxd - UART6_RXD */
+			DRA7XX_CORE_IOPAD(0x3454, PIN_INPUT | MUX_MODE8) /* R9: vin1a_d21.uart6_txd - UART6_TXD */
+			DRA7XX_CORE_IOPAD(0x3458, PIN_INPUT | MUX_MODE8) /* R5: vin1a_d22.uart6_ctsn - UART6_CTSN */
+			DRA7XX_CORE_IOPAD(0x345c, PIN_INPUT | MUX_MODE8) /* P5: vin1a_d23.uart6_rtsn - UART6_RTSN */
+			DRA7XX_CORE_IOPAD(0x3534, PIN_INPUT_PULLDOWN | MUX_MODE14) /* AF1: vin1a_d16.gpio3_20 - BT_HOST_WAKE */
+			DRA7XX_CORE_IOPAD(0x3538, PIN_OUTPUT_PULLDOWN | MUX_MODE14) /* AE3: vin1a_d6.gpio3_21 - BT_WAKE */
+		>;
+	};
+
+	adc_pins_default: adc_pins_default {
+		pinctrl-single,pins = <
+			DRA7XX_CORE_IOPAD(0x3550, PIN_OUTPUT | MUX_MODE14) /* AD3: vin1a_d23.gpio3_27 - VDD_ADC_SEL */
+			DRA7XX_CORE_IOPAD(0x34DC, PIN_INPUT_PULLUP | MUX_MODE14) /* AG8: vin1a_clk0.gpio2_30 - INT_ADC */
+		>;
+	};
+
+	pmic_pins_default: pmic_pins_default {
+		pinctrl-single,pins = <
+			DRA7XX_CORE_IOPAD(0x3690, PIN_INPUT_PULLUP | MUX_MODE14) /* F21: gpio6_16.gpio6_16 - PMIC_INT */
+		>;
+	};
+
+	hdmi_pins_default: hdmi_pins_default {
+		pinctrl-single,pins = <
+			DRA7XX_CORE_IOPAD(0x3808, PIN_INPUT | MUX_MODE1) /* C25: i2c2_sda.hdmi1_ddc_scl - HDMI_DDC_SCL */
+			DRA7XX_CORE_IOPAD(0x380C, PIN_INPUT | MUX_MODE1) /* F17: i2c2_scl.hdmi1_ddc_sda - HDMI_DDC_SDA */
+			DRA7XX_CORE_IOPAD(0x37BC, PIN_INPUT | MUX_MODE6) /* B20: spi1_cs3.hdmi1_cec - HDMI_DDC_CEC */
+#if 0
+			DRA7XX_CORE_IOPAD(0x37B8, PIN_INPUT | MUX_MODE6) /* B21: spi1_cs2.hdmi1_hpd - HDMI_DDC_HPD */
+#else
+			DRA7XX_CORE_IOPAD(0x37B8, PIN_INPUT | MUX_MODE14) /* B21: spi1_cs2.gpio7_12 - HDMI_DDC_HPD */
+#endif
+		>;
+	};
+
+	unused_pins_default: unused_pins_default {
+		pinctrl-single,pins = <
+			DRA7XX_CORE_IOPAD(0x3400, MUX_MODE15) /* M6: sysboot0 */
+			DRA7XX_CORE_IOPAD(0x3404, MUX_MODE15) /* M2: sysboot1 */
+			DRA7XX_CORE_IOPAD(0x3408, MUX_MODE15) /* L5: sysboot2 */
+			DRA7XX_CORE_IOPAD(0x340C, MUX_MODE15) /* M1: sysboot3 */
+			DRA7XX_CORE_IOPAD(0x3410, MUX_MODE15) /* L6: sysboot4 */
+			DRA7XX_CORE_IOPAD(0x3414, MUX_MODE15) /* L4: sysboot5 */
+			DRA7XX_CORE_IOPAD(0x3418, MUX_MODE15) /* L3: sysboot6 */
+			DRA7XX_CORE_IOPAD(0x341C, MUX_MODE15) /* L2: sysboot7 */
+			DRA7XX_CORE_IOPAD(0x3420, MUX_MODE15) /* L1: sysboot8 */
+			DRA7XX_CORE_IOPAD(0x3424, MUX_MODE15) /* K2: sysboot9 */
+			DRA7XX_CORE_IOPAD(0x3428, MUX_MODE15) /* J1: sysboot10 */
+			DRA7XX_CORE_IOPAD(0x342C, MUX_MODE15) /* J2: sysboot11 */
+			DRA7XX_CORE_IOPAD(0x3430, MUX_MODE15) /* H1: sysboot12 */
+			DRA7XX_CORE_IOPAD(0x3434, MUX_MODE15) /* J3: sysboot13 */
+			DRA7XX_CORE_IOPAD(0x3438, MUX_MODE15) /* H2: sysboot14 */
+			DRA7XX_CORE_IOPAD(0x343C, MUX_MODE15) /* H3: sysboot15 */
+
+			DRA7XX_CORE_IOPAD(0x3448, MUX_MODE15) /* T6: N/C */
+			DRA7XX_CORE_IOPAD(0x344C, MUX_MODE15) /* T7: N/C */
+
+			DRA7XX_CORE_IOPAD(0x3460, MUX_MODE15) /* N7: N/C */
+			DRA7XX_CORE_IOPAD(0x3464, MUX_MODE15) /* R4: N/C */
+			DRA7XX_CORE_IOPAD(0x3468, MUX_MODE15) /* N9: N/C */
+			DRA7XX_CORE_IOPAD(0x346C, MUX_MODE15) /* P9: N/C */
+			DRA7XX_CORE_IOPAD(0x3470, MUX_MODE15) /* P4: N/C */
+			DRA7XX_CORE_IOPAD(0x3474, MUX_MODE15) /* R3: N/C */
+			DRA7XX_CORE_IOPAD(0x3478, MUX_MODE15) /* T2: N/C */
+			DRA7XX_CORE_IOPAD(0x347C, MUX_MODE15) /* U2: N/C */
+			DRA7XX_CORE_IOPAD(0x3480, MUX_MODE15) /* U1: N/C */
+			DRA7XX_CORE_IOPAD(0x3484, MUX_MODE15) /* P3: N/C */
+			DRA7XX_CORE_IOPAD(0x3488, MUX_MODE15) /* R2: N/C */
+
+			DRA7XX_CORE_IOPAD(0x34B4, MUX_MODE15) /* T1: N/C */
+			DRA7XX_CORE_IOPAD(0x34B8, MUX_MODE15) /* P2: N/C */
+			DRA7XX_CORE_IOPAD(0x34BC, MUX_MODE15) /* P1: N/C */
+			DRA7XX_CORE_IOPAD(0x34C0, MUX_MODE15) /* P7: N/C */
+			DRA7XX_CORE_IOPAD(0x34C4, MUX_MODE15) /* N1: N/C */
+			DRA7XX_CORE_IOPAD(0x34C8, MUX_MODE15) /* M5: N/C */
+			DRA7XX_CORE_IOPAD(0x34CC, MUX_MODE15) /* M3: N/C */
+			DRA7XX_CORE_IOPAD(0x34D0, MUX_MODE15) /* N6: N/C */
+			DRA7XX_CORE_IOPAD(0x34D4, MUX_MODE15) /* M4: N/C */
+			DRA7XX_CORE_IOPAD(0x34D8, MUX_MODE15) /* N2: N/C */
+
+			DRA7XX_CORE_IOPAD(0x34E0, MUX_MODE15) /* AH7: N/C */
+
+			DRA7XX_CORE_IOPAD(0x34EC, MUX_MODE15) /* AE9: N/C */
+
+			DRA7XX_CORE_IOPAD(0x34F4, MUX_MODE15) /* AE8: N/C */
+			DRA7XX_CORE_IOPAD(0x34F8, MUX_MODE15) /* AD8: N/C */
+			DRA7XX_CORE_IOPAD(0x34FC, MUX_MODE15) /* AG7: N/C */
+
+			DRA7XX_CORE_IOPAD(0x3504, MUX_MODE15) /* AH3: N/C */
+			DRA7XX_CORE_IOPAD(0x3508, MUX_MODE15) /* AH5: N/C */
+
+			DRA7XX_CORE_IOPAD(0x3524, MUX_MODE15) /* AF2: N/C */
+
+			DRA7XX_CORE_IOPAD(0x3530, MUX_MODE15) /* AF4: N/C */
+
+			DRA7XX_CORE_IOPAD(0x354C, MUX_MODE15) /* AD2: N/C */
+
+			DRA7XX_CORE_IOPAD(0x3554, MUX_MODE15) /* E1: N/C */
+			DRA7XX_CORE_IOPAD(0x3558, MUX_MODE15) /* G2: N/C */
+			DRA7XX_CORE_IOPAD(0x355C, MUX_MODE15) /* H7: N/C */
+			DRA7XX_CORE_IOPAD(0x3560, MUX_MODE15) /* G1: N/C */
+
+			DRA7XX_CORE_IOPAD(0x356C, MUX_MODE15) /* F3: N/C */
+
+			DRA7XX_CORE_IOPAD(0x3574, MUX_MODE15) /* E2: N/C */
+
+			DRA7XX_CORE_IOPAD(0x3584, MUX_MODE15) /* E4: N/C */
+
+			DRA7XX_CORE_IOPAD(0x3594, MUX_MODE15) /* F6: N/C */
+
+			DRA7XX_CORE_IOPAD(0x35A4, MUX_MODE15) /* C4: N/C */
+			DRA7XX_CORE_IOPAD(0x35A8, MUX_MODE15) /* B2: N/C */
+
+			DRA7XX_CORE_IOPAD(0x35C0, MUX_MODE15) /* B5: N/C */
+			DRA7XX_CORE_IOPAD(0x35C4, MUX_MODE15) /* A4: N/C */
+
+			DRA7XX_CORE_IOPAD(0x35D0, MUX_MODE15) /* B11: N/C */
+
+			DRA7XX_CORE_IOPAD(0x3644, MUX_MODE15) /* U3: N/C */
+
+			// DRA7XX_CORE_IOPAD(0x3680, MUX_MODE15) /* AB10: N/C: P9.13B BBAI revA2 */
+
+			DRA7XX_CORE_IOPAD(0x36BC, MUX_MODE15) /* G13: N/C */
+
+			DRA7XX_CORE_IOPAD(0x36C4, MUX_MODE15) /* E12: N/C */
+
+			DRA7XX_CORE_IOPAD(0x36CC, MUX_MODE15) /* C12: N/C */
+			DRA7XX_CORE_IOPAD(0x36D0, MUX_MODE15) /* D12: N/C */
+
+			DRA7XX_CORE_IOPAD(0x36FC, MUX_MODE15) /* E15: N/C */
+			DRA7XX_CORE_IOPAD(0x3700, MUX_MODE15) /* A20: N/C */
+
+			DRA7XX_CORE_IOPAD(0x370C, MUX_MODE15) /* C15: N/C */
+			DRA7XX_CORE_IOPAD(0x3710, MUX_MODE15) /* A16: N/C */
+			DRA7XX_CORE_IOPAD(0x3714, MUX_MODE15) /* D15: N/C */
+			DRA7XX_CORE_IOPAD(0x3718, MUX_MODE15) /* B16: N/C */
+			DRA7XX_CORE_IOPAD(0x371C, MUX_MODE15) /* B17: N/C */
+			DRA7XX_CORE_IOPAD(0x3720, MUX_MODE15) /* A17: N/C */
+			DRA7XX_CORE_IOPAD(0x3724, MUX_MODE15) /* B18: N/C */
+			DRA7XX_CORE_IOPAD(0x3728, MUX_MODE15) /* F15: N/C */
+
+			DRA7XX_CORE_IOPAD(0x3744, MUX_MODE15) /* AA3: N/C */
+			DRA7XX_CORE_IOPAD(0x3748, MUX_MODE15) /* AB9: N/C */
+			DRA7XX_CORE_IOPAD(0x374C, MUX_MODE15) /* AB3: N/C */
+			DRA7XX_CORE_IOPAD(0x3750, MUX_MODE15) /* AA4: N/C */
+
+			DRA7XX_CORE_IOPAD(0x3770, MUX_MODE15) /* Y9: N/C */
+			DRA7XX_CORE_IOPAD(0x3774, MUX_MODE15) /* AC5: N/C */
+			DRA7XX_CORE_IOPAD(0x3778, MUX_MODE15) /* AB4: N/C */
+
+			DRA7XX_CORE_IOPAD(0x37A4, MUX_MODE15) /* A25: N/C */
+			DRA7XX_CORE_IOPAD(0x37A8, MUX_MODE15) /* F16: N/C */
+			DRA7XX_CORE_IOPAD(0x37AC, MUX_MODE15) /* B25: N/C */
+			DRA7XX_CORE_IOPAD(0x37B0, MUX_MODE15) /* A24: N/C */
+
+			DRA7XX_CORE_IOPAD(0x37D0, MUX_MODE15) /* G20: N/C */
+			DRA7XX_CORE_IOPAD(0x37D4, MUX_MODE15) /* G19: N/C */
+
+			DRA7XX_CORE_IOPAD(0x3818, MUX_MODE15) /* AD17: N/C */
+			DRA7XX_CORE_IOPAD(0x381C, MUX_MODE15) /* AC17: N/C */
+			DRA7XX_CORE_IOPAD(0x3820, MUX_MODE15) /* AB16: N/C */
+			DRA7XX_CORE_IOPAD(0x3824, MUX_MODE15) /* AC16: N/C */
+		>;
 	};
 };
 
@@ -213,6 +488,9 @@
 		reg = <0x58>;
 		interrupt-parent = <&gpio6>;
 		interrupts = <16 IRQ_TYPE_LEVEL_LOW>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&pmic_pins_default>;
 
 		#interrupt-cells = <2>;
 		interrupt-controller;
@@ -411,6 +689,69 @@
 			#gpio-cells = <2>;
 		};
 	};
+
+	/* STMPE811 touch screen controller */
+	bone_adc: stmpe811@41 {
+		status = "disabled";
+		compatible = "st,stmpe811";
+		reg = <0x41>;
+		interrupts = <30 IRQ_TYPE_LEVEL_LOW>;
+		interrupt-parent = <&gpio2>;
+		interrupt-controller;
+		id = <0>;
+		blocks = <0x5>;
+		irq-trigger = <0x1>;
+		st,mod-12b = <1>; /* 12-bit ADC */
+		st,ref-sel = <0>; /* internal ADC reference */
+		st,adc-freq = <1>; /* 3.25 MHz ADC clock speed */
+		st,sample-time = <4>; /* ADC converstion time: 80 clocks */
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&adc_pins_default>;
+
+		stmpe_adc {
+			compatible = "st,stmpe-adc";
+			st,norequest-mask = <0x00>; /* mask any channels to be used by touchscreen */
+			adc0: iio-device@0 {
+				#io-channel-cells = <1>;
+				iio-channels = <&adc0 0>, <&adc0 1>, <&adc0 2>, <&adc0 3>, <&adc0 4>, <&adc0 5>, <&adc0 6>;
+				iio-channel-names = "AIN0_P9_39", "AIN1_P9_40", "AIN2_P9_37", "AIN3_P9_38",
+					"AIN4_P9_33", "AIN5_P9_36", "AIN6_P9_35";
+			};
+		};
+
+		stmpe_touchscreen {
+			status = "disabled";
+			compatible = "st,stmpe-ts";
+			/* 8 sample average control */
+			st,ave-ctrl = <3>;
+			/* 7 length fractional part in z */
+			st,fraction-z = <7>;
+			/*
+			 * 50 mA typical 80 mA max touchscreen drivers
+			 * current limit value
+			 */
+			st,i-drive = <1>;
+			/* 1 ms panel driver settling time */
+			st,settling = <3>;
+			/* 5 ms touch detect interrupt delay */
+			st,touch-det-delay = <5>;
+		};
+
+		stmpe_gpio {
+			compatible = "st,stmpe-gpio";
+		};
+
+		stmpe_pwm {
+			compatible = "st,stmpe-pwm";
+			#pwm-cells = <2>;
+		};
+	};
+
+	eeprom: eeprom@50 {
+		compatible = "atmel,24c32";
+		reg = <0x50>;
+	};
 };
 
 &mcspi3 {
@@ -434,7 +775,7 @@
 };
 
 &gpu {
-	status = "ok";
+	status = "okay";
 };
 
 &pruss_soc_bus1 {
@@ -463,6 +804,8 @@
 
 	phy0: ethernet-phy@1 {
 		reg = <4>;
+		compatible = "ethernet-phy-id004d.d072",
+			"ethernet-phy-ieee802.3-c22";
 		eee-broken-100tx;
 		eee-broken-1000t;
 	};
@@ -505,8 +848,27 @@
 	bus-width = <4>;
 	cd-gpios = <&gpio6 27 GPIO_ACTIVE_LOW>; /* gpio 219 */
 
-	pinctrl-names = "default";
-	pinctrl-0 = <&mmc1_pins_default>;
+	ti,needs-special-reset;
+	ti,dual-volt;
+	sd-uhs-sdr12;
+	sd-uhs-sdr25;
+	sd-uhs-sdr50;
+	sd-uhs-ddr50;
+	sd-uhs-sdr104;
+	mmc-hs200-1_8v;
+	cap-sd-highspeed;
+	cap-mmc-highspeed;
+	dmas = <&sdma_xbar 61>, <&sdma_xbar 62>;
+	dma-names = "tx", "rx";
+
+	pinctrl-names = "default", "hs", "sdr12", "sdr25", "sdr50", "ddr50", "sdr104";
+	pinctrl-0 = <&mmc1_pins_default &microsd_extra_pins_default>;
+	pinctrl-1 = <&mmc1_pins_hs &microsd_extra_pins_default>;
+	pinctrl-2 = <&mmc1_pins_sdr12 &microsd_extra_pins_default>;
+	pinctrl-3 = <&mmc1_pins_sdr25 &microsd_extra_pins_default>;
+	pinctrl-4 = <&mmc1_pins_sdr50 &microsd_extra_pins_default>;
+	pinctrl-5 = <&mmc1_pins_ddr50 &mmc1_iodelay_ddr_rev20_conf &microsd_extra_pins_default>;
+	pinctrl-6 = <&mmc1_pins_sdr104 &mmc1_iodelay_sdr104_rev20_conf &microsd_extra_pins_default>;
 };
 
 &mmc2 {
@@ -538,6 +900,10 @@
 	/* DDR50: DDR up to 50 MHz (1.8 V signaling). */
 	status = "okay";
 
+	pinctrl-names = "default", "hs";
+	pinctrl-0 = <&mmc4_pins_default &wifibt_extra_pins_default>;
+	pinctrl-1 = <&mmc4_pins_hs &wifibt_extra_pins_default>;
+
 	ti,needs-special-reset;
 	vmmc-supply = <&vdd_3v3>;
 	cap-power-off-card;
@@ -557,6 +923,9 @@
 		reg = <1>;
 		compatible = "brcm,bcm4329-fmac";
 
+		//brcm,drive-strength = <10>;
+		//brcm,broken-sg-support;
+		//brcm,broken_sg_support;
 		brcm,sd-head-align = <4>;
 		brcm,sd_head_align = <4>;
 		brcm,sd_sgentry_align = <512>;
@@ -589,6 +958,10 @@
 	dr_mode = "host";
 };
 
+&bb2d {
+	status = "okay";
+};
+
 &dss {
 	status = "okay";
 	vdda_video-supply = <&vdd_1v8_pll>;
@@ -597,6 +970,8 @@
 &hdmi {
 	status = "okay";
 	vdda-supply = <&vdd_1v8_phy_ldo4>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&hdmi_pins_default>;
 
 	port {
 		hdmi_out: endpoint {
@@ -606,6 +981,58 @@
 };
 
 &bandgap {
+	status = "okay";
+};
+
+&mailbox1 {
+	status = "okay";
+};
+
+&mailbox2 {
+	status = "okay";
+};
+
+&mailbox3 {
+	status = "okay";
+};
+
+&mailbox4 {
+	status = "okay";
+};
+
+&mailbox5 {
+	status = "okay";
+};
+
+&mailbox6 {
+	status = "okay";
+};
+
+&mailbox7 {
+	status = "okay";
+};
+
+&mailbox8 {
+	status = "okay";
+};
+
+&mailbox9 {
+	status = "okay";
+};
+
+&mailbox10 {
+	status = "okay";
+};
+
+&mailbox11 {
+	status = "okay";
+};
+
+&mailbox12 {
+	status = "okay";
+};
+
+&mailbox13 {
 	status = "okay";
 };
 
@@ -650,6 +1077,17 @@
 &i2c4 {
 	status = "okay";
 	clock-frequency = <100000>;
+};
+
+/* thermal hacks */
+&cpu0_opp_table {
+	opp_slow-400000000 {
+		opp-hz = /bits/ 64 <400000000>;
+		opp-microvolt = <860000 850000 1100000>,
+				<860000 850000 1100000>;
+		opp-supported-hw = <0xFF 0x01>;
+		opp-suspend;
+	};
 };
 
 #include "dra7-ipu-common-early-boot.dtsi"
