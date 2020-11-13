@@ -132,51 +132,6 @@ load_microcode(struct mc_saved_data *mc_saved_data, unsigned long *initrd,
 	}
 }
 
-/*
- * Given CPU signature and a microcode patch, this function finds if the
- * microcode patch has matching family and model with the CPU.
- */
-static enum ucode_state
-matching_model_microcode(struct microcode_header_intel *mc_header,
-			unsigned long sig)
-{
-	unsigned int fam, model;
-	unsigned int fam_ucode, model_ucode;
-	struct extended_sigtable *ext_header;
-	unsigned long total_size = get_totalsize(mc_header);
-	unsigned long data_size = get_datasize(mc_header);
-	int ext_sigcount, i;
-	struct extended_signature *ext_sig;
-
-	fam   = __x86_family(sig);
-	model = x86_model(sig);
-
-	fam_ucode   = __x86_family(mc_header->sig);
-	model_ucode = x86_model(mc_header->sig);
-
-	if (fam == fam_ucode && model == model_ucode)
-		return UCODE_OK;
-
-	/* Look for ext. headers: */
-	if (total_size <= data_size + MC_HEADER_SIZE)
-		return UCODE_NFOUND;
-
-	ext_header   = (void *) mc_header + data_size + MC_HEADER_SIZE;
-	ext_sig      = (void *)ext_header + EXT_HEADER_SIZE;
-	ext_sigcount = ext_header->count;
-
-	for (i = 0; i < ext_sigcount; i++) {
-		fam_ucode   = __x86_family(ext_sig->sig);
-		model_ucode = x86_model(ext_sig->sig);
-
-		if (fam == fam_ucode && model == model_ucode)
-			return UCODE_OK;
-
-		ext_sig++;
-	}
-	return UCODE_NFOUND;
-}
-
 static int
 save_microcode(struct mc_saved_data *mc_saved_data,
 	       struct microcode_intel **mc_saved_src,
@@ -321,8 +276,8 @@ get_matching_model_microcode(int cpu, unsigned long start,
 		 * the platform, we need to find and save microcode patches
 		 * with the same family and model as the BSP.
 		 */
-		if (matching_model_microcode(mc_header, uci->cpu_sig.sig) !=
-			 UCODE_OK) {
+		if (!find_matching_signature(mc_header, uci->cpu_sig.sig,
+					     uci->cpu_sig.pf)) {
 			ucode_ptr += mc_size;
 			continue;
 		}
