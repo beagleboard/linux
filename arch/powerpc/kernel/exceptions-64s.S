@@ -487,7 +487,7 @@ EXC_COMMON_BEGIN(unrecover_mce)
 	b	1b
 
 
-EXC_REAL(data_access, 0x300, 0x380)
+EXC_REAL_OOL(data_access, 0x300, 0x380)
 EXC_VIRT(data_access, 0x4300, 0x4380, 0x300)
 TRAMP_KVM_SKIP(PACA_EXGEN, 0x300)
 
@@ -567,7 +567,7 @@ EXC_VIRT_END(data_access_slb, 0x4380, 0x4400)
 TRAMP_KVM_SKIP(PACA_EXSLB, 0x380)
 
 
-EXC_REAL(instruction_access, 0x400, 0x480)
+EXC_REAL_OOL(instruction_access, 0x400, 0x480)
 EXC_VIRT(instruction_access, 0x4400, 0x4480, 0x400)
 TRAMP_KVM(PACA_EXGEN, 0x400)
 
@@ -857,13 +857,13 @@ END_FTR_SECTION_IFSET(CPU_FTR_TM)
 
 
 EXC_REAL_OOL_MASKABLE(decrementer, 0x900, 0x980)
-EXC_VIRT_MASKABLE(decrementer, 0x4900, 0x4980, 0x900)
+EXC_VIRT_OOL_MASKABLE(decrementer, 0x4900, 0x4980, 0x900)
 TRAMP_KVM(PACA_EXGEN, 0x900)
 EXC_COMMON_ASYNC(decrementer_common, 0x900, timer_interrupt)
 
 
-EXC_REAL_HV(hdecrementer, 0x980, 0xa00)
-EXC_VIRT_HV(hdecrementer, 0x4980, 0x4a00, 0x980)
+EXC_REAL_OOL_HV(hdecrementer, 0x980, 0xa00)
+EXC_VIRT_OOL_HV(hdecrementer, 0x4980, 0x4a00, 0x980)
 TRAMP_KVM_HV(PACA_EXGEN, 0x980)
 EXC_COMMON(hdecrementer_common, 0x980, hdec_interrupt)
 
@@ -1705,6 +1705,45 @@ hrfi_flush_fallback:
 	ld	r11,PACA_EXRFI+EX_R11(r13)
 	GET_SCRATCH0(r13);
 	hrfid
+
+	.globl entry_flush_fallback
+entry_flush_fallback:
+	std	r9,PACA_EXRFI+EX_R9(r13)
+	std	r10,PACA_EXRFI+EX_R10(r13)
+	std	r11,PACA_EXRFI+EX_R11(r13)
+	mfctr	r9
+	ld	r10,PACA_RFI_FLUSH_FALLBACK_AREA(r13)
+	ld	r11,PACA_L1D_FLUSH_SIZE(r13)
+	srdi	r11,r11,(7 + 3) /* 128 byte lines, unrolled 8x */
+	mtctr	r11
+	DCBT_STOP_ALL_STREAM_IDS(r11) /* Stop prefetch streams */
+
+	/* order ld/st prior to dcbt stop all streams with flushing */
+	sync
+
+	/*
+	 * The load addresses are at staggered offsets within cachelines,
+	 * which suits some pipelines better (on others it should not
+	 * hurt).
+	 */
+1:
+	ld	r11,(0x80 + 8)*0(r10)
+	ld	r11,(0x80 + 8)*1(r10)
+	ld	r11,(0x80 + 8)*2(r10)
+	ld	r11,(0x80 + 8)*3(r10)
+	ld	r11,(0x80 + 8)*4(r10)
+	ld	r11,(0x80 + 8)*5(r10)
+	ld	r11,(0x80 + 8)*6(r10)
+	ld	r11,(0x80 + 8)*7(r10)
+	addi	r10,r10,0x80*8
+	bdnz	1b
+
+	mtctr	r9
+	ld	r9,PACA_EXRFI+EX_R9(r13)
+	ld	r10,PACA_EXRFI+EX_R10(r13)
+	ld	r11,PACA_EXRFI+EX_R11(r13)
+	blr
+
 
 /*
  * Called from arch_local_irq_enable when an interrupt needs
