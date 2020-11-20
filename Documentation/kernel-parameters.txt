@@ -2197,6 +2197,7 @@ bytes respectively. Such letter suffixes can also be entirely omitted.
 					       mds=off [X86]
 					       tsx_async_abort=off [X86]
 					       no_entry_flush [PPC]
+					       no_uaccess_flush [PPC]
 
 			auto (default)
 				Mitigate all CPU vulnerabilities, but leave SMT
@@ -2520,6 +2521,9 @@ bytes respectively. Such letter suffixes can also be entirely omitted.
 
 	nospec_store_bypass_disable
 			[HW] Disable all mitigations for the Speculative Store Bypass vulnerability
+
+	no_uaccess_flush
+			[PPC] Don't flush the L1-D cache after accessing user data.
 
 	noxsave		[BUGS=X86] Disables x86 extended register state save
 			and restore using xsave. The kernel will fallback to
