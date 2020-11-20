@@ -5,6 +5,7 @@
 #include <asm/switch_to.h>
 #include <asm/cacheflush.h>
 #include <asm/epapr_hcalls.h>
+#include <asm/uaccess.h>
 
 EXPORT_SYMBOL(flush_dcache_range);
 EXPORT_SYMBOL(flush_icache_range);
@@ -43,3 +44,5 @@ EXPORT_SYMBOL(epapr_hypercall_start);
 #endif
 
 EXPORT_SYMBOL(current_stack_pointer);
+
+EXPORT_SYMBOL(__arch_clear_user);
