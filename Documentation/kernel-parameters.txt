@@ -2196,6 +2196,7 @@ bytes respectively. Such letter suffixes can also be entirely omitted.
 					       spec_store_bypass_disable=off [X86]
 					       mds=off [X86]
 					       tsx_async_abort=off [X86]
+					       no_entry_flush [PPC]
 
 			auto (default)
 				Mitigate all CPU vulnerabilities, but leave SMT
@@ -2475,6 +2476,8 @@ bytes respectively. Such letter suffixes can also be entirely omitted.
 	nodsp		[SH] Disable hardware DSP at boot time.
 
 	noefi		Disable EFI runtime services support.
+
+	no_entry_flush	[PPC] Don't flush the L1-D cache when entering the kernel.
 
 	noexec		[IA-64]
 
