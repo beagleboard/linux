@@ -824,7 +824,6 @@ int do_huge_pmd_anonymous_page(struct mm_struct *mm, struct vm_area_struct *vma,
 		spinlock_t *ptl;
 		pgtable_t pgtable;
 		struct page *zero_page;
-		bool set;
 		int ret;
 		pgtable = pte_alloc_one(mm, haddr);
 		if (unlikely(!pgtable))
@@ -837,10 +836,11 @@ int do_huge_pmd_anonymous_page(struct mm_struct *mm, struct vm_area_struct *vma,
 		}
 		ptl = pmd_lock(mm, pmd);
 		ret = 0;
-		set = false;
 		if (pmd_none(*pmd)) {
 			if (userfaultfd_missing(vma)) {
 				spin_unlock(ptl);
+				pte_free(mm, pgtable);
+				put_huge_zero_page();
 				ret = handle_userfault(vma, address, flags,
 						       VM_UFFD_MISSING);
 				VM_BUG_ON(ret & VM_FAULT_FALLBACK);
@@ -849,11 +849,9 @@ int do_huge_pmd_anonymous_page(struct mm_struct *mm, struct vm_area_struct *vma,
 						   haddr, pmd,
 						   zero_page);
 				spin_unlock(ptl);
-				set = true;
 			}
-		} else
+		} else {
 			spin_unlock(ptl);
-		if (!set) {
 			pte_free(mm, pgtable);
 			put_huge_zero_page();
 		}
