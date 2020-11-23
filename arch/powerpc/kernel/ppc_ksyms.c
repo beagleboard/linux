@@ -6,7 +6,7 @@
 #include <asm/cacheflush.h>
 #include <asm/epapr_hcalls.h>
 #include <asm/uaccess.h>
-#ifdef CONFIG_PPC64
+#ifdef CONFIG_PPC_BOOK3S_64
 #include <asm/book3s/64/kup-radix.h>
 #endif
 
@@ -50,6 +50,6 @@ EXPORT_SYMBOL(current_stack_pointer);
 
 EXPORT_SYMBOL(__arch_clear_user);
 
-#ifdef CONFIG_PPC64
+#ifdef CONFIG_PPC_BOOK3S_64
 EXPORT_SYMBOL(do_uaccess_flush);
 #endif
