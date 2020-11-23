@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Manipulate options in a .config file from the command line
 
 myname=${0##*/}
