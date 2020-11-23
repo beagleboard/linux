@@ -661,7 +661,6 @@ int do_huge_pmd_anonymous_page(struct fault_env *fe)
 			transparent_hugepage_use_zero_page()) {
 		pgtable_t pgtable;
 		struct page *zero_page;
-		bool set;
 		int ret;
 		pgtable = pte_alloc_one(vma->vm_mm, haddr);
 		if (unlikely(!pgtable))
@@ -674,22 +673,21 @@ int do_huge_pmd_anonymous_page(struct fault_env *fe)
 		}
 		fe->ptl = pmd_lock(vma->vm_mm, fe->pmd);
 		ret = 0;
-		set = false;
 		if (pmd_none(*fe->pmd)) {
 			if (userfaultfd_missing(vma)) {
 				spin_unlock(fe->ptl);
+				pte_free(vma->vm_mm, pgtable);
 				ret = handle_userfault(fe, VM_UFFD_MISSING);
 				VM_BUG_ON(ret & VM_FAULT_FALLBACK);
 			} else {
 				set_huge_zero_page(pgtable, vma->vm_mm, vma,
 						   haddr, fe->pmd, zero_page);
 				spin_unlock(fe->ptl);
-				set = true;
 			}
-		} else
+		} else {
 			spin_unlock(fe->ptl);
-		if (!set)
 			pte_free(vma->vm_mm, pgtable);
+		}
 		return ret;
 	}
 	gfp = alloc_hugepage_direct_gfpmask(vma);
