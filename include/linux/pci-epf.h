@@ -18,6 +18,7 @@ struct pci_epf;
 enum pci_epc_interface_type;
 
 enum pci_barno {
+	NO_BAR = -1,
 	BAR_0,
 	BAR_1,
 	BAR_2,

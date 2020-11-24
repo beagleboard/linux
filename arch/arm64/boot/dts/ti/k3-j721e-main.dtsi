@@ -665,7 +665,7 @@
 		#address-cells = <3>;
 		#size-cells = <2>;
 		bus-range = <0x0 0xf>;
-		cdns,max-outbound-regions = <16>;
+		cdns,max-outbound-regions = <32>;
 		cdns,no-bar-match-nbits = <64>;
 		vendor-id = /bits/ 16 <0x104c>;
 		device-id = /bits/ 16 <0xb00d>;
@@ -701,7 +701,7 @@
 		power-domains = <&k3_pds 239 TI_SCI_PD_EXCLUSIVE>;
 		clocks = <&k3_clks 239 1>;
 		clock-names = "fck";
-		cdns,max-outbound-regions = <16>;
+		cdns,max-outbound-regions = <32>;
 		max-functions = /bits/ 8 <6>;
 		max-virtual-functions = /bits/ 16 <4 4 4 4 0 0>;
 		dma-coherent;
@@ -726,7 +726,7 @@
 		#address-cells = <3>;
 		#size-cells = <2>;
 		bus-range = <0x0 0xf>;
-		cdns,max-outbound-regions = <16>;
+		cdns,max-outbound-regions = <32>;
 		cdns,no-bar-match-nbits = <64>;
 		vendor-id = /bits/ 16 <0x104c>;
 		device-id = /bits/ 16 <0xb00d>;
@@ -762,7 +762,7 @@
 		power-domains = <&k3_pds 240 TI_SCI_PD_EXCLUSIVE>;
 		clocks = <&k3_clks 240 1>;
 		clock-names = "fck";
-		cdns,max-outbound-regions = <16>;
+		cdns,max-outbound-regions = <32>;
 		max-functions = /bits/ 8 <6>;
 		max-virtual-functions = /bits/ 16 <4 4 4 4 0 0>;
 		dma-coherent;
@@ -784,7 +784,7 @@
 		#address-cells = <3>;
 		#size-cells = <2>;
 		bus-range = <0x0 0xf>;
-		cdns,max-outbound-regions = <16>;
+		cdns,max-outbound-regions = <32>;
 		cdns,no-bar-match-nbits = <64>;
 		vendor-id = /bits/ 16 <0x104c>;
 		device-id = /bits/ 16 <0xb00d>;
@@ -820,7 +820,7 @@
 		power-domains = <&k3_pds 241 TI_SCI_PD_EXCLUSIVE>;
 		clocks = <&k3_clks 241 1>;
 		clock-names = "fck";
-		cdns,max-outbound-regions = <16>;
+		cdns,max-outbound-regions = <32>;
 		max-functions = /bits/ 8 <6>;
 		max-virtual-functions = /bits/ 16 <4 4 4 4 0 0>;
 		dma-coherent;
@@ -842,7 +842,7 @@
 		#address-cells = <3>;
 		#size-cells = <2>;
 		bus-range = <0x0 0xf>;
-		cdns,max-outbound-regions = <16>;
+		cdns,max-outbound-regions = <32>;
 		cdns,no-bar-match-nbits = <64>;
 		vendor-id = /bits/ 16 <0x104c>;
 		device-id = /bits/ 16 <0xb00d>;
@@ -878,7 +878,7 @@
 		power-domains = <&k3_pds 242 TI_SCI_PD_EXCLUSIVE>;
 		clocks = <&k3_clks 242 1>;
 		clock-names = "fck";
-		cdns,max-outbound-regions = <16>;
+		cdns,max-outbound-regions = <32>;
 		max-functions = /bits/ 8 <6>;
 		max-virtual-functions = /bits/ 16 <4 4 4 4 0 0>;
 		dma-coherent;
