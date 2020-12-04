@@ -3151,15 +3151,15 @@ static const struct of_device_id udma_of_match[] = {
 	{ /* Sentinel */ },
 };
 
-struct udma_soc_data am654_soc_data = {
+static struct udma_soc_data am654_soc_data = {
 	.rchan_oes_offset = 0x200,
 };
 
-struct udma_soc_data j721e_soc_data = {
+static struct udma_soc_data j721e_soc_data = {
 	.rchan_oes_offset = 0x400,
 };
 
-struct udma_soc_data j7200_soc_data = {
+static struct udma_soc_data j7200_soc_data = {
 	.rchan_oes_offset = 0x80,
 };
 
