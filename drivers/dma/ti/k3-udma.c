@@ -13,7 +13,6 @@
 #include <linux/init.h>
 #include <linux/interrupt.h>
 #include <linux/list.h>
-#include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
@@ -3163,7 +3162,6 @@ static const struct of_device_id udma_of_match[] = {
 	},
 	{ /* Sentinel */ },
 };
-MODULE_DEVICE_TABLE(of, udma_of_match);
 
 struct udma_soc_data am654_soc_data = {
 	.rchan_oes_offset = 0x200,
@@ -3725,38 +3723,15 @@ static int udma_probe(struct platform_device *pdev)
 	return ret;
 }
 
-static int udma_remove(struct platform_device *pdev)
-{
-	struct udma_dev *ud = platform_get_drvdata(pdev);
-	struct udma_chan *uc;
-
-	list_for_each_entry(uc, &ud->ddev.channels, vc.chan.device_node)
-		tasklet_kill(&uc->vc.task);
-
-	of_dma_controller_free(pdev->dev.of_node);
-	dma_async_device_unregister(&ud->ddev);
-
-	/* Make sure that we did proper cleanup */
-	cancel_work_sync(&ud->purge_work);
-	udma_purge_desc_work(&ud->purge_work);
-
-	return 0;
-}
-
 static struct platform_driver udma_driver = {
 	.driver = {
 		.name	= "ti-udma",
 		.of_match_table = udma_of_match,
+		.suppress_bind_attrs = true,
 	},
 	.probe		= udma_probe,
-	.remove		= udma_remove,
 };
-module_platform_driver(udma_driver);
+builtin_platform_driver(udma_driver);
 
 /* Private interfaces to UDMA */
 #include "k3-udma-private.c"
-
-MODULE_ALIAS("platform:ti-udma");
-MODULE_DESCRIPTION("TI K3 DMA driver for CPPI 5.0 compliant devices");
-MODULE_AUTHOR("Peter Ujfalusi <peter.ujfalusi@ti.com>");
-MODULE_LICENSE("GPL v2");
