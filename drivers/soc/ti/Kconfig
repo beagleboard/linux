@@ -103,7 +103,7 @@ config TI_PRUSS
 	  not interested in the PRU or if you are unsure.
 
 config TI_K3_RINGACC
-	tristate "K3 Ring accelerator Sub System"
+	bool "K3 Ring accelerator Sub System"
 	depends on ARCH_K3 || COMPILE_TEST
 	depends on TI_SCI_INTA_IRQCHIP
 	help
