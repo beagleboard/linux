@@ -1215,9 +1215,9 @@ static int k3_r5_core_of_get_internal_memories(struct platform_device *pdev,
 		 */
 		core->mem[i].cpu_addr = devm_ioremap_wc(dev, res->start,
 							resource_size(res));
-		if (IS_ERR(core->mem[i].cpu_addr)) {
+		if (!core->mem[i].cpu_addr) {
 			dev_err(dev, "failed to map %s memory\n", mem_names[i]);
-			return PTR_ERR(core->mem[i].cpu_addr);
+			return -ENOMEM;
 		}
 		core->mem[i].bus_addr = res->start;
 
