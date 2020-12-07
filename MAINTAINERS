@@ -16100,8 +16100,8 @@ F:	Documentation/devicetree/bindings/reset/ti,sci-reset.txt
 F:	Documentation/devicetree/bindings/clock/ti,sci-clk.txt
 F:	drivers/clk/keystone/sci-clk.c
 F:	drivers/reset/reset-ti-sci.c
-F:	Documentation/devicetree/bindings/interrupt-controller/ti,sci-intr.txt
-F:	Documentation/devicetree/bindings/interrupt-controller/ti,sci-inta.txt
+F:	Documentation/devicetree/bindings/interrupt-controller/ti,sci-intr.yaml
+F:	Documentation/devicetree/bindings/interrupt-controller/ti,sci-inta.yaml
 F:	drivers/irqchip/irq-ti-sci-intr.c
 F:	drivers/irqchip/irq-ti-sci-inta.c
 F:	include/linux/soc/ti/ti_sci_inta_msi.h

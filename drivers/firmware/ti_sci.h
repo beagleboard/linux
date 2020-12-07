@@ -49,7 +49,6 @@
 #define TI_SCI_MSG_RM_RING_RECONFIG		0x1102
 #define TI_SCI_MSG_RM_RING_RESET		0x1103
 #define TI_SCI_MSG_RM_RING_CFG			0x1110
-#define TI_SCI_MSG_RM_RING_GET_CFG		0x1111
 
 /* PSI-L requests */
 #define TI_SCI_MSG_RM_PSIL_PAIR			0x1280
@@ -662,6 +661,8 @@ struct ti_sci_msg_req_manage_irq {
  *	3 - Valid bit for @tisci_msg_rm_ring_cfg_req mode
  *	4 - Valid bit for @tisci_msg_rm_ring_cfg_req size
  *	5 - Valid bit for @tisci_msg_rm_ring_cfg_req order_id
+ *	6 - Valid bit for @tisci_msg_rm_ring_cfg_req virtid
+ *	7 - Valid bit for @tisci_msg_rm_ring_cfg_req ASEL
  * @nav_id: Device ID of Navigator Subsystem from which the ring is allocated
  * @index: ring index to be configured.
  * @addr_lo: 32 LSBs of ring base address to be programmed into the ring's
@@ -675,6 +676,9 @@ struct ti_sci_msg_req_manage_irq {
  *	the formula (log2(size_bytes) - 2), where size_bytes cannot be
  *	greater than 256.
  * @order_id: Specifies the ring's bus order ID.
+ * @virtid: Ring virt ID value
+ * @asel: Ring ASEL (address select) value to be set into the ASEL field of the
+ *	ring's RING_BA_HI register.
  */
 struct ti_sci_msg_rm_ring_cfg_req {
 	struct ti_sci_msg_hdr hdr;
@@ -687,49 +691,8 @@ struct ti_sci_msg_rm_ring_cfg_req {
 	u8 mode;
 	u8 size;
 	u8 order_id;
-} __packed;
-
-/**
- * struct ti_sci_msg_rm_ring_get_cfg_req - Get RA ring's configuration
- *
- * Gets the configuration of the non-real-time register fields of a ring.  The
- * host, or a supervisor of the host, who owns the ring must be the requesting
- * host.  The values of the non-real-time registers are returned in
- * @ti_sci_msg_rm_ring_get_cfg_resp.
- *
- * @hdr: Generic Header
- * @nav_id: Device ID of Navigator Subsystem from which the ring is allocated
- * @index: ring index.
- */
-struct ti_sci_msg_rm_ring_get_cfg_req {
-	struct ti_sci_msg_hdr hdr;
-	u16 nav_id;
-	u16 index;
-} __packed;
-
-/**
- * struct ti_sci_msg_rm_ring_get_cfg_resp -  Ring get configuration response
- *
- * Response received by host processor after RM has handled
- * @ti_sci_msg_rm_ring_get_cfg_req. The response contains the ring's
- * non-real-time register values.
- *
- * @hdr: Generic Header
- * @addr_lo: Ring 32 LSBs of base address
- * @addr_hi: Ring 16 MSBs of base address.
- * @count: Ring number of elements.
- * @mode: Ring mode.
- * @size: encoded Ring element size
- * @order_id: ing order ID.
- */
-struct ti_sci_msg_rm_ring_get_cfg_resp {
-	struct ti_sci_msg_hdr hdr;
-	u32 addr_lo;
-	u32 addr_hi;
-	u32 count;
-	u8 mode;
-	u8 size;
-	u8 order_id;
+	u16 virtid;
+	u8 asel;
 } __packed;
 
 /**
@@ -917,6 +880,7 @@ struct rm_ti_sci_msg_udmap_rx_flow_opt_cfg {
  *   13 - Valid bit for @ref ti_sci_msg_rm_udmap_tx_ch_cfg::fdepth
  *   14 - Valid bit for @ref ti_sci_msg_rm_udmap_tx_ch_cfg::tx_burst_size
  *   15 - Valid bit for @ref ti_sci_msg_rm_udmap_tx_ch_cfg::tx_tdtype
+ *   16 - Valid bit for @ref ti_sci_msg_rm_udmap_tx_ch_cfg::extended_ch_type
  *
  * @nav_id: SoC device ID of Navigator Subsystem where tx channel is located
  *
@@ -985,6 +949,10 @@ struct rm_ti_sci_msg_udmap_rx_flow_opt_cfg {
  * programmed into the tdtype field of the TCHAN_TCFG register:
  * 0 - Return immediately
  * 1 - Wait for completion message from remote peer
+ *
+ * @extended_ch_type: Valid for BCDMA.
+ * 0 - the channel is split tx channel (tchan)
+ * 1 - the channel is block copy channel (bchan)
  */
 struct ti_sci_msg_rm_udmap_tx_ch_cfg_req {
 	struct ti_sci_msg_hdr hdr;
@@ -1007,6 +975,7 @@ struct ti_sci_msg_rm_udmap_tx_ch_cfg_req {
 	u8 tx_sched_priority;
 	u8 tx_burst_size;
 	u8 tx_tdtype;
+	u8 extended_ch_type;
 } __packed;
 
 /**
