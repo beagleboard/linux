@@ -269,4 +269,10 @@
 		clocks = <&k3_clks 158 0>;
 		clock-names = "fclk";
 	};
+
+	hwspinlock: spinlock@2a000000 {
+		compatible = "ti,am654-hwspinlock";
+		reg = <0x00 0x2a000000 0x00 0x1000>;
+		#hwlock-cells = <1>;
+	};
 };
