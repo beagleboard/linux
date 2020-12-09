@@ -49,12 +49,14 @@ static void cpsw_ale_get_vlan_mcast(struct cpsw_ale *ale, u32 *ale_entry,
 	int idx;
 
 	/* Get VLAN registered multicast flood mask */
-	idx = cpsw_ale_get_vlan_reg_mcast_idx(ale_entry);
+	idx = cpsw_ale_vlan_get_fld(ale, ale_entry,
+				    ALE_ENT_VID_REG_MCAST_IDX);
 	*reg_mcast = __raw_readl(ale->params.ale_regs +
 				 ALE_VLAN_MASK_MUX(idx));
 
 	/* Get VLAN unregistered multicast flood mask */
-	idx = cpsw_ale_get_vlan_unreg_mcast_idx(ale_entry);
+	idx = cpsw_ale_vlan_get_fld(ale, ale_entry,
+				    ALE_ENT_VID_UNREG_MCAST_IDX);
 	*unreg_mcast = __raw_readl(ale->params.ale_regs +
 				   ALE_VLAN_MASK_MUX(idx));
 }
@@ -107,19 +109,18 @@ static int cpsw_ale_dump_vlan(struct cpsw_ale *ale, u32 *ale_entry,
 			      char *buf, int len)
 {
 	int outlen = 0, reg_mc_fld, unreg_mc_fld;
-	int force_utag_egress	=
-		cpsw_ale_get_vlan_untag_force(ale_entry,
-					      ale->vlan_field_bits);
-	int mem_list	=
-		cpsw_ale_get_vlan_member_list(ale_entry, ale->vlan_field_bits);
+	int force_utag_egress =
+		cpsw_ale_vlan_get_fld(ale, ale_entry,
+				      ALE_ENT_VID_FORCE_UNTAGGED_MSK);
+	int mem_list = cpsw_ale_vlan_get_fld(ale, ale_entry,
+					     ALE_ENT_VID_MEMBER_LIST);
 
 	if (!ale->params.nu_switch_ale) {
-		reg_mc_fld =
-			cpsw_ale_get_vlan_reg_mcast(ale_entry,
-						    ale->vlan_field_bits);
+		reg_mc_fld = cpsw_ale_vlan_get_fld(ale, ale_entry,
+						   ALE_ENT_VID_REG_MCAST_MSK);
 		unreg_mc_fld =
-			cpsw_ale_get_vlan_unreg_mcast(ale_entry,
-						      ale->vlan_field_bits);
+			cpsw_ale_vlan_get_fld(ale, ale_entry,
+					      ALE_ENT_VID_UNREG_MCAST_MSK);
 	} else {
 		cpsw_ale_get_vlan_mcast(ale, ale_entry, &reg_mc_fld,
 					&unreg_mc_fld);
