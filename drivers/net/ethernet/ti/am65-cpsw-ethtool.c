@@ -708,7 +708,7 @@ static int am65_cpsw_get_ethtool_ts_info(struct net_device *ndev,
 {
 	struct am65_cpsw_common *common = am65_ndev_to_common(ndev);
 
-	if (!IS_ENABLED(CONFIG_TI_AM65_CPTS))
+	if (!IS_ENABLED(CONFIG_TI_K3_AM65_CPTS))
 		return ethtool_op_get_ts_info(ndev, info);
 
 	info->so_timestamping =

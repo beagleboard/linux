@@ -1302,7 +1302,7 @@ static int am65_cpsw_nuss_hwtstamp_set(struct net_device *ndev,
 	u32 ts_ctrl, seq_id, ts_ctrl_ltype2, ts_vlan_ltype;
 	struct hwtstamp_config cfg;
 
-	if (!IS_ENABLED(CONFIG_TI_AM65_CPTS))
+	if (!IS_ENABLED(CONFIG_TI_K3_AM65_CPTS))
 		return -EOPNOTSUPP;
 
 	if (copy_from_user(&cfg, ifr->ifr_data, sizeof(cfg)))
@@ -1387,7 +1387,7 @@ static int am65_cpsw_nuss_hwtstamp_get(struct net_device *ndev,
 	struct am65_cpsw_port *port = am65_ndev_to_port(ndev);
 	struct hwtstamp_config cfg;
 
-	if (!IS_ENABLED(CONFIG_TI_AM65_CPTS))
+	if (!IS_ENABLED(CONFIG_TI_K3_AM65_CPTS))
 		return -EOPNOTSUPP;
 
 	cfg.flags = 0;
@@ -1804,7 +1804,7 @@ static int am65_cpsw_init_cpts(struct am65_cpsw_common *common)
 	struct am65_cpts *cpts;
 	void __iomem *reg_base;
 
-	if (!IS_ENABLED(CONFIG_TI_AM65_CPTS))
+	if (!IS_ENABLED(CONFIG_TI_K3_AM65_CPTS))
 		return 0;
 
 	node = of_get_child_by_name(dev->of_node, "cpts");
