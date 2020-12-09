@@ -32,6 +32,7 @@ struct cpsw_ale {
 	struct timer_list	timer;
 	unsigned long		ageout;
 	u32			version;
+	u32			features;
 	struct device_attribute ale_control_attr;
 #define control_attr_to_ale(attr)	\
 	container_of(attr, struct cpsw_ale, ale_control_attr)
