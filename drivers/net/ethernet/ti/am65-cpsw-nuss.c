@@ -1350,7 +1350,7 @@ static int am65_cpsw_switch_config_ioctl(struct net_device *ndev,
 		}
 
 		ret = cpsw_ale_set_ratelimit(common->ale,
-					     common->bus_freq_mhz * 1000000,
+					     common->bus_freq,
 					     config.port,
 					     config.bcast_rate_limit,
 					     config.mcast_rate_limit,
@@ -2151,7 +2151,7 @@ static int am65_cpsw_nuss_probe(struct platform_device *pdev)
 			dev_err(dev, "error getting fck clock %d\n", ret);
 		return ret;
 	}
-	common->bus_freq_mhz = clk_get_rate(clk) / 1000000;
+	common->bus_freq = clk_get_rate(clk);
 
 	pm_runtime_enable(dev);
 	ret = pm_runtime_get_sync(dev);
@@ -2201,6 +2201,7 @@ static int am65_cpsw_nuss_probe(struct platform_device *pdev)
 	ale_params.ale_ports = common->port_num + 1;
 	ale_params.ale_regs = common->cpsw_base + AM65_CPSW_NU_ALE_BASE;
 	ale_params.dev_id = "am65x-cpsw2g";
+	ale_params.bus_freq = common->bus_freq;
 
 	common->ale = cpsw_ale_create(&ale_params);
 	if (!common->ale) {
