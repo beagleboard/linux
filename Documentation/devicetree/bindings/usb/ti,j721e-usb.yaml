@@ -11,8 +11,11 @@ maintainers:
 
 properties:
   compatible:
-    items:
-      - const: ti,j721e-usb
+    anyOf:
+      - items:
+	  - const: ti,j721e-usb
+      - items:
+	  - const: ti,am64-usb
 
   reg:
     description: module registers
