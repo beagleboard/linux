@@ -1082,7 +1082,7 @@ static struct ale_control_info ale_controls[ALE_NUM_CONTROLS] = {
 		.bits		= 6,
 	},
 	[ALE_DEFAULT_THREAD_ENABLE] = {
-		.name		= "default_thread_id",
+		.name		= "default_thread_id_enable",
 		.offset		= AM65_CPSW_ALE_THREAD_DEF_REG,
 		.port_offset	= 0,
 		.shift		= 15,
@@ -1352,7 +1352,7 @@ struct cpsw_ale *cpsw_ale_create(struct cpsw_ale_params *params)
 
 	ale = devm_kzalloc(params->dev, sizeof(*ale), GFP_KERNEL);
 	if (!ale)
-		return NULL;
+		return ERR_PTR(-ENOMEM);
 
 	ale->p0_untag_vid_mask =
 		devm_kmalloc_array(params->dev, BITS_TO_LONGS(VLAN_N_VID),
