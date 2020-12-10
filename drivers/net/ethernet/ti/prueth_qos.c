@@ -18,13 +18,10 @@ static void emac_nsp_enable(void __iomem *counter, u16 credit)
 	       counter);
 }
 
-void prueth_enable_nsp(struct prueth_emac *emac)
+static void prueth_enable_nsp(struct prueth_emac *emac)
 {
 	struct prueth *prueth = emac->prueth;
 	void __iomem *dram = prueth->mem[emac->dram].va;
-
-	if (PRUETH_IS_LRE(prueth) && --emac->nsp_timer_count)
-		return;
 
 	if (emac->nsp_bc.cookie)
 		emac_nsp_enable(dram + STORM_PREVENTION_OFFSET_BC,
@@ -35,9 +32,6 @@ void prueth_enable_nsp(struct prueth_emac *emac)
 	if (emac->nsp_uc.cookie)
 		emac_nsp_enable(dram + STORM_PREVENTION_OFFSET_UC,
 				emac->nsp_uc.credit);
-
-	if (PRUETH_IS_LRE(prueth))
-		emac->nsp_timer_count = PRUETH_NSP_TIMER_COUNT;
 }
 
 static int emac_flower_parse_policer(struct prueth_emac *emac,
@@ -52,7 +46,6 @@ static int emac_flower_parse_policer(struct prueth_emac *emac,
 	u8 mc_mac[] = {0x01, 0x00, 0x00, 0x00, 0x00, 0x00};
 	struct flow_match_eth_addrs match;
 	struct nsp_counter *nsp = NULL;
-	unsigned long flags;
 	char *str;
 	u32 pps;
 
@@ -112,18 +105,16 @@ static int emac_flower_parse_policer(struct prueth_emac *emac,
 	/* Convert that to packets per 100ms */
 	pps /= MSEC_PER_SEC / PRUETH_NSP_TIMER_MS;
 
-	spin_lock_irqsave(&emac->nsp_lock, flags);
 	nsp->cookie = cls->cookie;
 	nsp->credit = pps;
 	emac->nsp_enabled = emac->nsp_bc.cookie | emac->nsp_mc.cookie |
 			    emac->nsp_uc.cookie;
-	spin_unlock_irqrestore(&emac->nsp_lock, flags);
+
+	prueth_enable_nsp(emac);
 
 	netdev_dbg(emac->ndev,
 		   "%scast filter set to %d packets per %dms\n", str,
 		   nsp->credit, PRUETH_NSP_TIMER_MS);
-
-	prueth_start_timer(emac);
 
 	return 0;
 }
@@ -155,9 +146,6 @@ static int emac_delete_clsflower(struct prueth_emac *emac,
 {
 	struct prueth *prueth = emac->prueth;
 	void __iomem *dram = prueth->mem[emac->dram].va;
-	unsigned long flags;
-
-	spin_lock_irqsave(&emac->nsp_lock, flags);
 
 	if (cls->cookie == emac->nsp_bc.cookie) {
 		emac->nsp_bc.cookie = 0;
@@ -175,8 +163,6 @@ static int emac_delete_clsflower(struct prueth_emac *emac,
 
 	emac->nsp_enabled = emac->nsp_bc.cookie | emac->nsp_mc.cookie |
 			    emac->nsp_uc.cookie;
-
-	spin_unlock_irqrestore(&emac->nsp_lock, flags);
 
 	return 0;
 }

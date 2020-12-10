@@ -312,49 +312,16 @@ static enum hrtimer_restart prueth_timer(struct hrtimer *timer)
 {
 	struct prueth *prueth = container_of(timer, struct prueth,
 					     tbl_check_timer);
-	enum hrtimer_restart ret = HRTIMER_NORESTART;
-	unsigned int timeout = PRUETH_NSP_TIMER_MS;
-	struct prueth_emac *emac;
-	enum prueth_mac mac;
-	unsigned long flags;
-
-	if (PRUETH_IS_LRE(prueth))
-		timeout = PRUETH_TIMER_MS;
+	unsigned int timeout = PRUETH_TIMER_MS;
 
 	hrtimer_forward_now(timer, ms_to_ktime(timeout));
-	if (PRUETH_IS_LRE(prueth) &&
-	    prueth->emac_configured !=
+	if (prueth->emac_configured !=
 	    (BIT(PRUETH_PORT_MII0) | BIT(PRUETH_PORT_MII1)))
 		return HRTIMER_RESTART;
 
-	for (mac = PRUETH_MAC0; mac <= PRUETH_MAC1; mac++) {
-		emac = prueth->emac[mac];
+	prueth_lre_process_check_flags_event(prueth);
 
-		/* skip if in single emac mode */
-		if (!emac)
-			continue;
-
-		if (!netif_running(emac->ndev))
-			continue;
-
-		spin_lock_irqsave(&emac->nsp_lock, flags);
-
-		if (!emac->nsp_enabled) {
-			spin_unlock_irqrestore(&emac->nsp_lock, flags);
-			continue;
-		}
-
-		ret = HRTIMER_RESTART;
-		prueth_enable_nsp(emac);
-		spin_unlock_irqrestore(&emac->nsp_lock, flags);
-	}
-
-	if (PRUETH_IS_LRE(prueth)) {
-		ret = HRTIMER_RESTART;
-		prueth_lre_process_check_flags_event(prueth);
-	}
-
-	return ret;
+	return HRTIMER_RESTART;
 }
 
 static void prueth_init_timer(struct prueth *prueth)
@@ -364,17 +331,12 @@ static void prueth_init_timer(struct prueth *prueth)
 	prueth->tbl_check_timer.function = prueth_timer;
 }
 
-void prueth_start_timer(struct prueth_emac *emac)
+static void prueth_start_timer(struct prueth_emac *emac)
 {
-	unsigned int timeout = PRUETH_NSP_TIMER_MS;
+	unsigned int timeout = PRUETH_TIMER_MS;
 
 	if (hrtimer_active(&emac->prueth->tbl_check_timer))
 		return;
-
-	if (PRUETH_IS_LRE(emac->prueth)) {
-		timeout = PRUETH_TIMER_MS;
-		emac->nsp_timer_count = PRUETH_NSP_TIMER_COUNT;
-	}
 
 	hrtimer_start(&emac->prueth->tbl_check_timer, ms_to_ktime(timeout),
 		      HRTIMER_MODE_REL);
@@ -1771,8 +1733,8 @@ static int emac_ndo_open(struct net_device *ndev)
 	/* enable the port and vlan */
 	prueth_port_enable(emac, true);
 
-	/* timer used for NSP as well for HSR/PRP */
-	if (emac->nsp_enabled || PRUETH_IS_LRE(prueth))
+	/* timer used for HSR/PRP */
+	if (PRUETH_IS_LRE(prueth))
 		prueth_start_timer(emac);
 
 	prueth->emac_configured |= BIT(emac->port_id);
@@ -2941,7 +2903,6 @@ static int prueth_netdev_init(struct prueth *prueth,
 
 	emac->msg_enable = netif_msg_init(debug_level, PRUETH_EMAC_DEBUG);
 	spin_lock_init(&emac->lock);
-	spin_lock_init(&emac->nsp_lock);
 	spin_lock_init(&emac->addr_lock);
 	spin_lock_init(&emac->ptp_skb_lock);
 
