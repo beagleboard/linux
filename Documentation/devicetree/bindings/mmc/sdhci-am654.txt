@@ -14,6 +14,8 @@ Required Properties:
 			"ti,j721e-sdhci-4bit": 4 bit SDHCI on J721E device.
 			"ti,j7200-sdhci-8bit": 8 bit SDHCI on J7200 device.
 			"ti,j7200-sdhci-4bit": 4 bit SDHCI on J7200 device.
+			"ti,am64-sdhci-8bit": 8 bit SDHCI on AM64 device.
+			"ti,am64-sdhci-4bit": 4 bit SDHCI on AM64 device.
 	- reg: Must be two entries.
 		- The first should be the sdhci register space
 		- The second should the subsystem/phy register space
@@ -37,6 +39,7 @@ Required Properties:
 
 Optional Properties (Required for ti,am654-sdhci-5.1,
 				  ti,j721e-sdhci-8bit,
+				  ti,am64-sdhci-8bit,
 				  ti,j7200-sdhci-8bit):
 	- ti,trm-icp: DLL trim select
 	- ti,driver-strength-ohm: driver strength in ohms.
