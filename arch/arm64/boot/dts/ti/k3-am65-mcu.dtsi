@@ -231,7 +231,7 @@
 
 	mcu_r5fss0: r5fss@41000000 {
 		compatible = "ti,am654-r5fss";
-		lockstep-mode = <1>;
+		ti,cluster-mode = <1>;
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges = <0x41000000 0x00 0x41000000 0x20000>,
@@ -248,9 +248,9 @@
 			ti,sci-proc-ids = <0x01 0xFF>;
 			resets = <&k3_reset 159 1>;
 			firmware-name = "am65x-mcu-r5f0_0-fw";
-			atcm-enable = <1>;
-			btcm-enable = <1>;
-			loczrama = <1>;
+			ti,atcm-enable = <1>;
+			ti,btcm-enable = <1>;
+			ti,loczrama = <1>;
 			sram = <&mcu_r5fss0_core0_sram>;
 		};
 
@@ -264,9 +264,9 @@
 			ti,sci-proc-ids = <0x02 0xFF>;
 			resets = <&k3_reset 245 1>;
 			firmware-name = "am65x-mcu-r5f0_1-fw";
-			atcm-enable = <1>;
-			btcm-enable = <1>;
-			loczrama = <1>;
+			ti,atcm-enable = <1>;
+			ti,btcm-enable = <1>;
+			ti,loczrama = <1>;
 		};
 	};
 
