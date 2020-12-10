@@ -174,6 +174,88 @@
 		pinctrl-single,function-mask = <0xffffffff>;
 	};
 
+	main_conf: syscon@43000000 {
+		compatible = "syscon", "simple-mfd";
+		reg = <0x0 0x43000000 0x0 0x20000>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges = <0x0 0x0 0x43000000 0x20000>;
+
+		phy_gmii_sel: phy@4044 {
+			compatible = "ti,am654-phy-gmii-sel";
+			reg = <0x4044 0x8>;
+			#phy-cells = <1>;
+		};
+	};
+
+	cpsw3g: ethernet@8000000 {
+		compatible = "ti,am64-cpsw-nuss";
+		#address-cells = <2>;
+		#size-cells = <2>;
+		reg = <0x0 0x8000000 0x0 0x200000>;
+		reg-names = "cpsw_nuss";
+		ranges = <0x0 0x0 0x0 0x8000000 0x0 0x200000>;
+		clocks = <&k3_clks 13 0>;
+		assigned-clocks = <&k3_clks 13 1>;
+		assigned-clock-parents = <&k3_clks 13 9>;
+		clock-names = "fck";
+		power-domains = <&k3_pds 13 TI_SCI_PD_EXCLUSIVE>;
+
+		dmas = <&main_pktdma 0xC500 0>,
+		       <&main_pktdma 0xC501 0>,
+		       <&main_pktdma 0xC502 0>,
+		       <&main_pktdma 0xC503 0>,
+		       <&main_pktdma 0xC504 0>,
+		       <&main_pktdma 0xC505 0>,
+		       <&main_pktdma 0xC506 0>,
+		       <&main_pktdma 0xC507 0>,
+		       <&main_pktdma 0x4500 0>;
+		dma-names = "tx0", "tx1", "tx2", "tx3", "tx4", "tx5", "tx6",
+			    "tx7", "rx";
+
+		ethernet-ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			cpsw_port1: port@1 {
+				reg = <1>;
+				ti,mac-only;
+				label = "port1";
+				phys = <&phy_gmii_sel 1>;
+				mac-address = [00 00 de ad be ef];
+			};
+
+			cpsw_port2: port@2 {
+				reg = <2>;
+				ti,mac-only;
+				label = "port2";
+				phys = <&phy_gmii_sel 2>;
+				mac-address = [00 01 de ad be ef];
+			};
+		};
+
+		cpsw3g_mdio: mdio@f00 {
+			compatible = "ti,cpsw-mdio","ti,davinci_mdio";
+			reg = <0x0 0xf00 0x0 0x100>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			clocks = <&k3_clks 13 0>;
+			clock-names = "fck";
+			bus_freq = <1000000>;
+		};
+
+		cpts@3d000 {
+			compatible = "ti,j721e-cpts";
+			reg = <0x0 0x3d000 0x0 0x400>;
+			clocks = <&k3_clks 13 1>;
+			clock-names = "cpts";
+			interrupts-extended = <&gic500 GIC_SPI 102 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "cpts";
+			ti,cpts-ext-ts-inputs = <4>;
+			ti,cpts-periodic-outputs = <2>;
+		};
+	};
+
 	chipid@43000014 {
 		compatible = "ti,am654-chipid";
 		reg = <0x00 0x43000014 0x00 0x4>;
@@ -332,5 +414,94 @@
 		#mbox-cells = <1>;
 		ti,mbox-num-users = <4>;
 		ti,mbox-num-fifos = <16>;
+	};
+
+	cpts@39000000 {
+		compatible = "ti,j721e-cpts";
+		reg = <0x0 0x39000000 0x0 0x400>;
+		reg-names = "cpts";
+		power-domains = <&k3_pds 84 TI_SCI_PD_EXCLUSIVE>;
+		clocks = <&k3_clks 84 0>;
+		clock-names = "cpts";
+		assigned-clocks = <&k3_clks 84 0>;
+		assigned-clock-parents = <&k3_clks 84 8>;
+		interrupts = <GIC_SPI 97 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "cpts";
+		ti,cpts-periodic-outputs = <6>;
+		ti,cpts-ext-ts-inputs = <8>;
+	};
+
+	usbss0: cdns-usb@f900000{
+		compatible = "ti,am64-usb", "ti,j721e-usb";
+		reg = <0x00 0xf900000 0x00 0x100>;
+		power-domains = <&k3_pds 161 TI_SCI_PD_EXCLUSIVE>;
+		clocks = <&k3_clks 161 9>, <&k3_clks 161 1>;
+		clock-names = "ref", "lpm";
+		assigned-clocks = <&k3_clks 161 9>; /* USB2_REFCLK */
+		assigned-clock-parents = <&k3_clks 161 10>; /* HF0SC0 */
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+		usb0: usb@f400000{
+			compatible = "cdns,usb3";
+			reg = <0x00 0xf400000 0x00 0x10000>,
+			      <0x00 0xf410000 0x00 0x10000>,
+			      <0x00 0xf420000 0x00 0x10000>;
+			reg-names = "otg",
+				    "xhci",
+				     "dev";
+			interrupts = <GIC_SPI 188 IRQ_TYPE_LEVEL_HIGH>, /* irq.0 */
+				     <GIC_SPI 194 IRQ_TYPE_LEVEL_HIGH>, /* irq.6 */
+				     <GIC_SPI 196 IRQ_TYPE_LEVEL_HIGH>; /* otgirq */
+			interrupt-names = "host",
+					  "peripheral",
+					   "otg";
+			maximum-speed = "super-speed";
+			dr_mode = "otg";
+		};
+	};
+
+	main_i2c0: i2c@20000000 {
+		compatible = "ti,am64-i2c", "ti,omap4-i2c";
+		reg = <0x0 0x20000000 0x0 0x100>;
+		interrupts = <GIC_SPI 161 IRQ_TYPE_LEVEL_HIGH>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		clock-names = "fck";
+		clocks = <&k3_clks 102 2>;
+		power-domains = <&k3_pds 102 TI_SCI_PD_EXCLUSIVE>;
+	};
+
+	main_i2c1: i2c@20010000 {
+		compatible = "ti,am64-i2c", "ti,omap4-i2c";
+		reg = <0x0 0x20010000 0x0 0x100>;
+		interrupts = <GIC_SPI 162 IRQ_TYPE_LEVEL_HIGH>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		clock-names = "fck";
+		clocks = <&k3_clks 103 2>;
+		power-domains = <&k3_pds 103 TI_SCI_PD_EXCLUSIVE>;
+	};
+
+	main_i2c2: i2c@20020000 {
+		compatible = "ti,am64-i2c", "ti,omap4-i2c";
+		reg = <0x00 0x20020000 0x0 0x100>;
+		interrupts = <GIC_SPI 163 IRQ_TYPE_LEVEL_HIGH>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		clock-names = "fck";
+		clocks = <&k3_clks 104 2>;
+		power-domains = <&k3_pds 104 TI_SCI_PD_EXCLUSIVE>;
+	};
+
+	main_i2c3: i2c@20030000 {
+		compatible = "ti,am64-i2c", "ti,omap4-i2c";
+		reg = <0x00 0x20030000 0x0 0x100>;
+		interrupts = <GIC_SPI 164 IRQ_TYPE_LEVEL_HIGH>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		clock-names = "fck";
+		clocks = <&k3_clks 105 2>;
+		power-domains = <&k3_pds 105 TI_SCI_PD_EXCLUSIVE>;
 	};
 };

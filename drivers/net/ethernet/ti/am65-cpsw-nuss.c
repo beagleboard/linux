@@ -242,8 +242,8 @@ static int am65_cpsw_nuss_ndo_slave_add_vid(struct net_device *ndev,
 	if (!vid)
 		unreg_mcast = port_mask;
 	dev_info(common->dev, "Adding vlan %d to vlan filter\n", vid);
-	ret = cpsw_ale_add_vlan(common->ale, vid, port_mask,
-				unreg_mcast, port_mask, 0);
+	ret = cpsw_ale_vlan_add_modify(common->ale, vid, port_mask,
+				       unreg_mcast, port_mask, 0);
 
 	pm_runtime_put(common->dev);
 	return ret;
@@ -253,6 +253,7 @@ static int am65_cpsw_nuss_ndo_slave_kill_vid(struct net_device *ndev,
 					     __be16 proto, u16 vid)
 {
 	struct am65_cpsw_common *common = am65_ndev_to_common(ndev);
+	struct am65_cpsw_port *port = am65_ndev_to_port(ndev);
 	int ret;
 
 	if (!netif_running(ndev) || !vid)
@@ -265,14 +266,15 @@ static int am65_cpsw_nuss_ndo_slave_kill_vid(struct net_device *ndev,
 	}
 
 	dev_info(common->dev, "Removing vlan %d from vlan filter\n", vid);
-	ret = cpsw_ale_del_vlan(common->ale, vid, 0);
+	ret = cpsw_ale_del_vlan(common->ale, vid,
+				BIT(port->port_id) | ALE_PORT_HOST);
 
 	pm_runtime_put(common->dev);
 	return ret;
 }
 
-static void am65_cpsw_slave_set_promisc_2g(struct am65_cpsw_port *port,
-					   bool promisc)
+static void am65_cpsw_slave_set_promisc(struct am65_cpsw_port *port,
+					bool promisc)
 {
 	struct am65_cpsw_common *common = port->common;
 
@@ -297,7 +299,7 @@ static void am65_cpsw_nuss_ndo_slave_set_rx_mode(struct net_device *ndev)
 	bool promisc;
 
 	promisc = !!(ndev->flags & IFF_PROMISC);
-	am65_cpsw_slave_set_promisc_2g(port, promisc);
+	am65_cpsw_slave_set_promisc(port, promisc);
 
 	if (promisc)
 		return;
@@ -371,8 +373,9 @@ static int am65_cpsw_nuss_rx_push(struct am65_cpsw_common *common,
 	}
 	desc_dma = k3_cppi_desc_pool_virt2dma(rx_chn->desc_pool, desc_rx);
 
-	buf_dma = dma_map_single(dev, skb->data, pkt_len, DMA_FROM_DEVICE);
-	if (unlikely(dma_mapping_error(dev, buf_dma))) {
+	buf_dma = dma_map_single(rx_chn->dma_dev, skb->data, pkt_len,
+				 DMA_FROM_DEVICE);
+	if (unlikely(dma_mapping_error(rx_chn->dma_dev, buf_dma))) {
 		k3_cppi_desc_pool_free(rx_chn->desc_pool, desc_rx);
 		dev_err(dev, "Failed to map rx skb buffer\n");
 		return -EINVAL;
@@ -380,7 +383,8 @@ static int am65_cpsw_nuss_rx_push(struct am65_cpsw_common *common,
 
 	cppi5_hdesc_init(desc_rx, CPPI5_INFO0_HDESC_EPIB_PRESENT,
 			 AM65_CPSW_NAV_PS_DATA_SIZE);
-	cppi5_hdesc_attach_buf(desc_rx, 0, 0, buf_dma, skb_tailroom(skb));
+	k3_udma_glue_rx_dma_to_cppi5_addr(rx_chn->rx_chn, &buf_dma);
+	cppi5_hdesc_attach_buf(desc_rx, buf_dma, skb_tailroom(skb), buf_dma, skb_tailroom(skb));
 	swdata = cppi5_hdesc_get_swdata(desc_rx);
 	*((void **)swdata) = skb;
 
@@ -433,9 +437,7 @@ static int am65_cpsw_nuss_common_open(struct am65_cpsw_common *common,
 	writel(common->rx_flow_id_base,
 	       host_p->port_base + AM65_CPSW_PORT0_REG_FLOW_ID_OFFSET);
 	/* en tx crc offload */
-	if (features & NETIF_F_HW_CSUM)
-		writel(AM65_CPSW_P0_REG_CTL_RX_CHECKSUM_EN,
-		       host_p->port_base + AM65_CPSW_P0_REG_CTL);
+	writel(AM65_CPSW_P0_REG_CTL_RX_CHECKSUM_EN, host_p->port_base + AM65_CPSW_P0_REG_CTL);
 
 	am65_cpsw_nuss_set_p0_ptype(common);
 
@@ -504,6 +506,10 @@ static int am65_cpsw_nuss_common_open(struct am65_cpsw_common *common,
 	}
 
 	napi_enable(&common->napi_rx);
+	if (common->rx_irq_disabled) {
+		common->rx_irq_disabled = false;
+		enable_irq(common->rx_chns.irq);
+	}
 
 	dev_dbg(common->dev, "cpsw_nuss started\n");
 	return 0;
@@ -639,13 +645,13 @@ static int am65_cpsw_nuss_ndo_slave_open(struct net_device *ndev)
 
 	am65_cpsw_port_set_sl_mac(port, ndev->dev_addr);
 
-	if (port->slave.mac_only)
+	if (port->slave.mac_only) {
 		/* enable mac-only mode on port */
 		cpsw_ale_control_set(common->ale, port->port_id,
 				     ALE_PORT_MACONLY, 1);
-	if (AM65_CPSW_IS_CPSW2G(common))
 		cpsw_ale_control_set(common->ale, port->port_id,
 				     ALE_PORT_NOLEARN, 1);
+	}
 
 	port_mask = BIT(port->port_id) | ALE_PORT_HOST;
 	cpsw_ale_add_ucast(common->ale, ndev->dev_addr,
@@ -704,8 +710,9 @@ static void am65_cpsw_nuss_rx_cleanup(void *data, dma_addr_t desc_dma)
 	swdata = cppi5_hdesc_get_swdata(desc_rx);
 	skb = *swdata;
 	cppi5_hdesc_get_obuf(desc_rx, &buf_dma, &buf_dma_len);
+	k3_udma_glue_rx_cppi5_to_dma_addr(rx_chn->rx_chn, &buf_dma);
 
-	dma_unmap_single(rx_chn->dev, buf_dma, buf_dma_len, DMA_FROM_DEVICE);
+	dma_unmap_single(rx_chn->dma_dev, buf_dma, buf_dma_len, DMA_FROM_DEVICE);
 	k3_cppi_desc_pool_free(rx_chn->desc_pool, desc_rx);
 
 	dev_kfree_skb_any(skb);
@@ -780,7 +787,7 @@ static int am65_cpsw_nuss_rx_packets(struct am65_cpsw_common *common,
 		return ret;
 	}
 
-	if (desc_dma & 0x1) {
+	if (cppi5_desc_is_tdcm(desc_dma)) {
 		dev_dbg(dev, "%s RX tdown flow: %u\n", __func__, flow_idx);
 		return 0;
 	}
@@ -792,6 +799,7 @@ static int am65_cpsw_nuss_rx_packets(struct am65_cpsw_common *common,
 	swdata = cppi5_hdesc_get_swdata(desc_rx);
 	skb = *swdata;
 	cppi5_hdesc_get_obuf(desc_rx, &buf_dma, &buf_dma_len);
+	k3_udma_glue_rx_cppi5_to_dma_addr(rx_chn->rx_chn, &buf_dma);
 	pkt_len = cppi5_hdesc_get_pktlen(desc_rx);
 	cppi5_desc_get_tags_ids(&desc_rx->hdr, &port_id, NULL);
 	dev_dbg(dev, "%s rx port_id:%d\n", __func__, port_id);
@@ -806,7 +814,7 @@ static int am65_cpsw_nuss_rx_packets(struct am65_cpsw_common *common,
 	csum_info = psdata[2];
 	dev_dbg(dev, "%s rx csum_info:%#x\n", __func__, csum_info);
 
-	dma_unmap_single(dev, buf_dma, buf_dma_len, DMA_FROM_DEVICE);
+	dma_unmap_single(rx_chn->dma_dev, buf_dma, buf_dma_len, DMA_FROM_DEVICE);
 
 	k3_cppi_desc_pool_free(rx_chn->desc_pool, desc_rx);
 
@@ -870,14 +878,17 @@ static int am65_cpsw_nuss_rx_poll(struct napi_struct *napi_rx, int budget)
 
 	dev_dbg(common->dev, "%s num_rx:%d %d\n", __func__, num_rx, budget);
 
-	if (num_rx < budget && napi_complete_done(napi_rx, num_rx))
-		enable_irq(common->rx_chns.irq);
+	if (num_rx < budget && napi_complete_done(napi_rx, num_rx)) {
+		if (common->rx_irq_disabled) {
+			common->rx_irq_disabled = false;
+			enable_irq(common->rx_chns.irq);
+		}
+	}
 
 	return num_rx;
 }
 
 static void am65_cpsw_nuss_xmit_free(struct am65_cpsw_tx_chn *tx_chn,
-				     struct device *dev,
 				     struct cppi5_host_desc_t *desc)
 {
 	struct cppi5_host_desc_t *first_desc, *next_desc;
@@ -888,17 +899,18 @@ static void am65_cpsw_nuss_xmit_free(struct am65_cpsw_tx_chn *tx_chn,
 	next_desc = first_desc;
 
 	cppi5_hdesc_get_obuf(first_desc, &buf_dma, &buf_dma_len);
+	k3_udma_glue_tx_cppi5_to_dma_addr(tx_chn->tx_chn, &buf_dma);
 
-	dma_unmap_single(dev, buf_dma, buf_dma_len,
-			 DMA_TO_DEVICE);
+	dma_unmap_single(tx_chn->dma_dev, buf_dma, buf_dma_len, DMA_TO_DEVICE);
 
 	next_desc_dma = cppi5_hdesc_get_next_hbdesc(first_desc);
 	while (next_desc_dma) {
 		next_desc = k3_cppi_desc_pool_dma2virt(tx_chn->desc_pool,
 						       next_desc_dma);
 		cppi5_hdesc_get_obuf(next_desc, &buf_dma, &buf_dma_len);
+		k3_udma_glue_tx_cppi5_to_dma_addr(tx_chn->tx_chn, &buf_dma);
 
-		dma_unmap_page(dev, buf_dma, buf_dma_len,
+		dma_unmap_page(tx_chn->dma_dev, buf_dma, buf_dma_len,
 			       DMA_TO_DEVICE);
 
 		next_desc_dma = cppi5_hdesc_get_next_hbdesc(next_desc);
@@ -919,15 +931,62 @@ static void am65_cpsw_nuss_tx_cleanup(void *data, dma_addr_t desc_dma)
 	desc_tx = k3_cppi_desc_pool_dma2virt(tx_chn->desc_pool, desc_dma);
 	swdata = cppi5_hdesc_get_swdata(desc_tx);
 	skb = *(swdata);
-	am65_cpsw_nuss_xmit_free(tx_chn, tx_chn->common->dev, desc_tx);
+	am65_cpsw_nuss_xmit_free(tx_chn, desc_tx);
 
 	dev_kfree_skb_any(skb);
+}
+
+static struct sk_buff *
+am65_cpsw_nuss_tx_compl_packet(struct am65_cpsw_tx_chn *tx_chn,
+			       dma_addr_t desc_dma)
+{
+	struct am65_cpsw_ndev_priv *ndev_priv;
+	struct am65_cpsw_ndev_stats *stats;
+	struct cppi5_host_desc_t *desc_tx;
+	struct net_device *ndev;
+	struct sk_buff *skb;
+	void **swdata;
+
+	desc_tx = k3_cppi_desc_pool_dma2virt(tx_chn->desc_pool,
+					     desc_dma);
+	swdata = cppi5_hdesc_get_swdata(desc_tx);
+	skb = *(swdata);
+	am65_cpsw_nuss_xmit_free(tx_chn, desc_tx);
+
+	ndev = skb->dev;
+
+	am65_cpts_tx_timestamp(tx_chn->common->cpts, skb);
+
+	ndev_priv = netdev_priv(ndev);
+	stats = this_cpu_ptr(ndev_priv->stats);
+	u64_stats_update_begin(&stats->syncp);
+	stats->tx_packets++;
+	stats->tx_bytes += skb->len;
+	u64_stats_update_end(&stats->syncp);
+
+	return skb;
+}
+
+static void am65_cpsw_nuss_tx_wake(struct am65_cpsw_tx_chn *tx_chn, struct net_device *ndev,
+				   struct netdev_queue *netif_txq)
+{
+	if (netif_tx_queue_stopped(netif_txq)) {
+		/* Check whether the queue is stopped due to stalled
+		 * tx dma, if the queue is stopped then wake the queue
+		 * as we have free desc for tx
+		 */
+		__netif_tx_lock(netif_txq, smp_processor_id());
+		if (netif_running(ndev) &&
+		    (k3_cppi_desc_pool_avail(tx_chn->desc_pool) >= MAX_SKB_FRAGS))
+			netif_tx_wake_queue(netif_txq);
+
+		__netif_tx_unlock(netif_txq);
+	}
 }
 
 static int am65_cpsw_nuss_tx_compl_packets(struct am65_cpsw_common *common,
 					   int chn, unsigned int budget)
 {
-	struct cppi5_host_desc_t *desc_tx;
 	struct device *dev = common->dev;
 	struct am65_cpsw_tx_chn *tx_chn;
 	struct netdev_queue *netif_txq;
@@ -936,41 +995,68 @@ static int am65_cpsw_nuss_tx_compl_packets(struct am65_cpsw_common *common,
 	struct sk_buff *skb;
 	dma_addr_t desc_dma;
 	int res, num_tx = 0;
-	void **swdata;
 
 	tx_chn = &common->tx_chns[chn];
 
-	while (budget--) {
-		struct am65_cpsw_ndev_priv *ndev_priv;
-		struct am65_cpsw_ndev_stats *stats;
-
+	while (true) {
+		spin_lock(&tx_chn->lock);
 		res = k3_udma_glue_pop_tx_chn(tx_chn->tx_chn, &desc_dma);
+		spin_unlock(&tx_chn->lock);
 		if (res == -ENODATA)
 			break;
 
-		if (desc_dma & 0x1) {
+		if (cppi5_desc_is_tdcm(desc_dma)) {
 			if (atomic_dec_and_test(&common->tdown_cnt))
 				complete(&common->tdown_complete);
 			break;
 		}
 
-		desc_tx = k3_cppi_desc_pool_dma2virt(tx_chn->desc_pool,
-						     desc_dma);
-		swdata = cppi5_hdesc_get_swdata(desc_tx);
-		skb = *(swdata);
-		am65_cpsw_nuss_xmit_free(tx_chn, dev, desc_tx);
+		skb = am65_cpsw_nuss_tx_compl_packet(tx_chn, desc_dma);
+		total_bytes = skb->len;
+		ndev = skb->dev;
+		napi_consume_skb(skb, budget);
+		num_tx++;
+
+		netif_txq = netdev_get_tx_queue(ndev, chn);
+
+		netdev_tx_completed_queue(netif_txq, num_tx, total_bytes);
+
+		am65_cpsw_nuss_tx_wake(tx_chn, ndev, netif_txq);
+	}
+
+	dev_dbg(dev, "%s:%u pkt:%d\n", __func__, chn, num_tx);
+
+	return num_tx;
+}
+
+static int am65_cpsw_nuss_tx_compl_packets_2g(struct am65_cpsw_common *common,
+					      int chn, unsigned int budget)
+{
+	struct device *dev = common->dev;
+	struct am65_cpsw_tx_chn *tx_chn;
+	struct netdev_queue *netif_txq;
+	unsigned int total_bytes = 0;
+	struct net_device *ndev;
+	struct sk_buff *skb;
+	dma_addr_t desc_dma;
+	int res, num_tx = 0;
+
+	tx_chn = &common->tx_chns[chn];
+
+	while (true) {
+		res = k3_udma_glue_pop_tx_chn(tx_chn->tx_chn, &desc_dma);
+		if (res == -ENODATA)
+			break;
+
+		if (cppi5_desc_is_tdcm(desc_dma)) {
+			if (atomic_dec_and_test(&common->tdown_cnt))
+				complete(&common->tdown_complete);
+			break;
+		}
+
+		skb = am65_cpsw_nuss_tx_compl_packet(tx_chn, desc_dma);
 
 		ndev = skb->dev;
-
-		am65_cpts_tx_timestamp(common->cpts, skb);
-
-		ndev_priv = netdev_priv(ndev);
-		stats = this_cpu_ptr(ndev_priv->stats);
-		u64_stats_update_begin(&stats->syncp);
-		stats->tx_packets++;
-		stats->tx_bytes += skb->len;
-		u64_stats_update_end(&stats->syncp);
-
 		total_bytes += skb->len;
 		napi_consume_skb(skb, budget);
 		num_tx++;
@@ -983,19 +1069,8 @@ static int am65_cpsw_nuss_tx_compl_packets(struct am65_cpsw_common *common,
 
 	netdev_tx_completed_queue(netif_txq, num_tx, total_bytes);
 
-	if (netif_tx_queue_stopped(netif_txq)) {
-		/* Check whether the queue is stopped due to stalled tx dma,
-		 * if the queue is stopped then wake the queue as
-		 * we have free desc for tx
-		 */
-		__netif_tx_lock(netif_txq, smp_processor_id());
-		if (netif_running(ndev) &&
-		    (k3_cppi_desc_pool_avail(tx_chn->desc_pool) >=
-		     MAX_SKB_FRAGS))
-			netif_tx_wake_queue(netif_txq);
+	am65_cpsw_nuss_tx_wake(tx_chn, ndev, netif_txq);
 
-		__netif_tx_unlock(netif_txq);
-	}
 	dev_dbg(dev, "%s:%u pkt:%d\n", __func__, chn, num_tx);
 
 	return num_tx;
@@ -1006,8 +1081,12 @@ static int am65_cpsw_nuss_tx_poll(struct napi_struct *napi_tx, int budget)
 	struct am65_cpsw_tx_chn *tx_chn = am65_cpsw_napi_to_tx_chn(napi_tx);
 	int num_tx;
 
-	num_tx = am65_cpsw_nuss_tx_compl_packets(tx_chn->common, tx_chn->id,
-						 budget);
+	if (AM65_CPSW_IS_CPSW2G(tx_chn->common))
+		num_tx = am65_cpsw_nuss_tx_compl_packets_2g(tx_chn->common, tx_chn->id, budget);
+	else
+		num_tx = am65_cpsw_nuss_tx_compl_packets(tx_chn->common, tx_chn->id, budget);
+
+	num_tx = min(num_tx, budget);
 	if (num_tx < budget) {
 		napi_complete(napi_tx);
 		enable_irq(tx_chn->irq);
@@ -1020,6 +1099,7 @@ static irqreturn_t am65_cpsw_nuss_rx_irq(int irq, void *dev_id)
 {
 	struct am65_cpsw_common *common = dev_id;
 
+	common->rx_irq_disabled = true;
 	disable_irq_nosync(irq);
 	napi_schedule(&common->napi_rx);
 
@@ -1065,9 +1145,9 @@ static netdev_tx_t am65_cpsw_nuss_ndo_slave_xmit(struct sk_buff *skb,
 	netif_txq = netdev_get_tx_queue(ndev, q_idx);
 
 	/* Map the linear buffer */
-	buf_dma = dma_map_single(dev, skb->data, pkt_len,
+	buf_dma = dma_map_single(tx_chn->dma_dev, skb->data, pkt_len,
 				 DMA_TO_DEVICE);
-	if (unlikely(dma_mapping_error(dev, buf_dma))) {
+	if (unlikely(dma_mapping_error(tx_chn->dma_dev, buf_dma))) {
 		dev_err(dev, "Failed to map tx skb buffer\n");
 		ndev->stats.tx_errors++;
 		goto err_free_skb;
@@ -1076,7 +1156,8 @@ static netdev_tx_t am65_cpsw_nuss_ndo_slave_xmit(struct sk_buff *skb,
 	first_desc = k3_cppi_desc_pool_alloc(tx_chn->desc_pool);
 	if (!first_desc) {
 		dev_dbg(dev, "Failed to allocate descriptor\n");
-		dma_unmap_single(dev, buf_dma, pkt_len, DMA_TO_DEVICE);
+		dma_unmap_single(tx_chn->dma_dev, buf_dma, pkt_len,
+				 DMA_TO_DEVICE);
 		goto busy_stop_q;
 	}
 
@@ -1086,6 +1167,7 @@ static netdev_tx_t am65_cpsw_nuss_ndo_slave_xmit(struct sk_buff *skb,
 	cppi5_hdesc_set_pkttype(first_desc, 0x7);
 	cppi5_desc_set_tags_ids(&first_desc->hdr, 0, port->port_id);
 
+	k3_udma_glue_tx_dma_to_cppi5_addr(tx_chn->tx_chn, &buf_dma);
 	cppi5_hdesc_attach_buf(first_desc, buf_dma, pkt_len, buf_dma, pkt_len);
 	swdata = cppi5_hdesc_get_swdata(first_desc);
 	*(swdata) = skb;
@@ -1121,9 +1203,9 @@ static netdev_tx_t am65_cpsw_nuss_ndo_slave_xmit(struct sk_buff *skb,
 			goto busy_free_descs;
 		}
 
-		buf_dma = skb_frag_dma_map(dev, frag, 0, frag_size,
+		buf_dma = skb_frag_dma_map(tx_chn->dma_dev, frag, 0, frag_size,
 					   DMA_TO_DEVICE);
-		if (unlikely(dma_mapping_error(dev, buf_dma))) {
+		if (unlikely(dma_mapping_error(tx_chn->dma_dev, buf_dma))) {
 			dev_err(dev, "Failed to map tx skb page\n");
 			k3_cppi_desc_pool_free(tx_chn->desc_pool, next_desc);
 			ndev->stats.tx_errors++;
@@ -1131,11 +1213,13 @@ static netdev_tx_t am65_cpsw_nuss_ndo_slave_xmit(struct sk_buff *skb,
 		}
 
 		cppi5_hdesc_reset_hbdesc(next_desc);
+		k3_udma_glue_tx_dma_to_cppi5_addr(tx_chn->tx_chn, &buf_dma);
 		cppi5_hdesc_attach_buf(next_desc,
 				       buf_dma, frag_size, buf_dma, frag_size);
 
 		desc_dma = k3_cppi_desc_pool_virt2dma(tx_chn->desc_pool,
 						      next_desc);
+		k3_udma_glue_tx_dma_to_cppi5_addr(tx_chn->tx_chn, &desc_dma);
 		cppi5_hdesc_link_hbdesc(cur_desc, desc_dma);
 
 		pkt_len += frag_size;
@@ -1151,7 +1235,13 @@ done_tx:
 
 	cppi5_hdesc_set_pktlen(first_desc, pkt_len);
 	desc_dma = k3_cppi_desc_pool_virt2dma(tx_chn->desc_pool, first_desc);
-	ret = k3_udma_glue_push_tx_chn(tx_chn->tx_chn, first_desc, desc_dma);
+	if (AM65_CPSW_IS_CPSW2G(common)) {
+		ret = k3_udma_glue_push_tx_chn(tx_chn->tx_chn, first_desc, desc_dma);
+	} else {
+		spin_lock_bh(&tx_chn->lock);
+		ret = k3_udma_glue_push_tx_chn(tx_chn->tx_chn, first_desc, desc_dma);
+		spin_unlock_bh(&tx_chn->lock);
+	}
 	if (ret) {
 		dev_err(dev, "can't push desc %d\n", ret);
 		/* inform bql */
@@ -1177,14 +1267,14 @@ done_tx:
 	return NETDEV_TX_OK;
 
 err_free_descs:
-	am65_cpsw_nuss_xmit_free(tx_chn, dev, first_desc);
+	am65_cpsw_nuss_xmit_free(tx_chn, first_desc);
 err_free_skb:
 	ndev->stats.tx_dropped++;
 	dev_kfree_skb_any(skb);
 	return NETDEV_TX_OK;
 
 busy_free_descs:
-	am65_cpsw_nuss_xmit_free(tx_chn, dev, first_desc);
+	am65_cpsw_nuss_xmit_free(tx_chn, first_desc);
 busy_stop_q:
 	netif_tx_stop_queue(netif_txq);
 	return NETDEV_TX_BUSY;
@@ -1229,7 +1319,7 @@ static int am65_cpsw_nuss_hwtstamp_set(struct net_device *ndev,
 	u32 ts_ctrl, seq_id, ts_ctrl_ltype2, ts_vlan_ltype;
 	struct hwtstamp_config cfg;
 
-	if (!IS_ENABLED(CONFIG_TI_AM65_CPTS))
+	if (!IS_ENABLED(CONFIG_TI_K3_AM65_CPTS))
 		return -EOPNOTSUPP;
 
 	if (copy_from_user(&cfg, ifr->ifr_data, sizeof(cfg)))
@@ -1314,7 +1404,7 @@ static int am65_cpsw_nuss_hwtstamp_get(struct net_device *ndev,
 	struct am65_cpsw_port *port = am65_ndev_to_port(ndev);
 	struct hwtstamp_config cfg;
 
-	if (!IS_ENABLED(CONFIG_TI_AM65_CPTS))
+	if (!IS_ENABLED(CONFIG_TI_K3_AM65_CPTS))
 		return -EOPNOTSUPP;
 
 	cfg.flags = 0;
@@ -1350,7 +1440,7 @@ static int am65_cpsw_switch_config_ioctl(struct net_device *ndev,
 		}
 
 		ret = cpsw_ale_set_ratelimit(common->ale,
-					     common->bus_freq_mhz * 1000000,
+					     common->bus_freq,
 					     config.port,
 					     config.bcast_rate_limit,
 					     config.mcast_rate_limit,
@@ -1424,32 +1514,7 @@ static void am65_cpsw_nuss_ndo_get_stats(struct net_device *dev,
 	stats->tx_dropped	= dev->stats.tx_dropped;
 }
 
-static int am65_cpsw_nuss_ndo_slave_set_features(struct net_device *ndev,
-						 netdev_features_t features)
-{
-	struct am65_cpsw_common *common = am65_ndev_to_common(ndev);
-	netdev_features_t changes = features ^ ndev->features;
-	struct am65_cpsw_host *host_p;
-
-	host_p = am65_common_get_host(common);
-
-	if (changes & NETIF_F_HW_CSUM) {
-		bool enable = !!(features & NETIF_F_HW_CSUM);
-
-		dev_info(common->dev, "Turn %s tx-checksum-ip-generic\n",
-			 enable ? "ON" : "OFF");
-		if (enable)
-			writel(AM65_CPSW_P0_REG_CTL_RX_CHECKSUM_EN,
-			       host_p->port_base + AM65_CPSW_P0_REG_CTL);
-		else
-			writel(0,
-			       host_p->port_base + AM65_CPSW_P0_REG_CTL);
-	}
-
-	return 0;
-}
-
-static const struct net_device_ops am65_cpsw_nuss_netdev_ops_2g = {
+static const struct net_device_ops am65_cpsw_nuss_netdev_ops = {
 	.ndo_open		= am65_cpsw_nuss_ndo_slave_open,
 	.ndo_stop		= am65_cpsw_nuss_ndo_slave_stop,
 	.ndo_start_xmit		= am65_cpsw_nuss_ndo_slave_xmit,
@@ -1461,7 +1526,6 @@ static const struct net_device_ops am65_cpsw_nuss_netdev_ops_2g = {
 	.ndo_vlan_rx_add_vid	= am65_cpsw_nuss_ndo_slave_add_vid,
 	.ndo_vlan_rx_kill_vid	= am65_cpsw_nuss_ndo_slave_kill_vid,
 	.ndo_do_ioctl		= am65_cpsw_nuss_ndo_slave_ioctl,
-	.ndo_set_features	= am65_cpsw_nuss_ndo_slave_set_features,
 	.ndo_setup_tc           = am65_cpsw_qos_ndo_setup_tc,
 };
 
@@ -1472,7 +1536,6 @@ static void am65_cpsw_nuss_slave_disable_unused(struct am65_cpsw_port *port)
 	if (!port->disabled)
 		return;
 
-	common->disabled_ports_mask |= BIT(port->port_id);
 	cpsw_ale_control_set(common->ale, port->port_id,
 			     ALE_PORT_STATE, ALE_PORT_STATE_DISABLE);
 
@@ -1551,19 +1614,10 @@ static int am65_cpsw_nuss_init_tx_chns(struct am65_cpsw_common *common)
 		snprintf(tx_chn->tx_chn_name,
 			 sizeof(tx_chn->tx_chn_name), "tx%d", i);
 
+		spin_lock_init(&tx_chn->lock);
 		tx_chn->common = common;
 		tx_chn->id = i;
 		tx_chn->descs_num = max_desc_num;
-		tx_chn->desc_pool =
-			k3_cppi_desc_pool_create_name(dev,
-						      tx_chn->descs_num,
-						      hdesc_size,
-						      tx_chn->tx_chn_name);
-		if (IS_ERR(tx_chn->desc_pool)) {
-			ret = PTR_ERR(tx_chn->desc_pool);
-			dev_err(dev, "Failed to create poll %d\n", ret);
-			goto err;
-		}
 
 		tx_chn->tx_chn =
 			k3_udma_glue_request_tx_chn(dev,
@@ -1573,6 +1627,17 @@ static int am65_cpsw_nuss_init_tx_chns(struct am65_cpsw_common *common)
 			ret = PTR_ERR(tx_chn->tx_chn);
 			dev_err(dev, "Failed to request tx dma channel %d\n",
 				ret);
+			goto err;
+		}
+		tx_chn->dma_dev = k3_udma_glue_tx_get_dma_device(tx_chn->tx_chn);
+
+		tx_chn->desc_pool = k3_cppi_desc_pool_create_name(tx_chn->dma_dev,
+								  tx_chn->descs_num,
+								  hdesc_size,
+								  tx_chn->tx_chn_name);
+		if (IS_ERR(tx_chn->desc_pool)) {
+			ret = PTR_ERR(tx_chn->desc_pool);
+			dev_err(dev, "Failed to create poll %d\n", ret);
 			goto err;
 		}
 
@@ -1632,19 +1697,21 @@ static int am65_cpsw_nuss_init_rx_chns(struct am65_cpsw_common *common)
 	/* init all flows */
 	rx_chn->dev = dev;
 	rx_chn->descs_num = max_desc_num;
-	rx_chn->desc_pool = k3_cppi_desc_pool_create_name(dev,
-							  rx_chn->descs_num,
-							  hdesc_size, "rx");
-	if (IS_ERR(rx_chn->desc_pool)) {
-		ret = PTR_ERR(rx_chn->desc_pool);
-		dev_err(dev, "Failed to create rx poll %d\n", ret);
-		goto err;
-	}
 
 	rx_chn->rx_chn = k3_udma_glue_request_rx_chn(dev, "rx", &rx_cfg);
 	if (IS_ERR(rx_chn->rx_chn)) {
 		ret = PTR_ERR(rx_chn->rx_chn);
 		dev_err(dev, "Failed to request rx dma channel %d\n", ret);
+		goto err;
+	}
+	rx_chn->dma_dev = k3_udma_glue_rx_get_dma_device(rx_chn->rx_chn);
+
+	rx_chn->desc_pool = k3_cppi_desc_pool_create_name(rx_chn->dma_dev,
+							  rx_chn->descs_num,
+							  hdesc_size, "rx");
+	if (IS_ERR(rx_chn->desc_pool)) {
+		ret = PTR_ERR(rx_chn->desc_pool);
+		dev_err(dev, "Failed to create rx poll %d\n", ret);
 		goto err;
 	}
 
@@ -1661,7 +1728,6 @@ static int am65_cpsw_nuss_init_rx_chns(struct am65_cpsw_common *common)
 		};
 		struct k3_ring_cfg fdqring_cfg = {
 			.elm_size = K3_RINGACC_RING_ELSIZE_8,
-			.mode = K3_RINGACC_RING_MODE_MESSAGE,
 			.flags = K3_RINGACC_RING_SHARED,
 		};
 		struct k3_udma_glue_rx_flow_cfg rx_flow_cfg = {
@@ -1675,6 +1741,7 @@ static int am65_cpsw_nuss_init_rx_chns(struct am65_cpsw_common *common)
 		rx_flow_cfg.ring_rxfdq0_id = fdqring_id;
 		rx_flow_cfg.rx_cfg.size = max_desc_num;
 		rx_flow_cfg.rxfdq_cfg.size = max_desc_num;
+		rx_flow_cfg.rxfdq_cfg.mode = common->pdata.fdqring_mode;
 
 		ret = k3_udma_glue_rx_flow_init(rx_chn->rx_chn,
 						i, &rx_flow_cfg);
@@ -1757,7 +1824,7 @@ static int am65_cpsw_init_cpts(struct am65_cpsw_common *common)
 	struct am65_cpts *cpts;
 	void __iomem *reg_base;
 
-	if (!IS_ENABLED(CONFIG_TI_AM65_CPTS))
+	if (!IS_ENABLED(CONFIG_TI_K3_AM65_CPTS))
 		return 0;
 
 	node = of_get_child_by_name(dev->of_node, "cpts");
@@ -1780,6 +1847,13 @@ static int am65_cpsw_init_cpts(struct am65_cpsw_common *common)
 		return ret;
 	}
 	common->cpts = cpts;
+	/* Forbid PM runtime if CPTS is running.
+	 * K3 CPSWxG modules may completely lose context during ON->OFF
+	 * transitions depending on integration.
+	 * AM65x/J721E MCU CPSW2G: false
+	 * J721E MAIN_CPSW9G: true
+	 */
+	pm_runtime_forbid(dev);
 
 	return 0;
 }
@@ -1833,8 +1907,10 @@ static int am65_cpsw_nuss_init_slave_ports(struct am65_cpsw_common *common)
 			return PTR_ERR(port->slave.mac_sl);
 
 		port->disabled = !of_device_is_available(port_np);
-		if (port->disabled)
+		if (port->disabled) {
+			common->disabled_ports_mask |= BIT(port->port_id);
 			continue;
+		}
 
 		port->slave.ifphy = devm_of_phy_get(dev, port_np, NULL);
 		if (IS_ERR(port->slave.ifphy)) {
@@ -1888,6 +1964,12 @@ static int am65_cpsw_nuss_init_slave_ports(struct am65_cpsw_common *common)
 	}
 	of_node_put(node);
 
+	/* is there at least one ext.port */
+	if (!(~common->disabled_ports_mask & GENMASK(common->port_num, 1))) {
+		dev_err(dev, "No Ext. port are available\n");
+		return -ENODEV;
+	}
+
 	return 0;
 }
 
@@ -1898,14 +1980,18 @@ static void am65_cpsw_pcpu_stats_free(void *data)
 	free_percpu(stats);
 }
 
-static int am65_cpsw_nuss_init_ndev_2g(struct am65_cpsw_common *common)
+static int
+am65_cpsw_nuss_init_port_ndev(struct am65_cpsw_common *common, u32 port_idx)
 {
 	struct am65_cpsw_ndev_priv *ndev_priv;
 	struct device *dev = common->dev;
 	struct am65_cpsw_port *port;
 	int ret;
 
-	port = am65_common_get_port(common, 1);
+	port = &common->ports[port_idx];
+
+	if (port->disabled)
+		return 0;
 
 	/* alloc netdev */
 	port->ndev = devm_alloc_etherdev_mqs(common->dev,
@@ -1934,7 +2020,7 @@ static int am65_cpsw_nuss_init_ndev_2g(struct am65_cpsw_common *common)
 	port->ndev->features = port->ndev->hw_features |
 			       NETIF_F_HW_VLAN_CTAG_FILTER;
 	port->ndev->vlan_features |=  NETIF_F_SG;
-	port->ndev->netdev_ops = &am65_cpsw_nuss_netdev_ops_2g;
+	port->ndev->netdev_ops = &am65_cpsw_nuss_netdev_ops;
 	port->ndev->ethtool_ops = &am65_cpsw_ethtool_ops_slave;
 
 	/* Disable TX checksum offload by default due to HW bug */
@@ -1947,29 +2033,41 @@ static int am65_cpsw_nuss_init_ndev_2g(struct am65_cpsw_common *common)
 
 	ret = devm_add_action_or_reset(dev, am65_cpsw_pcpu_stats_free,
 				       ndev_priv->stats);
-	if (ret) {
-		dev_err(dev, "Failed to add percpu stat free action %d\n", ret);
-		return ret;
+	if (ret)
+		dev_err(dev, "failed to add percpu stat free action %d\n", ret);
+
+	if (!common->dma_ndev)
+		common->dma_ndev = port->ndev;
+
+	return ret;
+}
+
+static int am65_cpsw_nuss_init_ndevs(struct am65_cpsw_common *common)
+{
+	int ret;
+	int i;
+
+	for (i = 0; i < common->port_num; i++) {
+		ret = am65_cpsw_nuss_init_port_ndev(common, i);
+		if (ret)
+			return ret;
 	}
 
-	netif_napi_add(port->ndev, &common->napi_rx,
+	netif_napi_add(common->dma_ndev, &common->napi_rx,
 		       am65_cpsw_nuss_rx_poll, NAPI_POLL_WEIGHT);
 
 	return ret;
 }
 
-static int am65_cpsw_nuss_ndev_add_napi_2g(struct am65_cpsw_common *common)
+static int am65_cpsw_nuss_ndev_add_tx_napi(struct am65_cpsw_common *common)
 {
 	struct device *dev = common->dev;
-	struct am65_cpsw_port *port;
 	int i, ret = 0;
-
-	port = am65_common_get_port(common, 1);
 
 	for (i = 0; i < common->tx_ch_num; i++) {
 		struct am65_cpsw_tx_chn *tx_chn = &common->tx_chns[i];
 
-		netif_tx_napi_add(port->ndev, &tx_chn->napi_tx,
+		netif_tx_napi_add(common->dma_ndev, &tx_chn->napi_tx,
 				  am65_cpsw_nuss_tx_poll, NAPI_POLL_WEIGHT);
 
 		ret = devm_request_irq(dev, tx_chn->irq,
@@ -1987,16 +2085,27 @@ err:
 	return ret;
 }
 
-static int am65_cpsw_nuss_ndev_reg_2g(struct am65_cpsw_common *common)
+static void am65_cpsw_nuss_cleanup_ndev(struct am65_cpsw_common *common)
+{
+	struct am65_cpsw_port *port;
+	int i;
+
+	for (i = 0; i < common->port_num; i++) {
+		port = &common->ports[i];
+		if (port->ndev)
+			unregister_netdev(port->ndev);
+	}
+}
+
+static int am65_cpsw_nuss_register_ndevs(struct am65_cpsw_common *common)
 {
 	struct device *dev = common->dev;
 	struct am65_cpsw_port *port;
-	int ret = 0;
+	int ret = 0, i;
 
-	port = am65_common_get_port(common, 1);
-	ret = am65_cpsw_nuss_ndev_add_napi_2g(common);
+	ret = am65_cpsw_nuss_ndev_add_tx_napi(common);
 	if (ret)
-		goto err;
+		return ret;
 
 	ret = devm_request_irq(dev, common->rx_chns.irq,
 			       am65_cpsw_nuss_rx_irq,
@@ -2004,17 +2113,31 @@ static int am65_cpsw_nuss_ndev_reg_2g(struct am65_cpsw_common *common)
 	if (ret) {
 		dev_err(dev, "failure requesting rx irq %u, %d\n",
 			common->rx_chns.irq, ret);
-		goto err;
+		return ret;
 	}
 
-	ret = register_netdev(port->ndev);
-	if (ret)
-		dev_err(dev, "error registering slave net device %d\n", ret);
+	for (i = 0; i < common->port_num; i++) {
+		port = &common->ports[i];
+
+		if (!port->ndev)
+			continue;
+
+		ret = register_netdev(port->ndev);
+		if (ret) {
+			dev_err(dev, "error registering slave net device%i %d\n",
+				i, ret);
+			goto err_cleanup_ndev;
+		}
+	}
+
 
 	/* can't auto unregister ndev using devm_add_action() due to
 	 * devres release sequence in DD core for DMA
 	 */
-err:
+	return 0;
+
+err_cleanup_ndev:
+	am65_cpsw_nuss_cleanup_ndev(common);
 	return ret;
 }
 
@@ -2027,19 +2150,7 @@ int am65_cpsw_nuss_update_tx_chns(struct am65_cpsw_common *common, int num_tx)
 	if (ret)
 		return ret;
 
-	return am65_cpsw_nuss_ndev_add_napi_2g(common);
-}
-
-static void am65_cpsw_nuss_cleanup_ndev(struct am65_cpsw_common *common)
-{
-	struct am65_cpsw_port *port;
-	int i;
-
-	for (i = 0; i < common->port_num; i++) {
-		port = &common->ports[i];
-		if (port->ndev)
-			unregister_netdev(port->ndev);
-	}
+	return am65_cpsw_nuss_ndev_add_tx_napi(common);
 }
 
 struct am65_cpsw_soc_pdata {
@@ -2060,15 +2171,26 @@ static const struct soc_device_attribute am65_cpsw_socinfo[] = {
 
 static const struct am65_cpsw_pdata am65x_sr1_0 = {
 	.quirks = AM65_CPSW_QUIRK_I2027_NO_TX_CSUM,
+	.ale_dev_id = "am65x-cpsw2g",
+	.fdqring_mode = K3_RINGACC_RING_MODE_MESSAGE,
 };
 
 static const struct am65_cpsw_pdata j721e_pdata = {
 	.quirks = 0,
+	.ale_dev_id = "am65x-cpsw2g",
+	.fdqring_mode = K3_RINGACC_RING_MODE_MESSAGE,
+};
+
+static const struct am65_cpsw_pdata am64x_cpswxg_pdata = {
+	.quirks = 0,
+	.ale_dev_id = "am64-cpswxg",
+	.fdqring_mode = K3_RINGACC_RING_MODE_RING,
 };
 
 static const struct of_device_id am65_cpsw_nuss_of_mtable[] = {
 	{ .compatible = "ti,am654-cpsw-nuss", .data = &am65x_sr1_0},
 	{ .compatible = "ti,j721e-cpsw-nuss", .data = &j721e_pdata},
+	{ .compatible = "ti,am64-cpsw-nuss", .data = &am64x_cpswxg_pdata},
 	{ /* sentinel */ },
 };
 MODULE_DEVICE_TABLE(of, am65_cpsw_nuss_of_mtable);
@@ -2123,19 +2245,10 @@ static int am65_cpsw_nuss_probe(struct platform_device *pdev)
 		return -ENOENT;
 	of_node_put(node);
 
-	if (common->port_num != 1)
-		return -EOPNOTSUPP;
-
 	common->rx_flow_id_base = -1;
 	init_completion(&common->tdown_complete);
 	common->tx_ch_num = 1;
 	common->pf_p0_rx_ptype_rrobin = false;
-
-	ret = dma_coerce_mask_and_coherent(dev, DMA_BIT_MASK(48));
-	if (ret) {
-		dev_err(dev, "error setting dma mask: %d\n", ret);
-		return ret;
-	}
 
 	common->ports = devm_kcalloc(dev, common->port_num,
 				     sizeof(*common->ports),
@@ -2151,7 +2264,7 @@ static int am65_cpsw_nuss_probe(struct platform_device *pdev)
 			dev_err(dev, "error getting fck clock %d\n", ret);
 		return ret;
 	}
-	common->bus_freq_mhz = clk_get_rate(clk) / 1000000;
+	common->bus_freq = clk_get_rate(clk);
 
 	pm_runtime_enable(dev);
 	ret = pm_runtime_get_sync(dev);
@@ -2198,14 +2311,15 @@ static int am65_cpsw_nuss_probe(struct platform_device *pdev)
 	/* init common data */
 	ale_params.dev = dev;
 	ale_params.ale_ageout = AM65_CPSW_ALE_AGEOUT_DEFAULT;
-	ale_params.ale_entries = 0;
 	ale_params.ale_ports = common->port_num + 1;
 	ale_params.ale_regs = common->cpsw_base + AM65_CPSW_NU_ALE_BASE;
-	ale_params.nu_switch_ale = true;
+	ale_params.dev_id = common->pdata.ale_dev_id;
+	ale_params.bus_freq = common->bus_freq;
 
 	common->ale = cpsw_ale_create(&ale_params);
-	if (!common->ale) {
+	if (IS_ERR(common->ale)) {
 		dev_err(dev, "error initializing ale engine\n");
+		ret = PTR_ERR(common->ale);
 		goto err_of_clear;
 	}
 
@@ -2219,11 +2333,11 @@ static int am65_cpsw_nuss_probe(struct platform_device *pdev)
 
 	dev_set_drvdata(dev, common);
 
-	ret = am65_cpsw_nuss_init_ndev_2g(common);
+	ret = am65_cpsw_nuss_init_ndevs(common);
 	if (ret)
 		goto err_of_clear;
 
-	ret = am65_cpsw_nuss_ndev_reg_2g(common);
+	ret = am65_cpsw_nuss_register_ndevs(common);
 	if (ret)
 		goto err_of_clear;
 
