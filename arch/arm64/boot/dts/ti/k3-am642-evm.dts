@@ -5,6 +5,7 @@
 
 /dts-v1/;
 
+#include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/net/ti-dp83867.h>
 #include "k3-am642.dtsi"
 
@@ -87,6 +88,31 @@
 			reg = <0x00 0xa5000000 0x00 0x00800000>;
 			alignment = <0x1000>;
 			no-map;
+		};
+	};
+
+	mdio_mux: mux-controller {
+		compatible = "gpio-mux";
+		#mux-control-cells = <0>;
+
+		mux-gpios = <&exp1 12 GPIO_ACTIVE_HIGH>;
+	};
+
+	mdio-mux-1 {
+		compatible = "mdio-mux-multiplexer";
+		mux-controls = <&mdio_mux>;
+		mdio-parent-bus = <&cpsw3g_mdio>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		mdio@1 {
+			reg = <0x1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			cpsw3g_phy3: ethernet-phy@3 {
+				reg = <3>;
+			};
 		};
 	};
 };
