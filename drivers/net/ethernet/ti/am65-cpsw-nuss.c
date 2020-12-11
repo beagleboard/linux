@@ -32,6 +32,7 @@
 #include "cpsw_ale.h"
 #include "cpsw_sl.h"
 #include "am65-cpsw-nuss.h"
+#include "am65-cpsw-switchdev.h"
 #include "k3-cppi-desc-pool.h"
 #include "am65-cpts.h"
 
@@ -229,6 +230,9 @@ static int am65_cpsw_nuss_ndo_slave_add_vid(struct net_device *ndev,
 	u32 port_mask, unreg_mcast = 0;
 	int ret;
 
+	if (!common->is_emac_mode)
+		return 0;
+
 	if (!netif_running(ndev) || !vid)
 		return 0;
 
@@ -256,6 +260,9 @@ static int am65_cpsw_nuss_ndo_slave_kill_vid(struct net_device *ndev,
 	struct am65_cpsw_port *port = am65_ndev_to_port(ndev);
 	int ret;
 
+	if (!common->is_emac_mode)
+		return 0;
+
 	if (!netif_running(ndev) || !vid)
 		return 0;
 
@@ -277,6 +284,11 @@ static void am65_cpsw_slave_set_promisc(struct am65_cpsw_port *port,
 					bool promisc)
 {
 	struct am65_cpsw_common *common = port->common;
+
+	if (promisc && !common->is_emac_mode) {
+		dev_dbg(common->dev, "promisc mode requested in switch mode");
+		return;
+	}
 
 	if (promisc) {
 		/* Enable promiscuous mode */
@@ -817,12 +829,13 @@ static int am65_cpsw_nuss_rx_packets(struct am65_cpsw_common *common,
 
 	new_skb = netdev_alloc_skb_ip_align(ndev, AM65_CPSW_MAX_PACKET_SIZE);
 	if (new_skb) {
+		ndev_priv = netdev_priv(ndev);
+		am65_cpsw_nuss_set_offload_fwd_mark(skb, ndev_priv->offload_fwd_mark);
 		skb_put(skb, pkt_len);
 		skb->protocol = eth_type_trans(skb, ndev);
 		am65_cpsw_nuss_rx_csum(skb, csum_info);
 		napi_gro_receive(&common->napi_rx, skb);
 
-		ndev_priv = netdev_priv(ndev);
 		stats = this_cpu_ptr(ndev_priv->stats);
 
 		u64_stats_update_begin(&stats->syncp);
@@ -2210,6 +2223,10 @@ static int am65_cpsw_register_notifiers(struct am65_cpsw_common *cpsw)
 		return ret;
 	}
 
+	ret = am65_cpsw_switchdev_register_notifiers(cpsw);
+	if (ret)
+		unregister_netdevice_notifier(&cpsw->am65_cpsw_netdevice_nb);
+
 	return ret;
 }
 
@@ -2219,6 +2236,7 @@ static void am65_cpsw_unregister_notifiers(struct am65_cpsw_common *cpsw)
 	    !IS_REACHABLE(CONFIG_TI_K3_AM65_CPSW_SWITCHDEV))
 		return;
 
+	am65_cpsw_switchdev_unregister_notifiers(cpsw);
 	unregister_netdevice_notifier(&cpsw->am65_cpsw_netdevice_nb);
 }
 
