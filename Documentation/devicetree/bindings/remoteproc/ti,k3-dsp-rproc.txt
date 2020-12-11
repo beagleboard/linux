@@ -1,6 +1,10 @@
 TI K3 DSP devices
 =================
 
+Binding status: Obsolete
+    Please refer to the updated upstream-friendly binding document instead,
+    Documentation/devicetree/bindings/remoteproc/ti,k3-dsp-rproc.yaml
+
 The TI K3 family of SoCs usually have one or more TI DSP Core sub-systems that
 are used to offload some of the processor-intensive tasks or algorithms, for
 achieving various system level goals.

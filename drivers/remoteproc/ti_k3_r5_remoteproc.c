@@ -1358,20 +1358,33 @@ static int k3_r5_core_of_init(struct platform_device *pdev)
 	core->loczrama = 1;
 
 	ret = of_property_read_u32(np, "atcm-enable", &core->atcm_enable);
+	if (ret == -EINVAL) {
+		ret = of_property_read_u32(np, "ti,atcm-enable",
+					   &core->atcm_enable);
+	}
 	if (ret < 0 && ret != -EINVAL) {
-		dev_err(dev, "invalid format for atcm-enable, ret = %d\n", ret);
+		dev_err(dev, "invalid format for atcm-enable property, ret = %d\n",
+			ret);
 		goto err;
 	}
 
 	ret = of_property_read_u32(np, "btcm-enable", &core->btcm_enable);
+	if (ret == -EINVAL) {
+		ret = of_property_read_u32(np, "ti,btcm-enable",
+					   &core->btcm_enable);
+	}
 	if (ret < 0 && ret != -EINVAL) {
-		dev_err(dev, "invalid format for btcm-enable, ret = %d\n", ret);
+		dev_err(dev, "invalid format for btcm-enable property, ret = %d\n",
+			ret);
 		goto err;
 	}
 
 	ret = of_property_read_u32(np, "loczrama", &core->loczrama);
+	if (ret == -EINVAL)
+		ret = of_property_read_u32(np, "ti,loczrama", &core->loczrama);
 	if (ret < 0 && ret != -EINVAL) {
-		dev_err(dev, "invalid format for loczrama, ret = %d\n", ret);
+		dev_err(dev, "invalid format for loczrama property, ret = %d\n",
+			ret);
 		goto err;
 	}
 
@@ -1535,8 +1548,12 @@ static int k3_r5_probe(struct platform_device *pdev)
 	INIT_LIST_HEAD(&cluster->cores);
 
 	ret = of_property_read_u32(np, "lockstep-mode", &cluster->mode);
+	if (ret == -EINVAL) {
+		ret = of_property_read_u32(np, "ti,cluster-mode",
+					   &cluster->mode);
+	}
 	if (ret < 0 && ret != -EINVAL) {
-		dev_err(dev, "invalid format for lockstep-mode, ret = %d\n",
+		dev_err(dev, "invalid format for cluster mode property, ret = %d\n",
 			ret);
 		return ret;
 	}

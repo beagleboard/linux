@@ -1,6 +1,10 @@
 TI K3 R5F processor subsystems
 ==============================
 
+Binding status: Obsolete
+    Please refer to the updated upstream-friendly binding document instead,
+    Documentation/devicetree/bindings/remoteproc/ti,k3-r5f-rproc.yaml
+
 The TI K3 family of SoCs usually have one or more dual-core Arm Cortex
 R5F processor subsystems/clusters (R5FSS). The dual core cluster can be
 used either in a LockStep mode providing safety/fault tolerance features
