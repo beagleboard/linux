@@ -693,4 +693,12 @@
 			power-domains = <&k3_pds 75 TI_SCI_PD_EXCLUSIVE>;
 		};
 	};
+
+	timesync_router: timesync-router@a40000 {
+		compatible = "pinctrl-single";
+		reg = <0x0 0xa40000 0x0 0x800>;
+		#pinctrl-cells = <1>;
+		pinctrl-single,register-width = <32>;
+		pinctrl-single,function-mask = <0x000107ff>;
+	};
 };
