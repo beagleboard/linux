@@ -406,6 +406,16 @@
 		reg = <0x22>;
 		gpio-controller;
 		#gpio-cells = <2>;
+		gpio-line-names = "GPIO_eMMC_RSTn", "CAN_MUX_SEL",
+				  "GPIO_CPSW1_RST", "GPIO_RGMII1_RST",
+				  "GPIO_RGMII2_RST", "GPIO_PCIe_RST_OUT",
+				  "MMC1_SD_EN", "FSI_FET_SEL",
+				  "MCAN0_STB_3V3", "MCAN1_STB_3V3",
+				  "CPSW_FET_SEL", "CPSW_FET2_SEL",
+				  "PRG1_RGMII2_FET_SEL", "TEST_GPIO2",
+				  "GPIO_OLED_RESETn", "VPP_LDO_EN",
+				  "TEST_LED1", "TP92", "TP90", "TP88",
+				  "TP87", "TP86", "TP89", "TP91";
 	};
 
 };
