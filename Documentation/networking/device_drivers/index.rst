@@ -25,6 +25,7 @@ Contents:
    mellanox/mlx5
    netronome/nfp
    pensando/ionic
+   ti/am65_nuss_cpsw_switchdev
 
 .. only::  subproject and html
 

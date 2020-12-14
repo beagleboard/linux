@@ -632,4 +632,40 @@
 			ti,loczrama = <1>;
 		};
 	};
+
+	sdhci0: sdhci@fa10000 {
+		compatible = "ti,am64-sdhci-8bit";
+		reg = <0x0 0xfa10000 0x0 0x260>, <0x0 0xfa18000 0x0 0x134>;
+		power-domains = <&k3_pds 57 TI_SCI_PD_EXCLUSIVE>;
+		clocks = <&k3_clks 57 0>, <&k3_clks 57 1>;
+		clock-names = "clk_ahb", "clk_xin";
+		interrupts = <GIC_SPI 133 IRQ_TYPE_LEVEL_HIGH>;
+		mmc-ddr-1_8v;
+		mmc-hs200-1_8v;
+		mmc-hs400-1_8v;
+		ti,trm-icp = <0x2>;
+		ti,otap-del-sel-legacy = <0x0>;
+		ti,otap-del-sel-mmc-hs = <0x0>;
+		ti,otap-del-sel-ddr52 = <0x6>;
+		ti,otap-del-sel-hs200 = <0x7>;
+		ti,otap-del-sel-hs400 = <0x4>;
+	};
+
+	sdhci1: sdhci@fa00000 {
+		compatible = "ti,am64-sdhci-4bit";
+		reg = <0x0 0xfa00000 0x0 0x260>, <0x0 0xfa08000 0x0 0x134>;
+		power-domains = <&k3_pds 58 TI_SCI_PD_EXCLUSIVE>;
+		clocks = <&k3_clks 58 3>, <&k3_clks 58 4>;
+		clock-names = "clk_ahb", "clk_xin";
+		interrupts = <GIC_SPI 134 IRQ_TYPE_LEVEL_HIGH>;
+		ti,trm-icp = <0x2>;
+		ti,otap-del-sel-legacy = <0x0>;
+		ti,otap-del-sel-sd-hs = <0xf>;
+		ti,otap-del-sel-sdr12 = <0xf>;
+		ti,otap-del-sel-sdr25 = <0xf>;
+		ti,otap-del-sel-sdr50 = <0xc>;
+		ti,otap-del-sel-sdr104 = <0x6>;
+		ti,otap-del-sel-ddr50 = <0x9>;
+		ti,clkbuf-sel = <0x7>;
+	};
 };

@@ -16,6 +16,7 @@ Contents:
    devlink-info-versions
    devlink-trap
    devlink-trap-netdevsim
+   devlink/am65-nuss-cpsw-switch
    ieee802154
    j1939
    kapi
