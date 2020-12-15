@@ -738,19 +738,8 @@ struct icss_iep *icss_iep_get(struct device_node *np)
 	if (iep->cap_cmp_irq || (iep->ops && iep->ops->extts_enable))
 		iep->ptp_info.n_ext_ts = 2;
 
-	iep->ptp_clock = ptp_clock_register(&iep->ptp_info, iep->dev);
-	if (IS_ERR(iep->ptp_clock)) {
-		ret = PTR_ERR(iep->ptp_clock);
-		iep->ptp_clock = NULL;
-		dev_err(iep->dev, "Failed to register ptp clk %d\n", ret);
-		goto err_ptp_irq;
-	}
-
 	return iep;
 
-err_ptp_irq:
-	if (iep->cap_cmp_irq)
-		free_irq(iep->cap_cmp_irq, iep);
 put_iep_device:
 	put_device(iep->dev);
 
@@ -765,8 +754,6 @@ void icss_iep_put(struct icss_iep *iep)
 	device_unlock(iep->dev);
 	put_device(iep->dev);
 	iep->cap_cmp_irq = 0;
-	if (iep->ptp_clock)
-		ptp_clock_unregister(iep->ptp_clock);
 	if (iep->cap_cmp_irq) {
 		free_irq(iep->cap_cmp_irq, iep);
 		hrtimer_cancel(&iep->sync_timer);
@@ -778,6 +765,7 @@ int icss_iep_init(struct icss_iep *iep, const struct icss_iep_clockops *clkops,
 		  void *clockops_data, u32 cycle_time_ns)
 {
 	u32 def_inc;
+	int ret = 0;
 
 	def_inc = NSEC_PER_SEC / iep->refclk_freq;	/* ns per clock tick */
 	if (def_inc > IEP_MAX_DEF_INC)
@@ -803,12 +791,22 @@ int icss_iep_init(struct icss_iep *iep, const struct icss_iep_clockops *clkops,
 	icss_iep_set_counter(iep, 0);
 
 	iep->clk_tick_time = def_inc;
-	return 0;
+
+	iep->ptp_clock = ptp_clock_register(&iep->ptp_info, iep->dev);
+	if (IS_ERR(iep->ptp_clock)) {
+		ret = PTR_ERR(iep->ptp_clock);
+		iep->ptp_clock = NULL;
+		dev_err(iep->dev, "Failed to register ptp clk %d\n", ret);
+	}
+
+	return ret;
 }
 EXPORT_SYMBOL_GPL(icss_iep_init);
 
 int icss_iep_exit(struct icss_iep *iep)
 {
+	if (iep->ptp_clock)
+		ptp_clock_unregister(iep->ptp_clock);
 	icss_iep_disable(iep);
 
 	return 0;
