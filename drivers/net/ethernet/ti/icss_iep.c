@@ -139,7 +139,7 @@ int icss_iep_get_count_hi(struct icss_iep *iep)
 {
 	u32 val = 0;
 
-	if (iep->plat_data->flags & ICSS_IEP_64BIT_COUNTER_SUPPORT)
+	if (iep && (iep->plat_data->flags & ICSS_IEP_64BIT_COUNTER_SUPPORT))
 		regmap_read(iep->map, ICSS_IEP_COUNT_REG1, &val);
 
 	return val;
@@ -154,9 +154,10 @@ EXPORT_SYMBOL_GPL(icss_iep_get_count_hi);
  */
 int icss_iep_get_count_low(struct icss_iep *iep)
 {
-	u32 val;
+	u32 val = 0;
 
-	regmap_read(iep->map, ICSS_IEP_COUNT_REG0, &val);
+	if (iep)
+		regmap_read(iep->map, ICSS_IEP_COUNT_REG0, &val);
 
 	return val;
 }
@@ -170,7 +171,10 @@ EXPORT_SYMBOL_GPL(icss_iep_get_count_low);
  */
 struct ptp_clock *icss_iep_get_ptp_clock(struct icss_iep *iep)
 {
-	return iep->ptp_clock;
+	if (iep)
+		return iep->ptp_clock;
+	else
+		return NULL;
 }
 EXPORT_SYMBOL_GPL(icss_iep_get_ptp_clock);
 
