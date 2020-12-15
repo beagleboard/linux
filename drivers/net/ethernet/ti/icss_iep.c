@@ -139,7 +139,7 @@ int icss_iep_get_count_hi(struct icss_iep *iep)
 {
 	u32 val = 0;
 
-	if (iep->plat_data->flags & ICSS_IEP_64BIT_COUNTER_SUPPORT)
+	if (iep && (iep->plat_data->flags & ICSS_IEP_64BIT_COUNTER_SUPPORT))
 		regmap_read(iep->map, ICSS_IEP_COUNT_REG1, &val);
 
 	return val;
@@ -154,9 +154,10 @@ EXPORT_SYMBOL_GPL(icss_iep_get_count_hi);
  */
 int icss_iep_get_count_low(struct icss_iep *iep)
 {
-	u32 val;
+	u32 val = 0;
 
-	regmap_read(iep->map, ICSS_IEP_COUNT_REG0, &val);
+	if (iep)
+		regmap_read(iep->map, ICSS_IEP_COUNT_REG0, &val);
 
 	return val;
 }
@@ -170,7 +171,10 @@ EXPORT_SYMBOL_GPL(icss_iep_get_count_low);
  */
 struct ptp_clock *icss_iep_get_ptp_clock(struct icss_iep *iep)
 {
-	return iep->ptp_clock;
+	if (iep)
+		return iep->ptp_clock;
+	else
+		return NULL;
 }
 EXPORT_SYMBOL_GPL(icss_iep_get_ptp_clock);
 
@@ -518,8 +522,8 @@ exit:
 static irqreturn_t icss_iep_cap_cmp_handler(int irq, void *dev_id)
 {
 	struct icss_iep *iep = (struct icss_iep *)dev_id;
+	unsigned int val, index = 0, i, sts;
 	struct ptp_clock_event pevent;
-	unsigned int val, index = 0, i;
 	irqreturn_t ret = IRQ_NONE;
 	u64 ns;
 
@@ -544,12 +548,12 @@ static irqreturn_t icss_iep_cap_cmp_handler(int irq, void *dev_id)
 		ret = IRQ_HANDLED;
 	}
 
-	regmap_read(iep->map, ICSS_IEP_CAPTURE_STAT_REG, &val);
-	if (!val)
+	regmap_read(iep->map, ICSS_IEP_CAPTURE_STAT_REG, &sts);
+	if (!sts)
 		return ret;
 
 	for (i = 0; i < iep->ptp_info.n_ext_ts; i++) {
-		if (val & IEP_CAP_CFG_CAPNR_1ST_EVENT_EN(i)) {
+		if (sts & IEP_CAP_CFG_CAPNR_1ST_EVENT_EN(i * 2)) {
 			regmap_read(iep->map, ICSS_IEP_CAP6_RISE_REG0 + (i * 2), &val);
 			ns = val;
 			regmap_read(iep->map, ICSS_IEP_CAP6_RISE_REG0 + (i * 2) + 1, &val);
@@ -734,19 +738,8 @@ struct icss_iep *icss_iep_get(struct device_node *np)
 	if (iep->cap_cmp_irq || (iep->ops && iep->ops->extts_enable))
 		iep->ptp_info.n_ext_ts = 2;
 
-	iep->ptp_clock = ptp_clock_register(&iep->ptp_info, iep->dev);
-	if (IS_ERR(iep->ptp_clock)) {
-		ret = PTR_ERR(iep->ptp_clock);
-		iep->ptp_clock = NULL;
-		dev_err(iep->dev, "Failed to register ptp clk %d\n", ret);
-		goto err_ptp_irq;
-	}
-
 	return iep;
 
-err_ptp_irq:
-	if (iep->cap_cmp_irq)
-		free_irq(iep->cap_cmp_irq, iep);
 put_iep_device:
 	put_device(iep->dev);
 
@@ -761,8 +754,6 @@ void icss_iep_put(struct icss_iep *iep)
 	device_unlock(iep->dev);
 	put_device(iep->dev);
 	iep->cap_cmp_irq = 0;
-	if (iep->ptp_clock)
-		ptp_clock_unregister(iep->ptp_clock);
 	if (iep->cap_cmp_irq) {
 		free_irq(iep->cap_cmp_irq, iep);
 		hrtimer_cancel(&iep->sync_timer);
@@ -774,6 +765,7 @@ int icss_iep_init(struct icss_iep *iep, const struct icss_iep_clockops *clkops,
 		  void *clockops_data, u32 cycle_time_ns)
 {
 	u32 def_inc;
+	int ret = 0;
 
 	def_inc = NSEC_PER_SEC / iep->refclk_freq;	/* ns per clock tick */
 	if (def_inc > IEP_MAX_DEF_INC)
@@ -799,12 +791,22 @@ int icss_iep_init(struct icss_iep *iep, const struct icss_iep_clockops *clkops,
 	icss_iep_set_counter(iep, 0);
 
 	iep->clk_tick_time = def_inc;
-	return 0;
+
+	iep->ptp_clock = ptp_clock_register(&iep->ptp_info, iep->dev);
+	if (IS_ERR(iep->ptp_clock)) {
+		ret = PTR_ERR(iep->ptp_clock);
+		iep->ptp_clock = NULL;
+		dev_err(iep->dev, "Failed to register ptp clk %d\n", ret);
+	}
+
+	return ret;
 }
 EXPORT_SYMBOL_GPL(icss_iep_init);
 
 int icss_iep_exit(struct icss_iep *iep)
 {
+	if (iep->ptp_clock)
+		ptp_clock_unregister(iep->ptp_clock);
 	icss_iep_disable(iep);
 
 	return 0;

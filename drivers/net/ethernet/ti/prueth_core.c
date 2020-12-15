@@ -2766,6 +2766,7 @@ static int emac_get_ts_info(struct net_device *ndev,
 			    struct ethtool_ts_info *info)
 {
 	struct prueth_emac *emac = netdev_priv(ndev);
+	struct ptp_clock *ptp;
 
 	if ((PRUETH_IS_EMAC(emac->prueth) && !emac->emac_ptp_tx_irq) ||
 	    (PRUETH_IS_LRE(emac->prueth) && !emac->hsr_ptp_tx_irq))
@@ -2779,7 +2780,11 @@ static int emac_get_ts_info(struct net_device *ndev,
 		SOF_TIMESTAMPING_SOFTWARE |
 		SOF_TIMESTAMPING_RAW_HARDWARE;
 
-	info->phc_index = ptp_clock_index(icss_iep_get_ptp_clock(emac->prueth->iep));
+	ptp = icss_iep_get_ptp_clock(emac->prueth->iep);
+	if (ptp)
+		info->phc_index = ptp_clock_index(ptp);
+	else
+		info->phc_index = -1;
 	info->tx_types = BIT(HWTSTAMP_TX_OFF) | BIT(HWTSTAMP_TX_ON);
 	info->rx_filters = BIT(HWTSTAMP_FILTER_NONE) | BIT(HWTSTAMP_FILTER_PTP_V2_EVENT);
 

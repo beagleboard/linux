@@ -4671,6 +4671,7 @@ out:
 static int spi_nor_parse_sfdp(struct spi_nor *nor,
 			      struct spi_nor_flash_parameter *params)
 {
+	const struct sfdp_parameter_header *sfdp_4bait_param_header = NULL;
 	const struct sfdp_parameter_header *param_header, *bfpt_header;
 	struct sfdp_parameter_header *param_headers = NULL;
 	struct sfdp_header header;
@@ -4752,7 +4753,13 @@ static int spi_nor_parse_sfdp(struct spi_nor *nor,
 			break;
 
 		case SFDP_4BAIT_ID:
-			err = spi_nor_parse_4bait(nor, param_header, params);
+			/*
+			 * Parse 4BAIT table at the end as this will end up
+			 * changing nor->addr_width obtained from BFPT.
+			 * But other parsers, such as SMPT parser, need to
+			 * know default/current addr_width of the flash.
+			 */
+			sfdp_4bait_param_header = param_header;
 			break;
 
 		case SFDP_PROFILE1_ID:
@@ -4774,6 +4781,12 @@ static int spi_nor_parse_sfdp(struct spi_nor *nor,
 			 */
 			err = 0;
 		}
+	}
+
+	if (sfdp_4bait_param_header &&
+	    spi_nor_parse_4bait(nor, sfdp_4bait_param_header, params)) {
+		dev_warn(dev, "Failed to parse optional parameter table: %04x\n",
+			 SFDP_PARAM_HEADER_ID(param_header));
 	}
 
 exit:
