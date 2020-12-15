@@ -522,8 +522,8 @@ exit:
 static irqreturn_t icss_iep_cap_cmp_handler(int irq, void *dev_id)
 {
 	struct icss_iep *iep = (struct icss_iep *)dev_id;
+	unsigned int val, index = 0, i, sts;
 	struct ptp_clock_event pevent;
-	unsigned int val, index = 0, i;
 	irqreturn_t ret = IRQ_NONE;
 	u64 ns;
 
@@ -548,12 +548,12 @@ static irqreturn_t icss_iep_cap_cmp_handler(int irq, void *dev_id)
 		ret = IRQ_HANDLED;
 	}
 
-	regmap_read(iep->map, ICSS_IEP_CAPTURE_STAT_REG, &val);
-	if (!val)
+	regmap_read(iep->map, ICSS_IEP_CAPTURE_STAT_REG, &sts);
+	if (!sts)
 		return ret;
 
 	for (i = 0; i < iep->ptp_info.n_ext_ts; i++) {
-		if (val & IEP_CAP_CFG_CAPNR_1ST_EVENT_EN(i)) {
+		if (sts & IEP_CAP_CFG_CAPNR_1ST_EVENT_EN(i * 2)) {
 			regmap_read(iep->map, ICSS_IEP_CAP6_RISE_REG0 + (i * 2), &val);
 			ns = val;
 			regmap_read(iep->map, ICSS_IEP_CAP6_RISE_REG0 + (i * 2) + 1, &val);
