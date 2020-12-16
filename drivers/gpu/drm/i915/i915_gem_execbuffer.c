@@ -882,7 +882,7 @@ eb_vma_misplaced(struct i915_vma *vma)
 		return !only_mappable_for_reloc(entry->flags);
 
 	if ((entry->flags & EXEC_OBJECT_SUPPORTS_48B_ADDRESS) == 0 &&
-	    (vma->node.start + vma->node.size - 1) >> 32)
+	    (vma->node.start + vma->node.size + 4095) >> 32)
 		return true;
 
 	return false;
