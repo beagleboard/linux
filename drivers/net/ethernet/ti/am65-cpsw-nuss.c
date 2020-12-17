@@ -193,7 +193,7 @@ void am65_cpsw_nuss_adjust_link(struct net_device *ndev)
 
 		cpsw_sl_ctl_set(port->slave.mac_sl, mac_control);
 
-		am65_cpsw_qos_link_up(ndev, phy->speed);
+		am65_cpsw_qos_link_up(ndev, phy->speed, phy->duplex);
 
 		/* enable forwarding */
 		cpsw_ale_control_set(common->ale, port->port_id,
@@ -597,6 +597,7 @@ static int am65_cpsw_nuss_ndo_slave_stop(struct net_device *ndev)
 
 	/* Clean up IET */
 	am65_cpsw_qos_iet_cleanup(ndev);
+	am65_cpsw_qos_cut_thru_cleanup(port);
 
 	if (port->slave.phy)
 		phy_stop(port->slave.phy);
@@ -692,6 +693,7 @@ static int am65_cpsw_nuss_ndo_slave_open(struct net_device *ndev)
 
 	/* Initialize IET */
 	am65_cpsw_qos_iet_init(ndev);
+	am65_cpsw_qos_cut_thru_init(port);
 
 	/* restore vlan configurations */
 	vlan_for_each(ndev, cpsw_restore_vlans, port);
@@ -2432,8 +2434,10 @@ static int am65_cpsw_dl_switch_mode_set(struct devlink *dl, u32 id,
 
 			port = am65_ndev_to_port(sl_ndev);
 			port->slave.port_vlan = 0;
-			if (netif_running(sl_ndev))
+			if (netif_running(sl_ndev)) {
 				am65_cpsw_init_port_emac_ale(port);
+				am65_cpsw_qos_cut_thru_cleanup(port);
+			}
 		}
 	}
 	cpsw_ale_control_set(cpsw->ale, HOST_PORT_NUM, ALE_BYPASS, 0);
@@ -2572,6 +2576,10 @@ static int am65_cpsw_nuss_register_ndevs(struct am65_cpsw_common *common)
 	for (i = 0; i < common->port_num; i++) {
 		port = &common->ports[i];
 
+		ret = am65_cpsw_nuss_register_port_debugfs(port);
+		if (ret)
+			goto err_cleanup_ndev;
+
 		if (!port->ndev)
 			continue;
 
@@ -2645,7 +2653,7 @@ static const struct am65_cpsw_pdata j721e_pdata = {
 };
 
 static const struct am65_cpsw_pdata am64x_cpswxg_pdata = {
-	.quirks = 0,
+	.quirks = AM64_CPSW_QUIRK_CUT_THRU,
 	.ale_dev_id = "am64-cpswxg",
 	.fdqring_mode = K3_RINGACC_RING_MODE_RING,
 };
@@ -2807,9 +2815,15 @@ static int am65_cpsw_nuss_probe(struct platform_device *pdev)
 	if (ret)
 		goto err_of_clear;
 
-	ret = am65_cpsw_nuss_register_ndevs(common);
+	ret = am65_cpsw_nuss_register_debugfs(common);
 	if (ret)
 		goto err_of_clear;
+
+	ret = am65_cpsw_nuss_register_ndevs(common);
+	if (ret) {
+		am65_cpsw_nuss_unregister_debugfs(common);
+		goto err_of_clear;
+	}
 
 	pm_runtime_put(dev);
 	return 0;
