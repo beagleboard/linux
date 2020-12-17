@@ -668,11 +668,20 @@ static int mikrobus_port_id_eeprom_probe(struct mikrobus_port *port)
 	platform_device_register(&mikrobus_id_eeprom_w1_device);
 	port->w1_gpio = &mikrobus_id_eeprom_w1_device;
 	bm = (struct w1_bus_master *) platform_get_drvdata(&mikrobus_id_eeprom_w1_device);
-	port->w1_master = w1_find_master_device(bm);
-	mutex_lock(&port->w1_master->mutex);
-	port->w1_master->max_slave_count = 1;
-	clear_bit(W1_WARN_MAX_COUNT, &port->w1_master->flags);
-	mutex_unlock(&port->w1_master->mutex);
+	if(bm) {
+		port->w1_master = w1_find_master_device(bm);
+		if(!port->w1_master){
+			dev_err(&port->dev, "failed to find W1 GPIO master, port [%s]\n",
+									port->name);
+			gpiod_remove_lookup_table(lookup);
+			kfree(lookup);
+			return -ENODEV;
+		}
+		mutex_lock(&port->w1_master->mutex);
+		port->w1_master->max_slave_count = 1;
+		clear_bit(W1_WARN_MAX_COUNT, &port->w1_master->flags);
+		mutex_unlock(&port->w1_master->mutex);
+	}
 	return 0;
 }
 
