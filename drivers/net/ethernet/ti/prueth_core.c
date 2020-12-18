@@ -2406,6 +2406,20 @@ static int emac_get_port_parent_id(struct net_device *dev,
 	return 0;
 }
 
+static int emac_ndo_get_phys_port_name(struct net_device *ndev, char *name,
+				       size_t len)
+{
+	struct prueth_emac *emac = netdev_priv(ndev);
+	int err;
+
+	err = snprintf(name, len, "p%d", emac->port_id);
+
+	if (err >= len)
+		return -EINVAL;
+
+	return 0;
+}
+
 /**
  * emac_ndo_set_features - function to set feature flag
  * @ndev: The network adapter device
@@ -2501,6 +2515,7 @@ static const struct net_device_ops emac_netdev_ops = {
 	.ndo_vlan_rx_kill_vid = emac_ndo_vlan_rx_kill_vid,
 	.ndo_setup_tc = emac_ndo_setup_tc,
 	.ndo_get_port_parent_id = emac_get_port_parent_id,
+	.ndo_get_phys_port_name = emac_ndo_get_phys_port_name,
 };
 
 /**
