@@ -63,6 +63,10 @@ int mikrobus_port_scan_eeprom(struct mikrobus_port *port)
 	char header[12];
 	int retval;
 	char *buf;
+
+	if(port->skip_scan)
+		return -EINVAL;
+
 	retval = nvmem_device_read(port->eeprom, 0, 12, header);
 	if (retval != 12) {
 		dev_err(&port->dev, "failed to fetch manifest header %d\n",
@@ -197,6 +201,7 @@ static ssize_t rescan_store(struct device *dev, struct device_attribute *attr,
 	}
 	msleep(100); /* temporary delay to fix ROM ID copy */
 
+	port->skip_scan = 0;
 	retval = mikrobus_port_scan_eeprom(port);
 	if (retval) {
 		dev_err(dev, "board register from manifest failed\n");
@@ -205,6 +210,47 @@ static ssize_t rescan_store(struct device *dev, struct device_attribute *attr,
 	return count;
 }
 static DEVICE_ATTR_WO(rescan);
+
+static ssize_t idmode_store(struct device *dev, struct device_attribute *attr,
+							const char *buf, size_t count)
+{
+	struct mikrobus_port *port = to_mikrobus_port(dev);
+	unsigned long id;
+	int retval;
+	int i;
+
+	if (kstrtoul(buf, 0, &id)) {
+		dev_err(dev, "cannot parse trigger\n");
+		return -EINVAL;
+	}
+	if (port->board) {
+		dev_err(dev, "already has board registered\n");
+		return -EBUSY;
+	}
+
+	if (!port->eeprom){
+		return mikrobus_port_id_eeprom_probe(port);
+	}
+	/* Enter ID Mode */
+	sprintf(port->pinctrl_selected[MIKROBUS_PINCTRL_SPI], "%s_%s",
+			MIKROBUS_PINCTRL_STR[MIKROBUS_PINCTRL_SPI], MIKROBUS_PINCTRL_STATE_GPIO);
+
+	retval = mikrobus_port_pinctrl_select(port);
+	/* set MOSI LOW, SCK HIGH */
+	gpiod_direction_output(port->gpios->desc[MIKROBUS_PIN_MOSI], 0);
+	gpiod_direction_output(port->gpios->desc[MIKROBUS_PIN_SCK], 1);
+	msleep(100);
+	for( i = 0; i < 4; i++){
+		gpiod_set_value(port->gpios->desc[MIKROBUS_PIN_MOSI] , 1);
+		udelay(1000);
+		gpiod_set_value(port->gpios->desc[MIKROBUS_PIN_MOSI] , 0);
+		udelay(1000);
+	}
+	msleep(100); /* temporary delay to fix ROM ID copy */
+	port->skip_scan = 1;
+	return count;
+}
+static DEVICE_ATTR_WO(idmode);
 
 static ssize_t delete_device_store(struct device *dev, struct device_attribute *attr,
 							const char *buf, size_t count)
@@ -226,7 +272,7 @@ static ssize_t delete_device_store(struct device *dev, struct device_attribute *
 static DEVICE_ATTR_IGNORE_LOCKDEP(delete_device, 0200, NULL, delete_device_store);
 
 static struct attribute *mikrobus_port_attrs[] = {
-	&dev_attr_new_device.attr, &dev_attr_rescan.attr,
+	&dev_attr_new_device.attr, &dev_attr_rescan.attr, &dev_attr_idmode.attr,
 	&dev_attr_delete_device.attr, &dev_attr_name.attr, NULL};
 ATTRIBUTE_GROUPS(mikrobus_port);
 
@@ -627,7 +673,6 @@ static struct w1_gpio_platform_data mikrobus_id_eeprom_w1_pdata = {
 
 static struct platform_device mikrobus_id_eeprom_w1_device = {
       .name                   = "w1-gpio",
-      .id                     = -1,
 	  .dev.platform_data      = &mikrobus_id_eeprom_w1_pdata,
 };
 
@@ -635,6 +680,7 @@ static int mikrobus_port_id_eeprom_probe(struct mikrobus_port *port)
 {
 	struct w1_bus_master *bm;
 	struct gpiod_lookup_table *lookup;
+	char devname[MIKROBUS_NAME_SIZE];
 	int retval;
 	int i;
 
@@ -658,7 +704,11 @@ static int mikrobus_port_id_eeprom_probe(struct mikrobus_port *port)
 					GFP_KERNEL);
 	if (!lookup)
 			return -ENOMEM;
-	lookup->dev_id = mikrobus_id_eeprom_w1_device.name;
+	snprintf(devname, sizeof(devname), "%s.%u",
+				mikrobus_id_eeprom_w1_device.name,
+				port->id);
+	mikrobus_id_eeprom_w1_device.id = port->id;
+	lookup->dev_id = kmemdup(devname, MIKROBUS_NAME_SIZE, GFP_KERNEL);
 	lookup->table[0].key = mikrobus_gpio_chip_name_get(port,
 						MIKROBUS_PIN_CS);
 	lookup->table[0].flags = GPIO_ACTIVE_HIGH|GPIO_OPEN_DRAIN;
@@ -734,13 +784,6 @@ int mikrobus_port_register(struct mikrobus_port *port)
 											port->id);
 		retval = mikrobus_port_id_eeprom_probe(port);
 	}
-	// if (port->w1_master) {
-	// 	retval = mikrobus_port_scan_eeprom(port);
-	// 	if (retval) {
-	// 		dev_warn(&port->dev, "failed to register board from manifest\n");
-	// 		return 0;
-	// 	}
-	// }
 	return retval;
 }
 EXPORT_SYMBOL_GPL(mikrobus_port_register);
