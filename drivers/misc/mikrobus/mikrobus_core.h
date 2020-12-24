@@ -185,6 +185,7 @@ struct mikrobus_port {
 	char name[MIKROBUS_NAME_SIZE];
 	char *pinctrl_selected[MIKROBUS_NUM_PINCTRL_STATE];
 	unsigned int chip_select[MIKROBUS_NUM_CS];
+	int skip_scan;
 	int id;
 };
 #define to_mikrobus_port(d) container_of(d, struct mikrobus_port, dev)
