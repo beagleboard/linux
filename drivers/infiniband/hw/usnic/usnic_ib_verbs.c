@@ -180,6 +180,7 @@ find_free_vf_and_create_qp_grp(struct usnic_ib_dev *us_ibdev,
 
 		}
 		usnic_uiom_free_dev_list(dev_list);
+		dev_list = NULL;
 	}
 
 	if (!found) {
@@ -207,6 +208,8 @@ find_free_vf_and_create_qp_grp(struct usnic_ib_dev *us_ibdev,
 	spin_unlock(&vf->lock);
 	if (IS_ERR_OR_NULL(qp_grp)) {
 		usnic_err("Failed to allocate qp_grp\n");
+		if (usnic_ib_share_vf)
+			usnic_uiom_free_dev_list(dev_list);
 		return ERR_PTR(qp_grp ? PTR_ERR(qp_grp) : -ENOMEM);
 	}
 
