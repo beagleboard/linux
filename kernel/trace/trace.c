@@ -2343,6 +2343,7 @@ tracing_generic_entry_update(struct trace_entry *entry, unsigned short type,
 	struct task_struct *tsk = current;
 
 	entry->preempt_count		= pc & 0xff;
+	entry->preempt_lazy_count	= preempt_lazy_count();
 	entry->pid			= (tsk) ? tsk->pid : 0;
 	entry->type			= type;
 	entry->flags =
@@ -2354,8 +2355,11 @@ tracing_generic_entry_update(struct trace_entry *entry, unsigned short type,
 		((pc & NMI_MASK    ) ? TRACE_FLAG_NMI     : 0) |
 		((pc & HARDIRQ_MASK) ? TRACE_FLAG_HARDIRQ : 0) |
 		((pc & SOFTIRQ_OFFSET) ? TRACE_FLAG_SOFTIRQ : 0) |
-		(tif_need_resched() ? TRACE_FLAG_NEED_RESCHED : 0) |
+		(tif_need_resched_now() ? TRACE_FLAG_NEED_RESCHED : 0) |
+		(need_resched_lazy() ? TRACE_FLAG_NEED_RESCHED_LAZY : 0) |
 		(test_preempt_need_resched() ? TRACE_FLAG_PREEMPT_RESCHED : 0);
+
+	entry->migrate_disable = (tsk) ? __migrate_disabled(tsk) & 0xFF : 0;
 }
 EXPORT_SYMBOL_GPL(tracing_generic_entry_update);
 
@@ -3589,9 +3593,11 @@ static void print_lat_help_header(struct seq_file *m)
 		    "#                  | / _----=> need-resched    \n"
 		    "#                  || / _---=> hardirq/softirq \n"
 		    "#                  ||| / _--=> preempt-depth   \n"
-		    "#                  |||| /     delay            \n"
-		    "#  cmd     pid     ||||| time  |   caller      \n"
-		    "#     \\   /        |||||  \\    |   /         \n");
+		    "#                  ||||| / _--=> preempt-lazy-depth\n"
+		    "#                  |||||| / _-=> migrate-disable   \n"
+		    "#                  ||||||| /     delay             \n"
+		    "# cmd     pid      |||||||| time   |  caller       \n"
+		    "#     \\   /        ||||||||   \\    |  /            \n");
 }
 
 static void print_event_info(struct trace_buffer *buf, struct seq_file *m)
@@ -3627,11 +3633,12 @@ static void print_func_help_header_irq(struct trace_buffer *buf, struct seq_file
 
 	seq_printf(m, "#                            %.*s  _-----=> irqs-off\n", prec, space);
 	seq_printf(m, "#                            %.*s / _----=> need-resched\n", prec, space);
-	seq_printf(m, "#                            %.*s| / _---=> hardirq/softirq\n", prec, space);
-	seq_printf(m, "#                            %.*s|| / _--=> preempt-depth\n", prec, space);
-	seq_printf(m, "#                            %.*s||| /     delay\n", prec, space);
-	seq_printf(m, "#           TASK-PID  %.*s CPU#  ||||   TIMESTAMP  FUNCTION\n", prec, "     TGID   ");
-	seq_printf(m, "#              | |    %.*s   |   ||||      |         |\n", prec, "       |    ");
+	seq_printf(m, "#                            %.*s| / _----=> need-resched_lazy\n", prec, space);
+	seq_printf(m, "#                            %.*s|| / _---=> hardirq/softirq\n", prec, space);
+	seq_printf(m, "#                            %.*s||| / _--=> preempt-depth\n", prec, space);
+	seq_printf(m, "#                            %.*s||||/     delay\n", prec, space);
+	seq_printf(m, "#           TASK-PID  %.*s CPU#  |||||   TIMESTAMP  FUNCTION\n", prec, "   TGID   ");
+	seq_printf(m, "#              | |    %.*s   |   |||||      |         |\n", prec, "     |    ");
 }
 
 void
@@ -3665,6 +3672,8 @@ print_trace_header(struct seq_file *m, struct trace_iterator *iter)
 		   "desktop",
 #elif defined(CONFIG_PREEMPT)
 		   "preempt",
+#elif defined(CONFIG_PREEMPT_RT)
+		   "preempt_rt",
 #else
 		   "unknown",
 #endif
@@ -8954,7 +8963,6 @@ void ftrace_dump(enum ftrace_dump_mode oops_dump_mode)
 	tracing_off();
 
 	local_irq_save(flags);
-	printk_nmi_direct_enter();
 
 	/* Simulate the iterator */
 	trace_init_global_iter(&iter);
@@ -9031,7 +9039,6 @@ void ftrace_dump(enum ftrace_dump_mode oops_dump_mode)
 		atomic_dec(&per_cpu_ptr(iter.trace_buffer->data, cpu)->disabled);
 	}
 	atomic_dec(&dump_running);
-	printk_nmi_direct_exit();
 	local_irq_restore(flags);
 }
 EXPORT_SYMBOL_GPL(ftrace_dump);
