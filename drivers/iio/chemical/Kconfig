@@ -54,6 +54,14 @@ config CCS811
 	  Say Y here to build I2C interface support for the AMS
 	  CCS811 VOC (Volatile Organic Compounds) sensor
 
+config HM3301
+	tristate "HM3301 Particulate Matter sensor"
+	depends on I2C
+	select IIO_BUFFER
+	help
+	  Say Y here to build I2C interface support for the HM3301
+	  Particulate Matter laser interferometer sensor
+
 config IAQCORE
 	tristate "AMS iAQ-Core VOC sensors"
 	depends on I2C
