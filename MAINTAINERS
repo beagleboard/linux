@@ -10866,6 +10866,12 @@ M:	Oliver Neukum <oliver@neukum.org>
 S:	Maintained
 F:	drivers/usb/image/microtek.*
 
+MIKROBUS ADDON BOARD DRIVER
+M:	Vaishnav M A <vaishnav@beagleboard.org>
+S:	Maintained
+W:	https://elinux.org/Mikrobus
+F:	drivers/misc/mikrobus/
+
 MIPS
 M:	Ralf Baechle <ralf@linux-mips.org>
 M:	Paul Burton <paulburton@kernel.org>
