@@ -73,6 +73,15 @@ config IEEE802154_ATUSB
 	  This driver can also be built as a module. To do so say M here.
 	  The module will be called 'atusb'.
 
+config IEEE802154_WPANUSB
+	tristate "WPANUSB driver"
+	depends on IEEE802154_DRIVERS && MAC802154 && USB
+	help
+	  Adds support for WPANUSB 802.15.4 adapters.
+
+	  This driver should work with at least the following devices:
+	  * BeagleBoard.org BeagleConnect Freedom
+
 config IEEE802154_ADF7242
        tristate "ADF7242 transceiver driver"
        depends on IEEE802154_DRIVERS && MAC802154
