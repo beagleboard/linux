@@ -12,9 +12,13 @@ maintainers:
 
 properties:
   compatible:
-    enum:
-      - ti,j721e-wiz-16g
-      - ti,j721e-wiz-10g
+    oneOf:
+      - const: ti,j721e-wiz-16g
+      - const: ti,j721e-wiz-10g
+      - const: ti,am64-wiz-10g
+      - items:
+          - const: ti,am64-wiz-10g
+          - const: ti,j721e-wiz-10g
 
   power-domains:
     maxItems: 1
@@ -158,6 +162,8 @@ required:
   - "#size-cells"
   - "#reset-cells"
   - ranges
+
+additionalProperties: false
 
 examples:
   - |
