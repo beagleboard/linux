@@ -6,6 +6,7 @@
  * Author: Kishon Vijay Abraham I <kishon@ti.com>
  */
 
+#include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/gpio/consumer.h>
 #include <linux/io.h>
@@ -447,6 +448,7 @@ static int j721e_pcie_probe(struct platform_device *pdev)
 	struct gpio_desc *gpiod;
 	struct resource *res;
 	void __iomem *base;
+	struct clk *clk;
 	u32 num_lanes;
 	u32 mode;
 	int ret;
@@ -540,6 +542,19 @@ static int j721e_pcie_probe(struct platform_device *pdev)
 		ret = cdns_pcie_init_phy(dev, cdns_pcie);
 		if (ret) {
 			dev_err(dev, "Failed to init phy\n");
+			goto err_get_sync;
+		}
+
+		clk = devm_clk_get_optional(dev, "pcie_refclk");
+		if (IS_ERR(clk)) {
+			dev_err(dev, "failed to get pcie_refclk\n");
+			ret = PTR_ERR(clk);
+			goto err_get_sync;
+		}
+
+		ret = clk_prepare_enable(clk);
+		if (ret) {
+			dev_err(dev, "failed to enable pcie_refclk\n");
 			goto err_get_sync;
 		}
 

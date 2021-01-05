@@ -164,19 +164,18 @@ int icss_iep_get_count_low(struct icss_iep *iep)
 EXPORT_SYMBOL_GPL(icss_iep_get_count_low);
 
 /**
- * icss_iep_get_ptp_clock() - Get PTP clock registered using IEP driver
+ * icss_iep_get_ptp_clock_idx() - Get PTP clock index using IEP driver
  * @iep: Pointer to structure representing IEP.
  *
- * Return: pointer to ptp_clock
+ * Return: PTP clock index, -1 if not registered
  */
-struct ptp_clock *icss_iep_get_ptp_clock(struct icss_iep *iep)
+int icss_iep_get_ptp_clock_idx(struct icss_iep *iep)
 {
-	if (iep)
-		return iep->ptp_clock;
-	else
-		return NULL;
+	if (!iep || !iep->ptp_clock)
+		return -1;
+	return ptp_clock_index(iep->ptp_clock);
 }
-EXPORT_SYMBOL_GPL(icss_iep_get_ptp_clock);
+EXPORT_SYMBOL_GPL(icss_iep_get_ptp_clock_idx);
 
 static void icss_iep_set_counter(struct icss_iep *iep, u64 ns)
 {
@@ -805,8 +804,10 @@ EXPORT_SYMBOL_GPL(icss_iep_init);
 
 int icss_iep_exit(struct icss_iep *iep)
 {
-	if (iep->ptp_clock)
+	if (iep->ptp_clock) {
 		ptp_clock_unregister(iep->ptp_clock);
+		iep->ptp_clock = NULL;
+	}
 	icss_iep_disable(iep);
 
 	return 0;

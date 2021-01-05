@@ -312,49 +312,16 @@ static enum hrtimer_restart prueth_timer(struct hrtimer *timer)
 {
 	struct prueth *prueth = container_of(timer, struct prueth,
 					     tbl_check_timer);
-	enum hrtimer_restart ret = HRTIMER_NORESTART;
-	unsigned int timeout = PRUETH_NSP_TIMER_MS;
-	struct prueth_emac *emac;
-	enum prueth_mac mac;
-	unsigned long flags;
-
-	if (PRUETH_IS_LRE(prueth))
-		timeout = PRUETH_TIMER_MS;
+	unsigned int timeout = PRUETH_TIMER_MS;
 
 	hrtimer_forward_now(timer, ms_to_ktime(timeout));
-	if (PRUETH_IS_LRE(prueth) &&
-	    prueth->emac_configured !=
+	if (prueth->emac_configured !=
 	    (BIT(PRUETH_PORT_MII0) | BIT(PRUETH_PORT_MII1)))
 		return HRTIMER_RESTART;
 
-	for (mac = PRUETH_MAC0; mac <= PRUETH_MAC1; mac++) {
-		emac = prueth->emac[mac];
+	prueth_lre_process_check_flags_event(prueth);
 
-		/* skip if in single emac mode */
-		if (!emac)
-			continue;
-
-		if (!netif_running(emac->ndev))
-			continue;
-
-		spin_lock_irqsave(&emac->nsp_lock, flags);
-
-		if (!emac->nsp_enabled) {
-			spin_unlock_irqrestore(&emac->nsp_lock, flags);
-			continue;
-		}
-
-		ret = HRTIMER_RESTART;
-		prueth_enable_nsp(emac);
-		spin_unlock_irqrestore(&emac->nsp_lock, flags);
-	}
-
-	if (PRUETH_IS_LRE(prueth)) {
-		ret = HRTIMER_RESTART;
-		prueth_lre_process_check_flags_event(prueth);
-	}
-
-	return ret;
+	return HRTIMER_RESTART;
 }
 
 static void prueth_init_timer(struct prueth *prueth)
@@ -364,17 +331,12 @@ static void prueth_init_timer(struct prueth *prueth)
 	prueth->tbl_check_timer.function = prueth_timer;
 }
 
-void prueth_start_timer(struct prueth_emac *emac)
+static void prueth_start_timer(struct prueth_emac *emac)
 {
-	unsigned int timeout = PRUETH_NSP_TIMER_MS;
+	unsigned int timeout = PRUETH_TIMER_MS;
 
 	if (hrtimer_active(&emac->prueth->tbl_check_timer))
 		return;
-
-	if (PRUETH_IS_LRE(emac->prueth)) {
-		timeout = PRUETH_TIMER_MS;
-		emac->nsp_timer_count = PRUETH_NSP_TIMER_COUNT;
-	}
 
 	hrtimer_start(&emac->prueth->tbl_check_timer, ms_to_ktime(timeout),
 		      HRTIMER_MODE_REL);
@@ -1771,8 +1733,8 @@ static int emac_ndo_open(struct net_device *ndev)
 	/* enable the port and vlan */
 	prueth_port_enable(emac, true);
 
-	/* timer used for NSP as well for HSR/PRP */
-	if (emac->nsp_enabled || PRUETH_IS_LRE(prueth))
+	/* timer used for HSR/PRP */
+	if (PRUETH_IS_LRE(prueth))
 		prueth_start_timer(emac);
 
 	prueth->emac_configured |= BIT(emac->port_id);
@@ -2444,6 +2406,20 @@ static int emac_get_port_parent_id(struct net_device *dev,
 	return 0;
 }
 
+static int emac_ndo_get_phys_port_name(struct net_device *ndev, char *name,
+				       size_t len)
+{
+	struct prueth_emac *emac = netdev_priv(ndev);
+	int err;
+
+	err = snprintf(name, len, "p%d", emac->port_id);
+
+	if (err >= len)
+		return -EINVAL;
+
+	return 0;
+}
+
 /**
  * emac_ndo_set_features - function to set feature flag
  * @ndev: The network adapter device
@@ -2539,6 +2515,7 @@ static const struct net_device_ops emac_netdev_ops = {
 	.ndo_vlan_rx_kill_vid = emac_ndo_vlan_rx_kill_vid,
 	.ndo_setup_tc = emac_ndo_setup_tc,
 	.ndo_get_port_parent_id = emac_get_port_parent_id,
+	.ndo_get_phys_port_name = emac_ndo_get_phys_port_name,
 };
 
 /**
@@ -2766,7 +2743,6 @@ static int emac_get_ts_info(struct net_device *ndev,
 			    struct ethtool_ts_info *info)
 {
 	struct prueth_emac *emac = netdev_priv(ndev);
-	struct ptp_clock *ptp;
 
 	if ((PRUETH_IS_EMAC(emac->prueth) && !emac->emac_ptp_tx_irq) ||
 	    (PRUETH_IS_LRE(emac->prueth) && !emac->hsr_ptp_tx_irq))
@@ -2780,11 +2756,7 @@ static int emac_get_ts_info(struct net_device *ndev,
 		SOF_TIMESTAMPING_SOFTWARE |
 		SOF_TIMESTAMPING_RAW_HARDWARE;
 
-	ptp = icss_iep_get_ptp_clock(emac->prueth->iep);
-	if (ptp)
-		info->phc_index = ptp_clock_index(ptp);
-	else
-		info->phc_index = -1;
+	info->phc_index = icss_iep_get_ptp_clock_idx(emac->prueth->iep);
 	info->tx_types = BIT(HWTSTAMP_TX_OFF) | BIT(HWTSTAMP_TX_ON);
 	info->rx_filters = BIT(HWTSTAMP_FILTER_NONE) | BIT(HWTSTAMP_FILTER_PTP_V2_EVENT);
 
@@ -2941,7 +2913,6 @@ static int prueth_netdev_init(struct prueth *prueth,
 
 	emac->msg_enable = netif_msg_init(debug_level, PRUETH_EMAC_DEBUG);
 	spin_lock_init(&emac->lock);
-	spin_lock_init(&emac->nsp_lock);
 	spin_lock_init(&emac->addr_lock);
 	spin_lock_init(&emac->ptp_skb_lock);
 
