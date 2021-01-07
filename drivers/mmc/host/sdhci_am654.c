@@ -18,9 +18,11 @@
 
 /* CTL_CFG Registers */
 #define CTL_CFG_2		0x14
+#define CTL_CFG_3		0x18
 
 #define SLOTTYPE_MASK		GENMASK(31, 30)
 #define SLOTTYPE_EMBEDDED	BIT(30)
+#define TUNINGFORSDR50_MASK	BIT(13)
 
 /* PHY Registers */
 #define PHY_CTRL1	0x100
@@ -65,6 +67,14 @@
 #define RETRIM_MASK		BIT(RETRIM_SHIFT)
 #define SELDLYTXCLK_SHIFT	17
 #define SELDLYTXCLK_MASK	BIT(SELDLYTXCLK_SHIFT)
+#define SELDLYRXCLK_SHIFT	16
+#define SELDLYRXCLK_MASK	BIT(SELDLYRXCLK_SHIFT)
+#define ITAPDLYSEL_SHIFT	0
+#define ITAPDLYSEL_MASK		GENMASK(4, 0)
+#define ITAPDLYENA_SHIFT	8
+#define ITAPDLYENA_MASK		BIT(ITAPDLYENA_SHIFT)
+#define ITAPCHGWIN_SHIFT	9
+#define ITAPCHGWIN_MASK		BIT(ITAPCHGWIN_SHIFT)
 
 #define DRIVER_STRENGTH_50_OHM	0x0
 #define DRIVER_STRENGTH_33_OHM	0x1
@@ -72,7 +82,7 @@
 #define DRIVER_STRENGTH_100_OHM	0x3
 #define DRIVER_STRENGTH_40_OHM	0x4
 
-#define CLOCK_TOO_SLOW_HZ	400000
+#define CLOCK_TOO_SLOW_HZ	50000000
 
 /* Command Queue Host Controller Interface Base address */
 #define SDHCI_AM654_CQE_BASE_ADDR 0x200
@@ -84,14 +94,56 @@ static struct regmap_config sdhci_am654_regmap_config = {
 	.fast_io = true,
 };
 
+struct timing_data {
+	const char *otap_binding;
+	const char *itap_binding;
+	u32 capability;
+};
+
+static const struct timing_data td[] = {
+	[MMC_TIMING_LEGACY]	= {"ti,otap-del-sel-legacy",
+				   "ti,itap-del-sel-legacy",
+				   0},
+	[MMC_TIMING_MMC_HS]	= {"ti,otap-del-sel-mmc-hs",
+				   "ti,itap-del-sel-mmc-hs",
+				   MMC_CAP_MMC_HIGHSPEED},
+	[MMC_TIMING_SD_HS]	= {"ti,otap-del-sel-sd-hs",
+				   "ti,itap-del-sel-sd-hs",
+				   MMC_CAP_SD_HIGHSPEED},
+	[MMC_TIMING_UHS_SDR12]	= {"ti,otap-del-sel-sdr12",
+				   "ti,itap-del-sel-sdr12",
+				   MMC_CAP_UHS_SDR12},
+	[MMC_TIMING_UHS_SDR25]	= {"ti,otap-del-sel-sdr25",
+				   "ti,itap-del-sel-sdr25",
+				   MMC_CAP_UHS_SDR25},
+	[MMC_TIMING_UHS_SDR50]	= {"ti,otap-del-sel-sdr50",
+				   NULL,
+				   MMC_CAP_UHS_SDR50},
+	[MMC_TIMING_UHS_SDR104]	= {"ti,otap-del-sel-sdr104",
+				   NULL,
+				   MMC_CAP_UHS_SDR104},
+	[MMC_TIMING_UHS_DDR50]	= {"ti,otap-del-sel-ddr50",
+				   NULL,
+				   MMC_CAP_UHS_DDR50},
+	[MMC_TIMING_MMC_DDR52]	= {"ti,otap-del-sel-ddr52",
+				   "ti,itap-del-sel-ddr52",
+				   MMC_CAP_DDR},
+	[MMC_TIMING_MMC_HS200]	= {"ti,otap-del-sel-hs200",
+				   NULL,
+				   MMC_CAP2_HS200},
+	[MMC_TIMING_MMC_HS400]	= {"ti,otap-del-sel-hs400",
+				   NULL,
+				   MMC_CAP2_HS400},
+};
+
 struct sdhci_am654_data {
 	struct regmap *base;
 	bool legacy_otapdly;
-	int otap_del_sel[11];
+	int otap_del_sel[ARRAY_SIZE(td)];
+	int itap_del_sel[ARRAY_SIZE(td)];
 	int clkbuf_sel;
 	int trm_icp;
 	int drv_strength;
-	bool dll_on;
 	int strb_sel;
 	u32 flags;
 };
@@ -106,26 +158,6 @@ struct sdhci_am654_driver_data {
 #define DLL_CALIB	(1 << 4)
 };
 
-struct timing_data {
-	const char *binding;
-	u32 capability;
-};
-
-static const struct timing_data td[] = {
-	[MMC_TIMING_LEGACY] = {"ti,otap-del-sel-legacy", 0},
-	[MMC_TIMING_MMC_HS] = {"ti,otap-del-sel-mmc-hs", MMC_CAP_MMC_HIGHSPEED},
-	[MMC_TIMING_SD_HS]  = {"ti,otap-del-sel-sd-hs", MMC_CAP_SD_HIGHSPEED},
-	[MMC_TIMING_UHS_SDR12] = {"ti,otap-del-sel-sdr12", MMC_CAP_UHS_SDR12},
-	[MMC_TIMING_UHS_SDR25] = {"ti,otap-del-sel-sdr25", MMC_CAP_UHS_SDR25},
-	[MMC_TIMING_UHS_SDR50] = {"ti,otap-del-sel-sdr50", MMC_CAP_UHS_SDR50},
-	[MMC_TIMING_UHS_SDR104] = {"ti,otap-del-sel-sdr104",
-				   MMC_CAP_UHS_SDR104},
-	[MMC_TIMING_UHS_DDR50] = {"ti,otap-del-sel-ddr50", MMC_CAP_UHS_DDR50},
-	[MMC_TIMING_MMC_DDR52] = {"ti,otap-del-sel-ddr52", MMC_CAP_DDR},
-	[MMC_TIMING_MMC_HS200] = {"ti,otap-del-sel-hs200", MMC_CAP2_HS200},
-	[MMC_TIMING_MMC_HS400] = {"ti,otap-del-sel-hs400", MMC_CAP2_HS400},
-};
-
 static void sdhci_am654_setup_dll(struct sdhci_host *host, unsigned int clock)
 {
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
@@ -133,6 +165,10 @@ static void sdhci_am654_setup_dll(struct sdhci_host *host, unsigned int clock)
 	int sel50, sel100, freqsel;
 	u32 mask, val;
 	int ret;
+
+	/* Disable delay chain mode */
+	regmap_update_bits(sdhci_am654->base, PHY_CTRL5,
+			   SELDLYTXCLK_MASK | SELDLYRXCLK_MASK, 0);
 
 	if (sdhci_am654->flags & FREQSEL_2_BIT) {
 		switch (clock) {
@@ -188,8 +224,32 @@ static void sdhci_am654_setup_dll(struct sdhci_host *host, unsigned int clock)
 		dev_err(mmc_dev(host->mmc), "DLL failed to relock\n");
 		return;
 	}
+}
 
-	sdhci_am654->dll_on = true;
+static void sdhci_am654_write_itapdly(struct sdhci_am654_data *sdhci_am654,
+				      u32 itapdly)
+{
+	/* Set ITAPCHGWIN before writing to ITAPDLY */
+	regmap_update_bits(sdhci_am654->base, PHY_CTRL4, ITAPCHGWIN_MASK,
+			   1 << ITAPCHGWIN_SHIFT);
+	regmap_update_bits(sdhci_am654->base, PHY_CTRL4, ITAPDLYSEL_MASK,
+			   itapdly << ITAPDLYSEL_SHIFT);
+	regmap_update_bits(sdhci_am654->base, PHY_CTRL4, ITAPCHGWIN_MASK, 0);
+}
+
+static void sdhci_am654_setup_delay_chain(struct sdhci_am654_data *sdhci_am654,
+					  unsigned char timing)
+{
+	u32 mask, val;
+
+	regmap_update_bits(sdhci_am654->base, PHY_CTRL1, ENDLL_MASK, 0);
+
+	val = 1 << SELDLYTXCLK_SHIFT | 1 << SELDLYRXCLK_SHIFT;
+	mask = SELDLYTXCLK_MASK | SELDLYRXCLK_MASK;
+	regmap_update_bits(sdhci_am654->base, PHY_CTRL5, mask, val);
+
+	sdhci_am654_write_itapdly(sdhci_am654,
+				  sdhci_am654->itap_del_sel[timing]);
 }
 
 static void sdhci_am654_set_clock(struct sdhci_host *host, unsigned int clock)
@@ -201,11 +261,7 @@ static void sdhci_am654_set_clock(struct sdhci_host *host, unsigned int clock)
 	u32 otap_del_ena;
 	u32 mask, val;
 
-	if (sdhci_am654->dll_on) {
-		regmap_update_bits(sdhci_am654->base, PHY_CTRL1, ENDLL_MASK, 0);
-
-		sdhci_am654->dll_on = false;
-	}
+	regmap_update_bits(sdhci_am654->base, PHY_CTRL1, ENDLL_MASK, 0);
 
 	sdhci_set_clock(host, clock);
 
@@ -233,14 +289,10 @@ static void sdhci_am654_set_clock(struct sdhci_host *host, unsigned int clock)
 
 	regmap_update_bits(sdhci_am654->base, PHY_CTRL4, mask, val);
 
-	if (timing > MMC_TIMING_UHS_SDR25 && clock > CLOCK_TOO_SLOW_HZ) {
-		regmap_update_bits(sdhci_am654->base, PHY_CTRL5,
-				   SELDLYTXCLK_MASK, 0);
+	if (timing > MMC_TIMING_UHS_SDR25 && clock >= CLOCK_TOO_SLOW_HZ)
 		sdhci_am654_setup_dll(host, clock);
-	} else {
-		regmap_update_bits(sdhci_am654->base, PHY_CTRL5,
-				   SELDLYTXCLK_MASK, 1 << SELDLYTXCLK_SHIFT);
-	}
+	else
+		sdhci_am654_setup_delay_chain(sdhci_am654, timing);
 
 	regmap_update_bits(sdhci_am654->base, PHY_CTRL5, CLKBUFSEL_MASK,
 			   sdhci_am654->clkbuf_sel);
@@ -354,7 +406,46 @@ static u32 sdhci_am654_cqhci_irq(struct sdhci_host *host, u32 intmask)
 	return 0;
 }
 
+#define ITAP_MAX	32
+static int sdhci_am654_platform_execute_tuning(struct sdhci_host *host,
+					       u32 opcode)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_am654_data *sdhci_am654 = sdhci_pltfm_priv(pltfm_host);
+	int cur_val, prev_val = 1, fail_len = 0, pass_window = 0, pass_len;
+	u32 itap;
+
+	/* Enable ITAPDLY */
+	regmap_update_bits(sdhci_am654->base, PHY_CTRL4, ITAPDLYENA_MASK,
+			   1 << ITAPDLYENA_SHIFT);
+
+	for (itap = 0; itap < ITAP_MAX; itap++) {
+		sdhci_am654_write_itapdly(sdhci_am654, itap);
+
+		cur_val = !mmc_send_tuning(host->mmc, opcode, NULL);
+		if (cur_val && !prev_val)
+			pass_window = itap;
+
+		if (!cur_val)
+			fail_len++;
+
+		prev_val = cur_val;
+	}
+	/*
+	 * Having determined the length of the failing window and start of
+	 * the passing window calculate the length of the passing window and
+	 * set the final value halfway through it considering the range as a
+	 * circular buffer
+	 */
+	pass_len = ITAP_MAX - fail_len;
+	itap = (pass_window + (pass_len >> 1)) % ITAP_MAX;
+	sdhci_am654_write_itapdly(sdhci_am654, itap);
+
+	return 0;
+}
+
 static struct sdhci_ops sdhci_am654_ops = {
+	.platform_execute_tuning = sdhci_am654_platform_execute_tuning,
 	.get_max_clock = sdhci_pltfm_clk_get_max_clock,
 	.get_timeout_clock = sdhci_pltfm_clk_get_max_clock,
 	.set_uhs_signaling = sdhci_set_uhs_signaling,
@@ -384,6 +475,7 @@ static const struct sdhci_am654_driver_data sdhci_am654_drvdata = {
 };
 
 static struct sdhci_ops sdhci_j721e_8bit_ops = {
+	.platform_execute_tuning = sdhci_am654_platform_execute_tuning,
 	.get_max_clock = sdhci_pltfm_clk_get_max_clock,
 	.get_timeout_clock = sdhci_pltfm_clk_get_max_clock,
 	.set_uhs_signaling = sdhci_set_uhs_signaling,
@@ -407,6 +499,7 @@ static const struct sdhci_am654_driver_data sdhci_j721e_8bit_drvdata = {
 };
 
 static struct sdhci_ops sdhci_j721e_4bit_ops = {
+	.platform_execute_tuning = sdhci_am654_platform_execute_tuning,
 	.get_max_clock = sdhci_pltfm_clk_get_max_clock,
 	.get_timeout_clock = sdhci_pltfm_clk_get_max_clock,
 	.set_uhs_signaling = sdhci_set_uhs_signaling,
@@ -497,8 +590,8 @@ static int sdhci_am654_get_otap_delay(struct sdhci_host *host,
 	int i;
 	int ret;
 
-	ret = device_property_read_u32(dev, td[MMC_TIMING_LEGACY].binding,
-				 &sdhci_am654->otap_del_sel[MMC_TIMING_LEGACY]);
+	ret = device_property_read_u32(dev, td[MMC_TIMING_LEGACY].otap_binding,
+				       &sdhci_am654->otap_del_sel[MMC_TIMING_LEGACY]);
 	if (ret) {
 		/*
 		 * ti,otap-del-sel-legacy is mandatory, look for old binding
@@ -520,11 +613,11 @@ static int sdhci_am654_get_otap_delay(struct sdhci_host *host,
 
 	for (i = MMC_TIMING_MMC_HS; i <= MMC_TIMING_MMC_HS400; i++) {
 
-		ret = device_property_read_u32(dev, td[i].binding,
+		ret = device_property_read_u32(dev, td[i].otap_binding,
 					       &sdhci_am654->otap_del_sel[i]);
 		if (ret) {
 			dev_dbg(dev, "Couldn't find %s\n",
-				td[i].binding);
+				td[i].otap_binding);
 			/*
 			 * Remove the corresponding capability
 			 * if an otap-del-sel value is not found
@@ -534,6 +627,10 @@ static int sdhci_am654_get_otap_delay(struct sdhci_host *host,
 			else
 				host->mmc->caps2 &= ~td[i].capability;
 		}
+
+		if (td[i].itap_binding)
+			device_property_read_u32(dev, td[i].itap_binding,
+						 &sdhci_am654->itap_del_sel[i]);
 	}
 
 	return 0;
@@ -578,6 +675,10 @@ static int sdhci_am654_init(struct sdhci_host *host)
 
 	regmap_update_bits(sdhci_am654->base, CTL_CFG_2, SLOTTYPE_MASK,
 			   ctl_cfg_2);
+
+	/* Enable tuning for SDR50 */
+	regmap_update_bits(sdhci_am654->base, CTL_CFG_3, TUNINGFORSDR50_MASK,
+			   TUNINGFORSDR50_MASK);
 
 	ret = sdhci_setup_host(host);
 	if (ret)
