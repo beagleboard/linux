@@ -181,7 +181,7 @@ static ssize_t rescan_store(struct device *dev, struct device_attribute *attr,
 		return -EBUSY;
 	}
 
-	if (!port->eeprom){
+	if (!port->w1_master){
 		return mikrobus_port_id_eeprom_probe(port);
 	}
 	/* Enter ID Mode */
@@ -228,7 +228,7 @@ static ssize_t idmode_store(struct device *dev, struct device_attribute *attr,
 		return -EBUSY;
 	}
 
-	if (!port->eeprom){
+	if (!port->w1_master){
 		return mikrobus_port_id_eeprom_probe(port);
 	}
 	/* Enter ID Mode */
@@ -556,7 +556,8 @@ static int mikrobus_device_register(struct mikrobus_port *port,
 				clk_register_fixed_rate(&spi->dev, dev->clocks[i].name, devname, 0, *val);
 			}
 		}
-		dev->dev_client = (void *) spi_add_device(spi);
+		spi_add_device(spi);
+		dev->dev_client = (void *) spi;
 		break;
 	case GREYBUS_PROTOCOL_I2C:
 		i2c = kzalloc(sizeof(*i2c), GFP_KERNEL);
@@ -667,22 +668,28 @@ void mikrobus_board_unregister(struct mikrobus_port *port, struct addon_board_in
 }
 EXPORT_SYMBOL_GPL(mikrobus_board_unregister);
 
-static struct w1_gpio_platform_data mikrobus_id_eeprom_w1_pdata = {
-      .pullup_gpiod  = NULL,
-};
-
-static struct platform_device mikrobus_id_eeprom_w1_device = {
-      .name                   = "w1-gpio",
-	  .dev.platform_data      = &mikrobus_id_eeprom_w1_pdata,
-};
-
 static int mikrobus_port_id_eeprom_probe(struct mikrobus_port *port)
 {
 	struct w1_bus_master *bm;
 	struct gpiod_lookup_table *lookup;
+	struct platform_device *mikrobus_id_eeprom_w1_device;
+	static struct w1_gpio_platform_data *mikrobus_id_eeprom_w1_pdata;
 	char devname[MIKROBUS_NAME_SIZE];
+	char drvname[MIKROBUS_NAME_SIZE] = "w1-gpio";
 	int retval;
 	int i;
+
+	mikrobus_id_eeprom_w1_device = kzalloc(sizeof(*mikrobus_id_eeprom_w1_device), GFP_KERNEL);
+	if (!mikrobus_id_eeprom_w1_device)
+		return -ENOMEM;
+
+	mikrobus_id_eeprom_w1_pdata = kzalloc(sizeof(*mikrobus_id_eeprom_w1_pdata), GFP_KERNEL);
+	if (!mikrobus_id_eeprom_w1_pdata)
+		return -ENOMEM;
+
+	mikrobus_id_eeprom_w1_pdata->pullup_gpiod = NULL;
+	mikrobus_id_eeprom_w1_device->name = kmemdup(drvname, MIKROBUS_NAME_SIZE, GFP_KERNEL);
+	mikrobus_id_eeprom_w1_device->dev.platform_data = mikrobus_id_eeprom_w1_pdata;
 
 	sprintf(port->pinctrl_selected[MIKROBUS_PINCTRL_SPI], "%s_%s",
 			MIKROBUS_PINCTRL_STR[MIKROBUS_PINCTRL_SPI], MIKROBUS_PINCTRL_STATE_GPIO);
@@ -705,9 +712,9 @@ static int mikrobus_port_id_eeprom_probe(struct mikrobus_port *port)
 	if (!lookup)
 			return -ENOMEM;
 	snprintf(devname, sizeof(devname), "%s.%u",
-				mikrobus_id_eeprom_w1_device.name,
+				mikrobus_id_eeprom_w1_device->name,
 				port->id);
-	mikrobus_id_eeprom_w1_device.id = port->id;
+	mikrobus_id_eeprom_w1_device->id = port->id;
 	lookup->dev_id = kmemdup(devname, MIKROBUS_NAME_SIZE, GFP_KERNEL);
 	lookup->table[0].key = mikrobus_gpio_chip_name_get(port,
 						MIKROBUS_PIN_CS);
@@ -715,9 +722,9 @@ static int mikrobus_port_id_eeprom_probe(struct mikrobus_port *port)
 	lookup->table[0].chip_hwnum = mikrobus_gpio_hwnum_get(port,
 						MIKROBUS_PIN_CS);
 	gpiod_add_lookup_table(lookup);
-	platform_device_register(&mikrobus_id_eeprom_w1_device);
-	port->w1_gpio = &mikrobus_id_eeprom_w1_device;
-	bm = (struct w1_bus_master *) platform_get_drvdata(&mikrobus_id_eeprom_w1_device);
+	platform_device_register(mikrobus_id_eeprom_w1_device);
+	port->w1_gpio = mikrobus_id_eeprom_w1_device;
+	bm = (struct w1_bus_master *) platform_get_drvdata(mikrobus_id_eeprom_w1_device);
 	if(bm) {
 		port->w1_master = w1_find_master_device(bm);
 		if(!port->w1_master){
@@ -727,10 +734,6 @@ static int mikrobus_port_id_eeprom_probe(struct mikrobus_port *port)
 			kfree(lookup);
 			return -ENODEV;
 		}
-		mutex_lock(&port->w1_master->mutex);
-		port->w1_master->max_slave_count = 1;
-		clear_bit(W1_WARN_MAX_COUNT, &port->w1_master->flags);
-		mutex_unlock(&port->w1_master->mutex);
 	}
 	return 0;
 }
@@ -782,7 +785,9 @@ int mikrobus_port_register(struct mikrobus_port *port)
 	if (!port->w1_master) {
 		dev_info(&port->dev, "mikrobus port %d eeprom empty probing default eeprom\n",
 											port->id);
+		mutex_lock(&core_lock);
 		retval = mikrobus_port_id_eeprom_probe(port);
+		mutex_unlock(&core_lock);
 	}
 	return retval;
 }
