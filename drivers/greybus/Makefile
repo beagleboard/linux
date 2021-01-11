@@ -22,7 +22,9 @@ obj-$(CONFIG_GREYBUS_BEAGLEPLAY)	+= gb-beagleplay.o
 
 # Greybus Host controller drivers
 gb-es2-y := es2.o
+gb-netlink-y := netlink.o
 
 obj-$(CONFIG_GREYBUS_ES2)	+= gb-es2.o
+obj-$(CONFIG_GREYBUS_NETLINK)	+= gb-netlink.o
 
 
