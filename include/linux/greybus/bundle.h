@@ -33,6 +33,8 @@ struct gb_bundle {
 	u8			*state;
 
 	struct list_head	links;	/* interface->bundles */
+	void *manifest_blob;
+	size_t manifest_size;
 };
 #define to_gb_bundle(d) container_of(d, struct gb_bundle, dev)
 
