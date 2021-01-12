@@ -14,24 +14,7 @@
 #include <linux/spi/spi.h>
 
 #include "spilib.h"
-
-struct gb_spilib {
-	struct gb_connection	*connection;
-	struct device		*parent;
-	struct spi_transfer	*first_xfer;
-	struct spi_transfer	*last_xfer;
-	struct spilib_ops	*ops;
-	u32			rx_xfer_offset;
-	u32			tx_xfer_offset;
-	u32			last_xfer_size;
-	unsigned int		op_timeout;
-	u16			mode;
-	u16			flags;
-	u32			bits_per_word_mask;
-	u8			num_chipselect;
-	u32			min_speed_hz;
-	u32			max_speed_hz;
-};
+#include <linux/greybus/gbphy.h>
 
 #define GB_SPI_STATE_MSG_DONE		((void *)0)
 #define GB_SPI_STATE_MSG_IDLE		((void *)1)
