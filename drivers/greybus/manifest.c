@@ -136,6 +136,17 @@ static int identify_descriptor(struct gb_interface *intf,
 	case GREYBUS_TYPE_CPORT:
 		expected_size += sizeof(struct greybus_descriptor_cport);
 		break;
+	case GREYBUS_TYPE_PROPERTY:
+		expected_size += sizeof(struct greybus_descriptor_property);
+		expected_size += desc->property.length;
+		expected_size = ALIGN(expected_size, 4);
+		break;
+	case GREYBUS_TYPE_DEVICE:
+		expected_size += sizeof(struct greybus_descriptor_device);
+		break;
+	case GREYBUS_TYPE_MIKROBUS:
+		expected_size += sizeof(struct greybus_descriptor_mikrobus);
+		break;
 	case GREYBUS_TYPE_INVALID:
 	default:
 		dev_err(&intf->dev, "invalid descriptor type (%u)\n",
@@ -372,6 +383,11 @@ static u32 gb_manifest_parse_bundles(struct gb_interface *intf)
 			continue;
 		}
 
+		if (class == GREYBUS_CLASS_BRIDGED_PHY){
+			bundle->manifest_blob = kmemdup(intf->manifest_blob, intf->manifest_size, GFP_KERNEL);
+			bundle->manifest_size = intf->manifest_size;
+		}
+
 		count++;
 	}
 
@@ -489,6 +505,8 @@ bool gb_manifest_parse(struct gb_interface *intf, void *data, size_t size)
 		return false;
 	}
 
+	intf->manifest_size = size;
+	intf->manifest_blob = data;
 	/* OK, find all the descriptors */
 	desc = manifest->descriptors;
 	size -= sizeof(*header);
