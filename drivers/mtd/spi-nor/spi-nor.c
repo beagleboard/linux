@@ -2477,6 +2477,7 @@ static int spi_nor_cypress_octal_dtr_enable(struct spi_nor *nor, bool enable)
 static void s28hs512t_default_init(struct spi_nor *nor)
 {
 	nor->params.octal_dtr_enable = spi_nor_cypress_octal_dtr_enable;
+	nor->params.writesize = 16;
 }
 
 static void s28hs512t_post_sfdp_fixup(struct spi_nor *nor)
@@ -5103,6 +5104,7 @@ static void spi_nor_info_init_params(struct spi_nor *nor)
 	params->setup = spi_nor_default_setup;
 
 	/* Set SPI NOR sizes. */
+	params->writesize = 1;
 	params->size = (u64)info->sector_size * info->n_sectors;
 	params->page_size = info->page_size;
 
@@ -5640,7 +5642,7 @@ int spi_nor_scan(struct spi_nor *nor, const char *name,
 		mtd->name = dev_name(dev);
 	mtd->priv = nor;
 	mtd->type = MTD_NORFLASH;
-	mtd->writesize = 1;
+	mtd->writesize = params->writesize;
 	mtd->flags = MTD_CAP_NORFLASH;
 	mtd->size = params->size;
 	mtd->_erase = spi_nor_erase;
