@@ -14,7 +14,7 @@
 #include <linux/w1.h>
 #include <linux/nvmem-provider.h>
 
-#include "mikrobus_core.h"
+#include <linux/mikrobus.h>
 
 #define W1_EEPROM_MIKROBUS_ID	0xAC
 
