@@ -21,8 +21,10 @@
 #include <linux/w1-gpio.h>
 #include <linux/device.h>
 #include <linux/i2c.h>
+#include <linux/greybus.h>
 #include <linux/gpio.h>
 #include <linux/gpio/machine.h>
+#include <linux/gpio/driver.h>
 #include <linux/nvmem-consumer.h>
 #include <linux/nvmem-provider.h>
 #include <linux/interrupt.h>
@@ -38,8 +40,9 @@
 #include <linux/regulator/machine.h>
 #include <linux/clk-provider.h>
 #include <linux/greybus/greybus_manifest.h>
+#include <linux/greybus/gbphy.h>
+#include <linux/mikrobus.h>
 
-#include "mikrobus_core.h"
 #include "mikrobus_manifest.h"
 
 static DEFINE_MUTEX(core_lock);
@@ -782,7 +785,7 @@ int mikrobus_port_register(struct mikrobus_port *port)
 								port->dev.parent);
 	if (retval)
 		dev_warn(&port->dev, "failed to create compatibility class link\n");
-	if (!port->w1_master) {
+	if (!port->w1_master && !port->disable_eeprom) {
 		dev_info(&port->dev, "mikrobus port %d eeprom empty probing default eeprom\n",
 											port->id);
 		mutex_lock(&core_lock);
@@ -824,6 +827,89 @@ void mikrobus_port_delete(struct mikrobus_port *port)
 	memset(&port->dev, 0, sizeof(port->dev));
 }
 EXPORT_SYMBOL_GPL(mikrobus_port_delete);
+
+int mikrobus_port_gb_register(struct gbphy_host *host, void *manifest_blob, size_t manifest_size)
+{
+	struct gb_bundle *bundle = host->bundle;
+	struct addon_board_info *board;
+	struct gbphy_device *gbphy_dev, *temp;
+	struct gb_i2c_device *gb_i2c_dev;
+	struct gb_connection *spi_connection;
+	struct gb_gpio_controller *ggc;
+	struct mikrobus_port *port;
+	struct gpio_desc *desc;
+	struct gpio_descs *descs;
+	int retval;
+
+	if (bundle->num_cports == 0)
+		return -ENODEV;
+	
+	port = kzalloc(sizeof(*port), GFP_KERNEL);
+	if (!port)
+		return -ENOMEM;
+
+	pr_info("mikrobus gb_probe , num cports= %zu, manifest_size %u \n", bundle->num_cports, manifest_size);
+	list_for_each_entry_safe(gbphy_dev, temp, &host->devices, list) {
+		pr_info("protocol added %d", gbphy_dev->cport_desc->protocol_id);
+		if(gbphy_dev->cport_desc->protocol_id != GREYBUS_PROTOCOL_I2C && 
+			gbphy_dev->cport_desc->protocol_id != GREYBUS_PROTOCOL_SPI &&
+			gbphy_dev->cport_desc->protocol_id != GREYBUS_PROTOCOL_GPIO){
+			pr_info("only I2C , GPIO and SPI Protocol Currently Supported");
+			kfree(port);
+			continue;
+		}
+		port->dev.parent = &gbphy_dev->dev;
+		if(gbphy_dev->cport_desc->protocol_id == GREYBUS_PROTOCOL_I2C){
+			gb_i2c_dev = (struct gb_i2c_device *) gb_gbphy_get_data(gbphy_dev);
+			port->i2c_adap = &gb_i2c_dev->adapter;
+			
+		}
+		else if(gbphy_dev->cport_desc->protocol_id == GREYBUS_PROTOCOL_SPI){
+			spi_connection = gb_gbphy_get_data(gbphy_dev);
+			port->spi_mstr = (struct spi_master *)gb_connection_get_data(spi_connection);
+		}
+		else if(gbphy_dev->cport_desc->protocol_id == GREYBUS_PROTOCOL_GPIO){
+			ggc = (struct gb_gpio_controller *) gb_gbphy_get_data(gbphy_dev);
+			port->gpios = kzalloc(struct_size(descs, desc, 12), GFP_KERNEL);
+			port->gpios->desc[0] = gpio_to_desc( ggc->chip.base + 7);//PWM GPIO
+			port->gpios->desc[1] = gpio_to_desc( ggc->chip.base + 20); //INT GPIO
+			port->gpios->desc[10] = gpio_to_desc( ggc->chip.base + 19); //RST GPIO
+		}
+	}
+	port->disable_eeprom = 1;
+	retval = mikrobus_port_register(port);
+	if (retval) {
+		pr_err("port : can't register port [%d]\n", retval);
+	}
+
+	board = kzalloc(sizeof(*board), GFP_KERNEL);
+	if (!board) {
+		retval = -ENOMEM;
+		goto err_free_buf;
+	}
+	INIT_LIST_HEAD(&board->manifest_descs);
+	INIT_LIST_HEAD(&board->devices);
+	retval = mikrobus_manifest_parse(board, manifest_blob, manifest_size);
+	if (!retval) {
+		dev_err(&port->dev, "failed to parse manifest, size %lu\n",
+			manifest_size);
+		retval = -EINVAL;
+		goto err_free_board;
+	}
+	retval = mikrobus_board_register(port, board);
+	if (retval) {
+		dev_err(&port->dev, "failed to register board %s\n",
+			board->name);
+		goto err_free_board;
+	}
+	return 0;
+err_free_board:
+	kfree(board);
+err_free_buf:
+	kfree(manifest_blob);
+	return retval;
+}
+EXPORT_SYMBOL_GPL(mikrobus_port_gb_register);
 
 static int mikrobus_port_probe_pinctrl_setup(struct mikrobus_port *port)
 {
