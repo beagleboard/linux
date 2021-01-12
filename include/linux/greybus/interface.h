@@ -65,6 +65,8 @@ struct gb_interface {
 
 	struct work_struct mode_switch_work;
 	struct completion mode_switch_completion;
+	void *manifest_blob;
+	size_t manifest_size;
 };
 #define to_gb_interface(d) container_of(d, struct gb_interface, dev)
 
