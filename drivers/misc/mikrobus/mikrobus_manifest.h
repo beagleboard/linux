@@ -12,7 +12,7 @@
 #ifndef __MIKROBUS_MANIFEST_H
 #define __MIKROBUS_MANIFEST_H
 
-#include "mikrobus_core.h"
+#include <linux/mikrobus.h>
 
 int mikrobus_manifest_parse(struct addon_board_info *info, void *data, size_t size);
 size_t mikrobus_manifest_header_validate(void *data, size_t size);
