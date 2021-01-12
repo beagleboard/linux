@@ -12,7 +12,7 @@
 #include <linux/usb/hcd.h>
 #include <linux/greybus.h>
 
-#include "gbphy.h"
+#include <linux/greybus/gbphy.h>
 
 /* Greybus USB request types */
 #define GB_USB_TYPE_HCD_START		0x02
