@@ -9,7 +9,7 @@
 #include <linux/module.h>
 #include <linux/greybus.h>
 
-#include "gbphy.h"
+#include <linux/greybus/gbphy.h>
 #include "spilib.h"
 
 static struct spilib_ops *spilib_ops;
