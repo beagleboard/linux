@@ -14,15 +14,11 @@
 #include <linux/slab.h>
 #include <linux/device.h>
 #include <linux/greybus.h>
+#include <linux/mikrobus.h>
 
-#include "gbphy.h"
+#include <linux/greybus/gbphy.h>
 
 #define GB_GBPHY_AUTOSUSPEND_MS	3000
-
-struct gbphy_host {
-	struct gb_bundle *bundle;
-	struct list_head devices;
-};
 
 static DEFINE_IDA(gbphy_id);
 
@@ -304,6 +300,8 @@ static int gb_gbphy_probe(struct gb_bundle *bundle,
 		}
 		list_add(&gbphy_dev->list, &gbphy_host->devices);
 	}
+
+	mikrobus_port_gb_register(gbphy_host, bundle->manifest_blob, bundle->manifest_size);
 
 	gb_pm_runtime_put_autosuspend(bundle);
 
