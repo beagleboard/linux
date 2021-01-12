@@ -30,7 +30,7 @@
 #include <linux/completion.h>
 #include <linux/greybus.h>
 
-#include "gbphy.h"
+#include <linux/greybus/gbphy.h>
 
 #define GB_NUM_MINORS	16	/* 16 is more than enough */
 #define GB_NAME		"ttyGB"
