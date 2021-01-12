@@ -12,16 +12,7 @@
 #include <linux/i2c.h>
 #include <linux/greybus.h>
 
-#include "gbphy.h"
-
-struct gb_i2c_device {
-	struct gb_connection	*connection;
-	struct gbphy_device	*gbphy_dev;
-
-	u32			functionality;
-
-	struct i2c_adapter	adapter;
-};
+#include <linux/greybus/gbphy.h>
 
 /*
  * Map Greybus i2c functionality bits into Linux ones

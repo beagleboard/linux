@@ -306,7 +306,7 @@ static int mikrobus_manifest_attach_device(struct addon_board_info *board,
 	board_dev->irq_type = dev_desc->irq_type;
 	board_dev->max_speed_hz = le32_to_cpu(dev_desc->max_speed_hz);
 	board_dev->mode = dev_desc->mode;
-	pr_info("parsed device %d, driver=%s", board_dev->id, board_dev->drv_name);
+	pr_info("parsed device %d, driver=%s, protocol=%d, reg=%x", board_dev->id, board_dev->drv_name, board_dev->protocol, board_dev->reg);
 
 	if (dev_desc->prop_link > 0) {
 		prop_link = mikrobus_property_link_get(board, dev_desc->prop_link,
