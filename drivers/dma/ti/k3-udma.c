@@ -2885,9 +2885,9 @@ udma_prep_slave_sg_tr(struct udma_chan *uc, struct scatterlist *sgl,
 			return NULL;
 		}
 
-		cppi5_tr_init(&tr_req[i].flags, CPPI5_TR_TYPE1, false, false,
-			      CPPI5_TR_EVENT_SIZE_COMPLETION, 0);
-		cppi5_tr_csf_set(&tr_req[i].flags, CPPI5_TR_CSF_SUPR_EVT);
+		cppi5_tr_init(&tr_req[tr_idx].flags, CPPI5_TR_TYPE1, false,
+			      false, CPPI5_TR_EVENT_SIZE_COMPLETION, 0);
+		cppi5_tr_csf_set(&tr_req[tr_idx].flags, CPPI5_TR_CSF_SUPR_EVT);
 
 		sg_addr |= asel;
 		tr_req[tr_idx].addr = sg_addr;
@@ -4386,6 +4386,7 @@ static int udma_get_mmrs(struct platform_device *pdev, struct udma_dev *ud)
 		ud->bchan_cnt = BCDMA_CAP2_BCHAN_CNT(cap2);
 		ud->tchan_cnt = BCDMA_CAP2_TCHAN_CNT(cap2);
 		ud->rchan_cnt = BCDMA_CAP2_RCHAN_CNT(cap2);
+		ud->rflow_cnt = ud->rchan_cnt;
 		break;
 	case DMA_TYPE_PKTDMA:
 		cap4 = udma_read(ud->mmrs[MMR_GCFG], 0x30);
