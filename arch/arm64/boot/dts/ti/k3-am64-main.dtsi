@@ -220,15 +220,15 @@
 		clock-names = "fck";
 		power-domains = <&k3_pds 13 TI_SCI_PD_EXCLUSIVE>;
 
-		dmas = <&main_pktdma 0xC500 0>,
-		       <&main_pktdma 0xC501 0>,
-		       <&main_pktdma 0xC502 0>,
-		       <&main_pktdma 0xC503 0>,
-		       <&main_pktdma 0xC504 0>,
-		       <&main_pktdma 0xC505 0>,
-		       <&main_pktdma 0xC506 0>,
-		       <&main_pktdma 0xC507 0>,
-		       <&main_pktdma 0x4500 0>;
+		dmas = <&main_pktdma 0xC500 15>,
+		       <&main_pktdma 0xC501 15>,
+		       <&main_pktdma 0xC502 15>,
+		       <&main_pktdma 0xC503 15>,
+		       <&main_pktdma 0xC504 15>,
+		       <&main_pktdma 0xC505 15>,
+		       <&main_pktdma 0xC506 15>,
+		       <&main_pktdma 0xC507 15>,
+		       <&main_pktdma 0x4500 15>;
 		dma-names = "tx0", "tx1", "tx2", "tx3", "tx4", "tx5", "tx6",
 			    "tx7", "rx";
 
