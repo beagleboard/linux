@@ -6,6 +6,8 @@
 # Copyright (C) 2016-2021 Texas Instruments Incorporated - https://www.ti.com/
 #
 
+DTC_FLAGS += -@
+
 dtb-$(CONFIG_ARCH_K3) += k3-am654-base-board.dtb
 
 dtb-$(CONFIG_ARCH_K3) += k3-j721e-common-proc-board.dtb
