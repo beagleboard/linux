@@ -2945,7 +2945,7 @@ static int cpsw_probe(struct platform_device *pdev)
 		goto clean_cpts;
 	}
 
-	if (cpsw->data.dual_emac) {
+	if (cpsw->data.dual_emac && data->slaves > 1) {
 		ret = cpsw_probe_dual_emac(priv);
 		if (ret) {
 			cpsw_err(priv, probe, "error probe slave 2 emac interface\n");
