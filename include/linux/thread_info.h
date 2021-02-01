@@ -9,6 +9,7 @@
 
 #include <linux/types.h>
 #include <linux/bug.h>
+#include <linux/errno.h>
 
 struct timespec;
 struct compat_timespec;
@@ -58,6 +59,18 @@ extern long do_no_restart_syscall(struct restart_block *parm);
 #include <asm/thread_info.h>
 
 #ifdef __KERNEL__
+
+#ifndef arch_set_restart_data
+#define arch_set_restart_data(restart) do { } while (0)
+#endif
+
+static inline long set_restart_fn(struct restart_block *restart,
+					long (*fn)(struct restart_block *))
+{
+	restart->fn = fn;
+	arch_set_restart_data(restart);
+	return -ERESTART_RESTARTBLOCK;
+}
 
 #define THREADINFO_GFP	(GFP_KERNEL_ACCOUNT | __GFP_NOTRACK | __GFP_ZERO)
 

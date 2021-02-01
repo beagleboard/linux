@@ -1582,10 +1582,10 @@ long hrtimer_nanosleep(struct timespec *rqtp, struct timespec __user *rmtp,
 	}
 
 	restart = &current->restart_block;
-	restart->fn = hrtimer_nanosleep_restart;
 	restart->nanosleep.clockid = t.timer.base->clockid;
 	restart->nanosleep.rmtp = rmtp;
 	restart->nanosleep.expires = hrtimer_get_expires_tv64(&t.timer);
+	set_restart_fn(restart, hrtimer_nanosleep_restart);
 
 	ret = -ERESTART_RESTARTBLOCK;
 out:
