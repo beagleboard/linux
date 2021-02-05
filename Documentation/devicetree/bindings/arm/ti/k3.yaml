@@ -31,4 +31,5 @@ properties:
         items:
           - enum:
               - ti,am642-evm
+              - ti,am642-sk
           - const: ti,am642
