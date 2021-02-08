@@ -151,6 +151,7 @@ inline struct lock_class *lockdep_hlock_class(struct held_lock *hlock)
 	}
 	return lock_classes + hlock->class_idx - 1;
 }
+EXPORT_SYMBOL_GPL(lockdep_hlock_class);
 #define hlock_class(hlock) lockdep_hlock_class(hlock)
 
 #ifdef CONFIG_LOCK_STAT
