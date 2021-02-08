@@ -1,0 +1,36 @@
+/*
+ * Copyright (C) 2020 Deepak Khatri <deepaklorkhatri7@gmail.com>
+ * See Cape Interface Spec page for more info on Bone Buses
+ * https://elinux.org/Beagleboard:BeagleBone_cape_interface_spec
+ *
+ * Virtual cape for BBAI PR2 UART0
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+/dts-v1/;
+/plugin/;
+
+/*
+* Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+*/
+&{/chosen} {
+    overlays {
+        BBAI-PR2_UART0 = __TIMESTAMP__;
+    };
+};
+
+/*
+ * Update the default pinmux of the pins.
+ * See these files for the phandles (&P9_* & &P8_*)
+ * BeagleBoard-DeviceTrees/v4.19.x-ti-overlays/src/arm/am335x-bone-common-univ.dtsi
+ * BeagleBoard-DeviceTrees/v4.19.x-ti-overlays/src/arm/am572x-bone-common-univ.dtsi
+ */
+&ocp {
+	P8_43_pinmux { pinctrl-0 = <&P8_43_pru_uart_pin>; };	/* PR2 UART0 TX */
+	P8_44_pinmux { pinctrl-0 = <&P8_44_pru_uart_pin>; };	/* PR2 UART0 RX */
+	P8_45_pinmux { pinctrl-0 = <&P8_45_pru_uart_pin>; };	/* PR2 UART0 CTS */
+	P8_46_pinmux { pinctrl-0 = <&P8_46_pru_uart_pin>; };	/* PR2 UART0 RTS */
+};
