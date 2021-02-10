@@ -52,6 +52,8 @@ struct nmi_seq_buf {
 };
 static DEFINE_PER_CPU(struct nmi_seq_buf, nmi_print_seq);
 
+static DEFINE_RAW_SPINLOCK(nmi_read_lock);
+
 /*
  * Safe printk() for NMI context. It uses a per-CPU buffer to
  * store the message. NMIs are not nested, so there is always only
@@ -134,8 +136,6 @@ static void printk_nmi_flush_seq_line(struct nmi_seq_buf *s,
  */
 static void __printk_nmi_flush(struct irq_work *work)
 {
-	static raw_spinlock_t read_lock =
-		__RAW_SPIN_LOCK_INITIALIZER(read_lock);
 	struct nmi_seq_buf *s = container_of(work, struct nmi_seq_buf, work);
 	unsigned long flags;
 	size_t len, size;
@@ -148,7 +148,7 @@ static void __printk_nmi_flush(struct irq_work *work)
 	 * different CPUs. This is especially important when printing
 	 * a backtrace.
 	 */
-	raw_spin_lock_irqsave(&read_lock, flags);
+	raw_spin_lock_irqsave(&nmi_read_lock, flags);
 
 	i = 0;
 more:
@@ -197,7 +197,7 @@ more:
 		goto more;
 
 out:
-	raw_spin_unlock_irqrestore(&read_lock, flags);
+	raw_spin_unlock_irqrestore(&nmi_read_lock, flags);
 }
 
 /**
@@ -237,6 +237,14 @@ void printk_nmi_flush_on_panic(void)
 
 		debug_locks_off();
 		raw_spin_lock_init(&logbuf_lock);
+	}
+
+	if (in_nmi() && raw_spin_is_locked(&nmi_read_lock)) {
+		if (num_online_cpus() > 1)
+			return;
+
+		debug_locks_off();
+		raw_spin_lock_init(&nmi_read_lock);
 	}
 
 	printk_nmi_flush();
