@@ -110,7 +110,7 @@
  * Root Port Registers (PCI configuration space for the root port function)
  */
 #define CDNS_PCIE_RP_BASE	0x00200000
-
+#define CDNS_PCIE_RP_CAP_OFFSET 0xc0
 
 /*
  * Address Translation Registers
@@ -276,6 +276,7 @@ struct cdns_pcie {
  *                translation (nbits sets into the "no BAR match" register)
  * @vendor_id: PCI vendor ID
  * @device_id: PCI device ID
+ * @quirk_retrain_flag: Retrain link as quirk for PCIe Gen2
  */
 struct cdns_pcie_rc {
 	struct cdns_pcie	pcie;
@@ -286,6 +287,7 @@ struct cdns_pcie_rc {
 	u32			no_bar_nbits;
 	u16			vendor_id;
 	u16			device_id;
+	bool			quirk_retrain_flag;
 };
 
 /**
@@ -401,6 +403,17 @@ static inline void cdns_pcie_rp_writew(struct cdns_pcie *pcie,
 	}
 
 	writew(value, addr);
+}
+
+static inline u16 cdns_pcie_rp_readw(struct cdns_pcie *pcie, u32 reg)
+{
+	void __iomem *addr = pcie->reg_base + CDNS_PCIE_RP_BASE + reg;
+
+	if (pcie->ops && pcie->ops->read) {
+		return pcie->ops->read(addr, 0x2);
+	}
+
+	return readw(addr);
 }
 
 /* Endpoint Function register access */

@@ -83,6 +83,7 @@ struct j721e_pcie_data {
 	enum j721e_pcie_mode	mode;
 	bool			is_intc_v1;
 	bool			byte_access_allowed;
+	bool			quirk_retrain_flag;
 	const struct cdns_pcie_ops *ops;
 };
 
@@ -402,6 +403,7 @@ static const struct j721e_pcie_data j721e_pcie_rc_data = {
 	.is_intc_v1 = true,
 	.byte_access_allowed = false,
 	.ops = &j721e_pcie_ops,
+	.quirk_retrain_flag = true,
 };
 
 static const struct j721e_pcie_data j721e_pcie_ep_data = {
@@ -525,6 +527,7 @@ static int j721e_pcie_probe(struct platform_device *pdev)
 		if (!byte_access_allowed)
 			bridge->ops = &cdns_ti_pcie_host_ops;
 		rc = pci_host_bridge_priv(bridge);
+		rc->quirk_retrain_flag = data->quirk_retrain_flag;
 
 		cdns_pcie = &rc->pcie;
 		cdns_pcie->dev = dev;
