@@ -825,8 +825,11 @@ again:
 			pages[i]->page = persistent_gnt->page;
 			pages[i]->persistent_gnt = persistent_gnt;
 		} else {
-			if (get_free_page(blkif, &pages[i]->page))
-				goto out_of_memory;
+			if (get_free_page(blkif, &pages[i]->page)) {
+				put_free_pages(blkif, pages_to_gnt, segs_to_map);
+				ret = -ENOMEM;
+				goto out;
+			}
 			addr = vaddr(pages[i]->page);
 			pages_to_gnt[segs_to_map] = pages[i]->page;
 			pages[i]->persistent_gnt = NULL;
@@ -910,15 +913,18 @@ next:
 	}
 	segs_to_map = 0;
 	last_map = map_until;
-	if (map_until != num)
+	if (!ret && map_until != num)
 		goto again;
 
-	return ret;
+out:
+	for (i = last_map; i < num; i++) {
+		/* Don't zap current batch's valid persistent grants. */
+		if(i >= last_map + segs_to_map)
+			pages[i]->persistent_gnt = NULL;
+		pages[i]->handle = BLKBACK_INVALID_HANDLE;
+	}
 
-out_of_memory:
-	pr_alert("%s: out of memory\n", __func__);
-	put_free_pages(blkif, pages_to_gnt, segs_to_map);
-	return -ENOMEM;
+	return ret;
 }
 
 static int xen_blkbk_map_seg(struct pending_req *pending_req)
