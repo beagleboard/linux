@@ -2220,31 +2220,9 @@ int cdns_torrent_phy_configure_multilink(struct cdns_torrent_phy *cdns_phy)
 	return 0;
 }
 
-static int cdns_torrent_phy_probe(struct platform_device *pdev)
+static int cdns_torrent_reset(struct cdns_torrent_phy *cdns_phy)
 {
-	struct cdns_torrent_phy *cdns_phy;
-	struct device *dev = &pdev->dev;
-	struct phy_provider *phy_provider;
-	struct phy_attrs torrent_attr;
-	const struct cdns_torrent_data *data;
-	struct device_node *child;
-	int ret, subnodes, node = 0, i;
-	u32 total_num_lanes = 0;
-	u8 init_dp_regmap = 0;
-	u32 phy_type;
-
-	/* Get init data for this PHY */
-	data = of_device_get_match_data(dev);
-	if (!data)
-		return -EINVAL;
-
-	cdns_phy = devm_kzalloc(dev, sizeof(*cdns_phy), GFP_KERNEL);
-	if (!cdns_phy)
-		return -ENOMEM;
-
-	dev_set_drvdata(dev, cdns_phy);
-	cdns_phy->dev = dev;
-	cdns_phy->init_data = data;
+	struct device *dev = cdns_phy->dev;
 
 	cdns_phy->phy_rst = devm_reset_control_get_exclusive_by_index(dev, 0);
 	if (IS_ERR(cdns_phy->phy_rst)) {
@@ -2260,29 +2238,20 @@ static int cdns_torrent_phy_probe(struct platform_device *pdev)
 		return PTR_ERR(cdns_phy->apb_rst);
 	}
 
+	return 0;
+}
+
+static int cdns_torrent_clk(struct cdns_torrent_phy *cdns_phy)
+{
+	struct device *dev = cdns_phy->dev;
+	struct device_node *child;
+	int ret;
+
 	cdns_phy->clk = devm_clk_get(dev, "refclk");
 	if (IS_ERR(cdns_phy->clk)) {
 		dev_err(dev, "phy ref clock not found\n");
 		return PTR_ERR(cdns_phy->clk);
 	}
-
-	cdns_phy->sd_base = devm_platform_ioremap_resource(pdev, 0);
-	if (IS_ERR(cdns_phy->sd_base))
-		return PTR_ERR(cdns_phy->sd_base);
-
-	subnodes = of_get_available_child_count(dev->of_node);
-	if (subnodes == 0) {
-		dev_err(dev, "No available link subnodes found\n");
-		return -EINVAL;
-	}
-
-	ret = cdns_torrent_regmap_init(cdns_phy);
-	if (ret)
-		return ret;
-
-	ret = cdns_torrent_regfield_init(cdns_phy);
-	if (ret)
-		return ret;
 
 	ret = clk_prepare_enable(cdns_phy->clk);
 	if (ret) {
@@ -2297,17 +2266,73 @@ static int cdns_torrent_phy_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	/* Enable APB */
-	reset_control_deassert(cdns_phy->apb_rst);
-
 	child = of_get_child_by_name(dev->of_node, "refclk-driver");
 	if (child) {
 		ret = cdns_torrent_derived_refclk_register(cdns_phy, child);
 		if (ret) {
 			dev_err(dev, "failed to register derived refclk\n");
+			clk_disable_unprepare(cdns_phy->clk);
 			return ret;
 		}
 	}
+
+	return 0;
+}
+
+static int cdns_torrent_phy_probe(struct platform_device *pdev)
+{
+	struct cdns_torrent_phy *cdns_phy;
+	struct device *dev = &pdev->dev;
+	struct phy_provider *phy_provider;
+	struct phy_attrs torrent_attr;
+	const struct cdns_torrent_data *data;
+	struct device_node *child;
+	int ret, subnodes, node = 0, i;
+	u32 total_num_lanes = 0;
+	u8 init_dp_regmap = 0;
+	u32 phy_type;
+
+	subnodes = of_get_available_child_count(dev->of_node);
+	if (subnodes == 0) {
+		dev_err(dev, "No available link subnodes found\n");
+		return -EINVAL;
+	}
+
+	/* Get init data for this PHY */
+	data = of_device_get_match_data(dev);
+	if (!data)
+		return -EINVAL;
+
+	cdns_phy = devm_kzalloc(dev, sizeof(*cdns_phy), GFP_KERNEL);
+	if (!cdns_phy)
+		return -ENOMEM;
+
+	dev_set_drvdata(dev, cdns_phy);
+	cdns_phy->dev = dev;
+	cdns_phy->init_data = data;
+
+	cdns_phy->sd_base = devm_platform_ioremap_resource(pdev, 0);
+	if (IS_ERR(cdns_phy->sd_base))
+		return PTR_ERR(cdns_phy->sd_base);
+
+	ret = cdns_torrent_regmap_init(cdns_phy);
+	if (ret)
+		return ret;
+
+	ret = cdns_torrent_regfield_init(cdns_phy);
+	if (ret)
+		return ret;
+
+	ret = cdns_torrent_reset(cdns_phy);
+	if (ret)
+		return ret;
+
+	ret = cdns_torrent_clk(cdns_phy);
+	if (ret)
+		return ret;
+
+	/* Enable APB */
+	reset_control_deassert(cdns_phy->apb_rst);
 
 	for_each_available_child_of_node(dev->of_node, child) {
 		struct phy *gphy;
