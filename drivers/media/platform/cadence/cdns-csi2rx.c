@@ -401,12 +401,89 @@ out:
 	return ret;
 }
 
+static int csi2rx_g_frame_interval(struct v4l2_subdev *subdev,
+				   struct v4l2_subdev_frame_interval *fi)
+{
+	struct csi2rx_priv *csi2rx = v4l2_subdev_to_csi2rx(subdev);
+
+	return v4l2_subdev_call(csi2rx->source_subdev, video, g_frame_interval,
+				fi);
+}
+
+static int csi2rx_s_frame_interval(struct v4l2_subdev *subdev,
+				   struct v4l2_subdev_frame_interval *fi)
+{
+	struct csi2rx_priv *csi2rx = v4l2_subdev_to_csi2rx(subdev);
+
+	return v4l2_subdev_call(csi2rx->source_subdev, video, s_frame_interval,
+				fi);
+}
+
+static int csi2rx_enum_mbus_code(struct v4l2_subdev *subdev,
+				 struct v4l2_subdev_pad_config *cfg,
+				 struct v4l2_subdev_mbus_code_enum *code)
+{
+	struct csi2rx_priv *csi2rx = v4l2_subdev_to_csi2rx(subdev);
+
+	return v4l2_subdev_call(csi2rx->source_subdev, pad, enum_mbus_code,
+				cfg, code);
+}
+
+static int csi2rx_get_fmt(struct v4l2_subdev *subdev,
+			  struct v4l2_subdev_pad_config *cfg,
+			  struct v4l2_subdev_format *fmt)
+{
+	struct csi2rx_priv *csi2rx = v4l2_subdev_to_csi2rx(subdev);
+
+	return v4l2_subdev_call(csi2rx->source_subdev, pad, get_fmt, cfg, fmt);
+}
+
+static int csi2rx_set_fmt(struct v4l2_subdev *subdev,
+			  struct v4l2_subdev_pad_config *cfg,
+			  struct v4l2_subdev_format *fmt)
+{
+	struct csi2rx_priv *csi2rx = v4l2_subdev_to_csi2rx(subdev);
+
+	return v4l2_subdev_call(csi2rx->source_subdev, pad, set_fmt, cfg, fmt);
+}
+
+static int csi2rx_enum_frame_size(struct v4l2_subdev *subdev,
+				  struct v4l2_subdev_pad_config *cfg,
+				  struct v4l2_subdev_frame_size_enum *fse)
+{
+	struct csi2rx_priv *csi2rx = v4l2_subdev_to_csi2rx(subdev);
+
+	return v4l2_subdev_call(csi2rx->source_subdev, pad, enum_frame_size,
+				cfg, fse);
+}
+
+static int csi2rx_enum_frame_interval(struct v4l2_subdev *subdev,
+				      struct v4l2_subdev_pad_config *cfg,
+				      struct v4l2_subdev_frame_interval_enum *fie)
+{
+	struct csi2rx_priv *csi2rx = v4l2_subdev_to_csi2rx(subdev);
+
+	return v4l2_subdev_call(csi2rx->source_subdev, pad, enum_frame_interval,
+				cfg, fie);
+}
+
 static const struct v4l2_subdev_video_ops csi2rx_video_ops = {
 	.s_stream	= csi2rx_s_stream,
+	.g_frame_interval = csi2rx_g_frame_interval,
+	.s_frame_interval = csi2rx_s_frame_interval,
+};
+
+static const struct v4l2_subdev_pad_ops csi2rx_pad_ops = {
+	.enum_mbus_code = csi2rx_enum_mbus_code,
+	.get_fmt	= csi2rx_get_fmt,
+	.set_fmt	= csi2rx_set_fmt,
+	.enum_frame_size = csi2rx_enum_frame_size,
+	.enum_frame_interval = csi2rx_enum_frame_interval,
 };
 
 static const struct v4l2_subdev_ops csi2rx_subdev_ops = {
 	.video		= &csi2rx_video_ops,
+	.pad		= &csi2rx_pad_ops,
 };
 
 static int csi2rx_async_bound(struct v4l2_async_notifier *notifier,
