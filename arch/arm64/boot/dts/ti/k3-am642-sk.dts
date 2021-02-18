@@ -536,3 +536,7 @@
 		};
 	};
 };
+
+&tscadc0 {
+	status = "disabled";
+};
