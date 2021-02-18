@@ -40,6 +40,8 @@
 #define CSI_DF_RGB444			0x20
 #define CSI_DF_RGB888			0x24
 
+#define DRAIN_TIMEOUT_MS		50
+
 struct ti_csi2rx_fmt {
 	u32				fourcc;	/* Four character code. */
 	u32				code;	/* Mbus code. */
@@ -73,6 +75,7 @@ struct ti_csi2rx_dev {
 	struct dma_chan			*dma;
 	struct ti_csi2rx_dmaq		dmaq;
 	u32				sequence;
+	struct completion		drain_complete;
 };
 
 static const struct ti_csi2rx_fmt formats[] = {
@@ -693,6 +696,57 @@ static int ti_csi2rx_start_dma(struct ti_csi2rx_dev *csi,
 	return 0;
 }
 
+static void ti_csi2rx_drain_callback(void *param)
+{
+	struct ti_csi2rx_dev *csi = param;
+
+	complete(&csi->drain_complete);
+}
+
+static int ti_csi2rx_drain_dma(struct ti_csi2rx_dev *csi)
+{
+	void *buf;
+	struct dma_async_tx_descriptor *desc;
+	struct device *dev = csi->dma->device->dev;
+	size_t len = csi->v_fmt.fmt.pix.sizeimage;
+	dma_addr_t addr;
+	dma_cookie_t cookie;
+	int ret;
+
+	buf = dma_alloc_coherent(dev, len, &addr, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+
+	desc = dmaengine_prep_slave_single(csi->dma, addr, len, DMA_DEV_TO_MEM,
+					   DMA_PREP_INTERRUPT | DMA_CTRL_ACK);
+	if (!desc) {
+		ret = -EIO;
+		goto out;
+	}
+
+	desc->callback = ti_csi2rx_drain_callback;
+	desc->callback_param = csi;
+	init_completion(&csi->drain_complete);
+
+	cookie = dmaengine_submit(desc);
+	ret = dma_submit_error(cookie);
+	if (ret)
+		goto out;
+
+	dma_async_issue_pending(csi->dma);
+
+	if (!wait_for_completion_timeout(&csi->drain_complete,
+					 msecs_to_jiffies(DRAIN_TIMEOUT_MS))) {
+		dmaengine_terminate_sync(csi->dma);
+		ret = -ETIMEDOUT;
+		goto out;
+	}
+
+out:
+	dma_free_coherent(dev, len, buf, addr);
+	return ret;
+}
+
 static int ti_csi2rx_queue_setup(struct vb2_queue *q, unsigned int *nbuffers,
 				 unsigned int *nplanes, unsigned int sizes[],
 				 struct device *alloc_devs[])
@@ -789,6 +843,16 @@ static void ti_csi2rx_stop_streaming(struct vb2_queue *vq)
 	ret = dmaengine_terminate_sync(csi->dma);
 	if (ret)
 		dev_err(csi->dev, "Failed to stop DMA\n");
+
+	/*
+	 * Some data might be stuck in the DMA pipeline because the application
+	 * does not tell us how many frames it wants to capture. So there will
+	 * always be some time delay between the application requesting the last
+	 * frame it needs and stopping the stream which will stop DMA. Drain
+	 * that data so it does not corrupt the next frame captured when the
+	 * stream is re-started later.
+	 */
+	ti_csi2rx_drain_dma(csi);
 
 	writel(0, csi->shim + SHIM_DMACNTX);
 
