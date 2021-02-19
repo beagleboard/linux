@@ -351,12 +351,10 @@ static void cpsw_rx_handler(void *token, int len, int status)
 		xdp.rxq = &priv->xdp_rxq[ch];
 		xdp.frame_sz = PAGE_SIZE;
 
-		ret = cpsw_run_xdp(priv, ch, &xdp, page, priv->emac_port);
+		ret = cpsw_run_xdp(priv, ch, &xdp, page, priv->emac_port, &len);
 		if (ret != CPSW_XDP_PASS)
 			goto requeue;
 
-		/* XDP prog might have changed packet data and boundaries */
-		len = xdp.data_end - xdp.data;
 		headroom = xdp.data - xdp.data_hard_start;
 
 		/* XDP prog can modify vlan tag, so can't use encap header */
