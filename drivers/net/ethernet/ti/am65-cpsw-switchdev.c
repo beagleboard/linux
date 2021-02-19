@@ -22,11 +22,15 @@ struct am65_cpsw_switchdev_event_work {
 	unsigned long event;
 };
 
-static int am65_cpsw_port_stp_state_set(struct am65_cpsw_port *port, u8 state)
+static int am65_cpsw_port_stp_state_set(struct am65_cpsw_port *port,
+					struct switchdev_trans *trans, u8 state)
 {
 	struct am65_cpsw_common *cpsw = port->common;
 	u8 cpsw_state;
 	int ret = 0;
+
+	if (switchdev_trans_ph_prepare(trans))
+		return 0;
 
 	switch (state) {
 	case BR_STATE_FORWARDING:
@@ -54,11 +58,15 @@ static int am65_cpsw_port_stp_state_set(struct am65_cpsw_port *port, u8 state)
 }
 
 static int am65_cpsw_port_attr_br_flags_set(struct am65_cpsw_port *port,
+					    struct switchdev_trans *trans,
 					    struct net_device *orig_dev,
 					    unsigned long brport_flags)
 {
 	struct am65_cpsw_common *cpsw = port->common;
 	bool unreg_mcast_add = false;
+
+	if (switchdev_trans_ph_prepare(trans))
+		return 0;
 
 	if (brport_flags & BR_MCAST_FLOOD)
 		unreg_mcast_add = true;
@@ -72,6 +80,7 @@ static int am65_cpsw_port_attr_br_flags_set(struct am65_cpsw_port *port,
 }
 
 static int am65_cpsw_port_attr_br_flags_pre_set(struct net_device *netdev,
+						struct switchdev_trans *trans,
 						unsigned long flags)
 {
 	if (flags & ~(BR_LEARNING | BR_MCAST_FLOOD))
@@ -81,7 +90,8 @@ static int am65_cpsw_port_attr_br_flags_pre_set(struct net_device *netdev,
 }
 
 static int am65_cpsw_port_attr_set(struct net_device *ndev,
-				   const struct switchdev_attr *attr)
+				   const struct switchdev_attr *attr,
+				   struct switchdev_trans *trans)
 {
 	struct am65_cpsw_port *port = am65_ndev_to_port(ndev);
 	int ret;
@@ -90,15 +100,15 @@ static int am65_cpsw_port_attr_set(struct net_device *ndev,
 
 	switch (attr->id) {
 	case SWITCHDEV_ATTR_ID_PORT_PRE_BRIDGE_FLAGS:
-		ret = am65_cpsw_port_attr_br_flags_pre_set(ndev,
+		ret = am65_cpsw_port_attr_br_flags_pre_set(ndev, trans,
 							   attr->u.brport_flags);
 		break;
 	case SWITCHDEV_ATTR_ID_PORT_STP_STATE:
-		ret = am65_cpsw_port_stp_state_set(port, attr->u.stp_state);
+		ret = am65_cpsw_port_stp_state_set(port, trans, attr->u.stp_state);
 		netdev_dbg(ndev, "stp state: %u\n", attr->u.stp_state);
 		break;
 	case SWITCHDEV_ATTR_ID_PORT_BRIDGE_FLAGS:
-		ret = am65_cpsw_port_attr_br_flags_set(port, attr->orig_dev,
+		ret = am65_cpsw_port_attr_br_flags_set(port, trans, attr->orig_dev,
 						       attr->u.brport_flags);
 		break;
 	default:
@@ -228,7 +238,8 @@ static int am65_cpsw_port_vlan_del(struct am65_cpsw_port *port, u16 vid,
 }
 
 static int am65_cpsw_port_vlans_add(struct am65_cpsw_port *port,
-				    const struct switchdev_obj_port_vlan *vlan)
+				    const struct switchdev_obj_port_vlan *vlan,
+				    struct switchdev_trans *trans)
 {
 	bool untag = vlan->flags & BRIDGE_VLAN_INFO_UNTAGGED;
 	struct net_device *orig_dev = vlan->obj.orig_dev;
@@ -236,23 +247,27 @@ static int am65_cpsw_port_vlans_add(struct am65_cpsw_port *port,
 	bool pvid = vlan->flags & BRIDGE_VLAN_INFO_PVID;
 
 	netdev_dbg(port->ndev, "VID add: %s: vid:%u flags:%X\n",
-		   port->ndev->name, vlan->vid, vlan->flags);
+		   port->ndev->name, vlan->vid_begin, vlan->flags);
 
 	if (cpu_port && !(vlan->flags & BRIDGE_VLAN_INFO_BRENTRY))
 		return 0;
 
-	return am65_cpsw_port_vlan_add(port, untag, pvid, vlan->vid, orig_dev);
+	if (switchdev_trans_ph_prepare(trans))
+		return 0;
+
+	return am65_cpsw_port_vlan_add(port, untag, pvid, vlan->vid_begin, orig_dev);
 }
 
 static int am65_cpsw_port_vlans_del(struct am65_cpsw_port *port,
 				    const struct switchdev_obj_port_vlan *vlan)
 
 {
-	return am65_cpsw_port_vlan_del(port, vlan->vid, vlan->obj.orig_dev);
+	return am65_cpsw_port_vlan_del(port, vlan->vid_begin, vlan->obj.orig_dev);
 }
 
 static int am65_cpsw_port_mdb_add(struct am65_cpsw_port *port,
-				  struct switchdev_obj_port_mdb *mdb)
+				  struct switchdev_obj_port_mdb *mdb,
+				  struct switchdev_trans *trans)
 
 {
 	struct net_device *orig_dev = mdb->obj.orig_dev;
@@ -260,6 +275,9 @@ static int am65_cpsw_port_mdb_add(struct am65_cpsw_port *port,
 	struct am65_cpsw_common *cpsw = port->common;
 	int port_mask;
 	int err;
+
+	if (switchdev_trans_ph_prepare(trans))
+		return 0;
 
 	if (cpu_port)
 		port_mask = BIT(HOST_PORT_NUM);
@@ -299,6 +317,7 @@ static int am65_cpsw_port_mdb_del(struct am65_cpsw_port *port,
 
 static int am65_cpsw_port_obj_add(struct net_device *ndev,
 				  const struct switchdev_obj *obj,
+				  struct switchdev_trans *trans,
 				  struct netlink_ext_ack *extack)
 {
 	struct switchdev_obj_port_vlan *vlan = SWITCHDEV_OBJ_PORT_VLAN(obj);
@@ -310,11 +329,11 @@ static int am65_cpsw_port_obj_add(struct net_device *ndev,
 
 	switch (obj->id) {
 	case SWITCHDEV_OBJ_ID_PORT_VLAN:
-		err = am65_cpsw_port_vlans_add(port, vlan);
+		err = am65_cpsw_port_vlans_add(port, vlan, trans);
 		break;
 	case SWITCHDEV_OBJ_ID_PORT_MDB:
 	case SWITCHDEV_OBJ_ID_HOST_MDB:
-		err = am65_cpsw_port_mdb_add(port, mdb);
+		err = am65_cpsw_port_mdb_add(port, mdb, trans);
 		break;
 	default:
 		err = -EOPNOTSUPP;
