@@ -502,12 +502,27 @@ static void b53_imp_vlan_setup(struct dsa_switch *ds, int cpu_port)
 	}
 }
 
+static void b53_port_set_learning(struct b53_device *dev, int port,
+				  bool learning)
+{
+	u16 reg;
+
+	b53_read16(dev, B53_CTRL_PAGE, B53_DIS_LEARNING, &reg);
+	if (learning)
+		reg &= ~BIT(port);
+	else
+		reg |= BIT(port);
+	b53_write16(dev, B53_CTRL_PAGE, B53_DIS_LEARNING, reg);
+}
+
 static int b53_enable_port(struct dsa_switch *ds, int port,
 			   struct phy_device *phy)
 {
 	struct b53_device *dev = ds->priv;
 	unsigned int cpu_port = dev->cpu_port;
 	u16 pvlan;
+
+	b53_port_set_learning(dev, port, false);
 
 	/* Clear the Rx and Tx disable bits and set to no spanning tree */
 	b53_write8(dev, B53_CTRL_PAGE, B53_PORT_CTRL(port), 0);
@@ -552,6 +567,8 @@ static void b53_enable_cpu_port(struct b53_device *dev)
 		    PORT_CTRL_RX_MCST_EN |
 		    PORT_CTRL_RX_UCST_EN;
 	b53_write8(dev, B53_CTRL_PAGE, B53_PORT_CTRL(cpu_port), port_ctrl);
+
+	b53_port_set_learning(dev, cpu_port, false);
 }
 
 static void b53_enable_mib(struct b53_device *dev)
@@ -1375,6 +1392,8 @@ static int b53_br_join(struct dsa_switch *ds, int port,
 	b53_write16(dev, B53_PVLAN_PAGE, B53_PVLAN_PORT_MASK(port), pvlan);
 	dev->ports[port].vlan_ctl_mask = pvlan;
 
+	b53_port_set_learning(dev, port, true);
+
 	return 0;
 }
 
@@ -1426,6 +1445,7 @@ static void b53_br_leave(struct dsa_switch *ds, int port)
 		vl->untag |= BIT(port) | BIT(dev->cpu_port);
 		b53_set_vlan_entry(dev, pvid, vl);
 	}
+	b53_port_set_learning(dev, port, false);
 }
 
 static void b53_br_set_stp_state(struct dsa_switch *ds, int port, u8 state)
