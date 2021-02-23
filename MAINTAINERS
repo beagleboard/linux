@@ -2609,8 +2609,8 @@ S:	Maintained
 F:	drivers/power/reset/keystone-reset.c
 
 ARM/TEXAS INSTRUMENTS K3 ARCHITECTURE
-M:	Tero Kristo <t-kristo@ti.com>
 M:	Nishanth Menon <nm@ti.com>
+M:	Tero Kristo <kristo@kernel.org>
 L:	linux-arm-kernel@lists.infradead.org (moderated for non-subscribers)
 S:	Supported
 F:	Documentation/devicetree/bindings/arm/ti/k3.yaml
@@ -3864,7 +3864,8 @@ F:	drivers/mtd/nand/raw/cadence-nand-controller.c
 CADENCE USB3 DRD IP DRIVER
 M:	Peter Chen <peter.chen@nxp.com>
 M:	Pawel Laszczak <pawell@cadence.com>
-M:	Roger Quadros <rogerq@ti.com>
+R:	Roger Quadros <rogerq@kernel.org>
+R:	Aswath Govindraju <a-govindraju@ti.com>
 L:	linux-usb@vger.kernel.org
 S:	Maintained
 T:	git git://git.kernel.org/pub/scm/linux/kernel/git/peter.chen/usb.git
@@ -6413,9 +6414,9 @@ S:	Maintained
 F:	drivers/edac/skx_*.c
 
 EDAC-TI
-M:	Tero Kristo <t-kristo@ti.com>
+M:	Tero Kristo <kristo@kernel.org>
 L:	linux-edac@vger.kernel.org
-S:	Maintained
+S:	Odd Fixes
 F:	drivers/edac/ti_edac.c
 
 EDIROL UA-101/UA-1000 DRIVER
@@ -12655,7 +12656,7 @@ F:	include/misc/ocxl*
 F:	include/uapi/misc/ocxl.h
 
 OMAP AUDIO SUPPORT
-M:	Peter Ujfalusi <peter.ujfalusi@ti.com>
+M:	Peter Ujfalusi <peter.ujfalusi@gmail.com>
 M:	Jarkko Nikula <jarkko.nikula@bitmer.com>
 L:	alsa-devel@alsa-project.org (moderated for non-subscribers)
 L:	linux-omap@vger.kernel.org
@@ -12699,7 +12700,7 @@ S:	Orphan
 F:	drivers/video/fbdev/omap/
 
 OMAP GENERAL PURPOSE MEMORY CONTROLLER SUPPORT
-M:	Roger Quadros <rogerq@ti.com>
+M:	Roger Quadros <rogerq@kernel.org>
 M:	Tony Lindgren <tony@atomide.com>
 L:	linux-omap@vger.kernel.org
 S:	Maintained
@@ -17283,7 +17284,7 @@ F:	arch/xtensa/
 F:	drivers/irqchip/irq-xtensa-*
 
 TEXAS INSTRUMENTS ASoC DRIVERS
-M:	Peter Ujfalusi <peter.ujfalusi@ti.com>
+M:	Peter Ujfalusi <peter.ujfalusi@gmail.com>
 L:	alsa-devel@alsa-project.org (moderated for non-subscribers)
 S:	Maintained
 F:	sound/soc/ti/
@@ -17295,9 +17296,22 @@ S:	Supported
 F:	Documentation/devicetree/bindings/iio/dac/ti,dac7612.txt
 F:	drivers/iio/dac/ti-dac7612.c
 
+TEXAS INSTRUMENTS DMA DRIVERS
+M:	Peter Ujfalusi <peter.ujfalusi@gmail.com>
+L:	dmaengine@vger.kernel.org
+S:	Maintained
+F:	Documentation/devicetree/bindings/dma/ti-dma-crossbar.txt
+F:	Documentation/devicetree/bindings/dma/ti-edma.txt
+F:	Documentation/devicetree/bindings/dma/ti/
+F:	drivers/dma/ti/
+X:	drivers/dma/ti/cppi41.c
+F:	include/linux/dma/k3-udma-glue.h
+F:	include/linux/dma/ti-cppi5.h
+F:	include/linux/dma/k3-psil.h
+
 TEXAS INSTRUMENTS' SYSTEM CONTROL INTERFACE (TISCI) PROTOCOL DRIVER
 M:	Nishanth Menon <nm@ti.com>
-M:	Tero Kristo <t-kristo@ti.com>
+M:	Tero Kristo <kristo@kernel.org>
 M:	Santosh Shilimkar <ssantosh@kernel.org>
 L:	linux-arm-kernel@lists.infradead.org
 S:	Maintained
@@ -17435,9 +17449,9 @@ S:	Maintained
 F:	drivers/clk/clk-cdce706.c
 
 TI CLOCK DRIVER
-M:	Tero Kristo <t-kristo@ti.com>
+M:	Tero Kristo <kristo@kernel.org>
 L:	linux-omap@vger.kernel.org
-S:	Maintained
+S:	Odd Fixes
 F:	drivers/clk/ti/
 F:	include/linux/clk/ti.h
 
@@ -17574,7 +17588,7 @@ F:	Documentation/devicetree/bindings/net/nfc/trf7970a.txt
 F:	drivers/nfc/trf7970a.c
 
 TI TWL4030 SERIES SOC CODEC DRIVER
-M:	Peter Ujfalusi <peter.ujfalusi@ti.com>
+M:	Peter Ujfalusi <peter.ujfalusi@gmail.com>
 L:	alsa-devel@alsa-project.org (moderated for non-subscribers)
 S:	Maintained
 F:	sound/soc/codecs/twl4030*
