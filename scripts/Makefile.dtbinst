@@ -18,6 +18,7 @@ include scripts/Kbuild.include
 include $(src)/Makefile
 
 dtbs    := $(addprefix $(dst)/, $(dtb-y) $(if $(CONFIG_OF_ALL_DTBS),$(dtb-)))
+dtbs    += $(addprefix $(dst)/, $(dtb-merge-y) $(if $(CONFIG_OF_ALL_DTBS),$(dtb-merge-)))
 subdirs := $(addprefix $(obj)/, $(subdir-y) $(subdir-m))
 
 __dtbs_install: $(dtbs) $(subdirs)
