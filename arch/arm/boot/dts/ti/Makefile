@@ -22,6 +22,10 @@ dtb-$(CONFIG_SOC_DRA7XX) += \
 	dra76-evm.dtb \
 	dra7-evm.dtb
 
+# overlays
+dtb-$(CONFIG_SOC_DRA7XX) += \
+	am57xx-evm-common.dtbo
+
 $(obj)/%.dtb: $(src)/../%.dts FORCE
 	$(call if_changed_dep,dtc,dtb)
 
