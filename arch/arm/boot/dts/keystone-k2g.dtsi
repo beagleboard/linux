@@ -2,7 +2,7 @@
 /*
  * Device Tree Source for K2G SOC
  *
- * Copyright (C) 2016-2017 Texas Instruments Incorporated - http://www.ti.com/
+ * Copyright (C) 2016-2021 Texas Instruments Incorporated - https://www.ti.com/
  */
 
 #include <dt-bindings/interrupt-controller/arm-gic.h>
@@ -281,6 +281,14 @@
 				compatible = "ti,sci-reset";
 				#reset-cells = <2>;
 			};
+		};
+
+		clock_event: timer@2210000 {
+			compatible = "ti,k2g-timer";
+			reg = <0x02210000 0x50>;
+			interrupts = <GIC_SPI 19 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 18 IRQ_TYPE_LEVEL_LOW>;
+			clocks = <&k2g_clks 0x1e 0>;
 		};
 
 		gpio0: gpio@2603000 {
