@@ -1022,6 +1022,19 @@ int do_huge_pmd_wp_page(struct fault_env *fe, pmd_t orig_pmd)
 	 * We can only reuse the page if nobody else maps the huge page or it's
 	 * part.
 	 */
+	if (!trylock_page(page)) {
+		get_page(page);
+		spin_unlock(fe->ptl);
+		lock_page(page);
+		spin_lock(fe->ptl);
+		if (unlikely(!pmd_same(*fe->pmd, orig_pmd))) {
+			unlock_page(page);
+			put_page(page);
+			goto out_unlock;
+		}
+		put_page(page);
+	}
+
 	if (page_trans_huge_mapcount(page, NULL) == 1) {
 		pmd_t entry;
 		entry = pmd_mkyoung(orig_pmd);
@@ -1029,8 +1042,10 @@ int do_huge_pmd_wp_page(struct fault_env *fe, pmd_t orig_pmd)
 		if (pmdp_set_access_flags(vma, haddr, fe->pmd, entry,  1))
 			update_mmu_cache_pmd(vma, fe->address, fe->pmd);
 		ret |= VM_FAULT_WRITE;
+		unlock_page(page);
 		goto out_unlock;
 	}
+	unlock_page(page);
 	get_page(page);
 	spin_unlock(fe->ptl);
 alloc:
