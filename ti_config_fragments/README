@@ -1,0 +1,96 @@
+##################################
+# Introduction
+##################################
+
+Using config fragments in the Linux kernel is a supported model in the
+Linux kernel mainline.  TI has taken advantage of this model to be able
+to take a base defconfig and add or remove configuration flags contained
+within a config fragment.  This allows the base defconfig to be left intact
+and helps facilitate and understanding of what config flags can be enabled
+or disabled.  The config fragments drastically reduces the number of merge
+conflicts when the Linux stable dot release (LTS) is merged back to the
+integration point as well as merges for TI domain trees.
+
+But alas this creates another issue as with the config fragments there is no
+direct defconfig for customers to build just many, many, many options.
+
+Therefore the defconfig_builder script was derived to take a defconfig map file
+and present a command line interface to the customer to to create a standard
+defconfig based off the TI integration branches. The customer is walked through
+steps and if successful a defconfig will be created in the arch/arm/configs
+directory for ARM based builds and arch/arm64/configs directory for 64-bit ARM.
+
+##################################
+# Requirements
+##################################
+
+* awk v1.2 or greater.
+* bash shell 4.3.11(1)-release or greater.
+* Coreutils package v8.1 or greater.
+* grep (GNU grep) v2.16 or greater.
+* Linux kernel with merge_config script.
+* sed (GNU sed) v4.2.2 or greater.
+
+##################################
+# Usage
+##################################
+
+There is only one option for this script. This option defines the working
+path to where the Linux kernel resides.
+
+	-w - Location of the TI Linux kernel
+	-t - Indicates the type of defconfig to build. This will force the
+	     defconfig to build without user interaction.
+	-l - List all buildable defconfig options
+
+Command line example to generate the TI SDK AM335x processor defconfig
+automatically without user interaction:
+
+	ti_config_fragments/defconfig_builder.sh -t ti_sdk_am3x_release
+
+Command line Example if building from the ti_config_fragments directory:
+	defconfig_builder.sh -w ../.
+
+User interactive command line example:
+
+##################################
+# Defconfig Map File
+##################################
+
+The defconfig map file contains the mapping of the defconfig options and the
+assembly instructions for the defconfig to be created.
+
+The file contains keywords and all are *required* to be filled out.
+
+classification: - Defines the class of the defconfig which can be Release,
+		  Debug, System Test.
+type: - Defines the type of build.  Like debug build, LSK build or RT build
+defconfig: - Defines the base defconfig config to append the config fragments to
+config_file: - Defines a file that contains a list of config fragments.
+	       If there is not a list then declare "None" for this field.
+extra_configs: - These are individual config fragments that can be appended to
+		 the defconfig by themselves or in addition to the config_file.
+
+A Note on ordering of "extra_configs":
+
+In general, config fragments should be listed such that the fragment
+with more restrictive options goes towards the end of the list. This
+makes sure that those options are not inadvertently overridden by more
+generically applicable options. More concretely, the following ordering
+is recommended:
+
+1) Pruning of non-TI features
+2) Introduce domain specific features
+3) Optimize for an SoC family
+4) Optimize for a particular SoC
+5) Introduce distribution specific features. (example: Android)
+
+Example:
+
+This is an example of an AM335x entry that will create a defconfig only for
+AM335x processors, based on the multi_v7_defconfig. The defconfig_fragment file
+adds features that have been enabled in the TI integrated kernel. The
+extra_configs will add in the debug options as well as undefine all processors
+that are not AM335x.
+
+classification: SDK_release type: ti_sdk_am3x_release defconfig: multi_v7_defconfig config_file: None extra_configs: multi_v7_prune.cfg baseport.cfg ipc.cfg connectivity.cfg audio_display.cfg omap_soc.cfg am33xx_only.cfg systemd.cfg
