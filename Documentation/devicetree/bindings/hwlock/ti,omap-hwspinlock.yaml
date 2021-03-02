@@ -75,3 +75,28 @@ examples:
             };
         };
     };
+
+  - |
+    / {
+        /* K3 AM64x SoCs */
+        model = "Texas Instruments K3 AM642 SoC";
+        compatible = "ti,am642-evm", "ti,am642";
+        #address-cells = <2>;
+        #size-cells = <2>;
+
+        bus@f4000 {
+            compatible = "simple-bus";
+            #address-cells = <2>;
+            #size-cells = <2>;
+            ranges = <0x00 0x000f4000 0x00 0x000f4000 0x00 0x000002e4>, /* PINCTRL */
+                     <0x00 0x01000000 0x00 0x01000000 0x00 0x02330400>, /* First peripheral window */
+                     <0x00 0x0f000000 0x00 0x0f000000 0x00 0x00c44200>, /* Second peripheral window */
+                     <0x00 0x20000000 0x00 0x20000000 0x00 0x0a008000>; /* Third peripheral window */
+
+            spinlock@2a000000 {
+                compatible = "ti,am64-hwspinlock";
+                reg = <0x00 0x2a000000 0x00 0x1000>;
+                #hwlock-cells = <1>;
+            };
+        };
+    };
