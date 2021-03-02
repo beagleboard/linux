@@ -1,0 +1,53 @@
+#!/usr/bin/perl
+# SPDX-License-Identifier: GPL-2.0
+#
+# Copyright (C) 2018-2021 Texas Instruments Incorporated - https://www.ti.com/
+#
+# Author: Tero Kristo <t-kristo@ti.com>
+#
+
+use strict;
+
+my $debug = 0;
+
+die "Usage: $ARGV[0] <srctree> <objtree> <dtb-file> <overlay-tool> <config-dir>\n"
+		if @ARGV != 5;
+
+my $srctree = shift @ARGV;
+my $objtree = shift @ARGV;
+my $dtb_tgt = shift @ARGV;
+my $fdtoverlay = shift @ARGV;
+my $dir = shift @ARGV;
+
+open my $in, "<$srctree/$dir/dtb-merge.cfg" or die "Unable to open $srctree/$dir/dtb-merge.cfg";
+
+my $tgt;
+my @dtbs;
+
+# Generate target config string
+if ($dtb_tgt =~ /\/([^\/]+)\.dtb$/) {
+  $tgt = $1;
+}
+
+foreach (<$in>) {
+    if (/$tgt: (.*)$/) {
+        @dtbs = split " ", $1;
+    }
+}
+
+close $in;
+
+die "No config found for $tgt\n" if !@dtbs;
+
+print "Found config for $tgt:\n" if $debug;
+
+# Generate the merged dtb file
+my $cmd = "$fdtoverlay";
+$cmd .= " -v" if $debug;
+$cmd .= " -o $dtb_tgt -i";
+
+foreach my $dtb (@dtbs) {
+  $cmd .= " $objtree/$dir/$dtb";
+}
+
+exit system($cmd);
