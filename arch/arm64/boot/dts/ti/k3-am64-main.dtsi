@@ -500,4 +500,10 @@
 		pinctrl-single,register-width = <32>;
 		pinctrl-single,function-mask = <0x000107ff>;
 	};
+
+	hwspinlock: spinlock@2a000000 {
+		compatible = "ti,am64-hwspinlock";
+		reg = <0x00 0x2a000000 0x00 0x1000>;
+		#hwlock-cells = <1>;
+	};
 };
