@@ -318,6 +318,10 @@
 	pinctrl-0 = <&mdio1_pins_default
 		     &rgmii1_pins_default
 		     &rgmii2_pins_default>;
+
+	cpts@3d000 {
+		ti,pps = <7 1>;
+	};
 };
 
 &cpsw_port1 {
@@ -335,5 +339,22 @@
 		reg = <0>;
 		ti,rx-internal-delay = <DP83867_RGMIIDCTL_2_00_NS>;
 		ti,fifo-depth = <DP83867_PHYCR_FIFO_DEPTH_4_B_NIB>;
+	};
+};
+
+#define TS_OFFSET(pa, val)     (0x4+(pa)*4) (0x10000 | val)
+
+&timesync_router {
+	pinctrl-names = "default";
+	pinctrl-0 = <&mcu_cpts_pps>;
+
+	/* Example of the timesync routing */
+	mcu_cpts_pps: mcu-cpts-pps {
+		pinctrl-single,pins = <
+				/* pps [cpts genf1] in22 -> out37 [cpts hw8_push] */
+				TS_OFFSET(37, 22)
+				/* pps [cpts genf1] in22 -> out25 [SYNC1_OUT pin] */
+				TS_OFFSET(25, 22)
+				>;
 	};
 };
