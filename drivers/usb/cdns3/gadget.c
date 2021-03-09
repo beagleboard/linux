@@ -633,10 +633,25 @@ void cdns3_gadget_giveback(struct cdns3_endpoint *priv_ep,
 	usb_gadget_unmap_request_by_dev(priv_dev->sysdev, request,
 					priv_ep->dir);
 
-	if ((priv_req->flags & REQUEST_UNALIGNED) &&
-	    priv_ep->dir == USB_DIR_OUT && !request->status)
-		memcpy(request->buf, priv_req->aligned_buf->buf,
-		       request->length);
+	if ((priv_req->flags & REQUEST_UNALIGNED) && priv_req->aligned_buf) {
+		struct cdns3_aligned_buf *buf;
+
+		buf = priv_req->aligned_buf;
+		dma_unmap_single(priv_dev->sysdev, buf->dma, buf->size,
+				 buf->dir);
+		priv_req->flags &= ~REQUEST_UNALIGNED;
+
+		if (priv_ep->dir == USB_DIR_OUT && !request->status) {
+			memcpy(request->buf, priv_req->aligned_buf->buf,
+			       request->length);
+		}
+
+		trace_cdns3_free_aligned_request(priv_req);
+		priv_req->aligned_buf->in_use = 0;
+		queue_work(system_freezable_wq,
+			   &priv_dev->aligned_buf_wq);
+		priv_req->aligned_buf = NULL;
+	}
 
 	priv_req->flags &= ~(REQUEST_PENDING | REQUEST_UNALIGNED);
 	trace_cdns3_gadget_giveback(priv_req);
@@ -696,8 +711,7 @@ static void cdns3_free_aligned_request_buf(struct work_struct *work)
 			 * interrupts.
 			 */
 			spin_unlock_irqrestore(&priv_dev->lock, flags);
-			dma_free_coherent(priv_dev->sysdev, buf->size,
-					  buf->buf, buf->dma);
+			kfree(buf->buf);
 			kfree(buf);
 			spin_lock_irqsave(&priv_dev->lock, flags);
 		}
@@ -723,26 +737,15 @@ static int cdns3_prepare_aligned_request_buf(struct cdns3_request *priv_req)
 		if (!buf)
 			return -ENOMEM;
 
-		buf->size = priv_req->request.length;
+		buf->size = usb_endpoint_dir_out(priv_ep->endpoint.desc) ?
+				usb_ep_align(&priv_ep->endpoint, priv_req->request.length)
+				: priv_req->request.length;
 
-		buf->buf = dma_alloc_coherent(priv_dev->sysdev,
-					      buf->size,
-					      &buf->dma,
-					      GFP_ATOMIC);
+		buf->buf = kmalloc(buf->size, GFP_ATOMIC);
 		if (!buf->buf) {
 			kfree(buf);
 			return -ENOMEM;
 		}
-
-		if (priv_req->aligned_buf) {
-			trace_cdns3_free_aligned_request(priv_req);
-			priv_req->aligned_buf->in_use = 0;
-			queue_work(system_freezable_wq,
-				   &priv_dev->aligned_buf_wq);
-		}
-
-		buf->in_use = 1;
-		priv_req->aligned_buf = buf;
 
 		list_add_tail(&buf->list,
 			      &priv_dev->aligned_buf_list);
@@ -751,6 +754,27 @@ static int cdns3_prepare_aligned_request_buf(struct cdns3_request *priv_req)
 	if (priv_ep->dir == USB_DIR_IN) {
 		memcpy(buf->buf, priv_req->request.buf,
 		       priv_req->request.length);
+	}
+
+	if (priv_req->aligned_buf) {
+		trace_cdns3_free_aligned_request(priv_req);
+		priv_req->aligned_buf->in_use = 0;
+		queue_work(system_freezable_wq,
+			   &priv_dev->aligned_buf_wq);
+	}
+
+	buf->dir =  priv_ep->dir ? DMA_TO_DEVICE : DMA_FROM_DEVICE;
+	buf->in_use = 1;
+	priv_req->aligned_buf = buf;
+
+	buf->dma = dma_map_single(priv_dev->sysdev, buf->buf, buf->size,
+				  buf->dir);
+
+	if (dma_mapping_error(priv_dev->sysdev, buf->dma)) {
+		dev_err(priv_dev->dev, "Failed to map buffer\n");
+		kfree(buf->buf);
+		kfree(buf);
+		return -EFAULT;
 	}
 
 	priv_req->flags |= REQUEST_UNALIGNED;
@@ -2545,11 +2569,11 @@ void cdns3_gadget_exit(struct cdns3 *cdns)
 		struct cdns3_aligned_buf *buf;
 
 		buf = cdns3_next_align_buf(&priv_dev->aligned_buf_list);
-		dma_free_coherent(priv_dev->sysdev, buf->size,
-				  buf->buf,
-				  buf->dma);
+		dma_unmap_single(priv_dev->sysdev, buf->dma, buf->size,
+				 buf->dir);
 
 		list_del(&buf->list);
+		kfree(buf->buf);
 		kfree(buf);
 	}
 
