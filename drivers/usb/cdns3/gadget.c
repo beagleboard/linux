@@ -59,6 +59,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/usb/gadget.h>
 #include <linux/module.h>
+#include <linux/dmapool.h>
 #include <linux/iopoll.h>
 
 #include "core.h"
@@ -158,18 +159,6 @@ dma_addr_t cdns3_trb_virt_to_dma(struct cdns3_endpoint *priv_ep,
 	return priv_ep->trb_pool_dma + offset;
 }
 
-int cdns3_ring_size(struct cdns3_endpoint *priv_ep)
-{
-	switch (priv_ep->type) {
-	case USB_ENDPOINT_XFER_ISOC:
-		return TRB_ISO_RING_SIZE;
-	case USB_ENDPOINT_XFER_CONTROL:
-		return TRB_CTRL_RING_SIZE;
-	default:
-		return TRB_RING_SIZE;
-	}
-}
-
 /**
  * cdns3_allocate_trb_pool - Allocates TRB's pool for selected endpoint
  * @priv_ep:  endpoint object
@@ -179,14 +168,13 @@ int cdns3_ring_size(struct cdns3_endpoint *priv_ep)
 int cdns3_allocate_trb_pool(struct cdns3_endpoint *priv_ep)
 {
 	struct cdns3_device *priv_dev = priv_ep->cdns3_dev;
-	int ring_size = cdns3_ring_size(priv_ep);
+	int ring_size = TRB_RING_SIZE;
 	struct cdns3_trb *link_trb;
 
 	if (!priv_ep->trb_pool) {
-		priv_ep->trb_pool = dma_alloc_coherent(priv_dev->sysdev,
-						       ring_size,
-						       &priv_ep->trb_pool_dma,
-						       GFP_DMA32 | GFP_ATOMIC);
+		priv_ep->trb_pool = dma_pool_alloc(priv_dev->eps_dma_pool,
+						   GFP_DMA32 | GFP_ATOMIC,
+						   &priv_ep->trb_pool_dma);
 		if (!priv_ep->trb_pool)
 			return -ENOMEM;
 	}
@@ -210,9 +198,8 @@ static void cdns3_free_trb_pool(struct cdns3_endpoint *priv_ep)
 	struct cdns3_device *priv_dev = priv_ep->cdns3_dev;
 
 	if (priv_ep->trb_pool) {
-		dma_free_coherent(priv_dev->sysdev,
-				  cdns3_ring_size(priv_ep),
-				  priv_ep->trb_pool, priv_ep->trb_pool_dma);
+		dma_pool_free(priv_dev->eps_dma_pool,
+			      priv_ep->trb_pool, priv_ep->trb_pool_dma);
 		priv_ep->trb_pool = NULL;
 	}
 }
@@ -2566,8 +2553,7 @@ void cdns3_gadget_exit(struct cdns3 *cdns)
 		kfree(buf);
 	}
 
-	dma_free_coherent(priv_dev->sysdev, 8, priv_dev->setup_buf,
-			  priv_dev->setup_dma);
+	dma_pool_destroy(priv_dev->eps_dma_pool);
 
 	kfree(priv_dev->zlp_buf);
 	kfree(priv_dev);
@@ -2638,6 +2624,14 @@ static int cdns3_gadget_start(struct cdns3 *cdns)
 	/* initialize endpoint container */
 	INIT_LIST_HEAD(&priv_dev->gadget.ep_list);
 	INIT_LIST_HEAD(&priv_dev->aligned_buf_list);
+	priv_dev->eps_dma_pool = dma_pool_create("cdns3_eps_dma_pool",
+						 priv_dev->sysdev,
+						 TRB_RING_SIZE, 8, 0);
+	if (!priv_dev->eps_dma_pool) {
+		dev_err(priv_dev->dev, "Failed to create TRB dma pool\n");
+		ret = -ENOMEM;
+		goto err1;
+	}
 
 	ret = cdns3_init_eps(priv_dev);
 	if (ret) {
@@ -2687,6 +2681,7 @@ err3:
 err2:
 	cdns3_free_all_eps(priv_dev);
 err1:
+	dma_pool_destroy(priv_dev->eps_dma_pool);
 	cdns->gadget_dev = NULL;
 	return ret;
 }

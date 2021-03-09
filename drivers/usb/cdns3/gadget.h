@@ -1266,7 +1266,7 @@ struct cdns3_device {
 	spinlock_t			lock;
 
 	struct cdns3_usb_regs		__iomem *regs;
-
+	struct dma_pool			*eps_dma_pool;
 	struct usb_ctrlrequest		*setup_buf;
 	dma_addr_t			setup_dma;
 	void				*zlp_buf;
