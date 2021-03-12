@@ -211,7 +211,8 @@ static ssize_t state_store(struct device *dev,
 		return -EPERM;
 
 	if (sysfs_streq(buf, "start")) {
-		if (rproc->state == RPROC_RUNNING)
+		if (rproc->state == RPROC_RUNNING ||
+		    rproc->state == RPROC_ATTACHED)
 			return -EBUSY;
 
 		/*
