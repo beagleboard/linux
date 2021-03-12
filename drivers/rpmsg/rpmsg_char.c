@@ -137,6 +137,8 @@ static int rpmsg_eptdev_open(struct inode *inode, struct file *filp)
 	}
 
 	eptdev->ept = ept;
+	if (eptdev->chinfo.src == RPMSG_ADDR_ANY)
+		eptdev->chinfo.src = ept->addr;
 	filp->private_data = eptdev;
 
 	return 0;
@@ -440,6 +442,7 @@ static long rpmsg_ctrldev_ioctl(struct file *fp, unsigned int cmd,
 	chinfo.name[RPMSG_NAME_SIZE-1] = '\0';
 	chinfo.src = eptinfo.src;
 	chinfo.dst = eptinfo.dst;
+	chinfo.desc[0] = '\0';
 
 	return rpmsg_eptdev_create(ctrldev, chinfo);
 };
@@ -535,12 +538,19 @@ static void rpmsg_chrdev_remove(struct rpmsg_device *rpdev)
 	put_device(&ctrldev->dev);
 }
 
+static const struct rpmsg_device_id rpmsg_char_id_table[] = {
+	{ .name	= "rpmsg_chrdev" },
+	{ },
+};
+MODULE_DEVICE_TABLE(rpmsg, rpmsg_char_id_table);
+
 static struct rpmsg_driver rpmsg_chrdev_driver = {
 	.probe = rpmsg_chrdev_probe,
 	.remove = rpmsg_chrdev_remove,
 	.drv = {
 		.name = "rpmsg_chrdev",
 	},
+	.id_table = rpmsg_char_id_table,
 };
 
 static int rpmsg_char_init(void)
