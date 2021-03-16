@@ -12,6 +12,7 @@
 #ifndef __LINUX_CDNS3_GADGET
 #define __LINUX_CDNS3_GADGET
 #include <linux/usb/gadget.h>
+#include <linux/dma-direction.h>
 
 /*
  * USBSS-DEV register interface.
@@ -1178,6 +1179,7 @@ struct cdns3_aligned_buf {
 	void			*buf;
 	dma_addr_t		dma;
 	u32			size;
+	enum dma_data_direction dir;
 	int			in_use:1;
 	struct list_head	list;
 };
@@ -1266,7 +1268,7 @@ struct cdns3_device {
 	spinlock_t			lock;
 
 	struct cdns3_usb_regs		__iomem *regs;
-
+	struct dma_pool			*eps_dma_pool;
 	struct usb_ctrlrequest		*setup_buf;
 	dma_addr_t			setup_dma;
 	void				*zlp_buf;
