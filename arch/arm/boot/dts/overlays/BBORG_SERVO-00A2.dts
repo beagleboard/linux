@@ -1,0 +1,74 @@
+/*
+ * Copyright (C) 2020 Deepak Khatri <deepaklorkhatri7@gmail.com>
+ * See Cape Interface Spec page for more info on Bone Buses
+ * https://elinux.org/Beagleboard:BeagleBone_cape_interface_spec
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+/dts-v1/;
+/plugin/;
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+ */
+&{/chosen} {
+	overlays {
+		BBORG_SERVO-00A2 = __TIMESTAMP__;
+	};
+};
+
+/*
+ * Update the default pinmux of the pins.
+ * See these files for the phandles (&P9_* & &P8_*)
+ * BeagleBoard-DeviceTrees/v4.19.x-ti-overlays/src/arm/am335x-bone-common-univ.dtsi
+ * BeagleBoard-DeviceTrees/v4.19.x-ti-overlays/src/arm/am572x-bone-common-univ.dtsi
+ */
+&ocp {
+    P8_12_pinmux { pinctrl-0 = <&P8_12_gpio_pd_pin>; }; /* IN1 */
+    P8_11_pinmux { pinctrl-0 = <&P8_11_gpio_pd_pin>; }; /* IN2 */
+    P9_30_pinmux { pinctrl-0 = <&P9_30_gpio_pd_pin>; }; /* IN3 */
+    P9_27_pinmux { pinctrl-0 = <&P9_27_gpio_pd_pin>; }; /* IN4 */
+    P9_41_pinmux { pinctrl-0 = <&P9_41_gpio_pd_pin>; }; /* IN5 */
+    P9_42_pinmux { pinctrl-0 = <&P9_42_gpio_pd_pin>; }; /* IN6 */
+
+    P9_19_pinmux { pinctrl-0 = <&P9_19_i2c_pin>; }; /* i2c_scl */
+    P9_20_pinmux { pinctrl-0 = <&P9_20_i2c_pin>; }; /* i2c_sda */
+    P8_10_pinmux { pinctrl-0 = <&P8_10_gpio_pin>; }; /* pca9685.enable */
+};
+
+/*
+ * See these files for the phandles (&bone_*) and other bone bus nodes
+ * BeagleBoard-DeviceTrees/v4.19.x-ti-overlays/src/arm/bbai-bone-buses.dtsi
+ * BeagleBoard-DeviceTrees/v4.19.x-ti-overlays/src/arm/bbb-bone-buses.dtsi
+ */
+&bone_i2c_2 {
+    // bone_i2c_2 is enabled by default on BBB and BBAI for cape EEPROM
+    // status = "okay";
+    clock-frequency = <100000>;
+    #address-cells = <1>;
+    #size-cells = <0>;
+
+    pca: pca@70 {
+        compatible = "nxp,pca9685-pwm";
+        #pwm-cells = <2>;
+        reg = <0x70>;
+        label = "pca9685_servo";
+        /* invert; */
+        /* open-drain; */
+    };
+};
+
+&{/} {
+    leds {
+        led_P8_10 {
+            status = "okay";
+            label = "pca9685-enable";
+            // pca9685 Chip enable is ACTIVE-LOW but LEDs are set to ACTIVE-HIGH
+            // Set default-state to "off" to enable the pca9685 chip by default.
+            default-state = "off";
+        };
+    };
+};
