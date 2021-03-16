@@ -1,0 +1,5 @@
+
+config XENO_DRIVERS_ANALOGY_S526
+	depends on XENO_DRIVERS_ANALOGY
+	tristate "Sensoray Model 526 driver"
+	default n
