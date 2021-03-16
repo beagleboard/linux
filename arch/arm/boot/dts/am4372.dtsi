@@ -468,6 +468,12 @@
 					};
 				};
 
+				pruss1_iep: iep@2e000 {
+					compatible = "ti,am3356-icss-iep";
+					reg = <0x2e000 0x31c>;
+					clocks = <&pruss1_iepclk_mux>;
+				};
+
 				pruss1_mii_rt: mii-rt@32000 {
 					compatible = "ti,pruss-mii", "syscon";
 					reg = <0x32000 0x58>;
@@ -553,6 +559,13 @@
 								 <&pruss_ocp_gclk>; /* icss_ocp_gclk */
 						};
 					};
+				};
+
+				pruss0_iep: iep@6e000 {
+					compatible = "ti,am3356-icss-iep";
+					reg = <0x6e000 0x31c>;
+					clocks = <&pruss0_iepclk_mux>;
+					status = "disabled";
 				};
 
 				pruss0_mii_rt: mii-rt@72000 {
