@@ -1,0 +1,93 @@
+/*
+ * Copyright (C) 2020 Deepak Khatri <deepaklorkhatri7@gmail.com>
+ * See Cape Interface Spec page for more info on Bone Buses
+ * https://elinux.org/Beagleboard:BeagleBone_cape_interface_spec
+ *
+ * Based on BBORG_MOTOR-00A2.dts from Robert Nelson for kernel <4.14
+ * Copyright (C) 2018 Robert Nelson <robertcnelson@gmail.com>
+ *
+ * Note: Requires Compaibility code from BeagleBoard-DeviceTrees/pull/17
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+/dts-v1/;
+/plugin/;
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+ */
+&{/chosen} {
+	overlays {
+		BBORG_MOTOR-00A2 = __TIMESTAMP__;
+	};
+};
+
+/*
+ * Update the default pinmux of the pins.
+ * See these files for the phandles (&P9_* & &P8_*)
+ * BeagleBoard-DeviceTrees/v4.19.x-ti-overlays/src/arm/am335x-bone-common-univ.dtsi
+ * BeagleBoard-DeviceTrees/v4.19.x-ti-overlays/src/arm/am572x-bone-common-univ.dtsi
+ */
+&ocp {
+	P8_13_pinmux { pinctrl-0 = <&P8_13_pwm_pin>; };	/* motor3 speed */
+	P8_14_pinmux { pinctrl-0 = <&P8_14_gpio_pin>; };	/* motor3 direction */
+	P8_16_pinmux { pinctrl-0 = <&P8_16_gpio_pin>; };	/* motor2 direction */
+	P8_18_pinmux { pinctrl-0 = <&P8_18_gpio_pin>; };	/* motor1 direction */
+	P8_19_pinmux { pinctrl-0 = <&P8_19_pwm_pin>; };	/* motor4 speed */
+	P8_26_pinmux { pinctrl-0 = <&P8_26_gpio_pin>; };	/* motor4 direction */
+	P9_14_pinmux { pinctrl-0 = <&P9_14_pwm_pin>; };	/* motor2 speed */
+	P9_16_pinmux { pinctrl-0 = <&P9_16_pwm_pin>; };	/* motor1 speed */
+};
+
+// Motor 1, 2
+&bone_pwm_1 {
+	status = "okay";
+};
+
+// Motor 3, 4
+&bone_pwm_2 {
+	status = "okay";
+};
+
+
+/*
+ * Easy Motor direction control through sysfs (/sys/class/leds/motor*) using gpio-leds driver
+ * See these files for the led_P8_#/led_P9_#  definition
+ * https://github.com/beagleboard/BeagleBoard-DeviceTrees/src/arm/bbai-bone-buses.dtsi
+ * https://github.com/beagleboard/BeagleBoard-DeviceTrees/src/arm/bbb-bone-buses.dtsi
+ *
+ */
+&{/} {
+	leds {
+		// Motor 1
+		led_P8_18 {
+			status = "okay";
+			label = "motor1";
+			default-state = "off";
+		};
+
+		// Motor 2
+		led_P8_16 {
+			status = "okay";
+			label = "motor2";
+			default-state = "off";
+		};
+
+		// Motor 3
+		led_P8_14 {
+			status = "okay";
+			label = "motor3";
+			default-state = "off";
+		};
+
+		// Motor 4
+		led_P8_26 {
+			status = "okay";
+			label = "motor4";
+			default-state = "off";
+		};
+	};
+};
