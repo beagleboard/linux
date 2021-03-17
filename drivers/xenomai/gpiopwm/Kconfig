@@ -1,0 +1,9 @@
+menu "GPIOPWM support"
+
+config XENO_DRIVERS_GPIOPWM
+	tristate "GPIOPWM driver"
+	help
+
+	An RTDM-based GPIO PWM generator driver
+
+endmenu
