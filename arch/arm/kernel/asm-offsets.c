@@ -52,6 +52,9 @@ int main(void)
 #endif
   BLANK();
   DEFINE(TI_FLAGS,		offsetof(struct thread_info, flags));
+#ifdef CONFIG_IPIPE
+  DEFINE(TI_IPIPE,		offsetof(struct thread_info, ipipe_flags));
+#endif
   DEFINE(TI_PREEMPT,		offsetof(struct thread_info, preempt_count));
   DEFINE(TI_ADDR_LIMIT,		offsetof(struct thread_info, addr_limit));
   DEFINE(TI_TASK,		offsetof(struct thread_info, task));

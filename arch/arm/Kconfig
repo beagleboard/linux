@@ -73,6 +73,7 @@ config ARM
 	select HAVE_EBPF_JIT if !CPU_ENDIAN_BE32
 	select HAVE_CONTEXT_TRACKING
 	select HAVE_COPY_THREAD_TLS
+	select HAVE_CONTEXT_TRACKING if !IPIPE
 	select HAVE_C_RECORDMCOUNT
 	select HAVE_DEBUG_KMEMLEAK if !XIP_KERNEL
 	select HAVE_DMA_CONTIGUOUS if MMU
@@ -88,6 +89,7 @@ config ARM
 	select HAVE_HW_BREAKPOINT if PERF_EVENTS && (CPU_V6 || CPU_V6K || CPU_V7)
 	select HAVE_IDE if PCI || ISA || PCMCIA
 	select HAVE_IRQ_TIME_ACCOUNTING
+	select HAVE_IPIPE_SUPPORT
 	select HAVE_KERNEL_GZIP
 	select HAVE_KERNEL_LZ4
 	select HAVE_KERNEL_LZMA
@@ -804,6 +806,14 @@ config PLAT_PXA
 config PLAT_VERSATILE
 	bool
 
+if IPIPE
+config IPIPE_ARM_KUSER_TSC
+       bool
+       select HAVE_IPIPE_TRACER_SUPPORT
+       select GENERIC_TIME_VSYSCALL
+       select IPIPE_HAVE_HOSTRT if IPIPE
+endif
+
 source "arch/arm/mm/Kconfig"
 
 config IWMMXT
@@ -1375,6 +1385,8 @@ config ARCH_NR_GPIO
 
 	  If unsure, leave the default value.
 
+source "kernel/ipipe/Kconfig"
+
 config HZ_FIXED
 	int
 	default 200 if ARCH_EBSA110
@@ -1636,6 +1648,7 @@ config ALIGNMENT_TRAP
 config UACCESS_WITH_MEMCPY
 	bool "Use kernel mem{cpy,set}() for {copy_to,clear}_user()"
 	depends on MMU
+	depends on !IPIPE
 	default y if CPU_FEROCEON
 	help
 	  Implement faster copy_to_user and clear_user methods for CPU

@@ -17,10 +17,17 @@
  */
 extern struct task_struct *__switch_to(struct task_struct *,
 				       struct task_struct *);
-
+#ifdef CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH
+#define switch_to(prev, next, last)					\
+	do {								\
+		hard_cond_local_irq_disable();                                  \
+		((last) = __switch_to((prev), (next)));			\
+		hard_cond_local_irq_enable();                                   \
+	} while (0)
+#else /* !CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH */
 #define switch_to(prev, next, last)					\
 	do {								\
 		((last) = __switch_to((prev), (next)));			\
 	} while (0)
-
+#endif /* !CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH */
 #endif /* __ASM_GENERIC_SWITCH_TO_H */

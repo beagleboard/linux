@@ -11,6 +11,7 @@
 #include <linux/moduleparam.h>
 #include <linux/compiler.h>
 #include <linux/kernel.h>
+#include <linux/ipipe.h>
 #include <linux/sched/debug.h>
 #include <linux/errno.h>
 #include <linux/string.h>
@@ -810,7 +811,10 @@ do_alignment(unsigned long addr, unsigned int fsr, struct pt_regs *regs)
 	int fault;
 
 	if (interrupts_enabled(regs))
-		local_irq_enable();
+		hard_local_irq_enable();
+
+	if (__ipipe_report_trap(IPIPE_TRAP_ALIGNMENT,regs))
+		return 0;
 
 	instrptr = instruction_pointer(regs);
 
@@ -989,7 +993,7 @@ do_alignment(unsigned long addr, unsigned int fsr, struct pt_regs *regs)
 		 * entry-common.S) and disable the alignment trap only if
 		 * there is no work pending for this thread.
 		 */
-		raw_local_irq_disable();
+		hard_local_irq_disable();
 		if (!(current_thread_info()->flags & _TIF_WORK_MASK))
 			set_cr(cr_no_alignment);
 	}

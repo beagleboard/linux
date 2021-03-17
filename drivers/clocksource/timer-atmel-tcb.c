@@ -16,6 +16,8 @@
 #include <linux/syscore_ops.h>
 #include <soc/at91/atmel_tcb.h>
 
+#include <linux/ipipe.h>
+#include <linux/ipipe_tickdev.h>
 
 /*
  * We're configured to use a specific TC block, one that's not hooked
@@ -25,11 +27,10 @@
  *     with a base rate of 5+ MHz, packaged as a clocksource (with
  *     resolution better than 200 nsec).
  *   - Some chips support 32 bit counter. A single channel is used for
- *     this 32 bit free-running counter. the second channel is not used.
+ *     this 32 bit free-running counter. The second channel is not used.
  *
- *   - The third channel may be used to provide a 16-bit clockevent
- *     source, used in either periodic or oneshot mode.  This runs
- *     at 32 KiHZ, and can handle delays of up to two seconds.
+ *   - The third channel may be used to provide a 16-bit or 32-bit clockevent
+ *     source, used in either periodic or oneshot mode.
  *
  * REVISIT behavior during system suspend states... we should disable
  * all clocks and save the power.  Easily done for clockevent devices,
@@ -118,7 +119,7 @@ static struct clocksource clksrc = {
 
 static u64 notrace tc_sched_clock_read(void)
 {
-	return tc_get_cycles(&clksrc);
+       return tc_get_cycles(&clksrc);
 }
 
 static u64 notrace tc_sched_clock_read32(void)
@@ -137,6 +138,7 @@ static unsigned long notrace tc_delay_timer_read32(void)
 {
 	return tc_get_cycles32(&clksrc);
 }
+static const u8 atmel_tcb_divisors[5] = { 2, 8, 32, 128, 0, };
 
 #ifdef CONFIG_GENERIC_CLOCKEVENTS
 
@@ -144,6 +146,7 @@ struct tc_clkevt_device {
 	struct clock_event_device	clkevt;
 	struct clk			*clk;
 	void __iomem			*regs;
+        u32                             freq;
 };
 
 static struct tc_clkevt_device *to_tc_clkevt(struct clock_event_device *clkevt)
@@ -151,13 +154,6 @@ static struct tc_clkevt_device *to_tc_clkevt(struct clock_event_device *clkevt)
 	return container_of(clkevt, struct tc_clkevt_device, clkevt);
 }
 
-/* For now, we always use the 32K clock ... this optimizes for NO_HZ,
- * because using one of the divided clocks would usually mean the
- * tick rate can never be less than several dozen Hz (vs 0.5 Hz).
- *
- * A divided clock could be good for high resolution timers, since
- * 30.5 usec resolution can seem "low".
- */
 static u32 timer_clock;
 
 static int tc_shutdown(struct clock_event_device *d)
@@ -183,7 +179,7 @@ static int tc_set_oneshot(struct clock_event_device *d)
 
 	clk_enable(tcd->clk);
 
-	/* slow clock, count up to RC, then irq and stop */
+	/* count up to RC, then irq and stop */
 	writel(timer_clock | ATMEL_TC_CPCSTOP | ATMEL_TC_WAVE |
 		     ATMEL_TC_WAVESEL_UP_AUTO, regs + ATMEL_TC_REG(2, CMR));
 	writel(ATMEL_TC_CPCS, regs + ATMEL_TC_REG(2, IER));
@@ -205,10 +201,10 @@ static int tc_set_periodic(struct clock_event_device *d)
 	 */
 	clk_enable(tcd->clk);
 
-	/* slow clock, count up to RC, then irq and restart */
+	/* count up to RC, then irq and restart */
 	writel(timer_clock | ATMEL_TC_WAVE | ATMEL_TC_WAVESEL_UP_AUTO,
 		     regs + ATMEL_TC_REG(2, CMR));
-	writel((32768 + HZ / 2) / HZ, tcaddr + ATMEL_TC_REG(2, RC));
+	writel((tcd->freq + HZ / 2) / HZ, tcaddr + ATMEL_TC_REG(2, RC));
 
 	/* Enable clock and interrupts on RC compare */
 	writel(ATMEL_TC_CPCS, regs + ATMEL_TC_REG(2, IER));
@@ -234,7 +230,11 @@ static struct tc_clkevt_device clkevt = {
 		.features		= CLOCK_EVT_FEAT_PERIODIC |
 					  CLOCK_EVT_FEAT_ONESHOT,
 		/* Should be lower than at91rm9200's system timer */
+#ifdef CONFIG_ATMEL_TCB_CLKSRC_USE_SLOW_CLOCK
 		.rating			= 125,
+#else
+                .rating                 = 200,
+#endif
 		.set_next_event		= tc_next_event,
 		.set_state_shutdown	= tc_shutdown,
 		.set_state_periodic	= tc_set_periodic,
@@ -242,22 +242,32 @@ static struct tc_clkevt_device clkevt = {
 	},
 };
 
+static void tcb_clkevt_ack(void)
+{
+       readl_relaxed(tcaddr + ATMEL_TC_REG(2, SR));
+}
+
+#ifdef CONFIG_IPIPE
+static struct ipipe_timer tcb_itimer = {
+       .ack = tcb_clkevt_ack,
+};
+#endif /* CONFIG_IPIPE */
+
 static irqreturn_t ch2_irq(int irq, void *handle)
 {
 	struct tc_clkevt_device	*dev = handle;
-	unsigned int		sr;
 
-	sr = readl_relaxed(dev->regs + ATMEL_TC_REG(2, SR));
-	if (sr & ATMEL_TC_CPCS) {
-		dev->clkevt.event_handler(&dev->clkevt);
-		return IRQ_HANDLED;
-	}
+        if (!clockevent_ipipe_stolen(&dev->clkevt))
+                tcb_clkevt_ack();
 
-	return IRQ_NONE;
+        dev->clkevt.event_handler(&dev->clkevt);
+        return IRQ_HANDLED;
 }
 
-static int __init setup_clkevents(struct atmel_tc *tc, int clk32k_divisor_idx)
+static int __init setup_clkevents(struct atmel_tc *tc, int divisor_idx,
+					unsigned long max_delta)
 {
+        unsigned divisor = atmel_tcb_divisors[divisor_idx];
 	int ret;
 	struct clk *t2_clk = tc->clk[2];
 	int irq = tc->irq[2];
@@ -278,7 +288,11 @@ static int __init setup_clkevents(struct atmel_tc *tc, int clk32k_divisor_idx)
 	clkevt.regs = tc->regs;
 	clkevt.clk = t2_clk;
 
-	timer_clock = clk32k_divisor_idx;
+	timer_clock = divisor_idx;
+	 if (!divisor)
+                clkevt.freq = 32768;
+         else
+               clkevt.freq = clk_get_rate(t2_clk) / divisor;
 
 	clkevt.clkevt.cpumask = cpumask_of(0);
 
@@ -289,14 +303,25 @@ static int __init setup_clkevents(struct atmel_tc *tc, int clk32k_divisor_idx)
 		return ret;
 	}
 
-	clockevents_config_and_register(&clkevt.clkevt, 32768, 1, 0xffff);
+#ifdef CONFIG_IPIPE
+        tcb_itimer.irq = irq;
+        /* TCB clkevt oneshot timer always stops before reprogrammed */
+        /* no need for extra ticks */
+        tcb_itimer.min_delay_ticks = 1;
+        clkevt.clkevt.ipipe_timer = &tcb_itimer;
+#endif /* CONFIG_IPIPE */
+
+
+	clockevents_config_and_register(&clkevt.clkevt, clkevt.freq, 1,
+					max_delta);
 
 	return ret;
 }
 
 #else /* !CONFIG_GENERIC_CLOCKEVENTS */
 
-static int __init setup_clkevents(struct atmel_tc *tc, int clk32k_divisor_idx)
+static int __init setup_clkevents(struct atmel_tc *tc, int clk32k_divisor_idx,
+					unsigned long max_delta);
 {
 	/* NOTHING */
 	return 0;
@@ -346,23 +371,35 @@ static void __init tcb_setup_single_chan(struct atmel_tc *tc, int mck_divisor_id
 	writel(ATMEL_TC_SYNC, tcaddr + ATMEL_TC_BCR);
 }
 
-static const u8 atmel_tcb_divisors[5] = { 2, 8, 32, 128, 0, };
-
 static const struct of_device_id atmel_tcb_of_match[] = {
 	{ .compatible = "atmel,at91rm9200-tcb", .data = (void *)16, },
 	{ .compatible = "atmel,at91sam9x5-tcb", .data = (void *)32, },
 	{ /* sentinel */ }
 };
 
+
+#ifdef CONFIG_IPIPE
+static struct __ipipe_tscinfo tsc_info = {
+       .type = IPIPE_TSC_TYPE_FREERUNNING,
+       .u = {
+               {
+                       .mask = 0xffffffffU,
+               },
+       },
+};
+#endif /* CONFIG_IPIPE */
+
 static int __init tcb_clksrc_init(struct device_node *node)
 {
 	struct atmel_tc tc;
 	struct clk *t0_clk;
 	const struct of_device_id *match;
+	struct resource r;
 	u64 (*tc_sched_clock)(void);
 	u32 rate, divided_rate = 0;
+	unsigned long clkevt_max_delta = 0xffff;
 	int best_divisor_idx = -1;
-	int clk32k_divisor_idx = -1;
+	int clkevt_divisor_idx = -1;
 	int bits;
 	int i;
 	int ret;
@@ -397,7 +434,6 @@ static int __init tcb_clksrc_init(struct device_node *node)
 		if (tc.irq[2] <= 0)
 			return -EINVAL;
 	}
-
 	match = of_match_node(atmel_tcb_of_match, node->parent);
 	bits = (uintptr_t)match->data;
 
@@ -418,7 +454,7 @@ static int __init tcb_clksrc_init(struct device_node *node)
 
 		/* remember 32 KiHz clock for later */
 		if (!divisor) {
-			clk32k_divisor_idx = i;
+			clkevt_divisor_idx = i;
 			continue;
 		}
 
@@ -446,6 +482,10 @@ static int __init tcb_clksrc_init(struct device_node *node)
 		tcb_setup_single_chan(&tc, best_divisor_idx);
 		tc_sched_clock = tc_sched_clock_read32;
 		tc_delay_timer.read_current_timer = tc_delay_timer_read32;
+                /* use 32-bit clkevt */
+                clkevt_max_delta = 0xffffffff;
+                /* use only high res clkevt when 32-bit*/
+                clkevt_divisor_idx = best_divisor_idx;
 	} else {
 		/* we have three clocks no matter what the
 		 * underlying platform supports.
@@ -459,6 +499,12 @@ static int __init tcb_clksrc_init(struct device_node *node)
 		tcb_setup_dual_chan(&tc, best_divisor_idx);
 		tc_sched_clock = tc_sched_clock_read;
 		tc_delay_timer.read_current_timer = tc_delay_timer_read;
+
+#ifndef CONFIG_ATMEL_TCB_CLKSRC_USE_SLOW_CLOCK
+                /* use high res clkevt */
+                clkevt_divisor_idx = best_divisor_idx;
+#endif
+
 	}
 
 	/* and away we go! */
@@ -467,7 +513,7 @@ static int __init tcb_clksrc_init(struct device_node *node)
 		goto err_disable_t1;
 
 	/* channel 2:  periodic and oneshot timer support */
-	ret = setup_clkevents(&tc, clk32k_divisor_idx);
+	ret = setup_clkevents(&tc, clkevt_divisor_idx, clkevt_max_delta);
 	if (ret)
 		goto err_unregister_clksrc;
 
@@ -475,6 +521,13 @@ static int __init tcb_clksrc_init(struct device_node *node)
 
 	tc_delay_timer.freq = divided_rate;
 	register_current_timer_delay(&tc_delay_timer);
+#ifdef CONFIG_IPIPE
+        tsc_info.counter_vaddr =
+                (unsigned long)(tcaddr + ATMEL_TC_REG(0, CV));
+        tsc_info.u.counter_paddr = (r.start + ATMEL_TC_REG(0, CV));
+        tsc_info.freq = divided_rate;
+        __ipipe_tsc_register(&tsc_info);
+#endif
 
 	return 0;
 
@@ -489,7 +542,6 @@ err_disable_t0:
 	clk_disable_unprepare(t0_clk);
 
 	tcaddr = NULL;
-
 	return ret;
 }
 TIMER_OF_DECLARE(atmel_tcb_clksrc, "atmel,tcb-timer", tcb_clksrc_init);

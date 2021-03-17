@@ -328,7 +328,12 @@ static void gic_poke_irq(struct irq_data *d, u32 offset)
 
 static void gic_mask_irq(struct irq_data *d)
 {
+	unsigned long flags;
+
+	flags = hard_cond_local_irq_save();
+	ipipe_lock_irq(d->irq);
 	gic_poke_irq(d, GICD_ICENABLER);
+	hard_cond_local_irq_restore(flags);
 }
 
 static void gic_eoimode1_mask_irq(struct irq_data *d)
@@ -348,7 +353,12 @@ static void gic_eoimode1_mask_irq(struct irq_data *d)
 
 static void gic_unmask_irq(struct irq_data *d)
 {
+	unsigned long flags;
+
+	flags = hard_cond_local_irq_save();
 	gic_poke_irq(d, GICD_ISENABLER);
+	ipipe_unlock_irq(d->irq);
+	hard_cond_local_irq_restore(flags);
 }
 
 static inline bool gic_supports_nmi(void)
@@ -520,6 +530,27 @@ static void gic_eoimode1_eoi_irq(struct irq_data *d)
 	gic_write_dir(gic_irq(d));
 }
 
+#ifdef CONFIG_IPIPE
+static void gic_hold_irq(struct irq_data *d)
+{
+	struct irq_chip *chip = irq_data_get_irq_chip(d);
+
+	gic_poke_irq(d, GICD_ICENABLER);
+
+	if (chip->irq_eoi == gic_eoimode1_eoi_irq) {
+		if (irqd_is_forwarded_to_vcpu(d))
+			gic_poke_irq(d, GICD_ICACTIVER);
+		gic_eoimode1_eoi_irq(d);
+	} else
+		gic_eoi_irq(d);
+}
+
+static void gic_release_irq(struct irq_data *d)
+{
+	gic_poke_irq(d, GICD_ISENABLER);
+}
+#endif /* CONFIG_IPIPE */
+
 static int gic_set_type(struct irq_data *d, unsigned int type)
 {
 	enum gic_intid_range range;
@@ -645,7 +676,7 @@ static asmlinkage void __exception_irq_entry gic_handle_irq(struct pt_regs *regs
 		else
 			isb();
 
-		err = handle_domain_irq(gic_data.domain, irqnr, regs);
+		err = ipipe_handle_domain_irq(gic_data.domain, irqnr, regs);
 		if (err) {
 			WARN_ONCE(true, "Unexpected interrupt received!\n");
 			gic_deactivate_unhandled(irqnr);
@@ -664,7 +695,7 @@ static asmlinkage void __exception_irq_entry gic_handle_irq(struct pt_regs *regs
 		 * that any shared data read by handle_IPI will
 		 * be read after the ACK.
 		 */
-		handle_IPI(irqnr, regs);
+		ipipe_handle_multi_ipi(irqnr, regs);
 #else
 		WARN_ONCE(true, "Unexpected SGI received!\n");
 #endif
@@ -1208,6 +1239,10 @@ static struct irq_chip gic_chip = {
 	.irq_unmask		= gic_unmask_irq,
 	.irq_eoi		= gic_eoi_irq,
 	.irq_set_type		= gic_set_type,
+#ifdef CONFIG_IPIPE
+	.irq_hold		= gic_hold_irq,
+	.irq_release		= gic_release_irq,
+#endif
 	.irq_set_affinity	= gic_set_affinity,
 	.irq_get_irqchip_state	= gic_irq_get_irqchip_state,
 	.irq_set_irqchip_state	= gic_irq_set_irqchip_state,
@@ -1215,6 +1250,7 @@ static struct irq_chip gic_chip = {
 	.irq_nmi_teardown	= gic_irq_nmi_teardown,
 	.flags			= IRQCHIP_SET_TYPE_MASKED |
 				  IRQCHIP_SKIP_SET_WAKE |
+				  IRQCHIP_PIPELINE_SAFE |
 				  IRQCHIP_MASK_ON_SUSPEND,
 };
 
@@ -1224,6 +1260,10 @@ static struct irq_chip gic_eoimode1_chip = {
 	.irq_unmask		= gic_unmask_irq,
 	.irq_eoi		= gic_eoimode1_eoi_irq,
 	.irq_set_type		= gic_set_type,
+#ifdef CONFIG_IPIPE
+	.irq_hold		= gic_hold_irq,
+	.irq_release		= gic_release_irq,
+#endif
 	.irq_set_affinity	= gic_set_affinity,
 	.irq_get_irqchip_state	= gic_irq_get_irqchip_state,
 	.irq_set_irqchip_state	= gic_irq_set_irqchip_state,
@@ -1232,6 +1272,7 @@ static struct irq_chip gic_eoimode1_chip = {
 	.irq_nmi_teardown	= gic_irq_nmi_teardown,
 	.flags			= IRQCHIP_SET_TYPE_MASKED |
 				  IRQCHIP_SKIP_SET_WAKE |
+				  IRQCHIP_PIPELINE_SAFE |
 				  IRQCHIP_MASK_ON_SUSPEND,
 };
 

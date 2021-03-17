@@ -57,6 +57,7 @@
 #include <trace/events/sched.h>
 #include <linux/hw_breakpoint.h>
 #include <linux/oom.h>
+#include <linux/ipipe.h>
 #include <linux/writeback.h>
 #include <linux/shm.h>
 #include <linux/kcov.h>
@@ -765,6 +766,7 @@ void __noreturn do_exit(long code)
 	}
 
 	exit_signals(tsk);  /* sets PF_EXITING */
+	__ipipe_report_exit(tsk);
 
 	/* sync mm's RSS info before statistics gathering */
 	if (tsk->mm)

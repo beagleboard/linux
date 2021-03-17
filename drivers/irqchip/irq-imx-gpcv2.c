@@ -7,6 +7,7 @@
 #include <linux/of_irq.h>
 #include <linux/slab.h>
 #include <linux/irqchip.h>
+#include <linux/ipipe.h>
 #include <linux/syscore_ops.h>
 
 #define IMR_NUM			4
@@ -19,7 +20,11 @@
 
 
 struct gpcv2_irqchip_data {
+#ifdef CONFIG_IPIPE
+	ipipe_spinlock_t	rlock;
+#else
 	struct raw_spinlock	rlock;
+#endif
 	void __iomem		*gpc_base;
 	u32			wakeup_sources[IMR_NUM];
 	u32			saved_irq_mask[IMR_NUM];
@@ -36,6 +41,7 @@ static void __iomem *gpcv2_idx_to_reg(struct gpcv2_irqchip_data *cd, int i)
 static int gpcv2_wakeup_source_save(void)
 {
 	struct gpcv2_irqchip_data *cd;
+	unsigned long flags;
 	void __iomem *reg;
 	int i;
 
@@ -45,8 +51,10 @@ static int gpcv2_wakeup_source_save(void)
 
 	for (i = 0; i < IMR_NUM; i++) {
 		reg = gpcv2_idx_to_reg(cd, i);
+		flags = hard_cond_local_irq_save();
 		cd->saved_irq_mask[i] = readl_relaxed(reg);
 		writel_relaxed(cd->wakeup_sources[i], reg);
+		hard_cond_local_irq_restore(flags);
 	}
 
 	return 0;
@@ -55,14 +63,18 @@ static int gpcv2_wakeup_source_save(void)
 static void gpcv2_wakeup_source_restore(void)
 {
 	struct gpcv2_irqchip_data *cd;
+	unsigned long flags;
 	int i;
 
 	cd = imx_gpcv2_instance;
 	if (!cd)
 		return;
 
-	for (i = 0; i < IMR_NUM; i++)
+	for (i = 0; i < IMR_NUM; i++) {
+		flags = hard_cond_local_irq_save();
 		writel_relaxed(cd->saved_irq_mask[i], gpcv2_idx_to_reg(cd, i));
+		hard_cond_local_irq_restore(flags);
+	}
 }
 
 static struct syscore_ops imx_gpcv2_syscore_ops = {
@@ -92,37 +104,76 @@ static int imx_gpcv2_irq_set_wake(struct irq_data *d, unsigned int on)
 	return 0;
 }
 
-static void imx_gpcv2_irq_unmask(struct irq_data *d)
+static void __imx_gpcv2_irq_unmask(struct irq_data *d)
 {
 	struct gpcv2_irqchip_data *cd = d->chip_data;
 	void __iomem *reg;
 	u32 val;
 
-	raw_spin_lock(&cd->rlock);
 	reg = gpcv2_idx_to_reg(cd, d->hwirq / 32);
 	val = readl_relaxed(reg);
 	val &= ~BIT(d->hwirq % 32);
 	writel_relaxed(val, reg);
-	raw_spin_unlock(&cd->rlock);
+}
 
+static void imx_gpcv2_irq_unmask(struct irq_data *d)
+{
+	struct gpcv2_irqchip_data *cd = d->chip_data;
+	unsigned long flags;
+
+	raw_spin_lock_irqsave(&cd->rlock, flags);
+	__imx_gpcv2_irq_unmask(d);
+	raw_spin_unlock_irqrestore(&cd->rlock, flags);
 	irq_chip_unmask_parent(d);
+}
+
+static void __imx_gpcv2_irq_mask(struct irq_data *d)
+{
+	struct gpcv2_irqchip_data *cd = d->chip_data;
+	void __iomem *reg;
+	u32 val;
+
+	reg = gpcv2_idx_to_reg(cd, d->hwirq / 32);
+	val = readl_relaxed(reg);
+	val |= BIT(d->hwirq % 32);
+	writel_relaxed(val, reg);
 }
 
 static void imx_gpcv2_irq_mask(struct irq_data *d)
 {
 	struct gpcv2_irqchip_data *cd = d->chip_data;
-	void __iomem *reg;
-	u32 val;
+	unsigned long flags;
 
-	raw_spin_lock(&cd->rlock);
-	reg = gpcv2_idx_to_reg(cd, d->hwirq / 32);
-	val = readl_relaxed(reg);
-	val |= BIT(d->hwirq % 32);
-	writel_relaxed(val, reg);
-	raw_spin_unlock(&cd->rlock);
-
+	raw_spin_lock_irqsave(&cd->rlock, flags);
+	__imx_gpcv2_irq_mask(d);
+	raw_spin_unlock_irqrestore(&cd->rlock, flags);
 	irq_chip_mask_parent(d);
 }
+
+#ifdef CONFIG_IPIPE
+
+static void imx_gpc_hold_irq(struct irq_data *d)
+{
+	struct gpcv2_irqchip_data *cd = d->chip_data;
+
+	raw_spin_lock(&cd->rlock);
+	__imx_gpcv2_irq_mask(d);
+	raw_spin_unlock(&cd->rlock);
+	irq_chip_hold_parent(d);
+}
+
+static void imx_gpc_release_irq(struct irq_data *d)
+{
+	struct gpcv2_irqchip_data *cd = d->chip_data;
+	unsigned long flags;
+
+	raw_spin_lock_irqsave(&cd->rlock, flags);
+	__imx_gpcv2_irq_unmask(d);
+	raw_spin_unlock_irqrestore(&cd->rlock, flags);
+	irq_chip_release_parent(d);
+}
+
+#endif /* CONFIG_IPIPE */
 
 static struct irq_chip gpcv2_irqchip_data_chip = {
 	.name			= "GPCv2",
@@ -135,6 +186,11 @@ static struct irq_chip gpcv2_irqchip_data_chip = {
 #ifdef CONFIG_SMP
 	.irq_set_affinity	= irq_chip_set_affinity_parent,
 #endif
+#ifdef CONFIG_IPIPE
+	.irq_hold		= imx_gpc_hold_irq,
+	.irq_release		= imx_gpc_release_irq,
+#endif
+	.flags			= IRQCHIP_PIPELINE_SAFE,
 };
 
 static int imx_gpcv2_domain_translate(struct irq_domain *d,

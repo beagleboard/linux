@@ -17,6 +17,7 @@
 #include <linux/pm_qos.h>
 #include <linux/cpu.h>
 #include <linux/cpuidle.h>
+#include <linux/ipipe.h>
 #include <linux/ktime.h>
 #include <linux/hrtimer.h>
 #include <linux/module.h>
@@ -205,6 +206,19 @@ int cpuidle_enter_state(struct cpuidle_device *dev, struct cpuidle_driver *drv,
 	ktime_t time_start, time_end;
 
 	/*
+	 * A co-kernel running on the head stage of the IRQ pipeline
+	 * may deny switching to a deeper C-state. If so, call the
+	 * default idle routine instead. If the co-kernel cannot bear
+	 * with the latency induced by the default idling operation,
+	 * then CPUIDLE is not usable and should be disabled at build
+	 * time.
+	 */
+	if (!ipipe_enter_cpuidle(dev, target_state)) {
+		default_idle_call();
+		return -EBUSY;
+	}
+
+	/*
 	 * Tell the time framework to switch to a broadcast timer because our
 	 * local timer will be shut down.  If a local timer is used from another
 	 * CPU as a broadcast timer, this call may fail if it is not available.
@@ -228,6 +242,7 @@ int cpuidle_enter_state(struct cpuidle_device *dev, struct cpuidle_driver *drv,
 
 	stop_critical_timings();
 	entered_state = target_state->enter(dev, drv, index);
+	hard_cond_local_irq_enable();
 	start_critical_timings();
 
 	sched_clock_idle_wakeup_event();
