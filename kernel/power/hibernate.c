@@ -291,6 +291,7 @@ static int create_image(int platform_mode)
 		goto Enable_cpus;
 
 	local_irq_disable();
+	hard_cond_local_irq_disable();
 
 	system_state = SYSTEM_SUSPEND;
 
@@ -458,6 +459,7 @@ static int resume_target_kernel(bool platform_mode)
 
 	local_irq_disable();
 	system_state = SYSTEM_SUSPEND;
+	hard_cond_local_irq_disable();
 
 	error = syscore_suspend();
 	if (error)
@@ -579,6 +581,7 @@ int hibernation_platform_enter(void)
 
 	local_irq_disable();
 	system_state = SYSTEM_SUSPEND;
+	hard_cond_local_irq_disable();
 	syscore_suspend();
 	if (pm_wakeup_pending()) {
 		error = -EAGAIN;

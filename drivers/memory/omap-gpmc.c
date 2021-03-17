@@ -1261,11 +1261,14 @@ int gpmc_get_client_irq(unsigned irq_config)
 
 static int gpmc_irq_endis(unsigned long hwirq, bool endis)
 {
+	unsigned long flags;
 	u32 regval;
 
 	/* bits GPMC_NR_NAND_IRQS to 8 are reserved */
 	if (hwirq >= GPMC_NR_NAND_IRQS)
 		hwirq += 8 - GPMC_NR_NAND_IRQS;
+
+	flags = hard_local_irq_save();
 
 	regval = gpmc_read_reg(GPMC_IRQENABLE);
 	if (endis)
@@ -1273,6 +1276,8 @@ static int gpmc_irq_endis(unsigned long hwirq, bool endis)
 	else
 		regval &= ~BIT(hwirq);
 	gpmc_write_reg(GPMC_IRQENABLE, regval);
+
+	hard_local_irq_restore(flags);
 
 	return 0;
 }
@@ -1299,6 +1304,7 @@ static void gpmc_irq_unmask(struct irq_data *d)
 
 static void gpmc_irq_edge_config(unsigned long hwirq, bool rising_edge)
 {
+	unsigned long flags;
 	u32 regval;
 
 	/* NAND IRQs polarity is not configurable */
@@ -1308,6 +1314,8 @@ static void gpmc_irq_edge_config(unsigned long hwirq, bool rising_edge)
 	/* WAITPIN starts at BIT 8 */
 	hwirq += 8 - GPMC_NR_NAND_IRQS;
 
+	flags = hard_local_irq_save();
+
 	regval = gpmc_read_reg(GPMC_CONFIG);
 	if (rising_edge)
 		regval &= ~BIT(hwirq);
@@ -1315,6 +1323,8 @@ static void gpmc_irq_edge_config(unsigned long hwirq, bool rising_edge)
 		regval |= BIT(hwirq);
 
 	gpmc_write_reg(GPMC_CONFIG, regval);
+
+	hard_local_irq_restore(flags);
 }
 
 static void gpmc_irq_ack(struct irq_data *d)
@@ -1394,7 +1404,7 @@ static irqreturn_t gpmc_handle_irq(int irq, void *data)
 					 hwirq, virq);
 			}
 
-			generic_handle_irq(virq);
+			ipipe_handle_demuxed_irq(virq);
 		}
 	}
 
@@ -1422,6 +1432,7 @@ static int gpmc_setup_irq(struct gpmc_device *gpmc)
 	gpmc->irq_chip.irq_mask = gpmc_irq_mask;
 	gpmc->irq_chip.irq_unmask = gpmc_irq_unmask;
 	gpmc->irq_chip.irq_set_type = gpmc_irq_set_type;
+	gpmc->irq_chip.flags |= IRQCHIP_PIPELINE_SAFE;
 
 	gpmc_irq_domain = irq_domain_add_linear(gpmc->dev->of_node,
 						gpmc->nirqs,

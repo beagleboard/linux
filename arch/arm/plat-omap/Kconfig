@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0
 config ARCH_OMAP
 	bool
+	select IPIPE_ARM_KUSER_TSC if IPIPE
 
 if ARCH_OMAP
 
