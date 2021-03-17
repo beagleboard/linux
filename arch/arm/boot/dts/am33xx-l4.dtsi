@@ -158,6 +158,39 @@
 				#interrupt-cells = <2>;
 				reg = <0x0 0x1000>;
 				interrupts = <96>;
+				gpio-line-names =
+					"MDIO_DATA",	// 0
+					"MDIO_CLK",	// 1
+					"SPI0_SCLK",	// 2
+					"SPI0_D0",	// 3
+					"SPI0_D1",	// 4
+					"SPI0_CS0",	// 5
+					"SPI0_CS1",	// 6
+					"ECAP0_IN_PWM0_OUT",	// 7
+					"LCD_DATA12",	// 8
+					"LCD_DATA13",	// 9
+					"LCD_DATA14",	// 10
+					"LCD_DATA15",	// 11
+					"UART1_CTSN",	// 12
+					"UART1_RTSN",	// 13
+					"UART1_RXD",	// 14
+					"UART1_TXD",	// 15
+					"GMII1_TXD3",	// 16
+					"GMII1_TXD2",	// 17
+					"USB0_DRVVBUS",	// 18
+					"XDMA_EVENT_INTR0",	// 19
+					"XDMA_EVENT_INTR1",	// 20
+					"GMII1_TXD1",	// 21
+					"GPMC_AD8",	// 22
+					"GPMC_AD9",	// 23
+					"NC",	// 24
+					"NC",	// 25
+					"GPMC_AD10",	// 26
+					"GPMC_AD11",	// 27
+					"GMII1_TXD0",	// 28
+					"RMII1_REFCLK",	// 29
+					"GPMC_WAIT0",	// 30
+					"GPMC_WPN";	// 31
 			};
 		};
 
@@ -327,7 +360,7 @@
 			};
 		};
 
-		target-module@31000 {			/* 0x44e31000, ap 25 40.0 */
+		timer1_target: target-module@31000 {	/* 0x44e31000, ap 25 40.0 */
 			compatible = "ti,sysc-omap2-timer", "ti,sysc";
 			ti,hwmods = "timer1";
 			reg = <0x31000 0x4>,
@@ -1222,7 +1255,7 @@
 			};
 		};
 
-		target-module@40000 {			/* 0x48040000, ap 22 1e.0 */
+		timer2_target: target-module@40000 {	/* 0x48040000, ap 22 1e.0 */
 			compatible = "ti,sysc-omap4-timer", "ti,sysc";
 			ti,hwmods = "timer2";
 			reg = <0x40000 0x4>,
@@ -1415,6 +1448,39 @@
 				#interrupt-cells = <2>;
 				reg = <0x0 0x1000>;
 				interrupts = <98>;
+				gpio-line-names =
+					"GPMC_AD0",	// 0
+					"GPMC_AD1",	// 1
+					"GPMC_AD2",	// 2
+					"GPMC_AD3",	// 3
+					"GPMC_AD4",	// 4
+					"GPMC_AD5",	// 5
+					"GPMC_AD6",	// 6
+					"GPMC_AD7",	// 7
+					"UART0_CTSN",	// 8
+					"UART0_RTSN",	// 9
+					"UART0_RXD",	// 10
+					"UART0_TXD",	// 11
+					"GPMC_AD12",	// 12
+					"GPMC_AD13",	// 13
+					"GPMC_AD14",	// 14
+					"GPMC_AD15",	// 15
+					"GPMC_A0",	// 16
+					"GPMC_A1",	// 17
+					"GPMC_A2",	// 18
+					"GPMC_A3",	// 19
+					"GPMC_A4",	// 20
+					"GPMC_A5",	// 21
+					"GPMC_A6",	// 22
+					"GPMC_A7",	// 23
+					"GPMC_A8",	// 24
+					"GPMC_A9",	// 25
+					"GPMC_A10",	// 26
+					"GPMC_A11",	// 27
+					"GPMC_BE1N",	// 28
+					"GPMC_CSN0",	// 29
+					"GPMC_CSN1",	// 30
+					"GPMC_CSN2";	// 31
 			};
 		};
 
@@ -1827,6 +1893,39 @@
 				#interrupt-cells = <2>;
 				reg = <0x0 0x1000>;
 				interrupts = <32>;
+				gpio-line-names =
+					"GPMC_CSN3",	// 0
+					"GPMC_CLK",	// 1
+					"GPMC_ADVN_ALE",	// 2
+					"GPMC_OEN_REN",	// 3
+					"GPMC_WEN",	// 4
+					"GPMC_BE0N_CLE",	// 5
+					"LCD_DATA0",	// 6
+					"LCD_DATA1",	// 7
+					"LCD_DATA2",	// 8
+					"LCD_DATA3",	// 9
+					"LCD_DATA4",	// 10
+					"LCD_DATA5",	// 11
+					"LCD_DATA6",	// 12
+					"LCD_DATA7",	// 13
+					"LCD_DATA8",	// 14
+					"LCD_DATA9",	// 15
+					"LCD_DATA10",	// 16
+					"LCD_DATA11",	// 17
+					"GMII1_RXD3",	// 18
+					"GMII1_RXD2",	// 19
+					"GMII1_RXD1",	// 20
+					"GMII1_RXD0",	// 21
+					"LCD_VSYNC",	// 22
+					"LCD_HSYNC",	// 23
+					"LCD_PCLK",	// 24
+					"LCD_AC_BIAS_EN",	// 25
+					"MMC0_DAT3",	// 26
+					"MMC0_DAT2",	// 27
+					"MMC0_DAT1",	// 28
+					"MMC0_DAT0",	// 29
+					"MMC0_CLK",	// 30
+					"MMC0_CMD";	// 31
 			};
 		};
 
@@ -1861,6 +1960,39 @@
 				#interrupt-cells = <2>;
 				reg = <0x0 0x1000>;
 				interrupts = <62>;
+				gpio-line-names =
+					"GMII1_COL",	// 0
+					"GMII1_CRS",	// 1
+					"GMII1_RXER",	// 2
+					"GMII1_TXEN",	// 3
+					"GMII1_RXDV",	// 4
+					"I2C0_SDA",	// 5
+					"I2C0_SCL",	// 6
+					"EMU0",	// 7
+					"EMU1",	// 8
+					"GMII1_TXCLK",	// 9
+					"GMII1_RXCLK",	// 10
+					"NC",	// 11
+					"NC",	// 12
+					"USB1_DRVVBUS",	// 13
+					"MCASP0_ACLKX",	// 14
+					"MCASP0_FSX",	// 15
+					"MCASP0_AXR0",	// 16
+					"MCASP0_AHCLKR",	// 17
+					"MCASP0_ACLKR",	// 18
+					"MCASP0_FSR",	// 19
+					"MCASP0_AXR1",	// 20
+					"MCASP0_AHCLKX",	// 21
+					"NC",	// 22
+					"NC",	// 23
+					"NC",	// 24
+					"NC",	// 25
+					"NC",	// 26
+					"NC",	// 27
+					"NC",	// 28
+					"NC",	// 29
+					"NC",	// 30
+					"NC";	// 31
 			};
 		};
 
@@ -2030,6 +2162,16 @@
 					status = "disabled";
 				};
 
+				eqep0: eqep@180 {
+					compatible = "ti,am33xx-eqep";
+					reg = <0x180 0x80>;
+					clocks = <&l4ls_gclk>;
+					clock-names = "fck";
+					interrupts = <79>;
+					interrupt-names = "eqep0";
+					status = "disabled";
+				};
+
 				ehrpwm0: pwm@200 {
 					compatible = "ti,am3352-ehrpwm",
 						     "ti,am33xx-ehrpwm";
@@ -2083,6 +2225,16 @@
 					status = "disabled";
 				};
 
+				eqep1: eqep@180 {
+					compatible = "ti,am33xx-eqep";
+					reg = <0x180 0x80>;
+					clocks = <&l4ls_gclk>;
+					clock-names = "fck";
+					interrupts = <88>;
+					interrupt-names = "eqep1";
+					status = "disabled";
+				};
+
 				ehrpwm1: pwm@200 {
 					compatible = "ti,am3352-ehrpwm",
 						     "ti,am33xx-ehrpwm";
@@ -2133,6 +2285,16 @@
 					clock-names = "fck";
 					interrupts = <61>;
 					interrupt-names = "ecap2";
+					status = "disabled";
+				};
+
+				eqep2: eqep@180 {
+					compatible = "ti,am33xx-eqep";
+					reg = <0x180 0x80>;
+					clocks = <&l4ls_gclk>;
+					clock-names = "fck";
+					interrupts = <89>;
+					interrupt-names = "eqep2";
 					status = "disabled";
 				};
 

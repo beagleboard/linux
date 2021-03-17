@@ -4440,7 +4440,7 @@
 			};
 		};
 
-		target-module@8000 {			/* 0x4ae18000, ap 9 30.0 */
+		timer1_target: target-module@8000 {	/* 0x4ae18000, ap 9 30.0 */
 			compatible = "ti,sysc-omap4-timer", "ti,sysc";
 			ti,hwmods = "timer1";
 			reg = <0x8000 0x4>,
