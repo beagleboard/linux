@@ -1,5 +1,5 @@
 //SPDX-License-Identifier: GPL-2.0
-/* Copyright (C) 2018 Octavo Systems LLC - http://www.octavosystems.com/
+/* Copyright (C) 2018 Octavo Systems LLC - https://www.octavosystems.com/
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -13,10 +13,16 @@
 #include <dt-bindings/interrupt-controller/irq.h>
 
 #include <dt-bindings/display/tda998x.h>
+/* #include "am335x-bone-jtag.dtsi" */
 
 / {
 	model = "Octavo Systems OSD3358-SM-RED";
 	compatible = "oct,osd3358-sm-refdesign", "ti,am335x-bone-black", "ti,am335x-bone", "ti,am33xx";
+
+	chosen {
+		base_dtb = "am335x-osd3358-sm-red.dts";
+		base_dtb_timestamp = __TIMESTAMP__;
+	};
 };
 
 &ldo3_reg {
@@ -40,7 +46,6 @@
 &am33xx_pinmux {
 	nxp_hdmi_bonelt_pins: nxp-hdmi-bonelt-pins {
 		pinctrl-single,pins = <
-			AM33XX_PADCONF(AM335X_PIN_XDMA_EVENT_INTR0, PIN_OUTPUT_PULLDOWN, MUX_MODE3)
 			AM33XX_PADCONF(AM335X_PIN_LCD_DATA0, PIN_OUTPUT, MUX_MODE0)
 			AM33XX_PADCONF(AM335X_PIN_LCD_DATA1, PIN_OUTPUT, MUX_MODE0)
 			AM33XX_PADCONF(AM335X_PIN_LCD_DATA2, PIN_OUTPUT, MUX_MODE0)
@@ -61,12 +66,6 @@
 			AM33XX_PADCONF(AM335X_PIN_LCD_HSYNC, PIN_OUTPUT_PULLDOWN, MUX_MODE0)
 			AM33XX_PADCONF(AM335X_PIN_LCD_PCLK, PIN_OUTPUT_PULLDOWN, MUX_MODE0)
 			AM33XX_PADCONF(AM335X_PIN_LCD_AC_BIAS_EN, PIN_OUTPUT_PULLDOWN, MUX_MODE0)
-		>;
-	};
-
-	nxp_hdmi_bonelt_off_pins: nxp-hdmi-bonelt-off-pins {
-		pinctrl-single,pins = <
-			AM33XX_PADCONF(AM335X_PIN_XDMA_EVENT_INTR0, PIN_OUTPUT_PULLDOWN, MUX_MODE3)
 		>;
 	};
 
@@ -107,7 +106,7 @@
 	 * below to "crossed" and uncomment the video-ports -property
 	 * in tda19988 node.
 	 * AM335x errata for wiring:
-	 * http://www.ti.com/lit/er/sprz360i/sprz360i.pdf
+	 * https://www.ti.com/lit/er/sprz360i/sprz360i.pdf
 	 */
 
 	blue-and-red-wiring = "straight";
@@ -124,9 +123,8 @@
 		compatible = "nxp,tda998x";
 		reg = <0x70>;
 
-		pinctrl-names = "default", "off";
+		pinctrl-names = "default";
 		pinctrl-0 = <&nxp_hdmi_bonelt_pins>;
-		pinctrl-1 = <&nxp_hdmi_bonelt_off_pins>;
 
 		/* Convert 24bit BGR to RGB, e.g. cross red and blue wiring */
 		/* video-ports = <0x234501>; */
@@ -264,9 +262,6 @@
 };
 
 &am33xx_pinmux {
-	pinctrl-names = "default";
-	pinctrl-0 = <&clkout2_pin>;
-
 	user_leds_s0: user-leds-s0 {
 		pinctrl-single,pins = <
 			AM33XX_PADCONF(AM335X_PIN_GPMC_A5, PIN_OUTPUT_PULLDOWN, MUX_MODE7)	/* gpmc_a5.gpio1_21 */
@@ -287,12 +282,6 @@
 		pinctrl-single,pins = <
 			AM33XX_PADCONF(AM335X_PIN_UART0_RXD, PIN_INPUT_PULLUP, MUX_MODE0)
 			AM33XX_PADCONF(AM335X_PIN_UART0_TXD, PIN_OUTPUT_PULLDOWN, MUX_MODE0)
-		>;
-	};
-
-	clkout2_pin: pinmux-clkout2-pin {
-		pinctrl-single,pins = <
-			AM33XX_PADCONF(AM335X_PIN_XDMA_EVENT_INTR1, PIN_OUTPUT_PULLDOWN, MUX_MODE3)	/* xdma_event_intr1.clkout2 */
 		>;
 	};
 

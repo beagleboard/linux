@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (C) 2012 Texas Instruments Incorporated - http://www.ti.com/
+ * Copyright (C) 2012 Texas Instruments Incorporated - https://www.ti.com/
  */
 /dts-v1/;
 
@@ -8,7 +8,7 @@
 
 / {
 	model = "TI OMAP3 BeagleBoard";
-	compatible = "ti,omap3-beagle", "ti,omap3";
+	compatible = "ti,omap3-beagle", "ti,omap3430", "ti,omap3";
 
 	cpus {
 		cpu@0 {
@@ -139,6 +139,7 @@
 	};
 
 	etb@540000000 {
+		status = "disabled";
 		compatible = "arm,coresight-etb10", "arm,primecell";
 		reg = <0x5401b000 0x1000>;
 
@@ -154,6 +155,7 @@
 	};
 
 	etm@54010000 {
+		status = "disabled";
 		compatible = "arm,coresight-etm3x", "arm,primecell";
 		reg = <0x54010000 0x1000>;
 
@@ -353,7 +355,7 @@
 };
 
 &dss {
-	status = "ok";
+	status = "okay";
 
 	pinctrl-names = "default";
 	pinctrl-0 = <&dss_dpi_pins>;
@@ -367,7 +369,7 @@
 };
 
 &venc {
-	status = "ok";
+	status = "okay";
 
 	vdda-supply = <&vdac>;
 
@@ -380,7 +382,7 @@
 };
 
 &gpmc {
-	status = "ok";
+	status = "okay";
 	ranges = <0 0 0x30000000 0x1000000>;	/* CS0 space, 16MB */
 
 	/* Chip select 0 */
