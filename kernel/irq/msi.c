@@ -268,6 +268,9 @@ static void msi_domain_update_chip_ops(struct msi_domain_info *info)
 	struct irq_chip *chip = info->chip;
 
 	BUG_ON(!chip || !chip->irq_mask || !chip->irq_unmask);
+	WARN_ONCE(IS_ENABLED(CONFIG_IPIPE) &&
+		  (chip->flags & IRQCHIP_PIPELINE_SAFE) == 0,
+		  "MSI domain irqchip %s is not pipeline-safe!", chip->name);
 	if (!chip->irq_set_affinity)
 		chip->irq_set_affinity = msi_domain_set_affinity;
 }

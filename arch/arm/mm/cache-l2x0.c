@@ -11,6 +11,7 @@
 #include <linux/spinlock.h>
 #include <linux/log2.h>
 #include <linux/io.h>
+#include <linux/kconfig.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
 
@@ -36,9 +37,23 @@ struct l2c_init_data {
 
 #define CACHE_LINE_SIZE		32
 
+#ifdef CONFIG_IPIPE
+#define CACHE_RANGE_ATOMIC_MAX	512UL
+static int l2x0_wa = -1;
+static int __init l2x0_setup_wa(char *str)
+{
+	l2x0_wa = !!simple_strtol(str, NULL, 0);
+	return 0;
+}
+early_param("l2x0_write_allocate", l2x0_setup_wa);
+#else
+#define CACHE_RANGE_ATOMIC_MAX	4096UL
+static int l2x0_wa = 1;
+#endif
+
 static void __iomem *l2x0_base;
 static const struct l2c_init_data *l2x0_data;
-static DEFINE_RAW_SPINLOCK(l2x0_lock);
+static IPIPE_DEFINE_RAW_SPINLOCK(l2x0_lock);
 static u32 l2x0_way_mask;	/* Bitmask of active ways */
 static u32 l2x0_size;
 static unsigned long sync_reg_offset = L2X0_CACHE_SYNC;
@@ -284,10 +299,10 @@ static void l2c220_op_way(void __iomem *base, unsigned reg)
 static unsigned long l2c220_op_pa_range(void __iomem *reg, unsigned long start,
 	unsigned long end, unsigned long flags)
 {
-	raw_spinlock_t *lock = &l2x0_lock;
+	typeof(l2x0_lock) *lock = &l2x0_lock;
 
 	while (start < end) {
-		unsigned long blk_end = start + min(end - start, 4096UL);
+		unsigned long blk_end = start + min(end - start, CACHE_RANGE_ATOMIC_MAX);
 
 		while (start < blk_end) {
 			l2c_wait_mask(reg, 1);
@@ -498,13 +513,13 @@ static void l2c310_inv_range_erratum(unsigned long start, unsigned long end)
 
 static void l2c310_flush_range_erratum(unsigned long start, unsigned long end)
 {
-	raw_spinlock_t *lock = &l2x0_lock;
+	typeof(l2x0_lock) *lock = &l2x0_lock;
 	unsigned long flags;
 	void __iomem *base = l2x0_base;
 
 	raw_spin_lock_irqsave(lock, flags);
 	while (start < end) {
-		unsigned long blk_end = start + min(end - start, 4096UL);
+		unsigned long blk_end = start + min(end - start, CACHE_RANGE_ATOMIC_MAX);
 
 		l2c_set_debug(base, 0x03);
 		while (start < blk_end) {
@@ -799,6 +814,28 @@ static int __init __l2c_init(const struct l2c_init_data *data,
 	 */
 	if (aux_val & aux_mask)
 		pr_alert("L2C: platform provided aux values permit register corruption.\n");
+
+	if (IS_ENABLED(CONFIG_IPIPE)) {
+		switch (cache_id & L2X0_CACHE_ID_PART_MASK) {
+		case L2X0_CACHE_ID_PART_L310:
+			if ((cache_id & L2X0_CACHE_ID_RTL_MASK)
+			    >= L310_CACHE_ID_RTL_R3P2) {
+				l2x0_wa = 1;
+				pr_alert("L2C: I-pipe: revision >= L310-r3p2 detected, forcing WA.\n");
+			}
+		case L2X0_CACHE_ID_PART_L220:
+			if (l2x0_wa < 0) {
+				l2x0_wa = 0;
+				pr_alert("L2C: I-pipe: l2x0_write_allocate= not specified, defaults to 0 (disabled).\n");
+			}
+			if (!l2x0_wa) {
+				aux_mask &= ~L220_AUX_CTRL_FWA_MASK;
+				aux_val &= ~L220_AUX_CTRL_FWA_MASK;
+				aux_val |= 1 << L220_AUX_CTRL_FWA_SHIFT;
+			} else
+				pr_alert("L2C: I-pipe: write-allocate enabled, induces high latencies.\n");
+		}
+	}
 
 	old_aux = aux = readl_relaxed(l2x0_base + L2X0_AUX_CTRL);
 	aux &= aux_mask;

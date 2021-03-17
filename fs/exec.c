@@ -50,6 +50,7 @@
 #include <linux/module.h>
 #include <linux/namei.h>
 #include <linux/mount.h>
+#include <linux/ipipe.h>
 #include <linux/security.h>
 #include <linux/syscalls.h>
 #include <linux/tsacct_kern.h>
@@ -1018,6 +1019,7 @@ static int exec_mmap(struct mm_struct *mm)
 	struct task_struct *tsk;
 	struct mm_struct *old_mm, *active_mm;
 	int ret;
+	unsigned long flags;
 
 	/* Notify parent that we're no longer interested in the old VM */
 	tsk = current;
@@ -1045,12 +1047,11 @@ static int exec_mmap(struct mm_struct *mm)
 	}
 
 	task_lock(tsk);
-	membarrier_exec_mmap(mm);
 
-	local_irq_disable();
 	active_mm = tsk->active_mm;
-	tsk->active_mm = mm;
 	tsk->mm = mm;
+	ipipe_mm_switch_protect(flags);
+	tsk->active_mm = mm;
 	/*
 	 * This prevents preemption while active_mm is being loaded and
 	 * it and mm are being updated, which could cause problems for
@@ -1063,6 +1064,7 @@ static int exec_mmap(struct mm_struct *mm)
 	activate_mm(active_mm, mm);
 	if (IS_ENABLED(CONFIG_ARCH_WANT_IRQS_OFF_ACTIVATE_MM))
 		local_irq_enable();
+	ipipe_mm_switch_unprotect(flags);
 	tsk->mm->vmacache_seqnum = 0;
 	vmacache_flush(tsk);
 	task_unlock(tsk);

@@ -72,14 +72,22 @@ struct v2m_data {
 
 static void gicv2m_mask_msi_irq(struct irq_data *d)
 {
+	unsigned long flags;
+
+	flags = hard_cond_local_irq_save();
 	pci_msi_mask_irq(d);
 	irq_chip_mask_parent(d);
+	hard_cond_local_irq_restore(flags);
 }
 
 static void gicv2m_unmask_msi_irq(struct irq_data *d)
 {
+	unsigned long flags;
+
+	flags = hard_cond_local_irq_save();
 	pci_msi_unmask_irq(d);
 	irq_chip_unmask_parent(d);
+	hard_cond_local_irq_restore(flags);
 }
 
 static struct irq_chip gicv2m_msi_irq_chip = {
@@ -88,6 +96,11 @@ static struct irq_chip gicv2m_msi_irq_chip = {
 	.irq_unmask		= gicv2m_unmask_msi_irq,
 	.irq_eoi		= irq_chip_eoi_parent,
 	.irq_write_msi_msg	= pci_msi_domain_write_msg,
+#ifdef CONFIG_IPIPE
+	.irq_hold		= irq_chip_hold_parent,
+	.irq_release		= irq_chip_release_parent,
+#endif
+	.flags			= IRQCHIP_PIPELINE_SAFE,
 };
 
 static struct msi_domain_info gicv2m_msi_domain_info = {
@@ -129,6 +142,11 @@ static struct irq_chip gicv2m_irq_chip = {
 	.irq_eoi		= irq_chip_eoi_parent,
 	.irq_set_affinity	= irq_chip_set_affinity_parent,
 	.irq_compose_msi_msg	= gicv2m_compose_msi_msg,
+#ifdef CONFIG_IPIPE
+	.irq_hold		= irq_chip_hold_parent,
+	.irq_release		= irq_chip_release_parent,
+#endif
+	.flags			= IRQCHIP_PIPELINE_SAFE,
 };
 
 static int gicv2m_irq_gic_domain_alloc(struct irq_domain *domain,
@@ -251,6 +269,7 @@ static bool is_msi_spi_valid(u32 base, u32 num)
 
 static struct irq_chip gicv2m_pmsi_irq_chip = {
 	.name			= "pMSI",
+	.flags			= IRQCHIP_PIPELINE_SAFE,
 };
 
 static struct msi_domain_ops gicv2m_pmsi_ops = {

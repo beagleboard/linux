@@ -7,8 +7,13 @@
 #ifndef CONFIG_SPARSE_IRQ
 #include <mach/irqs.h>
 #else
+#if !defined(CONFIG_IPIPE) || defined(CONFIG_IRQ_DOMAIN)
 #define NR_IRQS NR_IRQS_LEGACY
+#else
+#define NR_IRQS 512
 #endif
+#endif
+
 
 #ifndef irq_canonicalize
 #define irq_canonicalize(i)	(i)
@@ -44,4 +49,3 @@ static inline int nr_legacy_irqs(void)
 #endif
 
 #endif
-

@@ -16,6 +16,9 @@
 #include <linux/slab.h>
 #include <linux/string.h>
 #include <linux/sched_clock.h>
+#include <linux/ipipe.h>
+#include <linux/ipipe_tickdev.h>
+#include <linux/time.h>
 
 #include <asm/irq.h>
 
@@ -26,6 +29,7 @@
 #define MAX_TIMER	3
 #define DEFAULT_TIMER	3
 
+
 struct bcm2835_timer {
 	void __iomem *control;
 	void __iomem *compare;
@@ -33,8 +37,52 @@ struct bcm2835_timer {
 	struct clock_event_device evt;
 	struct irqaction act;
 };
-
 static void __iomem *system_clock __read_mostly;
+
+#ifdef CONFIG_IPIPE
+
+static void __iomem *t_base;
+static unsigned long t_pbase;
+
+static inline void bcm2835_ipipe_cs_setup(unsigned int freq)
+{
+	struct __ipipe_tscinfo tsc_info = {
+		.type = IPIPE_TSC_TYPE_FREERUNNING,
+		.freq = freq,
+		.counter_vaddr = (unsigned long)t_base + 0x04,
+		.u = {
+			{
+				.counter_paddr = t_pbase + 0x04,
+				.mask = 0xffffffff,
+			}
+		},
+	};
+
+	__ipipe_tsc_register(&tsc_info);
+}
+
+static struct ipipe_timer bcm2835_itimer;
+
+static void bcm2835_itimer_ack(void)
+{
+        struct bcm2835_timer *timer = container_of(bcm2835_itimer.host_timer,
+                                                  struct bcm2835_timer, evt);
+        writel(timer->match_mask, timer->control);
+}
+
+static inline void bcm2835_ipipe_evt_setup(struct clock_event_device *evt,
+                                                                      int freq)
+{
+	evt->ipipe_timer = &bcm2835_itimer;
+	evt->ipipe_timer->irq = evt->irq;
+	evt->ipipe_timer->ack = bcm2835_itimer_ack;
+	evt->ipipe_timer->freq = freq;
+}
+
+#else
+static inline void bcm2835_ipipe_cs_setup(void) { }
+static inline void bcm2835_ipipe_evt_setup(struct clock_event_device *evt) { }
+#endif /* CONFIG_IPIPE */
 
 static u64 notrace bcm2835_sched_read(void)
 {
@@ -46,8 +94,7 @@ static int bcm2835_time_set_next_event(unsigned long event,
 {
 	struct bcm2835_timer *timer = container_of(evt_dev,
 		struct bcm2835_timer, evt);
-	writel_relaxed(readl_relaxed(system_clock) + event,
-		timer->compare);
+        writel_relaxed(readl_relaxed(system_clock) + event, timer->compare);
 	return 0;
 }
 
@@ -55,9 +102,13 @@ static irqreturn_t bcm2835_time_interrupt(int irq, void *dev_id)
 {
 	struct bcm2835_timer *timer = dev_id;
 	void (*event_handler)(struct clock_event_device *);
+
+        if (clockevent_ipipe_stolen(&timer->evt)) {
+                goto handle;
+        }
 	if (readl_relaxed(timer->control) & timer->match_mask) {
 		writel_relaxed(timer->match_mask, timer->control);
-
+        handle:
 		event_handler = READ_ONCE(timer->evt.event_handler);
 		if (event_handler)
 			event_handler(&timer->evt);
@@ -79,6 +130,19 @@ static int __init bcm2835_timer_init(struct device_node *node)
 		pr_err("Can't remap registers\n");
 		return -ENXIO;
 	}
+
+#ifdef CONFIG_IPIPE
+        {
+                struct resource res;
+                int ret;
+
+                ret = of_address_to_resource(node, 0, &res);
+                if (ret)
+		        res.start = 0;
+                t_base = base;
+                t_pbase = res.start;
+        }
+#endif
 
 	ret = of_property_read_u32(node, "clock-frequency", &freq);
 	if (ret) {
@@ -114,11 +178,22 @@ static int __init bcm2835_timer_init(struct device_node *node)
 	timer->evt.set_next_event = bcm2835_time_set_next_event;
 	timer->evt.cpumask = cpumask_of(0);
 	timer->act.name = node->name;
-	timer->act.flags = IRQF_TIMER | IRQF_SHARED;
+	timer->act.flags = IRQF_TIMER;
 	timer->act.dev_id = timer;
 	timer->act.handler = bcm2835_time_interrupt;
 
-	ret = setup_irq(irq, &timer->act);
+#ifdef CONFIG_IPIPE
+	bcm2835_ipipe_cs_setup(freq);
+	bcm2835_ipipe_evt_setup(&timer->evt, freq);
+	timer->evt.ipipe_timer = &bcm2835_itimer;
+	timer->evt.ipipe_timer->irq = irq;
+	timer->evt.ipipe_timer->ack = bcm2835_itimer_ack;
+	timer->evt.ipipe_timer->freq = freq;
+#else
+	timer->act.flags |= IRQF_SHARED;
+#endif
+
+        ret = setup_irq(irq, &timer->act);
 	if (ret) {
 		pr_err("Can't set up timer IRQ\n");
 		goto err_timer_free;

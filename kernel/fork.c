@@ -57,6 +57,7 @@
 #include <linux/futex.h>
 #include <linux/compat.h>
 #include <linux/kthread.h>
+#include <linux/ipipe.h>
 #include <linux/task_io_accounting_ops.h>
 #include <linux/rcupdate.h>
 #include <linux/ptrace.h>
@@ -94,6 +95,7 @@
 #include <linux/livepatch.h>
 #include <linux/thread_info.h>
 #include <linux/stackleak.h>
+#include <ipipe/thread_info.h>
 
 #include <asm/pgtable.h>
 #include <asm/pgalloc.h>
@@ -904,6 +906,8 @@ static struct task_struct *dup_task_struct(struct task_struct *orig, int node)
 #endif
 
 	setup_thread_stack(tsk, orig);
+	__ipipe_init_threadflags(task_thread_info(tsk));
+	__ipipe_init_threadinfo(&task_thread_info(tsk)->ipipe_data);
 	clear_user_return_notifier(tsk);
 	clear_tsk_need_resched(tsk);
 	set_task_stack_end_magic(tsk);
@@ -1076,6 +1080,7 @@ static inline void __mmput(struct mm_struct *mm)
 	exit_aio(mm);
 	ksm_exit(mm);
 	khugepaged_exit(mm); /* must run before exit_mmap */
+	__ipipe_report_cleanup(mm);
 	exit_mmap(mm);
 	mm_put_huge_zero_page(mm);
 	set_mm_exe_file(mm, NULL);

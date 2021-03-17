@@ -35,6 +35,7 @@
 #include <linux/hash.h>
 #include <linux/rcupdate.h>
 #include <linux/kprobes.h>
+#include <linux/ipipe.h>
 
 #include <trace/events/sched.h>
 
@@ -184,7 +185,16 @@ static ftrace_func_t ftrace_ops_get_list_func(struct ftrace_ops *ops)
 
 static void update_ftrace_function(void)
 {
+	struct ftrace_ops *ops;
 	ftrace_func_t func;
+
+	for (ops = ftrace_ops_list;
+	     ops != &ftrace_list_end; ops = ops->next)
+		if (ops->flags & FTRACE_OPS_FL_IPIPE_EXCLUSIVE) {
+			set_function_trace_op = ops;
+			func = ops->func;
+			goto set_pointers;
+		}
 
 	/*
 	 * Prepare the ftrace_ops that the arch callback will use.
@@ -215,6 +225,7 @@ static void update_ftrace_function(void)
 
 	update_function_graph_func();
 
+  set_pointers:
 	/* If there's no change, then do nothing more here */
 	if (ftrace_trace_function == func)
 		return;
@@ -2631,6 +2642,9 @@ void __weak arch_ftrace_update_code(int command)
 
 static void ftrace_run_update_code(int command)
 {
+#ifdef CONFIG_IPIPE
+	unsigned long flags;
+#endif /* CONFIG_IPIPE */
 	int ret;
 
 	ret = ftrace_arch_code_modify_prepare();
@@ -5679,10 +5693,10 @@ static int ftrace_process_locs(struct module *mod,
 	 * reason to cause large interrupt latencies while we do it.
 	 */
 	if (!mod)
-		local_irq_save(flags);
+		flags = hard_local_irq_save();
 	ftrace_update_code(mod, start_pg);
 	if (!mod)
-		local_irq_restore(flags);
+		hard_local_irq_restore(flags);
 	ret = 0;
  out:
 	mutex_unlock(&ftrace_lock);
@@ -6223,9 +6237,11 @@ void __init ftrace_init(void)
 	unsigned long count, flags;
 	int ret;
 
-	local_irq_save(flags);
+	flags = hard_local_irq_save_notrace();
 	ret = ftrace_dyn_arch_init();
-	local_irq_restore(flags);
+	hard_local_irq_restore_notrace(flags);
+
+	/* ftrace_dyn_arch_init places the return code in addr */
 	if (ret)
 		goto failed;
 
@@ -6360,7 +6376,16 @@ __ftrace_ops_list_func(unsigned long ip, unsigned long parent_ip,
 		}
 	} while_for_each_ftrace_op(op);
 out:
-	preempt_enable_notrace();
+#ifdef CONFIG_IPIPE
+	if (hard_irqs_disabled() || !ipipe_root_p)
+		/*
+		 * Nothing urgent to schedule here. At latest the timer tick
+		 * will pick up whatever the tracing functions kicked off.
+		 */
+		preempt_enable_no_resched_notrace();
+	else
+#endif
+		preempt_enable_notrace();
 	trace_clear_recursion(bit);
 }
 

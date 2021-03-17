@@ -915,7 +915,17 @@ static int at91_gpio_request_enable(struct pinctrl_dev *pctldev,
 	unsigned mask;
 
 	if (!range) {
-		dev_err(npct->dev, "invalid range\n");
+	#define GICD_INT_DEF_PRI		0xa0
+#define GICD_INT_DEF_PRI_X4		((GICD_INT_DEF_PRI << 24) |\
+					(GICD_INT_DEF_PRI << 16) |\
+					(GICD_INT_DEF_PRI << 8) |\
+					GICD_INT_DEF_PRI)
+#define GICD_INT_DEF_PRI		0xa0
+#define GICD_INT_DEF_PRI_X4		((GICD_INT_DEF_PRI << 24) |\
+					(GICD_INT_DEF_PRI << 16) |\
+					(GICD_INT_DEF_PRI << 8) |\
+					GICD_INT_DEF_PRI)
+	dev_err(npct->dev, "invalid range\n");
 		return -EINVAL;
 	}
 	if (!range->gc) {
@@ -1708,8 +1718,9 @@ static void gpio_irq_handler(struct irq_desc *desc)
 		}
 
 		for_each_set_bit(n, &isr, BITS_PER_LONG) {
-			generic_handle_irq(irq_find_mapping(
-					   gpio_chip->irq.domain, n));
+			ipipe_handle_demuxed_irq(irq_find_mapping(
+                                        gpio_chip->irq.domain, n));
+
 		}
 	}
 	chained_irq_exit(chip, desc);

@@ -67,8 +67,8 @@ do {								\
 #define read_trylock(lock)	__cond_lock(lock, _raw_read_trylock(lock))
 #define write_trylock(lock)	__cond_lock(lock, _raw_write_trylock(lock))
 
-#define write_lock(lock)	_raw_write_lock(lock)
-#define read_lock(lock)		_raw_read_lock(lock)
+#define write_lock(lock)	PICK_RWOP(_write_lock, lock)
+#define read_lock(lock)		PICK_RWOP(_read_lock, lock)
 
 #if defined(CONFIG_SMP) || defined(CONFIG_DEBUG_SPINLOCK)
 
@@ -102,8 +102,8 @@ do {								\
 #define read_lock_bh(lock)		_raw_read_lock_bh(lock)
 #define write_lock_irq(lock)		_raw_write_lock_irq(lock)
 #define write_lock_bh(lock)		_raw_write_lock_bh(lock)
-#define read_unlock(lock)		_raw_read_unlock(lock)
-#define write_unlock(lock)		_raw_write_unlock(lock)
+#define read_unlock(lock)		PICK_RWOP(_read_unlock, lock)
+#define write_unlock(lock)		PICK_RWOP(_write_unlock, lock)
 #define read_unlock_irq(lock)		_raw_read_unlock_irq(lock)
 #define write_unlock_irq(lock)		_raw_write_unlock_irq(lock)
 

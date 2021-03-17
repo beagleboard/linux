@@ -28,7 +28,7 @@
 #include <linux/compiler.h>
 #include <linux/sort.h>
 #include <linux/psci.h>
-
+#include <linux/slab.h>
 #include <asm/unified.h>
 #include <asm/cp15.h>
 #include <asm/cpu.h>
@@ -580,7 +580,17 @@ void notrace cpu_init(void)
 #endif
 }
 
-u32 __cpu_logical_map[NR_CPUS] = { [0 ... NR_CPUS-1] = MPIDR_INVALID };
+u32 __cpu_logical_map[16] = { [0 ... 15] = MPIDR_INVALID };
+
+#ifdef CONFIG_IPIPE
+
+void __init smp_build_cpu_revmap(void)
+{
+	/* printk on I-pipe needs per cpu data */
+	set_my_cpu_offset(per_cpu_offset(0));
+}
+
+#endif
 
 void __init smp_setup_processor_id(void)
 {
