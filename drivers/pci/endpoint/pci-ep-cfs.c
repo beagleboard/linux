@@ -426,7 +426,7 @@ static struct config_group *pci_epf_make(struct config_group *group,
 		goto remove_idr;
 	}
 
-	epf = pci_epf_create(epf_name);
+	epf = pci_epf_create(epf_name, NULL);
 	if (IS_ERR(epf)) {
 		pr_err("failed to create endpoint function device\n");
 		err = -EINVAL;
