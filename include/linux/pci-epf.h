@@ -202,7 +202,7 @@ static inline void *epf_get_drvdata(struct pci_epf *epf)
 	return dev_get_drvdata(&epf->dev);
 }
 
-struct pci_epf *pci_epf_create(const char *name);
+struct pci_epf *pci_epf_create(const char *name, struct device_node *node);
 struct pci_epf *pci_epf_of_create(struct device_node *node);
 struct pci_epf *devm_pci_epf_of_create(struct device *dev,
 				       struct device_node *node);

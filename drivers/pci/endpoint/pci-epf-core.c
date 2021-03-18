@@ -473,11 +473,12 @@ EXPORT_SYMBOL_GPL(pci_epf_destroy);
  * pci_epf_create() - create a new PCI EPF device
  * @name: the name of the PCI EPF device. This name will be used to bind the
  *	  the EPF device to a EPF driver
+ * @node: device node associated with PCI endpoint function
  *
  * Invoke to create a new PCI EPF device by providing the name of the function
  * device.
  */
-struct pci_epf *pci_epf_create(const char *name)
+struct pci_epf *pci_epf_create(const char *name, struct device_node *node)
 {
 	int ret;
 	struct pci_epf *epf;
@@ -497,6 +498,7 @@ struct pci_epf *pci_epf_create(const char *name)
 
 	/* VFs are numbered starting with 1. So set BIT(0) by default */
 	epf->vfunction_num_map = 1;
+	epf->node = node;
 	INIT_LIST_HEAD(&epf->pci_vepf);
 
 	dev = &epf->dev;
@@ -542,9 +544,7 @@ struct pci_epf *pci_epf_of_create(struct device_node *node)
 		return ERR_PTR(ret);
 	}
 
-	epf = pci_epf_create(compat);
-	if (!IS_ERR(epf))
-		epf->node = node;
+	epf = pci_epf_create(compat, node);
 
 	return epf;
 }
