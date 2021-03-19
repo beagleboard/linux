@@ -154,6 +154,15 @@
 		>;
 	};
 
+	main_spi0_pins_default: main-spi0-pins-default {
+		pinctrl-single,pins = <
+			AM64X_IOPAD(0x0210, PIN_INPUT, 0) /* (D13) SPI0_CLK */
+			AM64X_IOPAD(0x0208, PIN_OUTPUT, 0) /* (D12) SPI0_CS0 */
+			AM64X_IOPAD(0x0214, PIN_OUTPUT, 0) /* (A13) SPI0_D0 */
+			AM64X_IOPAD(0x0218, PIN_INPUT, 0) /* (A14) SPI0_D1 */
+		>;
+	};
+
 	main_i2c1_pins_default: main-i2c1-pins-default {
 		pinctrl-single,pins = <
 			AM64X_IOPAD(0x0268, PIN_INPUT_PULLUP, 0) /* (C18) I2C1_SCL */
@@ -295,6 +304,19 @@
 	status = "disabled";
 };
 
+&main_spi0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_spi0_pins_default>;
+	ti,pindir-d0-out-d1-in = <1>;
+	eeprom@0 {
+		compatible = "microchip,93lc46b";
+		reg = <0>;
+		spi-max-frequency = <1000000>;
+		spi-cs-high;
+		data-size = <16>;
+	};
+};
+
 &sdhci0 {
 	/* emmc */
 	bus-width = <8>;
@@ -318,6 +340,10 @@
 	pinctrl-0 = <&mdio1_pins_default
 		     &rgmii1_pins_default
 		     &rgmii2_pins_default>;
+
+	cpts@3d000 {
+		ti,pps = <7 1>;
+	};
 };
 
 &cpsw_port1 {
@@ -335,5 +361,22 @@
 		reg = <0>;
 		ti,rx-internal-delay = <DP83867_RGMIIDCTL_2_00_NS>;
 		ti,fifo-depth = <DP83867_PHYCR_FIFO_DEPTH_4_B_NIB>;
+	};
+};
+
+#define TS_OFFSET(pa, val)     (0x4+(pa)*4) (0x10000 | val)
+
+&timesync_router {
+	pinctrl-names = "default";
+	pinctrl-0 = <&mcu_cpts_pps>;
+
+	/* Example of the timesync routing */
+	mcu_cpts_pps: mcu-cpts-pps {
+		pinctrl-single,pins = <
+				/* pps [cpts genf1] in22 -> out37 [cpts hw8_push] */
+				TS_OFFSET(37, 22)
+				/* pps [cpts genf1] in22 -> out25 [SYNC1_OUT pin] */
+				TS_OFFSET(25, 22)
+				>;
 	};
 };

@@ -126,6 +126,8 @@
 };
 
 &davinci_mdio {
+	bus_freq = <20000>;
+
 	phy0: ethernet-phy@0 {
 		reg = <0>;
 		ti,rx-internal-delay = <DP83867_RGMIIDCTL_2_00_NS>;

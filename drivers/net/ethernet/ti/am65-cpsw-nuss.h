@@ -132,6 +132,7 @@ struct am65_cpsw_common {
 	bool			pf_p0_rx_ptype_rrobin;
 	struct am65_cpts	*cpts;
 	int			est_enabled;
+	int			iet_enabled;
 
 	bool		is_emac_mode;
 	u16			br_members;
