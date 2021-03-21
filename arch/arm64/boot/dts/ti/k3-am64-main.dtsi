@@ -500,4 +500,152 @@
 		pinctrl-single,register-width = <32>;
 		pinctrl-single,function-mask = <0x000107ff>;
 	};
+
+	hwspinlock: spinlock@2a000000 {
+		compatible = "ti,am64-hwspinlock";
+		reg = <0x00 0x2a000000 0x00 0x1000>;
+		#hwlock-cells = <1>;
+	};
+
+	mailbox0_cluster2: mailbox@29020000 {
+		compatible = "ti,am64-mailbox";
+		reg = <0x00 0x29020000 0x00 0x200>;
+		interrupts = <GIC_SPI 80 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 81 IRQ_TYPE_LEVEL_HIGH>;
+		#mbox-cells = <1>;
+		ti,mbox-num-users = <4>;
+		ti,mbox-num-fifos = <16>;
+	};
+
+	mailbox0_cluster3: mailbox@29030000 {
+		compatible = "ti,am64-mailbox";
+		reg = <0x00 0x29030000 0x00 0x200>;
+		interrupts = <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 83 IRQ_TYPE_LEVEL_HIGH>;
+		#mbox-cells = <1>;
+		ti,mbox-num-users = <4>;
+		ti,mbox-num-fifos = <16>;
+	};
+
+	mailbox0_cluster4: mailbox@29040000 {
+		compatible = "ti,am64-mailbox";
+		reg = <0x00 0x29040000 0x00 0x200>;
+		interrupts = <GIC_SPI 84 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 85 IRQ_TYPE_LEVEL_HIGH>;
+		#mbox-cells = <1>;
+		ti,mbox-num-users = <4>;
+		ti,mbox-num-fifos = <16>;
+	};
+
+	mailbox0_cluster5: mailbox@29050000 {
+		compatible = "ti,am64-mailbox";
+		reg = <0x00 0x29050000 0x00 0x200>;
+		interrupts = <GIC_SPI 86 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 87 IRQ_TYPE_LEVEL_HIGH>;
+		#mbox-cells = <1>;
+		ti,mbox-num-users = <4>;
+		ti,mbox-num-fifos = <16>;
+	};
+
+	mailbox0_cluster6: mailbox@29060000 {
+		compatible = "ti,am64-mailbox";
+		reg = <0x00 0x29060000 0x00 0x200>;
+		interrupts = <GIC_SPI 76 IRQ_TYPE_LEVEL_HIGH>;
+		#mbox-cells = <1>;
+		ti,mbox-num-users = <4>;
+		ti,mbox-num-fifos = <16>;
+	};
+
+	mailbox0_cluster7: mailbox@29070000 {
+		compatible = "ti,am64-mailbox";
+		reg = <0x00 0x29070000 0x00 0x200>;
+		interrupts = <GIC_SPI 77 IRQ_TYPE_LEVEL_HIGH>;
+		#mbox-cells = <1>;
+		ti,mbox-num-users = <4>;
+		ti,mbox-num-fifos = <16>;
+	};
+
+	main_r5fss0: r5fss@78000000 {
+		compatible = "ti,am64-r5fss";
+		ti,cluster-mode = <0>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges = <0x78000000 0x00 0x78000000 0x10000>,
+			 <0x78100000 0x00 0x78100000 0x10000>,
+			 <0x78200000 0x00 0x78200000 0x08000>,
+			 <0x78300000 0x00 0x78300000 0x08000>;
+		power-domains = <&k3_pds 119 TI_SCI_PD_EXCLUSIVE>;
+
+		main_r5fss0_core0: r5f@78000000 {
+			compatible = "ti,am64-r5f";
+			reg = <0x78000000 0x00010000>,
+			      <0x78100000 0x00010000>;
+			reg-names = "atcm", "btcm";
+			ti,sci = <&dmsc>;
+			ti,sci-dev-id = <121>;
+			ti,sci-proc-ids = <0x01 0xff>;
+			resets = <&k3_reset 121 1>;
+			firmware-name = "am64-main-r5f0_0-fw";
+			ti,atcm-enable = <1>;
+			ti,btcm-enable = <1>;
+			ti,loczrama = <1>;
+		};
+
+		main_r5fss0_core1: r5f@78200000 {
+			compatible = "ti,am64-r5f";
+			reg = <0x78200000 0x00008000>,
+			      <0x78300000 0x00008000>;
+			reg-names = "atcm", "btcm";
+			ti,sci = <&dmsc>;
+			ti,sci-dev-id = <122>;
+			ti,sci-proc-ids = <0x02 0xff>;
+			resets = <&k3_reset 122 1>;
+			firmware-name = "am64-main-r5f0_1-fw";
+			ti,atcm-enable = <1>;
+			ti,btcm-enable = <1>;
+			ti,loczrama = <1>;
+		};
+	};
+
+	main_r5fss1: r5fss@78400000 {
+		compatible = "ti,am64-r5fss";
+		ti,cluster-mode = <0>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges = <0x78400000 0x00 0x78400000 0x10000>,
+			 <0x78500000 0x00 0x78500000 0x10000>,
+			 <0x78600000 0x00 0x78600000 0x08000>,
+			 <0x78700000 0x00 0x78700000 0x08000>;
+		power-domains = <&k3_pds 120 TI_SCI_PD_EXCLUSIVE>;
+
+		main_r5fss1_core0: r5f@78400000 {
+			compatible = "ti,am64-r5f";
+			reg = <0x78400000 0x00010000>,
+			      <0x78500000 0x00010000>;
+			reg-names = "atcm", "btcm";
+			ti,sci = <&dmsc>;
+			ti,sci-dev-id = <123>;
+			ti,sci-proc-ids = <0x06 0xff>;
+			resets = <&k3_reset 123 1>;
+			firmware-name = "am64-main-r5f1_0-fw";
+			ti,atcm-enable = <1>;
+			ti,btcm-enable = <1>;
+			ti,loczrama = <1>;
+		};
+
+		main_r5fss1_core1: r5f@78600000 {
+			compatible = "ti,am64-r5f";
+			reg = <0x78600000 0x00008000>,
+			      <0x78700000 0x00008000>;
+			reg-names = "atcm", "btcm";
+			ti,sci = <&dmsc>;
+			ti,sci-dev-id = <124>;
+			ti,sci-proc-ids = <0x07 0xff>;
+			resets = <&k3_reset 124 1>;
+			firmware-name = "am64-main-r5f1_1-fw";
+			ti,atcm-enable = <1>;
+			ti,btcm-enable = <1>;
+			ti,loczrama = <1>;
+		};
+	};
 };
