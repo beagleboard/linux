@@ -41,19 +41,27 @@
 
 struct cqspi_st;
 
+struct phy_setting {
+	u8		rx;
+	u8		tx;
+	u8		read_delay;
+};
+
 struct cqspi_flash_pdata {
-	struct cqspi_st	*cqspi;
-	u32		clk_rate;
-	u32		read_delay;
-	u32		tshsl_ns;
-	u32		tsd2d_ns;
-	u32		tchsh_ns;
-	u32		tslch_ns;
-	u8		inst_width;
-	u8		addr_width;
-	u8		data_width;
-	bool		dtr;
-	u8		cs;
+	struct cqspi_st		*cqspi;
+	u32			clk_rate;
+	u32			read_delay;
+	u32			tshsl_ns;
+	u32			tsd2d_ns;
+	u32			tchsh_ns;
+	u32			tslch_ns;
+	u8			inst_width;
+	u8			addr_width;
+	u8			data_width;
+	bool			dtr;
+	u8			cs;
+	bool			use_phy;
+	struct phy_setting	phy_setting;
 };
 
 struct cqspi_st {
@@ -107,12 +115,14 @@ struct cqspi_driver_platdata {
 /* Register map */
 #define CQSPI_REG_CONFIG			0x00
 #define CQSPI_REG_CONFIG_ENABLE_MASK		BIT(0)
+#define CQSPI_REG_CONFIG_PHY_EN			BIT(3)
 #define CQSPI_REG_CONFIG_ENB_DIR_ACC_CTRL	BIT(7)
 #define CQSPI_REG_CONFIG_DECODE_MASK		BIT(9)
 #define CQSPI_REG_CONFIG_CHIPSELECT_LSB		10
 #define CQSPI_REG_CONFIG_DMA_MASK		BIT(15)
 #define CQSPI_REG_CONFIG_BAUD_LSB		19
 #define CQSPI_REG_CONFIG_DTR_PROTO		BIT(24)
+#define CQSPI_REG_CONFIG_PHY_PIPELINE		BIT(25)
 #define CQSPI_REG_CONFIG_DUAL_OPCODE		BIT(30)
 #define CQSPI_REG_CONFIG_IDLE_LSB		31
 #define CQSPI_REG_CONFIG_CHIPSELECT_MASK	0xF
@@ -149,6 +159,7 @@ struct cqspi_driver_platdata {
 #define CQSPI_REG_READCAPTURE_BYPASS_LSB	0
 #define CQSPI_REG_READCAPTURE_DELAY_LSB		1
 #define CQSPI_REG_READCAPTURE_DELAY_MASK	0xF
+#define CQSPI_REG_READCAPTURE_DQS_LSB		8
 
 #define CQSPI_REG_SIZE				0x14
 #define CQSPI_REG_SIZE_ADDRESS_LSB		0
@@ -998,6 +1009,7 @@ static void cqspi_config_baudrate_div(struct cqspi_st *cqspi)
 
 static void cqspi_readdata_capture(struct cqspi_st *cqspi,
 				   const bool bypass,
+				   const bool dqs,
 				   const unsigned int delay)
 {
 	void __iomem *reg_base = cqspi->iobase;
@@ -1016,6 +1028,11 @@ static void cqspi_readdata_capture(struct cqspi_st *cqspi,
 	reg |= (delay & CQSPI_REG_READCAPTURE_DELAY_MASK)
 		<< CQSPI_REG_READCAPTURE_DELAY_LSB;
 
+	if (dqs)
+		reg |= (1 << CQSPI_REG_READCAPTURE_DQS_LSB);
+	else
+		reg &= ~(1 << CQSPI_REG_READCAPTURE_DQS_LSB);
+
 	writel(reg, reg_base + CQSPI_REG_READCAPTURE);
 }
 
@@ -1032,6 +1049,64 @@ static void cqspi_controller_enable(struct cqspi_st *cqspi, bool enable)
 		reg &= ~CQSPI_REG_CONFIG_ENABLE_MASK;
 
 	writel(reg, reg_base + CQSPI_REG_CONFIG);
+}
+
+static void cqspi_phy_enable(struct cqspi_flash_pdata *f_pdata, bool enable)
+{
+	struct cqspi_st *cqspi = f_pdata->cqspi;
+	void __iomem *reg_base = cqspi->iobase;
+	u32 reg;
+	u8 dummy;
+
+	if (enable) {
+		cqspi_readdata_capture(cqspi, 1, true,
+				       f_pdata->phy_setting.read_delay);
+
+		reg = readl(reg_base + CQSPI_REG_CONFIG);
+		reg |= CQSPI_REG_CONFIG_PHY_EN |
+		       CQSPI_REG_CONFIG_PHY_PIPELINE;
+		writel(reg, reg_base + CQSPI_REG_CONFIG);
+
+		/*
+		 * Reduce dummy cycle by 1. This is a requirement of PHY mode
+		 * operation for correctly reading the data.
+		 */
+		reg = readl(reg_base + CQSPI_REG_RD_INSTR);
+		dummy = (reg >> CQSPI_REG_RD_INSTR_DUMMY_LSB) &
+			CQSPI_REG_RD_INSTR_DUMMY_MASK;
+		dummy--;
+		reg &= ~(CQSPI_REG_RD_INSTR_DUMMY_MASK <<
+			 CQSPI_REG_RD_INSTR_DUMMY_LSB);
+
+		reg |= (dummy & CQSPI_REG_RD_INSTR_DUMMY_MASK)
+		       << CQSPI_REG_RD_INSTR_DUMMY_LSB;
+		writel(reg, reg_base + CQSPI_REG_RD_INSTR);
+	} else {
+		cqspi_readdata_capture(cqspi, !cqspi->rclk_en, false,
+				       f_pdata->read_delay);
+
+		reg = readl(reg_base + CQSPI_REG_CONFIG);
+		reg &= ~(CQSPI_REG_CONFIG_PHY_EN |
+			 CQSPI_REG_CONFIG_PHY_PIPELINE);
+		writel(reg, reg_base + CQSPI_REG_CONFIG);
+
+		/*
+		 * Dummy cycles were decremented when enabling PHY. Increment
+		 * dummy cycle by 1 to restore the original value.
+		 */
+		reg = readl(reg_base + CQSPI_REG_RD_INSTR);
+		dummy = (reg >> CQSPI_REG_RD_INSTR_DUMMY_LSB) &
+			CQSPI_REG_RD_INSTR_DUMMY_MASK;
+		dummy++;
+		reg &= ~(CQSPI_REG_RD_INSTR_DUMMY_MASK <<
+			 CQSPI_REG_RD_INSTR_DUMMY_LSB);
+
+		reg |= (dummy & CQSPI_REG_RD_INSTR_DUMMY_MASK)
+		       << CQSPI_REG_RD_INSTR_DUMMY_LSB;
+		writel(reg, reg_base + CQSPI_REG_RD_INSTR);
+	}
+
+	cqspi_wait_idle(cqspi);
 }
 
 static void cqspi_configure(struct cqspi_flash_pdata *f_pdata,
@@ -1055,7 +1130,7 @@ static void cqspi_configure(struct cqspi_flash_pdata *f_pdata,
 		cqspi->sclk = sclk;
 		cqspi_config_baudrate_div(cqspi);
 		cqspi_delay(f_pdata);
-		cqspi_readdata_capture(cqspi, !cqspi->rclk_en,
+		cqspi_readdata_capture(cqspi, !cqspi->rclk_en, false,
 				       f_pdata->read_delay);
 	}
 
@@ -1097,6 +1172,39 @@ static ssize_t cqspi_write(struct cqspi_flash_pdata *f_pdata,
 	return cqspi_indirect_write_execute(f_pdata, to, buf, len);
 }
 
+/*
+ * Check if PHY mode can be used on the given op. This is assuming it will be a
+ * DAC mode read, since PHY won't work on any other type of operation anyway.
+ */
+static bool cqspi_phy_op_eligible(const struct spi_mem_op *op)
+{
+	/* PHY is only tuned for 8D-8D-8D. */
+	if (!(op->cmd.dtr && op->addr.dtr && op->dummy.dtr && op->data.dtr))
+		return false;
+	if (op->cmd.buswidth != 8)
+		return false;
+	if (op->addr.nbytes && op->addr.buswidth != 8)
+		return false;
+	if (op->dummy.nbytes && op->dummy.buswidth != 8)
+		return false;
+	if (op->data.nbytes && op->data.buswidth != 8)
+		return false;
+
+	return true;
+}
+
+static bool cqspi_use_phy(struct cqspi_flash_pdata *f_pdata,
+			  const struct spi_mem_op *op)
+{
+	if (!f_pdata->use_phy)
+		return false;
+
+	if (op->data.nbytes < 16)
+		return false;
+
+	return cqspi_phy_op_eligible(op);
+}
+
 static void cqspi_rx_dma_callback(void *param)
 {
 	struct cqspi_st *cqspi = param;
@@ -1104,8 +1212,8 @@ static void cqspi_rx_dma_callback(void *param)
 	complete(&cqspi->rx_dma_complete);
 }
 
-static int cqspi_direct_read_execute(struct cqspi_flash_pdata *f_pdata,
-				     u_char *buf, loff_t from, size_t len)
+static int cqspi_direct_read_dma(struct cqspi_flash_pdata *f_pdata,
+				 u_char *buf, loff_t from, size_t len)
 {
 	struct cqspi_st *cqspi = f_pdata->cqspi;
 	struct device *dev = &cqspi->pdev->dev;
@@ -1116,11 +1224,6 @@ static int cqspi_direct_read_execute(struct cqspi_flash_pdata *f_pdata,
 	dma_cookie_t cookie;
 	dma_addr_t dma_dst;
 	struct device *ddev;
-
-	if (!cqspi->rx_chan || !virt_addr_valid(buf)) {
-		memcpy_fromio(buf, cqspi->ahb_base + from, len);
-		return 0;
-	}
 
 	ddev = cqspi->rx_chan->device->dev;
 	dma_dst = dma_map_single(ddev, buf, len, DMA_FROM_DEVICE);
@@ -1163,6 +1266,64 @@ err_unmap:
 	return ret;
 }
 
+static int cqspi_direct_read_execute(struct cqspi_flash_pdata *f_pdata,
+				     const struct spi_mem_op *op)
+{
+	struct cqspi_st *cqspi = f_pdata->cqspi;
+	loff_t from = op->addr.val;
+	loff_t from_aligned, to_aligned;
+	size_t len = op->data.nbytes;
+	size_t len_aligned;
+	u_char *buf = op->data.buf.in;
+	int ret;
+
+	if (!cqspi->rx_chan || !virt_addr_valid(buf)) {
+		memcpy_fromio(buf, cqspi->ahb_base + from, len);
+		return 0;
+	}
+
+	if (!cqspi_use_phy(f_pdata, op))
+		return cqspi_direct_read_dma(f_pdata, buf, from, len);
+
+	/*
+	 * PHY reads must be 16-byte aligned, and they must be a multiple of 16
+	 * bytes.
+	 */
+	from_aligned = (from + 0xF) & ~0xF;
+	to_aligned = (from + len) & ~0xF;
+	len_aligned = to_aligned - from_aligned;
+
+	/* Read the unaligned part at the start. */
+	if (from != from_aligned) {
+		ret = cqspi_direct_read_dma(f_pdata, buf, from,
+					    from_aligned - from);
+		if (ret)
+			return ret;
+		buf += from_aligned - from;
+	}
+
+	if (len_aligned) {
+		cqspi_phy_enable(f_pdata, true);
+		ret = cqspi_direct_read_dma(f_pdata, buf, from_aligned,
+					    len_aligned);
+		cqspi_phy_enable(f_pdata, false);
+		if (ret)
+			return ret;
+		buf += len_aligned;
+	}
+
+	/* Now read the remaining part, if any. */
+	if (to_aligned != (from + len)) {
+		ret = cqspi_direct_read_dma(f_pdata, buf, to_aligned,
+					    (from + len) - to_aligned);
+		if (ret)
+			return ret;
+		buf += (from + len) - to_aligned;
+	}
+
+	return 0;
+}
+
 static ssize_t cqspi_read(struct cqspi_flash_pdata *f_pdata,
 			  const struct spi_mem_op *op)
 {
@@ -1181,7 +1342,7 @@ static ssize_t cqspi_read(struct cqspi_flash_pdata *f_pdata,
 		return ret;
 
 	if (cqspi->use_direct_mode && ((from + len) <= cqspi->ahb_size))
-		return cqspi_direct_read_execute(f_pdata, buf, from, len);
+		return cqspi_direct_read_execute(f_pdata, op);
 
 	return cqspi_indirect_read_execute(f_pdata, buf, from, len);
 }
