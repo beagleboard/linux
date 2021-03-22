@@ -250,6 +250,12 @@ static inline void *spi_mem_get_drvdata(struct spi_mem *mem)
  *		  the currently mapped area), and the caller of
  *		  spi_mem_dirmap_write() is responsible for calling it again in
  *		  this case.
+ * @do_calibration: perform calibration needed for high SPI clock speed
+ *		    operation. Should be called after the SPI memory device has
+ *		    been completely initialized. The op passed should contain
+ *		    a template for the read operation used for the device so
+ *		    the controller can decide what type of calibration is
+ *		    required for this type of read.
  *
  * This interface should be implemented by SPI controllers providing an
  * high-level interface to execute SPI memory operation, which is usually the
@@ -274,6 +280,8 @@ struct spi_controller_mem_ops {
 			       u64 offs, size_t len, void *buf);
 	ssize_t (*dirmap_write)(struct spi_mem_dirmap_desc *desc,
 				u64 offs, size_t len, const void *buf);
+	void (*do_calibration)(struct spi_mem *mem,
+			       const struct spi_mem_op *op);
 };
 
 /**
@@ -346,6 +354,7 @@ bool spi_mem_dtr_supports_op(struct spi_mem *mem,
 #endif /* CONFIG_SPI_MEM */
 
 int spi_mem_adjust_op_size(struct spi_mem *mem, struct spi_mem_op *op);
+int spi_mem_do_calibration(struct spi_mem *mem, const struct spi_mem_op *op);
 
 bool spi_mem_supports_op(struct spi_mem *mem,
 			 const struct spi_mem_op *op);
