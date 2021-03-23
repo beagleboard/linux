@@ -776,6 +776,12 @@ static inline int check_mnt(struct mount *mnt)
 	return mnt->mnt_ns == current->nsproxy->mnt_ns;
 }
 
+/* for aufs, CONFIG_AUFS_BR_FUSE */
+int is_current_mnt_ns(struct vfsmount *mnt)
+{
+	return check_mnt(real_mount(mnt));
+}
+
 /*
  * vfsmount lock must be held for write
  */
