@@ -1264,10 +1264,11 @@ endif
 
 ifneq ($(dtstree),)
 
-%.dtb %.dtbo: dtbdir=$(patsubst %/,%,$(patsubst %./,%,$(dtstree)/$(dir $@)))
+%.dtb: include/config/kernel.release scripts_dtc
+	$(Q)$(MAKE) $(build)=$(dtstree) $(dtstree)/$@
 
-%.dtb %.dtbo: include/config/kernel.release scripts_dtc
-	$(Q)$(MAKE) $(build)=$(dtbdir) $(dtstree)/$@
+%.dtbo: include/config/kernel.release scripts_dtc
+	$(Q)$(MAKE) $(build)=$(dtstree) $(dtstree)/$@
 
 PHONY += dtbs dtbs_install dtbs_check
 dtbs: include/config/kernel.release scripts_dtc
@@ -1747,7 +1748,6 @@ clean: $(clean-dirs)
 		\( -name '*.[aios]' -o -name '*.ko' -o -name '.*.cmd' \
 		-o -name '*.ko.*' \
 		-o -name '*.dtb' -o -name '*.dtb.S' -o -name '*.dt.yaml' \
-		-o -name '*.dtbo' -o -name '*.dtbo.S' \
 		-o -name '*.dwo' -o -name '*.lst' \
 		-o -name '*.su' -o -name '*.mod' -o -name '*.ns_deps' \
 		-o -name '.*.d' -o -name '.*.tmp' -o -name '*.mod.c' \
