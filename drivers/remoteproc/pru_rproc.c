@@ -266,12 +266,17 @@ static void pru_rproc_create_debug_entries(struct rproc *rproc)
 
 static void pru_dispose_irq_mapping(struct pru_rproc *pru)
 {
-	while (pru->evt_count--) {
+	if (!pru->mapped_irq)
+		return;
+
+	while (pru->evt_count) {
+		pru->evt_count--;
 		if (pru->mapped_irq[pru->evt_count] > 0)
 			irq_dispose_mapping(pru->mapped_irq[pru->evt_count]);
 	}
 
 	kfree(pru->mapped_irq);
+	pru->mapped_irq = NULL;
 }
 
 /*
@@ -324,6 +329,8 @@ static int pru_handle_intrmap(struct rproc *rproc)
 	of_node_put(parent);
 	if (!irq_parent) {
 		kfree(pru->mapped_irq);
+		pru->mapped_irq = NULL;
+		pru->evt_count = 0;
 		return -ENODEV;
 	}
 
@@ -398,8 +405,7 @@ static int pru_rproc_stop(struct rproc *rproc)
 	pru_control_write_reg(pru, PRU_CTRL_CTRL, val);
 
 	/* dispose irq mapping - new firmware can provide new mapping */
-	if (pru->mapped_irq)
-		pru_dispose_irq_mapping(pru);
+	pru_dispose_irq_mapping(pru);
 
 	return 0;
 }
