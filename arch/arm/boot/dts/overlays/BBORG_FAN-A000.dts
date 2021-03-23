@@ -1,0 +1,29 @@
+/*
+ * Copyright (C) 2020 Robert Nelson <robercnelson@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+/dts-v1/;
+/plugin/;
+
+/*
+* Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+*/
+&{/chosen} {
+	overlays {
+		BBORG_FAN-A000 = __TIMESTAMP__;
+	};
+};
+
+&cpu0_opp_table {
+	opp_slow-500000000 {
+		opp-hz = /bits/ 64 <1000000000>;
+		opp-microvolt = <1060000 850000 1150000>,
+				<1060000 850000 1150000>;
+		opp-supported-hw = <0xFF 0x01>;
+		opp-suspend;
+	};
+};
