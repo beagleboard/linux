@@ -1,0 +1,14 @@
+config XENO_DRIVERS_NET_RTPACKET
+    depends on XENO_DRIVERS_NET
+    tristate "Real-Time Packet Socket Support"
+    default y
+    ---help---
+    Enables real-time packet sockets for RTnet. This support is
+    implemented in a separate module. When loaded, application programs
+    can send and received so-called "cooked" packets directly at OSI layer
+    2 (device layer). This means that RTnet will still maintain the
+    device-dependent packet header but leave the full data segment to the
+    user.
+
+    Examples like raw-ethernet or netshm make use of this support. See
+    also Linux man page packet(7).
