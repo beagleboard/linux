@@ -1,0 +1,9 @@
+am335x-bone.o: arch/arm/boot/dts/am335x-bone.dts \
+ arch/arm/boot/dts/am33xx.dtsi \
+ scripts/dtc/include-prefixes/dt-bindings/bus/ti-sysc.h \
+ scripts/dtc/include-prefixes/dt-bindings/gpio/gpio.h \
+ scripts/dtc/include-prefixes/dt-bindings/pinctrl/am33xx.h \
+ scripts/dtc/include-prefixes/dt-bindings/pinctrl/omap.h \
+ scripts/dtc/include-prefixes/dt-bindings/clock/am3.h \
+ arch/arm/boot/dts/am33xx-l4.dtsi arch/arm/boot/dts/am33xx-clocks.dtsi \
+ arch/arm/boot/dts/am335x-bone-common.dtsi

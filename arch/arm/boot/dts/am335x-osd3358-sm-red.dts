@@ -17,6 +17,11 @@
 / {
 	model = "Octavo Systems OSD3358-SM-RED";
 	compatible = "oct,osd3358-sm-refdesign", "ti,am335x-bone-black", "ti,am335x-bone", "ti,am33xx";
+
+	chosen {
+		base_dtb = "am335x-osd3358-sm-red.dts";
+		base_dtb_timestamp = __TIMESTAMP__;
+	};
 };
 
 &ldo3_reg {
@@ -382,6 +387,7 @@
 	pinctrl-0 = <&uart0_pins>;
 
 	status = "okay";
+	symlink = "bone/uart/0";
 };
 
 &usb0 {
@@ -399,6 +405,7 @@
 	pinctrl-0 = <&i2c2_pins>;
 	status = "okay";
 	clock-frequency = <100000>;
+	symlink = "bone/i2c/2";
 };
 
 &cpsw_emac0 {
