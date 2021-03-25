@@ -238,6 +238,18 @@ patternProperties:
 
     type: object
 
+  ecap@[a-f0-9]+$:
+    description: |
+      Each PRUSS can optionally have an Enhanced Capture (eCAP) module that can
+      provide some time-stamp features using its capture input. The eCAP module
+      used within the PRU-ICSS is similar to other instances used within the PWM
+      subsystems.
+
+    allOf:
+      - $ref: /schemas/net/ti,pruss-ecap.yaml#
+
+    type: object
+
   mii-rt@[a-f0-9]+$:
     description: |
       Real-Time Ethernet to support multiple industrial communication protocols.
