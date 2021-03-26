@@ -5275,10 +5275,11 @@ static void gro_normal_list(struct napi_struct *napi)
 /* Queue one GRO_NORMAL SKB up for list processing. If batch size exceeded,
  * pass the whole batch up to the stack.
  */
-static void gro_normal_one(struct napi_struct *napi, struct sk_buff *skb)
+static void gro_normal_one(struct napi_struct *napi, struct sk_buff *skb, int segs)
 {
 	list_add_tail(&skb->list, &napi->rx_list);
-	if (++napi->rx_count >= gro_normal_batch)
+	napi->rx_count += segs;
+	if (napi->rx_count >= gro_normal_batch)
 		gro_normal_list(napi);
 }
 
@@ -5317,7 +5318,7 @@ static int napi_gro_complete(struct napi_struct *napi, struct sk_buff *skb)
 	}
 
 out:
-	gro_normal_one(napi, skb);
+	gro_normal_one(napi, skb, NAPI_GRO_CB(skb)->count);
 	return NET_RX_SUCCESS;
 }
 
@@ -5608,7 +5609,7 @@ static gro_result_t napi_skb_finish(struct napi_struct *napi,
 {
 	switch (ret) {
 	case GRO_NORMAL:
-		gro_normal_one(napi, skb);
+		gro_normal_one(napi, skb, 1);
 		break;
 
 	case GRO_DROP:
@@ -5696,7 +5697,7 @@ static gro_result_t napi_frags_finish(struct napi_struct *napi,
 		__skb_push(skb, ETH_HLEN);
 		skb->protocol = eth_type_trans(skb, skb->dev);
 		if (ret == GRO_NORMAL)
-			gro_normal_one(napi, skb);
+			gro_normal_one(napi, skb, 1);
 		break;
 
 	case GRO_DROP:
@@ -8142,6 +8143,48 @@ int dev_set_mac_address(struct net_device *dev, struct sockaddr *sa,
 	return 0;
 }
 EXPORT_SYMBOL(dev_set_mac_address);
+
+static DECLARE_RWSEM(dev_addr_sem);
+
+int dev_set_mac_address_user(struct net_device *dev, struct sockaddr *sa,
+			     struct netlink_ext_ack *extack)
+{
+	int ret;
+
+	down_write(&dev_addr_sem);
+	ret = dev_set_mac_address(dev, sa, extack);
+	up_write(&dev_addr_sem);
+	return ret;
+}
+EXPORT_SYMBOL(dev_set_mac_address_user);
+
+int dev_get_mac_address(struct sockaddr *sa, struct net *net, char *dev_name)
+{
+	size_t size = sizeof(sa->sa_data);
+	struct net_device *dev;
+	int ret = 0;
+
+	down_read(&dev_addr_sem);
+	rcu_read_lock();
+
+	dev = dev_get_by_name_rcu(net, dev_name);
+	if (!dev) {
+		ret = -ENODEV;
+		goto unlock;
+	}
+	if (!dev->addr_len)
+		memset(sa->sa_data, 0, size);
+	else
+		memcpy(sa->sa_data, dev->dev_addr,
+		       min_t(size_t, size, dev->addr_len));
+	sa->sa_family = dev->type;
+
+unlock:
+	rcu_read_unlock();
+	up_read(&dev_addr_sem);
+	return ret;
+}
+EXPORT_SYMBOL(dev_get_mac_address);
 
 /**
  *	dev_change_carrier - Change device carrier

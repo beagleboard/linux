@@ -883,44 +883,42 @@ static void xhci_clear_command_ring(struct xhci_hcd *xhci)
 	xhci_set_cmd_ring_deq(xhci);
 }
 
-static void xhci_disable_port_wake_on_bits(struct xhci_hcd *xhci)
+/*
+ * Disable port wake bits if do_wakeup is not set.
+ *
+ * Also clear a possible internal port wake state left hanging for ports that
+ * detected termination but never successfully enumerated (trained to 0U).
+ * Internal wake causes immediate xHCI wake after suspend. PORT_CSC write done
+ * at enumeration clears this wake, force one here as well for unconnected ports
+ */
+
+static void xhci_disable_hub_port_wake(struct xhci_hcd *xhci,
+				       struct xhci_hub *rhub,
+				       bool do_wakeup)
 {
-	struct xhci_port **ports;
-	int port_index;
 	unsigned long flags;
 	u32 t1, t2, portsc;
+	int i;
 
 	spin_lock_irqsave(&xhci->lock, flags);
 
-	/* disable usb3 ports Wake bits */
-	port_index = xhci->usb3_rhub.num_ports;
-	ports = xhci->usb3_rhub.ports;
-	while (port_index--) {
-		t1 = readl(ports[port_index]->addr);
-		portsc = t1;
-		t1 = xhci_port_state_to_neutral(t1);
-		t2 = t1 & ~PORT_WAKE_BITS;
-		if (t1 != t2) {
-			writel(t2, ports[port_index]->addr);
-			xhci_dbg(xhci, "disable wake bits port %d-%d, portsc: 0x%x, write: 0x%x\n",
-				 xhci->usb3_rhub.hcd->self.busnum,
-				 port_index + 1, portsc, t2);
-		}
-	}
+	for (i = 0; i < rhub->num_ports; i++) {
+		portsc = readl(rhub->ports[i]->addr);
+		t1 = xhci_port_state_to_neutral(portsc);
+		t2 = t1;
 
-	/* disable usb2 ports Wake bits */
-	port_index = xhci->usb2_rhub.num_ports;
-	ports = xhci->usb2_rhub.ports;
-	while (port_index--) {
-		t1 = readl(ports[port_index]->addr);
-		portsc = t1;
-		t1 = xhci_port_state_to_neutral(t1);
-		t2 = t1 & ~PORT_WAKE_BITS;
+		/* clear wake bits if do_wake is not set */
+		if (!do_wakeup)
+			t2 &= ~PORT_WAKE_BITS;
+
+		/* Don't touch csc bit if connected or connect change is set */
+		if (!(portsc & (PORT_CSC | PORT_CONNECT)))
+			t2 |= PORT_CSC;
+
 		if (t1 != t2) {
-			writel(t2, ports[port_index]->addr);
-			xhci_dbg(xhci, "disable wake bits port %d-%d, portsc: 0x%x, write: 0x%x\n",
-				 xhci->usb2_rhub.hcd->self.busnum,
-				 port_index + 1, portsc, t2);
+			writel(t2, rhub->ports[i]->addr);
+			xhci_dbg(xhci, "config port %d-%d wake bits, portsc: 0x%x, write: 0x%x\n",
+				 rhub->hcd->self.busnum, i + 1, portsc, t2);
 		}
 	}
 	spin_unlock_irqrestore(&xhci->lock, flags);
@@ -983,8 +981,8 @@ int xhci_suspend(struct xhci_hcd *xhci, bool do_wakeup)
 		return -EINVAL;
 
 	/* Clear root port wake on bits if wakeup not allowed. */
-	if (!do_wakeup)
-		xhci_disable_port_wake_on_bits(xhci);
+	xhci_disable_hub_port_wake(xhci, &xhci->usb3_rhub, do_wakeup);
+	xhci_disable_hub_port_wake(xhci, &xhci->usb2_rhub, do_wakeup);
 
 	if (!HCD_HW_ACCESSIBLE(hcd))
 		return 0;
@@ -1088,6 +1086,7 @@ int xhci_resume(struct xhci_hcd *xhci, bool hibernated)
 	struct usb_hcd		*secondary_hcd;
 	int			retval = 0;
 	bool			comp_timer_running = false;
+	bool			pending_portevent = false;
 
 	if (!hcd->state)
 		return 0;
@@ -1226,13 +1225,22 @@ int xhci_resume(struct xhci_hcd *xhci, bool hibernated)
 
  done:
 	if (retval == 0) {
-		/* Resume root hubs only when have pending events. */
-		if (xhci_pending_portevent(xhci)) {
+		/*
+		 * Resume roothubs only if there are pending events.
+		 * USB 3 devices resend U3 LFPS wake after a 100ms delay if
+		 * the first wake signalling failed, give it that chance.
+		 */
+		pending_portevent = xhci_pending_portevent(xhci);
+		if (!pending_portevent) {
+			msleep(120);
+			pending_portevent = xhci_pending_portevent(xhci);
+		}
+
+		if (pending_portevent) {
 			usb_hcd_resume_root_hub(xhci->shared_hcd);
 			usb_hcd_resume_root_hub(hcd);
 		}
 	}
-
 	/*
 	 * If system is subject to the Quirk, Compliance Mode Timer needs to
 	 * be re-initialized Always after a system resume. Ports are subject
@@ -2861,7 +2869,7 @@ static void xhci_check_bw_drop_ep_streams(struct xhci_hcd *xhci,
  * else should be touching the xhci->devs[slot_id] structure, so we
  * don't need to take the xhci->lock for manipulating that.
  */
-static int xhci_check_bandwidth(struct usb_hcd *hcd, struct usb_device *udev)
+int xhci_check_bandwidth(struct usb_hcd *hcd, struct usb_device *udev)
 {
 	int i;
 	int ret = 0;
@@ -2959,7 +2967,7 @@ command_cleanup:
 	return ret;
 }
 
-static void xhci_reset_bandwidth(struct usb_hcd *hcd, struct usb_device *udev)
+void xhci_reset_bandwidth(struct usb_hcd *hcd, struct usb_device *udev)
 {
 	struct xhci_hcd *xhci;
 	struct xhci_virt_device	*virt_dev;
@@ -5380,6 +5388,10 @@ void xhci_init_driver(struct hc_driver *drv,
 			drv->reset = over->reset;
 		if (over->start)
 			drv->start = over->start;
+		if (over->check_bandwidth)
+			drv->check_bandwidth = over->check_bandwidth;
+		if (over->reset_bandwidth)
+			drv->reset_bandwidth = over->reset_bandwidth;
 	}
 }
 EXPORT_SYMBOL_GPL(xhci_init_driver);
