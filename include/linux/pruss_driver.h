@@ -2,13 +2,14 @@
 /*
  * PRU-ICSS sub-system specific definitions
  *
- * Copyright (C) 2014-2020 Texas Instruments Incorporated - http://www.ti.com/
+ * Copyright (C) 2014-2021 Texas Instruments Incorporated - https://www.ti.com/
  *	Suman Anna <s-anna@ti.com>
  */
 
 #ifndef _PRUSS_DRIVER_H_
 #define _PRUSS_DRIVER_H_
 
+#include <linux/pruss.h>
 #include <linux/types.h>
 
 /*
