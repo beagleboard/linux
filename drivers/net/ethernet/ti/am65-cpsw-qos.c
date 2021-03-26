@@ -7,6 +7,7 @@
  * Interspersed Express Traffic (IET - P802.3br/D2.0)
  */
 
+#include <linux/bitfield.h>
 #include <linux/pm_runtime.h>
 #include <linux/time.h>
 
@@ -15,6 +16,7 @@
 #include "am65-cpts.h"
 
 #define AM65_CPSW_REG_CTL			0x004
+#define AM65_CPSW_REG_FREQ			0x05c
 #define AM65_CPSW_PN_REG_CTL			0x004
 #define AM65_CPSW_PN_REG_MAX_BLKS		0x008
 #define AM65_CPSW_PN_REG_IET_CTRL		0x040
@@ -23,9 +25,13 @@
 #define AM65_CPSW_PN_REG_FIFO_STATUS		0x050
 #define AM65_CPSW_PN_REG_EST_CTL		0x060
 
+#define AM64_CPSW_PN_CUT_THRU			0x3C0
+#define AM64_CPSW_PN_SPEED			0x3C4
+
 /* AM65_CPSW_REG_CTL register fields */
 #define AM65_CPSW_CTL_IET_EN			BIT(17)
 #define AM65_CPSW_CTL_EST_EN			BIT(18)
+#define AM64_CPSW_CTL_CUT_THRU_EN		BIT(19)
 
 /* AM65_CPSW_PN_REG_CTL register fields */
 #define AM65_CPSW_PN_CTL_IET_PORT_EN		BIT(16)
@@ -73,6 +79,15 @@
 #define AM65_CPSW_FETCH_ALLOW_MSK		GENMASK(7, 0)
 #define AM65_CPSW_FETCH_ALLOW_MAX		AM65_CPSW_FETCH_ALLOW_MSK
 
+/* Cut-Thru AM64_CPSW_PN_CUT_THRU */
+#define  AM64_PN_CUT_THRU_TX_PRI		GENMASK(7, 0)
+#define  AM64_PN_CUT_THRU_RX_PRI		GENMASK(15, 8)
+
+/* Cut-Thru AM64_CPSW_PN_SPEED */
+#define  AM64_PN_SPEED_VAL			GENMASK(3, 0)
+#define  AM64_PN_SPEED_AUTO_EN			BIT(8)
+#define  AM64_PN_AUTO_SPEED			GENMASK(15, 12)
+
 /* AM65_CPSW_PN_REG_MAX_BLKS fields for IET and No IET cases */
 /* 7 blocks for pn_rx_max_blks, 13 for pn_tx_max_blks*/
 #define AM65_CPSW_PN_TX_RX_MAX_BLKS_IET		0xD07
@@ -83,6 +98,9 @@ enum timer_act {
 	TACT_NEED_STOP,		/* need stop first */
 	TACT_SKIP_PROG,		/* just buffer can be updated */
 };
+
+/* number of traffic classes (fifos) per port */
+#define AM65_CPSW_PN_TC_NUM			8
 
 /* Fetch command count it's number of bytes in Gigabit mode or nibbles in
  * 10/100Mb mode. So, having speed and time in ns, recalculate ns to number of
@@ -856,12 +874,16 @@ static void am65_cpsw_iet_link_up(struct net_device *ndev)
 	}
 }
 
-void am65_cpsw_qos_link_up(struct net_device *ndev, int link_speed)
+static void am65_cpsw_cut_thru_link_up(struct am65_cpsw_port *port);
+
+void am65_cpsw_qos_link_up(struct net_device *ndev, int link_speed, int duplex)
 {
 	struct am65_cpsw_port *port = am65_ndev_to_port(ndev);
 
 	port->qos.link_speed = link_speed;
+	port->qos.duplex = duplex;
 	am65_cpsw_iet_link_up(ndev);
+	am65_cpsw_cut_thru_link_up(port);
 
 	if (!IS_ENABLED(CONFIG_TI_AM65_CPSW_TAS))
 		return;
@@ -882,4 +904,154 @@ void am65_cpsw_qos_link_down(struct net_device *ndev)
 		port->qos.link_down_time = ktime_get();
 
 	port->qos.link_speed = SPEED_UNKNOWN;
+}
+
+static void am65_cpsw_cut_thru_dump(struct am65_cpsw_port *port)
+{
+	struct am65_cpsw_common *common = port->common;
+	u32 contro, cut_thru, speed;
+
+	contro = readl(common->cpsw_base + AM65_CPSW_REG_CTL);
+	cut_thru = readl(port->port_base + AM64_CPSW_PN_CUT_THRU);
+	speed = readl(port->port_base + AM64_CPSW_PN_SPEED);
+	dev_dbg(common->dev, "Port%u: cut_thru dump control:%08x cut_thru:%08x hwspeed:%08x\n",
+		port->port_id, contro, cut_thru, speed);
+}
+
+static void am65_cpsw_cut_thru_enable(struct am65_cpsw_common *common)
+{
+	u32 val;
+
+	if (common->cut_thru_enabled) {
+		common->cut_thru_enabled++;
+		return;
+	}
+
+	/* Populate CPSW VBUS freq for auto speed detection */
+	writel(common->bus_freq / 1000000,
+	       common->cpsw_base + AM65_CPSW_REG_FREQ);
+
+	val = readl(common->cpsw_base + AM65_CPSW_REG_CTL);
+	val |= AM64_CPSW_CTL_CUT_THRU_EN;
+	writel(val, common->cpsw_base + AM65_CPSW_REG_CTL);
+	common->cut_thru_enabled++;
+}
+
+void am65_cpsw_qos_cut_thru_init(struct am65_cpsw_port *port)
+{
+	struct am65_cpsw_cut_thru *cut_thru = &port->qos.cut_thru;
+	struct am65_cpsw_common *common = port->common;
+
+	/* Enable cut_thr only if user has enabled priv flag */
+	if (!cut_thru->enable)
+		return;
+
+	if (common->is_emac_mode) {
+		cut_thru->enable = false;
+		dev_info(common->dev, "Disable cut-thru, need Switch mode\n");
+		return;
+	}
+
+	/* TODO: Use 0 priority TC (fifo) as cut_thru  */
+	cut_thru->rx_pri_mask = BIT(0);
+	cut_thru->tx_pri_mask = BIT(0);
+
+	am65_cpsw_cut_thru_enable(common);
+
+	/* en auto speed */
+	writel(AM64_PN_SPEED_AUTO_EN, port->port_base + AM64_CPSW_PN_SPEED);
+	dev_info(common->dev, "Init cut_thru\n");
+	am65_cpsw_cut_thru_dump(port);
+}
+
+static void am65_cpsw_cut_thru_disable(struct am65_cpsw_common *common)
+{
+	u32 val;
+
+	if (--common->cut_thru_enabled)
+		return;
+
+	val = readl(common->cpsw_base + AM65_CPSW_REG_CTL);
+	val &= ~AM64_CPSW_CTL_CUT_THRU_EN;
+	writel(val, common->cpsw_base + AM65_CPSW_REG_CTL);
+}
+
+void am65_cpsw_qos_cut_thru_cleanup(struct am65_cpsw_port *port)
+{
+	struct am65_cpsw_cut_thru *cut_thru = &port->qos.cut_thru;
+	struct am65_cpsw_common *common = port->common;
+
+	if (!cut_thru->enable)
+		return;
+
+	writel(0, port->port_base + AM64_CPSW_PN_CUT_THRU);
+	writel(0, port->port_base + AM64_CPSW_PN_SPEED);
+
+	am65_cpsw_cut_thru_disable(common);
+	dev_info(common->dev, "Cleanup cut_thru\n");
+	am65_cpsw_cut_thru_dump(port);
+}
+
+static u32 am65_cpsw_cut_thru_speed2hw(int link_speed)
+{
+	switch (link_speed) {
+	case SPEED_10:
+		return 1;
+	case SPEED_100:
+		return 2;
+	case SPEED_1000:
+		return 3;
+	default:
+		return 0;
+	}
+}
+
+static void am65_cpsw_cut_thru_link_up(struct am65_cpsw_port *port)
+{
+	struct am65_cpsw_cut_thru *cut_thru = &port->qos.cut_thru;
+	struct am65_cpsw_common *common = port->common;
+	u32 val, speed;
+
+	if (!cut_thru->enable)
+		return;
+
+	writel(AM64_PN_SPEED_AUTO_EN, port->port_base + AM64_CPSW_PN_SPEED);
+	/* barrier */
+	readl(port->port_base + AM64_CPSW_PN_SPEED);
+	/* HW need 15us in 10/100 mode and 3us in 1G mode auto speed detection
+	 * add delay with some margin
+	 */
+	usleep_range(40, 50);
+	val = readl(port->port_base + AM64_CPSW_PN_SPEED);
+	speed = FIELD_GET(AM64_PN_AUTO_SPEED, val);
+	if (!speed) {
+		dev_warn(common->dev,
+			 "Port%u: cut_thru no speed auto detected switch to manual\n",
+			 port->port_id);
+		speed = am65_cpsw_cut_thru_speed2hw(port->qos.link_speed);
+		if (!speed) {
+			dev_err(common->dev,
+				"Port%u: cut_thru speed configuration failed\n",
+				port->port_id);
+			return;
+		}
+		val = FIELD_PREP(AM64_PN_SPEED_VAL, speed);
+		writel(val, port->port_base + AM64_CPSW_PN_SPEED);
+	}
+
+	val = FIELD_PREP(AM64_PN_CUT_THRU_TX_PRI, cut_thru->tx_pri_mask) |
+	      FIELD_PREP(AM64_PN_CUT_THRU_RX_PRI, cut_thru->rx_pri_mask);
+
+	if (port->qos.duplex) {
+		writel(val, port->port_base + AM64_CPSW_PN_CUT_THRU);
+		dev_info(common->dev, "Port%u: Enable cut_thru rx:%08x tx:%08x hwspeed:%u (%08x)\n",
+			 port->port_id,
+			 cut_thru->rx_pri_mask, cut_thru->tx_pri_mask,
+			 speed, val);
+	} else {
+		writel(0, port->port_base + AM64_CPSW_PN_CUT_THRU);
+		dev_info(common->dev, "Port%u: Disable cut_thru duplex=%d\n",
+			 port->port_id, port->qos.duplex);
+	}
+	am65_cpsw_cut_thru_dump(port);
 }
