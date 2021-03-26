@@ -491,6 +491,8 @@ static int am65_cpsw_nuss_common_open(struct am65_cpsw_common *common,
 	else
 		am65_cpsw_init_host_port_switch(common);
 
+	am65_cpsw_qos_tx_p0_rate_init(common);
+
 	for (i = 0; i < common->rx_chns.descs_num; i++) {
 		skb = __netdev_alloc_skb_ip_align(NULL,
 						  AM65_CPSW_MAX_PACKET_SIZE,
@@ -644,8 +646,12 @@ static int am65_cpsw_nuss_ndo_slave_open(struct net_device *ndev)
 		return ret;
 	}
 
-	for (i = 0; i < common->tx_ch_num; i++)
-		netdev_tx_reset_queue(netdev_get_tx_queue(ndev, i));
+	for (i = 0; i < common->tx_ch_num; i++) {
+		struct netdev_queue *txq = netdev_get_tx_queue(ndev, i);
+
+		netdev_tx_reset_queue(txq);
+		txq->tx_maxrate =  common->tx_chns[i].rate_mbps;
+	}
 
 	ret = am65_cpsw_nuss_common_open(common, ndev->features);
 	if (ret)
@@ -1491,6 +1497,7 @@ static const struct net_device_ops am65_cpsw_nuss_netdev_ops = {
 	.ndo_vlan_rx_kill_vid	= am65_cpsw_nuss_ndo_slave_kill_vid,
 	.ndo_do_ioctl		= am65_cpsw_nuss_ndo_slave_ioctl,
 	.ndo_setup_tc           = am65_cpsw_qos_ndo_setup_tc,
+	.ndo_set_tx_maxrate	= am65_cpsw_qos_ndo_tx_p0_set_maxrate,
 	.ndo_get_devlink_port   = am65_cpsw_ndo_get_devlink_port,
 };
 
@@ -1533,6 +1540,7 @@ void am65_cpsw_nuss_remove_tx_chns(struct am65_cpsw_common *common)
 
 	devm_remove_action(dev, am65_cpsw_nuss_free_tx_chns, common);
 
+	common->tx_ch_rate_msk = 0;
 	for (i = 0; i < common->tx_ch_num; i++) {
 		struct am65_cpsw_tx_chn *tx_chn = &common->tx_chns[i];
 

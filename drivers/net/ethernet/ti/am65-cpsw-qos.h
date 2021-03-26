@@ -9,6 +9,7 @@
 #include <net/pkt_sched.h>
 
 struct am65_cpsw_port;
+struct am65_cpsw_common;
 
 struct am65_cpsw_est {
 	int buf;
@@ -53,5 +54,8 @@ void am65_cpsw_qos_iet_init(struct net_device *ndev);
 void am65_cpsw_qos_iet_cleanup(struct net_device *ndev);
 void am65_cpsw_qos_cut_thru_init(struct am65_cpsw_port *port);
 void am65_cpsw_qos_cut_thru_cleanup(struct am65_cpsw_port *port);
+int am65_cpsw_qos_ndo_tx_p0_set_maxrate(struct net_device *ndev,
+					int queue, u32 rate_mbps);
+void am65_cpsw_qos_tx_p0_rate_init(struct am65_cpsw_common *common);
 
 #endif /* AM65_CPSW_QOS_H_ */
