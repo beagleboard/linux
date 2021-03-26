@@ -952,10 +952,6 @@ void am65_cpsw_qos_cut_thru_init(struct am65_cpsw_port *port)
 		return;
 	}
 
-	/* TODO: Use 0 priority TC (fifo) as cut_thru  */
-	cut_thru->rx_pri_mask = BIT(0);
-	cut_thru->tx_pri_mask = BIT(0);
-
 	am65_cpsw_cut_thru_enable(common);
 
 	/* en auto speed */

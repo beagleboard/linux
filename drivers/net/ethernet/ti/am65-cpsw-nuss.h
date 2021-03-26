@@ -6,6 +6,7 @@
 #ifndef AM65_CPSW_NUSS_H_
 #define AM65_CPSW_NUSS_H_
 
+#include <linux/debugfs.h>
 #include <linux/if_ether.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -53,6 +54,7 @@ struct am65_cpsw_port {
 	bool				rx_ts_enabled;
 	struct am65_cpsw_qos		qos;
 	struct devlink_port		devlink_port;
+	struct dentry			*debugfs_port;
 };
 
 struct am65_cpsw_host {
@@ -143,6 +145,8 @@ struct am65_cpsw_common {
 	struct net_device *hw_bridge_dev;
 	struct notifier_block am65_cpsw_netdevice_nb;
 	unsigned char switch_id[MAX_PHYS_ITEM_ID_LEN];
+
+	struct dentry		*debugfs_root;
 };
 
 struct am65_cpsw_ndev_stats {
@@ -186,5 +190,9 @@ void am65_cpsw_nuss_remove_tx_chns(struct am65_cpsw_common *common);
 int am65_cpsw_nuss_update_tx_chns(struct am65_cpsw_common *common, int num_tx);
 
 bool am65_cpsw_port_dev_check(const struct net_device *dev);
+
+int am65_cpsw_nuss_register_port_debugfs(struct am65_cpsw_port *port);
+int am65_cpsw_nuss_register_debugfs(struct am65_cpsw_common *common);
+void am65_cpsw_nuss_unregister_debugfs(struct am65_cpsw_common *common);
 
 #endif /* AM65_CPSW_NUSS_H_ */
