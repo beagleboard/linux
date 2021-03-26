@@ -1050,6 +1050,20 @@ void am65_cpsw_qos_cut_thru_cleanup(struct am65_cpsw_port *port)
 	am65_cpsw_cut_thru_dump(port);
 }
 
+static u32 am65_cpsw_cut_thru_speed2hw(int link_speed)
+{
+	switch (link_speed) {
+	case SPEED_10:
+		return 1;
+	case SPEED_100:
+		return 2;
+	case SPEED_1000:
+		return 3;
+	default:
+		return 0;
+	}
+}
+
 static void am65_cpsw_cut_thru_link_up(struct am65_cpsw_port *port)
 {
 	struct am65_cpsw_cut_thru *cut_thru = &port->qos.cut_thru;
@@ -1059,12 +1073,28 @@ static void am65_cpsw_cut_thru_link_up(struct am65_cpsw_port *port)
 	if (!cut_thru->enable)
 		return;
 
+	writel(AM64_PN_SPEED_AUTO_EN, port->port_base + AM64_CPSW_PN_SPEED);
+	/* barrier */
+	readl(port->port_base + AM64_CPSW_PN_SPEED);
+	/* HW need 15us in 10/100 mode and 3us in 1G mode auto speed detection
+	 * add delay with some margin
+	 */
+	usleep_range(40, 50);
 	val = readl(port->port_base + AM64_CPSW_PN_SPEED);
 	speed = FIELD_GET(AM64_PN_AUTO_SPEED, val);
 	if (!speed) {
-		dev_err(common->dev,
-			"Port%u: cut_thru no speed detected\n", port->port_id);
-		return;
+		dev_warn(common->dev,
+			 "Port%u: cut_thru no speed auto detected switch to manual\n",
+			 port->port_id);
+		speed = am65_cpsw_cut_thru_speed2hw(port->qos.link_speed);
+		if (!speed) {
+			dev_err(common->dev,
+				"Port%u: cut_thru speed configuration failed\n",
+				port->port_id);
+			return;
+		}
+		val = FIELD_PREP(AM64_PN_SPEED_VAL, speed);
+		writel(val, port->port_base + AM64_CPSW_PN_SPEED);
 	}
 
 	val = FIELD_PREP(AM64_PN_CUT_THRU_TX_PRI, cut_thru->tx_pri_mask) |
