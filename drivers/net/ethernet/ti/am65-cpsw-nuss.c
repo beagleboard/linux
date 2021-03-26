@@ -694,6 +694,7 @@ static int am65_cpsw_nuss_ndo_slave_open(struct net_device *ndev)
 	/* Initialize IET */
 	am65_cpsw_qos_iet_init(ndev);
 	am65_cpsw_qos_cut_thru_init(port);
+	am65_cpsw_qos_mqprio_init(port);
 
 	phy_attached_info(port->slave.phy);
 	phy_start(port->slave.phy);

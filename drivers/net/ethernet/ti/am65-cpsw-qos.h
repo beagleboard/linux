@@ -7,6 +7,7 @@
 
 #include <linux/netdevice.h>
 #include <net/pkt_sched.h>
+#include <net/pkt_cls.h>
 
 struct am65_cpsw_port;
 struct am65_cpsw_common;
@@ -30,6 +31,17 @@ struct am65_cpsw_iet {
 	u32 mask;
 };
 
+struct am65_cpsw_mqprio {
+	struct tc_mqprio_qopt_offload mqprio_hw;
+	u64 max_rate_total;
+	u32 tx_prio_map;
+
+	unsigned enable:1;
+	unsigned shaper_en:1;
+	unsigned shaper_susp:1;
+	unsigned tc0_q:3;
+};
+
 struct am65_cpsw_cut_thru {
 	unsigned int rx_pri_mask;
 	unsigned int tx_pri_mask;
@@ -43,6 +55,7 @@ struct am65_cpsw_qos {
 	int link_speed;
 	int duplex;
 	struct am65_cpsw_iet iet;
+	struct am65_cpsw_mqprio mqprio;
 	struct am65_cpsw_cut_thru cut_thru;
 };
 
@@ -57,5 +70,6 @@ void am65_cpsw_qos_cut_thru_cleanup(struct am65_cpsw_port *port);
 int am65_cpsw_qos_ndo_tx_p0_set_maxrate(struct net_device *ndev,
 					int queue, u32 rate_mbps);
 void am65_cpsw_qos_tx_p0_rate_init(struct am65_cpsw_common *common);
+void am65_cpsw_qos_mqprio_init(struct am65_cpsw_port *port);
 
 #endif /* AM65_CPSW_QOS_H_ */
