@@ -3,6 +3,7 @@
  * Remote Processor Framework
  */
 
+#include <linux/module.h>
 #include <linux/remoteproc.h>
 #include <linux/slab.h>
 
@@ -47,6 +48,10 @@ static ssize_t recovery_store(struct device *dev,
 			      const char *buf, size_t count)
 {
 	struct rproc *rproc = to_rproc(dev);
+
+	/* restrict sysfs operations if not allowed by remoteproc drivers */
+	if (rproc->deny_sysfs_ops)
+		return -EPERM;
 
 	if (sysfs_streq(buf, "enabled")) {
 		/* change the flag and begin the recovery process if needed */
@@ -107,6 +112,10 @@ static ssize_t coredump_store(struct device *dev,
 {
 	struct rproc *rproc = to_rproc(dev);
 
+	/* restrict sysfs operations if not allowed by remoteproc drivers */
+	if (rproc->deny_sysfs_ops)
+		return -EPERM;
+
 	if (rproc->state == RPROC_CRASHED) {
 		dev_err(&rproc->dev, "can't change coredump configuration\n");
 		return -EBUSY;
@@ -156,6 +165,10 @@ static ssize_t firmware_store(struct device *dev,
 	struct rproc *rproc = to_rproc(dev);
 	int err;
 
+	/* restrict sysfs operations if not allowed by remoteproc drivers */
+	if (rproc->deny_sysfs_ops)
+		return -EPERM;
+
 	err = rproc_set_firmware(rproc, buf);
 
 	return err ? err : count;
@@ -195,18 +208,35 @@ static ssize_t state_store(struct device *dev,
 	struct rproc *rproc = to_rproc(dev);
 	int ret = 0;
 
+	/* restrict sysfs operations if not allowed by remoteproc drivers */
+	if (rproc->deny_sysfs_ops)
+		return -EPERM;
+
 	if (sysfs_streq(buf, "start")) {
 		if (rproc->state == RPROC_RUNNING)
 			return -EBUSY;
 
+		/*
+		 * prevent underlying implementation from being removed
+		 * when remoteproc does not support auto-boot
+		 */
+		if (!rproc->auto_boot &&
+		    !try_module_get(dev->parent->driver->owner))
+			return -EINVAL;
+
 		ret = rproc_boot(rproc);
-		if (ret)
+		if (ret) {
 			dev_err(&rproc->dev, "Boot failed: %d\n", ret);
+			if (!rproc->auto_boot)
+				module_put(dev->parent->driver->owner);
+		}
 	} else if (sysfs_streq(buf, "stop")) {
 		if (rproc->state != RPROC_RUNNING)
 			return -EINVAL;
 
 		rproc_shutdown(rproc);
+		if (!rproc->auto_boot)
+			module_put(dev->parent->driver->owner);
 	} else {
 		dev_err(&rproc->dev, "Unrecognised option: %s\n", buf);
 		ret = -EINVAL;
