@@ -1151,7 +1151,8 @@ int am65_cpsw_qos_ndo_tx_p0_set_maxrate(struct net_device *ndev,
 	struct am65_cpsw_port *port = am65_ndev_to_port(ndev);
 	struct am65_cpsw_common *common = port->common;
 	struct am65_cpsw_tx_chn *tx_chn;
-	u32 ch_rate, ch_msk, tx_ch_rate_msk_new;
+	u32 ch_rate, tx_ch_rate_msk_new;
+	u32 ch_msk = 0;
 	int ret;
 
 	dev_dbg(common->dev, "apply TX%d rate limiting %uMbps tx_rate_msk%x\n",
@@ -1174,25 +1175,26 @@ int am65_cpsw_qos_ndo_tx_p0_set_maxrate(struct net_device *ndev,
 	ret = 0;
 
 	tx_ch_rate_msk_new = common->tx_ch_rate_msk;
-	if (rate_mbps)
+	if (rate_mbps && !(tx_ch_rate_msk_new & BIT(queue))) {
 		tx_ch_rate_msk_new |= BIT(queue);
-	else
+		ch_msk = GENMASK(common->tx_ch_num - 1, queue);
+		ch_msk = tx_ch_rate_msk_new ^ ch_msk;
+	} else if (!rate_mbps) {
 		tx_ch_rate_msk_new &= ~BIT(queue);
+		ch_msk = queue ? GENMASK(queue - 1, 0) : 0;
+		ch_msk = tx_ch_rate_msk_new & ch_msk;
+	}
 
-	ch_msk = GENMASK(common->tx_ch_num - 1, queue);
-	if (tx_ch_rate_msk_new ^ ch_msk) {
-		dev_err(common->dev, "TX rate limiting has to be enabled sequentially hi->lo tx_rate_msk%x\n",
-			common->tx_ch_rate_msk);
+	if (ch_msk) {
+		dev_err(common->dev, "TX rate limiting has to be enabled sequentially hi->lo tx_rate_msk:%x tx_rate_msk_new:%x\n",
+			common->tx_ch_rate_msk, tx_ch_rate_msk_new);
 		ret = -EINVAL;
 		goto exit_put;
 	}
 
 	tx_chn = &common->tx_chns[queue];
 	tx_chn->rate_mbps = rate_mbps;
-	if (rate_mbps)
-		common->tx_ch_rate_msk |= BIT(queue);
-	else
-		common->tx_ch_rate_msk &= ~BIT(queue);
+	common->tx_ch_rate_msk = tx_ch_rate_msk_new;
 
 	if (!common->usage_count)
 		/* will be applied on next netif up */
