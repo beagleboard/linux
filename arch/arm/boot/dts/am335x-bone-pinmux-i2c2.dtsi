@@ -1,0 +1,42 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright (C) 2012 Texas Instruments Incorporated - https://www.ti.com/
+ */
+
+#include <dt-bindings/board/am335x-bbw-bbb-base.h>
+#include "am335x-peripheral-i2c2.dtsi"
+
+/* cape universal */
+
+/*
+ *&ocp {
+ *	P9_19_pinmux {
+ *		mode = "i2c";
+ *	};
+ *	P9_20_pinmux {
+ *		mode = "i2c";
+ *	};
+ *};
+ *
+ *&dcan0 {
+ *	pinctrl-0 = <>;
+ *};
+ *
+ */
+
+/* standard */
+
+&am33xx_pinmux {
+	i2c2_pins: pinmux_i2c2_pins {
+		pinctrl-single,pins = <
+			/* P9_20: uart1_ctsn.i2c2_sda */
+			BONE_P9_20 (SLEWCTRL_SLOW | PIN_INPUT_PULLUP | MUX_MODE3)
+			/* P9_19: uart1_rtsn.i2c2_scl */
+			BONE_P9_19 (SLEWCTRL_SLOW | PIN_INPUT_PULLUP | MUX_MODE3)
+		>;
+	};
+};
+
+&i2c2 {
+	pinctrl-0 = <&i2c2_pins>;
+};
