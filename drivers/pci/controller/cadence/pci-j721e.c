@@ -461,6 +461,10 @@ static const struct of_device_id of_j721e_pcie_match[] = {
 		.compatible = "ti,j7200-pcie-host",
 		.data = &j7200_pcie_rc_data,
 	},
+	{
+		.compatible = "ti,am64-pcie-host",
+		.data = &j7200_pcie_rc_data,
+	},
 	{},
 };
 
