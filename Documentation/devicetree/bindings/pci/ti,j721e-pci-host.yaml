@@ -73,6 +73,11 @@ properties:
 
   msi-map: true
 
+patternProperties:
+  "interrupt-controller":
+    type: object
+    description: interrupt controller to handle legacy interrupts.
+
 required:
   - compatible
   - reg
@@ -96,6 +101,8 @@ unevaluatedProperties: false
 
 examples:
   - |
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+    #include <dt-bindings/interrupt-controller/irq.h>
     #include <dt-bindings/soc/ti,sci_pm_domain.h>
     #include <dt-bindings/gpio/gpio.h>
 
@@ -130,5 +137,13 @@ examples:
             ranges = <0x01000000 0x0 0x10001000  0x00 0x10001000  0x0 0x0010000>,
                      <0x02000000 0x0 0x10011000  0x00 0x10011000  0x0 0x7fef000>;
             dma-ranges = <0x02000000 0x0 0x0 0x0 0x0 0x10000 0x0>;
+
+
+            pcie0_intc: interrupt-controller {
+                    interrupt-controller;
+                    #interrupt-cells = <1>;
+                    interrupt-parent = <&gic500>;
+                    interrupts = <GIC_SPI 312 IRQ_TYPE_EDGE_RISING>;
+            };
         };
     };
