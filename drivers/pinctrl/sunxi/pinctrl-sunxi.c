@@ -15,6 +15,7 @@
 #include <linux/gpio/driver.h>
 #include <linux/irqdomain.h>
 #include <linux/irqchip/chained_irq.h>
+#include <linux/ipipe.h>
 #include <linux/export.h>
 #include <linux/of.h>
 #include <linux/of_clk.h>
@@ -937,14 +938,33 @@ static struct irq_chip sunxi_pinctrl_edge_irq_chip = {
 	.irq_request_resources = sunxi_pinctrl_irq_request_resources,
 	.irq_release_resources = sunxi_pinctrl_irq_release_resources,
 	.irq_set_type	= sunxi_pinctrl_irq_set_type,
-	.flags		= IRQCHIP_SKIP_SET_WAKE,
+	.flags		= IRQCHIP_SKIP_SET_WAKE | IRQCHIP_PIPELINE_SAFE,
 };
+
+#ifdef CONFIG_IPIPE
+
+static void sunxi_pinctrl_irq_hold(struct irq_data *d)
+{
+	sunxi_pinctrl_irq_mask(d);
+	sunxi_pinctrl_irq_ack(d);
+}
+
+static void sunxi_pinctrl_irq_release(struct irq_data *d)
+{
+	sunxi_pinctrl_irq_unmask(d);
+}
+
+#endif
 
 static struct irq_chip sunxi_pinctrl_level_irq_chip = {
 	.name		= "sunxi_pio_level",
 	.irq_eoi	= sunxi_pinctrl_irq_ack,
 	.irq_mask	= sunxi_pinctrl_irq_mask,
 	.irq_unmask	= sunxi_pinctrl_irq_unmask,
+#ifdef CONFIG_IPIPE
+	.irq_hold	= sunxi_pinctrl_irq_hold,
+	.irq_release	= sunxi_pinctrl_irq_release,
+#endif
 	/* Define irq_enable / disable to avoid spurious irqs for drivers
 	 * using these to suppress irqs while they clear the irq source */
 	.irq_enable	= sunxi_pinctrl_irq_ack_unmask,
@@ -953,7 +973,7 @@ static struct irq_chip sunxi_pinctrl_level_irq_chip = {
 	.irq_release_resources = sunxi_pinctrl_irq_release_resources,
 	.irq_set_type	= sunxi_pinctrl_irq_set_type,
 	.flags		= IRQCHIP_SKIP_SET_WAKE | IRQCHIP_EOI_THREADED |
-			  IRQCHIP_EOI_IF_HANDLED,
+			  IRQCHIP_EOI_IF_HANDLED | IRQCHIP_PIPELINE_SAFE,
 };
 
 static int sunxi_pinctrl_irq_of_xlate(struct irq_domain *d,
@@ -1011,7 +1031,7 @@ static void sunxi_pinctrl_irq_handler(struct irq_desc *desc)
 		for_each_set_bit(irqoffset, &val, IRQ_PER_BANK) {
 			int pin_irq = irq_find_mapping(pctl->domain,
 						       bank * IRQ_PER_BANK + irqoffset);
-			generic_handle_irq(pin_irq);
+			ipipe_handle_demuxed_irq(pin_irq);
 		}
 		chained_irq_exit(chip, desc);
 	}

@@ -274,24 +274,25 @@ static int stm32_irq_set_type(struct irq_data *d, unsigned int type)
 	struct irq_chip_generic *gc = irq_data_get_irq_chip_data(d);
 	struct stm32_exti_chip_data *chip_data = gc->private;
 	const struct stm32_exti_bank *stm32_bank = chip_data->reg_bank;
+	unsigned long flags;
 	u32 rtsr, ftsr;
 	int err;
 
-	irq_gc_lock(gc);
+	flags = irq_gc_lock(gc);
 
 	rtsr = irq_reg_readl(gc, stm32_bank->rtsr_ofst);
 	ftsr = irq_reg_readl(gc, stm32_bank->ftsr_ofst);
 
 	err = stm32_exti_set_type(d, type, &rtsr, &ftsr);
 	if (err) {
-		irq_gc_unlock(gc);
+		irq_gc_unlock(gc, flags);
 		return err;
 	}
 
 	irq_reg_writel(gc, rtsr, stm32_bank->rtsr_ofst);
 	irq_reg_writel(gc, ftsr, stm32_bank->ftsr_ofst);
 
-	irq_gc_unlock(gc);
+	irq_gc_unlock(gc, flags);
 
 	return 0;
 }
@@ -325,19 +326,21 @@ static void stm32_chip_resume(struct stm32_exti_chip_data *chip_data,
 static void stm32_irq_suspend(struct irq_chip_generic *gc)
 {
 	struct stm32_exti_chip_data *chip_data = gc->private;
+	unsigned long flags;
 
-	irq_gc_lock(gc);
+	flags = irq_gc_lock(gc);
 	stm32_chip_suspend(chip_data, gc->wake_active);
-	irq_gc_unlock(gc);
+	irq_gc_unlock(gc, flags);
 }
 
 static void stm32_irq_resume(struct irq_chip_generic *gc)
 {
 	struct stm32_exti_chip_data *chip_data = gc->private;
+	unsigned long flags;
 
-	irq_gc_lock(gc);
+	flags = irq_gc_lock(gc);
 	stm32_chip_resume(chip_data, gc->mask_cache);
-	irq_gc_unlock(gc);
+	irq_gc_unlock(gc, flags);
 }
 
 static int stm32_exti_alloc(struct irq_domain *d, unsigned int virq,
@@ -372,14 +375,15 @@ static void stm32_irq_ack(struct irq_data *d)
 	struct irq_chip_generic *gc = irq_data_get_irq_chip_data(d);
 	struct stm32_exti_chip_data *chip_data = gc->private;
 	const struct stm32_exti_bank *stm32_bank = chip_data->reg_bank;
+	unsigned long flags;
 
-	irq_gc_lock(gc);
+	flags = irq_gc_lock(gc);
 
 	irq_reg_writel(gc, d->mask, stm32_bank->rpr_ofst);
 	if (stm32_bank->fpr_ofst != UNDEF_REG)
 		irq_reg_writel(gc, d->mask, stm32_bank->fpr_ofst);
 
-	irq_gc_unlock(gc);
+	irq_gc_unlock(gc, flags);
 }
 
 static inline u32 stm32_exti_set_bit(struct irq_data *d, u32 reg)

@@ -22,6 +22,7 @@
 #include <linux/kernel_stat.h>
 #include <linux/export.h>
 #include <linux/interrupt.h>
+#include <linux/ipipe.h>
 #include <linux/percpu.h>
 #include <linux/init.h>
 #include <linux/mm.h>
@@ -1624,6 +1625,15 @@ static inline int collect_expired_timers(struct timer_base *base,
 }
 #endif
 
+static inline void do_account_tick(struct task_struct *p, int user_tick)
+{
+#ifdef CONFIG_IPIPE
+	if (!__ipipe_root_tick_p(raw_cpu_ptr(&ipipe_percpu.tick_regs)))
+		return;
+#endif
+	account_process_tick(p, user_tick);
+}
+
 /*
  * Called from the timer interrupt handler to charge one tick to the current
  * process.  user_tick is 1 if the tick is user time, 0 for system.
@@ -1633,7 +1643,7 @@ void update_process_times(int user_tick)
 	struct task_struct *p = current;
 
 	/* Note: this timer irq context must be accounted for as well. */
-	account_process_tick(p, user_tick);
+	do_account_tick(p, user_tick);
 	run_local_timers();
 	rcu_check_callbacks(user_tick);
 #ifdef CONFIG_IRQ_WORK
