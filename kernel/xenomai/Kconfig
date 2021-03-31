@@ -1,0 +1,491 @@
+menu "Core features"
+
+config XENO_OPT_SCHED_CLASSES
+	bool "Extra scheduling classes"
+	default n
+	help
+	The Cobalt kernel implements a set of scheduling classes.
+	Each scheduling class defines its own set of rules for
+	determining when and how to select a new thread to run.
+
+	Cobalt has a built-in real-time class, which supports both
+	preemptive fixed-priority FIFO, and round-robin scheduling.
+
+	Enabling CONFIG_XENO_OPT_SCHED_CLASSES allows you to select
+	additional scheduling classes to enable in the Cobalt kernel.
+
+	If in doubt, say N.
+
+config XENO_OPT_SCHED_WEAK
+	bool "Weak scheduling class"
+	default n
+	depends on XENO_OPT_SCHED_CLASSES
+	help
+	This option creates a Cobalt scheduling class for mapping
+	members of the regular POSIX SCHED_FIFO/RR policies to a low
+	priority class of the Cobalt kernel, providing no real-time
+	guarantee. Therefore, up to a hundred non real-time priority
+	levels are available from the SCHED_WEAK policy.
+
+	When CONFIG_XENO_OPT_SCHED_WEAK is disabled, Cobalt still
+	supports a single non real-time priority level (i.e. zero
+	priority), assigned to members of the SCHED_OTHER class.
+
+	SCHED_WEAK/SCHED_OTHER threads can access Cobalt resources,
+	wait on Cobalt synchronization objects, but cannot compete for
+	the CPU with members of the real-time Cobalt classes.
+
+	Since Cobalt assumes no real-time requirement for
+	SCHED_WEAK/SCHED_OTHER threads, they are automatically moved
+	back to secondary mode upon return from any Cobalt syscall if
+	necessary, unless they hold a Cobalt mutex, which would defer
+	the transition until such mutex is released.
+
+	If in doubt, say N.
+
+config XENO_OPT_SCHED_TP
+	bool "Temporal partitioning"
+	default n
+	depends on XENO_OPT_SCHED_CLASSES
+	help
+	This option enables support for temporal partitioning.
+
+	If in doubt, say N.
+
+config XENO_OPT_SCHED_TP_NRPART
+	int "Number of partitions"
+	default 4
+	range 1 1024
+	depends on XENO_OPT_SCHED_TP
+	help
+	Define here the maximum number of temporal partitions the TP
+	scheduler may have to handle.
+
+config XENO_OPT_SCHED_SPORADIC
+	bool "Sporadic scheduling"
+	default n
+	depends on XENO_OPT_SCHED_CLASSES
+	help
+	This option enables support for the sporadic scheduling policy
+	in the Cobalt kernel (SCHED_SPORADIC), also known as POSIX
+	sporadic server.
+
+	It can be used to enforce a capped limit on the execution time
+	of a thread within a given period of time.
+
+	If in doubt, say N.
+
+config XENO_OPT_SCHED_SPORADIC_MAXREPL
+	int "Maximum number of pending replenishments"
+	default 8
+	range 4 16
+	depends on XENO_OPT_SCHED_SPORADIC
+	help
+	For performance reason, the budget replenishment information
+	is statically stored on a per-thread basis. This parameter
+	defines the maximum number of replenishment requests that can
+	be pending concurrently for any given thread that undergoes
+	sporadic scheduling (system minimum is 4).
+
+config XENO_OPT_SCHED_QUOTA
+	bool "Thread groups with runtime quota"
+	default n
+	depends on XENO_OPT_SCHED_CLASSES
+	help
+	This option enables the SCHED_QUOTA scheduling policy in the
+	Cobalt kernel.
+
+	This policy enforces a limitation on the CPU consumption of
+	threads over a globally defined period, known as the quota
+	interval. This is done by pooling threads with common
+	requirements in groups, and giving each group a share of the
+	global period (see CONFIG_XENO_OPT_SCHED_QUOTA_PERIOD).
+
+	When threads have entirely consumed the quota allotted to the
+	group they belong to, the latter is suspended as a whole,
+	until the next quota interval starts. At this point, a new
+	runtime budget is given to each group, in accordance with its
+	share.
+
+	If in doubt, say N.
+
+config XENO_OPT_SCHED_QUOTA_PERIOD
+	int "Quota interval (us)"
+	default 10000
+	range 100 1000000000
+	depends on XENO_OPT_SCHED_QUOTA
+	help
+	The global period thread groups can get a share of.
+
+config XENO_OPT_SCHED_QUOTA_NR_GROUPS
+	int "Number of thread groups"
+	default 32
+	range 1 1024
+	depends on XENO_OPT_SCHED_QUOTA
+	help
+	The overall number of thread groups which may be defined
+	across all CPUs.
+
+config XENO_OPT_STATS
+	bool "Runtime statistics"
+	depends on XENO_OPT_VFILE
+	default y
+	help
+	This option causes the Cobalt kernel to collect various
+	per-thread runtime statistics, which are accessible through
+	the /proc/xenomai/sched/stat interface.
+
+config XENO_OPT_STATS_IRQS
+	bool "Account IRQ handlers separatly"
+	depends on XENO_OPT_STATS
+	default y
+	help
+	When enabled, the runtime of interrupt handlers is accounted
+	separately from the threads they interrupt. Also, the
+	occurrence of shared interrupts is accounted on a per-handler
+	basis.
+
+config XENO_OPT_SHIRQ
+	bool "Shared interrupts"
+	help
+	Enables support for both level- and edge-triggered shared
+	interrupts, so that multiple real-time interrupt handlers
+	are allowed to control dedicated hardware devices which are
+	configured to share the same interrupt line.
+
+config XENO_OPT_RR_QUANTUM
+	int "Round-robin quantum (us)"
+	default 1000
+	help
+	This parameter defines the duration of the default round-robin
+	time quantum expressed as a count of micro-seconds. This value
+	may be overriden internally by Cobalt services which do
+	provide a round-robin interval.
+
+config XENO_OPT_AUTOTUNE
+        tristate "Auto-tuning"
+        default y
+	select XENO_DRIVERS_AUTOTUNE
+        help
+	Enable auto-tuning capabilities. Auto-tuning is used for
+	adjusting the core timing services to the intrinsic latency of
+	the platform.
+
+config XENO_OPT_SCALABLE_SCHED
+	bool "O(1) scheduler"
+	help
+	This option causes a multi-level priority queue to be used in
+	the real-time scheduler, so that it operates in constant-time
+	regardless of the number of _concurrently runnable_ threads
+	(which might be much lower than the total number of active
+	threads).
+
+	Its use is recommended for large multi-threaded systems
+	involving more than 10 of such threads; otherwise, the default
+	linear method usually performs better with lower memory
+	footprints.
+
+choice
+	prompt "Timer indexing method"
+	default XENO_OPT_TIMER_LIST if !X86_64
+	default XENO_OPT_TIMER_RBTREE if X86_64
+	help
+	This option allows to select the underlying data structure
+	which is going to be used for ordering the outstanding
+	software timers managed by the Cobalt kernel.
+
+config XENO_OPT_TIMER_LIST
+	bool "Linear"
+	help
+	Use a linked list. Albeit O(N), this simple data structure is
+	particularly efficient when only a few timers (< 10) may be
+	concurrently outstanding at any point in time.
+
+config XENO_OPT_TIMER_RBTREE
+	bool "Tree"
+	help
+	Use a red-black tree. This data structure is efficient when a
+	high number of software timers may be concurrently
+	outstanding at any point in time.
+
+endchoice
+
+config XENO_OPT_HOSTRT
+       depends on IPIPE_HAVE_HOSTRT
+       def_bool y
+
+config XENO_OPT_PIPE
+	bool
+
+config XENO_OPT_MAP
+	bool
+
+config XENO_OPT_EXTCLOCK
+       bool
+
+config XENO_OPT_COBALT_EXTENSION
+       bool
+
+config XENO_OPT_VFILE
+       bool
+       depends on PROC_FS
+       default y
+
+endmenu
+
+menu "Sizes and static limits"
+
+config XENO_OPT_PIPE_NRDEV
+	int "Number of pipe devices"
+	depends on XENO_OPT_PIPE
+	default 32
+	help
+	Message pipes are bi-directional FIFO communication channels
+	allowing data exchange between Cobalt threads and regular
+	POSIX threads. Pipes natively preserve message boundaries, but
+	can also be used in byte streaming mode from kernel to
+	user-space.
+
+	This option sets the maximum number of pipe devices supported
+	in the system. Pipe devices are named /dev/rtpN where N is a
+	device minor number ranging from 0 to XENO_OPT_PIPE_NRDEV - 1.
+
+config XENO_OPT_REGISTRY_NRSLOTS
+	int "Number of registry slots"
+	default 512
+	help
+	The registry is used by the Cobalt kernel to export named
+	resources to user-space programs via the /proc interface.
+	Each named resource occupies a registry slot. This option sets
+	the maximum number of resources the registry can handle.
+
+config XENO_OPT_SYS_HEAPSZ
+	int "Size of system heap (Kb)"
+	default 4096
+	help
+	The system heap is used for various internal allocations by
+	the Cobalt kernel. The size is expressed in Kilobytes.
+
+config XENO_OPT_PRIVATE_HEAPSZ
+	int "Size of private heap (Kb)"
+	default 256
+	help
+	The Cobalt kernel implements fast IPC mechanisms within the
+	scope of a process which require a private kernel memory heap
+	to be mapped in the address space of each Xenomai application
+	process. This option can be used to set the size of this
+	per-process heap.
+
+	64k is considered a large enough size for common use cases.
+
+config XENO_OPT_SHARED_HEAPSZ
+	int "Size of shared heap (Kb)"
+	default 256
+	help
+	The Cobalt kernel implements fast IPC mechanisms between
+	processes which require a shared kernel memory heap to be
+	mapped in the address space of all Xenomai application
+	processes. This option can be used to set the size of this
+	system-wide heap.
+
+	64k is considered a large enough size for common use cases.
+
+config XENO_OPT_NRTIMERS
+       int "Maximum number of POSIX timers per process"
+       default 256
+       help
+       This tunable controls how many POSIX timers can exist at any
+       given time for each Cobalt process (a timer is created by a
+       call to the timer_create() service of the Cobalt/POSIX API).
+
+config XENO_OPT_DEBUG_TRACE_LOGSZ
+       int "Trace log size"
+       depends on XENO_OPT_DEBUG_TRACE_RELAX
+       default 16
+       help
+       The size (kilobytes) of the trace log of relax requests. Once
+       this limit is reached, subsequent traces will be silently
+       discarded.
+
+       Writing to /proc/xenomai/debug/relax empties the trace log.
+
+endmenu
+
+menu "Latency settings"
+
+config XENO_OPT_TIMING_SCHEDLAT
+	int "User scheduling latency (ns)"
+	default 0
+	help
+	The user scheduling latency is the time between the
+	termination of an interrupt handler and the execution of the
+	first instruction of the real-time application thread this
+	handler resumes. A default value of 0 (recommended) will cause
+	a pre-calibrated value to be used.
+
+	If the auto-tuner is enabled, this value will be used as the
+	factory default when running "autotune --reset".
+
+config XENO_OPT_TIMING_KSCHEDLAT
+	int "Intra-kernel scheduling latency (ns)"
+	default 0
+	help
+	The intra-kernel scheduling latency is the time between the
+	termination of an interrupt handler and the execution of the
+	first instruction of the RTDM kernel thread this handler
+	resumes. A default value of 0 (recommended) will cause a
+	pre-calibrated value to be used.
+
+	Intra-kernel latency is usually significantly lower than user
+	scheduling latency on MMU-enabled platforms, due to CPU cache
+	latency.
+
+	If the auto-tuner is enabled, this value will be used as the
+	factory default when running "autotune --reset".
+
+config XENO_OPT_TIMING_IRQLAT
+	int "Interrupt latency (ns)"
+	default 0
+	help
+	The interrupt latency is the time between the occurrence of an
+	IRQ and the first instruction of the interrupt handler which
+	will service it. A default value of 0 (recommended) will cause
+	a pre-calibrated value to be used.
+
+	If the auto-tuner is enabled, this value will be used as the
+	factory default when running "autotune --reset".
+
+endmenu
+
+menuconfig XENO_OPT_DEBUG
+	depends on XENO_OPT_VFILE
+	bool "Debug support"
+	help
+	  When enabled, various debugging features can be switched
+	  on. They can help to find problems in applications, drivers,
+	  and the Cobalt kernel. XENO_OPT_DEBUG by itself does not have
+	  any impact on the generated code.
+
+if XENO_OPT_DEBUG
+
+config XENO_OPT_DEBUG_COBALT
+	bool "Cobalt runtime assertions"
+	help
+	  This option activates various assertions inside the Cobalt
+	  kernel. This option has limited overhead.
+
+config XENO_OPT_DEBUG_MEMORY
+	bool "Cobalt memory checks"
+	help
+	  This option enables memory debug checks inside the Cobalt
+	  kernel. This option may induce significant overhead with large
+	  heaps.
+
+config XENO_OPT_DEBUG_CONTEXT
+       bool "Check for calling context"
+       help
+         This option enables checks for the calling context in the
+         Cobalt kernel, aimed at detecting when regular Linux routines
+         are entered from a real-time context, and conversely.
+
+config XENO_OPT_DEBUG_LOCKING
+	bool "Spinlock debugging support"
+	default y if SMP
+	help
+	  This option activates runtime assertions, and measurements
+	  of spinlocks spinning time and duration in the Cobalt
+	  kernel. It helps finding latency spots due to interrupt
+	  masked sections. Statistics about the longest masked section
+	  can be found in /proc/xenomai/debug/lock.
+
+	  This option may induce a measurable overhead on low end
+	  machines.
+
+config XENO_OPT_DEBUG_USER
+	bool "User consistency checks"
+	help
+	  This option enables a set of consistency checks for
+	  detecting wrong runtime behavior in user applications.
+
+	  With some of the debug categories, threads can ask for
+	  notification when a problem is detected, by turning on the
+	  PTHREAD_WARNSW mode bit with pthread_setmode_np().  Cobalt
+	  sends the Linux-originated SIGDEBUG signal for notifying
+	  threads, along with a reason code passed into the associated
+	  siginfo data (see pthread_setmode_np()).
+	
+	  Some of these runtime checks may induce overhead, enable
+	  them for debugging purposes only.
+
+if XENO_OPT_DEBUG_USER
+
+config XENO_OPT_DEBUG_MUTEX_RELAXED
+       bool "Detect relaxed mutex owner"
+       default y
+       help
+         A thread which attempts to acquire a mutex currently owned by
+         another thread running in secondary/relaxed mode thread will
+         suffer unwanted latencies, due to a priority inversion.
+         debug notifications are enabled for such thread, it receives
+         a SIGDEBUG signal.
+
+	 This option has some overhead in real-time mode over
+	 contented mutexes.
+ 
+config XENO_OPT_DEBUG_MUTEX_SLEEP
+       bool "Detect sleeping with mutex"
+       default y
+       help
+         A thread which goes sleeping while holding a mutex is prone
+         to cause unwanted latencies to other threads serialized by
+         the same lock. If debug notifications are enabled for such
+         thread, it receives a SIGDEBUG signal right before entering
+	 sleep.
+
+	 This option has noticeable overhead in real-time mode as it
+	 disables the normal fast mutex operations from user-space,
+	 causing a system call for each mutex acquisition/release.
+
+config XENO_OPT_DEBUG_LEGACY
+        bool "Detect usage of legacy constructs/features"
+	default n
+	help
+	    Turns on detection of legacy API usage.
+
+endif # XENO_OPT_DEBUG_USER
+
+config XENO_OPT_DEBUG_TRACE_RELAX
+	bool "Trace relax requests"
+	default n
+	help
+	  This option enables recording of unwanted relax requests from
+	  user-space applications leaving the real-time domain, logging
+	  the thread information and code location involved. All records
+	  are readable from /proc/xenomai/debug/relax, and can be
+	  decoded using the "slackspot" utility.
+
+config XENO_OPT_WATCHDOG
+	bool "Watchdog support"
+	default y
+	help
+	  This option activates a watchdog aimed at detecting runaway
+	  Cobalt threads. If enabled, the watchdog triggers after a
+	  given period of uninterrupted real-time activity has elapsed
+	  without Linux interaction in the meantime.
+
+	  In such an event, the current thread is moved out the
+	  real-time domain, receiving a SIGDEBUG signal from the Linux
+	  kernel immediately after.
+
+	  The timeout value of the watchdog can be set using the
+	  XENO_OPT_WATCHDOG_TIMEOUT parameter.
+
+config XENO_OPT_WATCHDOG_TIMEOUT
+	depends on XENO_OPT_WATCHDOG
+	int "Watchdog timeout"
+	default 4
+	range 1 60
+	help
+	  Watchdog timeout value (in seconds).
+
+endif # XENO_OPT_DEBUG
