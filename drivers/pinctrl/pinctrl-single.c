@@ -16,6 +16,7 @@
 #include <linux/err.h>
 #include <linux/list.h>
 #include <linux/interrupt.h>
+#include <linux/ipipe.h>
 
 #include <linux/irqchip/chained_irq.h>
 
@@ -185,7 +186,11 @@ struct pcs_device {
 #define PCS_FEAT_PINCONF	(1 << 0)
 	struct property *missing_nr_pinctrl_cells;
 	struct pcs_soc_data socdata;
+#ifdef CONFIG_IPIPE
+	ipipe_spinlock_t lock;
+#else /* !IPIPE */
 	raw_spinlock_t lock;
+#endif /* !IPIPE */
 	struct mutex mutex;
 	unsigned width;
 	unsigned fmask;
@@ -1460,7 +1465,7 @@ static int pcs_irq_handle(struct pcs_soc_data *pcs_soc)
 		mask = pcs->read(pcswi->reg);
 		raw_spin_unlock(&pcs->lock);
 		if (mask & pcs_soc->irq_status_mask) {
-			generic_handle_irq(irq_find_mapping(pcs->domain,
+			ipipe_handle_demuxed_irq(irq_find_mapping(pcs->domain,
 							    pcswi->hwirq));
 			count++;
 		}
@@ -1480,8 +1485,14 @@ static int pcs_irq_handle(struct pcs_soc_data *pcs_soc)
 static irqreturn_t pcs_irq_handler(int irq, void *d)
 {
 	struct pcs_soc_data *pcs_soc = d;
+	unsigned long flags;
+	irqreturn_t ret;
 
-	return pcs_irq_handle(pcs_soc) ? IRQ_HANDLED : IRQ_NONE;
+	flags = hard_cond_local_irq_save();
+	ret = pcs_irq_handle(pcs_soc) ? IRQ_HANDLED : IRQ_NONE;
+	hard_cond_local_irq_restore(flags);
+
+	return ret;
 }
 
 /**

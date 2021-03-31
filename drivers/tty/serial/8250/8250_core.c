@@ -589,6 +589,48 @@ static void univ8250_console_write(struct console *co, const char *s,
 	serial8250_console_write(up, s, count);
 }
 
+#ifdef CONFIG_RAW_PRINTK
+
+static void raw_write_char(struct uart_8250_port *up, int c)
+{
+	unsigned int status, tmout = 10000;
+
+	for (;;) {
+		status = serial_in(up, UART_LSR);
+		up->lsr_saved_flags |= status & LSR_SAVE_FLAGS;
+		if ((status & UART_LSR_THRE) == UART_LSR_THRE)
+			break;
+		if (--tmout == 0)
+			break;
+		cpu_relax();
+	}
+	serial_port_out(&up->port, UART_TX, c);
+}
+
+static void univ8250_console_write_raw(struct console *co, const char *s,
+				       unsigned int count)
+{
+	struct uart_8250_port *up = &serial8250_ports[co->index];
+	unsigned int ier;
+
+        ier = serial_in(up, UART_IER);
+
+        if (up->capabilities & UART_CAP_UUE)
+                serial_out(up, UART_IER, UART_IER_UUE);
+        else
+                serial_out(up, UART_IER, 0);
+
+	while (count-- > 0) {
+		if (*s == '\n')
+			raw_write_char(up, '\r');
+		raw_write_char(up, *s++);
+	}
+
+        serial_out(up, UART_IER, ier);
+}
+
+#endif
+
 static int univ8250_console_setup(struct console *co, char *options)
 {
 	struct uart_port *port;
@@ -670,7 +712,12 @@ static struct console univ8250_console = {
 	.device		= uart_console_device,
 	.setup		= univ8250_console_setup,
 	.match		= univ8250_console_match,
+#ifdef CONFIG_RAW_PRINTK
+	.write_raw	= univ8250_console_write_raw,
+	.flags		= CON_PRINTBUFFER |  CON_ANYTIME | CON_RAW,
+#else
 	.flags		= CON_PRINTBUFFER | CON_ANYTIME,
+#endif
 	.index		= -1,
 	.data		= &serial8250_reg,
 };

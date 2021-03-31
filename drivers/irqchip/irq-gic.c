@@ -38,6 +38,7 @@
 #include <linux/interrupt.h>
 #include <linux/percpu.h>
 #include <linux/slab.h>
+#include <linux/ipipe.h>
 #include <linux/irqchip.h>
 #include <linux/irqchip/chained_irq.h>
 #include <linux/irqchip/arm-gic.h>
@@ -91,9 +92,17 @@ struct gic_chip_data {
 #endif
 };
 
+#ifdef CONFIG_IPIPE
+#define pipeline_lock(__flags)		do { (__flags) = hard_local_irq_save(); } while (0)
+#define pipeline_unlock(__flags)	hard_local_irq_restore(__flags)
+#else
+#define pipeline_lock(__flags)		do { (void)__flags; } while (0)
+#define pipeline_unlock(__flags)	do { (void)__flags; } while (0)
+#endif
+
 #ifdef CONFIG_BL_SWITCHER
 
-static DEFINE_RAW_SPINLOCK(cpu_map_lock);
+static IPIPE_DEFINE_RAW_SPINLOCK(cpu_map_lock);
 
 #define gic_lock_irqsave(f)		\
 	raw_spin_lock_irqsave(&cpu_map_lock, (f))
@@ -204,7 +213,12 @@ static int gic_peek_irq(struct irq_data *d, u32 offset)
 
 static void gic_mask_irq(struct irq_data *d)
 {
+	unsigned long flags;
+
+	pipeline_lock(flags);
+	ipipe_lock_irq(d->irq);
 	gic_poke_irq(d, GIC_DIST_ENABLE_CLEAR);
+	pipeline_unlock(flags);
 }
 
 static void gic_eoimode1_mask_irq(struct irq_data *d)
@@ -224,7 +238,12 @@ static void gic_eoimode1_mask_irq(struct irq_data *d)
 
 static void gic_unmask_irq(struct irq_data *d)
 {
+	unsigned long flags;
+
+	pipeline_lock(flags);
 	gic_poke_irq(d, GIC_DIST_ENABLE_SET);
+	ipipe_unlock_irq(d->irq);
+	pipeline_unlock(flags);
 }
 
 static void gic_eoi_irq(struct irq_data *d)
@@ -240,6 +259,27 @@ static void gic_eoimode1_eoi_irq(struct irq_data *d)
 
 	writel_relaxed(gic_irq(d), gic_cpu_base(d) + GIC_CPU_DEACTIVATE);
 }
+
+#ifdef CONFIG_IPIPE
+static void gic_hold_irq(struct irq_data *d)
+{
+	struct irq_chip *chip = irq_data_get_irq_chip(d);
+
+	gic_poke_irq(d, GIC_DIST_ENABLE_CLEAR);
+
+	if (chip->irq_eoi == gic_eoimode1_eoi_irq) {
+		if (irqd_is_forwarded_to_vcpu(d))
+			gic_poke_irq(d, GIC_DIST_ACTIVE_CLEAR);
+		gic_eoimode1_eoi_irq(d);
+	} else
+		gic_eoi_irq(d);
+}
+
+static void gic_release_irq(struct irq_data *d)
+{
+	gic_poke_irq(d, GIC_DIST_ENABLE_SET);
+}
+#endif /* CONFIG_IPIPE */
 
 static int gic_irq_set_irqchip_state(struct irq_data *d,
 				     enum irqchip_irq_state which, bool val)
@@ -364,7 +404,7 @@ static void __exception_irq_entry gic_handle_irq(struct pt_regs *regs)
 			if (static_branch_likely(&supports_deactivate_key))
 				writel_relaxed(irqstat, cpu_base + GIC_CPU_EOI);
 			isb();
-			handle_domain_irq(gic->domain, irqnr, regs);
+			ipipe_handle_domain_irq(gic->domain, irqnr, regs);
 			continue;
 		}
 		if (irqnr < 16) {
@@ -380,7 +420,7 @@ static void __exception_irq_entry gic_handle_irq(struct pt_regs *regs)
 			 * Pairs with the write barrier in gic_raise_softirq
 			 */
 			smp_rmb();
-			handle_IPI(irqnr, regs);
+			ipipe_handle_multi_ipi(irqnr, regs);
 #endif
 			continue;
 		}
@@ -408,7 +448,7 @@ static void gic_handle_cascade_irq(struct irq_desc *desc)
 		handle_bad_irq(desc);
 	} else {
 		isb();
-		generic_handle_irq(cascade_irq);
+		ipipe_handle_demuxed_irq(cascade_irq);
 	}
 
  out:
@@ -420,11 +460,16 @@ static const struct irq_chip gic_chip = {
 	.irq_unmask		= gic_unmask_irq,
 	.irq_eoi		= gic_eoi_irq,
 	.irq_set_type		= gic_set_type,
+#ifdef CONFIG_IPIPE
+	.irq_hold		= gic_hold_irq,
+	.irq_release		= gic_release_irq,
+#endif
 	.irq_get_irqchip_state	= gic_irq_get_irqchip_state,
 	.irq_set_irqchip_state	= gic_irq_set_irqchip_state,
 	.flags			= IRQCHIP_SET_TYPE_MASKED |
 				  IRQCHIP_SKIP_SET_WAKE |
-				  IRQCHIP_MASK_ON_SUSPEND,
+				  IRQCHIP_MASK_ON_SUSPEND |
+				  IRQCHIP_PIPELINE_SAFE,
 };
 
 void __init gic_cascade_irq(unsigned int gic_nr, unsigned int irq)
@@ -481,7 +526,6 @@ static void gic_cpu_if_up(struct gic_chip_data *gic)
 
 	writel_relaxed(bypass | mode | GICC_ENABLE, cpu_base + GIC_CPU_CTRL);
 }
-
 
 static void gic_dist_init(struct gic_chip_data *gic)
 {
