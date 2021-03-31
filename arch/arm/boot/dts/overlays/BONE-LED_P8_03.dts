@@ -1,0 +1,52 @@
+/*
+ * Copyright (C) 2020 Deepak Khatri <deepaklorkhatri7@gmail.com>
+ * https://lorforlinux.github.io/GSoC2020_BeagleBoard.org/
+ *
+ * See Cape Interface Spec page for more info on Bone Buses
+ * https://elinux.org/Beagleboard:BeagleBone_cape_interface_spec
+ *
+ * Virtual cape for LED on P8_03
+ * Supports BBB, BBBWL, and BBAI
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+/dts-v1/;
+/plugin/;
+
+&{/chosen} {
+	overlays {
+		BONE-LED_P8_03 = __TIMESTAMP__;
+	};
+};
+
+/*
+ * Update the default pinmux of the pins.
+ * See these files for the phandles (&P9_* & &P8_*)
+ * BeagleBoard-DeviceTrees/v4.19.x-ti-overlays/src/arm/am335x-bone-common-univ.dtsi
+ * BeagleBoard-DeviceTrees/v4.19.x-ti-overlays/src/arm/am572x-bone-common-univ.dtsi
+ */
+&ocp {
+	P8_03_pinmux { pinctrl-0 = <&P8_03_gpio_pin>;};	/* lcd: lcd_data0 */
+};
+
+/*
+ * Easy LED control through sysfs (/sys/class/leds/) using gpio-leds driver
+ * See these files for the led_P8_#/led_P9_#  definition
+ * https://github.com/beagleboard/BeagleBoard-DeviceTrees/src/arm/bbai-bone-buses.dtsi
+ * https://github.com/beagleboard/BeagleBoard-DeviceTrees/src/arm/bbb-bone-buses.dtsi
+ *
+ */
+
+&{/} {
+	leds {
+		led_P8_03 {
+			status = "okay";
+			label = "led_P8_03"; // sys/class/leds/<label>
+			linux,default-trigger = "heartbeat";
+			default-state = "on";
+		};
+	};
+};
