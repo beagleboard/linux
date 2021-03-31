@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (C) 2014 Texas Instruments Incorporated - http://www.ti.com/
+ * Copyright (C) 2014 Texas Instruments Incorporated - https://www.ti.com/
  *
  * Based on "omap4.dtsi"
  */
@@ -140,10 +140,10 @@
 			reg-names = "l2ram", "l1pram", "l1dram";
 			ti,bootreg = <&scm_conf 0x560 10>;
 			iommus = <&mmu0_dsp2>, <&mmu1_dsp2>;
+			status = "disabled";
 			resets = <&prm_dsp2 0>;
 			clocks = <&dsp2_clkctrl DRA7_DSP2_MMU0_DSP2_CLKCTRL 0>;
 			firmware-name = "dra7-dsp2-fw.xe66";
-			status = "disabled";
 		};
 	};
 };
