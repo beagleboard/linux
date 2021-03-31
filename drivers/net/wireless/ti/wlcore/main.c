@@ -2227,7 +2227,7 @@ static int wl12xx_init_vif_data(struct wl1271 *wl, struct ieee80211_vif *vif)
 	switch (ieee80211_vif_type_p2p(vif)) {
 	case NL80211_IFTYPE_P2P_CLIENT:
 		wlvif->p2p = 1;
-		/* fall-through */
+		fallthrough;
 	case NL80211_IFTYPE_STATION:
 	case NL80211_IFTYPE_P2P_DEVICE:
 		wlvif->bss_type = BSS_TYPE_STA_BSS;
@@ -2237,7 +2237,7 @@ static int wl12xx_init_vif_data(struct wl1271 *wl, struct ieee80211_vif *vif)
 		break;
 	case NL80211_IFTYPE_P2P_GO:
 		wlvif->p2p = 1;
-		/* fall-through */
+		fallthrough;
 	case NL80211_IFTYPE_AP:
 	case NL80211_IFTYPE_MESH_POINT:
 		wlvif->bss_type = BSS_TYPE_AP_BSS;
@@ -5381,7 +5381,7 @@ static int wl1271_op_ampdu_action(struct ieee80211_hw *hw,
 
 		if (wl->ba_rx_session_count >= wl->ba_rx_session_count_max) {
 			ret = -EBUSY;
-			wl1271_error("exceeded max RX BA sessions");
+			wl1271_debug(DEBUG_RX, "exceeded max RX BA sessions");
 			break;
 		}
 
