@@ -278,7 +278,7 @@ struct gpio_chip {
 	void __iomem *reg_dir;
 	bool bgpio_dir_inverted;
 	int bgpio_bits;
-	spinlock_t bgpio_lock;
+	ipipe_spinlock_t bgpio_lock;
 	unsigned long bgpio_data;
 	unsigned long bgpio_dir;
 #endif

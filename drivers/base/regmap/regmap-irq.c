@@ -197,8 +197,11 @@ static void regmap_irq_enable(struct irq_data *data)
 	struct regmap_irq_chip_data *d = irq_data_get_irq_chip_data(data);
 	struct regmap *map = d->map;
 	const struct regmap_irq *irq_data = irq_to_regmap_irq(d, data->hwirq);
+	unsigned long flags;
 
+	flags = hard_cond_local_irq_save();
 	d->mask_buf[irq_data->reg_offset / map->reg_stride] &= ~irq_data->mask;
+	hard_cond_local_irq_restore(flags);
 }
 
 static void regmap_irq_disable(struct irq_data *data)
@@ -206,8 +209,11 @@ static void regmap_irq_disable(struct irq_data *data)
 	struct regmap_irq_chip_data *d = irq_data_get_irq_chip_data(data);
 	struct regmap *map = d->map;
 	const struct regmap_irq *irq_data = irq_to_regmap_irq(d, data->hwirq);
+	unsigned long flags;
 
+	flags = hard_cond_local_irq_save();
 	d->mask_buf[irq_data->reg_offset / map->reg_stride] |= irq_data->mask;
+	hard_cond_local_irq_restore(flags);
 }
 
 static int regmap_irq_set_type(struct irq_data *data, unsigned int type)
@@ -270,6 +276,7 @@ static const struct irq_chip regmap_irq_chip = {
 	.irq_enable		= regmap_irq_enable,
 	.irq_set_type		= regmap_irq_set_type,
 	.irq_set_wake		= regmap_irq_set_wake,
+	.flags			= IRQCHIP_PIPELINE_SAFE,
 };
 
 static irqreturn_t regmap_irq_thread(int irq, void *d)
