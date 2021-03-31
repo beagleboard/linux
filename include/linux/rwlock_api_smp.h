@@ -141,7 +141,9 @@ static inline int __raw_write_trylock(rwlock_t *lock)
  * even on CONFIG_PREEMPT, because lockdep assumes that interrupts are
  * not re-enabled during lock-acquire (which the preempt-spin-ops do):
  */
-#if !defined(CONFIG_GENERIC_LOCKBREAK) || defined(CONFIG_DEBUG_LOCK_ALLOC)
+#if !defined(CONFIG_GENERIC_LOCKBREAK) ||	\
+	defined(CONFIG_DEBUG_LOCK_ALLOC) ||	\
+	defined(CONFIG_IPIPE)
 
 static inline void __raw_read_lock(rwlock_t *lock)
 {

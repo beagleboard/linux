@@ -11,6 +11,7 @@ menuconfig ARCH_SOCFPGA
 	select HAVE_ARM_TWD if SMP
 	select MFD_SYSCON
 	select PCI_DOMAINS if PCI
+	select IPIPE_ARM_KUSER_TSC if IPIPE
 
 if ARCH_SOCFPGA
 config SOCFPGA_SUSPEND

@@ -148,6 +148,18 @@ do {						\
 
 #endif /* CONFIG_TRACE_IRQFLAGS */
 
+#ifdef CONFIG_IPIPE
+#define local_irq_enable_full()		local_irq_enable()
+#define local_irq_disable_full()		\
+	do {					\
+		local_irq_disable();		\
+		hard_local_irq_disable();	\
+	} while (0)
+#else
+#define local_irq_enable_full()		local_irq_enable()
+#define local_irq_disable_full()	local_irq_disable()
+#endif
+
 #define local_save_flags(flags)	raw_local_save_flags(flags)
 
 /*

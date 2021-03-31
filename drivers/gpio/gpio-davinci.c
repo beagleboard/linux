@@ -24,6 +24,7 @@
 #include <linux/platform_device.h>
 #include <linux/platform_data/gpio-davinci.h>
 #include <linux/irqchip/chained_irq.h>
+#include <linux/ipipe.h>
 
 struct davinci_gpio_regs {
 	u32	dir;
@@ -327,7 +328,7 @@ static struct irq_chip gpio_irqchip = {
 	.irq_enable	= gpio_irq_enable,
 	.irq_disable	= gpio_irq_disable,
 	.irq_set_type	= gpio_irq_type,
-	.flags		= IRQCHIP_SET_TYPE_MASKED,
+	.flags		= IRQCHIP_SET_TYPE_MASKED | IRQCHIP_PIPELINE_SAFE,
 };
 
 static void gpio_irq_handler(struct irq_desc *desc)
@@ -370,7 +371,7 @@ static void gpio_irq_handler(struct irq_desc *desc)
 			 */
 			hw_irq = (bank_num / 2) * 32 + bit;
 
-			generic_handle_irq(
+			ipipe_handle_demuxed_irq(
 				irq_find_mapping(d->irq_domain, hw_irq));
 		}
 	}

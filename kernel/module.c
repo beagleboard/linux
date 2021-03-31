@@ -1112,7 +1112,7 @@ bool try_module_get(struct module *module)
 	bool ret = true;
 
 	if (module) {
-		preempt_disable();
+		unsigned long flags = hard_preempt_disable();
 		/* Note: here, we can fail to get a reference */
 		if (likely(module_is_live(module) &&
 			   atomic_inc_not_zero(&module->refcnt) != 0))
@@ -1120,7 +1120,7 @@ bool try_module_get(struct module *module)
 		else
 			ret = false;
 
-		preempt_enable();
+		hard_preempt_enable(flags);
 	}
 	return ret;
 }
@@ -1131,11 +1131,11 @@ void module_put(struct module *module)
 	int ret;
 
 	if (module) {
-		preempt_disable();
+		unsigned long flags = hard_preempt_disable();
 		ret = atomic_dec_if_positive(&module->refcnt);
 		WARN_ON(ret < 0);	/* Failed to put refcount */
 		trace_module_put(module, _RET_IP_);
-		preempt_enable();
+		hard_preempt_enable(flags);
 	}
 }
 EXPORT_SYMBOL(module_put);

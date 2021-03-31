@@ -27,6 +27,7 @@
 #include <linux/io.h>
 #include <linux/irq.h>
 #include <linux/irqdesc.h>
+#include <linux/ipipe.h>
 #include <linux/init.h>
 #include <linux/of_address.h>
 #include <linux/of.h>
@@ -88,7 +89,11 @@ struct bcm2835_pinctrl {
 	struct gpio_chip gpio_chip;
 	struct pinctrl_gpio_range gpio_range;
 
+#ifdef CONFIG_IPIPE
+	ipipe_spinlock_t irq_lock[BCM2835_NUM_BANKS];
+#else
 	raw_spinlock_t irq_lock[BCM2835_NUM_BANKS];
+#endif
 };
 
 /* pins are just named GPIO0..GPIO53 */
@@ -367,7 +372,7 @@ static void bcm2835_gpio_irq_handle_bank(struct bcm2835_pinctrl *pc,
 	events &= pc->enabled_irq_map[bank];
 	for_each_set_bit(offset, &events, 32) {
 		gpio = (32 * bank) + offset;
-		generic_handle_irq(irq_linear_revmap(pc->gpio_chip.irq.domain,
+		ipipe_handle_demuxed_irq(irq_linear_revmap(pc->gpio_chip.irq.domain,
 						     gpio));
 	}
 }
@@ -462,6 +467,7 @@ static void bcm2835_gpio_irq_enable(struct irq_data *data)
 	raw_spin_lock_irqsave(&pc->irq_lock[bank], flags);
 	set_bit(offset, &pc->enabled_irq_map[bank]);
 	bcm2835_gpio_irq_config(pc, gpio, true);
+	ipipe_unlock_irq(data->irq);
 	raw_spin_unlock_irqrestore(&pc->irq_lock[bank], flags);
 }
 
@@ -479,6 +485,7 @@ static void bcm2835_gpio_irq_disable(struct irq_data *data)
 	/* Clear events that were latched prior to clearing event sources */
 	bcm2835_gpio_set_bit(pc, GPEDS0, gpio);
 	clear_bit(offset, &pc->enabled_irq_map[bank]);
+	ipipe_lock_irq(data->irq);
 	raw_spin_unlock_irqrestore(&pc->irq_lock[bank], flags);
 }
 
@@ -608,6 +615,39 @@ static void bcm2835_gpio_irq_ack(struct irq_data *data)
 	bcm2835_gpio_set_bit(pc, GPEDS0, gpio);
 }
 
+#ifdef CONFIG_IPIPE
+
+static void bcm2835_gpio_irq_hold(struct irq_data *data)
+{
+	struct bcm2835_pinctrl *pc = irq_data_get_irq_chip_data(data);
+	unsigned gpio = irqd_to_hwirq(data);
+	unsigned offset = GPIO_REG_SHIFT(gpio);
+	unsigned bank = GPIO_REG_OFFSET(gpio);
+	unsigned long flags;
+
+	raw_spin_lock_irqsave(&pc->irq_lock[bank], flags);
+	bcm2835_gpio_irq_config(pc, gpio, false);
+	bcm2835_gpio_set_bit(pc, GPEDS0, gpio);
+	clear_bit(offset, &pc->enabled_irq_map[bank]);
+	raw_spin_unlock_irqrestore(&pc->irq_lock[bank], flags);
+}
+
+static void bcm2835_gpio_irq_release(struct irq_data *data)
+{
+	struct bcm2835_pinctrl *pc = irq_data_get_irq_chip_data(data);
+	unsigned gpio = irqd_to_hwirq(data);
+	unsigned offset = GPIO_REG_SHIFT(gpio);
+	unsigned bank = GPIO_REG_OFFSET(gpio);
+	unsigned long flags;
+
+	raw_spin_lock_irqsave(&pc->irq_lock[bank], flags);
+	set_bit(offset, &pc->enabled_irq_map[bank]);
+	bcm2835_gpio_irq_config(pc, gpio, true);
+	raw_spin_unlock_irqrestore(&pc->irq_lock[bank], flags);
+}
+
+#endif
+
 static struct irq_chip bcm2835_gpio_irq_chip = {
 	.name = MODULE_NAME,
 	.irq_enable = bcm2835_gpio_irq_enable,
@@ -616,6 +656,11 @@ static struct irq_chip bcm2835_gpio_irq_chip = {
 	.irq_ack = bcm2835_gpio_irq_ack,
 	.irq_mask = bcm2835_gpio_irq_disable,
 	.irq_unmask = bcm2835_gpio_irq_enable,
+#ifdef CONFIG_IPIPE
+	.irq_hold = bcm2835_gpio_irq_hold,
+	.irq_release = bcm2835_gpio_irq_release,
+#endif
+	.flags = IRQCHIP_PIPELINE_SAFE,
 };
 
 static int bcm2835_pctl_get_groups_count(struct pinctrl_dev *pctldev)

@@ -66,6 +66,7 @@ static struct irq_chip dw_pcie_msi_irq_chip = {
 	.irq_ack = dw_msi_ack_irq,
 	.irq_mask = dw_msi_mask_irq,
 	.irq_unmask = dw_msi_unmask_irq,
+	.flags = IRQCHIP_PIPELINE_SAFE,
 };
 
 static struct msi_domain_info dw_pcie_msi_domain_info = {

@@ -477,7 +477,7 @@ static void altera_pcie_isr(struct irq_desc *desc)
 
 			virq = irq_find_mapping(pcie->irq_domain, bit);
 			if (virq)
-				generic_handle_irq(virq);
+				ipipe_handle_demuxed_irq(virq);
 			else
 				dev_err(dev, "unexpected IRQ, INT%d\n", bit);
 		}
