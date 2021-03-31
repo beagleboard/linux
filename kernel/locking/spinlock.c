@@ -27,7 +27,9 @@
  * even on CONFIG_PREEMPT, because lockdep assumes that interrupts are
  * not re-enabled during lock-acquire (which the preempt-spin-ops do):
  */
-#if !defined(CONFIG_GENERIC_LOCKBREAK) || defined(CONFIG_DEBUG_LOCK_ALLOC)
+#if !defined(CONFIG_GENERIC_LOCKBREAK) ||			\
+	defined(CONFIG_DEBUG_LOCK_ALLOC) ||			\
+	defined(CONFIG_IPIPE)
 /*
  * The __lock_function inlines are taken from
  * spinlock : include/linux/spinlock_api_smp.h

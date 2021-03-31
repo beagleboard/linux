@@ -454,6 +454,23 @@ extern bool force_irqthreads;
 #define hard_irq_disable()	do { } while(0)
 #endif
 
+/*
+ * Unlike other virtualized interrupt disabling schemes may assume, we
+ * can't expect local_irq_restore() to turn hard interrupts on when
+ * pipelining.  hard_irq_enable() is introduced to be paired with
+ * hard_irq_disable(), for unconditionally turning them on. The only
+ * sane sequence mixing virtual and real disable state manipulation
+ * is:
+ *
+ * 1. local_irq_save/disable
+ * 2. hard_irq_disable
+ * 3. hard_irq_enable
+ * 4. local_irq_restore/enable
+ */
+#ifndef hard_irq_enable
+#define hard_irq_enable()	hard_cond_local_irq_enable()
+#endif
+
 /* PLEASE, avoid to allocate new softirqs, if you need not _really_ high
    frequency threaded job scheduling. For almost all the purposes
    tasklets are more than enough. F.e. all serial device BHs et
