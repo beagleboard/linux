@@ -79,6 +79,8 @@ static int __wake_up_common(struct wait_queue_head *wq_head, unsigned int mode,
 	} else
 		curr = list_first_entry(&wq_head->head, wait_queue_entry_t, entry);
 
+	ipipe_root_only();
+
 	if (&curr->entry == &wq_head->head)
 		return nr_exclusive;
 

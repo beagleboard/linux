@@ -22,6 +22,7 @@
 #include <linux/swap.h>
 #include <linux/swapops.h>
 #include <linux/mmu_notifier.h>
+#include <linux/ipipe.h>
 #include <linux/migrate.h>
 #include <linux/perf_event.h>
 #include <linux/pkeys.h>
@@ -42,7 +43,7 @@ static unsigned long change_pte_range(struct vm_area_struct *vma, pmd_t *pmd,
 	struct mm_struct *mm = vma->vm_mm;
 	pte_t *pte, oldpte;
 	spinlock_t *ptl;
-	unsigned long pages = 0;
+	unsigned long pages = 0, flags;
 	int target_node = NUMA_NO_NODE;
 
 	/*
@@ -110,6 +111,7 @@ static unsigned long change_pte_range(struct vm_area_struct *vma, pmd_t *pmd,
 					continue;
 			}
 
+			flags = hard_local_irq_save();
 			ptent = ptep_modify_prot_start(mm, addr, pte);
 			ptent = pte_modify(ptent, newprot);
 			if (preserve_write)
@@ -122,6 +124,7 @@ static unsigned long change_pte_range(struct vm_area_struct *vma, pmd_t *pmd,
 				ptent = pte_mkwrite(ptent);
 			}
 			ptep_modify_prot_commit(mm, addr, pte, ptent);
+			hard_local_irq_restore(flags);
 			pages++;
 		} else if (IS_ENABLED(CONFIG_MIGRATION)) {
 			swp_entry_t entry = pte_to_swp_entry(oldpte);
@@ -336,6 +339,12 @@ unsigned long change_protection(struct vm_area_struct *vma, unsigned long start,
 		pages = hugetlb_change_protection(vma, start, end, newprot);
 	else
 		pages = change_protection_range(vma, start, end, newprot, dirty_accountable, prot_numa);
+#ifdef CONFIG_IPIPE
+	if (test_bit(MMF_VM_PINNED, &vma->vm_mm->flags) &&
+	    ((vma->vm_flags | vma->vm_mm->def_flags) & VM_LOCKED) &&
+	    (vma->vm_flags & (VM_READ | VM_WRITE | VM_EXEC)))
+		__ipipe_pin_vma(vma->vm_mm, vma);
+#endif
 
 	return pages;
 }

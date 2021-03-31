@@ -1270,6 +1270,18 @@ config PRINTK_NMI
 	depends on PRINTK
 	depends on HAVE_NMI
 
+config RAW_PRINTK
+       bool "Enable support for raw printk"
+       default n
+       help
+         This option enables a printk variant called raw_printk() for
+         writing all output unmodified to a raw console channel
+         immediately, without any header or preparation whatsoever,
+         usable from any context.
+
+	 Unlike early_printk() console devices, raw_printk() devices
+         can live past the boot sequence.
+
 config BUG
 	bool "BUG() support" if EXPERT
 	default y
