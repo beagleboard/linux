@@ -1,0 +1,90 @@
+/*
+ * Copyright (C) 2020 Deepak Khatri <deepaklorkhatri7@gmail.com>
+ * https://lorforlinux.github.io/GSoC2020_BeagleBoard.org/
+ *
+ * See Cape Interface Spec page for more info on Bone Buses
+ * https://elinux.org/Beagleboard:BeagleBone_cape_interface_spec
+ *
+ * Overlay for 4D Systems GEN4-4DCAPE-43CT-CLB Cape and similar Displays
+ * Compatible with BBB, BBBWL, and BBAI
+ *
+ * Based on older BB-BONE-4D4C-01-00A1.dts from TI for kernel < 4.14
+ * Copyright (C) 2012 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+/dts-v1/;
+/plugin/;
+
+&{/chosen} {
+	overlays {
+		BB-BONE-4D4C-01-00A1 = __TIMESTAMP__;
+	};
+};
+
+/*
+ * Update the default pinmux of the pins.
+ * See these files for the phandles (&P9_* & &P8_*)
+ * BeagleBoard-DeviceTrees/v4.19.x-ti-overlays/src/arm/am335x-bone-common-univ.dtsi
+ * BeagleBoard-DeviceTrees/v4.19.x-ti-overlays/src/arm/am572x-bone-common-univ.dtsi
+ */
+&ocp {
+	P8_45_pinmux { pinctrl-0 = <&P8_45_lcd_pin>;};	/* lcd: lcd_data0 */
+	P8_46_pinmux { pinctrl-0 = <&P8_46_lcd_pin>;};	/* lcd: lcd_data1 */
+	P8_43_pinmux { pinctrl-0 = <&P8_43_lcd_pin>;};	/* lcd: lcd_data2 */
+	P8_44_pinmux { pinctrl-0 = <&P8_44_lcd_pin>;};	/* lcd: lcd_data3 */
+	P8_41_pinmux { pinctrl-0 = <&P8_41_lcd_pin>;};	/* lcd: lcd_data4 */
+	P8_42_pinmux { pinctrl-0 = <&P8_42_lcd_pin>;};	/* lcd: lcd_data5 */
+	P8_39_pinmux { pinctrl-0 = <&P8_39_lcd_pin>;};	/* lcd: lcd_data6 */
+	P8_40_pinmux { pinctrl-0 = <&P8_40_lcd_pin>;};	/* lcd: lcd_data7 */
+	P8_37_pinmux { pinctrl-0 = <&P8_37_lcd_pin>;};	/* lcd: lcd_data8 */
+	P8_38_pinmux { pinctrl-0 = <&P8_38_lcd_pin>;};	/* lcd: lcd_data9 */
+	P8_36_pinmux { pinctrl-0 = <&P8_36_lcd_pin>;};	/* lcd: lcd_data10 */
+	P8_34_pinmux { pinctrl-0 = <&P8_34_lcd_pin>;};	/* lcd: lcd_data11 */
+	P8_35_pinmux { pinctrl-0 = <&P8_35_lcd_pin>;};	/* lcd: lcd_data12 */
+	P8_33_pinmux { pinctrl-0 = <&P8_33_lcd_pin>;};	/* lcd: lcd_data13 */
+	P8_31_pinmux { pinctrl-0 = <&P8_31_lcd_pin>;};	/* lcd: lcd_data14 */
+	P8_32_pinmux { pinctrl-0 = <&P8_32_lcd_pin>;};	/* lcd: lcd_data15 */
+
+	P8_27_pinmux { pinctrl-0 = <&P8_27_lcd_pin>;};	/* lcd: lcd_vsync */
+	P8_29_pinmux { pinctrl-0 = <&P8_29_lcd_pin>;};	/* lcd: lcd_hsync */
+	P8_28_pinmux { pinctrl-0 = <&P8_28_lcd_pin>;};	/* lcd: lcd_pclk */
+	P8_30_pinmux { pinctrl-0 = <&P8_30_lcd_pin>;};	/* lcd: lcd_ac_bias_en */
+
+	P9_27_pinmux { pinctrl-0 = <&P9_27_gpio_pin>;};	/* lcd: gpio3_19 DISPEN */
+
+	P9_14_pinmux { pinctrl-0 = <&P9_14_pwm_pin>;};	/* pwm: ehrpwm1a PWM_BL */
+
+	P9_18_pinmux { pinctrl-0 = <&P9_18_i2c_pin>;};	/* i2c1_sda */
+	P9_17_pinmux { pinctrl-0 = <&P9_17_i2c_pin>;};	/* i2c1_scl */
+	P9_26_pinmux { pinctrl-0 = <&P9_26_gpio_pin>;};	/* touch interrupt on gpio0_14 */
+};
+
+/*
+ * See these files for the phandles (&bone_*) and other bone bus nodes
+ * BeagleBoard-DeviceTrees/v4.19.x-ti-overlays/src/arm/bbai-bone-buses.dtsi
+ * BeagleBoard-DeviceTrees/v4.19.x-ti-overlays/src/arm/bbb-bone-buses.dtsi
+ */
+
+// PWM for Backlight
+&bone_pwm_1{
+	status = "okay";
+};
+
+// Touch Controller
+&bone_polytouch_edt {
+	status = "okay";
+};
+
+// Backlight
+&bone_backlight {
+	status = "okay";
+};
+
+// LCD
+&bone_lcd_4d4c {
+	status = "okay";
+};
