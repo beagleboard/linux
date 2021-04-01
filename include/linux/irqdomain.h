@@ -387,6 +387,8 @@ extern void irq_domain_disassociate(struct irq_domain *domain,
 extern unsigned int irq_create_mapping_affinity(struct irq_domain *host,
 				      irq_hw_number_t hwirq,
 				      const struct irq_affinity_desc *affinity);
+void of_phandle_args_to_fwspec(struct device_node *np, const u32 *args, unsigned int count,
+			       struct irq_fwspec *fwspec);
 extern unsigned int irq_create_fwspec_mapping(struct irq_fwspec *fwspec);
 extern void irq_dispose_mapping(unsigned int virq);
 
