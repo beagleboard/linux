@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: GPL-2.0
+
+menu "Rpmsg virtual device drivers"
+
+# RPMSG always gets selected by whoever wants it
+config RPMSG_KDRV
+	tristate "RPMSG virtual device interface"
+	select RPMSG
+	help
+	  Say Y here enable support for RPMSG based remote devices, usually
+	  exported by a firmware running rpmsg stack and remote_device stack.
+	  This feature enables the framework for para-virtualizing entire H/W
+	  or specific resources of a hardware
+
+endmenu
