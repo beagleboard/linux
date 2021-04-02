@@ -7,6 +7,8 @@
 #ifndef __RPMSG_REMOTEDEV_H__
 #define __RPMSG_REMOTEDEV_H__
 
+#include <linux/etherdevice.h>
+
 struct rpmsg_remotedev;
 
 /* Defines for demo device */
@@ -103,9 +105,72 @@ struct rpmsg_remotedev_display_ops {
 	int (*commit)(struct rpmsg_remotedev *rdev, struct rpmsg_remotedev_display_commit *commit);
 };
 
+#define RPMSG_RDEV_ETHSWITCH_CPSW_PRIORITY_NUM   (8)
+
+struct rpmsg_rdev_eth_switch_attach_info {
+	/* MTU of rx packet */
+	u32 rx_mtu;
+	/* MTU of tx packet per priority */
+	u32 tx_mtu[RPMSG_RDEV_ETHSWITCH_CPSW_PRIORITY_NUM];
+	/* Supported Features mask */
+	u32 features;
+#define RPMSG_KDRV_ETHSWITCH_FEATURE_TXCSUM BIT(0)
+#define RPMSG_KDRV_ETHSWITCH_FEATURE_DUMP_STATS BIT(1)
+};
+
+struct rpmsg_rdev_eth_switch_attach_ext_info {
+	/* MTU of rx packet */
+	u32 rx_mtu;
+	/* MTU of tx packet per priority */
+	u32 tx_mtu[RPMSG_RDEV_ETHSWITCH_CPSW_PRIORITY_NUM];
+	/* Supported Features mask */
+	u32 features;
+#define RPMSG_KDRV_ETHSWITCH_FEATURE_TXCSUM BIT(0)
+#define RPMSG_KDRV_ETHSWITCH_FEATURE_DUMP_STATS BIT(1)
+	u32 flow_idx;
+	u32 tx_cpsw_psil_dst_id;
+	u8 mac_addr[ETH_ALEN];
+};
+
+struct rpmsg_rdev_eth_switch_tx_info {
+	/* Tx PSIL Peer destination thread id */
+	u32 tx_cpsw_psil_dst_id;
+};
+
+struct rpmsg_rdev_eth_switch_rx_info {
+	/* Allocated flow's index */
+	u32 flow_idx;
+};
+
+struct rpmsg_remotedev_eth_switch_ops {
+	void (*get_fw_ver)(struct rpmsg_remotedev *rdev,
+			   char *buf, size_t size);
+	int (*attach)(struct rpmsg_remotedev *rdev,
+		      struct rpmsg_rdev_eth_switch_attach_info *attach_info);
+	int (*attach_ext)(struct rpmsg_remotedev *rdev,
+			  struct rpmsg_rdev_eth_switch_attach_ext_info *attach_ext_info);
+	int (*detach)(struct rpmsg_remotedev *rdev);
+	int (*get_tx_info)(struct rpmsg_remotedev *rdev,
+			   struct rpmsg_rdev_eth_switch_tx_info *info);
+	int (*get_rx_info)(struct rpmsg_remotedev *rdev,
+			   struct rpmsg_rdev_eth_switch_rx_info *info);
+	int (*get_mac)(struct rpmsg_remotedev *rdev, void *mac_addr);
+	int (*register_mac)(struct rpmsg_remotedev *rdev,
+			    void *mac_addr, u32 flow_idx_offset);
+	int (*unregister_mac)(struct rpmsg_remotedev *rdev,
+			      void *mac_addr, u32 flow_idx_offset);
+	int (*register_ipv4)(struct rpmsg_remotedev *rdev,
+			     void *mac_addr, __be32 ipv4);
+	int (*unregister_ipv4)(struct rpmsg_remotedev *rdev, __be32 ipv4);
+	int (*ping)(struct rpmsg_remotedev *rdev, const u8 *data, int size);
+	int (*read_reg)(struct rpmsg_remotedev *rdev, u32 reg_addr, u32 *val);
+	int (*dbg_dump_stats)(struct rpmsg_remotedev *rdev);
+};
+
 enum rpmsg_remotedev_type {
 	RPMSG_REMOTEDEV_DEMO_DEVICE,
 	RPMSG_REMOTEDEV_DISPLAY_DEVICE,
+	RPMSG_REMOTEDEV_ETH_SWITCH_DEVICE,
 };
 
 struct rpmsg_remotedev {
@@ -119,9 +184,12 @@ struct rpmsg_remotedev {
 			struct rpmsg_remotedev_display_ops *ops;
 			struct rpmsg_remotedev_display_cb *cb_ops;
 		} display;
+
+		struct {
+			struct rpmsg_remotedev_eth_switch_ops *ops;
+		} eth_switch;
 	} device;
 	void *cb_data;
-
 };
 
 #if IS_REACHABLE(CONFIG_RPMSG_KDRV)
