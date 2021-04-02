@@ -10,6 +10,7 @@
 #include <linux/mutex.h>
 
 #include <linux/rpmsg.h>
+#include <linux/rpmsg-remotedev/rpmsg-remotedev.h>
 #include "shared/rpmsg-kdrv-transport.h"
 #include "rpmsg_kdrv_internal.h"
 
@@ -51,6 +52,16 @@ static int rpmsg_kdrv_match_id(struct device *dev, const void *data)
 	struct rpmsg_kdrv_device *kddev = container_of(dev, struct rpmsg_kdrv_device, dev);
 
 	if (kddev->device_id == *idptr)
+		return 1;
+	return 0;
+}
+
+static int rpmsg_kdrv_match_remotedev(struct device *dev, const void *data)
+{
+	const struct rpmsg_remotedev *rdev = data;
+	struct rpmsg_kdrv_device *kddev = container_of(dev, struct rpmsg_kdrv_device, dev);
+
+	if (kddev->remotedev == rdev)
 		return 1;
 	return 0;
 }
@@ -149,6 +160,42 @@ static int rpmsg_kdrv_disconnect(struct rpmsg_device *rpdev, struct rpmsg_kdrv_d
 	devm_kfree(&rpdev->dev, disconnect_req);
 	return ret;
 }
+
+struct rpmsg_remotedev *rpmsg_remotedev_get_named_device(const char *device_name)
+{
+	struct device *dev;
+	struct rpmsg_kdrv_device *kddev = NULL;
+
+	dev = bus_find_device(&rpmsg_kdrv_bus, NULL, (void *)device_name, rpmsg_kdrv_match_name);
+	if (!dev)
+		return ERR_PTR(-EPROBE_DEFER);
+
+	kddev = container_of(dev, struct rpmsg_kdrv_device, dev);
+	if (!kddev->remotedev)
+		return ERR_PTR(-EPROBE_DEFER);
+
+	rpmsg_kdrv_connect(kddev->rpdev, kddev);
+
+	return kddev->remotedev;
+}
+EXPORT_SYMBOL(rpmsg_remotedev_get_named_device);
+
+void rpmsg_remotedev_put_device(struct rpmsg_remotedev *rdev)
+{
+	struct device *dev;
+	struct rpmsg_kdrv_device *kddev = NULL;
+
+	dev = bus_find_device(&rpmsg_kdrv_bus, NULL, (void *)rdev, rpmsg_kdrv_match_remotedev);
+	if (!dev) {
+		pr_err("%s: could not find device for remotedev\n", __func__);
+		return;
+	}
+
+	kddev = container_of(dev, struct rpmsg_kdrv_device, dev);
+
+	rpmsg_kdrv_disconnect(kddev->rpdev, kddev);
+}
+EXPORT_SYMBOL(rpmsg_remotedev_put_device);
 
 static void rpmsg_kdrv_release_device(struct device *dev)
 {

@@ -20,6 +20,7 @@ struct rpmsg_kdrv_device {
 	char *device_name;
 	void *device_private;
 	void *driver_private;
+	struct rpmsg_remotedev *remotedev;
 };
 
 struct rpmsg_kdrv_driver {
