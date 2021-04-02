@@ -26,4 +26,13 @@ config RPMSG_KDRV_DEMO
 	  a sample driver to be used as a reference for developing more
 	  remote_device drivers (like display or ethernet)
 
+config RPMSG_KDRV_DISPLAY
+	tristate "RPMSG virtual display device support"
+	select RPMSG_KDRV
+	help
+	  Say Y here to enable support for remote device based display
+	  virtualization. This setup expects that the display will be driven
+	  by a remoteproc and DRM driver will be able to use display features
+	  using remote_device framework
+
 endmenu
