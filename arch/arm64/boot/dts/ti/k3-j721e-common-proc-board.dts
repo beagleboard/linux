@@ -109,6 +109,31 @@
 			      "cpb-codec-scki",
 			      "cpb-codec-scki-48000", "cpb-codec-scki-44100";
 	};
+
+	cpsw9g_virt_mac: main_r5fss_cpsw9g_virt_mac0 {
+		compatible = "ti,j721e-cpsw-virt-mac";
+		dma-coherent;
+		ti,psil-base = <0x4a00>;
+		ti,remote-name = "mpu_1_0_ethswitch-device-0";
+
+		dmas = <&main_udmap 0xca00>,
+		       <&main_udmap 0xca01>,
+		       <&main_udmap 0xca02>,
+		       <&main_udmap 0xca03>,
+		       <&main_udmap 0xca04>,
+		       <&main_udmap 0xca05>,
+		       <&main_udmap 0xca06>,
+		       <&main_udmap 0xca07>,
+		       <&main_udmap 0x4a00>;
+		dma-names = "tx0", "tx1", "tx2", "tx3",
+			    "tx4", "tx5", "tx6", "tx7",
+			    "rx";
+
+		virt_emac_port {
+			ti,label = "virt-port";
+			/* local-mac-address = [0 0 0 0 0 0]; */
+		};
+	};
 };
 
 &main_pmx0 {
@@ -760,5 +785,10 @@
 };
 
 &dss {
+	status = "disabled";
+};
+
+/* uart2 assigned to cpsw9g eth-switch fw running on remote CPU core */
+&main_uart2 {
 	status = "disabled";
 };
