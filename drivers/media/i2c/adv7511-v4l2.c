@@ -1570,7 +1570,7 @@ static int adv7511_remove(struct i2c_client *client)
 		 client->addr << 1, client->adapter->name);
 
 	adv7511_init_setup(sd);
-	cancel_delayed_work(&state->edid_handler);
+	cancel_delayed_work_sync(&state->edid_handler);
 	i2c_unregister_device(state->i2c_edid);
 	i2c_unregister_device(state->i2c_pktmem);
 	destroy_workqueue(state->work_queue);
