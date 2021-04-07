@@ -2024,4 +2024,16 @@
 		pinctrl-single,function-mask = <0x000107ff>;
 		status = "disabled";
 	};
+
+	gpu: gpu@4e20000000 {
+		compatible = "ti,j721e-pvr", "img,pvr-ge8430";
+		reg = <0x4e 0x20000000 0x00 0x80000>;
+		reg-names = "gpu_regs";
+		interrupts = <GIC_SPI 24 IRQ_TYPE_LEVEL_HIGH>;
+		power-domains = <&k3_pds 125 TI_SCI_PD_EXCLUSIVE>,
+				<&k3_pds 126 TI_SCI_PD_EXCLUSIVE>;
+		power-domain-names = "gpu_0", "gpucore_0";
+		clocks = <&k3_clks 125 0>;
+		clock-names = "ctrl";
+	};
 };
