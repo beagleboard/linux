@@ -1,0 +1,55 @@
+TI J721E VIRT CPSWxg Ethernet mac
+======================================
+
+Required properties:
+- compatible       : Should be "ti,j721e-cpsw-virt-mac" for J721E Family SoCs
+- dma-coherent	: indicates that device operates with coherent memory.
+- dmas		: list of UDMA controller channel specifiers [2]
+- dma-names	: should be "tx0", "tx1", "tx2", "tx3", "tx4", "tx5", "tx6",
+		"tx7", "rx";
+- ti,psil-base : CPSWxg NUSS PSI-L endpoint thread ID base of the UDMA-P
+		channels. The PSI-L endpoint node thread configuration
+		subnodes must be present present with ti,psil-configX naming
+		convention, where X is the thread ID offset [2].
+- ti,remote-name: Name of the connected rpmsg-kdrv device represented
+		by Eth switch FW running on the on of R5F cores.
+		Should be "mpu_1_0_ethswitch-device-0" for J721E Family SoCs.
+
+Required Sub-nodes:
+- virt_emac_port: contains VIRT CPSWxg Ethernet mac port descriptions
+	Optional properties - all ports:
+	- ti,label : Describes the label associated with this port
+	- local-mac-address: array of 6 bytes, the assigned MAC address [3].
+
+The MAC address provided by Eth switch FW will be used if neither of
+"mac-address" and "local-mac-address" is defined.
+
+References:
+ [2] Documentation/devicetree/bindings/dma/ti/k3-udma.yaml
+ [3] Documentation/devicetree/bindings/net/ethernet-controller.yaml
+
+Examples:
+	cpsw9g_virt_mac: main_r5fss_cpsw9g_virt_mac0 {
+		compatible = "ti,j721e-cpsw-virt-mac";
+		dma-coherent;
+		ti,psil-base = <0x4a00>;
+		ti,remote-name = "mpu_1_0_ethswitch-device-0";
+
+		dmas = <&main_udmap 0xca00>,
+		       <&main_udmap 0xca01>,
+		       <&main_udmap 0xca02>,
+		       <&main_udmap 0xca03>,
+		       <&main_udmap 0xca04>,
+		       <&main_udmap 0xca05>,
+		       <&main_udmap 0xca06>,
+		       <&main_udmap 0xca07>,
+		       <&main_udmap 0x4a00>;
+		dma-names = "tx0", "tx1", "tx2", "tx3",
+			    "tx4", "tx5", "tx6", "tx7",
+			    "rx";
+
+		virt_emac_port {
+			ti,label = "virt-port";
+			/* local-mac-address = [0 0 0 0 0 0]; */
+		};
+	};
