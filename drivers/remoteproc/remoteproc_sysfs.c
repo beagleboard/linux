@@ -234,6 +234,12 @@ static ssize_t state_store(struct device *dev,
 		    rproc->state != RPROC_ATTACHED)
 			return -EINVAL;
 
+		if (rproc->state == RPROC_ATTACHED &&
+		    rproc->detach_on_shutdown) {
+			dev_err(&rproc->dev, "stop not supported for this rproc, use detach\n");
+			return -EINVAL;
+		}
+
 		rproc_shutdown(rproc);
 		if (!rproc->auto_boot)
 			module_put(dev->parent->driver->owner);

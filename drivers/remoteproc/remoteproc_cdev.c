@@ -42,6 +42,13 @@ static ssize_t rproc_cdev_write(struct file *filp, const char __user *buf, size_
 		    rproc->state != RPROC_ATTACHED)
 			return -EINVAL;
 
+		if (rproc->state == RPROC_ATTACHED &&
+		    rproc->detach_on_shutdown) {
+			dev_err(&rproc->dev,
+				"stop not supported for this rproc, use detach\n");
+			return -EINVAL;
+		}
+
 		rproc_shutdown(rproc);
 	} else if (!strncmp(cmd, "detach", len)) {
 		if (rproc->state != RPROC_ATTACHED)

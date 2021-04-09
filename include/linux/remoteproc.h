@@ -523,6 +523,8 @@ struct rproc_dump_segment {
  * @nb_vdev: number of vdev currently handled by rproc
  * @char_dev: character device of the rproc
  * @cdev_put_on_release: flag to indicate if remoteproc should be shutdown on @char_dev release
+ * @detach_on_shutdown: flag to indicate if remoteproc cannot be shutdown in
+ *			attached state and _only_ support detach
  */
 struct rproc {
 	struct list_head node;
@@ -563,6 +565,7 @@ struct rproc {
 	u16 elf_machine;
 	struct cdev cdev;
 	bool cdev_put_on_release;
+	bool detach_on_shutdown;
 };
 
 /**

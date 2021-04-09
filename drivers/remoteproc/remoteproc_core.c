@@ -2144,7 +2144,10 @@ void rproc_shutdown(struct rproc *rproc)
 	if (!atomic_dec_and_test(&rproc->power))
 		goto out;
 
-	ret = rproc_stop(rproc, false);
+	if (rproc->detach_on_shutdown && rproc->state == RPROC_ATTACHED)
+		ret = __rproc_detach(rproc);
+	else
+		ret = rproc_stop(rproc, false);
 	if (ret) {
 		atomic_inc(&rproc->power);
 		goto out;
