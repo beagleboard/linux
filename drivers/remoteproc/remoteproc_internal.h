@@ -121,6 +121,14 @@ static inline int rproc_attach_device(struct rproc *rproc)
 	return 0;
 }
 
+static inline int rproc_detach_device(struct rproc *rproc)
+{
+	if (rproc->ops->detach)
+		return rproc->ops->detach(rproc);
+
+	return 0;
+}
+
 static inline
 int rproc_fw_sanity_check(struct rproc *rproc, const struct firmware *fw)
 {

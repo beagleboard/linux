@@ -1911,7 +1911,7 @@ static int __rproc_detach(struct rproc *rproc)
 	}
 
 	/* Tell the remote processor the core isn't available anymore */
-	ret = rproc->ops->detach(rproc);
+	ret = rproc_detach_device(rproc);
 	if (ret) {
 		dev_err(dev, "can't detach from rproc: %d\n", ret);
 		return ret;
