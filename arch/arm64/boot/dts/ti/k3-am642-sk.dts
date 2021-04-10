@@ -460,3 +460,7 @@
 			<&main_r5fss1_core1_memory_region>;
 	sram = <&main_r5fss1_core1_sram>;
 };
+
+&tscadc0 {
+	status = "disabled";
+};

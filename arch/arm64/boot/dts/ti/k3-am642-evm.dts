@@ -576,3 +576,8 @@
 	num-lanes = <1>;
 	status = "disabled";
 };
+
+&tscadc0 {
+	/* ADC is reserved for R5 usage */
+	status = "reserved";
+};
