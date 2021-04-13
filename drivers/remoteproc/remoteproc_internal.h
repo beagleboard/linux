@@ -121,6 +121,14 @@ static inline int rproc_attach_device(struct rproc *rproc)
 	return 0;
 }
 
+static inline int rproc_detach_device(struct rproc *rproc)
+{
+	if (rproc->ops->detach)
+		return rproc->ops->detach(rproc);
+
+	return 0;
+}
+
 static inline
 int rproc_fw_sanity_check(struct rproc *rproc, const struct firmware *fw)
 {
@@ -173,6 +181,16 @@ struct resource_table *rproc_find_loaded_rsc_table(struct rproc *rproc,
 {
 	if (rproc->ops->find_loaded_rsc_table)
 		return rproc->ops->find_loaded_rsc_table(rproc, fw);
+
+	return NULL;
+}
+
+static inline
+struct resource_table *rproc_get_loaded_rsc_table(struct rproc *rproc,
+						  size_t *size)
+{
+	if (rproc->ops->get_loaded_rsc_table)
+		return rproc->ops->get_loaded_rsc_table(rproc, size);
 
 	return NULL;
 }
