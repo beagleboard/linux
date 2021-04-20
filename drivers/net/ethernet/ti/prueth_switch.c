@@ -265,6 +265,15 @@ static const struct prueth_queue_desc col_queue_descs[3] = {
 		.rd_ptr = END_OF_BD_POOL, .wr_ptr = END_OF_BD_POOL, }
 };
 
+void prueth_sw_free_fdb_table(struct prueth *prueth)
+{
+	if (prueth->emac_configured)
+		return;
+
+	kfree(prueth->fdb_tbl);
+	prueth->fdb_tbl = NULL;
+}
+
 void prueth_sw_hostconfig(struct prueth *prueth)
 {
 	void __iomem *dram1_base = prueth->mem[PRUETH_MEM_DRAM1].va;
@@ -961,6 +970,20 @@ static int prueth_sw_purge_fdb(struct prueth_emac *emac)
 	return 0;
 }
 
+int prueth_sw_init_fdb_table(struct prueth *prueth)
+{
+	if (prueth->emac_configured)
+		return 0;
+
+	prueth->fdb_tbl = kmalloc(sizeof(*prueth->fdb_tbl), GFP_KERNEL);
+	if (!prueth->fdb_tbl)
+		return -ENOMEM;
+
+	prueth_sw_fdb_tbl_init(prueth);
+
+	return 0;
+}
+
 int prueth_sw_boot_prus(struct prueth *prueth, struct net_device *ndev)
 {
 	const struct prueth_firmware *pru_firmwares;
@@ -999,18 +1022,8 @@ int prueth_sw_boot_prus(struct prueth *prueth, struct net_device *ndev)
 		goto rproc0_shutdown;
 	}
 
-	prueth->fdb_tbl = kmalloc(sizeof(*prueth->fdb_tbl), GFP_KERNEL);
-	if (!prueth->fdb_tbl) {
-		ret = -ENOMEM;
-		goto rproc1_shutdown;
-	}
-
-	prueth_sw_fdb_tbl_init(prueth);
-
 	return 0;
 
-rproc1_shutdown:
-	rproc_shutdown(prueth->pru1);
 rproc0_shutdown:
 	rproc_shutdown(prueth->pru0);
 	return ret;
@@ -1034,9 +1047,6 @@ int prueth_sw_shutdown_prus(struct prueth_emac *emac, struct net_device *ndev)
 	rproc_shutdown(prueth->pru1);
 	rproc_set_firmware(prueth->pru0, fw_name);
 	rproc_set_firmware(prueth->pru1, fw_name1);
-
-	kfree(prueth->fdb_tbl);
-	prueth->fdb_tbl = NULL;
 
 	return 0;
 }

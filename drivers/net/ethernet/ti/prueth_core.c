@@ -984,10 +984,17 @@ static int emac_ndo_open(struct net_device *ndev)
 	netif_carrier_off(ndev);
 
 	/* reset and start PRU firmware */
-	if (PRUETH_IS_SWITCH(prueth))
-		prueth_sw_emac_config(emac);
-	else
+	if (PRUETH_IS_SWITCH(prueth)) {
+		ret = prueth_sw_emac_config(emac);
+		if (ret)
+			return ret;
+
+		ret = prueth_sw_init_fdb_table(prueth);
+		if (ret)
+			return ret;
+	} else {
 		prueth_emac_config(emac);
+	}
 
 	/* restore stats */
 	emac_set_stats(emac, &emac->stats);
@@ -995,7 +1002,7 @@ static int emac_ndo_open(struct net_device *ndev)
 	if (PRUETH_IS_SWITCH(prueth)) {
 		ret = prueth_sw_boot_prus(prueth, ndev);
 		if (ret)
-			return ret;
+			goto free_mem;
 	} else {
 		/* boot the PRU */
 		ret = emac_set_boot_pru(emac, ndev);
@@ -1045,6 +1052,9 @@ rproc_shutdown:
 	else
 		rproc_shutdown(emac->pru);
 
+free_mem:
+	if (PRUETH_IS_SWITCH(prueth))
+		prueth_sw_free_fdb_table(prueth);
 	return ret;
 }
 
@@ -1085,6 +1095,10 @@ static int emac_ndo_stop(struct net_device *ndev)
 
 	/* save stats */
 	emac_get_stats(emac, &emac->stats);
+
+	/* free table memory of the switch */
+	if (PRUETH_IS_SWITCH(emac->prueth))
+		prueth_sw_free_fdb_table(prueth);
 
 	if (netif_msg_drv(emac))
 		dev_notice(&ndev->dev, "stopped\n");
