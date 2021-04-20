@@ -938,6 +938,32 @@ static int emac_napi_poll(struct napi_struct *napi, int budget)
 	return num_rx_packets;
 }
 
+static int emac_set_boot_pru(struct prueth_emac *emac, struct net_device *ndev)
+{
+	const struct prueth_firmware *pru_firmwares;
+	struct prueth *prueth = emac->prueth;
+	const char *fw_name;
+	int ret = 0;
+
+	pru_firmwares = &prueth->fw_data->fw_pru[emac->port_id - 1];
+	fw_name = pru_firmwares->fw_name[PRUSS_ETHTYPE_EMAC];
+
+	ret = rproc_set_firmware(emac->pru, fw_name);
+	if (ret) {
+		netdev_err(ndev, "failed to set PRU0 firmware %s: %d\n",
+			   fw_name, ret);
+		return ret;
+	}
+
+	ret = rproc_boot(emac->pru);
+	if (ret) {
+		netdev_err(ndev, "failed to boot PRU0: %d\n", ret);
+		return ret;
+	}
+
+	return ret;
+}
+
 /**
  * emac_ndo_open - EMAC device open
  * @ndev: network adapter device
@@ -972,7 +998,7 @@ static int emac_ndo_open(struct net_device *ndev)
 			return ret;
 	} else {
 		/* boot the PRU */
-		ret = rproc_boot(emac->pru);
+		ret = emac_set_boot_pru(emac, ndev);
 		if (ret) {
 			netdev_err(ndev, "failed to boot PRU: %d\n", ret);
 			return ret;
@@ -1064,6 +1090,91 @@ static int emac_ndo_stop(struct net_device *ndev)
 		dev_notice(&ndev->dev, "stopped\n");
 
 	return 0;
+}
+
+static void prueth_change_to_switch_mode(struct prueth *prueth)
+{
+	bool portstatus[PRUETH_NUM_MACS];
+	struct prueth_emac *emac;
+	struct net_device *ndev;
+	int i, ret;
+
+	for (i = 0; i < PRUETH_NUM_MACS; i++) {
+		emac = prueth->emac[i];
+		ndev = emac->ndev;
+
+		portstatus[i] = netif_running(ndev);
+		if (!portstatus[i])
+			continue;
+
+		ret = ndev->netdev_ops->ndo_stop(ndev);
+		if (ret < 0) {
+			netdev_err(ndev, "failed to stop: %d", ret);
+			return;
+		}
+	}
+
+	prueth->eth_type = PRUSS_ETHTYPE_SWITCH;
+
+	prueth_hostinit(prueth);
+
+	for (i = 0; i < PRUETH_NUM_MACS; i++) {
+		emac = prueth->emac[i];
+		ndev = emac->ndev;
+
+		if (!portstatus[i])
+			continue;
+
+		ret = ndev->netdev_ops->ndo_open(ndev);
+		if (ret < 0) {
+			netdev_err(ndev, "failed to start: %d", ret);
+			return;
+		}
+	}
+
+	dev_info(prueth->dev, "TI PRU ethernet now in Switch mode\n");
+}
+
+static void prueth_change_to_emac_mode(struct prueth *prueth)
+{
+	struct prueth_emac *emac;
+	struct net_device *ndev;
+	bool portstatus[PRUETH_NUM_MACS];
+	int i, ret;
+
+	for (i = 0; i < PRUETH_NUM_MACS; i++) {
+		emac = prueth->emac[i];
+		ndev = emac->ndev;
+
+		portstatus[i] = netif_running(ndev);
+		if (!portstatus[i])
+			continue;
+
+		ret = ndev->netdev_ops->ndo_stop(ndev);
+		if (ret < 0) {
+			netdev_err(ndev, "failed to stop: %d", ret);
+			return;
+		}
+	}
+
+	prueth->eth_type = PRUSS_ETHTYPE_EMAC;
+	prueth_hostinit(prueth);
+
+	for (i = 0; i < PRUETH_NUM_MACS; i++) {
+		emac = prueth->emac[i];
+		ndev = emac->ndev;
+
+		if (!portstatus[i])
+			continue;
+
+		ret = ndev->netdev_ops->ndo_open(ndev);
+		if (ret < 0) {
+			netdev_err(ndev, "failed to start: %d", ret);
+			return;
+		}
+	}
+
+	dev_info(prueth->dev, "TI PRU ethernet now in Dual EMAC mode\n");
 }
 
 /**
@@ -1816,6 +1927,16 @@ static void prueth_port_offload_fwd_mark_update(struct prueth *prueth)
 
 	for (i = 0; i < PRUETH_NUM_MACS; i++)
 		prueth->emac[i]->offload_fwd_mark = set_val;
+
+	/* Bridge is created, load switch firmware, if not already in
+	 * that mode
+	 */
+	if (set_val && !PRUETH_IS_SWITCH(prueth))
+		prueth_change_to_switch_mode(prueth);
+
+	/* Bridge is deleted, switch to Dual EMAC mode */
+	if (!prueth->br_members && !PRUETH_IS_EMAC(prueth))
+		prueth_change_to_emac_mode(prueth);
 }
 
 static int prueth_ndev_port_link(struct net_device *ndev,
@@ -1938,6 +2059,7 @@ static int prueth_probe(struct platform_device *pdev)
 
 	prueth->dev = dev;
 
+	prueth->fw_data = match->data;
 	eth0_node = of_get_child_by_name(np, "ethernet-mii0");
 	if (!of_device_is_available(eth0_node)) {
 		of_node_put(eth0_node);
@@ -2266,11 +2388,63 @@ static const struct dev_pm_ops prueth_dev_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(prueth_suspend, prueth_resume)
 };
 
+/* AM33xx SoC-specific firmware data */
+static struct prueth_private_data am335x_prueth_pdata = {
+	.fw_pru[PRUSS_PRU0] = {
+		.fw_name[PRUSS_ETHTYPE_EMAC] =
+			"ti-pruss/am335x-pru0-prueth-fw.elf",
+	},
+	.fw_pru[PRUSS_PRU1] = {
+		.fw_name[PRUSS_ETHTYPE_EMAC] =
+			"ti-pruss/am335x-pru1-prueth-fw.elf",
+	},
+};
+
+/* AM437x SoC-specific firmware data */
+static struct prueth_private_data am437x_prueth_pdata = {
+	.fw_pru[PRUSS_PRU0] = {
+		.fw_name[PRUSS_ETHTYPE_EMAC] =
+			"ti-pruss/am437x-pru0-prueth-fw.elf",
+	},
+	.fw_pru[PRUSS_PRU1] = {
+		.fw_name[PRUSS_ETHTYPE_EMAC] =
+			"ti-pruss/am437x-pru1-prueth-fw.elf",
+	},
+};
+
+/* AM57xx SoC-specific firmware data */
+static struct prueth_private_data am57xx_prueth_pdata = {
+	.fw_pru[PRUSS_PRU0] = {
+		.fw_name[PRUSS_ETHTYPE_EMAC] =
+			"ti-pruss/am57xx-pru0-prueth-fw.elf",
+		.fw_name[PRUSS_ETHTYPE_SWITCH] =
+			"ti-pruss/am57xx-pru0-prusw-fw.elf",
+	},
+	.fw_pru[PRUSS_PRU1] = {
+		.fw_name[PRUSS_ETHTYPE_EMAC] =
+			"ti-pruss/am57xx-pru1-prueth-fw.elf",
+		.fw_name[PRUSS_ETHTYPE_SWITCH] =
+			"ti-pruss/am57xx-pru1-prusw-fw.elf",
+	},
+};
+
+/* 66AK2G SoC-specific firmware data */
+static struct prueth_private_data k2g_prueth_pdata = {
+	.fw_pru[PRUSS_PRU0] = {
+		.fw_name[PRUSS_ETHTYPE_EMAC] =
+			"ti-pruss/k2g-pru0-prueth-fw.elf",
+	},
+	.fw_pru[PRUSS_PRU1] = {
+		.fw_name[PRUSS_ETHTYPE_EMAC] =
+			"ti-pruss/k2g-pru1-prueth-fw.elf",
+	},
+};
+
 static const struct of_device_id prueth_dt_match[] = {
-	{ .compatible = "ti,am57-prueth", },
-	{ .compatible = "ti,am4376-prueth", },
-	{ .compatible = "ti,am3359-prueth", },
-	{ .compatible = "ti,k2g-prueth", },
+	{ .compatible = "ti,am57-prueth", .data = &am57xx_prueth_pdata, },
+	{ .compatible = "ti,am4376-prueth", .data = &am437x_prueth_pdata, },
+	{ .compatible = "ti,am3359-prueth", .data = &am335x_prueth_pdata, },
+	{ .compatible = "ti,k2g-prueth", .data = &k2g_prueth_pdata, },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, prueth_dt_match);

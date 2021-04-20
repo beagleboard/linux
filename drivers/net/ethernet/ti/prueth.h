@@ -29,6 +29,18 @@
 /* Encoding: 32-16: Reserved, 16-8: Reg dump version, 8-0: Ethertype  */
 #define PRUETH_REG_DUMP_GET_VER(x)	((PRUETH_REG_DUMP_VER << 8) | ((x)->eth_type))
 
+/* PRU Ethernet Type - Ethernet functionality (protocol
+ * implemented) provided by the PRU firmware being loaded.
+ */
+enum pruss_ethtype {
+	PRUSS_ETHTYPE_EMAC = 0,
+	PRUSS_ETHTYPE_SWITCH = 3,
+	PRUSS_ETHTYPE_MAX,
+};
+
+#define PRUETH_IS_EMAC(p)	((p)->eth_type == PRUSS_ETHTYPE_EMAC)
+#define PRUETH_IS_SWITCH(p)	((p)->eth_type == PRUSS_ETHTYPE_SWITCH)
+
 /**
  * struct prueth_queue_desc - Queue descriptor
  * @rd_ptr:	Read pointer, points to a buffer descriptor in Shared PRU RAM.
@@ -259,11 +271,18 @@ enum prueth_mem {
 };
 
 /**
+ * @fw_name: firmware names of firmware to run on PRU
+ */
+struct prueth_firmware {
+	const char *fw_name[PRUSS_ETHTYPE_MAX];
+};
+
+/**
  * struct prueth_private_data - PRU Ethernet private data
  * @fw_names: firmware names to be used for PRUSS ethernet usecases
  */
 struct prueth_private_data {
-	const char *fw_names[PRUSS_NUM_PRUS];
+	struct prueth_firmware fw_pru[PRUSS_NUM_PRUS];
 };
 
 struct nsp_counter {
@@ -351,6 +370,7 @@ struct prueth {
 	struct gen_pool *sram_pool;
 	struct regmap *mii_rt;
 	struct regmap *iep;
+	const struct prueth_private_data *fw_data;
 
 	struct device_node *eth_node[PRUETH_NUM_MACS];
 	struct prueth_emac *emac[PRUETH_NUM_MACS];
