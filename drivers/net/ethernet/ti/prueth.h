@@ -19,7 +19,8 @@
 
 #define EMAC_POLL_WEIGHT	(64) /* Default NAPI poll weight */
 #define EMAC_MAX_PKTLEN		(ETH_HLEN + VLAN_HLEN + ETH_DATA_LEN)
-#define EMAC_MIN_PKTLEN		(60)
+
+#define PRUETH_NSP_TIMER_MS	(100) /* Refresh NSP counters every 100ms */
 
 #define PRUETH_REG_DUMP_VER		1
 
@@ -174,7 +175,9 @@ struct port_statistics {
 	u32 excess_coll;
 
 	u32 rx_misalignment_frames;
-	u32 stormprev_counter;
+	u32 stormprev_counter_bc;
+	u32 stormprev_counter_mc;
+	u32 stormprev_counter_uc;
 	u32 mac_rxerror;
 	u32 sfd_error;
 	u32 def_tx;
@@ -257,6 +260,11 @@ struct prueth_private_data {
 	const char *fw_names[PRUSS_NUM_PRUS];
 };
 
+struct nsp_counter {
+	unsigned long cookie;
+	u16 credit;
+};
+
 /* data for each emac port */
 struct prueth_emac {
 	struct prueth *prueth;
@@ -293,6 +301,11 @@ struct prueth_emac {
 	unsigned char mc_filter_mask[ETH_ALEN];	/* for multicast filtering */
 
 	spinlock_t lock;	/* serialize access */
+
+	struct nsp_counter nsp_bc;
+	struct nsp_counter nsp_mc;
+	struct nsp_counter nsp_uc;
+	bool nsp_enabled;
 };
 
 /**
@@ -323,5 +336,8 @@ struct prueth {
 	struct prueth_emac *emac[PRUETH_NUM_MACS];
 	struct net_device *registered_netdevs[PRUETH_NUM_MACS];
 };
+
+int emac_ndo_setup_tc(struct net_device *dev, enum tc_setup_type type,
+		      void *type_data);
 
 #endif /* __NET_TI_PRUETH_H */
