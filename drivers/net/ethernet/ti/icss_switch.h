@@ -13,6 +13,7 @@
 #define SWITCH_BUFFER_SIZE	(64 * 1024)	/* L3 buffer */
 #define ICSS_BLOCK_SIZE		32		/* data bytes per BD */
 #define BD_SIZE			4		/* byte buffer descriptor */
+#define NUM_QUEUES		4		/* Queues on Port 0/1/2 */
 
 #define PORT_LINK_MASK		0x1
 #define PORT_IS_HD_MASK		0x2
@@ -31,6 +32,8 @@
 #define HOST_QUEUE_3_SIZE	194	/* Protocol low */
 #define HOST_QUEUE_4_SIZE	194	/* NRT (IP, ARP, ICMP) */
 
+#define COL_QUEUE_SIZE		0
+
 /* NRT Buffer descriptor definition
  * Each buffer descriptor points to a max 32 byte block and has 32 bit in size
  * to have atomic operation.
@@ -41,6 +44,11 @@
  * =============================================================================
  * 0..7		Index		points to index in buffer queue, max 256 x 32
  *				byte blocks can be addressed
+ * 6            LookupSuccess   For switch, FDB lookup was successful (source
+ *                              MAC address found in FDB).
+ *                              For RED, NodeTable lookup was successful.
+ * 7            Flood           Packet should be flooded (destination MAC
+ *                              address found in FDB). For switch only.
  * 8..12	Block_length	number of valid bytes in this specific block.
  *				Will be <=32 bytes on last block of packet
  * 13		More		"More" bit indicating that there are more blocks
@@ -63,7 +71,23 @@
  *				ports,  there will be two bd but only one buffer
  * 31		Error		indicates there was an error in the packet
  */
-#define PRUETH_BD_SHADOW_MASK		BIT(14)
+#define PRUETH_BD_START_FLAG_MASK	BIT(0)
+#define PRUETH_BD_START_FLAG_SHIFT	0
+
+#define PRUETH_BD_HSR_FRAME_MASK	BIT(4)
+#define PRUETH_BD_HSR_FRAME_SHIFT	4
+
+#define PRUETH_BD_SUP_HSR_FRAME_MASK	BIT(5)
+#define PRUETH_BD_SUP_HSR_FRAME_SHIFT	5
+
+#define PRUETH_BD_LOOKUP_SUCCESS_MASK	BIT(6)
+#define PRUETH_BD_LOOKUP_SUCCESS_SHIFT	6
+
+#define PRUETH_BD_SW_FLOOD_MASK		BIT(7)
+#define PRUETH_BD_SW_FLOOD_SHIFT	7
+
+#define	PRUETH_BD_SHADOW_MASK		BIT(14)
+#define	PRUETH_BD_SHADOW_SHIFT		14
 
 #define PRUETH_BD_PORT_MASK		GENMASK(17, 16)
 #define PRUETH_BD_PORT_SHIFT		16
@@ -89,6 +113,15 @@
 /* base statistics offset */
 #define STATISTICS_OFFSET	0x1f00
 #define STAT_SIZE		0x98
+
+/* The following offsets indicate which sections of the memory are used
+ * for switch internal tasks
+ */
+#define SWITCH_SPECIFIC_DRAM0_START_SIZE		0x100
+#define SWITCH_SPECIFIC_DRAM0_START_OFFSET		0x1F00
+
+#define SWITCH_SPECIFIC_DRAM1_START_SIZE		0x300
+#define SWITCH_SPECIFIC_DRAM1_START_OFFSET		0x1D00
 
 /* Offset for storing
  * 1. Storm Prevention Params
@@ -116,7 +149,78 @@
 #define STORM_PREVENTION_OFFSET_MC	(STATISTICS_OFFSET + STAT_SIZE + 25)
 /* 4 bytes */
 #define STORM_PREVENTION_OFFSET_UC	(STATISTICS_OFFSET + STAT_SIZE + 29)
+/* 4 bytes ? */
+#define STP_INVALID_STATE_OFFSET        (STATISTICS_OFFSET + STAT_SIZE + 33)
 
+/* DRAM1 Offsets for Switch */
+/* 4 queue descriptors for port 0 (host receive) */
+#define P0_QUEUE_DESC_OFFSET		0x1E7C
+#define P1_QUEUE_DESC_OFFSET		0x1E9C
+#define P2_QUEUE_DESC_OFFSET		0x1EBC
+/* collision descriptor of port 0 */
+#define P0_COL_QUEUE_DESC_OFFSET	0x1E64
+#define P1_COL_QUEUE_DESC_OFFSET	0x1E6C
+#define P2_COL_QUEUE_DESC_OFFSET	0x1E74
+/* Collision Status Register
+ *    P0: bit 0 is pending flag, bit 1..2 inidicates which queue,
+ *    P1: bit 8 is pending flag, 9..10 is queue number
+ *    P2: bit 16 is pending flag, 17..18 is queue number, remaining bits are 0.
+ */
+#define COLLISION_STATUS_ADDR		0x1E60
+
+#define INTERFACE_MAC_ADDR		0x1E58
+#define P2_MAC_ADDR			0x1E50
+#define P1_MAC_ADDR			0x1E48
+
+#define QUEUE_SIZE_ADDR			0x1E30
+#define QUEUE_OFFSET_ADDR		0x1E18
+#define QUEUE_DESCRIPTOR_OFFSET_ADDR	0x1E00
+
+#define COL_RX_CONTEXT_P2_OFFSET_ADDR	(COL_RX_CONTEXT_P1_OFFSET_ADDR + 12)
+#define COL_RX_CONTEXT_P1_OFFSET_ADDR	(COL_RX_CONTEXT_P0_OFFSET_ADDR + 12)
+#define COL_RX_CONTEXT_P0_OFFSET_ADDR	(P2_Q4_RX_CONTEXT_OFFSET + 8)
+
+/* Port 2 Rx Context */
+#define P2_Q4_RX_CONTEXT_OFFSET		(P2_Q3_RX_CONTEXT_OFFSET + 8)
+#define P2_Q3_RX_CONTEXT_OFFSET		(P2_Q2_RX_CONTEXT_OFFSET + 8)
+#define P2_Q2_RX_CONTEXT_OFFSET		(P2_Q1_RX_CONTEXT_OFFSET + 8)
+#define P2_Q1_RX_CONTEXT_OFFSET		RX_CONTEXT_P2_Q1_OFFSET_ADDR
+#define RX_CONTEXT_P2_Q1_OFFSET_ADDR	(P1_Q4_RX_CONTEXT_OFFSET + 8)
+
+/* Port 1 Rx Context */
+#define P1_Q4_RX_CONTEXT_OFFSET		(P1_Q3_RX_CONTEXT_OFFSET + 8)
+#define P1_Q3_RX_CONTEXT_OFFSET		(P1_Q2_RX_CONTEXT_OFFSET + 8)
+#define P1_Q2_RX_CONTEXT_OFFSET		(P1_Q1_RX_CONTEXT_OFFSET + 8)
+#define P1_Q1_RX_CONTEXT_OFFSET		(RX_CONTEXT_P1_Q1_OFFSET_ADDR)
+#define RX_CONTEXT_P1_Q1_OFFSET_ADDR	(P0_Q4_RX_CONTEXT_OFFSET + 8)
+
+/* Host Port Rx Context */
+#define P0_Q4_RX_CONTEXT_OFFSET		(P0_Q3_RX_CONTEXT_OFFSET + 8)
+#define P0_Q3_RX_CONTEXT_OFFSET		(P0_Q2_RX_CONTEXT_OFFSET + 8)
+#define P0_Q2_RX_CONTEXT_OFFSET		(P0_Q1_RX_CONTEXT_OFFSET + 8)
+#define P0_Q1_RX_CONTEXT_OFFSET		RX_CONTEXT_P0_Q1_OFFSET_ADDR
+#define RX_CONTEXT_P0_Q1_OFFSET_ADDR	(COL_TX_CONTEXT_P2_Q1_OFFSET_ADDR + 8)
+
+/* Port 2 Tx Collision Context */
+#define COL_TX_CONTEXT_P2_Q1_OFFSET_ADDR (COL_TX_CONTEXT_P1_Q1_OFFSET_ADDR + 8)
+/* Port 1 Tx Collision Context */
+#define COL_TX_CONTEXT_P1_Q1_OFFSET_ADDR (P2_Q4_TX_CONTEXT_OFFSET + 8)
+
+/* Port 2 */
+#define P2_Q4_TX_CONTEXT_OFFSET		(P2_Q3_TX_CONTEXT_OFFSET + 8)
+#define P2_Q3_TX_CONTEXT_OFFSET		(P2_Q2_TX_CONTEXT_OFFSET + 8)
+#define P2_Q2_TX_CONTEXT_OFFSET		(P2_Q1_TX_CONTEXT_OFFSET + 8)
+#define P2_Q1_TX_CONTEXT_OFFSET		TX_CONTEXT_P2_Q1_OFFSET_ADDR
+#define TX_CONTEXT_P2_Q1_OFFSET_ADDR	(P1_Q4_TX_CONTEXT_OFFSET + 8)
+
+/* Port 1 */
+#define P1_Q4_TX_CONTEXT_OFFSET		(P1_Q3_TX_CONTEXT_OFFSET + 8)
+#define P1_Q3_TX_CONTEXT_OFFSET		(P1_Q2_TX_CONTEXT_OFFSET + 8)
+#define P1_Q2_TX_CONTEXT_OFFSET		(P1_Q1_TX_CONTEXT_OFFSET + 8)
+#define P1_Q1_TX_CONTEXT_OFFSET		TX_CONTEXT_P1_Q1_OFFSET_ADDR
+#define TX_CONTEXT_P1_Q1_OFFSET_ADDR	SWITCH_SPECIFIC_DRAM1_START_OFFSET
+
+/* Shared RAM Offsets for Switch */
 /* NSP (Network Storm Prevention) timer re-uses NT timer */
 #define PRUETH_NSP_CREDIT_SHIFT       8
 #define PRUETH_NSP_ENABLE            BIT(0)
@@ -207,6 +311,23 @@
 #define P0_Q4_BUFFER_OFFSET	(P0_Q3_BUFFER_OFFSET + HOST_QUEUE_3_SIZE * ICSS_BLOCK_SIZE)
 #define P0_Q3_BUFFER_OFFSET	(P0_Q2_BUFFER_OFFSET + HOST_QUEUE_2_SIZE * ICSS_BLOCK_SIZE)
 #define P0_Q2_BUFFER_OFFSET	(P0_Q1_BUFFER_OFFSET + HOST_QUEUE_1_SIZE * ICSS_BLOCK_SIZE)
+#define P0_COL_BUFFER_OFFSET    0xEE00
 #define P0_Q1_BUFFER_OFFSET	0x0000
+
+/* The below bit will be set in BD for EMAC mode in the egress
+ * direction and reset for PRP mode
+ */
+#define PRUETH_TX_PRP_EMAC_MODE	BIT(0)
+
+/* 1 byte | 0 : Interrupt Pacing disabled | 1 : Interrupt Pacing enabled */
+#define INTR_PAC_STATUS_OFFSET_PRU1             0x1FAE
+/* 1 byte | 0 : Interrupt Pacing disabled | 1 : Interrupt Pacing enabled */
+#define INTR_PAC_STATUS_OFFSET_PRU0             0x1FAF
+
+#define V2_1_FDB_TBL_LOC          PRUETH_MEM_SHARED_RAM
+#define V2_1_FDB_TBL_OFFSET       0x2000
+
+#define FDB_INDEX_TBL_MAX_ENTRIES     256
+#define FDB_MAC_TBL_MAX_ENTRIES       256
 
 #endif /* __ICSS_SWITCH_H */
