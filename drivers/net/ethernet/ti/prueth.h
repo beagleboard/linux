@@ -13,6 +13,7 @@
 #include <linux/pruss.h>
 
 #include "icss_switch.h"
+#include "prueth_ptp.h"
 
 #define PRUETH_NUMQUEUES	5
 
@@ -91,6 +92,7 @@ struct prueth_queue_info {
  * @error: this packet has an error
  * @lookup_success: src mac found in FDB
  * @flood: packet is to be flooded
+ * @timstamp: Specifies if timestamp is appended to the packet
  */
 struct prueth_packet_info {
 	bool shadow;
@@ -100,6 +102,7 @@ struct prueth_packet_info {
 	bool error;
 	bool lookup_success;
 	bool flood;
+	bool timestamp;
 };
 
 /**
@@ -333,6 +336,12 @@ struct prueth_emac {
 	bool nsp_enabled;
 
 	int offload_fwd_mark;
+
+	struct sk_buff *ptp_skb[PRUETH_PTP_TS_EVENTS];
+	spinlock_t ptp_skb_lock;	/* serialize access */
+	int emac_ptp_tx_irq;
+	bool ptp_tx_enable;
+	bool ptp_rx_enable;
 };
 
 /**
@@ -344,7 +353,7 @@ struct prueth_emac {
  * @mem: PRUSS memory resources we need to access
  * @sram_pool: OCMC ram pool for buffers
  * @mii_rt: regmap to mii_rt block
- * @iep: regmap to IEP block
+ * @iep: Pointer to ICSS IEP data
  *
  * @eth_node: node for each emac node
  * @emac: emac data for three ports, one host and two physical
@@ -369,7 +378,7 @@ struct prueth {
 	struct pruss_mem_region mem[PRUETH_MEM_MAX];
 	struct gen_pool *sram_pool;
 	struct regmap *mii_rt;
-	struct regmap *iep;
+	struct icss_iep *iep;
 	const struct prueth_private_data *fw_data;
 
 	struct device_node *eth_node[PRUETH_NUM_MACS];
