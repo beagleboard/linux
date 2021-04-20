@@ -199,4 +199,12 @@ config TI_PRUETH
 	  on PRU cores. This driver supports remoteproc based communication to
 	  PRU firmware to expose ethernet interface to Linux.
 
+config TI_ICSS_IEP
+	tristate "TI PRU ICSS IEP driver"
+	depends on TI_PRUSS
+	default TI_PRUSS
+	help
+	  This enables support for the PRU-ICSS Industrial Ethernet Peripheral
+	  within a PRU-ICSS subsystem present on various TI SoCs.
+
 endif # NET_VENDOR_TI
