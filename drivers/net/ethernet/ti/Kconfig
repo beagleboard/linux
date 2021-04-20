@@ -192,6 +192,7 @@ config TI_RDEV_ETH_SWITCH_VIRT_EMAC
 config TI_PRUETH
 	tristate "TI PRU Ethernet EMAC driver"
 	depends on PRU_REMOTEPROC
+	depends on NET_SWITCHDEV
 	help
 	  Some TI SoCs has Programmable Realtime Units (PRUs) cores which can
 	  support Single or Dual Ethernet ports with help of firmware code running

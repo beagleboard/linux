@@ -33,4 +33,4 @@ obj-$(CONFIG_TI_RDEV_ETH_SWITCH_VIRT_EMAC) += ti-j721e-cpsw-virt-mac.o
 ti-j721e-cpsw-virt-mac-y := j721e-cpsw-virt-mac.o k3-cppi-desc-pool.o
 
 obj-$(CONFIG_TI_PRUETH) += prueth.o
-prueth-y := prueth_core.o prueth_qos.o
+prueth-y := prueth_core.o prueth_qos.o prueth_switch.o
