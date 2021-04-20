@@ -384,6 +384,11 @@ struct prueth {
 	struct notifier_block prueth_sw_switchdev_bl_notifier;
 
 	unsigned int eth_type;
+	/* mutex to enter critical region in ndo_open() and
+	 * ndo_kill() as common resources for switch based firmware is
+	 * to be initialized for the first port in ndo_open() and
+	 * cleaned up on last port in ndo_stop().
+	 */
 	u8 emac_configured;
 	u8 br_members;
 	u8 base_mac[ETH_ALEN];

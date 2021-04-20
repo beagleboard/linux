@@ -983,6 +983,9 @@ static int emac_ndo_open(struct net_device *ndev)
 
 	netif_carrier_off(ndev);
 
+	if (!prueth->emac_configured)
+		prueth_hostinit(prueth);
+
 	/* reset and start PRU firmware */
 	if (PRUETH_IS_SWITCH(prueth)) {
 		ret = prueth_sw_emac_config(emac);
@@ -1035,6 +1038,7 @@ static int emac_ndo_open(struct net_device *ndev)
 
 	/* enable the port */
 	prueth_port_enable(emac, true);
+	prueth->emac_configured |= BIT(emac->port_id);
 
 	if (PRUETH_IS_SWITCH(prueth))
 		prueth_sw_port_set_stp_state(prueth, emac->port_id,
@@ -1055,6 +1059,7 @@ rproc_shutdown:
 free_mem:
 	if (PRUETH_IS_SWITCH(prueth))
 		prueth_sw_free_fdb_table(prueth);
+
 	return ret;
 }
 
@@ -1072,7 +1077,7 @@ static int emac_ndo_stop(struct net_device *ndev)
 	prueth->emac_configured &= ~BIT(emac->port_id);
 
 	/* disable the mac port */
-	prueth_port_enable(emac, 0);
+	prueth_port_enable(emac, false);
 
 	/* stop PHY */
 	phy_stop(emac->phydev);
@@ -1130,8 +1135,6 @@ static void prueth_change_to_switch_mode(struct prueth *prueth)
 
 	prueth->eth_type = PRUSS_ETHTYPE_SWITCH;
 
-	prueth_hostinit(prueth);
-
 	for (i = 0; i < PRUETH_NUM_MACS; i++) {
 		emac = prueth->emac[i];
 		ndev = emac->ndev;
@@ -1172,7 +1175,6 @@ static void prueth_change_to_emac_mode(struct prueth *prueth)
 	}
 
 	prueth->eth_type = PRUSS_ETHTYPE_EMAC;
-	prueth_hostinit(prueth);
 
 	for (i = 0; i < PRUETH_NUM_MACS; i++) {
 		emac = prueth->emac[i];

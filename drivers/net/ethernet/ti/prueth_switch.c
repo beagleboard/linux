@@ -1032,21 +1032,12 @@ rproc0_shutdown:
 int prueth_sw_shutdown_prus(struct prueth_emac *emac, struct net_device *ndev)
 {
 	struct prueth *prueth = emac->prueth;
-	const struct prueth_firmware *pru_firmwares;
-	const char *fw_name, *fw_name1;
 
 	if (prueth->emac_configured)
 		return 0;
 
-	pru_firmwares = &prueth->fw_data->fw_pru[PRUSS_PRU0];
-	fw_name = pru_firmwares->fw_name[PRUSS_ETHTYPE_EMAC];
-	pru_firmwares = &prueth->fw_data->fw_pru[PRUSS_PRU1];
-	fw_name1 = pru_firmwares->fw_name[PRUSS_ETHTYPE_EMAC];
-
 	rproc_shutdown(prueth->pru0);
 	rproc_shutdown(prueth->pru1);
-	rproc_set_firmware(prueth->pru0, fw_name);
-	rproc_set_firmware(prueth->pru1, fw_name1);
 
 	return 0;
 }
