@@ -519,6 +519,7 @@ struct rproc_dump_segment {
  * @has_iommu: flag to indicate if remote processor is behind an MMU
  * @auto_boot: flag to indicate if remote processor should be auto-started
  * @deny_sysfs_ops: flag to not permit sysfs store operations
+ * @skip_firmware_load: flag to skip requesting and loading the firmware
  * @dump_segments: list of segments in the firmware
  * @nb_vdev: number of vdev currently handled by rproc
  * @char_dev: character device of the rproc
@@ -559,6 +560,7 @@ struct rproc {
 	bool has_iommu;
 	bool auto_boot;
 	bool deny_sysfs_ops;
+	bool skip_firmware_load;
 	struct list_head dump_segments;
 	int nb_vdev;
 	u8 elf_class;
