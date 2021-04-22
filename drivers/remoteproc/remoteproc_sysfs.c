@@ -148,7 +148,7 @@ static ssize_t firmware_show(struct device *dev, struct device_attribute *attr,
 	 * entity we have no idea of what image it is running.  As such
 	 * simply display a generic string rather then rproc->firmware.
 	 */
-	if (rproc->state == RPROC_ATTACHED)
+	if (rproc->state == RPROC_ATTACHED || rproc->skip_firmware_load)
 		firmware = "unknown";
 
 	return sprintf(buf, "%s\n", firmware);

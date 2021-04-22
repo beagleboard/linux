@@ -23,6 +23,13 @@
 		#size-cells = <2>;
 		ranges;
 
+		dsp_common_mpm_memory: dsp-common-mpm-memory@81d000000 {
+			compatible = "ti,keystone-dsp-mem-pool";
+			reg = <0x00000008 0x1d000000 0x00000000 0x2800000>;
+			no-map;
+			status = "okay";
+		};
+
 		dsp_common_memory: dsp-common-memory@81f800000 {
 			compatible = "shared-dma-pool";
 			reg = <0x00000008 0x1f800000 0x00000000 0x800000>;
