@@ -1,0 +1,73 @@
+TI Keystone DSP Memory Mapping
+==============================
+
+Binding status: Unstable - ABI compatibility may be broken in the future
+
+The Keystone DSP Memory Mapping binding defines the memory regions that
+are reserved to be used with DSPs. These regions can be mapped into
+userspace for providing direct user-mode access to these regions for the
+purposes of shared memory communication with the DSP remote processor
+devices on the SoC. These memory regions can also be used for supporting
+user-space based loading of the DSP remoteproc devices.
+
+The memory regions can either be from regular DDR memory or from the
+On-chip RAM, and there can be one or more regions of each memory type.
+
+DDR Memory usage (Optional):
+----------------------------
+One or more memory regions from DDR memory can be reserved specifically
+to be used by the DSPs on the SoC. Each region should be defined as a
+child node of the reserved-memory node with the following required
+properties:
+
+- compatible : Should be "ti,keystone-dsp-mem-pool"
+- reg        : Should contain the region's start address and size following
+               the #address-cells and #size-cells defined in the parent
+               reserved-memory node.
+- no-map     : Should be defined to remove this region from kernel
+
+Please see Documentation/devicetree/bindings/reserved-memory/reserved-memory.txt
+for more details on reserved-memory node.
+
+SRAM usage (Optional):
+----------------------
+The On-chip Multicore Shared Memory (MSM) RAM can also be exposed to
+userspace by defining specific child nodes under the corresponding parent
+SRAM node. The generic SRAM binding is as per the binding document
+Documentation/devicetree/bindings/misc/sram.txt. Following properties
+should be used in each corresponding child node for the userspace mapping
+usecase:
+
+- compatible : Should be "ti,keystone-dsp-msm-ram"
+- reg        : Should contain a pair of values for the address and size
+               of the region, following the parent-child ranges convention.
+
+Example:
+--------
+	/* 66AK2H EVM */
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		dsp_common_mpm_memory: dsp-common-mpm-memory@820000000 {
+			compatible = "ti,keystone-dsp-mem-pool";
+			reg = <0x00000008 0x20000000 0x00000000 0x20000000>;
+			no-map;
+		};
+	};
+
+	soc {
+		msm_ram: msmram@c000000 {
+			compatible = "mmio-sram";
+			reg = <0x0c000000 0x600000>;
+			ranges = <0x0 0x0c000000 0x600000>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			mpm-sram@0 {
+				compatible = "ti,keystone-dsp-msm-ram";
+				reg = <0x0 0x80000>;
+			};
+		};
+	};
