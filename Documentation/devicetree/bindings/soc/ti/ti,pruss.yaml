@@ -84,6 +84,8 @@ properties:
   dma-ranges:
     maxItems: 1
 
+  dma-coherent: true
+
   power-domains:
     description: |
       This property is as per sci-pm-domain.txt.
