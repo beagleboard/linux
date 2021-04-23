@@ -546,8 +546,10 @@ static int pru_handle_intrmap(struct rproc *rproc)
 	pru->evt_count = rsc->num_evts;
 	pru->mapped_irq = kcalloc(pru->evt_count, sizeof(unsigned int),
 				  GFP_KERNEL);
-	if (!pru->mapped_irq)
+	if (!pru->mapped_irq) {
+		pru->evt_count = 0;
 		return -ENOMEM;
+	}
 
 	/*
 	 * parse and fill in system event to interrupt channel and
@@ -556,8 +558,12 @@ static int pru_handle_intrmap(struct rproc *rproc)
 	 * corresponding sibling PRUSS INTC node.
 	 */
 	parent = of_get_parent(dev_of_node(pru->dev));
-	if (!parent)
+	if (!parent) {
+		kfree(pru->mapped_irq);
+		pru->mapped_irq = NULL;
+		pru->evt_count = 0;
 		return -ENODEV;
+	}
 
 	irq_parent = of_get_child_by_name(parent, "interrupt-controller");
 	of_node_put(parent);
