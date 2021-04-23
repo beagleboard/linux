@@ -318,10 +318,11 @@ static int stm32_irq_set_type(struct irq_data *d, unsigned int type)
 	struct irq_chip_generic *gc = irq_data_get_irq_chip_data(d);
 	struct stm32_exti_chip_data *chip_data = gc->private;
 	const struct stm32_exti_bank *stm32_bank = chip_data->reg_bank;
+	unsigned long flags;
 	u32 rtsr, ftsr;
 	int err;
 
-	irq_gc_lock(gc);
+	flags = irq_gc_lock(gc);
 
 	err = stm32_exti_hwspin_lock(chip_data);
 	if (err)
@@ -340,7 +341,7 @@ static int stm32_irq_set_type(struct irq_data *d, unsigned int type)
 unspinlock:
 	stm32_exti_hwspin_unlock(chip_data);
 unlock:
-	irq_gc_unlock(gc);
+	irq_gc_unlock(gc, flags);
 
 	return err;
 }
@@ -374,19 +375,21 @@ static void stm32_chip_resume(struct stm32_exti_chip_data *chip_data,
 static void stm32_irq_suspend(struct irq_chip_generic *gc)
 {
 	struct stm32_exti_chip_data *chip_data = gc->private;
+	unsigned long flags;
 
-	irq_gc_lock(gc);
+	flags = irq_gc_lock(gc);
 	stm32_chip_suspend(chip_data, gc->wake_active);
-	irq_gc_unlock(gc);
+	irq_gc_unlock(gc, flags);
 }
 
 static void stm32_irq_resume(struct irq_chip_generic *gc)
 {
 	struct stm32_exti_chip_data *chip_data = gc->private;
+	unsigned long flags;
 
-	irq_gc_lock(gc);
+	flags = irq_gc_lock(gc);
 	stm32_chip_resume(chip_data, gc->mask_cache);
-	irq_gc_unlock(gc);
+	irq_gc_unlock(gc, flags);
 }
 
 static int stm32_exti_alloc(struct irq_domain *d, unsigned int virq,
@@ -421,14 +424,15 @@ static void stm32_irq_ack(struct irq_data *d)
 	struct irq_chip_generic *gc = irq_data_get_irq_chip_data(d);
 	struct stm32_exti_chip_data *chip_data = gc->private;
 	const struct stm32_exti_bank *stm32_bank = chip_data->reg_bank;
+	unsigned long flags;
 
-	irq_gc_lock(gc);
+	flags = irq_gc_lock(gc);
 
 	irq_reg_writel(gc, d->mask, stm32_bank->rpr_ofst);
 	if (stm32_bank->fpr_ofst != UNDEF_REG)
 		irq_reg_writel(gc, d->mask, stm32_bank->fpr_ofst);
 
-	irq_gc_unlock(gc);
+	irq_gc_unlock(gc, flags);
 }
 
 /* directly set the target bit without reading first. */

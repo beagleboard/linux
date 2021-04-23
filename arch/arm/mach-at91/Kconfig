@@ -40,6 +40,7 @@ config SOC_SAMA5D3
 	select HAVE_AT91_SMD
 	select HAVE_AT91_USB_CLK
 	select PINCTRL_AT91
+	select IPIPE_ARM_KUSER_TSC if IPIPE
 	help
 	  Select this if you are using one of Microchip's SAMA5D3 family SoC.
 	  This support covers SAMA5D31, SAMA5D33, SAMA5D34, SAMA5D35, SAMA5D36.

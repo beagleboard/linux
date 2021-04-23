@@ -23,6 +23,7 @@
 #include <linux/slab.h>
 #include <linux/pinctrl/consumer.h>
 #include <linux/pm.h>
+#include <linux/ipipe.h>
 
 #define GPIODIR 0x400
 #define GPIOIS  0x404
@@ -47,7 +48,11 @@ struct pl061_context_save_regs {
 #endif
 
 struct pl061 {
+#ifdef CONFIG_IPIPE
+	ipipe_spinlock_t	lock;
+#else
 	raw_spinlock_t		lock;
+#endif
 
 	void __iomem		*base;
 	struct gpio_chip	gc;
@@ -219,14 +224,30 @@ static void pl061_irq_handler(struct irq_desc *desc)
 	pending = readb(pl061->base + GPIOMIS);
 	if (pending) {
 		for_each_set_bit(offset, &pending, PL061_GPIO_NR)
-			generic_handle_irq(irq_find_mapping(gc->irq.domain,
-							    offset));
+			ipipe_handle_demuxed_irq(irq_find_mapping(gc->irq.domain,
+								  offset));
 	}
 
 	chained_irq_exit(irqchip, desc);
 }
 
 static void pl061_irq_mask(struct irq_data *d)
+{
+	struct gpio_chip *gc = irq_data_get_irq_chip_data(d);
+	struct pl061 *pl061 = gpiochip_get_data(gc);
+	u8 mask = BIT(irqd_to_hwirq(d) % PL061_GPIO_NR);
+	unsigned long flags;
+	u8 gpioie;
+
+	raw_spin_lock_irqsave(&pl061->lock, flags);
+	gpioie = readb(pl061->base + GPIOIE) & ~mask;
+	writeb(gpioie, pl061->base + GPIOIE);
+	ipipe_lock_irq(d->irq);
+	raw_spin_unlock_irqrestore(&pl061->lock, flags);
+}
+
+#ifdef CONFIG_IPIPE
+static void pl061_irq_mask_ack(struct irq_data *d)
 {
 	struct gpio_chip *gc = irq_data_get_irq_chip_data(d);
 	struct pl061 *pl061 = gpiochip_get_data(gc);
@@ -238,6 +259,7 @@ static void pl061_irq_mask(struct irq_data *d)
 	writeb(gpioie, pl061->base + GPIOIE);
 	raw_spin_unlock(&pl061->lock);
 }
+#endif
 
 static void pl061_irq_unmask(struct irq_data *d)
 {
@@ -320,6 +342,10 @@ static int pl061_probe(struct amba_device *adev, const struct amba_id *id)
 	pl061->irq_chip.irq_unmask = pl061_irq_unmask;
 	pl061->irq_chip.irq_set_type = pl061_irq_type;
 	pl061->irq_chip.irq_set_wake = pl061_irq_set_wake;
+#ifdef CONFIG_IPIPE
+	pl061->irq_chip.irq_mask_ack = pl061_irq_mask_ack;
+	pl061->irq_chip.flags = IRQCHIP_PIPELINE_SAFE;
+#endif
 
 	writeb(0, pl061->base + GPIOIE); /* disable irqs */
 	irq = adev->irq[0];

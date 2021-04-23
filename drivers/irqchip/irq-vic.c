@@ -21,6 +21,7 @@
 #include <linux/device.h>
 #include <linux/amba/bus.h>
 #include <linux/irqchip/arm-vic.h>
+#include <linux/ipipe.h>
 
 #include <asm/exception.h>
 #include <asm/irq.h>
@@ -205,7 +206,7 @@ static int handle_one_vic(struct vic_device *vic, struct pt_regs *regs)
 
 	while ((stat = readl_relaxed(vic->base + VIC_IRQ_STATUS))) {
 		irq = ffs(stat) - 1;
-		handle_domain_irq(vic->domain, irq, regs);
+		ipipe_handle_domain_irq(vic->domain, irq, regs);
 		handled = 1;
 	}
 
@@ -222,7 +223,7 @@ static void vic_handle_irq_cascaded(struct irq_desc *desc)
 
 	while ((stat = readl_relaxed(vic->base + VIC_IRQ_STATUS))) {
 		hwirq = ffs(stat) - 1;
-		generic_handle_irq(irq_find_mapping(vic->domain, hwirq));
+		ipipe_handle_demuxed_irq(irq_find_mapping(vic->domain, hwirq));
 	}
 
 	chained_irq_exit(host_chip, desc);
@@ -326,7 +327,7 @@ static void vic_unmask_irq(struct irq_data *d)
 #if defined(CONFIG_PM)
 static struct vic_device *vic_from_irq(unsigned int irq)
 {
-        struct vic_device *v = vic_devices;
+	struct vic_device *v = vic_devices;
 	unsigned int base_irq = irq & ~31;
 	int id;
 
@@ -365,8 +366,12 @@ static struct irq_chip vic_chip = {
 	.name		= "VIC",
 	.irq_ack	= vic_ack_irq,
 	.irq_mask	= vic_mask_irq,
+#ifdef CONFIG_IPIPE
+	.irq_mask_ack   = vic_ack_irq,
+#endif /* CONFIG_IPIPE */
 	.irq_unmask	= vic_unmask_irq,
 	.irq_set_wake	= vic_set_wake,
+	.flags		= IRQCHIP_PIPELINE_SAFE,
 };
 
 static void __init vic_disable(void __iomem *base)
