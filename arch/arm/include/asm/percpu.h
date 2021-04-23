@@ -6,12 +6,15 @@
 #define _ASM_ARM_PERCPU_H_
 
 #include <asm/thread_info.h>
+#include <asm/ipipe_base.h>
 
 /*
  * Same as asm-generic/percpu.h, except that we store the per cpu offset
  * in the TPIDRPRW. TPIDRPRW only exists on V6K and V7
  */
-#if defined(CONFIG_SMP) && !defined(CONFIG_CPU_V6)
+#if defined(CONFIG_SMP) && !defined(CONFIG_CPU_V6) && \
+	(!defined(CONFIG_IPIPE) ||					\
+		(!defined(CONFIG_SMP_ON_UP) && !defined(CONFIG_IPIPE_TRACE)))
 static inline void set_my_cpu_offset(unsigned long off)
 {
 	/* Set TPIDRPRW */
@@ -34,6 +37,10 @@ static inline unsigned long __my_cpu_offset(void)
 }
 #define __my_cpu_offset __my_cpu_offset()
 #else
+#if defined(CONFIG_SMP) && defined(CONFIG_IPIPE)
+#define __my_cpu_offset (per_cpu_offset(ipipe_processor_id()))
+#endif /* SMP && IPIPE */
+
 #define set_my_cpu_offset(x)	do {} while(0)
 
 #endif /* CONFIG_SMP */

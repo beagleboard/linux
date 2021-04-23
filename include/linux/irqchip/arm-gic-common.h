@@ -10,7 +10,12 @@
 #include <linux/types.h>
 #include <linux/ioport.h>
 
+#ifndef CONFIG_IPIPE
 #define GICD_INT_DEF_PRI		0xa0
+#else
+#define GICD_INT_DEF_PRI		0x10
+#endif
+
 #define GICD_INT_DEF_PRI_X4		((GICD_INT_DEF_PRI << 24) |\
 					(GICD_INT_DEF_PRI << 16) |\
 					(GICD_INT_DEF_PRI << 8) |\

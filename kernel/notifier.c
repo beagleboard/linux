@@ -6,6 +6,7 @@
 #include <linux/rcupdate.h>
 #include <linux/vmalloc.h>
 #include <linux/reboot.h>
+#include <linux/ipipe.h>
 
 /*
  *	Notifier list for kernel code which wants to be called
@@ -195,6 +196,9 @@ NOKPROBE_SYMBOL(__atomic_notifier_call_chain);
 int atomic_notifier_call_chain(struct atomic_notifier_head *nh,
 			       unsigned long val, void *v)
 {
+	if (!ipipe_root_p)
+		return notifier_call_chain(&nh->head, val, v, -1, NULL);
+
 	return __atomic_notifier_call_chain(nh, val, v, -1, NULL);
 }
 EXPORT_SYMBOL_GPL(atomic_notifier_call_chain);

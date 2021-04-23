@@ -35,6 +35,7 @@
 #include <linux/tracehook.h>
 #include <linux/capability.h>
 #include <linux/freezer.h>
+#include <linux/ipipe.h>
 #include <linux/pid_namespace.h>
 #include <linux/nsproxy.h>
 #include <linux/user_namespace.h>
@@ -760,6 +761,10 @@ still_pending:
 void signal_wake_up_state(struct task_struct *t, unsigned int state)
 {
 	set_tsk_thread_flag(t, TIF_SIGPENDING);
+
+	/* TIF_SIGPENDING must be prior to reporting. */
+	__ipipe_report_sigwake(t);
+
 	/*
 	 * TASK_WAKEKILL also means wake it up in the stopped/traced/killable
 	 * case. We don't check t->state here because there is a race with it
@@ -981,8 +986,11 @@ static inline bool wants_signal(int sig, struct task_struct *p)
 	if (sig == SIGKILL)
 		return true;
 
-	if (task_is_stopped_or_traced(p))
+	if (task_is_stopped_or_traced(p)) {
+		if (!signal_pending(p))
+			__ipipe_report_sigwake(p);
 		return false;
+	}
 
 	return task_curr(p) || !signal_pending(p);
 }

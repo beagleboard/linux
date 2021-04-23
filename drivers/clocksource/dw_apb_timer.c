@@ -12,6 +12,7 @@
 #include <linux/kernel.h>
 #include <linux/interrupt.h>
 #include <linux/irq.h>
+#include <linux/ipipe.h>
 #include <linux/io.h>
 #include <linux/slab.h>
 
@@ -382,7 +383,7 @@ static void apbt_restart_clocksource(struct clocksource *cs)
  */
 struct dw_apb_clocksource *
 dw_apb_clocksource_init(unsigned rating, const char *name, void __iomem *base,
-			unsigned long freq)
+			unsigned long phys, unsigned long freq)
 {
 	struct dw_apb_clocksource *dw_cs = kzalloc(sizeof(*dw_cs), GFP_KERNEL);
 
@@ -397,9 +398,21 @@ dw_apb_clocksource_init(unsigned rating, const char *name, void __iomem *base,
 	dw_cs->cs.mask = CLOCKSOURCE_MASK(32);
 	dw_cs->cs.flags = CLOCK_SOURCE_IS_CONTINUOUS;
 	dw_cs->cs.resume = apbt_restart_clocksource;
+	dw_cs->phys = phys;
 
 	return dw_cs;
 }
+
+#ifdef CONFIG_IPIPE
+static struct __ipipe_tscinfo apb_tsc_info = {
+	.type = IPIPE_TSC_TYPE_FREERUNNING_COUNTDOWN,
+	.u = {
+		.dec = {
+			.mask = 0xffffffffU,
+		},
+	},
+};
+#endif
 
 /**
  * dw_apb_clocksource_register() - register the APB clocksource.
@@ -409,6 +422,12 @@ dw_apb_clocksource_init(unsigned rating, const char *name, void __iomem *base,
 void dw_apb_clocksource_register(struct dw_apb_clocksource *dw_cs)
 {
 	clocksource_register_hz(&dw_cs->cs, dw_cs->timer.freq);
+#ifdef CONFIG_IPIPE
+	apb_tsc_info.u.dec.counter = (void *)(dw_cs->phys + APBTMR_N_CURRENT_VALUE);
+	apb_tsc_info.counter_vaddr = (unsigned long)dw_cs->timer.base + APBTMR_N_CURRENT_VALUE;
+	apb_tsc_info.freq = dw_cs->timer.freq;
+	__ipipe_tsc_register(&apb_tsc_info);
+#endif
 }
 
 /**

@@ -57,6 +57,10 @@ struct irq_desc {
 	struct irq_common_data	irq_common_data;
 	struct irq_data		irq_data;
 	unsigned int __percpu	*kstat_irqs;
+#ifdef CONFIG_IPIPE
+	void			(*ipipe_ack)(struct irq_desc *desc);
+	void			(*ipipe_end)(struct irq_desc *desc);
+#endif /* CONFIG_IPIPE */
 	irq_flow_handler_t	handle_irq;
 #ifdef CONFIG_IRQ_PREFLOW_FASTEOI
 	irq_preflow_handler_t	preflow_handler;
@@ -186,6 +190,10 @@ static inline int irq_desc_has_action(struct irq_desc *desc)
 	return desc->action != NULL;
 }
 
+irq_flow_handler_t
+__ipipe_setup_irq_desc(struct irq_desc *desc, irq_flow_handler_t handle,
+		int is_chained);
+
 static inline int irq_has_action(unsigned int irq)
 {
 	return irq_desc_has_action(irq_to_desc(irq));
@@ -206,7 +214,7 @@ static inline void irq_set_handler_locked(struct irq_data *data,
 {
 	struct irq_desc *desc = irq_data_to_desc(data);
 
-	desc->handle_irq = handler;
+	desc->handle_irq = __ipipe_setup_irq_desc(desc, handler, 0);
 }
 
 /**
@@ -227,7 +235,7 @@ irq_set_chip_handler_name_locked(struct irq_data *data, struct irq_chip *chip,
 {
 	struct irq_desc *desc = irq_data_to_desc(data);
 
-	desc->handle_irq = handler;
+	desc->handle_irq = __ipipe_setup_irq_desc(desc, handler, 0);
 	desc->name = name;
 	data->chip = chip;
 }

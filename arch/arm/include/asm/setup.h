@@ -28,4 +28,10 @@ extern void save_atags(const struct tag *tags);
 static inline void save_atags(const struct tag *tags) { }
 #endif
 
+#ifdef CONFIG_IPIPE
+void smp_build_cpu_revmap(void);
+#else
+static inline void smp_build_cpu_revmap(void) { }
+#endif
+
 #endif

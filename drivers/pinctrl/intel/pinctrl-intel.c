@@ -1143,7 +1143,9 @@ static irqreturn_t intel_gpio_community_irq_handler(struct intel_pinctrl *pctrl,
 
 			irq = irq_find_mapping(gc->irq.domain,
 					       padgrp->gpio_base + gpp_offset);
-			generic_handle_irq(irq);
+			hard_cond_local_irq_disable();
+			ipipe_handle_demuxed_irq(irq);
+			hard_cond_local_irq_enable();
 
 			ret |= IRQ_HANDLED;
 		}
@@ -1231,7 +1233,7 @@ static int intel_gpio_probe(struct intel_pinctrl *pctrl, int irq)
 	pctrl->irqchip.irq_unmask = intel_gpio_irq_unmask;
 	pctrl->irqchip.irq_set_type = intel_gpio_irq_type;
 	pctrl->irqchip.irq_set_wake = intel_gpio_irq_wake;
-	pctrl->irqchip.flags = IRQCHIP_MASK_ON_SUSPEND;
+	pctrl->irqchip.flags = IRQCHIP_MASK_ON_SUSPEND | IRQCHIP_PIPELINE_SAFE;
 
 	ret = devm_gpiochip_add_data(pctrl->dev, &pctrl->chip, pctrl);
 	if (ret) {

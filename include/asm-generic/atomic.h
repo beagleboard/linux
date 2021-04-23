@@ -76,9 +76,9 @@ static inline void atomic_##op(int i, atomic_t *v)			\
 {									\
 	unsigned long flags;						\
 									\
-	raw_local_irq_save(flags);					\
+	flags = hard_local_irq_save();					\
 	v->counter = v->counter c_op i;					\
-	raw_local_irq_restore(flags);					\
+	hard_local_irq_restore(flags);					\
 }
 
 #define ATOMIC_OP_RETURN(op, c_op)					\
@@ -87,9 +87,9 @@ static inline int atomic_##op##_return(int i, atomic_t *v)		\
 	unsigned long flags;						\
 	int ret;							\
 									\
-	raw_local_irq_save(flags);					\
+	flags = hard_local_irq_save();					\
 	ret = (v->counter = v->counter c_op i);				\
-	raw_local_irq_restore(flags);					\
+	hard_local_irq_restore(flags);					\
 									\
 	return ret;							\
 }
@@ -100,10 +100,10 @@ static inline int atomic_fetch_##op(int i, atomic_t *v)			\
 	unsigned long flags;						\
 	int ret;							\
 									\
-	raw_local_irq_save(flags);					\
+	flags = hard_local_irq_save(flags);				\
 	ret = v->counter;						\
 	v->counter = v->counter c_op i;					\
-	raw_local_irq_restore(flags);					\
+	hard_local_irq_restore(flags);					\
 									\
 	return ret;							\
 }

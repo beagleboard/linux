@@ -145,7 +145,9 @@ static __always_inline int stop_machine_cpuslocked(cpu_stop_fn_t fn, void *data,
 	unsigned long flags;
 	int ret;
 	local_irq_save(flags);
+	hard_irq_disable();
 	ret = fn(data);
+	hard_irq_enable();
 	local_irq_restore(flags);
 	return ret;
 }

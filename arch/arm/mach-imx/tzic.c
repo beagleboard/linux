@@ -110,6 +110,10 @@ static __init void tzic_init_gc(int idx, unsigned int irq_start)
 	ct = gc->chip_types;
 	ct->chip.irq_mask = irq_gc_mask_disable_reg;
 	ct->chip.irq_unmask = irq_gc_unmask_enable_reg;
+#ifdef CONFIG_IPIPE
+	ct->chip.irq_mask_ack = irq_gc_mask_disable_reg;
+	ct->chip.flags = IRQCHIP_PIPELINE_SAFE;
+#endif /* CONFIG_IPIPE */
 	ct->chip.irq_set_wake = irq_gc_set_wake;
 	ct->chip.irq_suspend = tzic_irq_suspend;
 	ct->chip.irq_resume = tzic_irq_resume;
@@ -134,7 +138,7 @@ static void __exception_irq_entry tzic_handle_irq(struct pt_regs *regs)
 			while (stat) {
 				handled = 1;
 				irqofs = fls(stat) - 1;
-				handle_domain_irq(domain, irqofs + i * 32, regs);
+				ipipe_handle_domain_irq(domain, irqofs + i * 32, regs);
 				stat &= ~(1 << irqofs);
 			}
 		}
@@ -160,8 +164,13 @@ static int __init tzic_init_dt(struct device_node *np, struct device_node *p)
 	i = imx_readl(tzic_base + TZIC_INTCNTL);
 
 	imx_writel(0x80010001, tzic_base + TZIC_INTCNTL);
+#ifndef CONFIG_IPIPE
 	imx_writel(0x1f, tzic_base + TZIC_PRIOMASK);
 	imx_writel(0x02, tzic_base + TZIC_SYNCCTRL);
+#else
+	imx_writel(0xf0, tzic_base + TZIC_PRIOMASK);
+	imx_writel(0, tzic_base + TZIC_SYNCCTRL);
+#endif
 
 	for (i = 0; i < 4; i++)
 		imx_writel(0xFFFFFFFF, tzic_base + TZIC_INTSEC0(i));
