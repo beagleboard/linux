@@ -6,7 +6,7 @@
 menu "RCU Debugging"
 
 config PROVE_RCU
-	def_bool PROVE_LOCKING
+	def_bool PROVE_LOCKING && !IPIPE
 
 config PROVE_RCU_LIST
 	bool "RCU list lockdep debugging"
