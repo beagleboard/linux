@@ -1,0 +1,91 @@
+menu "CAN drivers"
+
+config XENO_DRIVERS_CAN
+	tristate "RT-Socket-CAN, CAN raw socket interface"
+	help
+	RT-Socket-CAN is a real-time socket interface for CAN controllers.
+
+config XENO_DRIVERS_CAN_DEBUG
+	depends on XENO_DRIVERS_CAN && PROC_FS
+	bool "Enable debug output"
+	default y
+	help
+
+	This option activates debugging checks and enhanced output for the
+	RT-Socket-CAN driver. It also allows to list the hardware registers
+	of the registered CAN controllers. It is a recommended option for
+	getting started and analysing potential problems. For production
+	purposes, it should be switched off (for the sake of latency).
+
+config XENO_DRIVERS_CAN_LOOPBACK
+	depends on XENO_DRIVERS_CAN
+	bool "Enable TX loopback to local sockets"
+	default n
+	help
+
+	This options adds support for TX loopback to local sockets. Normally,
+	messages sent to the CAN bus are not visible to sockets listening to
+	the same local device. When this option is enabled, TX messages are
+	looped back locally when the transmit has been done by default. This
+	behaviour can be deactivated or reactivated with "setsockopt". Enable
+	this option, if you want to have a "net-alike" behaviour.
+
+config XENO_DRIVERS_CAN_RXBUF_SIZE
+	depends on XENO_DRIVERS_CAN
+	int "Size of receive ring buffers (must be 2^N)"
+	default 1024
+
+config XENO_DRIVERS_CAN_MAX_DEVICES
+	depends on XENO_DRIVERS_CAN
+	int "Maximum number of devices"
+	default 4
+
+config XENO_DRIVERS_CAN_MAX_RECEIVERS
+	depends on XENO_DRIVERS_CAN
+	int "Maximum number of receive filters per device"
+	default 16
+	help
+
+	The driver maintains a receive filter list per device for fast access.
+
+config XENO_DRIVERS_CAN_BUS_ERR
+	depends on XENO_DRIVERS_CAN
+	bool
+	default n
+	help
+
+	To avoid unnecessary bus error interrupt flooding, this option enables
+	bus error interrupts when an application is calling a receive function
+	on a socket listening on bus errors. After one bus error has occured,
+	the interrupt will be disabled to allow the application time for error
+	processing. This option is automatically selected for CAN controllers
+	supporting bus error interrupts like the SJA1000.
+
+config XENO_DRIVERS_CAN_CALC_BITTIME_OLD
+	depends on XENO_DRIVERS_CAN
+	bool "Old bit-time calculation algorithm (deprecated)"
+	default n
+	help
+
+	This option allows to enable the old algorithm to calculate the
+	CAN bit-timing parameters for backward compatibility.
+
+config XENO_DRIVERS_CAN_VIRT
+	depends on XENO_DRIVERS_CAN
+	tristate "Virtual CAN bus driver"
+	help
+
+	This driver provides two CAN ports that are virtually interconnected.
+	More ports can be enabled with the module parameter "devices".
+
+config XENO_DRIVERS_CAN_FLEXCAN
+	depends on XENO_DRIVERS_CAN && OF && !XENO_DRIVERS_CAN_CALC_BITTIME_OLD
+	tristate "Freescale FLEXCAN based chips"
+	help
+
+	Say Y here if you want to support for Freescale FlexCAN.
+
+source "drivers/xenomai/can/mscan/Kconfig"
+source "drivers/xenomai/can/sja1000/Kconfig"
+
+endmenu
