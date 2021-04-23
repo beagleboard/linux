@@ -1,0 +1,76 @@
+/*
+ * Copyright (C) 2020 Deepak Khatri <deepaklorkhatri7@gmail.com>
+ * See Cape Interface Spec page for more info on Bone Buses
+ * https://elinux.org/Beagleboard:BeagleBone_cape_interface_spec
+ *
+ * Virtual cape for Bone eQEP1 (BBBWL/BBB/BBAI)
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+/dts-v1/;
+/plugin/;
+
+/*
+* Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+*/
+&{/chosen} {
+    overlays {
+        BONE-eQEP1 = __TIMESTAMP__;
+    };
+};
+
+/*
+ * Update the default pinmux of the pins.
+ * See these files for the phandles (&P9_* & &P8_*)
+ * BeagleBoard-DeviceTrees/v4.19.x-ti-overlays/src/arm/am335x-bone-common-univ.dtsi
+ * BeagleBoard-DeviceTrees/v4.19.x-ti-overlays/src/arm/am572x-bone-common-univ.dtsi
+ */
+&ocp {
+	P8_35_pinmux { pinctrl-0 = <&P8_35_eqep_pin>; };	/* A_in */
+	P8_33_pinmux { pinctrl-0 = <&P8_33_eqep_pin>; };	/* B_in */
+	// BBBWL/BBB
+	P8_31_pinmux { pinctrl-0 = <&P8_31_eqep_pin>; };	/* index */
+	P8_32_pinmux { pinctrl-0 = <&P8_32_eqep_pin>; };	/* strobe */
+	// BBAI
+	P9_21_pinmux { pinctrl-0 = <&P9_21_eqep_pin>; };	/* strobe */
+};
+
+/*
+ * See these files for the phandles (&bone_*) and other bone bus nodes
+ * BeagleBoard-DeviceTrees/v4.19.x-ti-overlays/src/arm/bbai-bone-buses.dtsi
+ * BeagleBoard-DeviceTrees/v4.19.x-ti-overlays/src/arm/bbb-bone-buses.dtsi
+ */
+
+&bone_eqep_1 {
+	status = "okay";
+	#if 1	// encoder mode
+		count_mode = <1>;	// count_mode is not userspace op_mode
+		// 0 -> Quadrature mode, normal 90 phase offset cha & chb.
+		// 1 -> Direction mode.  cha input = clock, chb input = direction
+		// 2 -> UP count mode for frequency measurement QDIR=1, ignore direction input
+		// 3 -> DOWN count mode for frequency measurement QDIR=0, ignore direction input
+		swap_inputs = <0>;	// swap channel A and B (0 - no, 1 - yes)
+		invert_qa = <0>;	// invert channel A input?
+		invert_qb = <0>;	// invert channel B input?
+		invert_qi = <0>;	// invert index input?
+		invert_qs = <0>;	// invert strobe input?
+		omit_interrupt = <0>;	// 1 -> do not install interrupt handler, 0 -> do install
+
+	#else	// frequency mode
+		count_mode = <2>;	// count_mode 2 is compatible with userspace op_mode=1
+		// 0 -> Quadrature mode, normal 90 phase offset cha & chb.
+		// 1 -> Direction mode.  cha input = clock, chb input = direction
+		// 2 -> UP count mode for frequency measurement QDIR=1, ignore direction input
+		// 3 -> DOWN count mode for frequency measurement QDIR=0, ignore direction input
+
+		swap_inputs = <0>;	// swap channel A and B? (0 - no, 1 - yes)
+		invert_qa = <0>;	// invert channel A input?
+		invert_qb = <0>;	// invert channel B input?
+		invert_qi = <0>;	// invert the index input?
+		invert_qs = <0>;	// invert the strobe input?
+		omit_interrupt = <1>;	// not needed in frequency mode
+	#endif
+};

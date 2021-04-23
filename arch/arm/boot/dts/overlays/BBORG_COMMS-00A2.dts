@@ -1,0 +1,71 @@
+/*
+ * Copyright (C) 2020 Deepak Khatri <deepaklorkhatri7@gmail.com>
+ * See Cape Interface Spec page for more info on Bone Buses
+ * https://elinux.org/Beagleboard:BeagleBone_cape_interface_spec
+ *
+ * Based on older BBORG_COMMS-00A2.dts for kernel <4.14x
+ * Copyright (C) 2012,2019 Texas Instruments Incorporated - http://www.ti.com/
+ * Copyright (C) 2015 Robert Nelson <robertcnelson@gmail.com>
+ * Copyright (C) 2015 Sebastian Jegerås
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+/dts-v1/;
+/plugin/;
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+ */
+&{/chosen} {
+	overlays {
+		BBORG_COMMS-00A2 = __TIMESTAMP__;
+	};
+};
+
+/*
+ * Update the default pinmux of the pins.
+ * See these files for the phandles (&P9_* & &P8_*)
+ * https://github.com/beagleboard/BeagleBoard-DeviceTrees/src/arm/am335x-bone-common-univ.dtsi
+ * https://github.com/beagleboard/BeagleBoard-DeviceTrees/src/arm/am572x-bone-common-univ.dtsi
+ */
+&ocp {
+	P9_24_pinmux { pinctrl-0 = <&P9_24_can_pin>; }; /* CAN TX */
+	P9_26_pinmux { pinctrl-0 = <&P9_26_can_pin>; }; /* CAN TX */
+	P9_13_pinmux { pinctrl-0 = <&P9_13_uart_pin>; }; /* UART TX */
+	P9_11_pinmux { pinctrl-0 = <&P9_11_uart_pin>; }; /* UART RX */
+	P9_15_pinmux { pinctrl-0 = <&P9_15_gpio_pin>; }; /* GPIO: SINK A*/
+	P9_23_pinmux { pinctrl-0 = <&P9_23_gpio_pin>; }; /* GPIO: SINK B */
+};
+
+/*
+ * See these files for the phandles (&bone_*) and nodes
+ * https://github.com/beagleboard/BeagleBoard-DeviceTrees/src/arm/bbai-bone-buses.dtsi
+ * https://github.com/beagleboard/BeagleBoard-DeviceTrees/src/arm/bbb-bone-buses.dtsi
+ */
+&bone_can_1 {
+	status = "okay";
+};
+
+&bone_uart_4 {
+	status = "okay";
+};
+
+&{/} {
+	leds {
+		// SINK A
+		led_P9_15 {
+			status = "okay";
+			label = "Sink_A";
+			default-state = "off";
+		};
+		// SINK B
+		led_P9_23 {
+			status = "okay";
+			label = "Sink_B";
+			default-state = "off";
+		};
+	};
+};
