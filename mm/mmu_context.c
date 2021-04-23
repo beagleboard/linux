@@ -9,6 +9,7 @@
 #include <linux/sched/task.h>
 #include <linux/mmu_context.h>
 #include <linux/export.h>
+#include <linux/ipipe.h>
 
 #include <asm/mmu_context.h>
 
@@ -23,17 +24,21 @@ void use_mm(struct mm_struct *mm)
 {
 	struct mm_struct *active_mm;
 	struct task_struct *tsk = current;
+	unsigned long flags;
 
 	task_lock(tsk);
 	/* Hold off tlb flush IPIs while switching mm's */
 	local_irq_disable();
+	ipipe_mm_switch_protect(flags);
 	active_mm = tsk->active_mm;
+	ipipe_mm_switch_protect(flags);
 	if (active_mm != mm) {
 		mmgrab(mm);
 		tsk->active_mm = mm;
 	}
 	tsk->mm = mm;
 	switch_mm_irqs_off(active_mm, mm, tsk);
+	ipipe_mm_switch_unprotect(flags);
 	local_irq_enable();
 	task_unlock(tsk);
 #ifdef finish_arch_post_lock_switch

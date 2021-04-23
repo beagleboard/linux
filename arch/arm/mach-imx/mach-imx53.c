@@ -31,6 +31,11 @@ static void __init imx53_dt_init(void)
 
 static void __init imx53_init_late(void)
 {
+#ifdef CONFIG_IPIPE
+	/* Allow user-space access to emulated tsc */
+	imx_set_aips(IMX_IO_ADDRESS(0x53f00000));
+	imx_set_aips(IMX_IO_ADDRESS(0x63f00000));
+#endif
 	imx53_pm_init();
 }
 

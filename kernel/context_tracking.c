@@ -114,7 +114,7 @@ void context_tracking_enter(enum ctx_state state)
 	 * helpers are enough to protect RCU uses inside the exception. So
 	 * just return immediately if we detect we are in an IRQ.
 	 */
-	if (in_interrupt())
+	if (!ipipe_root_p || in_interrupt())
 		return;
 
 	local_irq_save(flags);
@@ -170,7 +170,7 @@ void context_tracking_exit(enum ctx_state state)
 {
 	unsigned long flags;
 
-	if (in_interrupt())
+	if (!ipipe_root_p || in_interrupt())
 		return;
 
 	local_irq_save(flags);

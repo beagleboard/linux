@@ -15,9 +15,9 @@
 #include <linux/printk.h>
 #include <linux/build_bug.h>
 #include <asm/byteorder.h>
+#include <asm-generic/ipipe.h>
 #include <asm/div64.h>
 #include <uapi/linux/kernel.h>
-#include <asm/div64.h>
 
 #define STACK_MAGIC	0xdeadbeef
 
@@ -204,9 +204,12 @@ struct user;
 
 #ifdef CONFIG_PREEMPT_VOLUNTARY
 extern int _cond_resched(void);
-# define might_resched() _cond_resched()
+# define might_resched() do { \
+		ipipe_root_only(); \
+		_cond_resched(); \
+	} while (0)
 #else
-# define might_resched() do { } while (0)
+# define might_resched() ipipe_root_only()
 #endif
 
 #ifdef CONFIG_DEBUG_ATOMIC_SLEEP

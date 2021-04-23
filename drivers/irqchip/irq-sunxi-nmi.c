@@ -115,8 +115,9 @@ static int sunxi_sc_nmi_set_type(struct irq_data *data, unsigned int flow_type)
 	u32 ctrl_off = ct->regs.type;
 	unsigned int src_type;
 	unsigned int i;
+	unsigned long flags;
 
-	irq_gc_lock(gc);
+	flags = irq_gc_lock(gc);
 
 	switch (flow_type & IRQF_TRIGGER_MASK) {
 	case IRQ_TYPE_EDGE_FALLING:
@@ -133,7 +134,7 @@ static int sunxi_sc_nmi_set_type(struct irq_data *data, unsigned int flow_type)
 		src_type = SUNXI_SRC_TYPE_LEVEL_LOW;
 		break;
 	default:
-		irq_gc_unlock(gc);
+		irq_gc_unlock(gc, flags);
 		pr_err("Cannot assign multiple trigger modes to IRQ %d.\n",
 			data->irq);
 		return -EBADR;
@@ -151,7 +152,7 @@ static int sunxi_sc_nmi_set_type(struct irq_data *data, unsigned int flow_type)
 	src_type_reg |= src_type;
 	sunxi_sc_nmi_write(gc, ctrl_off, src_type_reg);
 
-	irq_gc_unlock(gc);
+	irq_gc_unlock(gc, flags);
 
 	return IRQ_SET_MASK_OK;
 }
@@ -200,7 +201,7 @@ static int __init sunxi_sc_nmi_irq_init(struct device_node *node,
 	gc->chip_types[0].chip.irq_unmask	= irq_gc_mask_set_bit;
 	gc->chip_types[0].chip.irq_eoi		= irq_gc_ack_set_bit;
 	gc->chip_types[0].chip.irq_set_type	= sunxi_sc_nmi_set_type;
-	gc->chip_types[0].chip.flags		= IRQCHIP_EOI_THREADED | IRQCHIP_EOI_IF_HANDLED;
+	gc->chip_types[0].chip.flags		= IRQCHIP_EOI_THREADED | IRQCHIP_EOI_IF_HANDLED | IRQCHIP_PIPELINE_SAFE;
 	gc->chip_types[0].regs.ack		= reg_offs->pend;
 	gc->chip_types[0].regs.mask		= reg_offs->enable;
 	gc->chip_types[0].regs.type		= reg_offs->ctrl;
@@ -211,6 +212,7 @@ static int __init sunxi_sc_nmi_irq_init(struct device_node *node,
 	gc->chip_types[1].chip.irq_mask		= irq_gc_mask_clr_bit;
 	gc->chip_types[1].chip.irq_unmask	= irq_gc_mask_set_bit;
 	gc->chip_types[1].chip.irq_set_type	= sunxi_sc_nmi_set_type;
+	gc->chip_types[1].chip.flags		= IRQCHIP_PIPELINE_SAFE;
 	gc->chip_types[1].regs.ack		= reg_offs->pend;
 	gc->chip_types[1].regs.mask		= reg_offs->enable;
 	gc->chip_types[1].regs.type		= reg_offs->ctrl;

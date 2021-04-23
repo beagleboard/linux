@@ -2904,7 +2904,7 @@ static int rockchip_irq_set_type(struct irq_data *d, unsigned int type)
 	u32 polarity;
 	u32 level;
 	u32 data;
-	unsigned long flags;
+	unsigned long flags, flags2;
 	int ret;
 
 	/* make sure the pin is configured as gpio input */
@@ -2927,7 +2927,7 @@ static int rockchip_irq_set_type(struct irq_data *d, unsigned int type)
 		irq_set_handler_locked(d, handle_level_irq);
 
 	raw_spin_lock_irqsave(&bank->slock, flags);
-	irq_gc_lock(gc);
+	flags2 = irq_gc_lock(gc);
 
 	level = readl_relaxed(gc->reg_base + GPIO_INTTYPE_LEVEL);
 	polarity = readl_relaxed(gc->reg_base + GPIO_INT_POLARITY);
@@ -2968,7 +2968,7 @@ static int rockchip_irq_set_type(struct irq_data *d, unsigned int type)
 		polarity &= ~mask;
 		break;
 	default:
-		irq_gc_unlock(gc);
+		irq_gc_unlock(gc, flags2);
 		raw_spin_unlock_irqrestore(&bank->slock, flags);
 		clk_disable(bank->clk);
 		return -EINVAL;
@@ -2977,7 +2977,7 @@ static int rockchip_irq_set_type(struct irq_data *d, unsigned int type)
 	writel_relaxed(level, gc->reg_base + GPIO_INTTYPE_LEVEL);
 	writel_relaxed(polarity, gc->reg_base + GPIO_INT_POLARITY);
 
-	irq_gc_unlock(gc);
+	irq_gc_unlock(gc, flags2);
 	raw_spin_unlock_irqrestore(&bank->slock, flags);
 	clk_disable(bank->clk);
 
