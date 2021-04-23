@@ -1340,12 +1340,7 @@ dtb-$(CONFIG_ARCH_ASPEED) += \
 	aspeed-bmc-portwell-neptune.dtb \
 	aspeed-bmc-quanta-q71l.dtb
 
-always		+= $(dtb-merge-y)
+targets += dtbs dtbs_install
+targets += $(dtb-y)
 
-$(addprefix $(obj)/,$(dtb-merge-y)): TI_DTBOS
-	@$(srctree)/scripts/dtb-merge $(srctree) $(objtree) $@ $(objtree)/scripts/dtc/fdtoverlay $(src)/ti
-
-TI_DTBOS:
-	$(Q)$(MAKE) $(build)=$(src)/ti
-
-PHONY += TI_DTBOS
+subdir-y	:= overlays
