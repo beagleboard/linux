@@ -532,6 +532,7 @@ config DYNAMIC_FTRACE
 	bool "enable/disable function tracing dynamically"
 	depends on FUNCTION_TRACER
 	depends on HAVE_DYNAMIC_FTRACE
+	depends on !IPIPE
 	default y
 	help
 	  This option will modify all the calls to function tracing

@@ -9,6 +9,7 @@
 
 #include <linux/hrtimer.h>
 #include <linux/timekeeper_internal.h>
+#include <linux/ipipe_tickdev.h>
 #include <vdso/datapage.h>
 #include <vdso/helpers.h>
 #include <vdso/vsyscall.h>
@@ -72,6 +73,8 @@ void update_vsyscall(struct timekeeper *tk)
 	struct vdso_data *vdata = __arch_get_k_vdso_data();
 	struct vdso_timestamp *vdso_ts;
 	u64 nsec;
+
+	ipipe_update_hostrt(tk);
 
 	/* copy vsyscall data */
 	vdso_write_begin(vdata);

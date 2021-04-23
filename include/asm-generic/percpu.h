@@ -5,6 +5,7 @@
 #include <linux/compiler.h>
 #include <linux/threads.h>
 #include <linux/percpu-defs.h>
+#include <asm-generic/ipipe.h>
 
 #ifdef CONFIG_SMP
 
@@ -44,11 +45,29 @@ extern unsigned long __per_cpu_offset[NR_CPUS];
 #define arch_raw_cpu_ptr(ptr) SHIFT_PERCPU_PTR(ptr, __my_cpu_offset)
 #endif
 
+#ifdef CONFIG_IPIPE
+#if defined(CONFIG_IPIPE_DEBUG_INTERNAL) && defined(CONFIG_SMP)
+unsigned long __ipipe_cpu_get_offset(void);
+#define __ipipe_cpu_offset  __ipipe_cpu_get_offset()
+#else
+#define __ipipe_cpu_offset  __my_cpu_offset
+#endif
+#ifndef __ipipe_raw_cpu_ptr
+#define __ipipe_raw_cpu_ptr(ptr)  SHIFT_PERCPU_PTR(ptr, __ipipe_cpu_offset)
+#endif
+#define __ipipe_raw_cpu_read(var) (*__ipipe_raw_cpu_ptr(&(var)))
+#endif /* CONFIG_IPIPE */
+
 #ifdef CONFIG_HAVE_SETUP_PER_CPU_AREA
 extern void setup_per_cpu_areas(void);
 #endif
 
-#endif	/* SMP */
+#else /* !SMP */
+
+#define __ipipe_raw_cpu_ptr(ptr)  VERIFY_PERCPU_PTR(ptr)
+#define __ipipe_raw_cpu_read(var) (*__ipipe_raw_cpu_ptr(&(var)))
+
+#endif	/* !SMP */
 
 #ifndef PER_CPU_BASE_SECTION
 #ifdef CONFIG_SMP
@@ -144,9 +163,9 @@ do {									\
 #define this_cpu_generic_to_op(pcp, val, op)				\
 do {									\
 	unsigned long __flags;						\
-	raw_local_irq_save(__flags);					\
+	__flags = hard_local_irq_save();				\
 	raw_cpu_generic_to_op(pcp, val, op);				\
-	raw_local_irq_restore(__flags);					\
+	hard_local_irq_restore(__flags);				\
 } while (0)
 
 
@@ -154,9 +173,9 @@ do {									\
 ({									\
 	typeof(pcp) __ret;						\
 	unsigned long __flags;						\
-	raw_local_irq_save(__flags);					\
+	__flags = hard_local_irq_save();				\
 	__ret = raw_cpu_generic_add_return(pcp, val);			\
-	raw_local_irq_restore(__flags);					\
+	hard_local_irq_restore(__flags);				\
 	__ret;								\
 })
 
@@ -164,9 +183,9 @@ do {									\
 ({									\
 	typeof(pcp) __ret;						\
 	unsigned long __flags;						\
-	raw_local_irq_save(__flags);					\
+	__flags = hard_local_irq_save();				\
 	__ret = raw_cpu_generic_xchg(pcp, nval);			\
-	raw_local_irq_restore(__flags);					\
+	hard_local_irq_restore(__flags);				\
 	__ret;								\
 })
 
@@ -174,9 +193,9 @@ do {									\
 ({									\
 	typeof(pcp) __ret;						\
 	unsigned long __flags;						\
-	raw_local_irq_save(__flags);					\
+	__flags = hard_local_irq_save();				\
 	__ret = raw_cpu_generic_cmpxchg(pcp, oval, nval);		\
-	raw_local_irq_restore(__flags);					\
+	hard_local_irq_restore(__flags);				\
 	__ret;								\
 })
 
@@ -184,10 +203,10 @@ do {									\
 ({									\
 	int __ret;							\
 	unsigned long __flags;						\
-	raw_local_irq_save(__flags);					\
+	__flags = hard_local_irq_save();				\
 	__ret = raw_cpu_generic_cmpxchg_double(pcp1, pcp2,		\
 			oval1, oval2, nval1, nval2);			\
-	raw_local_irq_restore(__flags);					\
+	hard_local_irq_restore(__flags);				\
 	__ret;								\
 })
 
