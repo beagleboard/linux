@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (C) 2013 Texas Instruments Incorporated - http://www.ti.com/
+ * Copyright (C) 2013 Texas Instruments Incorporated - https://www.ti.com/
  *
  * Based on "omap4.dtsi"
  */
@@ -740,7 +740,7 @@
 		};
 
 		bb2d: bb2d@59000000 {
-			compatible = "ti,dra7-bb2d";
+			compatible = "ti,dra7-bb2d", "vivante,gc";
 			reg = <0x59000000 0x0700>;
 			interrupts = <GIC_SPI 120 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "bb2d";
