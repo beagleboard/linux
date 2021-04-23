@@ -80,7 +80,7 @@ aic5_handle(struct pt_regs *regs)
 	if (!irqstat)
 		irq_reg_writel(bgc, 0, AT91_AIC5_EOICR);
 	else
-		handle_domain_irq(aic5_domain, irqnr, regs);
+		ipipe_handle_domain_irq(aic5_domain, irqnr, regs);
 }
 
 static void aic5_mask(struct irq_data *d)
@@ -88,16 +88,18 @@ static void aic5_mask(struct irq_data *d)
 	struct irq_domain *domain = d->domain;
 	struct irq_chip_generic *bgc = irq_get_domain_generic_chip(domain, 0);
 	struct irq_chip_generic *gc = irq_data_get_irq_chip_data(d);
+	unsigned long flags;
 
 	/*
 	 * Disable interrupt on AIC5. We always take the lock of the
 	 * first irq chip as all chips share the same registers.
 	 */
-	irq_gc_lock(bgc);
+	flags = irq_gc_lock(bgc);
+	ipipe_lock_irq(d->irq);
 	irq_reg_writel(gc, d->hwirq, AT91_AIC5_SSR);
 	irq_reg_writel(gc, 1, AT91_AIC5_IDCR);
 	gc->mask_cache &= ~d->mask;
-	irq_gc_unlock(bgc);
+	irq_gc_unlock(bgc, flags);
 }
 
 static void aic5_unmask(struct irq_data *d)
@@ -105,28 +107,59 @@ static void aic5_unmask(struct irq_data *d)
 	struct irq_domain *domain = d->domain;
 	struct irq_chip_generic *bgc = irq_get_domain_generic_chip(domain, 0);
 	struct irq_chip_generic *gc = irq_data_get_irq_chip_data(d);
+	unsigned long flags;
 
 	/*
 	 * Enable interrupt on AIC5. We always take the lock of the
 	 * first irq chip as all chips share the same registers.
 	 */
-	irq_gc_lock(bgc);
+	flags = irq_gc_lock(bgc);
 	irq_reg_writel(gc, d->hwirq, AT91_AIC5_SSR);
 	irq_reg_writel(gc, 1, AT91_AIC5_IECR);
 	gc->mask_cache |= d->mask;
-	irq_gc_unlock(bgc);
+	ipipe_unlock_irq(d->irq);
+	irq_gc_unlock(bgc, flags);
 }
+
+#ifdef CONFIG_IPIPE
+
+static void aic5_hold(struct irq_data *d)
+{
+	struct irq_domain *domain = d->domain;
+	struct irq_domain_chip_generic *dgc = domain->gc;
+	struct irq_chip_generic *gc = dgc->gc[0];
+
+	irq_reg_writel(gc, d->hwirq, AT91_AIC5_SSR);
+	irq_reg_writel(gc, 1, AT91_AIC5_IDCR);
+	irq_reg_writel(gc, 0, AT91_AIC5_EOICR);
+}
+
+static void aic5_release(struct irq_data *d)
+{
+	struct irq_domain *domain = d->domain;
+	struct irq_domain_chip_generic *dgc = domain->gc;
+	struct irq_chip_generic *gc = dgc->gc[0];
+	unsigned long flags;
+
+	flags = irq_gc_lock(gc);
+	irq_reg_writel(gc, d->hwirq, AT91_AIC5_SSR);
+	irq_reg_writel(gc, 1, AT91_AIC5_IECR);
+	irq_gc_unlock(gc, flags);
+}
+
+#endif
 
 static int aic5_retrigger(struct irq_data *d)
 {
 	struct irq_domain *domain = d->domain;
 	struct irq_chip_generic *bgc = irq_get_domain_generic_chip(domain, 0);
+	unsigned long flags;
 
 	/* Enable interrupt on AIC5 */
-	irq_gc_lock(bgc);
+	flags = irq_gc_lock(bgc);
 	irq_reg_writel(bgc, d->hwirq, AT91_AIC5_SSR);
 	irq_reg_writel(bgc, 1, AT91_AIC5_ISCR);
-	irq_gc_unlock(bgc);
+	irq_gc_unlock(bgc, flags);
 
 	return 0;
 }
@@ -135,16 +168,17 @@ static int aic5_set_type(struct irq_data *d, unsigned type)
 {
 	struct irq_domain *domain = d->domain;
 	struct irq_chip_generic *bgc = irq_get_domain_generic_chip(domain, 0);
+	unsigned long flags;
 	unsigned int smr;
 	int ret;
 
-	irq_gc_lock(bgc);
+	flags = irq_gc_lock(bgc);
 	irq_reg_writel(bgc, d->hwirq, AT91_AIC5_SSR);
 	smr = irq_reg_readl(bgc, AT91_AIC5_SMR);
 	ret = aic_common_set_type(d, type, &smr);
 	if (!ret)
 		irq_reg_writel(bgc, smr, AT91_AIC5_SMR);
-	irq_gc_unlock(bgc);
+	irq_gc_unlock(bgc, flags);
 
 	return ret;
 }
@@ -160,6 +194,7 @@ static void aic5_suspend(struct irq_data *d)
 	struct irq_chip_generic *gc = irq_data_get_irq_chip_data(d);
 	int i;
 	u32 mask;
+	unsigned long flags;
 
 	if (smr_cache)
 		for (i = 0; i < domain->revmap_size; i++) {
@@ -167,7 +202,7 @@ static void aic5_suspend(struct irq_data *d)
 			smr_cache[i] = irq_reg_readl(bgc, AT91_AIC5_SMR);
 		}
 
-	irq_gc_lock(bgc);
+	flags = irq_gc_lock(bgc);
 	for (i = 0; i < dgc->irqs_per_chip; i++) {
 		mask = 1 << i;
 		if ((mask & gc->mask_cache) == (mask & gc->wake_active))
@@ -179,7 +214,7 @@ static void aic5_suspend(struct irq_data *d)
 		else
 			irq_reg_writel(bgc, 1, AT91_AIC5_IDCR);
 	}
-	irq_gc_unlock(bgc);
+	irq_gc_unlock(bgc, flags);
 }
 
 static void aic5_resume(struct irq_data *d)
@@ -190,8 +225,9 @@ static void aic5_resume(struct irq_data *d)
 	struct irq_chip_generic *gc = irq_data_get_irq_chip_data(d);
 	int i;
 	u32 mask;
+	unsigned long flags;
 
-	irq_gc_lock(bgc);
+	flags = irq_gc_lock(bgc);
 
 	if (smr_cache) {
 		irq_reg_writel(bgc, 0xffffffff, AT91_AIC5_SPU);
@@ -215,7 +251,7 @@ static void aic5_resume(struct irq_data *d)
 		else
 			irq_reg_writel(bgc, 1, AT91_AIC5_IDCR);
 	}
-	irq_gc_unlock(bgc);
+	irq_gc_unlock(bgc, flags);
 }
 
 static void aic5_pm_shutdown(struct irq_data *d)
@@ -224,15 +260,16 @@ static void aic5_pm_shutdown(struct irq_data *d)
 	struct irq_domain_chip_generic *dgc = domain->gc;
 	struct irq_chip_generic *bgc = irq_get_domain_generic_chip(domain, 0);
 	struct irq_chip_generic *gc = irq_data_get_irq_chip_data(d);
+	unsigned long flags;
 	int i;
 
-	irq_gc_lock(bgc);
+	flags = irq_gc_lock(bgc);
 	for (i = 0; i < dgc->irqs_per_chip; i++) {
 		irq_reg_writel(bgc, i + gc->irq_base, AT91_AIC5_SSR);
 		irq_reg_writel(bgc, 1, AT91_AIC5_IDCR);
 		irq_reg_writel(bgc, 1, AT91_AIC5_ICCR);
 	}
-	irq_gc_unlock(bgc);
+	irq_gc_unlock(bgc, flags);
 }
 #else
 #define aic5_suspend		NULL
@@ -350,6 +387,11 @@ static int __init aic5_of_init(struct device_node *node,
 		gc->chip_types[0].chip.irq_suspend = aic5_suspend;
 		gc->chip_types[0].chip.irq_resume = aic5_resume;
 		gc->chip_types[0].chip.irq_pm_shutdown = aic5_pm_shutdown;
+#ifdef CONFIG_IPIPE
+		gc->chip_types[0].chip.irq_hold	= aic5_hold;
+		gc->chip_types[0].chip.irq_release = aic5_release;
+		gc->chip_types[0].chip.flags = IRQCHIP_PIPELINE_SAFE;
+#endif
 	}
 
 	aic5_hw_init(domain);

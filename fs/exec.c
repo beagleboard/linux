@@ -50,6 +50,7 @@
 #include <linux/module.h>
 #include <linux/namei.h>
 #include <linux/mount.h>
+#include <linux/ipipe.h>
 #include <linux/security.h>
 #include <linux/syscalls.h>
 #include <linux/tsacct_kern.h>
@@ -1017,6 +1018,7 @@ static int exec_mmap(struct mm_struct *mm)
 {
 	struct task_struct *tsk;
 	struct mm_struct *old_mm, *active_mm;
+	unsigned long flags;
 	int ret;
 
 	/* Notify parent that we're no longer interested in the old VM */
@@ -1048,6 +1050,7 @@ static int exec_mmap(struct mm_struct *mm)
 	membarrier_exec_mmap(mm);
 
 	local_irq_disable();
+	ipipe_mm_switch_protect(flags);
 	active_mm = tsk->active_mm;
 	tsk->active_mm = mm;
 	tsk->mm = mm;
@@ -1058,10 +1061,15 @@ static int exec_mmap(struct mm_struct *mm)
 	 * switches. Not all architectures can handle irqs off over
 	 * activate_mm yet.
 	 */
-	if (!IS_ENABLED(CONFIG_ARCH_WANT_IRQS_OFF_ACTIVATE_MM))
+	if (!IS_ENABLED(CONFIG_ARCH_WANT_IRQS_OFF_ACTIVATE_MM) &&
+	    (!IS_ENABLED(CONFIG_IPIPE) ||
+	     IS_ENABLED(CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH)))
 		local_irq_enable();
 	activate_mm(active_mm, mm);
-	if (IS_ENABLED(CONFIG_ARCH_WANT_IRQS_OFF_ACTIVATE_MM))
+	ipipe_mm_switch_unprotect(flags);
+	if (IS_ENABLED(CONFIG_ARCH_WANT_IRQS_OFF_ACTIVATE_MM) ||
+	    (IS_ENABLED(CONFIG_IPIPE) &&
+	     !IS_ENABLED(CONFIG_IPIPE_WANT_PREEMPTIBLE_SWITCH)))
 		local_irq_enable();
 	tsk->mm->vmacache_seqnum = 0;
 	vmacache_flush(tsk);

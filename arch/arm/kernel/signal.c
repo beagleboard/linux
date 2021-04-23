@@ -642,13 +642,21 @@ static int do_signal(struct pt_regs *regs, int syscall)
 asmlinkage int
 do_work_pending(struct pt_regs *regs, unsigned int thread_flags, int syscall)
 {
+	WARN_ON_ONCE(IS_ENABLED(CONFIG_IPIPE_DEBUG_INTERNAL) &&
+		(!__ipipe_root_p || irqs_disabled()));
 	/*
 	 * The assembly code enters us with IRQs off, but it hasn't
 	 * informed the tracing code of that for efficiency reasons.
 	 * Update the trace code with the current status.
 	 */
-	trace_hardirqs_off();
+	if (!IS_ENABLED(CONFIG_IPIPE))
+		trace_hardirqs_off();
 	do {
+		if (IS_ENABLED(CONFIG_IPIPE)) {
+			local_irq_disable();
+			hard_cond_local_irq_enable();
+		}
+
 		if (likely(thread_flags & _TIF_NEED_RESCHED)) {
 			schedule();
 		} else {
@@ -674,7 +682,7 @@ do_work_pending(struct pt_regs *regs, unsigned int thread_flags, int syscall)
 				rseq_handle_notify_resume(NULL, regs);
 			}
 		}
-		local_irq_disable();
+		hard_local_irq_disable();
 		thread_flags = current_thread_info()->flags;
 	} while (thread_flags & _TIF_WORK_MASK);
 	return 0;

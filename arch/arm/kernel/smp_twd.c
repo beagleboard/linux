@@ -17,10 +17,14 @@
 #include <linux/clockchips.h>
 #include <linux/interrupt.h>
 #include <linux/io.h>
+#include <linux/ipipe.h>
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
+#include <linux/ipipe_tickdev.h>
+#include <linux/irqchip/arm-gic.h>
 
 #include <asm/smp_twd.h>
+#include <asm/cputype.h>
 
 /* set up by the platform code */
 static void __iomem *twd_base;
@@ -33,6 +37,36 @@ static struct clock_event_device __percpu *twd_evt;
 static unsigned int twd_features =
 		CLOCK_EVT_FEAT_PERIODIC | CLOCK_EVT_FEAT_ONESHOT;
 static int twd_ppi;
+
+#ifdef CONFIG_IPIPE
+static DEFINE_PER_CPU(struct ipipe_timer, twd_itimer);
+
+static void twd_ack(void)
+{
+	writel_relaxed(1, twd_base + TWD_TIMER_INTSTAT);
+}
+
+static void twd_get_clock(struct device_node *np);
+static void twd_calibrate_rate(void);
+
+#ifdef CONFIG_IPIPE_DEBUG_INTERNAL
+
+static DEFINE_PER_CPU(int, irqs);
+
+void twd_hrtimer_debug(unsigned int irq) /* hw interrupt off */
+{
+	int cpu = ipipe_processor_id();
+
+	if ((++per_cpu(irqs, cpu) % HZ) == 0) {
+#if 0
+		raw_printk("%c", 'A' + cpu);
+#else
+		do { } while (0);
+#endif
+	}
+}
+#endif /* CONFIG_IPIPE_DEBUG_INTERNAL */
+#endif /* CONFIG_IPIPE */
 
 static int twd_shutdown(struct clock_event_device *clk)
 {
@@ -97,6 +131,8 @@ static void twd_timer_stop(void)
 	disable_percpu_irq(clk->irq);
 }
 
+#ifdef CONFIG_COMMON_CLK
+
 /*
  * Updates clockevent frequency when the cpu frequency changes.
  * Called on the cpu that is changing frequency with interrupts disabled.
@@ -137,6 +173,61 @@ static int twd_clk_init(void)
 	return 0;
 }
 core_initcall(twd_clk_init);
+
+#elif defined (CONFIG_CPU_FREQ)
+
+#include <linux/cpufreq.h>
+
+/*
+ * Updates clockevent frequency when the cpu frequency changes.
+ * Called on the cpu that is changing frequency with interrupts disabled.
+ */
+static void twd_update_frequency(void *data)
+{
+	twd_timer_rate = clk_get_rate(twd_clk);
+
+	clockevents_update_freq(raw_cpu_ptr(twd_evt), twd_timer_rate);
+}
+
+static int twd_cpufreq_transition(struct notifier_block *nb,
+	unsigned long state, void *data)
+{
+	struct cpufreq_freqs *freqs = data;
+
+	/*
+	 * The twd clock events must be reprogrammed to account for the new
+	 * frequency.  The timer is local to a cpu, so cross-call to the
+	 * changing cpu.
+	 */
+	if (state == CPUFREQ_POSTCHANGE)
+		smp_call_function_single(freqs->cpu, twd_update_frequency,
+			NULL, 1);
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block twd_cpufreq_nb = {
+	.notifier_call = twd_cpufreq_transition,
+};
+
+static int twd_cpufreq_init(void)
+{
+	if (twd_evt && raw_cpu_ptr(twd_evt) && !IS_ERR(twd_clk))
+		return cpufreq_register_notifier(&twd_cpufreq_nb,
+			CPUFREQ_TRANSITION_NOTIFIER);
+
+	return 0;
+}
+core_initcall(twd_cpufreq_init);
+
+#endif
+
+#ifdef CONFIG_IPIPE
+static unsigned int twd_refresh_freq(void)
+{
+	return clk_get_rate(twd_clk);
+}
+#endif
 
 static void twd_calibrate_rate(void)
 {
@@ -181,7 +272,11 @@ static irqreturn_t twd_handler(int irq, void *dev_id)
 {
 	struct clock_event_device *evt = dev_id;
 
+	if (clockevent_ipipe_stolen(evt))
+		goto handle;
+
 	if (twd_timer_ack()) {
+	  handle:
 		evt->event_handler(evt);
 		return IRQ_HANDLED;
 	}
@@ -250,6 +345,18 @@ static void twd_timer_setup(void)
 	clk->tick_resume = twd_shutdown;
 	clk->set_next_event = twd_set_next_event;
 	clk->irq = twd_ppi;
+
+#ifdef CONFIG_IPIPE
+	printk(KERN_INFO "I-pipe, %lu.%03lu MHz timer\n",
+	       twd_timer_rate / 1000000,
+	       (twd_timer_rate % 1000000) / 1000);
+	clk->ipipe_timer = raw_cpu_ptr(&twd_itimer);
+	clk->ipipe_timer->irq = clk->irq;
+	clk->ipipe_timer->ack = twd_ack;
+	clk->ipipe_timer->min_delay_ticks = 0xf;
+	clk->ipipe_timer->refresh_freq = twd_refresh_freq;
+#endif
+
 	clk->cpumask = cpumask_of(cpu);
 
 	clockevents_config_and_register(clk, twd_timer_rate,
@@ -302,6 +409,10 @@ static int __init twd_local_timer_common_register(struct device_node *np)
 		twd_timer_setup();
 	else
 		late_time_init = twd_timer_setup;
+
+#ifdef CONFIG_IPIPE_DEBUG_INTERNAL
+	__ipipe_mach_hrtimer_debug = &twd_hrtimer_debug;
+#endif /* CONFIG_IPIPE_DEBUG_INTERNAL */
 
 	return 0;
 

@@ -84,6 +84,7 @@ static struct irq_chip tps65217_irq_chip = {
 	.irq_bus_sync_unlock	= tps65217_irq_sync_unlock,
 	.irq_enable		= tps65217_irq_enable,
 	.irq_disable		= tps65217_irq_disable,
+	.flags			= IRQCHIP_PIPELINE_SAFE,
 };
 
 static struct mfd_cell tps65217s[] = {

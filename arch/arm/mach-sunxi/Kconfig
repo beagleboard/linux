@@ -47,6 +47,7 @@ config MACH_SUN8I
 	default ARCH_SUNXI
 	select ARM_GIC
 	select MFD_SUN6I_PRCM
+	select IPIPE_ARM_KUSER_TSC if IPIPE
 
 config MACH_SUN9I
 	bool "Allwinner (sun9i) SoCs support"
