@@ -13,6 +13,11 @@
 	model = "TI AM335x BeagleBone Black Wireless";
 	compatible = "ti,am335x-bone-black-wireless", "ti,am335x-bone-black", "ti,am335x-bone", "ti,am33xx";
 
+	chosen {
+		base_dtb = "am335x-boneblack-wireless.dts";
+		base_dtb_timestamp = __TIMESTAMP__;
+	};
+
 	wlan_en_reg: fixedregulator@2 {
 		compatible = "regulator-fixed";
 		regulator-name = "wlan-en-regulator";
