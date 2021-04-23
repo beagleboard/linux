@@ -1,0 +1,60 @@
+PRU Software UART on TI SoCs
+
+The PRU can be programmed as multi-ports UART.
+
+Each PRU Software UART (SWUART) node should define the PRU Application node
+properties as detailed in bindings ti,pru-consumer.yaml and one or more port
+nodes describing the emulated UART port(s).
+
+Required properties:
+--------------------
+- compatible           : should be "ti,pru-swuart".
+- interrupt-parent     : phandle to the PRUSS INTC node.
+- ti,prus              : phandle to the PRU node used.
+- firmware-name        : SWUART firmware for the PRU core.
+
+UART Port Node
+==============
+Required properties:
+--------------------
+- reg                : index of the port, 0-based.
+- interrupts         : interrupt specifier for PRU signaling the host,
+		       containing an single entry of 3 cell-values.
+		       The First one is the PRU System Event id.
+		       The second is the PRU interrupt channel id.
+		       The third is the PRU host interrupt id.
+- ti,pru-swuart-pins : PRU pin mapping for UART signals, containing a single
+                       entry of 2 or 4 byte cell-values. The first two values
+		       are for txd and rxd pins, the next two values are
+		       optional which are for cts and rts pins. The value is
+		       the index of the PRU GPIOs defined in PRU R30 and R31.
+
+Example (AM335x BeagleBone Black board):
+---------------------------------------
+
+	pru-swuart0 {
+		compatible = "ti,pru-swuart";
+		interrupt-parent = <&pruss_intc>;
+		ti,prus = <&pru0>;
+		firmware-name = "ti-pruss/pru0_swuart-fw.out";
+		pinctrl-0 = <&pru_uart0_bone_pins>;
+		pinctrl-names = "default";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		pru0_port0: port@0 {
+			reg = <0>;
+			interrupts = <21 2 2>;
+			ti,pru-swuart-pins = /bits/ 8 <0 1>;
+		};
+		pru0_port1: port@1 {
+			reg = <1>;
+			interrupts = <22 3 3>;
+			ti,pru-swuart-pins = /bits/ 8 <2 3 4 5>;
+		};
+		pru0_port2: port@2 {
+			reg = <2>;
+			interrupts = <23 4 4>;
+			ti,pru-swuart-pins = /bits/ 8 <8 9 10 11>;
+		};
+	};
