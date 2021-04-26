@@ -9,6 +9,7 @@
 DTC_FLAGS += -@
 
 dtb-$(CONFIG_ARCH_K3) += k3-am654-base-board.dtb
+dtb-$(CONFIG_ARCH_K3) += k3-am654-sr1.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-am654-pcie-usb3.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-am654-pcie-usb2.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-am654-gp.dtbo
