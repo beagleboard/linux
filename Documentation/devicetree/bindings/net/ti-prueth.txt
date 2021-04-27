@@ -1,0 +1,92 @@
+Texas Instruments PRUSS Ethernet MAC
+====================================
+
+Required properties:
+- compatible       : Should be one of the following,
+                        "ti,am3359-prueth" for AM335x SoCs
+                        "ti,am4376-prueth" for AM437x SoCs
+                        "ti,am57-prueth" for AM57xx SoCs
+                        "ti,k2g-prueth" for 66AK2G SoCs
+
+- ti,prus             : list of pHandles to the PRU nodes
+- sram	           : pHandle to OCMC SRAM node
+- interrupt-parent : pHandle to the PRUSS INTC node
+- mii-rt	   : pHandle to MII_RT module's syscon regmap
+- iep		   : pHandle to IEP module's syscon regmap
+
+Must contain children, one for each of the MAC ports.
+Children must be named ethernet-mii0 and ethernet-mii1.
+Either one or both children can be present. If only one
+child is present driver operates in single EMAC mode.
+
+For single mode operation with the 2nd PRU, you still need
+to provide both PRUs. See 2nd example.
+
+Required properties for children:
+- phy-handle       : See ethernet.txt file in the same directory.
+- phy-mode         : See ethernet.txt file in the same directory.
+- interrupt-names  : should be "rx"
+- interrupts       : should contain an array of PRUSS system event
+                     numbers used as the interrupt sources for Rx.
+
+Optional properties for children:
+- local-mac-address	: mac address for the port.
+- ti,no-half-duplex	: disable half-duplex.
+- interrupt-names	: add "tx" when using Dual EMAC firmware to
+			  get a better egress performance at MTU size.
+			  Note that this reduces the performance
+			  for small size frames. So use it only if
+			  specific application uses mostly MTU or near
+			  MTU size frames.
+			  add "emac_ptp_tx" when ptp is needed with Dual EMAC
+- interrupts		: should contain an array of PRUSS system event
+			  numbers for each entry in interrupt-names.
+
+Example (am572x-idk board, dual-emac):
+======================================
+	pruss2_eth {
+		compatible = "ti,am57-prueth";
+		ti,prus = <&pru2_0>, <&pru2_1>;
+		sram = <&ocmcram1>;
+		interrupt-parent = <&pruss2_intc>;
+		mii-rt = <&pruss2_mii_rt>;
+		iep = <&pruss2_iep>;
+
+		pruss2_emac0: ethernet-mii0 {
+			phy-handle = <&pruss2_eth0_phy>;
+			phy-mode = "mii";
+			interrupts = <20 2 2>, <22 4 4 >, <26 6 6>;
+			interrupt-names = "rx", "tx", "emac_ptp_tx";
+			/* Filled in by bootloader */
+			local-mac-address = [00 00 00 00 00 00];
+		};
+
+		pruss2_emac1: ethernet-mii1 {
+			phy-handle = <&pruss2_eth1_phy>;
+			phy-mode = "mii";
+			interrupts = <21 3 3>, <23 5 5>, <27 9 7>;
+			interrupt-names = "rx", "tx", "emac_ptp_tx";
+			/* Filled in by bootloader */
+			local-mac-address = [00 00 00 00 00 00];
+		};
+	};
+
+Example (am572x-idk board, single-emac):
+=======================================
+	pruss2_eth {
+		compatible = "ti,am57-prueth";
+		ti,prus = <&pru2_0>, <&pru2_1>;
+		sram = <&ocmcram1>;
+		interrupt-parent = <&pruss2_intc>;
+		mii-rt = <&pruss2_mii_rt>;
+		iep = <&pruss2_iep>;
+
+		pruss2_emac1: ethernet-mii1 {
+			phy-handle = <&pruss2_eth1_phy>;
+			phy-mode = "mii";
+			interrupts = <21 2 2>, <23 3 3>, <27 4 4>;
+			interrupt-names = "rx", "tx", "emac_ptp_tx";
+			/* Filled in by bootloader */
+			local-mac-address = [00 00 00 00 00 00];
+		};
+	};
