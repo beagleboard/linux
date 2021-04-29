@@ -734,6 +734,11 @@ struct icss_iep *icss_iep_get(struct device_node *np)
 
 	iep->ptp_info = icss_iep_ptp_info;
 
+
+	if (!(iep->plat_data->flags & ICSS_IEP_64BIT_COUNTER_SUPPORT) ||
+	    !(iep->plat_data->flags & ICSS_IEP_SLOW_COMPEN_REG_SUPPORT))
+		goto exit;
+
 	if (iep->cap_cmp_irq || (iep->ops && iep->ops->perout_enable)) {
 		iep->ptp_info.n_per_out = 1;
 		iep->ptp_info.pps = 1;
@@ -742,6 +747,7 @@ struct icss_iep *icss_iep_get(struct device_node *np)
 	if (iep->cap_cmp_irq || (iep->ops && iep->ops->extts_enable))
 		iep->ptp_info.n_ext_ts = 2;
 
+exit:
 	return iep;
 
 put_iep_device:
