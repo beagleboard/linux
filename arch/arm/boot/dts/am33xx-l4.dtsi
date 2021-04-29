@@ -875,6 +875,14 @@
 					};
 				};
 
+				pruss_uart: serial@28000 {
+					compatible = "ti,pruss-uart";
+					reg = <0x28000 0x38>;
+					clocks = <&dpll_per_m2_ck>;
+					interrupt-parent = <&pruss_intc>;
+					status = "disabled";
+				};
+
 				pruss_iep: iep@2e000 {
 					compatible = "ti,am3356-icss-iep";
 					reg = <0x2e000 0x31c>;

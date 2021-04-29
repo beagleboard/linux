@@ -510,6 +510,16 @@ config SERIAL_8250_TEGRA
 	  Select this option if you have machine with an NVIDIA Tegra SoC and
 	  wish to enable 8250 serial driver for the Tegra serial interfaces.
 
+config SERIAL_8250_PRUSS
+	tristate "TI PRU-ICSS UART support"
+	depends on SERIAL_8250
+	depends on PRU_REMOTEPROC && TI_PRUSS_INTC
+	help
+	  This driver is to support the UART module in PRU-ICSS which is
+	  available in some TI platforms.
+	  Say 'Y' here if you wish to use PRU-ICSS UART.
+	  Otherwise, say 'N'.
+
 config SERIAL_OF_PLATFORM
 	tristate "Devicetree based probing for 8250 ports"
 	depends on SERIAL_8250 && OF
