@@ -1,0 +1,10 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (C) 2020-2021 Texas Instruments Incorporated - https://www.ti.com/
+ */
+
+#include "k3-am654-sr1.dts"
+
+&sdhci1 {
+	no-1-8-v;
+};
