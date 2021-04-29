@@ -844,7 +844,7 @@ int icss_iep_init(struct icss_iep *iep, const struct icss_iep_clockops *clkops,
 		icss_iep_enable(iep);
 
 	iep->cycle_time_ns = cycle_time_ns;
-	icss_iep_set_counter(iep, 0);
+	icss_iep_set_counter(iep, ktime_get_real_ns());
 
 	iep->clk_tick_time = def_inc;
 
