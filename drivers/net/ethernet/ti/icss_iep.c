@@ -201,7 +201,8 @@ static void icss_iep_settime(struct icss_iep *iep, u64 ns)
 	icss_iep_set_counter(iep, ns);
 }
 
-static u64 icss_iep_gettime(struct icss_iep *iep)
+static u64 icss_iep_gettime(struct icss_iep *iep,
+			    struct ptp_system_timestamp *sts)
 {
 	u32 ts_hi = 0, ts_lo;
 	unsigned long flags;
@@ -213,8 +214,9 @@ static u64 icss_iep_gettime(struct icss_iep *iep)
 	local_irq_save(flags);
 
 	/* no need to play with hi-lo, hi is latched when lo is read */
+	ptp_read_system_prets(sts);
 	ts_lo = icss_iep_readl(iep, ICSS_IEP_COUNT_REG0);
-
+	ptp_read_system_postts(sts);
 	if (iep->plat_data->flags & ICSS_IEP_64BIT_COUNTER_SUPPORT)
 		ts_hi = icss_iep_readl(iep, ICSS_IEP_COUNT_REG1);
 
@@ -390,7 +392,7 @@ static int icss_iep_ptp_adjtime(struct ptp_clock_info *ptp, s64 delta)
 	if (iep->ops && iep->ops->adjtime) {
 		iep->ops->adjtime(iep->clockops_data, delta);
 	} else {
-		ns = icss_iep_gettime(iep);
+		ns = icss_iep_gettime(iep, NULL);
 		ns += delta;
 		icss_iep_settime(iep, ns);
 	}
@@ -399,14 +401,15 @@ static int icss_iep_ptp_adjtime(struct ptp_clock_info *ptp, s64 delta)
 	return 0;
 }
 
-static int icss_iep_ptp_gettime(struct ptp_clock_info *ptp,
-				struct timespec64 *ts)
+static int icss_iep_ptp_gettimeex(struct ptp_clock_info *ptp,
+				  struct timespec64 *ts,
+				  struct ptp_system_timestamp *sts)
 {
 	struct icss_iep *iep = container_of(ptp, struct icss_iep, ptp_info);
 	u64 ns;
 
 	mutex_lock(&iep->ptp_clk_mutex);
-	ns = icss_iep_gettime(iep);
+	ns = icss_iep_gettime(iep, sts);
 	*ts = ns_to_timespec64(ns);
 	mutex_unlock(&iep->ptp_clk_mutex);
 
@@ -432,7 +435,7 @@ static void icss_iep_update_to_next_boundary(struct icss_iep *iep, u64 start_ns)
 	u64 ns, p_ns;
 	u32 offset;
 
-	ns = icss_iep_gettime(iep);
+	ns = icss_iep_gettime(iep, NULL);
 	if (start_ns < ns)
 		start_ns = ns;
 	p_ns = iep->period;
@@ -640,7 +643,7 @@ static int icss_iep_pps_enable(struct icss_iep *iep, int on)
 
 	rq.perout.index = 0;
 	if (on) {
-		ns = icss_iep_gettime(iep);
+		ns = icss_iep_gettime(iep, NULL);
 		ts = ns_to_timespec64(ns);
 		rq.perout.period.sec = 1;
 		rq.perout.period.nsec = 0;
@@ -719,7 +722,7 @@ static struct ptp_clock_info icss_iep_ptp_info = {
 	.max_adj	= 10000000,
 	.adjfreq	= icss_iep_ptp_adjfreq,
 	.adjtime	= icss_iep_ptp_adjtime,
-	.gettime64	= icss_iep_ptp_gettime,
+	.gettimex64	= icss_iep_ptp_gettimeex,
 	.settime64	= icss_iep_ptp_settime,
 	.enable		= icss_iep_ptp_enable,
 };
