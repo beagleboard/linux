@@ -131,6 +131,11 @@ static u32 icss_iep_readl(struct icss_iep *iep, int reg)
 	return readl(iep->base + iep->plat_data->reg_offs[reg]);
 }
 
+static void icss_iep_writel(struct icss_iep *iep, int reg, u32 val)
+{
+	return writel(val, iep->base + iep->plat_data->reg_offs[reg]);
+}
+
 /**
  * icss_iep_get_count_hi() - Get the upper 32 bit IEP counter
  * @iep: Pointer to structure representing IEP.
@@ -552,24 +557,26 @@ static irqreturn_t icss_iep_cap_cmp_handler(int irq, void *dev_id)
 
 	spin_lock_irqsave(&iep->irq_lock, flags);
 
-	regmap_read(iep->map, ICSS_IEP_CMP_STAT_REG, &val);
+	val = icss_iep_readl(iep, ICSS_IEP_CMP_STAT_REG);
 	if (val & BIT(CMP_INDEX(index))) {
-		regmap_write(iep->map, ICSS_IEP_CMP_STAT_REG, BIT(CMP_INDEX(index)));
+		icss_iep_writel(iep, ICSS_IEP_CMP_STAT_REG,
+				BIT(CMP_INDEX(index)));
 
 		if (!iep->pps_enabled && !iep->perout_enabled)
 			goto do_latch;
 
-		regmap_read(iep->map, ICSS_IEP_CMP1_REG0, &val);
-		ns = val;
+		ns = icss_iep_readl(iep, ICSS_IEP_CMP1_REG0);
 		if (iep->plat_data->flags & ICSS_IEP_64BIT_COUNTER_SUPPORT) {
-			regmap_read(iep->map, ICSS_IEP_CMP1_REG1, &val);
+			val = icss_iep_readl(iep, ICSS_IEP_CMP1_REG1);
 			ns |= (u64)val << 32;
 		}
 		/* set next event */
 		ns_next = ns + iep->period;
-		regmap_write(iep->map, ICSS_IEP_CMP1_REG0, lower_32_bits(ns_next));
+		icss_iep_writel(iep, ICSS_IEP_CMP1_REG0,
+				lower_32_bits(ns_next));
 		if (iep->plat_data->flags & ICSS_IEP_64BIT_COUNTER_SUPPORT)
-			regmap_write(iep->map, ICSS_IEP_CMP1_REG1, upper_32_bits(ns_next));
+			icss_iep_writel(iep, ICSS_IEP_CMP1_REG1,
+					upper_32_bits(ns_next));
 
 		pevent.pps_times.ts_real = ns_to_timespec64(ns);
 		pevent.type = PTP_CLOCK_PPSUSR;
@@ -584,16 +591,17 @@ static irqreturn_t icss_iep_cap_cmp_handler(int irq, void *dev_id)
 	}
 
 do_latch:
-	regmap_read(iep->map, ICSS_IEP_CAPTURE_STAT_REG, &sts);
+	sts = icss_iep_readl(iep, ICSS_IEP_CAPTURE_STAT_REG);
 	if (!sts)
 		goto cap_cmp_exit;
 
 	for (i = 0; i < iep->ptp_info.n_ext_ts; i++) {
 		if (sts & IEP_CAP_CFG_CAPNR_1ST_EVENT_EN(i * 2)) {
-			regmap_read(iep->map, ICSS_IEP_CAP6_RISE_REG0 + (i * 2), &val);
-			ns = val;
+			ns = icss_iep_readl(iep,
+					    ICSS_IEP_CAP6_RISE_REG0 + (i * 2));
 			if (iep->plat_data->flags & ICSS_IEP_64BIT_COUNTER_SUPPORT) {
-				regmap_read(iep->map, ICSS_IEP_CAP6_RISE_REG0 + (i * 2) + 1, &val);
+				val = icss_iep_readl(iep,
+						     ICSS_IEP_CAP6_RISE_REG0 + (i * 2) + 1);
 				ns |= (u64)val << 32;
 			}
 			pevent.timestamp = ns;
@@ -720,9 +728,10 @@ static enum hrtimer_restart icss_iep_sync0_work(struct hrtimer *timer)
 {
 	struct icss_iep *iep = container_of(timer, struct icss_iep, sync_timer);
 
-	regmap_write(iep->map, ICSS_IEP_SYNC_CTRL_REG, 0);
-	regmap_write(iep->map, ICSS_IEP_SYNC_CTRL_REG,
-		     IEP_SYNC_CTRL_SYNC_N_EN(0) | IEP_SYNC_CTRL_SYNC_EN);
+	icss_iep_writel(iep, ICSS_IEP_SYNC_CTRL_REG, 0);
+	icss_iep_writel(iep, ICSS_IEP_SYNC_CTRL_REG,
+			IEP_SYNC_CTRL_SYNC_N_EN(0) | IEP_SYNC_CTRL_SYNC_EN);
+	icss_iep_writel(iep, ICSS_IEP_SYNC0_STAT_REG, 1);
 
 	return HRTIMER_NORESTART;
 }
