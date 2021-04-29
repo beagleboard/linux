@@ -187,18 +187,33 @@ EXPORT_SYMBOL_GPL(icss_iep_get_ptp_clock_idx);
 static void icss_iep_set_counter(struct icss_iep *iep, u64 ns)
 {
 	if (iep->plat_data->flags & ICSS_IEP_64BIT_COUNTER_SUPPORT)
-		regmap_write(iep->map, ICSS_IEP_COUNT_REG1, upper_32_bits(ns));
-	regmap_write(iep->map, ICSS_IEP_COUNT_REG0, lower_32_bits(ns));
+		icss_iep_writel(iep, ICSS_IEP_COUNT_REG1, upper_32_bits(ns));
+	icss_iep_writel(iep, ICSS_IEP_COUNT_REG0, lower_32_bits(ns));
 }
+
+static void icss_iep_update_to_next_boundary(struct icss_iep *iep, u64 start_ns);
 
 static void icss_iep_settime(struct icss_iep *iep, u64 ns)
 {
+	unsigned long flags;
+
 	if (iep->ops && iep->ops->settime) {
 		iep->ops->settime(iep->clockops_data, ns);
 		return;
 	}
 
+	spin_lock_irqsave(&iep->irq_lock, flags);
+	if (iep->pps_enabled || iep->perout_enabled)
+		icss_iep_writel(iep, ICSS_IEP_SYNC_CTRL_REG, 0);
+
 	icss_iep_set_counter(iep, ns);
+
+	if (iep->pps_enabled || iep->perout_enabled) {
+		icss_iep_update_to_next_boundary(iep, ns);
+		icss_iep_writel(iep, ICSS_IEP_SYNC_CTRL_REG,
+			     IEP_SYNC_CTRL_SYNC_N_EN(0) | IEP_SYNC_CTRL_SYNC_EN);
+	}
+	spin_unlock_irqrestore(&iep->irq_lock, flags);
 }
 
 static u64 icss_iep_gettime(struct icss_iep *iep,
