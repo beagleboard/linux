@@ -111,6 +111,7 @@ struct icss_iep {
 	struct ptp_clock_info ptp_info;
 	struct ptp_clock *ptp_clock;
 	struct mutex ptp_clk_mutex;	/* PHC access serializer */
+	spinlock_t irq_lock; /* CMP IRQ vs icss_iep_ptp_enable access */
 	u32 def_inc;
 	s16 slow_cmp_inc;
 	u32 slow_cmp_count;
@@ -497,6 +498,7 @@ static int icss_iep_perout_enable_hw(struct icss_iep *iep,
 static int icss_iep_perout_enable(struct icss_iep *iep,
 				  struct ptp_perout_request *req, int on)
 {
+	unsigned long flags;
 	int ret = 0;
 
 	mutex_lock(&iep->ptp_clk_mutex);
@@ -509,9 +511,12 @@ static int icss_iep_perout_enable(struct icss_iep *iep,
 	if (iep->perout_enabled == !!on)
 		goto exit;
 
+	spin_lock_irqsave(&iep->irq_lock, flags);
+	hrtimer_cancel(&iep->sync_timer);
 	ret = icss_iep_perout_enable_hw(iep, req, on);
 	if (!ret)
 		iep->perout_enabled = !!on;
+	spin_unlock_irqrestore(&iep->irq_lock, flags);
 
 exit:
 	mutex_unlock(&iep->ptp_clk_mutex);
@@ -525,11 +530,18 @@ static irqreturn_t icss_iep_cap_cmp_handler(int irq, void *dev_id)
 	unsigned int val, index = 0, i, sts;
 	struct ptp_clock_event pevent;
 	irqreturn_t ret = IRQ_NONE;
+	unsigned long flags;
 	u64 ns;
+
+	spin_lock_irqsave(&iep->irq_lock, flags);
 
 	regmap_read(iep->map, ICSS_IEP_CMP_STAT_REG, &val);
 	if (val & BIT(CMP_INDEX(index))) {
 		regmap_write(iep->map, ICSS_IEP_CMP_STAT_REG, BIT(CMP_INDEX(index)));
+
+		if (!iep->pps_enabled && !iep->perout_enabled)
+			goto do_latch;
+
 		regmap_read(iep->map, ICSS_IEP_CMP1_REG0, &val);
 		ns = val;
 		if (iep->plat_data->flags & ICSS_IEP_64BIT_COUNTER_SUPPORT) {
@@ -550,9 +562,10 @@ static irqreturn_t icss_iep_cap_cmp_handler(int irq, void *dev_id)
 		ret = IRQ_HANDLED;
 	}
 
+do_latch:
 	regmap_read(iep->map, ICSS_IEP_CAPTURE_STAT_REG, &sts);
 	if (!sts)
-		return ret;
+		goto cap_cmp_exit;
 
 	for (i = 0; i < iep->ptp_info.n_ext_ts; i++) {
 		if (sts & IEP_CAP_CFG_CAPNR_1ST_EVENT_EN(i * 2)) {
@@ -571,6 +584,8 @@ static irqreturn_t icss_iep_cap_cmp_handler(int irq, void *dev_id)
 		}
 	}
 
+cap_cmp_exit:
+	spin_unlock_irqrestore(&iep->irq_lock, flags);
 	return ret;
 }
 
@@ -579,6 +594,7 @@ static int icss_iep_pps_enable(struct icss_iep *iep, int on)
 	int ret = 0;
 	struct timespec64 ts;
 	struct ptp_clock_request rq;
+	unsigned long flags;
 	u64 ns;
 
 	mutex_lock(&iep->ptp_clk_mutex);
@@ -591,6 +607,8 @@ static int icss_iep_pps_enable(struct icss_iep *iep, int on)
 	if (iep->pps_enabled == !!on)
 		goto exit;
 
+	spin_lock_irqsave(&iep->irq_lock, flags);
+
 	rq.perout.index = 0;
 	if (on) {
 		ns = icss_iep_gettime(iep);
@@ -601,11 +619,14 @@ static int icss_iep_pps_enable(struct icss_iep *iep, int on)
 		rq.perout.start.nsec = 0;
 		ret = icss_iep_perout_enable_hw(iep, &rq.perout, on);
 	} else {
+		hrtimer_cancel(&iep->sync_timer);
 		ret = icss_iep_perout_enable_hw(iep, &rq.perout, on);
 	}
 
 	if (!ret)
 		iep->pps_enabled = !!on;
+
+	spin_unlock_irqrestore(&iep->irq_lock, flags);
 
 exit:
 	mutex_unlock(&iep->ptp_clk_mutex);
