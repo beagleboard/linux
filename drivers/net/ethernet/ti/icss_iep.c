@@ -877,7 +877,6 @@ static int icss_iep_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct icss_iep *iep;
-	struct resource *res;
 	struct clk *iep_clk;
 	int ret;
 
@@ -886,8 +885,7 @@ static int icss_iep_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	iep->dev = dev;
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	iep->base = devm_ioremap_resource(dev, res);
+	iep->base = devm_platform_ioremap_resource(pdev, 0);
 	if (IS_ERR(iep->base))
 		return -ENODEV;
 
