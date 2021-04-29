@@ -15,6 +15,7 @@ dtb-$(CONFIG_ARCH_K3) += k3-am654-pcie-usb3.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-am654-pcie-usb2.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-am654-gp.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-am654-idk.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-am654-idk-sr1.dtbo
 
 dtb-$(CONFIG_ARCH_K3) += k3-j721e-common-proc-board.dtb
 
