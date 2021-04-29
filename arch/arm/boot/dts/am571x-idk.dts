@@ -186,7 +186,7 @@
 		ethernet-mii0 {
 			phy-handle = <&pruss1_eth0_phy>;
 			phy-mode = "mii";
-			interrupts = <20 2 2>, <26 4 4>;
+			interrupts = <20 2 2>, <26 6 6>;
 			interrupt-names = "rx", "emac_ptp_tx";
 			ti,no-half-duplex;
 			/* Filled in by bootloader */
@@ -196,7 +196,7 @@
 		ethernet-mii1 {
 			phy-handle = <&pruss1_eth1_phy>;
 			phy-mode = "mii";
-			interrupts = <21 3 3>, <27 5 5>;
+			interrupts = <21 3 3>, <27 9 7>;
 			interrupt-names = "rx", "emac_ptp_tx";
 			ti,no-half-duplex;
 			/* Filled in by bootloader */
