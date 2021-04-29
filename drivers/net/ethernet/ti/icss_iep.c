@@ -121,7 +121,7 @@ struct icss_iep {
 	u32 perout_enabled;
 	bool pps_enabled;
 	int cap_cmp_irq;
-	struct ptp_clock_time period;
+	u64 period;
 	u32 latch_enable;
 	struct hrtimer sync_timer;
 };
@@ -422,24 +422,26 @@ static int icss_iep_ptp_settime(struct ptp_clock_info *ptp,
 	return 0;
 }
 
-static void icss_iep_update_to_next_boundary(struct icss_iep *iep)
+static void icss_iep_update_to_next_boundary(struct icss_iep *iep, u64 start_ns)
 {
 	u64 ns, p_ns;
 	u32 offset;
 
 	ns = icss_iep_gettime(iep);
-	p_ns = ((u64)iep->period.sec * NSEC_PER_SEC) + iep->period.nsec;
+	if (start_ns < ns)
+		start_ns = ns;
+	p_ns = iep->period;
 	/* Round up to next period boundary */
-	ns += p_ns - 1;
-	offset = do_div(ns, p_ns);
-	ns = ns * p_ns;
+	start_ns += p_ns - 1;
+	offset = do_div(start_ns, p_ns);
+	start_ns = start_ns * p_ns;
 	/* If it is too close to update, shift to next boundary */
 	if (p_ns - offset < 10)
-		ns += p_ns;
+		start_ns += p_ns;
 
-	regmap_write(iep->map, ICSS_IEP_CMP1_REG0, lower_32_bits(ns));
+	regmap_write(iep->map, ICSS_IEP_CMP1_REG0, lower_32_bits(start_ns));
 	if (iep->plat_data->flags & ICSS_IEP_64BIT_COUNTER_SUPPORT)
-		regmap_write(iep->map, ICSS_IEP_CMP1_REG1, upper_32_bits(ns));
+		regmap_write(iep->map, ICSS_IEP_CMP1_REG1, upper_32_bits(start_ns));
 }
 
 static int icss_iep_perout_enable_hw(struct icss_iep *iep,
@@ -478,8 +480,14 @@ static int icss_iep_perout_enable_hw(struct icss_iep *iep,
 		}
 	} else {
 		if (on) {
-			iep->period = req->period;
-			icss_iep_update_to_next_boundary(iep);
+			u64 start_ns;
+
+			iep->period = ((u64)req->period.sec * NSEC_PER_SEC) +
+				      req->period.nsec;
+			start_ns = ((u64)req->period.sec * NSEC_PER_SEC)
+				   + req->period.nsec;
+			icss_iep_update_to_next_boundary(iep, start_ns);
+
 			/* Enable Sync in single shot mode  */
 			regmap_write(iep->map, ICSS_IEP_SYNC_CTRL_REG,
 				     IEP_SYNC_CTRL_SYNC_N_EN(0) | IEP_SYNC_CTRL_SYNC_EN);
@@ -540,7 +548,7 @@ static irqreturn_t icss_iep_cap_cmp_handler(int irq, void *dev_id)
 	struct ptp_clock_event pevent;
 	irqreturn_t ret = IRQ_NONE;
 	unsigned long flags;
-	u64 ns;
+	u64 ns, ns_next;
 
 	spin_lock_irqsave(&iep->irq_lock, flags);
 
@@ -557,13 +565,17 @@ static irqreturn_t icss_iep_cap_cmp_handler(int irq, void *dev_id)
 			regmap_read(iep->map, ICSS_IEP_CMP1_REG1, &val);
 			ns |= (u64)val << 32;
 		}
-		icss_iep_update_to_next_boundary(iep);
+		/* set next event */
+		ns_next = ns + iep->period;
+		regmap_write(iep->map, ICSS_IEP_CMP1_REG0, lower_32_bits(ns_next));
+		if (iep->plat_data->flags & ICSS_IEP_64BIT_COUNTER_SUPPORT)
+			regmap_write(iep->map, ICSS_IEP_CMP1_REG1, upper_32_bits(ns_next));
 
 		pevent.pps_times.ts_real = ns_to_timespec64(ns);
 		pevent.type = PTP_CLOCK_PPSUSR;
 		pevent.index = index;
 		ptp_clock_event(iep->ptp_clock, &pevent);
-		dev_dbg(iep->dev, "IEP:pps ts: %llu\n", ns);
+		dev_dbg(iep->dev, "IEP:pps ts: %llu next:%llu:\n", ns, ns_next);
 
 		hrtimer_start(&iep->sync_timer, ms_to_ktime(110), /* 100ms + buffer */
 			      HRTIMER_MODE_REL);
