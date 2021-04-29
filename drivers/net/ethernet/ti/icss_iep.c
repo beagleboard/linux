@@ -759,7 +759,6 @@ struct icss_iep *icss_iep_get(struct device_node *np)
 	struct platform_device *pdev;
 	struct device_node *iep_np;
 	struct icss_iep *iep;
-	int ret;
 
 	iep_np = of_parse_phandle(np, "iep", 0);
 	if (!iep_np || !of_device_is_available(iep_np))
@@ -787,20 +786,6 @@ struct icss_iep *icss_iep_get(struct device_node *np)
 	device_unlock(iep->dev);
 	get_device(iep->dev);
 
-	iep->cap_cmp_irq = of_irq_get_byname(np, "iep_cap_cmp");
-	if (iep->cap_cmp_irq < 0) {
-		iep->cap_cmp_irq = 0;
-	} else {
-		ret = request_irq(iep->cap_cmp_irq, icss_iep_cap_cmp_handler, IRQF_TRIGGER_HIGH,
-				  "iep_cap_cmp", iep);
-		if (ret) {
-			dev_err(iep->dev, "Request irq failed for cap_cmp %d\n", ret);
-			goto put_iep_device;
-		}
-		hrtimer_init(&iep->sync_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
-		iep->sync_timer.function = icss_iep_sync0_work;
-	}
-
 	iep->ptp_info = icss_iep_ptp_info;
 
 
@@ -818,11 +803,6 @@ struct icss_iep *icss_iep_get(struct device_node *np)
 
 exit:
 	return iep;
-
-put_iep_device:
-	put_device(iep->dev);
-
-	return ERR_PTR(ret);
 }
 EXPORT_SYMBOL_GPL(icss_iep_get);
 
@@ -832,10 +812,8 @@ void icss_iep_put(struct icss_iep *iep)
 	iep->client_np = NULL;
 	device_unlock(iep->dev);
 	put_device(iep->dev);
-	if (iep->cap_cmp_irq) {
-		free_irq(iep->cap_cmp_irq, iep);
+	if (iep->cap_cmp_irq)
 		hrtimer_cancel(&iep->sync_timer);
-	}
 }
 EXPORT_SYMBOL_GPL(icss_iep_put);
 
@@ -901,6 +879,7 @@ static int icss_iep_probe(struct platform_device *pdev)
 	struct icss_iep *iep;
 	struct resource *res;
 	struct clk *iep_clk;
+	int ret;
 
 	iep = devm_kzalloc(dev, sizeof(*iep), GFP_KERNEL);
 	if (!iep)
@@ -911,6 +890,23 @@ static int icss_iep_probe(struct platform_device *pdev)
 	iep->base = devm_ioremap_resource(dev, res);
 	if (IS_ERR(iep->base))
 		return -ENODEV;
+
+	iep->cap_cmp_irq = platform_get_irq_byname_optional(pdev, "iep_cap_cmp");
+	if (iep->cap_cmp_irq < 0) {
+		if (iep->cap_cmp_irq == -EPROBE_DEFER)
+			return iep->cap_cmp_irq;
+		iep->cap_cmp_irq = 0;
+	} else {
+		ret = devm_request_irq(dev, iep->cap_cmp_irq,
+				       icss_iep_cap_cmp_handler, IRQF_TRIGGER_HIGH,
+				       "iep_cap_cmp", iep);
+		if (ret) {
+			dev_err(iep->dev, "Request irq failed for cap_cmp %d\n", ret);
+			return ret;
+		}
+		hrtimer_init(&iep->sync_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+		iep->sync_timer.function = icss_iep_sync0_work;
+	}
 
 	iep_clk = devm_clk_get(dev, NULL);
 	if (IS_ERR(iep_clk))
