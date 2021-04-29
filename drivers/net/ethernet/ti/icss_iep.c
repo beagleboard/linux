@@ -126,6 +126,11 @@ struct icss_iep {
 	struct hrtimer sync_timer;
 };
 
+static u32 icss_iep_readl(struct icss_iep *iep, int reg)
+{
+	return readl(iep->base + iep->plat_data->reg_offs[reg]);
+}
+
 /**
  * icss_iep_get_count_hi() - Get the upper 32 bit IEP counter
  * @iep: Pointer to structure representing IEP.
@@ -193,20 +198,24 @@ static void icss_iep_settime(struct icss_iep *iep, u64 ns)
 
 static u64 icss_iep_gettime(struct icss_iep *iep)
 {
-	u64 val;
-	u32 tmp;
+	u32 ts_hi = 0, ts_lo;
+	unsigned long flags;
 
 	if (iep->ops && iep->ops->gettime)
 		return iep->ops->gettime(iep->clockops_data);
 
-	regmap_read(iep->map, ICSS_IEP_COUNT_REG0, &tmp);
-	val = tmp;
-	if (iep->plat_data->flags & ICSS_IEP_64BIT_COUNTER_SUPPORT) {
-		regmap_read(iep->map, ICSS_IEP_COUNT_REG1, &tmp);
-		val |= (u64)tmp << 32;
-	}
+	/* use local_irq_x() to make it work for both RT/non-RT */
+	local_irq_save(flags);
 
-	return val;
+	/* no need to play with hi-lo, hi is latched when lo is read */
+	ts_lo = icss_iep_readl(iep, ICSS_IEP_COUNT_REG0);
+
+	if (iep->plat_data->flags & ICSS_IEP_64BIT_COUNTER_SUPPORT)
+		ts_hi = icss_iep_readl(iep, ICSS_IEP_COUNT_REG1);
+
+	local_irq_restore(flags);
+
+	return (u64)ts_lo | (u64)ts_hi << 32;
 }
 
 static void icss_iep_enable(struct icss_iep *iep)
