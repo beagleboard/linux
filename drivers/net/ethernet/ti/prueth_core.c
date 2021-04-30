@@ -850,7 +850,7 @@ static void parse_packet_info(u32 buffer_descriptor,
  * negative for error
  */
 static int emac_rx_packet(struct prueth_emac *emac, u16 *bd_rd_ptr,
-			  struct prueth_packet_info pkt_info,
+			  struct prueth_packet_info *pkt_info,
 			  const struct prueth_queue_info *rxqueue)
 {
 	struct net_device *ndev = emac->ndev;
@@ -876,8 +876,8 @@ static int emac_rx_packet(struct prueth_emac *emac, u16 *bd_rd_ptr,
 	buffer_desc_count /= BD_SIZE;
 	buffer_desc_count++;
 	read_block = (*bd_rd_ptr - rxqueue->buffer_desc_offset) / BD_SIZE;
-	pkt_block_size = DIV_ROUND_UP(pkt_info.length, ICSS_BLOCK_SIZE);
-	if (pkt_info.timestamp)
+	pkt_block_size = DIV_ROUND_UP(pkt_info->length, ICSS_BLOCK_SIZE);
+	if (pkt_info->timestamp)
 		pkt_block_size++;
 
 	/* calculate end BD address post read */
@@ -894,7 +894,7 @@ static int emac_rx_packet(struct prueth_emac *emac, u16 *bd_rd_ptr,
 	*bd_rd_ptr = rxqueue->buffer_desc_offset + (update_block * BD_SIZE);
 
 	/* Allocate a socket buffer for this packet */
-	skb = netdev_alloc_skb_ip_align(ndev, pkt_info.length);
+	skb = netdev_alloc_skb_ip_align(ndev, pkt_info->length);
 	if (!skb) {
 		if (netif_msg_rx_err(emac) && net_ratelimit())
 			netdev_err(ndev, "failed rx buffer alloc\n");
@@ -905,7 +905,7 @@ static int emac_rx_packet(struct prueth_emac *emac, u16 *bd_rd_ptr,
 	/* Get the start address of the first buffer from
 	 * the read buffer description
 	 */
-	if (pkt_info.shadow) {
+	if (pkt_info->shadow) {
 		src_addr = ocmc_ram + P0_COL_BUFFER_OFFSET;
 	} else {
 		src_addr = ocmc_ram + rxqueue->buffer_offset +
@@ -922,41 +922,41 @@ static int emac_rx_packet(struct prueth_emac *emac, u16 *bd_rd_ptr,
 		 * if pkt_info.length is not integral multiple of
 		 * ICSS_BLOCK_SIZE
 		 */
-		if (pkt_info.length < bytes)
-			bytes = pkt_info.length;
+		if (pkt_info->length < bytes)
+			bytes = pkt_info->length;
 
 		/* copy non-wrapped part */
 		memcpy(dst_addr, src_addr, bytes);
 
 		/* copy wrapped part */
 		dst_addr += bytes;
-		remaining = pkt_info.length - bytes;
-		if (pkt_info.shadow)
+		remaining = pkt_info->length - bytes;
+		if (pkt_info->shadow)
 			src_addr += bytes;
 		else
 			src_addr = ocmc_ram + rxqueue->buffer_offset;
 		memcpy(dst_addr, src_addr, remaining);
 		src_addr += remaining;
 	} else {
-		memcpy(dst_addr, src_addr, pkt_info.length);
-		src_addr += pkt_info.length;
+		memcpy(dst_addr, src_addr, pkt_info->length);
+		src_addr += pkt_info->length;
 	}
 
-	if (pkt_info.timestamp) {
+	if (pkt_info->timestamp) {
 		src_addr = (void *)roundup((uintptr_t)src_addr, ICSS_BLOCK_SIZE);
 		dst_addr = &ts;
 		memcpy(dst_addr, src_addr, sizeof(ts));
 	}
 
 	/* send packet up the stack */
-	skb_put(skb, pkt_info.length);
+	skb_put(skb, pkt_info->length);
 	if (PRUETH_IS_SWITCH(emac->prueth)) {
 		skb->offload_fwd_mark = emac->offload_fwd_mark;
-		if (!pkt_info.lookup_success)
+		if (!pkt_info->lookup_success)
 			prueth_sw_learn_fdb(emac, skb->data + ETH_ALEN);
 	}
 
-	if (prueth_ptp_rx_ts_is_enabled(emac) && pkt_info.timestamp) {
+	if (prueth_ptp_rx_ts_is_enabled(emac) && pkt_info->timestamp) {
 		ssh = skb_hwtstamps(skb);
 		memset(ssh, 0, sizeof(*ssh));
 		ssh->hwtstamp = ns_to_ktime(ts);
@@ -968,7 +968,7 @@ static int emac_rx_packet(struct prueth_emac *emac, u16 *bd_rd_ptr,
 	local_bh_enable();
 
 	/* update stats */
-	ndev->stats.rx_bytes += pkt_info.length;
+	ndev->stats.rx_bytes += pkt_info->length;
 	ndev->stats.rx_packets++;
 
 	return 0;
@@ -1073,7 +1073,7 @@ retry:
 				}
 
 				ret = emac_rx_packet(emac, &update_rd_ptr,
-						     pkt_info, rxqueue);
+						     &pkt_info, rxqueue);
 				if (ret)
 					return IRQ_HANDLED;
 				used++;
