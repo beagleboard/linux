@@ -536,30 +536,6 @@ static irqreturn_t emac_tx_hardirq(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-/**
- * emac_rx_hardirq - EMAC Rx interrupt handler
- * @irq: interrupt number
- * @dev_id: pointer to net_device
- *
- * EMAC Interrupt handler - we only schedule NAPI and not process any packets
- * here.
- *
- * Returns interrupt handled condition
- */
-static irqreturn_t emac_rx_hardirq(int irq, void *dev_id)
-{
-	struct net_device *ndev = (struct net_device *)dev_id;
-	struct prueth_emac *emac = netdev_priv(ndev);
-
-	if (likely(netif_running(ndev))) {
-		/* disable Rx system event */
-		disable_irq_nosync(emac->rx_irq);
-		napi_schedule(&emac->napi);
-	}
-
-	return IRQ_HANDLED;
-}
-
 static u8 prueth_ptp_ts_event_type(struct sk_buff *skb)
 {
 	unsigned int ptp_class = ptp_classify_raw(skb);
@@ -979,6 +955,7 @@ static int emac_rx_packet(struct prueth_emac *emac, u16 *bd_rd_ptr,
 		if (!pkt_info.lookup_success)
 			prueth_sw_learn_fdb(emac, skb->data + ETH_ALEN);
 	}
+
 	if (prueth_ptp_rx_ts_is_enabled(emac) && pkt_info.timestamp) {
 		ssh = skb_hwtstamps(skb);
 		memset(ssh, 0, sizeof(*ssh));
@@ -986,7 +963,9 @@ static int emac_rx_packet(struct prueth_emac *emac, u16 *bd_rd_ptr,
 	}
 
 	skb->protocol = eth_type_trans(skb, ndev);
+	local_bh_disable();
 	netif_receive_skb(skb);
+	local_bh_enable();
 
 	/* update stats */
 	ndev->stats.rx_bytes += pkt_info.length;
@@ -995,9 +974,27 @@ static int emac_rx_packet(struct prueth_emac *emac, u16 *bd_rd_ptr,
 	return 0;
 }
 
-/* get upto quota number of packets */
-static int emac_rx_packets(struct prueth_emac *emac, int quota)
+/**
+ * emac_rx_thread - EMAC Rx interrupt thread handler
+ * @irq: interrupt number
+ * @dev_id: pointer to net_device
+ *
+ * EMAC Rx Interrupt thread handler - function to process the rx frames in a
+ * irq thread function. There is only limited buffer at the ingress to
+ * queue the frames. As the frames are to be emptied as quickly as
+ * possible to avoid overflow, irq thread is necessary. Current implementation
+ * based on NAPI poll results in packet loss due to overflow at
+ * the ingress queues. Industrial use case requires loss free packet
+ * processing. Tests shows that with threaded irq based processing,
+ * no overflow happens when receiving at ~92Mbps for MTU sized frames and thus
+ * meet the requirement for industrial use case.
+ *
+ * Returns interrupt handled condition
+ */
+static irqreturn_t emac_rx_thread(int irq, void *dev_id)
 {
+	struct net_device *ndev = (struct net_device *)dev_id;
+	struct prueth_emac *emac = netdev_priv(ndev);
 	struct prueth *prueth = emac->prueth;
 	int start_queue, end_queue;
 	struct prueth_queue_desc __iomem *queue_desc;
@@ -1021,6 +1018,7 @@ static int emac_rx_packets(struct prueth_emac *emac, int quota)
 		end_queue = emac->rx_queue_end;
 	}
 
+retry:
 	/* search host queues for packets */
 	for (i = start_queue; i <= end_queue; i++) {
 		queue_desc = emac->rx_queue_descs + i;
@@ -1077,8 +1075,7 @@ static int emac_rx_packets(struct prueth_emac *emac, int quota)
 				ret = emac_rx_packet(emac, &update_rd_ptr,
 						     pkt_info, rxqueue);
 				if (ret)
-					return ret;
-
+					return IRQ_HANDLED;
 				used++;
 			}
 
@@ -1091,14 +1088,15 @@ static int emac_rx_packets(struct prueth_emac *emac, int quota)
 			/* update read pointer in queue descriptor */
 			writew(update_rd_ptr, &queue_desc->rd_ptr);
 			bd_rd_ptr = update_rd_ptr;
-
-			/* all we have room for? */
-			if (used >= quota)
-				return used;
 		}
 	}
 
-	return used;
+	if (used) {
+		used = 0;
+		goto retry;
+	}
+
+	return IRQ_HANDLED;
 }
 
 /* get statistics maintained by the PRU firmware into @pstats */
@@ -1129,34 +1127,6 @@ static void emac_set_stats(struct prueth_emac *emac,
 			ICSS_EMAC_FW_VLAN_FILTER_DROP_CNT_OFFSET);
 	writel(pstats->multicast_dropped, dram +
 			ICSS_EMAC_FW_MULTICAST_FILTER_DROP_CNT_OFFSET);
-}
-
-/**
- * emac_napi_poll - EMAC NAPI Poll function
- * @napi: ptr to napi instance associated with the emac
- * @budget: Number of receive packets to process (as told by NAPI layer)
- *
- * NAPI Poll function implemented to process packets as per budget. We check
- * the type of interrupt on the device and accordingly call the TX or RX
- * packet processing functions. We follow the budget for RX processing and
- * also put a cap on number of TX pkts processed through config param. The
- * NAPI schedule function is called if more packets pending.
- *
- * Returns number of packets received (in most cases; else TX pkts - rarely)
- */
-static int emac_napi_poll(struct napi_struct *napi, int budget)
-{
-	struct prueth_emac *emac = container_of(napi, struct prueth_emac, napi);
-	int num_rx_packets;
-
-	num_rx_packets = emac_rx_packets(emac, budget);
-	if (num_rx_packets < budget) {
-		napi_complete(napi);
-
-		enable_irq(emac->rx_irq);
-	}
-
-	return num_rx_packets;
 }
 
 static int emac_set_boot_pru(struct prueth_emac *emac, struct net_device *ndev)
@@ -1190,8 +1160,9 @@ static int emac_request_irqs(struct prueth_emac *emac)
 	struct net_device *ndev = emac->ndev;
 	int ret = 0;
 
-	ret = request_irq(emac->rx_irq, emac_rx_hardirq,
-			  IRQF_TRIGGER_HIGH, ndev->name, ndev);
+	ret = request_threaded_irq(emac->rx_irq, NULL, emac_rx_thread,
+				   IRQF_TRIGGER_HIGH | IRQF_ONESHOT,
+				   ndev->name, ndev);
 	if (ret) {
 		netdev_err(ndev, "unable to request RX IRQ\n");
 		return ret;
@@ -1287,9 +1258,9 @@ static int emac_ndo_open(struct net_device *ndev)
 		goto rproc_shutdown;
 
 	prueth->emac_configured |= BIT(emac->port_id);
+
 	/* start PHY */
 	phy_start(emac->phydev);
-	napi_enable(&emac->napi);
 
 	/* enable the port */
 	prueth_port_enable(emac, true);
@@ -1340,7 +1311,7 @@ static int emac_ndo_stop(struct net_device *ndev)
 
 	/* inform the upper layers. */
 	netif_stop_queue(ndev);
-	napi_disable(&emac->napi);
+
 	netif_carrier_off(ndev);
 
 	/* Cleanup ptp related stuff for all protocols */
@@ -2253,8 +2224,6 @@ static int prueth_netdev_init(struct prueth *prueth,
 	ndev->netdev_ops = &emac_netdev_ops;
 	ndev->ethtool_ops = &emac_ethtool_ops;
 
-	netif_napi_add(ndev, &emac->napi, emac_napi_poll, EMAC_POLL_WEIGHT);
-
 	return 0;
 
 free:
@@ -2279,7 +2248,6 @@ static void prueth_netdev_exit(struct prueth *prueth,
 
 	phy_disconnect(emac->phydev);
 
-	netif_napi_del(&emac->napi);
 	prueth->emac[mac] = NULL;
 }
 
