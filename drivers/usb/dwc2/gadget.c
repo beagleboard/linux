@@ -308,7 +308,7 @@ static void dwc2_hsotg_unmap_dma(struct dwc2_hsotg *hsotg,
 	if (hs_req->req.length == 0)
 		return;
 
-	usb_gadget_unmap_request(&hsotg->gadget, req, hs_ep->dir_in);
+	usb_gadget_unmap_request(&hsotg->gadget, req, hs_ep->map_dir);
 }
 
 /**
@@ -745,6 +745,7 @@ static int dwc2_hsotg_map_dma(struct dwc2_hsotg *hsotg,
 	if (hs_req->req.length == 0)
 		return 0;
 
+	hs_ep->map_dir = hs_ep->dir_in;
 	ret = usb_gadget_map_request(&hsotg->gadget, req, hs_ep->dir_in);
 	if (ret)
 		goto dma_error;
