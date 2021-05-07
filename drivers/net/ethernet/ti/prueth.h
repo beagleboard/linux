@@ -298,7 +298,6 @@ struct prueth_emac {
 	struct prueth *prueth;
 	struct net_device *ndev;
 	u8 mac_addr[6];
-	struct napi_struct napi;
 	u32 msg_enable;
 
 	int link;
