@@ -1098,7 +1098,7 @@ static int sa_run(struct sa_req *req)
 	else
 		dma_rx = pdata->dma_rx1;
 
-	ddev = dma_rx->device->dev;
+	ddev = dmaengine_get_dma_device(pdata->dma_tx);
 	rxd->ddev = ddev;
 
 	memcpy(cmdl, sa_ctx->cmdl, sa_ctx->cmdl_size);
