@@ -1,0 +1,28 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright (C) 2012 Texas Instruments Incorporated - https://www.ti.com/
+ */
+
+#include <dt-bindings/board/am335x-bbw-bbb-base.h>
+
+&am33xx_pinmux {
+	i2c2_pins: pinmux_i2c2_pins {
+		pinctrl-single,pins = <
+			BONE_P9_20 0x73 /* (SLEWCTRL_SLOW | PIN_INPUT_PULLUP | MUX_MODE3) uart1_ctsn.i2c2_sda */
+			BONE_P9_19 0x73 /* (SLEWCTRL_SLOW | PIN_INPUT_PULLUP | MUX_MODE3) uart1_rtsn.i2c2_scl */
+		>;
+	};
+};
+
+&i2c2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c2_pins>;
+
+	status = "okay";
+	clock-frequency = <100000>;
+
+	rtc@68 {
+		compatible = "maxim,ds1307";
+		reg = <0x68>;
+	};
+};
