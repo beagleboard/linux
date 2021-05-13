@@ -1,0 +1,15 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright (C) 2012 Texas Instruments Incorporated - https://www.ti.com/
+ */
+
+/* standard */
+
+&gpio1 {
+	emmc_rst {
+		gpio-hog;
+		gpios = <20 0>;
+		output-high;
+		line-name = "EMMC ResetN";
+	};
+};

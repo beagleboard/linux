@@ -1,9 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (C) 2013 Texas Instruments Incorporated - http://www.ti.com/
+ * Copyright (C) 2013 Texas Instruments Incorporated - https://www.ti.com/
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
  * Based on "omap4.dtsi"
  */
 
@@ -144,7 +142,7 @@
 	 * the moment, just use a fake OCP bus entry to represent the whole bus
 	 * hierarchy.
 	 */
-	ocp {
+	ocp: ocp {
 		compatible = "ti,dra7-l3-noc", "simple-bus";
 		#address-cells = <1>;
 		#size-cells = <1>;
@@ -2087,7 +2085,7 @@
 		};
 
 		bb2d: bb2d@59000000 {
-			compatible = "ti,dra7-bb2d";
+			compatible = "ti,dra7-bb2d","vivante,gc";
 			reg = <0x59000000 0x0700>;
 			interrupts = <GIC_SPI 120 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "bb2d";
@@ -2095,6 +2093,16 @@
 			clock-names = "fclk";
 			status = "disabled";
 		};
+
+		//bb2d: bb2d@59000000 {
+		//	compatible = "ti,dra7-bb2d","vivante,gc";
+		//	reg = <0x59000000 0x0700>;
+		//	interrupts = <GIC_SPI 120 IRQ_TYPE_LEVEL_HIGH>;
+		//	ti,hwmods = "bb2d";
+		//	clocks = <&dpll_core_h24x2_ck>;
+		//	clock-names = "fclk";
+		//	status = "disabled";
+		//};
 
 		dss: dss@58000000 {
 			compatible = "ti,dra7-dss";
@@ -2155,6 +2163,15 @@
 				status = "disabled";
 			};
 
+			eqep0: eqep@0x4843e180 {
+				compatible = "ti,am33xx-eqep";
+				reg = <0x4843e180 0x80>;
+				clocks = <&l4_root_clk_div>;
+				clock-names = "fck";
+				interrupt-parent = <&crossbar_mpu>;
+				interrupts = <GIC_SPI 210 IRQ_TYPE_LEVEL_HIGH>;
+			};
+
 			ecap0: ecap@4843e100 {
 				compatible = "ti,dra746-ecap",
 					     "ti,am3352-ecap";
@@ -2185,6 +2202,15 @@
 				status = "disabled";
 			};
 
+			eqep1: eqep@0x48440180 {
+				compatible = "ti,am33xx-eqep";
+				reg = <0x48440180 0x80>;
+				clocks = <&l4_root_clk_div>;
+				clock-names = "fck";
+				interrupt-parent = <&crossbar_mpu>;
+				interrupts = <GIC_SPI 211 IRQ_TYPE_LEVEL_HIGH>;
+			};
+
 			ecap1: ecap@48440100 {
 				compatible = "ti,dra746-ecap",
 					     "ti,am3352-ecap";
@@ -2213,6 +2239,15 @@
 				clocks = <&ehrpwm2_tbclk>, <&l4_root_clk_div>;
 				clock-names = "tbclk", "fck";
 				status = "disabled";
+			};
+
+			eqep2: eqep@0x48442180 {
+				compatible = "ti,am33xx-eqep";
+				reg = <0x48442180 0x80>;
+				clocks = <&l4_root_clk_div>;
+				clock-names = "fck";
+				interrupt-parent = <&crossbar_mpu>;
+				interrupts = <GIC_SPI 212 IRQ_TYPE_LEVEL_HIGH>;
 			};
 
 			ecap2: ecap@48442100 {
@@ -2368,6 +2403,12 @@
 				status = "disabled";
 			};
 		};
+	};
+
+	gpu-subsystem {
+		compatible = "vivante,gc-gpu-subsystem";
+		cores = <&bb2d>;
+		status = "okay";
 	};
 
 	thermal_zones: thermal-zones {
