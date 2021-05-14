@@ -1,0 +1,25 @@
+menu "RTnet"
+
+config XENO_DRIVERS_NET
+    depends on m
+    select NET
+    tristate "RTnet, TCP/IP socket interface"
+
+if XENO_DRIVERS_NET
+
+config XENO_DRIVERS_RTNET_CHECKED
+    bool "Internal Bug Checks"
+    default n
+    ---help---
+    Switch on if you face crashes when RTnet is running or if you suspect
+    any other RTnet-related issues. This feature will add a few sanity
+    checks at critical points that will produce warnings on the kernel
+    console in case certain internal bugs are detected.
+
+source "drivers/xenomai/net/stack/Kconfig"
+source "drivers/xenomai/net/drivers/Kconfig"
+source "drivers/xenomai/net/addons/Kconfig"
+
+endif
+
+endmenu
