@@ -1,11 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  * Device Tree Source for DRA7xx clock data
  *
  * Copyright (C) 2013 Texas Instruments, Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
  */
 &cm_core_aon_clocks {
 	atl_clkin0_ck: atl_clkin0_ck {
@@ -1528,6 +1525,7 @@
 			reg = <0x20 0x4>;
 			#clock-cells = <2>;
 		};
+
 	};
 
 	dsp1_cm: dsp1_cm@400 {
@@ -1542,6 +1540,7 @@
 			reg = <0x20 0x4>;
 			#clock-cells = <2>;
 		};
+
 	};
 
 	ipu1_cm: ipu1_cm@500 {
@@ -1573,6 +1572,7 @@
 			reg = <0x0 0x44>;
 			#clock-cells = <2>;
 		};
+
 	};
 
 	dsp2_cm: dsp2_cm@600 {
@@ -1587,6 +1587,7 @@
 			reg = <0x20 0x4>;
 			#clock-cells = <2>;
 		};
+
 	};
 
 	rtc_cm: rtc_cm@700 {
@@ -1632,6 +1633,7 @@
 			reg = <0x20 0x74>;
 			#clock-cells = <2>;
 		};
+
 	};
 
 	ipu2_cm: ipu2_cm@900 {
@@ -1646,6 +1648,7 @@
 			reg = <0x20 0x4>;
 			#clock-cells = <2>;
 		};
+
 	};
 
 	dma_cm: dma_cm@a00 {
