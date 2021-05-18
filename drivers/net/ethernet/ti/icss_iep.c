@@ -254,13 +254,13 @@ static void icss_iep_disable(struct icss_iep *iep)
 			   0);
 }
 
-static void icss_iep_enable_shadow_mode(struct icss_iep *iep, u32 cycle_time_ns)
+static void icss_iep_enable_shadow_mode(struct icss_iep *iep)
 {
 	u32 cycle_time;
 	int cmp;
 
 	/* FIXME: check why we need to decrement by def_inc */
-	cycle_time = cycle_time_ns - iep->def_inc;
+	cycle_time = iep->cycle_time_ns - iep->def_inc;
 
 	icss_iep_disable(iep);
 
@@ -300,6 +300,7 @@ static void icss_iep_enable_shadow_mode(struct icss_iep *iep, u32 cycle_time_ns)
 	if (iep->plat_data->flags & ICSS_IEP_64BIT_COUNTER_SUPPORT)
 		regmap_write(iep->map, ICSS_IEP_CMP0_REG1, cycle_time);
 
+	icss_iep_set_counter(iep, 0);
 	icss_iep_enable(iep);
 }
 
@@ -786,22 +787,6 @@ struct icss_iep *icss_iep_get_idx(struct device_node *np, int idx)
 	device_unlock(iep->dev);
 	get_device(iep->dev);
 
-	iep->ptp_info = icss_iep_ptp_info;
-
-
-	if (!(iep->plat_data->flags & ICSS_IEP_64BIT_COUNTER_SUPPORT) ||
-	    !(iep->plat_data->flags & ICSS_IEP_SLOW_COMPEN_REG_SUPPORT))
-		goto exit;
-
-	if (iep->cap_cmp_irq || (iep->ops && iep->ops->perout_enable)) {
-		iep->ptp_info.n_per_out = 1;
-		iep->ptp_info.pps = 1;
-	}
-
-	if (iep->cap_cmp_irq || (iep->ops && iep->ops->extts_enable))
-		iep->ptp_info.n_ext_ts = 2;
-
-exit:
 	return iep;
 }
 EXPORT_SYMBOL_GPL(icss_iep_get_idx);
@@ -826,33 +811,38 @@ EXPORT_SYMBOL_GPL(icss_iep_put);
 int icss_iep_init(struct icss_iep *iep, const struct icss_iep_clockops *clkops,
 		  void *clockops_data, u32 cycle_time_ns)
 {
-	u32 def_inc;
 	int ret = 0;
 
-	def_inc = NSEC_PER_SEC / iep->refclk_freq;	/* ns per clock tick */
-	if (def_inc > IEP_MAX_DEF_INC)
-		/* iep_core_clk too slow to be supported */
-		return -EINVAL;
-
-	iep->def_inc = def_inc;
+	iep->cycle_time_ns = cycle_time_ns;
+	iep->clk_tick_time = iep->def_inc;
 	iep->ops = clkops;
 	iep->clockops_data = clockops_data;
-	icss_iep_set_default_inc(iep, def_inc);
-	icss_iep_set_compensation_inc(iep, def_inc);
+	icss_iep_set_default_inc(iep, iep->def_inc);
+	icss_iep_set_compensation_inc(iep, iep->def_inc);
 	icss_iep_set_compensation_count(iep, 0);
 	regmap_write(iep->map, ICSS_IEP_SYNC_PWIDTH_REG, iep->refclk_freq / 10); /* 100 ms pulse */
 	regmap_write(iep->map, ICSS_IEP_SYNC0_PERIOD_REG, 0);
 	if (iep->plat_data->flags & ICSS_IEP_SLOW_COMPEN_REG_SUPPORT)
 		icss_iep_set_slow_compensation_count(iep, 0);
+
+	if (!(iep->plat_data->flags & ICSS_IEP_64BIT_COUNTER_SUPPORT) ||
+	    !(iep->plat_data->flags & ICSS_IEP_SLOW_COMPEN_REG_SUPPORT))
+		goto skip_perout;
+
+	if (iep->cap_cmp_irq || (iep->ops && iep->ops->perout_enable)) {
+		iep->ptp_info.n_per_out = 1;
+		iep->ptp_info.pps = 1;
+	}
+
+	if (iep->cap_cmp_irq || (iep->ops && iep->ops->extts_enable))
+		iep->ptp_info.n_ext_ts = 2;
+
+skip_perout:
 	if (cycle_time_ns)
-		icss_iep_enable_shadow_mode(iep, cycle_time_ns);
+		icss_iep_enable_shadow_mode(iep);
 	else
 		icss_iep_enable(iep);
-
-	iep->cycle_time_ns = cycle_time_ns;
-	icss_iep_set_counter(iep, ktime_get_real_ns());
-
-	iep->clk_tick_time = def_inc;
+	icss_iep_settime(iep, ktime_get_real_ns());
 
 	iep->ptp_clock = ptp_clock_register(&iep->ptp_info, iep->dev);
 	if (IS_ERR(iep->ptp_clock)) {
@@ -918,6 +908,13 @@ static int icss_iep_probe(struct platform_device *pdev)
 
 	iep->refclk_freq = clk_get_rate(iep_clk);
 
+	iep->def_inc = NSEC_PER_SEC / iep->refclk_freq;	/* ns per clock tick */
+	if (iep->def_inc > IEP_MAX_DEF_INC) {
+		dev_err(dev, "Failed to set def_inc %d.  IEP_clock is too slow to be supported\n",
+			iep->def_inc);
+		return -EINVAL;
+	}
+
 	iep->plat_data = of_device_get_match_data(dev);
 	if (!iep->plat_data)
 		return -EINVAL;
@@ -929,6 +926,7 @@ static int icss_iep_probe(struct platform_device *pdev)
 		return PTR_ERR(iep->map);
 	}
 
+	iep->ptp_info = icss_iep_ptp_info;
 	mutex_init(&iep->ptp_clk_mutex);
 	dev_set_drvdata(dev, iep);
 	icss_iep_disable(iep);
