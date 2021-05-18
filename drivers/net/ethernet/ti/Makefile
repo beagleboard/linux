@@ -29,9 +29,14 @@ ti-am65-cpsw-nuss-y := am65-cpsw-nuss.o cpsw_sl.o am65-cpsw-ethtool.o cpsw_ale.o
 ti-am65-cpsw-nuss-$(CONFIG_TI_K3_AM65_CPSW_SWITCHDEV) += am65-cpsw-switchdev.o
 obj-$(CONFIG_TI_K3_AM65_CPTS) += am65-cpts.o
 
+
 obj-$(CONFIG_TI_RDEV_ETH_SWITCH_VIRT_EMAC) += ti-j721e-cpsw-virt-mac.o
 ti-j721e-cpsw-virt-mac-y := j721e-cpsw-virt-mac.o k3-cppi-desc-pool.o
 
 obj-$(CONFIG_TI_PRUETH) += prueth.o
 prueth-y := prueth_core.o prueth_qos.o prueth_switch.o
+
 obj-$(CONFIG_TI_ICSS_IEP) += icss_iep.o
+
+obj-$(CONFIG_TI_ICSSG_PRUETH) += icssg-prueth.o
+icssg-prueth-y := icssg_prueth.o icssg_classifier.o icssg_ethtool.o icssg_queues.o icssg_config.o k3-cppi-desc-pool.o

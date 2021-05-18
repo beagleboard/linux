@@ -45,6 +45,7 @@
 #define PRUSS_MII_RT_TXCFG_PRE_TX_AUTO_SEQUENCE	BIT(9)
 #define PRUSS_MII_RT_TXCFG_PRE_TX_AUTO_ESC_ERR	BIT(10)
 #define PRUSS_MII_RT_TXCFG_TX_32_MODE_EN	BIT(11)
+#define PRUSS_MII_RT_TXCFG_TX_IPG_WIRE_CLK_EN	BIT(12)	/* SR2.0 onwards */
 
 #define PRUSS_MII_RT_TXCFG_TX_START_DELAY_SHIFT	16
 #define PRUSS_MII_RT_TXCFG_TX_START_DELAY_MASK	GENMASK(25, 16)
@@ -79,5 +80,115 @@
 #define PRUSS_MII_RT_RX_ERR_MAX_PCNT_ERR	BIT(1)
 #define PRUSS_MII_RT_RX_ERR_MIN_FRM_ERR		BIT(2)
 #define PRUSS_MII_RT_RX_ERR_MAX_FRM_ERR		BIT(3)
+
+#define ICSSG_CFG_OFFSET	0
+#define RGMII_CFG_OFFSET	4
+
+/* Constant to choose between MII0 and MII1 */
+#define ICSS_MII0	0
+#define ICSS_MII1	1
+
+/* ICSSG_CFG Register bits */
+#define ICSSG_CFG_SGMII_MODE	BIT(16)
+#define ICSSG_CFG_TX_PRU_EN	BIT(11)
+#define ICSSG_CFG_RX_SFD_TX_SOF_EN	BIT(10)
+#define ICSSG_CFG_RTU_PRU_PSI_SHARE_EN	BIT(9)
+#define ICSSG_CFG_IEP1_TX_EN	BIT(8)
+#define ICSSG_CFG_MII1_MODE	GENMASK(6, 5)
+#define ICSSG_CFG_MII1_MODE_SHIFT	5
+#define ICSSG_CFG_MII0_MODE	GENMASK(4, 3)
+#define ICSSG_CFG_MII0_MODE_SHIFT	3
+#define ICSSG_CFG_RX_L2_G_EN	BIT(2)
+#define ICSSG_CFG_TX_L2_EN	BIT(1)
+#define ICSSG_CFG_TX_L1_EN	BIT(0)
+
+enum mii_mode { MII_MODE_MII = 0, MII_MODE_RGMII, MII_MODE_SGMII };
+
+/* RGMII CFG Register bits */
+#define RGMII_CFG_GIG_EN_MII0	BIT(17)
+#define RGMII_CFG_GIG_EN_MII1	BIT(21)
+#define RGMII_CFG_FULL_DUPLEX_MII0	BIT(18)
+#define RGMII_CFG_FULL_DUPLEX_MII1	BIT(22)
+#define RGMII_CFG_SPEED_MII0	GENMASK(2, 1)
+#define RGMII_CFG_SPEED_MII1	GENMASK(6, 5)
+#define RGMII_CFG_SPEED_MII0_SHIFT	1
+#define RGMII_CFG_SPEED_MII1_SHIFT	5
+#define RGMII_CFG_FULLDUPLEX_MII0	BIT(3)
+#define RGMII_CFG_FULLDUPLEX_MII1	BIT(7)
+#define RGMII_CFG_FULLDUPLEX_MII0_SHIFT	3
+#define RGMII_CFG_FULLDUPLEX_MII1_SHIFT	7
+#define RGMII_CFG_SPEED_10M	0
+#define RGMII_CFG_SPEED_100M	1
+#define RGMII_CFG_SPEED_1G	2
+
+static inline void icssg_mii_update_ipg(struct regmap *mii_rt, int mii, u32 ipg)
+{
+	u32 val;
+
+	if (mii == ICSS_MII0) {
+		regmap_write(mii_rt, PRUSS_MII_RT_TX_IPG0, ipg);
+	} else {
+	/* Errata workaround: IEP1 is not read by h/w unless IEP0 is written */
+		regmap_read(mii_rt, PRUSS_MII_RT_TX_IPG0, &val);
+		regmap_write(mii_rt, PRUSS_MII_RT_TX_IPG1, ipg);
+		regmap_write(mii_rt, PRUSS_MII_RT_TX_IPG0, val);
+	}
+}
+
+static inline void icssg_update_rgmii_cfg(struct regmap *miig_rt, bool gig_en,
+					  bool full_duplex, int mii)
+{
+	u32 gig_en_mask, gig_val = 0, full_duplex_mask, full_duplex_val = 0;
+
+	gig_en_mask = (mii == ICSS_MII0) ? RGMII_CFG_GIG_EN_MII0 :
+					RGMII_CFG_GIG_EN_MII1;
+	if (gig_en)
+		gig_val = gig_en_mask;
+	regmap_update_bits(miig_rt, RGMII_CFG_OFFSET, gig_en_mask, gig_val);
+
+	full_duplex_mask = (mii == ICSS_MII0) ? RGMII_CFG_FULL_DUPLEX_MII0 :
+					   RGMII_CFG_FULL_DUPLEX_MII1;
+	if (full_duplex)
+		full_duplex_val = full_duplex_mask;
+	regmap_update_bits(miig_rt, RGMII_CFG_OFFSET, full_duplex_mask,
+			   full_duplex_val);
+}
+
+static inline u32 icssg_rgmii_cfg_get_bitfield(struct regmap *miig_rt,
+					       u32 mask, u32 shift)
+{
+	u32 val;
+
+	regmap_read(miig_rt, RGMII_CFG_OFFSET, &val);
+	val &= mask;
+	val >>= shift;
+
+	return val;
+}
+
+static inline u32 icssg_rgmii_get_speed(struct regmap *miig_rt, int mii)
+{
+	u32 shift = RGMII_CFG_SPEED_MII0_SHIFT, mask = RGMII_CFG_SPEED_MII0;
+
+	if (mii == ICSS_MII1) {
+		shift = RGMII_CFG_SPEED_MII1_SHIFT;
+		mask = RGMII_CFG_SPEED_MII1;
+	}
+
+	return icssg_rgmii_cfg_get_bitfield(miig_rt, mask, shift);
+}
+
+static inline u32 icssg_rgmii_get_fullduplex(struct regmap *miig_rt, int mii)
+{
+	u32 shift = RGMII_CFG_FULLDUPLEX_MII0_SHIFT;
+	u32 mask = RGMII_CFG_FULLDUPLEX_MII0;
+
+	if (mii == ICSS_MII1) {
+		shift = RGMII_CFG_FULLDUPLEX_MII1_SHIFT;
+		mask = RGMII_CFG_FULLDUPLEX_MII1;
+	}
+
+	return icssg_rgmii_cfg_get_bitfield(miig_rt, mask, shift);
+}
 
 #endif /* __NET_PRUSS_MII_RT_H__ */
