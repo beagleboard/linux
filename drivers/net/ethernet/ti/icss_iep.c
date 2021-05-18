@@ -147,7 +147,7 @@ int icss_iep_get_count_hi(struct icss_iep *iep)
 	u32 val = 0;
 
 	if (iep && (iep->plat_data->flags & ICSS_IEP_64BIT_COUNTER_SUPPORT))
-		regmap_read(iep->map, ICSS_IEP_COUNT_REG1, &val);
+		val = icss_iep_readl(iep, ICSS_IEP_COUNT_REG1);
 
 	return val;
 }
@@ -164,7 +164,7 @@ int icss_iep_get_count_low(struct icss_iep *iep)
 	u32 val = 0;
 
 	if (iep)
-		regmap_read(iep->map, ICSS_IEP_COUNT_REG0, &val);
+		val = icss_iep_readl(iep, ICSS_IEP_COUNT_REG0);
 
 	return val;
 }
