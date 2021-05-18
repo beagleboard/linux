@@ -32,6 +32,7 @@
 #include <linux/dma/k3-udma-glue.h>
 
 #include "icssg_config.h"
+#include "icss_iep.h"
 #include "icssg_switch_map.h"
 
 #define ICSS_SLICE0	0
@@ -107,6 +108,10 @@ struct prueth_rx_chn {
 	char name[32];
 };
 
+enum prueth_state_flags {
+	__STATE_TX_TS_IN_PROGRESS,
+};
+
 /* There are 4 Tx DMA channels, but the highest priority is CH3 (thread 3)
  * and lower three are lower priority channels or threads.
  */
@@ -131,6 +136,9 @@ struct prueth_emac {
 	phy_interface_t phy_if;
 	struct phy_device *phydev;
 	enum prueth_port port_id;
+	struct icss_iep *iep;
+	unsigned int rx_ts_enabled : 1;
+	unsigned int tx_ts_enabled : 1;
 
 	/* DMA related */
 	struct prueth_tx_chn tx_chns[PRUETH_MAX_TX_QUEUES];
@@ -145,6 +153,12 @@ struct prueth_emac {
 	int rx_mgm_flow_id_base;
 
 	spinlock_t lock;	/* serialize access */
+
+	/* TX HW Timestamping */
+	u32 tx_ts_cookie;
+	struct sk_buff *tx_ts_skb;
+	unsigned long state;
+	int tx_ts_irq;
 
 	u8 cmd_seq;
 	/* shutdown related */
@@ -197,6 +211,9 @@ struct prueth {
 
 	enum pruss_pru_id pru_id[PRUSS_NUM_PRUS];
 	struct platform_device *pdev;
+	struct icss_iep *iep0;
+	struct icss_iep *iep1;
+	int iep_initialized;
 };
 
 struct emac_tx_ts_response_sr1 {

@@ -171,6 +171,25 @@ enum icssg_port_state_cmd {
 
 #define ICSSG_FLAG_MASK		0xff00ffff
 
+struct icssg_setclock_desc {
+	u8 request;
+	u8 restore;
+	u8 acknowledgment;
+	u8 cmp_status;
+	u32 margin;
+	u32 cyclecounter0_set;
+	u32 cyclecounter1_set;
+	u32 iepcount_set;
+	u32 rsvd1;
+	u32 rsvd2;
+	u32 CMP0_current;
+	u32 iepcount_current;
+	u32 difference;
+	u32 cyclecounter0_new;
+	u32 cyclecounter1_new;
+	u32 CMP0_new;
+} __packed;
+
 #define ICSSG_CMD_POP_SLICE0	56
 #define ICSSG_CMD_POP_SLICE1	60
 
