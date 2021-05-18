@@ -754,13 +754,13 @@ static enum hrtimer_restart icss_iep_sync0_work(struct hrtimer *timer)
 	return HRTIMER_NORESTART;
 }
 
-struct icss_iep *icss_iep_get(struct device_node *np)
+struct icss_iep *icss_iep_get_idx(struct device_node *np, int idx)
 {
 	struct platform_device *pdev;
 	struct device_node *iep_np;
 	struct icss_iep *iep;
 
-	iep_np = of_parse_phandle(np, "iep", 0);
+	iep_np = of_parse_phandle(np, "iep", idx);
 	if (!iep_np || !of_device_is_available(iep_np))
 		return ERR_PTR(-ENODEV);
 
@@ -803,6 +803,12 @@ struct icss_iep *icss_iep_get(struct device_node *np)
 
 exit:
 	return iep;
+}
+EXPORT_SYMBOL_GPL(icss_iep_get_idx);
+
+struct icss_iep *icss_iep_get(struct device_node *np)
+{
+	return icss_iep_get_idx(np, 0);
 }
 EXPORT_SYMBOL_GPL(icss_iep_get);
 
