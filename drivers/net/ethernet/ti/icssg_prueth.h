@@ -171,6 +171,14 @@ struct prueth_emac {
 };
 
 /**
+ * struct prueth - PRUeth platform data
+ * @fdqring_mode: Free desc queue mode
+ */
+struct prueth_pdata {
+	enum k3_ring_mode fdqring_mode;
+};
+
+/**
  * struct prueth - PRUeth structure
  * @is_sr1: device is pg1.0 (pg1.0 will be deprecated upstream)
  * @dev: device
@@ -214,6 +222,7 @@ struct prueth {
 	struct icss_iep *iep0;
 	struct icss_iep *iep1;
 	int iep_initialized;
+	struct prueth_pdata pdata;
 };
 
 struct emac_tx_ts_response_sr1 {

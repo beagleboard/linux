@@ -409,12 +409,11 @@ static int prueth_init_rx_chns(struct prueth_emac *emac,
 	for (i = 0; i < rx_cfg.flow_id_num; i++) {
 		struct k3_ring_cfg rxring_cfg = {
 			.elm_size = K3_RINGACC_RING_ELSIZE_8,
-			.mode = K3_RINGACC_RING_MODE_MESSAGE,
+			.mode = K3_RINGACC_RING_MODE_RING,
 			.flags = 0,
 		};
 		struct k3_ring_cfg fdqring_cfg = {
 			.elm_size = K3_RINGACC_RING_ELSIZE_8,
-			.mode = K3_RINGACC_RING_MODE_MESSAGE,
 			.flags = K3_RINGACC_RING_SHARED,
 		};
 		struct k3_udma_glue_rx_flow_cfg rx_flow_cfg = {
@@ -428,6 +427,7 @@ static int prueth_init_rx_chns(struct prueth_emac *emac,
 		rx_flow_cfg.ring_rxfdq0_id = fdqring_id;
 		rx_flow_cfg.rx_cfg.size = max_desc_num;
 		rx_flow_cfg.rxfdq_cfg.size = max_desc_num;
+		rx_flow_cfg.rxfdq_cfg.mode = emac->prueth->pdata.fdqring_mode;
 
 		ret = k3_udma_glue_rx_flow_init(rx_chn->rx_chn,
 						i, &rx_flow_cfg);
@@ -480,7 +480,7 @@ static int prueth_dma_rx_push(struct prueth_emac *emac,
 
 	cppi5_hdesc_init(desc_rx, CPPI5_INFO0_HDESC_EPIB_PRESENT,
 			 PRUETH_NAV_PS_DATA_SIZE);
-	cppi5_hdesc_attach_buf(desc_rx, 0, 0, buf_dma, skb_tailroom(skb));
+	cppi5_hdesc_attach_buf(desc_rx, buf_dma, skb_tailroom(skb), buf_dma, skb_tailroom(skb));
 
 	swdata = cppi5_hdesc_get_swdata(desc_rx);
 	*swdata = skb;
@@ -2318,6 +2318,7 @@ static int prueth_probe(struct platform_device *pdev)
 
 	dev_set_drvdata(dev, prueth);
 	prueth->pdev = pdev;
+	prueth->pdata = *(const struct prueth_pdata *)match->data;
 
 	if (of_device_is_compatible(np, "ti,am654-icssg-prueth-sr1"))
 		prueth->is_sr1 = true;
@@ -2668,9 +2669,18 @@ static const struct dev_pm_ops prueth_dev_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(prueth_suspend, prueth_resume)
 };
 
+static const struct prueth_pdata am654_icssg_pdata = {
+	.fdqring_mode = K3_RINGACC_RING_MODE_MESSAGE,
+};
+
+static const struct prueth_pdata am64x_icssg_pdata = {
+	.fdqring_mode = K3_RINGACC_RING_MODE_RING,
+};
+
 static const struct of_device_id prueth_dt_match[] = {
-	{ .compatible = "ti,am654-icssg-prueth-sr1", },
-	{ .compatible = "ti,am654-icssg-prueth", },
+	{ .compatible = "ti,am654-icssg-prueth-sr1", .data = &am654_icssg_pdata },
+	{ .compatible = "ti,am654-icssg-prueth", .data = &am654_icssg_pdata },
+	{ .compatible = "ti,am642-icssg-prueth", .data = &am64x_icssg_pdata },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, prueth_dt_match);

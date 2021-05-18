@@ -4,6 +4,7 @@ Texas Instruments ICSSG PRUSS Ethernet
 Required properties:
 - compatible       : Should be "ti,am654-icssg-prueth" for AM65x Family SoCs
 		     "ti,am654-icssg-prueth-sr1" for SR1.0
+		     "ti,am642-icssg-prueth" for AM64x
 - ti,prus             : list of pHandles to the PRU, RTU and TX_PRU nodes
 - firmware-name    : should contain the name of the firmware image
 			file located in the firmware search path
