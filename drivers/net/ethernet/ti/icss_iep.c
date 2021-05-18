@@ -553,7 +553,8 @@ static int icss_iep_perout_enable(struct icss_iep *iep,
 		goto exit;
 
 	spin_lock_irqsave(&iep->irq_lock, flags);
-	hrtimer_cancel(&iep->sync_timer);
+	if (iep->cap_cmp_irq)
+		hrtimer_cancel(&iep->sync_timer);
 	ret = icss_iep_perout_enable_hw(iep, req, on);
 	if (!ret)
 		iep->perout_enabled = !!on;
@@ -667,7 +668,8 @@ static int icss_iep_pps_enable(struct icss_iep *iep, int on)
 		rq.perout.start.nsec = 0;
 		ret = icss_iep_perout_enable_hw(iep, &rq.perout, on);
 	} else {
-		hrtimer_cancel(&iep->sync_timer);
+		if (iep->cap_cmp_irq)
+			hrtimer_cancel(&iep->sync_timer);
 		ret = icss_iep_perout_enable_hw(iep, &rq.perout, on);
 	}
 
