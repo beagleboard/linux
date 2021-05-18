@@ -86,6 +86,7 @@ enum prueth_mac {
 };
 
 struct prueth_tx_chn {
+	struct device *dma_dev;
 	struct napi_struct napi_tx;
 	struct k3_cppi_desc_pool *desc_pool;
 	struct k3_udma_glue_tx_channel *tx_chn;
@@ -98,6 +99,7 @@ struct prueth_tx_chn {
 
 struct prueth_rx_chn {
 	struct device *dev;
+	struct device *dma_dev;
 	struct k3_cppi_desc_pool *desc_pool;
 	struct k3_udma_glue_rx_channel *rx_chn;
 	u32 descs_num;

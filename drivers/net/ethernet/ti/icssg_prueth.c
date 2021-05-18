@@ -108,7 +108,6 @@ static void prueth_ndev_del_tx_napi(struct prueth_emac *emac, int num)
 }
 
 static void prueth_xmit_free(struct prueth_tx_chn *tx_chn,
-			     struct device *dev,
 			     struct cppi5_host_desc_t *desc)
 {
 	struct cppi5_host_desc_t *first_desc, *next_desc;
@@ -120,7 +119,7 @@ static void prueth_xmit_free(struct prueth_tx_chn *tx_chn,
 
 	cppi5_hdesc_get_obuf(first_desc, &buf_dma, &buf_dma_len);
 
-	dma_unmap_single(dev, buf_dma, buf_dma_len,
+	dma_unmap_single(tx_chn->dma_dev, buf_dma, buf_dma_len,
 			 DMA_TO_DEVICE);
 
 	next_desc_dma = cppi5_hdesc_get_next_hbdesc(first_desc);
@@ -129,7 +128,7 @@ static void prueth_xmit_free(struct prueth_tx_chn *tx_chn,
 						       next_desc_dma);
 		cppi5_hdesc_get_obuf(next_desc, &buf_dma, &buf_dma_len);
 
-		dma_unmap_page(dev, buf_dma, buf_dma_len,
+		dma_unmap_page(tx_chn->dma_dev, buf_dma, buf_dma_len,
 			       DMA_TO_DEVICE);
 
 		next_desc_dma = cppi5_hdesc_get_next_hbdesc(next_desc);
@@ -145,7 +144,6 @@ static int emac_tx_complete_packets(struct prueth_emac *emac, int chn,
 {
 	struct net_device *ndev = emac->ndev;
 	struct cppi5_host_desc_t *desc_tx;
-	struct device *dev = emac->prueth->dev;
 	struct netdev_queue *netif_txq;
 	struct prueth_tx_chn *tx_chn;
 	unsigned int total_bytes = 0;
@@ -174,13 +172,13 @@ static int emac_tx_complete_packets(struct prueth_emac *emac, int chn,
 
 		/* was this command's TX complete? */
 		if (emac->is_sr1 && *(swdata) == emac->cmd_data) {
-			prueth_xmit_free(tx_chn, dev, desc_tx);
+			prueth_xmit_free(tx_chn, desc_tx);
 			budget++;	/* not a data packet */
 			continue;
 		}
 
 		skb = *(swdata);
-		prueth_xmit_free(tx_chn, dev, desc_tx);
+		prueth_xmit_free(tx_chn, desc_tx);
 
 		ndev = skb->dev;
 		ndev->stats.tx_packets++;
@@ -301,17 +299,6 @@ static int prueth_init_tx_chns(struct prueth_emac *emac)
 		tx_chn->emac = emac;
 		tx_chn->id = i;
 		tx_chn->descs_num = PRUETH_MAX_TX_DESC;
-		tx_chn->desc_pool =
-			k3_cppi_desc_pool_create_name(dev,
-						      tx_chn->descs_num,
-						      hdesc_size,
-						      tx_chn->name);
-		if (IS_ERR(tx_chn->desc_pool)) {
-			ret = PTR_ERR(tx_chn->desc_pool);
-			tx_chn->desc_pool = NULL;
-			netdev_err(ndev, "Failed to create tx pool: %d\n", ret);
-			goto fail;
-		}
 
 		tx_chn->tx_chn =
 			k3_udma_glue_request_tx_chn(dev, tx_chn->name,
@@ -321,6 +308,19 @@ static int prueth_init_tx_chns(struct prueth_emac *emac)
 			tx_chn->tx_chn = NULL;
 			netdev_err(ndev,
 				   "Failed to request tx dma ch: %d\n", ret);
+			goto fail;
+		}
+
+		tx_chn->dma_dev = k3_udma_glue_tx_get_dma_device(tx_chn->tx_chn);
+		tx_chn->desc_pool =
+			k3_cppi_desc_pool_create_name(tx_chn->dma_dev,
+						      tx_chn->descs_num,
+						      hdesc_size,
+						      tx_chn->name);
+		if (IS_ERR(tx_chn->desc_pool)) {
+			ret = PTR_ERR(tx_chn->desc_pool);
+			tx_chn->desc_pool = NULL;
+			netdev_err(ndev, "Failed to create tx pool: %d\n", ret);
 			goto fail;
 		}
 
@@ -371,16 +371,6 @@ static int prueth_init_rx_chns(struct prueth_emac *emac,
 	/* init all flows */
 	rx_chn->dev = dev;
 	rx_chn->descs_num = max_desc_num;
-	rx_chn->desc_pool = k3_cppi_desc_pool_create_name(dev,
-							  rx_chn->descs_num,
-							  hdesc_size,
-							  rx_chn->name);
-	if (IS_ERR(rx_chn->desc_pool)) {
-		ret = PTR_ERR(rx_chn->desc_pool);
-		rx_chn->desc_pool = NULL;
-		netdev_err(ndev, "Failed to create rx pool: %d\n", ret);
-		goto fail;
-	}
 
 	rx_chn->rx_chn = k3_udma_glue_request_rx_chn(dev, rx_chn->name,
 						     &rx_cfg);
@@ -388,6 +378,18 @@ static int prueth_init_rx_chns(struct prueth_emac *emac,
 		ret = PTR_ERR(rx_chn->rx_chn);
 		rx_chn->rx_chn = NULL;
 		netdev_err(ndev, "Failed to request rx dma ch: %d\n", ret);
+		goto fail;
+	}
+
+	rx_chn->dma_dev = k3_udma_glue_rx_get_dma_device(rx_chn->rx_chn);
+	rx_chn->desc_pool = k3_cppi_desc_pool_create_name(rx_chn->dma_dev,
+							  rx_chn->descs_num,
+							  hdesc_size,
+							  rx_chn->name);
+	if (IS_ERR(rx_chn->desc_pool)) {
+		ret = PTR_ERR(rx_chn->desc_pool);
+		rx_chn->desc_pool = NULL;
+		netdev_err(ndev, "Failed to create rx pool: %d\n", ret);
 		goto fail;
 	}
 
@@ -454,7 +456,6 @@ static int prueth_dma_rx_push(struct prueth_emac *emac,
 			      struct prueth_rx_chn *rx_chn)
 {
 	struct cppi5_host_desc_t *desc_rx;
-	struct device *dev = emac->prueth->dev;
 	struct net_device *ndev = emac->ndev;
 	dma_addr_t desc_dma;
 	dma_addr_t buf_dma;
@@ -468,8 +469,8 @@ static int prueth_dma_rx_push(struct prueth_emac *emac,
 	}
 	desc_dma = k3_cppi_desc_pool_virt2dma(rx_chn->desc_pool, desc_rx);
 
-	buf_dma = dma_map_single(dev, skb->data, pkt_len, DMA_FROM_DEVICE);
-	if (unlikely(dma_mapping_error(dev, buf_dma))) {
+	buf_dma = dma_map_single(rx_chn->dma_dev, skb->data, pkt_len, DMA_FROM_DEVICE);
+	if (unlikely(dma_mapping_error(rx_chn->dma_dev, buf_dma))) {
 		k3_cppi_desc_pool_free(rx_chn->desc_pool, desc_rx);
 		netdev_err(ndev, "rx push: failed to map rx pkt buffer\n");
 		return -EINVAL;
@@ -489,7 +490,6 @@ static int prueth_dma_rx_push(struct prueth_emac *emac,
 static int emac_rx_packet(struct prueth_emac *emac, u32 flow_id)
 {
 	struct prueth_rx_chn *rx_chn = &emac->rx_chns;
-	struct device *dev = emac->prueth->dev;
 	struct net_device *ndev = emac->ndev;
 	struct cppi5_host_desc_t *desc_rx;
 	dma_addr_t desc_dma, buf_dma;
@@ -522,7 +522,7 @@ static int emac_rx_packet(struct prueth_emac *emac, u32 flow_id)
 	pkt_len -= 4;
 	cppi5_desc_get_tags_ids(&desc_rx->hdr, &port_id, NULL);
 
-	dma_unmap_single(dev, buf_dma, buf_dma_len, DMA_FROM_DEVICE);
+	dma_unmap_single(rx_chn->dma_dev, buf_dma, buf_dma_len, DMA_FROM_DEVICE);
 	k3_cppi_desc_pool_free(rx_chn->desc_pool, desc_rx);
 
 	skb->dev = ndev;
@@ -572,7 +572,7 @@ static void prueth_rx_cleanup(void *data, dma_addr_t desc_dma)
 	skb = *swdata;
 	cppi5_hdesc_get_obuf(desc_rx, &buf_dma, &buf_dma_len);
 
-	dma_unmap_single(rx_chn->dev, buf_dma, buf_dma_len,
+	dma_unmap_single(rx_chn->dma_dev, buf_dma, buf_dma_len,
 			 DMA_FROM_DEVICE);
 	k3_cppi_desc_pool_free(rx_chn->desc_pool, desc_rx);
 
@@ -584,7 +584,6 @@ static void prueth_rx_cleanup(void *data, dma_addr_t desc_dma)
  */
 static int emac_send_command_sr1(struct prueth_emac *emac, u32 cmd)
 {
-	struct device *dev = emac->prueth->dev;
 	dma_addr_t desc_dma, buf_dma;
 	struct prueth_tx_chn *tx_chn;
 	struct cppi5_host_desc_t *first_desc;
@@ -600,21 +599,21 @@ static int emac_send_command_sr1(struct prueth_emac *emac, u32 cmd)
 	mutex_lock(&emac->cmd_lock);
 	data[0] = cpu_to_le32(cmd);
 
+	/* highest priority channel for management messages */
+	tx_chn = &emac->tx_chns[emac->tx_ch_num - 1];
+
 	/* Map the linear buffer */
-	buf_dma = dma_map_single(dev, data, pkt_len, DMA_TO_DEVICE);
-	if (dma_mapping_error(dev, buf_dma)) {
+	buf_dma = dma_map_single(tx_chn->dma_dev, data, pkt_len, DMA_TO_DEVICE);
+	if (dma_mapping_error(tx_chn->dma_dev, buf_dma)) {
 		netdev_err(emac->ndev, "cmd %x: failed to map cmd buffer\n", cmd);
 		ret = -EINVAL;
 		goto err_unlock;
 	}
 
-	/* highest priority channel for management messages */
-	tx_chn = &emac->tx_chns[emac->tx_ch_num - 1];
-
 	first_desc = k3_cppi_desc_pool_alloc(tx_chn->desc_pool);
 	if (!first_desc) {
 		netdev_err(emac->ndev, "cmd %x: failed to allocate descriptor\n", cmd);
-		dma_unmap_single(dev, buf_dma, pkt_len, DMA_TO_DEVICE);
+		dma_unmap_single(tx_chn->dma_dev, buf_dma, pkt_len, DMA_TO_DEVICE);
 		ret = -ENOMEM;
 		goto err_unlock;
 	}
@@ -648,7 +647,7 @@ static int emac_send_command_sr1(struct prueth_emac *emac, u32 cmd)
 
 	return ret;
 free_desc:
-	prueth_xmit_free(tx_chn, dev, first_desc);
+	prueth_xmit_free(tx_chn, first_desc);
 err_unlock:
 	mutex_unlock(&emac->cmd_lock);
 
@@ -707,7 +706,6 @@ static int emac_shutdown(struct net_device *ndev)
 static int emac_ndo_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 {
 	struct prueth_emac *emac = netdev_priv(ndev);
-	struct device *dev = emac->prueth->dev;
 	struct cppi5_host_desc_t *first_desc, *next_desc, *cur_desc;
 	struct netdev_queue *netif_txq;
 	struct prueth_tx_chn *tx_chn;
@@ -724,8 +722,8 @@ static int emac_ndo_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 	netif_txq = netdev_get_tx_queue(ndev, q_idx);
 
 	/* Map the linear buffer */
-	buf_dma = dma_map_single(dev, skb->data, pkt_len, DMA_TO_DEVICE);
-	if (dma_mapping_error(dev, buf_dma)) {
+	buf_dma = dma_map_single(tx_chn->dma_dev, skb->data, pkt_len, DMA_TO_DEVICE);
+	if (dma_mapping_error(tx_chn->dma_dev, buf_dma)) {
 		netdev_err(ndev, "tx: failed to map skb buffer\n");
 		ret = -EINVAL;
 		goto drop_stop_q;
@@ -734,7 +732,7 @@ static int emac_ndo_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 	first_desc = k3_cppi_desc_pool_alloc(tx_chn->desc_pool);
 	if (!first_desc) {
 		netdev_dbg(ndev, "tx: failed to allocate descriptor\n");
-		dma_unmap_single(dev, buf_dma, pkt_len, DMA_TO_DEVICE);
+		dma_unmap_single(tx_chn->dma_dev, buf_dma, pkt_len, DMA_TO_DEVICE);
 		ret = -ENOMEM;
 		goto drop_stop_q_busy;
 	}
@@ -771,9 +769,9 @@ static int emac_ndo_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 			goto drop_free_descs;
 		}
 
-		buf_dma = skb_frag_dma_map(dev, frag, 0, frag_size,
+		buf_dma = skb_frag_dma_map(tx_chn->dma_dev, frag, 0, frag_size,
 					   DMA_TO_DEVICE);
-		if (dma_mapping_error(dev, buf_dma)) {
+		if (dma_mapping_error(tx_chn->dma_dev, buf_dma)) {
 			netdev_err(ndev, "tx: Failed to map skb page\n");
 			k3_cppi_desc_pool_free(tx_chn->desc_pool, next_desc);
 			ret = -EINVAL;
@@ -821,7 +819,7 @@ tx_push:
 	return NETDEV_TX_OK;
 
 drop_free_descs:
-	prueth_xmit_free(tx_chn, dev, first_desc);
+	prueth_xmit_free(tx_chn, first_desc);
 drop_stop_q:
 	netif_tx_stop_queue(netif_txq);
 	dev_kfree_skb_any(skb);
@@ -840,7 +838,6 @@ drop_stop_q_busy:
 static void prueth_tx_cleanup(void *data, dma_addr_t desc_dma)
 {
 	struct prueth_tx_chn *tx_chn = data;
-	struct prueth_emac *emac = tx_chn->emac;
 	struct cppi5_host_desc_t *desc_tx;
 	struct sk_buff *skb;
 	void **swdata;
@@ -848,7 +845,7 @@ static void prueth_tx_cleanup(void *data, dma_addr_t desc_dma)
 	desc_tx = k3_cppi_desc_pool_dma2virt(tx_chn->desc_pool, desc_dma);
 	swdata = cppi5_hdesc_get_swdata(desc_tx);
 	skb = *(swdata);
-	prueth_xmit_free(tx_chn, emac->prueth->dev, desc_tx);
+	prueth_xmit_free(tx_chn, desc_tx);
 
 	dev_kfree_skb_any(skb);
 }
@@ -862,7 +859,6 @@ static struct sk_buff *prueth_process_rx_mgm(struct prueth_emac *emac,
 					     u32 flow_id)
 {
 	struct prueth_rx_chn *rx_chn = &emac->rx_mgm_chn;
-	struct device *dev = emac->prueth->dev;
 	struct net_device *ndev = emac->ndev;
 	struct cppi5_host_desc_t *desc_rx;
 	dma_addr_t desc_dma, buf_dma;
@@ -894,7 +890,7 @@ static struct sk_buff *prueth_process_rx_mgm(struct prueth_emac *emac,
 	cppi5_hdesc_get_obuf(desc_rx, &buf_dma, &buf_dma_len);
 	pkt_len = cppi5_hdesc_get_pktlen(desc_rx);
 
-	dma_unmap_single(dev, buf_dma, buf_dma_len, DMA_FROM_DEVICE);
+	dma_unmap_single(rx_chn->dma_dev, buf_dma, buf_dma_len, DMA_FROM_DEVICE);
 	k3_cppi_desc_pool_free(rx_chn->desc_pool, desc_rx);
 
 	new_skb = netdev_alloc_skb_ip_align(ndev, PRUETH_MAX_PKT_SIZE);
