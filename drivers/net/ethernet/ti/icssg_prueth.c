@@ -655,18 +655,16 @@ err_unlock:
 	return ret;
 }
 
-static void emac_change_port_speed_duplex(struct prueth_emac *emac,
-					  bool full_duplex, int speed)
+static void emac_change_port_speed_duplex(struct prueth_emac *emac)
 {
 	u32 cmd = ICSSG_PSTATE_SPEED_DUPLEX_CMD, val;
 	struct prueth *prueth = emac->prueth;
 	int slice = prueth_emac_slice(emac);
 
-	/* only 100M and 1G and full duplex supported for now */
-	if (!(full_duplex && (speed == SPEED_1000 || speed == SPEED_100)))
+	/* only full duplex supported for now */
+	if (emac->duplex != DUPLEX_FULL)
 		return;
 
-	/* FIXME for SR2.0 */
 	if (!emac->is_sr1)
 		return;
 
@@ -1058,7 +1056,6 @@ static void emac_adjust_link(struct net_device *ndev)
 {
 	struct prueth_emac *emac = netdev_priv(ndev);
 	struct phy_device *phydev = emac->phydev;
-	bool gig_en = false, full_duplex = false;
 	struct prueth *prueth = emac->prueth;
 	int slice = prueth_emac_slice(emac);
 	bool new_state = false;
@@ -1098,17 +1095,13 @@ static void emac_adjust_link(struct net_device *ndev)
 		 */
 		spin_lock_irqsave(&emac->lock, flags);
 		if (emac->link) {
-			if (phydev->speed == SPEED_1000)
-				gig_en = true;
-
-			if (phydev->duplex == DUPLEX_FULL)
-				full_duplex = true;
 			/* Set the RGMII cfg for gig en and full duplex */
-			icssg_update_rgmii_cfg(prueth->miig_rt, gig_en,
-					       full_duplex, slice);
+			icssg_update_rgmii_cfg(prueth->miig_rt, emac->speed,
+					       emac->duplex, slice);
 
 			/* update the Tx IPG based on 100M/1G speed */
 			icssg_config_ipg(prueth, emac->speed, slice);
+			icssg_config_set_speed(emac);
 		}
 		spin_unlock_irqrestore(&emac->lock, flags);
 
@@ -1116,8 +1109,7 @@ static void emac_adjust_link(struct net_device *ndev)
 		 * setting when link is up.
 		 */
 		if (emac->link)
-			emac_change_port_speed_duplex(emac, full_duplex,
-						      emac->speed);
+			emac_change_port_speed_duplex(emac);
 	}
 
 	if (emac->link) {
@@ -1718,8 +1710,10 @@ static int prueth_netdev_init(struct prueth *prueth,
 	}
 
 	/* remove unsupported modes */
+	/* 10M FD fixed in FW for SR1.0 */
+	if (!emac->is_sr1)
+		phy_remove_link_mode(emac->phydev, ETHTOOL_LINK_MODE_10baseT_Full_BIT);
 	phy_remove_link_mode(emac->phydev, ETHTOOL_LINK_MODE_10baseT_Half_BIT);
-	phy_remove_link_mode(emac->phydev, ETHTOOL_LINK_MODE_10baseT_Full_BIT);
 	phy_remove_link_mode(emac->phydev, ETHTOOL_LINK_MODE_100baseT_Half_BIT);
 	phy_remove_link_mode(emac->phydev, ETHTOOL_LINK_MODE_1000baseT_Half_BIT);
 	phy_remove_link_mode(emac->phydev, ETHTOOL_LINK_MODE_Pause_BIT);

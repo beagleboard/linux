@@ -105,7 +105,9 @@
 enum mii_mode { MII_MODE_MII = 0, MII_MODE_RGMII, MII_MODE_SGMII };
 
 /* RGMII CFG Register bits */
+#define RGMII_CFG_INBAND_EN_MII0	BIT(16)
 #define RGMII_CFG_GIG_EN_MII0	BIT(17)
+#define RGMII_CFG_INBAND_EN_MII1	BIT(20)
 #define RGMII_CFG_GIG_EN_MII1	BIT(21)
 #define RGMII_CFG_FULL_DUPLEX_MII0	BIT(18)
 #define RGMII_CFG_FULL_DUPLEX_MII1	BIT(22)
@@ -135,20 +137,27 @@ static inline void icssg_mii_update_ipg(struct regmap *mii_rt, int mii, u32 ipg)
 	}
 }
 
-static inline void icssg_update_rgmii_cfg(struct regmap *miig_rt, bool gig_en,
-					  bool full_duplex, int mii)
+static inline void icssg_update_rgmii_cfg(struct regmap *miig_rt, int speed,
+					  int duplex, int mii)
 {
 	u32 gig_en_mask, gig_val = 0, full_duplex_mask, full_duplex_val = 0;
+	u32 inband_en_mask, inband_val = 0;
 
 	gig_en_mask = (mii == ICSS_MII0) ? RGMII_CFG_GIG_EN_MII0 :
 					RGMII_CFG_GIG_EN_MII1;
-	if (gig_en)
+	if (speed == SPEED_1000)
 		gig_val = gig_en_mask;
 	regmap_update_bits(miig_rt, RGMII_CFG_OFFSET, gig_en_mask, gig_val);
 
+	inband_en_mask = (mii == ICSS_MII0) ? RGMII_CFG_INBAND_EN_MII0 :
+					RGMII_CFG_INBAND_EN_MII1;
+	if (speed == SPEED_10)
+		inband_val = inband_en_mask;
+	regmap_update_bits(miig_rt, RGMII_CFG_OFFSET, inband_en_mask, inband_val);
+
 	full_duplex_mask = (mii == ICSS_MII0) ? RGMII_CFG_FULL_DUPLEX_MII0 :
 					   RGMII_CFG_FULL_DUPLEX_MII1;
-	if (full_duplex)
+	if (duplex == DUPLEX_FULL)
 		full_duplex_val = full_duplex_mask;
 	regmap_update_bits(miig_rt, RGMII_CFG_OFFSET, full_duplex_mask,
 			   full_duplex_val);

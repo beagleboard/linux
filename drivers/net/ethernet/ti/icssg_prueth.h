@@ -247,6 +247,7 @@ int icssg_config_sr2(struct prueth *prueth, struct prueth_emac *emac,
 		     int slice);
 int emac_set_port_state(struct prueth_emac *emac,
 			enum icssg_port_state_cmd state);
+void icssg_config_set_speed(struct prueth_emac *emac);
 #define prueth_napi_to_tx_chn(pnapi) \
 	container_of(pnapi, struct prueth_tx_chn, napi_tx)
 

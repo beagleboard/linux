@@ -13,6 +13,10 @@
  *
  */
 
+#define FW_LINK_SPEED_1G                           (0x00)
+#define FW_LINK_SPEED_100M                         (0x01)
+#define FW_LINK_SPEED_10M                          (0x02)
+
 /*Time after which FDB entries are checked for aged out values. Value in nanoseconds*/
 #define FDB_AGEING_TIMEOUT_OFFSET                          0x0014
 /*default VLAN tag for Host Port*/
@@ -122,6 +126,8 @@
 #define EXPRESS_PRE_EMPTIVE_Q_MAP                          0x0034
 /*Stores the table used for priority mapping. 1B per PCP/Queue*/
 #define PORT_Q_PRIORITY_MAPPING_OFFSET                     0x003C
+/*Used to notify the FW of the current link speed*/
+#define PORT_LINK_SPEED_OFFSET                             0x00A8
 /*TAS gate mask for windows list0*/
 #define TAS_GATE_MASK_LIST0                                0x0100
 /*TAS gate mask for windows list1*/

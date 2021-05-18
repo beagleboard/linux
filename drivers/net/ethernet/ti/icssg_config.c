@@ -15,12 +15,10 @@
  * h/w design.
  */
 
-/* SR1.0 IPG is in core_clk cycles */
+/* IPG is in core_clk cycles */
 #define MII_RT_TX_IPG_100M_SR1	0x166
-#define MII_RT_TX_IPG_1G_SR1	0x18
-
-/* SR2.0 IPG is in rgmii_clk (125MHz) clock cycles + 1 */
-#define MII_RT_TX_IPG_100M	0xb2	/* FIXME: cross check */
+#define MII_RT_TX_IPG_1G_SR1	0x1a
+#define MII_RT_TX_IPG_100M	0x17
 #define MII_RT_TX_IPG_1G	0xb
 
 #define	ICSSG_QUEUES_MAX		64
@@ -128,7 +126,7 @@ static void icssg_config_rgmii_init(struct prueth *prueth, int slice)
 	mii_mode |= MII_MODE_RGMII << ICSSG_CFG_MII1_MODE_SHIFT;
 	regmap_write(miig_rt, ICSSG_CFG_OFFSET, ICSSG_CFG_DEFAULT | mii_mode);
 
-	icssg_update_rgmii_cfg(miig_rt, true, true, slice);
+	icssg_update_rgmii_cfg(miig_rt, SPEED_1000, DUPLEX_FULL, slice);
 	/* reset hwqueues */
 	if (slice)
 		queue = ICSSG_NUM_TX_QUEUES;
@@ -189,6 +187,12 @@ void icssg_config_ipg(struct prueth *prueth, int speed, int mii)
 	case SPEED_100:
 		icssg_mii_update_ipg(prueth->mii_rt, mii, prueth->is_sr1 ?
 				     MII_RT_TX_IPG_100M_SR1 : MII_RT_TX_IPG_100M);
+		break;
+	case SPEED_10:
+		/* Firmware hardcodes IPG  for PG1. PG2 same as 100M */
+		if (!prueth->is_sr1)
+			icssg_mii_update_ipg(prueth->mii_rt, mii,
+					     MII_RT_TX_IPG_100M);
 		break;
 	default:
 		/* Other links speeds not supported */
@@ -409,4 +413,27 @@ int emac_set_port_state(struct prueth_emac *emac,
 	mutex_unlock(&emac->cmd_lock);
 
 	return ret;
+}
+
+void icssg_config_set_speed(struct prueth_emac *emac)
+{
+	u8 fw_speed;
+
+	switch (emac->speed) {
+	case SPEED_1000:
+		fw_speed = FW_LINK_SPEED_1G;
+		break;
+	case SPEED_100:
+		fw_speed = FW_LINK_SPEED_100M;
+		break;
+	case SPEED_10:
+		fw_speed = FW_LINK_SPEED_10M;
+		break;
+	default:
+		/* Other links speeds not supported */
+		pr_err("Unsupported link speed\n");
+		return;
+	}
+
+	writeb(fw_speed, emac->dram.va + PORT_LINK_SPEED_OFFSET);
 }
