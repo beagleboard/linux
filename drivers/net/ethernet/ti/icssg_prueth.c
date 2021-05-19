@@ -2127,9 +2127,6 @@ skip_irq:
 	}
 
 	/* remove unsupported modes */
-	/* 10M FD fixed in FW for SR1.0 */
-	if (!emac->is_sr1)
-		phy_remove_link_mode(emac->phydev, ETHTOOL_LINK_MODE_10baseT_Full_BIT);
 	phy_remove_link_mode(emac->phydev, ETHTOOL_LINK_MODE_10baseT_Half_BIT);
 	phy_remove_link_mode(emac->phydev, ETHTOOL_LINK_MODE_100baseT_Half_BIT);
 	phy_remove_link_mode(emac->phydev, ETHTOOL_LINK_MODE_1000baseT_Half_BIT);
@@ -2457,6 +2454,11 @@ static int prueth_probe(struct platform_device *pdev)
 			icss_iep_exit(prueth->iep1);
 			goto free_iep;
 		}
+	} else if (prueth->pdata.quirk_10m_link_issue) {
+		/* Enable IEP1 for FW in 64bit mode as W/A for 10M FD link detect issue under TX
+		 * traffic.
+		 */
+		icss_iep_init_fw(prueth->iep1);
 	}
 
 	/* setup netdev interfaces */
@@ -2540,6 +2542,8 @@ exit_iep:
 	if (prueth->is_sr1) {
 		icss_iep_exit(prueth->iep1);
 		icss_iep_exit(prueth->iep0);
+	} else if (prueth->pdata.quirk_10m_link_issue) {
+		icss_iep_exit_fw(prueth->iep1);
 	}
 
 free_iep:
@@ -2591,6 +2595,8 @@ static int prueth_remove(struct platform_device *pdev)
 	if (prueth->is_sr1) {
 		icss_iep_exit(prueth->iep1);
 		icss_iep_exit(prueth->iep0);
+	} else if (prueth->pdata.quirk_10m_link_issue) {
+		icss_iep_exit_fw(prueth->iep1);
 	}
 
 	icss_iep_put(prueth->iep1);
@@ -2669,8 +2675,13 @@ static const struct dev_pm_ops prueth_dev_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(prueth_suspend, prueth_resume)
 };
 
+static const struct prueth_pdata am654_icssg_pdata_sr1 = {
+	.fdqring_mode = K3_RINGACC_RING_MODE_MESSAGE,
+};
+
 static const struct prueth_pdata am654_icssg_pdata = {
 	.fdqring_mode = K3_RINGACC_RING_MODE_MESSAGE,
+	.quirk_10m_link_issue = 1,
 };
 
 static const struct prueth_pdata am64x_icssg_pdata = {
@@ -2678,7 +2689,7 @@ static const struct prueth_pdata am64x_icssg_pdata = {
 };
 
 static const struct of_device_id prueth_dt_match[] = {
-	{ .compatible = "ti,am654-icssg-prueth-sr1", .data = &am654_icssg_pdata },
+	{ .compatible = "ti,am654-icssg-prueth-sr1", .data = &am654_icssg_pdata_sr1 },
 	{ .compatible = "ti,am654-icssg-prueth", .data = &am654_icssg_pdata },
 	{ .compatible = "ti,am642-icssg-prueth", .data = &am64x_icssg_pdata },
 	{ /* sentinel */ }

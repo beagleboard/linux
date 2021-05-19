@@ -173,9 +173,12 @@ struct prueth_emac {
 /**
  * struct prueth - PRUeth platform data
  * @fdqring_mode: Free desc queue mode
+ * @quirk_10m_link_issue: 10M link detect errata
  */
 struct prueth_pdata {
 	enum k3_ring_mode fdqring_mode;
+
+	u32	quirk_10m_link_issue:1;
 };
 
 /**
