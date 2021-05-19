@@ -170,11 +170,14 @@ struct sa_tfm_ctx;
  * the following range, so avoid using it.
  */
 #define SA_UNSAFE_DATA_SZ_MIN	240
-#define SA_UNSAFE_DATA_SZ_MAX	256
+#define SA_UNSAFE_DATA_SZ_MAX	255
+
+struct sa_match_data;
 
 /**
  * struct sa_crypto_data - Crypto driver instance data
  * @base: Base address of the register space
+ * @soc_data: Pointer to SoC specific data
  * @pdev: Platform device pointer
  * @sc_pool: security context pool
  * @dev: Device pointer
@@ -187,9 +190,11 @@ struct sa_tfm_ctx;
  * @dma_rx1: Pointer to DMA rx channel for sizes < 256 Bytes
  * @dma_rx2: Pointer to DMA rx channel for sizes > 256 Bytes
  * @dma_tx: Pointer to DMA TX channel
+ * @fallback_sz: SW fallback limit for crypto algorithms
  */
 struct sa_crypto_data {
 	void __iomem *base;
+	const struct sa_match_data *match_data;
 	struct platform_device	*pdev;
 	struct dma_pool		*sc_pool;
 	struct device *dev;
@@ -204,6 +209,7 @@ struct sa_crypto_data {
 	struct dma_chan		*dma_rx1;
 	struct dma_chan		*dma_rx2;
 	struct dma_chan		*dma_tx;
+	int			fallback_sz;
 };
 
 /**

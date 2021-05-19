@@ -868,9 +868,13 @@ static void test_mb_ahash_speed(const char *algo, unsigned int secs,
 		if (klen)
 			crypto_ahash_setkey(tfm, tvmem[0], klen);
 
-		for (k = 0; k < num_mb; k++)
+		for (k = 0; k < num_mb; k++) {
+			sg_set_buf(data[k].sg, data[k].xbuf[0],
+				   speed[i].blen > PAGE_SIZE ? PAGE_SIZE :
+				   speed[i].blen);
 			ahash_request_set_crypt(data[k].req, data[k].sg,
 						data[k].result, speed[i].blen);
+		}
 
 		pr_info("test%3u "
 			"(%5u byte blocks,%5u bytes per update,%4u updates): ",
@@ -1107,6 +1111,7 @@ static void test_ahash_speed_common(const char *algo, unsigned int secs,
 			"(%5u byte blocks,%5u bytes per update,%4u updates): ",
 			i, speed[i].blen, speed[i].plen, speed[i].blen / speed[i].plen);
 
+		sg_set_buf(sg, tvmem[0], speed[i].plen);
 		ahash_request_set_crypt(req, sg, output, speed[i].plen);
 
 		if (secs) {
