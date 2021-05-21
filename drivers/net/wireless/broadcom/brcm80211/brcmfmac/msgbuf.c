@@ -11,6 +11,7 @@
 #include <linux/types.h>
 #include <linux/netdevice.h>
 #include <linux/etherdevice.h>
+#include <linux/net_tstamp.h>
 
 #include <brcmu_utils.h>
 #include <brcmu_wifi.h>
@@ -54,6 +55,7 @@
 #define BRCMF_IOCTL_REQ_PKTID			0xFFFE
 
 #define BRCMF_MSGBUF_MAX_PKT_SIZE		2048
+#define BRCMF_MSGBUF_MAX_CTL_PKT_SIZE           8192
 #define BRCMF_MSGBUF_RXBUFPOST_THRESHOLD	32
 #define BRCMF_MSGBUF_MAX_IOCTLRESPBUF_POST	8
 #define BRCMF_MSGBUF_MAX_EVENTBUF_POST		8
@@ -70,6 +72,7 @@
 #define BRCMF_MSGBUF_TRICKLE_TXWORKER_THRS	32
 #define BRCMF_MSGBUF_UPDATE_RX_PTR_THRS		48
 
+#define BRCMF_MAX_TXSTATUS_WAIT_RETRIES		10
 
 struct msgbuf_common_hdr {
 	u8				msgtype;
@@ -717,6 +720,7 @@ static void brcmf_msgbuf_txflow(struct brcmf_msgbuf *msgbuf, u16 flowid)
 				 brcmf_flowring_qlen(flow, flowid));
 			break;
 		}
+		skb_tx_timestamp(skb);
 		skb_orphan(skb);
 		if (brcmf_msgbuf_alloc_pktid(msgbuf->drvr->bus_if->dev,
 					     msgbuf->tx_pktids, skb, ETH_HLEN,
@@ -805,8 +809,12 @@ static int brcmf_msgbuf_tx_queue_data(struct brcmf_pub *drvr, int ifidx,
 	flowid = brcmf_flowring_lookup(flow, eh->h_dest, skb->priority, ifidx);
 	if (flowid == BRCMF_FLOWRING_INVALID_ID) {
 		flowid = brcmf_msgbuf_flowring_create(msgbuf, ifidx, skb);
-		if (flowid == BRCMF_FLOWRING_INVALID_ID)
+		if (flowid == BRCMF_FLOWRING_INVALID_ID) {
 			return -ENOMEM;
+		} else {
+			brcmf_flowring_enqueue(flow, flowid, skb);
+			return 0;
+		}
 	}
 	queue_count = brcmf_flowring_enqueue(flow, flowid, skb);
 	force = ((queue_count % BRCMF_MSGBUF_TRICKLE_TXWORKER_THRS) == 0);
@@ -1028,7 +1036,7 @@ brcmf_msgbuf_rxbuf_ctrl_post(struct brcmf_msgbuf *msgbuf, bool event_buf,
 		rx_bufpost = (struct msgbuf_rx_ioctl_resp_or_event *)ret_ptr;
 		memset(rx_bufpost, 0, sizeof(*rx_bufpost));
 
-		skb = brcmu_pkt_buf_get_skb(BRCMF_MSGBUF_MAX_PKT_SIZE);
+		skb = brcmu_pkt_buf_get_skb(BRCMF_MSGBUF_MAX_CTL_PKT_SIZE);
 
 		if (skb == NULL) {
 			bphy_err(drvr, "Failed to alloc SKB\n");
@@ -1139,7 +1147,8 @@ brcmf_msgbuf_process_rx_complete(struct brcmf_msgbuf *msgbuf, void *buf)
 {
 	struct brcmf_pub *drvr = msgbuf->drvr;
 	struct msgbuf_rx_complete *rx_complete;
-	struct sk_buff *skb;
+	struct sk_buff *skb, *cpskb = NULL;
+	struct ethhdr *eh;
 	u16 data_offset;
 	u16 buflen;
 	u16 flags;
@@ -1188,6 +1197,34 @@ brcmf_msgbuf_process_rx_complete(struct brcmf_msgbuf *msgbuf, void *buf)
 		return;
 	}
 
+	if (ifp->isap && ifp->fmac_pkt_fwd_en) {
+		eh = (struct ethhdr *)(skb->data);
+		skb_set_network_header(skb, sizeof(struct ethhdr));
+		skb->protocol = eh->h_proto;
+		skb->priority = cfg80211_classify8021d(skb, NULL);
+		if (is_unicast_ether_addr(eh->h_dest)) {
+			if (brcmf_find_sta(ifp, eh->h_dest)) {
+				 /* determine the priority */
+				if (skb->priority == 0 || skb->priority > 7) {
+					skb->priority =
+						cfg80211_classify8021d(skb,
+								       NULL);
+				}
+				brcmf_proto_tx_queue_data(ifp->drvr,
+							  ifp->ifidx, skb);
+				return;
+			}
+		} else {
+			cpskb = pskb_copy(skb, GFP_ATOMIC);
+			if (cpskb) {
+				brcmf_proto_tx_queue_data(ifp->drvr,
+							  ifp->ifidx,
+							  cpskb);
+			} else {
+				brcmf_err("Unable to do skb copy\n");
+			}
+		}
+	}
 	skb->protocol = eth_type_trans(skb, ifp->ndev);
 	brcmf_netif_rx(ifp, skb);
 }
@@ -1394,9 +1431,27 @@ void brcmf_msgbuf_delete_flowring(struct brcmf_pub *drvr, u16 flowid)
 	struct brcmf_msgbuf *msgbuf = (struct brcmf_msgbuf *)drvr->proto->pd;
 	struct msgbuf_tx_flowring_delete_req *delete;
 	struct brcmf_commonring *commonring;
+	struct brcmf_commonring *commonring_del = msgbuf->flowrings[flowid];
+	struct brcmf_flowring *flow = msgbuf->flow;
 	void *ret_ptr;
 	u8 ifidx;
 	int err;
+	int retry = BRCMF_MAX_TXSTATUS_WAIT_RETRIES;
+
+	/* make sure it is not in txflow */
+	brcmf_commonring_lock(commonring_del);
+	flow->rings[flowid]->status = RING_CLOSING;
+	brcmf_commonring_unlock(commonring_del);
+
+	/* wait for commonring txflow finished */
+	while (retry && atomic_read(&commonring_del->outstanding_tx)) {
+		usleep_range(5000, 10000);
+		retry--;
+	}
+	if (!retry) {
+		brcmf_err("timed out waiting for txstatus\n");
+		atomic_set(&commonring_del->outstanding_tx, 0);
+	}
 
 	/* no need to submit if firmware can not be reached */
 	if (drvr->bus_if->state != BRCMF_BUS_UP) {
