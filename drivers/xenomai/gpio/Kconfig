@@ -1,0 +1,65 @@
+menu "Real-time GPIO drivers"
+
+config XENO_DRIVERS_GPIO
+       bool "GPIO controller"
+       depends on GPIOLIB
+       help
+
+       Real-time capable GPIO module.
+
+if XENO_DRIVERS_GPIO
+
+config XENO_DRIVERS_GPIO_BCM2835
+	depends on MACH_BCM2708 || ARCH_BCM2835
+	tristate "Support for BCM2835 GPIOs"
+	help
+
+	Enables support for the GPIO controller available from
+	Broadcom's BCM2835 SoC.
+
+config XENO_DRIVERS_GPIO_MXC
+	depends on GPIO_MXC
+	tristate "Support for MXC GPIOs"
+	help
+
+	Suitable for the GPIO controller available from
+	Freescale/NXP's MXC architecture.
+
+config XENO_DRIVERS_GPIO_SUN8I_H3
+	depends on MACH_SUN8I && PINCTRL_SUN8I_H3
+	tristate "Support for SUN8I H3 GPIOs"
+	help
+
+	Suitable for the GPIO controller available from Allwinner's H3
+	SoC, as found on the NanoPI boards.
+
+config XENO_DRIVERS_GPIO_ZYNQ7000
+	depends on ARCH_ZYNQ || ARCH_ZYNQMP
+	tristate "Support for Zynq7000 GPIOs"
+	help
+
+	Enables support for the GPIO controller available from
+	Xilinx's Zynq7000 SoC.
+
+config XENO_DRIVERS_GPIO_XILINX
+	depends on ARCH_ZYNQ || ARCH_ZYNQMP
+	tristate "Support for Xilinx GPIOs"
+	help
+
+	Enables support for the GPIO controller available from
+	Xilinx's softcore IP.
+
+config XENO_DRIVERS_GPIO_OMAP
+	depends on ARCH_OMAP2PLUS || ARCH_OMAP
+	tristate "Support for OMAP GPIOs"
+	help
+
+	Enables support for the GPIO controller available from
+	OMAP family SOC.
+
+config XENO_DRIVERS_GPIO_DEBUG
+       bool "Enable GPIO core debugging features"
+
+endif
+
+endmenu
