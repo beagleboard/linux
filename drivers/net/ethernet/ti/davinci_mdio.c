@@ -704,6 +704,8 @@ static int davinci_mdio_runtime_resume(struct device *dev)
 	}
 	return 0;
 }
+#endif
+
 static void davinci_mdio_update_dt_from_phymask(u32 phy_mask)
 {
 	int i, len, skip;
@@ -791,7 +793,6 @@ err_out:
 		kfree(phy_id_property);
 	}
 }
-#endif
 
 #ifdef CONFIG_PM_SLEEP
 static int davinci_mdio_suspend(struct device *dev)
