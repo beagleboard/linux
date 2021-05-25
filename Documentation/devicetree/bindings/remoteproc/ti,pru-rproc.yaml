@@ -44,6 +44,9 @@ properties:
       - ti,j721e-pru    # for PRUs in K3 J721E SoC family
       - ti,j721e-rtu    # for RTUs in K3 J721E SoC family
       - ti,j721e-tx-pru # for Tx_PRUs in K3 J721E SoC family
+      - ti,am642-pru    # for PRUs in K3 AM64x SoC family
+      - ti,am642-rtu    # for RTUs in K3 AM64x SoC family
+      - ti,am642-tx-pru # for Tx_PRUs in K3 AM64x SoC family
 
   reg:
     items:
@@ -68,6 +71,7 @@ if:
       enum:
         - ti,am654-rtu
         - ti,j721e-rtu
+        - ti,am642-rtu
 then:
   properties:
     $nodename:
@@ -79,6 +83,7 @@ else:
         enum:
           - ti,am654-tx-pru
           - ti,j721e-tx-pru
+          - ti,am642-tx-pru
   then:
     properties:
       $nodename:
