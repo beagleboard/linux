@@ -8,3 +8,28 @@
 &sdhci1 {
 	no-1-8-v;
 };
+
+&icssg2_eth {
+	compatible = "ti,am654-icssg-prueth-sr1";
+	ti,prus = <&pru2_0>, <&rtu2_0>, <&pru2_1>, <&rtu2_1>;
+	firmware-name = "ti-pruss/am65x-pru0-prueth-fw.elf",
+			"ti-pruss/am65x-rtu0-prueth-fw.elf",
+			"ti-pruss/am65x-pru1-prueth-fw.elf",
+			"ti-pruss/am65x-rtu1-prueth-fw.elf";
+	ti,pruss-gp-mux-sel = <2>,      /* MII mode */
+			      <2>,
+			      <2>,      /* MII mode */
+			      <2>;
+};
+
+&icssg2_iep0 {
+	interrupt-parent = <&icssg2_intc>;
+	interrupts = <7 7 8>;
+	interrupt-names = "iep_cap_cmp";
+};
+
+&icssg2_iep1 {
+	interrupt-parent = <&icssg2_intc>;
+	interrupts = <56 8 9>;
+	interrupt-names = "iep_cap_cmp";
+};

@@ -26,6 +26,7 @@ struct icss_iep_clockops {
 };
 
 struct icss_iep *icss_iep_get(struct device_node *np);
+struct icss_iep *icss_iep_get_idx(struct device_node *np, int idx);
 void icss_iep_put(struct icss_iep *iep);
 int icss_iep_init(struct icss_iep *iep, const struct icss_iep_clockops *clkops,
 		  void *clockops_data, u32 cycle_time_ns);
@@ -33,5 +34,7 @@ int icss_iep_exit(struct icss_iep *iep);
 int icss_iep_get_count_low(struct icss_iep *iep);
 int icss_iep_get_count_hi(struct icss_iep *iep);
 int icss_iep_get_ptp_clock_idx(struct icss_iep *iep);
+void icss_iep_init_fw(struct icss_iep *iep);
+void icss_iep_exit_fw(struct icss_iep *iep);
 
 #endif /* __NET_TI_ICSS_IEP_H */

@@ -6,3 +6,53 @@
  */
 
 #include "k3-am654-idk.dts"
+
+&icssg0_eth {
+	compatible = "ti,am654-icssg-prueth-sr1";
+	ti,prus = <&pru0_0>, <&rtu0_0>, <&pru0_1>, <&rtu0_1>;
+	firmware-name = "ti-pruss/am65x-pru0-prueth-fw.elf",
+			"ti-pruss/am65x-rtu0-prueth-fw.elf",
+			"ti-pruss/am65x-pru1-prueth-fw.elf",
+			"ti-pruss/am65x-rtu1-prueth-fw.elf";
+	ti,pruss-gp-mux-sel = <2>,      /* MII mode */
+			      <2>,
+			      <2>,      /* MII mode */
+			      <2>;
+};
+
+&icssg0_iep0 {
+	interrupt-parent = <&icssg0_intc>;
+	interrupts = <7 7 8>;
+	interrupt-names = "iep_cap_cmp";
+};
+
+&icssg0_iep1 {
+	interrupt-parent = <&icssg0_intc>;
+	interrupts = <56 8 9>;
+	interrupt-names = "iep_cap_cmp";
+};
+
+&icssg1_eth {
+	compatible = "ti,am654-icssg-prueth-sr1";
+	ti,prus = <&pru1_0>, <&rtu1_0>, <&pru1_1>, <&rtu1_1>;
+	firmware-name = "ti-pruss/am65x-pru0-prueth-fw.elf",
+			"ti-pruss/am65x-rtu0-prueth-fw.elf",
+			"ti-pruss/am65x-pru1-prueth-fw.elf",
+			"ti-pruss/am65x-rtu1-prueth-fw.elf";
+	ti,pruss-gp-mux-sel = <2>,      /* MII mode */
+			      <2>,
+			      <2>,      /* MII mode */
+			      <2>;
+};
+
+&icssg1_iep0 {
+	interrupt-parent = <&icssg1_intc>;
+	interrupts = <7 7 8>;
+	interrupt-names = "iep_cap_cmp";
+};
+
+&icssg1_iep1 {
+	interrupt-parent = <&icssg1_intc>;
+	interrupts = <56 8 9>;
+	interrupt-names = "iep_cap_cmp";
+};
