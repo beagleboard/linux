@@ -14,7 +14,7 @@ properties:
     enum:
       - ti,am3356-icss-iep  # for AM335x and AM437x SoCs
       - ti,am5728-icss-iep  # for AM57xx and 66AK2G SoCs
-      - ti,am654-icss-iep   # for K3 AM65x and J721E SoCs
+      - ti,am654-icss-iep   # for K3 AM65x, J721E and AM64x SoCs
 
   reg:
     maxItems: 1
