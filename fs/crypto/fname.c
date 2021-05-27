@@ -294,12 +294,8 @@ int fscrypt_fname_disk_to_usr(struct inode *inode,
 					   oname->name);
 		return 0;
 	}
-	if (hash) {
-		memcpy(buf, &hash, 4);
-		memcpy(buf + 4, &minor_hash, 4);
-	} else {
-		memset(buf, 0, 8);
-	}
+	memcpy(buf, &hash, 4);
+	memcpy(buf + 4, &minor_hash, 4);
 	memcpy(buf + 8, iname->name + ((iname->len - 17) & ~15), 16);
 	oname->name[0] = '_';
 	oname->len = 1 + digest_encode(buf, 24, oname->name + 1);
