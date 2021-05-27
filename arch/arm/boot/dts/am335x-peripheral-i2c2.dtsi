@@ -1,0 +1,10 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright (C) 2012 Texas Instruments Incorporated - https://www.ti.com/
+ */
+
+&i2c2 {
+	pinctrl-names = "default";
+
+	status = "okay";
+};
