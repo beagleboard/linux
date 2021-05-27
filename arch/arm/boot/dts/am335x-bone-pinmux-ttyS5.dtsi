@@ -1,0 +1,45 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright (C) 2012 Texas Instruments Incorporated - https://www.ti.com/
+ */
+
+/* Testing */
+/* sudo /sbin/getty -L ttyS5 115200 vt102 */
+
+#include <dt-bindings/board/am335x-bbw-bbb-base.h>
+#include "am335x-peripheral-ttyS5.dtsi"
+
+/* cape universal */
+
+/*
+ *&ocp {
+ *	P8_37_pinmux {
+ *		mode = "uart";
+ *	};
+ *	P8_38_pinmux {
+ *		mode = "uart";
+ *	};
+ *};
+ *
+ *&uart5 {
+ *	pinctrl-0 = <>;
+ *};
+ *
+ */
+
+/* standard */
+
+&am33xx_pinmux {
+	uart5_pins: pinmux_uart5_pins {
+		pinctrl-single,pins = <
+			/* P8_38: lcd_data9.uart5_rxd */
+			BONE_P8_38 (PIN_INPUT_PULLUP | MUX_MODE4)
+			/* P8_37: lcd_data8.uart5_txd */
+			BONE_P8_37 (PIN_OUTPUT_PULLDOWN | MUX_MODE4)
+		>;
+	};
+};
+
+&uart5 {
+	pinctrl-0 = <&uart5_pins>;
+};
