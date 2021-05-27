@@ -12,6 +12,7 @@
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/pinctrl/dra.h>
+#include "am57xx-cmem.dtsi"
 
 / {
 	model = "BeagleBoard.org BeagleBone AI";
@@ -26,6 +27,8 @@
 
 	chosen {
 		stdout-path = &uart1;
+		base_dtb = "am5729-beagleboneai.dts";
+		base_dtb_timestamp = __TIMESTAMP__;
 	};
 
 	memory@0 {
@@ -204,6 +207,7 @@
 &i2c1 {
 	status = "okay";
 	clock-frequency = <400000>;
+	symlink = "bone/i2c/0";
 
 	tps659038: tps659038@58 {
 		compatible = "ti,tps659038";
@@ -486,6 +490,7 @@
 
 &uart1 {
 	status = "okay";
+	symlink = "bone/uart/0";
 };
 
 &davinci_mdio_sw {
@@ -675,6 +680,7 @@
 &i2c4 {
 	status = "okay";
 	clock-frequency = <100000>;
+	symlink = "bone/i2c/2";
 };
 
 &cpu0_opp_table {
