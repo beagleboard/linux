@@ -147,7 +147,11 @@ static ssize_t rpmsg_pru_write(struct file *filp, const char __user *buf,
 		return -EFAULT;
 	}
 
-	ret = rpmsg_send(prudev->rpdev->ept, (void *)rpmsg_pru_buf, count);
+	if (filp->f_flags & O_NONBLOCK)
+		ret = rpmsg_trysend(prudev->rpdev->ept, (void *)rpmsg_pru_buf, count);
+	else
+		ret = rpmsg_send(prudev->rpdev->ept, (void *)rpmsg_pru_buf, count);
+
 	if (ret)
 		dev_err(prudev->dev, "rpmsg_send failed: %d\n", ret);
 
