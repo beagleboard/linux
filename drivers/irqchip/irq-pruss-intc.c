@@ -373,6 +373,14 @@ static int pruss_intc_irq_set_irqchip_state(struct irq_data *data,
 	return 0;
 }
 
+static int pruss_intc_irq_irq_set_type(struct irq_data *data, unsigned int type)
+{
+	if (type != IRQ_TYPE_LEVEL_HIGH)
+		return -EINVAL;
+
+	return 0;
+}
+
 static struct irq_chip pruss_irqchip = {
 	.name			= "pruss-intc",
 	.irq_ack		= pruss_intc_irq_ack,
@@ -382,6 +390,7 @@ static struct irq_chip pruss_irqchip = {
 	.irq_release_resources	= pruss_intc_irq_relres,
 	.irq_get_irqchip_state	= pruss_intc_irq_get_irqchip_state,
 	.irq_set_irqchip_state	= pruss_intc_irq_set_irqchip_state,
+	.irq_set_type		= pruss_intc_irq_irq_set_type,
 };
 
 static int pruss_intc_validate_mapping(struct pruss_intc *intc, int event,
