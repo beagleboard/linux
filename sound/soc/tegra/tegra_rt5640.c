@@ -150,6 +150,7 @@ static struct snd_soc_dai_link tegra_rt5640_dai = {
 
 static struct snd_soc_card snd_soc_tegra_rt5640 = {
 	.name = "tegra-rt5640",
+	.driver_name = "tegra",
 	.owner = THIS_MODULE,
 	.remove = tegra_rt5640_card_remove,
 	.dai_link = &tegra_rt5640_dai,
