@@ -324,6 +324,33 @@ struct mesh_sta {
 
 DECLARE_EWMA(signal, 1024, 8)
 
+/*
+ * IEEE 802.11-2016 (10.6 "Defragmentation") recommends support for "concurrent
+ * reception of at least one MSDU per access category per associated STA"
+ * on APs, or "at least one MSDU per access category" on other interface types.
+ *
+ * This limit can be increased by changing this define, at the cost of slower
+ * frame reassembly and increased memory use while fragments are pending.
+ */
+#define IEEE80211_FRAGMENT_MAX 4
+
+struct ieee80211_fragment_entry {
+	struct sk_buff_head skb_list;
+	unsigned long first_frag_time;
+	u16 seq;
+	u16 extra_len;
+	u16 last_frag;
+	u8 rx_queue;
+	bool check_sequential_pn; /* needed for CCMP/GCMP */
+	u8 last_pn[6]; /* PN of the last fragment if CCMP was used */
+	unsigned int key_color;
+};
+
+struct ieee80211_fragment_cache {
+	struct ieee80211_fragment_entry	entries[IEEE80211_FRAGMENT_MAX];
+	unsigned int next;
+};
+
 /**
  * struct sta_info - STA information
  *
@@ -384,6 +411,7 @@ DECLARE_EWMA(signal, 1024, 8)
  * @tx_stats: TX statistics
  * @rx_stats: RX statistics
  * @status_stats: TX status statistics
+ * @frags: fragment cache
  */
 struct sta_info {
 	/* General information, mostly static */
@@ -492,6 +520,8 @@ struct sta_info {
 	u8 reserved_tid;
 
 	struct cfg80211_chan_def tdls_chandef;
+
+	struct ieee80211_fragment_cache frags;
 
 	/* keep last! */
 	struct ieee80211_sta sta;
