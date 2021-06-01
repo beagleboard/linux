@@ -1,0 +1,54 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (C) 2020-2021 Texas Instruments Incorporated - https://www.ti.com/
+ */
+
+/dts-v1/;
+
+#include "k3-j721e-common-proc-board.dts"
+
+&wkup_i2c0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&wkup_i2c0_pins_default>;
+	clock-frequency = <400000>;
+
+	tps65917: tps65917@58 {
+		reg = <0x58>;
+		compatible = "ti,tps65917";
+
+		tps65917-pmic {
+			compatible = "ti,tps65917-pmic";
+
+			ldo1-in-supply = <&vsys_3v3>;
+			ldo2-in-supply = <&vsys_3v3>;
+
+			tps65917_regulators: regulators {
+				ldo1_reg: ldo1 {
+					/* LDO1_OUT --> VDD_SD_DV_REG  */
+					regulator-name = "ldo1";
+					regulator-min-microvolt = <1800000>;
+					regulator-max-microvolt = <3300000>;
+					regulator-allow-bypass;
+				};
+
+				ldo2_reg: ldo2 {
+					/* LDO2_OUT --> VDA_USB_3V3_REG  */
+					regulator-name = "ldo2";
+					regulator-min-microvolt = <3300000>;
+					regulator-max-microvolt = <3300000>;
+					regulator-allow-bypass;
+					regulator-always-on;
+					regulator-boot-on;
+				};
+			};
+		};
+	};
+};
+
+&vdd_sd_dv_alt {
+	status = "disabled";
+};
+
+&main_sdhci1 {
+	vqmmc-supply = <&ldo1_reg>;
+};
