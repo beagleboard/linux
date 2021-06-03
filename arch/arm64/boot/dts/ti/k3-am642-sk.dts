@@ -210,6 +210,12 @@
 			AM64X_IOPAD(0x0008, PIN_INPUT, 0) /* (N19) OSPI0_DQS */
 		>;
 	};
+
+	main_ecap0_pins_default: main-ecap0-pins-default {
+		pinctrl-single,pins = <
+			AM64X_IOPAD(0x0270, PIN_INPUT, 0) /* (D18) ECAP0_IN_APWM_OUT */
+		>;
+	};
 };
 
 &mcu_uart0 {
@@ -524,4 +530,10 @@
 
 &icssg1_mdio {
 	status = "disabled";
+};
+
+&ecap0 {
+	/* PWM is available on Pin 1 of header J3 */
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_ecap0_pins_default>;
 };
