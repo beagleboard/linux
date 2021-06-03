@@ -594,8 +594,7 @@
 			status = "disabled";
 		};
 		ecap0: ecap@306000 {
-			compatible = "ti,da850-ecap", "ti,am3352-ecap",
-				     "ti,am33xx-ecap";
+			compatible = "ti,da850-ecap", "ti,am3352-ecap";
 			#pwm-cells = <3>;
 			reg = <0x306000 0x80>;
 			clocks = <&psc1 20>;
@@ -604,8 +603,7 @@
 			status = "disabled";
 		};
 		ecap1: ecap@307000 {
-			compatible = "ti,da850-ecap", "ti,am3352-ecap",
-				     "ti,am33xx-ecap";
+			compatible = "ti,da850-ecap", "ti,am3352-ecap";
 			#pwm-cells = <3>;
 			reg = <0x307000 0x80>;
 			clocks = <&psc1 20>;
@@ -614,8 +612,7 @@
 			status = "disabled";
 		};
 		ecap2: ecap@308000 {
-			compatible = "ti,da850-ecap", "ti,am3352-ecap",
-				     "ti,am33xx-ecap";
+			compatible = "ti,da850-ecap", "ti,am3352-ecap";
 			#pwm-cells = <3>;
 			reg = <0x308000 0x80>;
 			clocks = <&psc1 20>;
