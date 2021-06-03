@@ -2067,8 +2067,6 @@
 					reg = <0x100 0x80>;
 					clocks = <&l4ls_gclk>;
 					clock-names = "fck";
-					interrupts = <31>;
-					interrupt-names = "ecap0";
 					status = "disabled";
 				};
 
@@ -2126,8 +2124,6 @@
 					reg = <0x100 0x80>;
 					clocks = <&l4ls_gclk>;
 					clock-names = "fck";
-					interrupts = <47>;
-					interrupt-names = "ecap1";
 					status = "disabled";
 				};
 
@@ -2185,8 +2181,6 @@
 					reg = <0x100 0x80>;
 					clocks = <&l4ls_gclk>;
 					clock-names = "fck";
-					interrupts = <61>;
-					interrupt-names = "ecap2";
 					status = "disabled";
 				};
 
