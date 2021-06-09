@@ -17,10 +17,10 @@
 
 		__overlay__ {
 			aliases {
-				ethernet3 = "/icssg0_eth/ethernet-mii0";
-				ethernet4 = "/icssg0_eth/ethernet-mii1";
-				ethernet5 = "/icssg1_eth/ethernet-mii0";
-				ethernet6 = "/icssg1_eth/ethernet-mii1";
+				ethernet3 = "/icssg0-eth/ethernet-mii0";
+				ethernet4 = "/icssg0-eth/ethernet-mii1";
+				ethernet5 = "/icssg1-eth/ethernet-mii0";
+				ethernet6 = "/icssg1-eth/ethernet-mii1";
 			};
 
 			transceiver1: can-phy@0 {
