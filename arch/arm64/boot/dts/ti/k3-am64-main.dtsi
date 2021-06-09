@@ -27,6 +27,10 @@
 		atf-sram@1a0000 {
 			reg = <0x1a0000 0x1c000>;
 		};
+
+		dmsc-sram@1c0000 {
+			reg = <0x1c0000 0x40000>;
+		};
 	};
 
 	main_conf: syscon@43000000 {
