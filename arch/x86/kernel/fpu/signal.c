@@ -276,15 +276,23 @@ static int __fpu__restore_sig(void __user *buf, void __user *buf_fx, int size)
 		return 0;
 	}
 
-	if (!access_ok(VERIFY_READ, buf, size))
+	if (!access_ok(VERIFY_READ, buf, size)) {
+		fpu__clear(fpu);
 		return -EACCES;
+	}
 
 	fpu__activate_curr(fpu);
 
-	if (!static_cpu_has(X86_FEATURE_FPU))
-		return fpregs_soft_set(current, NULL,
-				       0, sizeof(struct user_i387_ia32_struct),
-				       NULL, buf) != 0;
+	if (!static_cpu_has(X86_FEATURE_FPU)) {
+		int ret = fpregs_soft_set(current, NULL, 0,
+					  sizeof(struct user_i387_ia32_struct),
+					  NULL, buf);
+
+		if (ret)
+			fpu__clear(fpu);
+
+		return ret != 0;
+	}
 
 	if (use_xsave()) {
 		struct _fpx_sw_bytes fx_sw_user;
