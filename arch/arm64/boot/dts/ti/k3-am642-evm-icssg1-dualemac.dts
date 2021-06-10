@@ -15,6 +15,11 @@
 		target-path = "/";
 
 		__overlay__ {
+			aliases {
+				ethernet1 = "/icssg1-eth/ethernet-mii0";
+				ethernet2 = "/icssg1-eth/ethernet-mii1";
+			};
+
 			mdio-mux-2 {
 				compatible = "mdio-mux-multiplexer";
 				mux-controls = <&mdio_mux>;
