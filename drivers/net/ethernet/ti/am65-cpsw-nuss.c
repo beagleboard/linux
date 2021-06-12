@@ -27,6 +27,7 @@
 #include <linux/sys_soc.h>
 #include <linux/dma/ti-cppi5.h>
 #include <linux/dma/k3-udma-glue.h>
+#include <linux/net_switch_config.h>
 
 #include "cpsw_ale.h"
 #include "cpsw_sl.h"
@@ -1432,6 +1433,43 @@ static int am65_cpsw_nuss_hwtstamp_get(struct net_device *ndev,
 	return copy_to_user(ifr->ifr_data, &cfg, sizeof(cfg)) ? -EFAULT : 0;
 }
 
+static int am65_cpsw_switch_config_ioctl(struct net_device *ndev,
+					 struct ifreq *ifrq, int cmd)
+{
+	struct am65_cpsw_common *common = am65_ndev_to_common(ndev);
+	struct am65_cpsw_port *port = am65_ndev_to_port(ndev);
+	struct net_switch_config config;
+	int ret = -EINVAL;
+
+	/* Only SIOCSWITCHCONFIG is used as cmd argument and hence, there is no
+	 * switch statement required.
+	 * Function calls are based on switch_config.cmd
+	 */
+
+	if (copy_from_user(&config, ifrq->ifr_data, sizeof(config)))
+		return -EFAULT;
+
+	switch (config.cmd) {
+	case SWITCH_RATELIMIT:
+	{
+		ret = cpsw_ale_rx_ratelimit_mc(common->ale, port->port_id, config.mcast_rate_limit);
+		if (ret)
+			dev_err(common->dev, "CPSW_ALE set MC ratelimit failed");
+
+		ret = cpsw_ale_rx_ratelimit_bc(common->ale, port->port_id, config.bcast_rate_limit);
+		if (ret)
+			dev_err(common->dev, "CPSW_ALE set BC ratelimit failed");
+
+		break;
+	}
+
+	default:
+		ret = -EOPNOTSUPP;
+	}
+
+	return ret;
+}
+
 static int am65_cpsw_nuss_ndo_slave_ioctl(struct net_device *ndev,
 					  struct ifreq *req, int cmd)
 {
@@ -1445,6 +1483,8 @@ static int am65_cpsw_nuss_ndo_slave_ioctl(struct net_device *ndev,
 		return am65_cpsw_nuss_hwtstamp_set(ndev, req);
 	case SIOCGHWTSTAMP:
 		return am65_cpsw_nuss_hwtstamp_get(ndev, req);
+	case SIOCSWITCHCONFIG:
+		return am65_cpsw_switch_config_ioctl(ndev, req, cmd);
 	}
 
 	if (!port->slave.phy)
