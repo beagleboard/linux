@@ -365,7 +365,7 @@ EXPORT_SYMBOL(ethtool_convert_link_mode_to_legacy_u32);
 /* return false if ksettings link modes had higher bits
  * set. legacy_settings always updated (best effort)
  */
-static bool
+bool
 convert_link_ksettings_to_legacy_settings(
 	struct ethtool_cmd *legacy_settings,
 	const struct ethtool_link_ksettings *link_ksettings)
@@ -407,6 +407,7 @@ convert_link_ksettings_to_legacy_settings(
 		= link_ksettings->base.transceiver;
 	return retval;
 }
+EXPORT_SYMBOL_GPL(convert_link_ksettings_to_legacy_settings);
 
 /* number of 32-bit words to store the user's link mode bitmaps */
 #define __ETHTOOL_LINK_MODE_MASK_NU32			\
