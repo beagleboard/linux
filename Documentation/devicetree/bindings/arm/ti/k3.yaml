@@ -27,6 +27,8 @@ properties:
 
       - description: K3 J721E SoC
         items:
+          - enum:
+              - ti,j721e-eaik
           - const: ti,j721e
 
       - description: K3 J7200 SoC
