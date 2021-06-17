@@ -794,6 +794,13 @@ dtb-$(CONFIG_SOC_AM33XX) += \
 	am335x-base0033.dtb \
 	am335x-bone.dtb \
 	am335x-boneblack.dtb \
+	am335x-sancloud-bbe-uboot-univ.dtb \
+	am335x-bonegreen-wireless-uboot-univ.dtb \
+	am335x-boneblack-uboot-univ.dtb \
+	am335x-bone-uboot-univ.dtb \
+	am335x-sancloud-bbe-uboot.dtb \
+	am335x-boneblack-uboot.dtb \
+	am335x-bonegreen-gateway.dtb \
 	am335x-boneblack-wireless.dtb \
 	am335x-boneblack-pruswuart.dtb \
 	am335x-boneblue.dtb \
