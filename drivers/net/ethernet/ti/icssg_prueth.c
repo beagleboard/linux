@@ -2121,23 +2121,19 @@ skip_irq:
 	mutex_init(&emac->cmd_lock);
 
 	emac->phy_node = of_parse_phandle(eth_node, "phy-handle", 0);
-	if (!emac->phy_node) {
+	if (!emac->phy_node && !of_phy_is_fixed_link(eth_node)) {
 		dev_err(prueth->dev, "couldn't find phy-handle\n");
 		ret = -ENODEV;
 		goto free;
-	}
-
-	if (of_phy_is_fixed_link(emac->phy_node)) {
-		ret = of_phy_register_fixed_link(emac->phy_node);
+	} else if (of_phy_is_fixed_link(eth_node)) {
+		ret = of_phy_register_fixed_link(eth_node);
 		if (ret) {
-			if (ret != -EPROBE_DEFER) {
-				dev_err(prueth->dev,
-					"failed to register fixed-link phy: %d\n",
-					ret);
-			}
-
+			ret = dev_err_probe(prueth->dev, ret,
+					    "failed to register fixed-link phy\n");
 			goto free;
 		}
+
+		emac->phy_node = eth_node;
 	}
 
 	ret = of_get_phy_mode(eth_node, &emac->phy_if);
@@ -2154,7 +2150,7 @@ skip_irq:
 	emac->phydev = of_phy_connect(ndev, emac->phy_node,
 				      &emac_adjust_link, 0, emac->phy_if);
 	if (!emac->phydev) {
-		dev_dbg(prueth->dev, "couldn't connect to phy %s\n",
+		dev_err(prueth->dev, "couldn't connect to phy %s\n",
 			emac->phy_node->full_name);
 		ret = -EPROBE_DEFER;
 		goto free;
