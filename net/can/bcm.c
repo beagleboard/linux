@@ -813,6 +813,7 @@ static int bcm_delete_rx_op(struct list_head *ops, canid_t can_id, int ifindex)
 						  bcm_rx_handler, op);
 
 			list_del(&op->list);
+			synchronize_rcu();
 			bcm_remove_op(op);
 			return 1; /* done */
 		}
@@ -1538,8 +1539,12 @@ static int bcm_release(struct socket *sock)
 					  REGMASK(op->can_id),
 					  bcm_rx_handler, op);
 
-		bcm_remove_op(op);
 	}
+
+	synchronize_rcu();
+
+	list_for_each_entry_safe(op, next, &bo->rx_ops, list)
+		bcm_remove_op(op);
 
 	/* remove procfs entry */
 	if (proc_dir && bo->bcm_proc_read)
