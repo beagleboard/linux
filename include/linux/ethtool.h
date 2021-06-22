@@ -193,6 +193,12 @@ void ethtool_convert_legacy_u32_to_link_mode(unsigned long *dst,
 bool ethtool_convert_link_mode_to_legacy_u32(u32 *legacy_u32,
 				     const unsigned long *src);
 
+bool convert_legacy_settings_to_link_ksettings(struct ethtool_link_ksettings *link_ksettings,
+					       const struct ethtool_cmd *legacy_settings);
+
+bool convert_link_ksettings_to_legacy_settings(struct ethtool_cmd *legacy_settings,
+					       const struct ethtool_link_ksettings *link_ksettings);
+
 #define ETHTOOL_COALESCE_RX_USECS		BIT(0)
 #define ETHTOOL_COALESCE_RX_MAX_FRAMES		BIT(1)
 #define ETHTOOL_COALESCE_RX_USECS_IRQ		BIT(2)

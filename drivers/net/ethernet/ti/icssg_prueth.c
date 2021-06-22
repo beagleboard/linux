@@ -69,11 +69,11 @@ static void prueth_cleanup_rx_chns(struct prueth_emac *emac,
 				   struct prueth_rx_chn *rx_chn,
 				   int max_rflows)
 {
-	if (rx_chn->rx_chn)
-		k3_udma_glue_release_rx_chn(rx_chn->rx_chn);
-
 	if (rx_chn->desc_pool)
 		k3_cppi_desc_pool_destroy(rx_chn->desc_pool);
+
+	if (rx_chn->rx_chn)
+		k3_udma_glue_release_rx_chn(rx_chn->rx_chn);
 }
 
 static void prueth_cleanup_tx_chns(struct prueth_emac *emac)
@@ -83,11 +83,11 @@ static void prueth_cleanup_tx_chns(struct prueth_emac *emac)
 	for (i = 0; i < emac->tx_ch_num; i++) {
 		struct prueth_tx_chn *tx_chn = &emac->tx_chns[i];
 
-		if (tx_chn->tx_chn)
-			k3_udma_glue_release_tx_chn(tx_chn->tx_chn);
-
 		if (tx_chn->desc_pool)
 			k3_cppi_desc_pool_destroy(tx_chn->desc_pool);
+
+		if (tx_chn->tx_chn)
+			k3_udma_glue_release_tx_chn(tx_chn->tx_chn);
 
 		/* Assume prueth_cleanup_tx_chns() is called at the
 		 * end after all channel resources are freed

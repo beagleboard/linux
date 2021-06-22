@@ -924,11 +924,11 @@ static void virt_cpsw_nuss_free_tx_chns(void *data)
 	struct virt_cpsw_common *common = data;
 	struct virt_cpsw_tx_chn	*tx_chn = &common->tx_chns;
 
-	if (!IS_ERR_OR_NULL(tx_chn->tx_chn))
-		k3_udma_glue_release_tx_chn(tx_chn->tx_chn);
-
 	if (!IS_ERR_OR_NULL(tx_chn->desc_pool))
 		k3_cppi_desc_pool_destroy(tx_chn->desc_pool);
+
+	if (!IS_ERR_OR_NULL(tx_chn->tx_chn))
+		k3_udma_glue_release_tx_chn(tx_chn->tx_chn);
 
 	memset(tx_chn, 0, sizeof(*tx_chn));
 }
@@ -1004,11 +1004,11 @@ static void virt_cpsw_nuss_free_rx_chns(void *data)
 	struct virt_cpsw_common *common = data;
 	struct virt_cpsw_rx_chn *rx_chn = &common->rx_chns;
 
-	if (!IS_ERR_OR_NULL(rx_chn->rx_chn))
-		k3_udma_glue_release_rx_chn(rx_chn->rx_chn);
-
 	if (!IS_ERR_OR_NULL(rx_chn->desc_pool))
 		k3_cppi_desc_pool_destroy(rx_chn->desc_pool);
+
+	if (!IS_ERR_OR_NULL(rx_chn->rx_chn))
+		k3_udma_glue_release_rx_chn(rx_chn->rx_chn);
 }
 
 static int virt_cpsw_nuss_init_rx_chns(struct virt_cpsw_common *common)
