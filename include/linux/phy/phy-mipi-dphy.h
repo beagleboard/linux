@@ -7,6 +7,19 @@
 #define __PHY_MIPI_DPHY_H_
 
 /**
+ * enum phy_mipi_dphy_submode - MIPI D-PHY sub-mode
+ *
+ * A MIPI D-PHY can be used to transmit or receive data.
+ * Since some controllers can support both, the direction to enable is specified
+ * with the PHY sub-mode. Transmit is assumed by default with phy_set_mode.
+ */
+
+enum phy_mipi_dphy_submode {
+	PHY_MIPI_DPHY_SUBMODE_TX = 0,
+	PHY_MIPI_DPHY_SUBMODE_RX,
+};
+
+/**
  * struct phy_configure_opts_mipi_dphy - MIPI D-PHY configuration set
  *
  * This structure is used to represent the configuration state of a
