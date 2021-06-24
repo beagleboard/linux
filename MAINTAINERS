@@ -17461,6 +17461,7 @@ TI J721E CSI2RX DRIVER
 M:	Pratyush Yadav <p.yadav@ti.com>
 L:	linux-media@vger.kernel.org
 S:	Supported
+F:	Documentation/devicetree/bindings/media/ti,j721e-csi2rx.yaml
 F:	drivers/media/platform/ti/j721e-csi2rx/
 
 TI DAVINCI MACHINE SUPPORT
