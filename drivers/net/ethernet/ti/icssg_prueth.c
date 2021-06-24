@@ -2021,6 +2021,36 @@ static int prueth_node_mac(struct device_node *eth_node)
 		return -EINVAL;
 }
 
+static int prueth_config_rgmiidelay(struct prueth *prueth,
+				    struct device_node *eth_np,
+				    phy_interface_t phy_if)
+{
+	struct device *dev = prueth->dev;
+	struct regmap *ctrl_mmr;
+	u32 rgmii_tx_id = 0;
+	u32 icssgctrl_reg;
+
+	ctrl_mmr = syscon_regmap_lookup_by_phandle(eth_np, "syscon-rgmii-delay");
+	if (IS_ERR(ctrl_mmr)) {
+		dev_err(dev, "couldn't get syscon-rgmii-delay\n");
+		return -ENODEV;
+	}
+
+	if (of_property_read_u32_index(eth_np, "syscon-rgmii-delay", 1,
+				       &icssgctrl_reg)) {
+		dev_err(dev, "couldn't get rgmii-delay reg. offset\n");
+		return -ENODEV;
+	}
+
+	if (phy_if == PHY_INTERFACE_MODE_RGMII_ID ||
+	    phy_if == PHY_INTERFACE_MODE_RGMII_TXID)
+		rgmii_tx_id |= ICSSG_CTRL_RGMII_ID_MODE;
+
+	regmap_update_bits(ctrl_mmr, icssgctrl_reg, ICSSG_CTRL_RGMII_ID_MODE, rgmii_tx_id);
+
+	return 0;
+}
+
 extern const struct ethtool_ops icssg_ethtool_ops;
 
 static int prueth_netdev_init(struct prueth *prueth,
@@ -2091,23 +2121,19 @@ skip_irq:
 	mutex_init(&emac->cmd_lock);
 
 	emac->phy_node = of_parse_phandle(eth_node, "phy-handle", 0);
-	if (!emac->phy_node) {
+	if (!emac->phy_node && !of_phy_is_fixed_link(eth_node)) {
 		dev_err(prueth->dev, "couldn't find phy-handle\n");
 		ret = -ENODEV;
 		goto free;
-	}
-
-	if (of_phy_is_fixed_link(emac->phy_node)) {
-		ret = of_phy_register_fixed_link(emac->phy_node);
+	} else if (of_phy_is_fixed_link(eth_node)) {
+		ret = of_phy_register_fixed_link(eth_node);
 		if (ret) {
-			if (ret != -EPROBE_DEFER) {
-				dev_err(prueth->dev,
-					"failed to register fixed-link phy: %d\n",
-					ret);
-			}
-
+			ret = dev_err_probe(prueth->dev, ret,
+					    "failed to register fixed-link phy\n");
 			goto free;
 		}
+
+		emac->phy_node = eth_node;
 	}
 
 	ret = of_get_phy_mode(eth_node, &emac->phy_if);
@@ -2116,11 +2142,15 @@ skip_irq:
 		goto free;
 	}
 
+	ret = prueth_config_rgmiidelay(prueth, eth_node, emac->phy_if);
+	if (ret)
+		goto free;
+
 	/* connect PHY */
 	emac->phydev = of_phy_connect(ndev, emac->phy_node,
 				      &emac_adjust_link, 0, emac->phy_if);
 	if (!emac->phydev) {
-		dev_dbg(prueth->dev, "couldn't connect to phy %s\n",
+		dev_err(prueth->dev, "couldn't connect to phy %s\n",
 			emac->phy_node->full_name);
 		ret = -EPROBE_DEFER;
 		goto free;
@@ -2261,34 +2291,6 @@ static void prueth_put_cores(struct prueth *prueth, int slice)
 		pru_rproc_put(prueth->pru[slice]);
 }
 
-static int prueth_config_rgmiidelay(struct prueth *prueth,
-				    struct device_node *eth_np)
-{
-	struct device *dev = prueth->dev;
-	struct regmap *ctrl_mmr;
-	u32 icssgctrl;
-	struct device_node *np = dev->of_node;
-
-	if (!of_device_is_compatible(np, "ti,am654-icssg-prueth"))
-		return 0;
-
-	ctrl_mmr = syscon_regmap_lookup_by_phandle(eth_np, "syscon-rgmii-delay");
-	if (IS_ERR(ctrl_mmr)) {
-		dev_err(dev, "couldn't get syscon-rgmii-delay\n");
-		return -ENODEV;
-	}
-
-	if (of_property_read_u32_index(eth_np, "syscon-rgmii-delay", 1,
-				       &icssgctrl)) {
-		dev_err(dev, "couldn't get rgmii-delay reg. offset\n");
-		return -ENODEV;
-	}
-
-	regmap_update_bits(ctrl_mmr, icssgctrl, ICSSG_CTRL_RGMII_ID_MODE, 0);
-
-	return 0;
-}
-
 static const struct of_device_id prueth_dt_match[];
 
 static int prueth_probe(struct platform_device *pdev)
@@ -2355,20 +2357,12 @@ static int prueth_probe(struct platform_device *pdev)
 	}
 
 	if (eth0_node) {
-		ret = prueth_config_rgmiidelay(prueth, eth0_node);
-		if (ret)
-			goto put_cores;
-
 		ret = prueth_get_cores(prueth, ICSS_SLICE0);
 		if (ret)
 			goto put_cores;
 	}
 
 	if (eth1_node) {
-		ret = prueth_config_rgmiidelay(prueth, eth1_node);
-		if (ret)
-			goto put_cores;
-
 		ret = prueth_get_cores(prueth, ICSS_SLICE1);
 		if (ret)
 			goto put_cores;
