@@ -17457,6 +17457,12 @@ S:	Odd Fixes
 F:	drivers/clk/ti/
 F:	include/linux/clk/ti.h
 
+TI J721E CSI2RX DRIVER
+M:	Pratyush Yadav <p.yadav@ti.com>
+L:	linux-media@vger.kernel.org
+S:	Supported
+F:	drivers/media/platform/ti/j721e-csi2rx/
+
 TI DAVINCI MACHINE SUPPORT
 M:	Sekhar Nori <nsekhar@ti.com>
 R:	Bartosz Golaszewski <bgolaszewski@baylibre.com>
