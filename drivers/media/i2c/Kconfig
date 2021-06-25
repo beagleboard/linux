@@ -886,7 +886,7 @@ config VIDEO_OV2740
 
 config VIDEO_OV5640
 	tristate "OmniVision OV5640 sensor support"
-	depends on OF
+	depends on OF && PM
 	depends on GPIOLIB && VIDEO_V4L2 && I2C
 	select MEDIA_CONTROLLER
 	select VIDEO_V4L2_SUBDEV_API
