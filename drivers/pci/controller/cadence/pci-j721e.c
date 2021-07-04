@@ -90,6 +90,7 @@ enum j721e_pcie_mode {
 struct j721e_pcie_data {
 	enum j721e_pcie_mode	mode;
 	bool quirk_retrain_flag;
+	bool			quirk_detect_quiet_flag;
 	bool			is_intc_v1;
 	bool			byte_access_allowed;
 	const struct cdns_pcie_ops *ops;
@@ -443,9 +444,16 @@ static const struct j721e_pcie_data j721e_pcie_ep_data = {
 
 static const struct j721e_pcie_data j7200_pcie_rc_data = {
 	.mode = PCI_MODE_RC,
+	.quirk_detect_quiet_flag = true,
 	.is_intc_v1 = false,
 	.byte_access_allowed = true,
 	.ops = &j7200_pcie_ops,
+};
+
+static const struct j721e_pcie_data j7200_pcie_ep_data = {
+	.mode = PCI_MODE_EP,
+	.quirk_detect_quiet_flag = true,
+	.ops = &j721e_pcie_ops,
 };
 
 static const struct of_device_id of_j721e_pcie_match[] = {
@@ -464,6 +472,10 @@ static const struct of_device_id of_j721e_pcie_match[] = {
 	{
 		.compatible = "ti,am64-pcie-host",
 		.data = &j7200_pcie_rc_data,
+	},
+	{
+		.compatible = "ti,j7200-pcie-ep",
+		.data = &j7200_pcie_ep_data,
 	},
 	{},
 };
@@ -570,6 +582,7 @@ static int j721e_pcie_probe(struct platform_device *pdev)
 			bridge->ops = &cdns_ti_pcie_host_ops;
 		rc = pci_host_bridge_priv(bridge);
 		rc->quirk_retrain_flag = data->quirk_retrain_flag;
+		rc->quirk_detect_quiet_flag = data->quirk_detect_quiet_flag;
 
 		cdns_pcie = &rc->pcie;
 		cdns_pcie->dev = dev;
@@ -634,6 +647,8 @@ static int j721e_pcie_probe(struct platform_device *pdev)
 			ret = -ENOMEM;
 			goto err_get_sync;
 		}
+
+		ep->quirk_detect_quiet_flag = data->quirk_detect_quiet_flag;
 
 		cdns_pcie = &ep->pcie;
 		cdns_pcie->dev = dev;
