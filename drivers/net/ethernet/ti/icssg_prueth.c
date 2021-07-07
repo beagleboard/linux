@@ -1274,17 +1274,23 @@ static void emac_adjust_link(struct net_device *ndev)
 		/* update RGMII and MII configuration based on PHY negotiated
 		 * values
 		 */
-		spin_lock_irqsave(&emac->lock, flags);
 		if (emac->link) {
 			/* Set the RGMII cfg for gig en and full duplex */
 			icssg_update_rgmii_cfg(prueth->miig_rt, emac->speed,
 					       emac->duplex, slice);
 
 			/* update the Tx IPG based on 100M/1G speed */
+			spin_lock_irqsave(&emac->lock, flags);
 			icssg_config_ipg(prueth, emac->speed, slice);
+			spin_unlock_irqrestore(&emac->lock, flags);
 			icssg_config_set_speed(emac);
+			if (!emac->is_sr1)
+				emac_set_port_state(emac, ICSSG_EMAC_PORT_FORWARD);
+
+		} else {
+			if (!emac->is_sr1)
+				emac_set_port_state(emac, ICSSG_EMAC_PORT_DISABLE);
 		}
-		spin_unlock_irqrestore(&emac->lock, flags);
 
 		/* send command to firmware to change speed and duplex
 		 * setting when link is up.
@@ -1683,9 +1689,6 @@ skip_mgm_irq:
 
 	if (netif_msg_drv(emac))
 		dev_notice(&ndev->dev, "started\n");
-
-	if (!emac->is_sr1)
-		emac_set_port_state(emac, ICSSG_EMAC_PORT_FORWARD);
 
 	return 0;
 
