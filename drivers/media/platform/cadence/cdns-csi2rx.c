@@ -120,6 +120,38 @@ static const struct csi2rx_fmt formats[] = {
 		.code	= MEDIA_BUS_FMT_VYUY8_2X8,
 		.bpp	= 16,
 	},
+	{
+		.code	= MEDIA_BUS_FMT_SBGGR8_1X8,
+		.bpp	= 8,
+	},
+	{
+		.code	= MEDIA_BUS_FMT_SGBRG8_1X8,
+		.bpp	= 8,
+	},
+	{
+		.code	= MEDIA_BUS_FMT_SGRBG8_1X8,
+		.bpp	= 8,
+	},
+	{
+		.code	= MEDIA_BUS_FMT_SRGGB8_1X8,
+		.bpp	= 8,
+	},
+	{
+		.code	= MEDIA_BUS_FMT_SBGGR10_1X10,
+		.bpp	= 10,
+	},
+	{
+		.code	= MEDIA_BUS_FMT_SGBRG10_1X10,
+		.bpp	= 10,
+	},
+	{
+		.code	= MEDIA_BUS_FMT_SGRBG10_1X10,
+		.bpp	= 10,
+	},
+	{
+		.code	= MEDIA_BUS_FMT_SRGGB10_1X10,
+		.bpp	= 10,
+	},
 };
 
 static u8 csi2rx_get_bpp(u32 code)
