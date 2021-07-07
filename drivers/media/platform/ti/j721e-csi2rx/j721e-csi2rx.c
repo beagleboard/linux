@@ -40,6 +40,8 @@
 #define CSI_DF_YUV422			0x1e
 #define CSI_DF_RGB444			0x20
 #define CSI_DF_RGB888			0x24
+#define CSI_DF_RAW8			0x2A
+#define CSI_DF_RAW10			0x2B
 
 #define PSIL_WORD_SIZE_BYTES		16
 #define TI_CSI2RX_MAX_CTX		32
@@ -155,6 +157,54 @@ static const struct ti_csi2rx_fmt formats[] = {
 		.colorspace		= V4L2_COLORSPACE_SRGB,
 		.csi_df			= CSI_DF_YUV422,
 		.bpp			= 16,
+	}, {
+		.fourcc			= V4L2_PIX_FMT_SBGGR8,
+		.code			= MEDIA_BUS_FMT_SBGGR8_1X8,
+		.colorspace		= V4L2_COLORSPACE_SRGB,
+		.csi_df			= CSI_DF_RAW8,
+		.bpp			= 8,
+	}, {
+		.fourcc			= V4L2_PIX_FMT_SGBRG8,
+		.code			= MEDIA_BUS_FMT_SGBRG8_1X8,
+		.colorspace		= V4L2_COLORSPACE_SRGB,
+		.csi_df			= CSI_DF_RAW8,
+		.bpp			= 8,
+	}, {
+		.fourcc			= V4L2_PIX_FMT_SGRBG8,
+		.code			= MEDIA_BUS_FMT_SGRBG8_1X8,
+		.colorspace		= V4L2_COLORSPACE_SRGB,
+		.csi_df			= CSI_DF_RAW8,
+		.bpp			= 8,
+	}, {
+		.fourcc			= V4L2_PIX_FMT_SRGGB8,
+		.code			= MEDIA_BUS_FMT_SRGGB8_1X8,
+		.colorspace		= V4L2_COLORSPACE_SRGB,
+		.csi_df			= CSI_DF_RAW8,
+		.bpp			= 8,
+	}, {
+		.fourcc			= V4L2_PIX_FMT_SBGGR10,
+		.code			= MEDIA_BUS_FMT_SBGGR10_1X10,
+		.colorspace		= V4L2_COLORSPACE_SRGB,
+		.csi_df			= CSI_DF_RAW10,
+		.bpp			= 10,
+	}, {
+		.fourcc			= V4L2_PIX_FMT_SGBRG10,
+		.code			= MEDIA_BUS_FMT_SGBRG10_1X10,
+		.colorspace		= V4L2_COLORSPACE_SRGB,
+		.csi_df			= CSI_DF_RAW10,
+		.bpp			= 10,
+	}, {
+		.fourcc			= V4L2_PIX_FMT_SGRBG10,
+		.code			= MEDIA_BUS_FMT_SGRBG10_1X10,
+		.colorspace		= V4L2_COLORSPACE_SRGB,
+		.csi_df			= CSI_DF_RAW10,
+		.bpp			= 10,
+	}, {
+		.fourcc			= V4L2_PIX_FMT_SRGGB10,
+		.code			= MEDIA_BUS_FMT_SRGGB10_1X10,
+		.colorspace		= V4L2_COLORSPACE_SRGB,
+		.csi_df			= CSI_DF_RAW10,
+		.bpp			= 10,
 	},
 
 	/* More formats can be supported but they are not listed for now. */
