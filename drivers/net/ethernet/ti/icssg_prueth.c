@@ -1790,6 +1790,7 @@ static int emac_ndo_stop(struct net_device *ndev)
 
 	prueth->iep_initialized--;
 
+	cancel_work_sync(&emac->rx_mode_work);
 	/* stop PRUs */
 	prueth_emac_stop(emac);
 
@@ -1856,25 +1857,17 @@ static void emac_ndo_set_rx_mode_sr1(struct net_device *ndev)
 	}
 }
 
-/**
- * emac_ndo_set_rx_mode - EMAC set receive mode function
- * @ndev: The EMAC network adapter
- *
- * Called when system wants to set the receive mode of the device.
- *
- */
-static void emac_ndo_set_rx_mode(struct net_device *ndev)
+static void emac_ndo_set_rx_mode_work(struct work_struct *work)
 {
-	struct prueth_emac *emac = netdev_priv(ndev);
-	struct prueth *prueth = emac->prueth;
-	bool promisc = ndev->flags & IFF_PROMISC;
-	bool allmulti = ndev->flags & IFF_ALLMULTI;
+	struct prueth_emac *emac = container_of(work, struct prueth_emac, rx_mode_work);
+	struct net_device *ndev = emac->ndev;
+	bool promisc, allmulti;
 
-	if (prueth->is_sr1) {
-		emac_ndo_set_rx_mode_sr1(ndev);
+	if (!(ndev->flags & IFF_UP))
 		return;
-	}
 
+	promisc = ndev->flags & IFF_PROMISC;
+	allmulti = ndev->flags & IFF_ALLMULTI;
 	emac_set_port_state(emac, ICSSG_EMAC_PORT_UC_FLOODING_DISABLE);
 	emac_set_port_state(emac, ICSSG_EMAC_PORT_MC_FLOODING_DISABLE);
 
@@ -1894,6 +1887,26 @@ static void emac_ndo_set_rx_mode(struct net_device *ndev)
 		emac_set_port_state(emac, ICSSG_EMAC_PORT_MC_FLOODING_ENABLE);
 		return;
 	}
+}
+
+/**
+ * emac_ndo_set_rx_mode - EMAC set receive mode function
+ * @ndev: The EMAC network adapter
+ *
+ * Called when system wants to set the receive mode of the device.
+ *
+ */
+static void emac_ndo_set_rx_mode(struct net_device *ndev)
+{
+	struct prueth_emac *emac = netdev_priv(ndev);
+	struct prueth *prueth = emac->prueth;
+
+	if (prueth->is_sr1) {
+		emac_ndo_set_rx_mode_sr1(ndev);
+		return;
+	}
+
+	queue_work(emac->cmd_wq, &emac->rx_mode_work);
 }
 
 static int emac_set_ts_config(struct net_device *ndev, struct ifreq *ifr)
@@ -2085,6 +2098,10 @@ static int prueth_netdev_init(struct prueth *prueth,
 	emac->prueth = prueth;
 	emac->ndev = ndev;
 	emac->port_id = port;
+	emac->cmd_wq = create_singlethread_workqueue("icssg_cmd_wq");
+	if (!emac->cmd_wq)
+		goto free_ndev;
+	INIT_WORK(&emac->rx_mode_work, emac_ndo_set_rx_mode_work);
 
 	ret = pruss_request_mem_region(prueth->pruss,
 				       port == PRUETH_PORT_MII0 ?
@@ -2184,6 +2201,8 @@ skip_irq:
 
 free:
 	pruss_release_mem_region(prueth->pruss, &emac->dram);
+	destroy_workqueue(emac->cmd_wq);
+free_ndev:
 	free_netdev(ndev);
 	prueth->emac[mac] = NULL;
 
@@ -2212,6 +2231,7 @@ static void prueth_netdev_exit(struct prueth *prueth,
 	netif_napi_del(&emac->napi_rx);
 
 	pruss_release_mem_region(prueth->pruss, &emac->dram);
+	destroy_workqueue(emac->cmd_wq);
 	free_netdev(emac->ndev);
 	prueth->emac[mac] = NULL;
 }
