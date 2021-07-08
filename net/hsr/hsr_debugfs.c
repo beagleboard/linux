@@ -88,7 +88,18 @@ hsr_lre_info_show(struct seq_file *sfp, void *data)
 	seq_printf(sfp, "net_id: %d\n", priv->net_id);
 	seq_printf(sfp, "Rx Offloaded: %s\n",
 		   priv->rx_offloaded ? "Yes" : "No");
+	seq_printf(sfp, "vlan tag used in sv frame : %s\n",
+		   priv->use_vlan_for_sv ? "Yes" : "No");
+	if (priv->use_vlan_for_sv) {
+		seq_printf(sfp, "SV Frame VID : %d\n",
+			   priv->sv_frame_vid);
+		seq_printf(sfp, "SV Frame PCP : %d\n",
+			   priv->sv_frame_pcp);
+		seq_printf(sfp, "SV Frame DEI : %d\n",
+			   priv->sv_frame_dei);
+	}
 	seq_printf(sfp, "cnt_tx_sup = %d\n", priv->dbg_stats.cnt_tx_sup);
+	seq_printf(sfp, "disable SV Frame = %d\n", priv->disable_sv_frame);
 	seq_puts(sfp, "\n");
 	return 0;
 }
