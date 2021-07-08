@@ -13,7 +13,7 @@
 #include <linux/netdevice.h>
 #include "hsr_main.h"
 
-void hsr_del_ports(struct hsr_priv *hsr);
+void hsr_del_ports(struct hsr_priv *hsr, struct net_device *hsr_dev);
 void hsr_dev_setup(struct net_device *dev);
 int hsr_dev_finalize(struct net_device *hsr_dev, struct net_device *slave[2],
 		     unsigned char multicast_spec, u8 protocol_version,

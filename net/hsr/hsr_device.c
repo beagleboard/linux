@@ -173,6 +173,9 @@ static int _hsr_lredev_get_node_table(struct hsr_priv *hsr,
 	list_for_each_entry_rcu(node, &hsr->node_db, mac_list) {
 		if (hsr_addr_is_self(hsr, node->macaddress_A))
 			continue;
+		/* SANs are not shown as part of Node Table */
+		if (node->san_a || node->san_b)
+			continue;
 		memcpy(&table[i].mac_address[0],
 		       &node->macaddress_A[0], ETH_ALEN);
 		table[i].time_last_seen_a = node->time_in[HSR_PT_SLAVE_A];
@@ -347,6 +350,7 @@ static netdev_tx_t hsr_dev_xmit(struct sk_buff *skb, struct net_device *dev)
 		skb->dev = master->dev;
 		skb_reset_mac_header(skb);
 		hsr_forward_skb(skb, master);
+		INC_CNT_RX_C(hsr);
 	} else {
 		atomic_long_inc(&dev->tx_dropped);
 		dev_kfree_skb_any(skb);
@@ -540,9 +544,12 @@ static void hsr_announce(struct timer_list *t)
 	rcu_read_unlock();
 }
 
-void hsr_del_ports(struct hsr_priv *hsr)
+void hsr_del_ports(struct hsr_priv *hsr, struct net_device *hsr_dev)
 {
 	struct hsr_port *port;
+
+	hsr_remove_procfs(hsr, hsr_dev);
+	hsr_debugfs_term(hsr);
 
 	port = hsr_port_get_hsr(hsr, HSR_PT_SLAVE_A);
 	if (port)
@@ -760,12 +767,15 @@ int hsr_dev_finalize(struct net_device *hsr_dev, struct net_device *slave[2],
 	/* initialize protocol specific functions */
 	if (protocol_version == PRP_V1) {
 		/* For PRP, lan_id has most significant 3 bits holding
-		 * the net_id of PRP_LAN_ID
+		 * the net_id of PRP_LAN_ID and also duplicate discard
+		 * mode set.
 		 */
 		hsr->net_id = PRP_LAN_ID << 1;
 		hsr->proto_ops = &prp_ops;
+		hsr->dd_mode = IEC62439_3_DD;
 	} else {
 		hsr->proto_ops = &hsr_ops;
+		hsr->hsr_mode = IEC62439_3_HSR_MODE_H;
 	}
 
 	/* Make sure we recognize frames from ourselves in hsr_rcv() */
@@ -838,10 +848,14 @@ int hsr_dev_finalize(struct net_device *hsr_dev, struct net_device *slave[2],
 		goto err_add_slaves;
 	}
 
+	res = hsr_create_procfs(hsr, hsr_dev);
+	if (res)
+		goto err_add_slaves;
+
 	return 0;
 
 err_unregister:
-	hsr_del_ports(hsr);
+	hsr_del_ports(hsr, hsr_dev);
 err_add_master:
 	hsr_del_self_node(hsr);
 err_add_slaves:

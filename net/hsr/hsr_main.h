@@ -206,6 +206,7 @@ struct hsr_priv {
 	struct timer_list	prune_timer;
 	unsigned int		rx_offloaded : 1;   /* lre handle in hw */
 	struct hsr_prp_debug_stats dbg_stats;  /* debug stats */
+	struct lre_stats	lre_stats;    /* lre interface stats */
 	int announce_count;
 	u16 sequence_nr;
 	u16 sup_sequence_nr;	/* For HSRv1 separate seq_nr for supervision */
@@ -219,11 +220,31 @@ struct hsr_priv {
 	u8 net_id;		/* for PRP, it occupies most significant 3 bits
 				 * of lan_id
 				 */
+	/* value of hsr mode */
+	enum iec62439_3_hsr_modes hsr_mode;
+	/* PRP Transparent Reception */
+	enum iec62439_3_tr_modes prp_tr;
+	/* Duplicate discard mode */
+	enum iec62439_3_dd_modes dd_mode;
+	/* Clear Node Table command */
+	enum iec62439_3_clear_nt_cmd clear_nt_cmd;
+	u32 dlrmt;	/* duplicate list reside max time */
 	unsigned char		sup_multicast_addr[ETH_ALEN];
 #ifdef	CONFIG_DEBUG_FS
 	struct dentry *node_tbl_root;
 	struct dentry *node_tbl_file;
 	struct dentry *lre_info_file;
+#endif
+#ifdef	CONFIG_PROC_FS
+	struct proc_dir_entry *dir;
+	struct proc_dir_entry *hsr_mode_file;
+	struct proc_dir_entry *dd_mode_file;
+	struct proc_dir_entry *prp_tr_file;
+	struct proc_dir_entry *clear_nt_file;
+	struct proc_dir_entry *dlrmt_file;
+	struct proc_dir_entry *lre_stats_file;
+	struct proc_dir_entry *node_table_file;
+	struct proc_dir_entry *disable_sv_file;
 #endif
 };
 
@@ -286,6 +307,24 @@ static inline bool prp_check_lsdu_size(struct sk_buff *skb,
 
 #define INC_CNT_TX_SUP(priv) ((priv)->dbg_stats.cnt_tx_sup++)
 
+#define INC_CNT_TX_AB(type, priv) (((type) == HSR_PT_SLAVE_A) ? \
+		(priv)->lre_stats.cnt_tx_a++ : \
+		(priv)->lre_stats.cnt_tx_b++)
+#define INC_CNT_TX_C(priv) ((priv)->lre_stats.cnt_tx_c++)
+#define INC_CNT_RX_WRONG_LAN_AB(type, priv) (((type) == HSR_PT_SLAVE_A) ? \
+		(priv)->lre_stats.cnt_errwronglan_a++ : \
+		(priv)->lre_stats.cnt_errwronglan_b++)
+#define INC_CNT_RX_AB(type, priv) (((type) == HSR_PT_SLAVE_A) ? \
+		(priv)->lre_stats.cnt_rx_a++ : \
+		(priv)->lre_stats.cnt_rx_b++)
+#define INC_CNT_RX_C(priv) ((priv)->lre_stats.cnt_rx_c++)
+#define INC_CNT_RX_ERROR_AB(type, priv) (((type) == HSR_PT_SLAVE_A) ? \
+		(priv)->lre_stats.cnt_errors_a++ : \
+		(priv)->lre_stats.cnt_errors_b++)
+#define INC_CNT_OWN_RX_AB(type, priv) (((type) == HSR_PT_SLAVE_A) ? \
+		(priv)->lre_stats.cnt_own_rx_a++ : \
+		(priv)->lre_stats.cnt_own_rx_b++)
+
 #if IS_ENABLED(CONFIG_DEBUG_FS)
 void hsr_debugfs_rename(struct net_device *dev);
 void hsr_debugfs_init(struct hsr_priv *priv, struct net_device *hsr_dev);
@@ -307,6 +346,21 @@ static inline void hsr_debugfs_remove_root(void)
 {}
 #endif
 
+#ifdef	CONFIG_PROC_FS
+int hsr_create_procfs(struct hsr_priv *hsr, struct net_device *ndev);
+void hsr_remove_procfs(struct hsr_priv *hsr, struct net_device *ndev);
+#else
+static inline int hsr_create_procfs(struct hsr_priv *hsr,
+				    struct net_device *ndev)
+{
+	return 0;
+}
+
+static inline void hsr_remove_procfs(struct hsr_priv *hsr,
+				     struct net_device *ndev)
+{}
+#endif
+
 int hsr_lredev_attr_set(struct hsr_priv *hsr,
 			struct lredev_attr *attr);
 int hsr_lredev_attr_get(struct hsr_priv *hsr,
@@ -316,4 +370,4 @@ int hsr_lredev_get_node_table(struct hsr_priv *hsr,
 			      int size);
 int  hsr_lredev_get_lre_stats(struct hsr_priv *hsr,
 			      struct lre_stats *stats);
-#endif /* __HSR_PRIVATE_H */
+#endif /* __HSR_PRP_MAIN_H */

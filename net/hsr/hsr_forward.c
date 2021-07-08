@@ -149,8 +149,30 @@ struct sk_buff *prp_get_untagged_frame(struct hsr_frame_info *frame,
 	return skb_clone(frame->skb_std, GFP_ATOMIC);
 }
 
-static void prp_set_lan_id(struct prp_rct *trailer,
-			   struct hsr_port *port)
+/* only prp skb should be passed in */
+static void prp_update_lre_error_stats(struct sk_buff *skb,
+				       struct hsr_port *port)
+{
+	int lan_id;
+	struct prp_rct *trailer = skb_get_PRP_rct(skb);
+
+	if (!trailer) {
+		INC_CNT_RX_ERROR_AB(port->type, port->hsr);
+		return;
+	}
+
+	lan_id = get_prp_lan_id(trailer);
+
+	if (port->type == HSR_PT_SLAVE_A) {
+		if (lan_id & 1)
+			INC_CNT_RX_WRONG_LAN_AB(port->type, port->hsr);
+	} else {
+		if (!(lan_id & 1))
+			INC_CNT_RX_WRONG_LAN_AB(port->type, port->hsr);
+	}
+}
+
+static void prp_set_lan_id(struct prp_rct *trailer, struct hsr_port *port)
 {
 	int lane_id;
 
@@ -322,6 +344,7 @@ struct sk_buff *prp_create_tagged_frame(struct hsr_frame_info *frame,
 static void hsr_deliver_master(struct sk_buff *skb, struct hsr_node *node_src,
 			       struct hsr_port *port)
 {
+	struct hsr_priv *hsr = port->hsr;
 	struct net_device *dev = port->dev;
 	bool was_multicast_frame;
 	int res;
@@ -342,6 +365,7 @@ static void hsr_deliver_master(struct sk_buff *skb, struct hsr_node *node_src,
 		dev->stats.rx_bytes += skb->len;
 		if (was_multicast_frame)
 			dev->stats.multicast++;
+		INC_CNT_TX_C(hsr);
 	}
 }
 
@@ -357,6 +381,7 @@ static int hsr_xmit(struct sk_buff *skb, struct hsr_port *port,
 		 */
 		ether_addr_copy(eth_hdr(skb)->h_source, port->dev->dev_addr);
 	}
+	INC_CNT_TX_AB(port->type, port->hsr);
 	return dev_queue_xmit(skb);
 }
 
@@ -454,6 +479,10 @@ static void hsr_forward_do(struct hsr_frame_info *frame)
 
 		if (!skb) {
 			frame->port_rcv->dev->stats.rx_dropped++;
+			if (frame->port_rcv->type == HSR_PT_SLAVE_A ||
+			    frame->port_rcv->type ==  HSR_PT_SLAVE_B)
+				INC_CNT_RX_ERROR_AB(frame->port_rcv->type,
+						 port->hsr);
 			continue;
 		}
 
@@ -604,6 +633,13 @@ void hsr_forward_skb(struct sk_buff *skb, struct hsr_port *port)
 	if (fill_frame_info(&frame, skb, port) < 0)
 		goto out_drop;
 
+	/* Check for LAN_ID only for PRP */
+	if (frame.skb_prp) {
+		if (port->type == HSR_PT_SLAVE_A  ||
+		    port->type == HSR_PT_SLAVE_B)
+			prp_update_lre_error_stats(frame.skb_prp, port);
+	}
+
 	/* No need to register frame when rx offload is supported */
 	if (!port->hsr->rx_offloaded)
 		hsr_register_frame_in(frame.node_src, port,
@@ -623,6 +659,7 @@ void hsr_forward_skb(struct sk_buff *skb, struct hsr_port *port)
 	return;
 
 out_drop:
+	INC_CNT_RX_ERROR_AB(port->type, port->hsr);
 	port->dev->stats.tx_dropped++;
 	kfree_skb(skb);
 }

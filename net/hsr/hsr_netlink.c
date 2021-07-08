@@ -110,7 +110,7 @@ static void hsr_dellink(struct net_device *dev, struct list_head *head)
 	del_timer_sync(&hsr->announce_timer);
 
 	hsr_debugfs_term(hsr);
-	hsr_del_ports(hsr);
+	hsr_del_ports(hsr, dev);
 
 	hsr_del_self_node(hsr);
 	hsr_del_nodes(&hsr->node_db);
