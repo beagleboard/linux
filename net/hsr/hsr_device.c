@@ -129,6 +129,109 @@ int hsr_get_max_mtu(struct hsr_priv *hsr)
 	return mtu_max;
 }
 
+int hsr_lredev_attr_get(struct hsr_priv *hsr, struct lredev_attr *attr)
+{
+	struct hsr_port *port_a = hsr_port_get_hsr(hsr, HSR_PT_SLAVE_A);
+	struct net_device *slave_a_dev;
+
+	if (!port_a)
+		return -EINVAL;
+
+	slave_a_dev = port_a->dev;
+	if (slave_a_dev && slave_a_dev->lredev_ops &&
+	    slave_a_dev->lredev_ops->lredev_attr_get)
+		return slave_a_dev->lredev_ops->lredev_attr_get(slave_a_dev,
+								attr);
+	return -EINVAL;
+}
+
+int hsr_lredev_attr_set(struct hsr_priv *hsr, struct lredev_attr *attr)
+{
+	struct hsr_port *port_a = hsr_port_get_hsr(hsr, HSR_PT_SLAVE_A);
+	struct net_device *slave_a_dev;
+
+	if (!port_a)
+		return -EINVAL;
+
+	slave_a_dev = port_a->dev;
+	if (slave_a_dev && slave_a_dev->lredev_ops &&
+	    slave_a_dev->lredev_ops->lredev_attr_set)
+		return slave_a_dev->lredev_ops->lredev_attr_set(slave_a_dev,
+								attr);
+	return -EINVAL;
+}
+
+static int _hsr_lredev_get_node_table(struct hsr_priv *hsr,
+				      struct lre_node_table_entry table[],
+				      int size)
+{
+	struct hsr_node *node;
+	int i = 0;
+
+	rcu_read_lock();
+
+	list_for_each_entry_rcu(node, &hsr->node_db, mac_list) {
+		if (hsr_addr_is_self(hsr, node->macaddress_A))
+			continue;
+		memcpy(&table[i].mac_address[0],
+		       &node->macaddress_A[0], ETH_ALEN);
+		table[i].time_last_seen_a = node->time_in[HSR_PT_SLAVE_A];
+		table[i].time_last_seen_b = node->time_in[HSR_PT_SLAVE_B];
+		if (hsr->prot_version == PRP_V1)
+			table[i].node_type = IEC62439_3_DANP;
+		else if (hsr->prot_version <= HSR_V1)
+			table[i].node_type = IEC62439_3_DANH;
+		else
+			continue;
+		i++;
+	}
+	rcu_read_unlock();
+
+	return i;
+}
+
+int hsr_lredev_get_node_table(struct hsr_priv *hsr,
+			      struct lre_node_table_entry table[],
+			      int size)
+{
+	struct hsr_port *port_a = hsr_port_get_hsr(hsr, HSR_PT_SLAVE_A);
+	struct net_device *slave_a_dev;
+	int ret = -EINVAL;
+
+	if (!port_a)
+		return ret;
+
+	if (!hsr->rx_offloaded)
+		return _hsr_lredev_get_node_table(hsr, table, size);
+
+	slave_a_dev = port_a->dev;
+
+	if (slave_a_dev && slave_a_dev->lredev_ops &&
+	    slave_a_dev->lredev_ops->lredev_get_node_table)
+		ret =
+		slave_a_dev->lredev_ops->lredev_get_node_table(slave_a_dev,
+							       table,
+							       size);
+	return ret;
+}
+
+int hsr_lredev_get_lre_stats(struct hsr_priv *hsr, struct lre_stats *stats)
+{
+	struct hsr_port *port_a = hsr_port_get_hsr(hsr, HSR_PT_SLAVE_A);
+	struct net_device *slave_a_dev;
+	int ret = -EINVAL;
+
+	if (!port_a)
+		return ret;
+
+	slave_a_dev = port_a->dev;
+
+	if (slave_a_dev && slave_a_dev->lredev_ops &&
+	    slave_a_dev->lredev_ops->lredev_get_stats)
+		ret =
+		slave_a_dev->lredev_ops->lredev_get_stats(slave_a_dev, stats);
+	return ret;
+}
 static int hsr_dev_change_mtu(struct net_device *dev, int new_mtu)
 {
 	struct hsr_priv *hsr;
