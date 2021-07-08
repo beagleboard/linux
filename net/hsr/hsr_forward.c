@@ -290,7 +290,11 @@ static struct sk_buff *hsr_fill_tag(struct sk_buff *skb,
 	else
 		hsr_ethhdr = (struct hsr_ethhdr *)pc;
 
-	hsr_set_path_id(hsr_ethhdr, port);
+	if (REDINFO_T(skb) == DIRECTED_TX)
+		set_hsr_tag_path(&hsr_ethhdr->hsr_tag, REDINFO_PATHID(skb));
+	else
+		hsr_set_path_id(hsr_ethhdr, port);
+
 	set_hsr_tag_LSDU_size(&hsr_ethhdr->hsr_tag, lsdu_size);
 	hsr_ethhdr->hsr_tag.sequence_nr = htons(frame->sequence_nr);
 	hsr_ethhdr->hsr_tag.encap_proto = hsr_ethhdr->ethhdr.h_proto;
@@ -364,6 +368,9 @@ struct sk_buff *hsr_create_tagged_frame(struct hsr_frame_info *frame,
 	if (!skb)
 		return NULL;
 
+	if (REDINFO_T(skb) == DIRECTED_TX)
+		return skb;
+
 	skb_shinfo(skb)->tx_flags = skb_shinfo(frame->skb_std)->tx_flags;
 	skb->sk = frame->skb_std->sk;
 
@@ -372,7 +379,7 @@ struct sk_buff *hsr_create_tagged_frame(struct hsr_frame_info *frame,
 		sred = skb_redinfo(skb);
 		/* assumes no vlan */
 		hsr_ethhdr = (struct hsr_ethhdr *)skb_mac_header(skb);
-		sred->io_port = port->type;
+		sred->io_port = (PTP_EVT_OUT | BIT(port->type - 1));
 		sred->ethertype = ntohs(hsr_ethhdr->ethhdr.h_proto);
 		s = ntohs(hsr_ethhdr->hsr_tag.path_and_LSDU_size);
 		sred->lsdu_size = s & 0xfff;
@@ -496,13 +503,29 @@ static void stripped_skb_get_shared_info(struct sk_buff *skb_stripped,
 		sred = skb_redinfo(skb);
 		/* assumes no vlan */
 		hsr_ethhdr = (struct hsr_ethhdr *)skb_mac_header(skb_hsr);
-		sred->io_port = (PTP_MSG_IN | port_rcv->type);
+		sred->io_port = (PTP_MSG_IN | BIT(port_rcv->type - 1));
 		sred->ethertype = ntohs(hsr_ethhdr->ethhdr.h_proto);
 		s = ntohs(hsr_ethhdr->hsr_tag.path_and_LSDU_size);
 		sred->lsdu_size = s & 0xfff;
 		sred->pathid = (s >> 12) & 0xf;
 		sred->seqnr = frame->sequence_nr;
 	}
+}
+
+static unsigned int
+hsr_directed_tx_ports(struct hsr_frame_info *frame)
+{
+	struct sk_buff *skb;
+
+	if (frame->skb_std)
+		skb = frame->skb_std;
+	else
+		return 0;
+
+	if (REDINFO_T(skb) == DIRECTED_TX)
+		return REDINFO_PORTS(skb);
+
+	return 0;
 }
 
 /* Forward the frame through all devices except:
@@ -519,8 +542,9 @@ static void stripped_skb_get_shared_info(struct sk_buff *skb_stripped,
  */
 static void hsr_forward_do(struct hsr_frame_info *frame)
 {
+	struct sk_buff *skb = NULL;
+	unsigned int dir_ports = 0;
 	struct hsr_port *port;
-	struct sk_buff *skb;
 	bool sent = false;
 
 	hsr_for_each_port(frame->port_rcv->hsr, port) {
@@ -574,6 +598,10 @@ static void hsr_forward_do(struct hsr_frame_info *frame)
 		 */
 		if (hsr->proto_ops->drop_frame &&
 		    hsr->proto_ops->drop_frame(frame, port))
+			continue;
+
+		dir_ports = hsr_directed_tx_ports(frame);
+		if (dir_ports && !(dir_ports & BIT(port->type - 1)))
 			continue;
 
 		if (port->type != HSR_PT_MASTER) {
@@ -635,11 +663,16 @@ static void handle_std_frame(struct sk_buff *skb,
 	if (port->type != HSR_PT_MASTER) {
 		frame->is_from_san = true;
 	} else {
-		/* Sequence nr for the master node */
-		spin_lock_irqsave(&hsr->seqnr_lock, irqflags);
-		frame->sequence_nr = hsr->sequence_nr;
-		hsr->sequence_nr++;
-		spin_unlock_irqrestore(&hsr->seqnr_lock, irqflags);
+		if ((REDINFO_T(skb) == DIRECTED_TX) &&
+		    (REDINFO_LSDU_SIZE(skb))) {
+			frame->sequence_nr = REDINFO_SEQNR(skb);
+		} else {
+			/* Sequence nr for the master node */
+			spin_lock_irqsave(&hsr->seqnr_lock, irqflags);
+			frame->sequence_nr = hsr->sequence_nr;
+			hsr->sequence_nr++;
+			spin_unlock_irqrestore(&hsr->seqnr_lock, irqflags);
+		}
 	}
 }
 
