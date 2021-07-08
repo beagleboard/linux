@@ -35,12 +35,17 @@
  */
 enum pruss_ethtype {
 	PRUSS_ETHTYPE_EMAC = 0,
-	PRUSS_ETHTYPE_SWITCH = 3,
+	PRUSS_ETHTYPE_HSR,
+	PRUSS_ETHTYPE_PRP,
+	PRUSS_ETHTYPE_SWITCH,
 	PRUSS_ETHTYPE_MAX,
 };
 
 #define PRUETH_IS_EMAC(p)	((p)->eth_type == PRUSS_ETHTYPE_EMAC)
 #define PRUETH_IS_SWITCH(p)	((p)->eth_type == PRUSS_ETHTYPE_SWITCH)
+#define PRUETH_IS_HSR(p)	((p)->eth_type == PRUSS_ETHTYPE_HSR)
+#define PRUETH_IS_PRP(p)	((p)->eth_type == PRUSS_ETHTYPE_PRP)
+#define PRUETH_IS_LRE(p)	(PRUETH_IS_HSR(p) || PRUETH_IS_PRP(p))
 
 /**
  * struct prueth_queue_desc - Queue descriptor
