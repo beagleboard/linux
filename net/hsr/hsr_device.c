@@ -118,7 +118,15 @@ int hsr_get_max_mtu(struct hsr_priv *hsr)
 
 	if (mtu_max < HSR_HLEN)
 		return 0;
-	return mtu_max - HSR_HLEN;
+
+	/* For offloaded keep the mtu same as ETH_DATA_LEN as
+	 * h/w is expected to extend the frame to accommodate RCT
+	 * or TAG
+	 */
+	if (!hsr->rx_offloaded)
+		return mtu_max - HSR_HLEN;
+
+	return mtu_max;
 }
 
 static int hsr_dev_change_mtu(struct net_device *dev, int new_mtu)
@@ -667,7 +675,8 @@ int hsr_dev_finalize(struct net_device *hsr_dev, struct net_device *slave[2],
 	hsr->sup_sequence_nr = HSR_SUP_SEQNR_START;
 
 	timer_setup(&hsr->announce_timer, hsr_announce, 0);
-	timer_setup(&hsr->prune_timer, hsr_prune_nodes, 0);
+	if (!hsr->rx_offloaded)
+		timer_setup(&hsr->prune_timer, hsr_prune_nodes, 0);
 
 	ether_addr_copy(hsr->sup_multicast_addr, def_multicast_addr);
 	hsr->sup_multicast_addr[ETH_ALEN - 1] = multicast_spec;
@@ -680,6 +689,11 @@ int hsr_dev_finalize(struct net_device *hsr_dev, struct net_device *slave[2],
 	res = hsr_add_port(hsr, hsr_dev, HSR_PT_MASTER, extack);
 	if (res)
 		goto err_add_master;
+
+	/* HSR/PRP LRE Rx offload supported in lower device? */
+	if ((slave[0]->features & NETIF_F_HW_HSR_TAG_RM) &&
+	    (slave[1]->features & NETIF_F_HW_HSR_TAG_RM))
+		hsr->rx_offloaded = true;
 
 	if ((slave[0]->features & NETIF_F_HW_VLAN_CTAG_FILTER) &&
 	    (slave[1]->features & NETIF_F_HW_VLAN_CTAG_FILTER))
@@ -700,7 +714,24 @@ int hsr_dev_finalize(struct net_device *hsr_dev, struct net_device *slave[2],
 		goto err_unregister;
 
 	hsr_debugfs_init(hsr, hsr_dev);
-	mod_timer(&hsr->prune_timer, jiffies + msecs_to_jiffies(PRUNE_PERIOD));
+
+	/* For LRE rx offload, pruning is expected to happen
+	 * at the hardware or firmware . So don't do this in software
+	 */
+	if (!hsr->rx_offloaded)
+		mod_timer(&hsr->prune_timer,
+			  jiffies + msecs_to_jiffies(PRUNE_PERIOD));
+	/* for offloaded case, expect both slaves have the
+	 * same MAC address configured. If not fail.
+	 */
+	if (hsr->rx_offloaded &&
+	    !ether_addr_equal(slave[0]->dev_addr,
+			      slave[1]->dev_addr)) {
+		netdev_err(hsr_dev,
+			   "Slave's MAC addr must be same. So change it\n");
+		res = -EINVAL;
+		goto err_add_slaves;
+	}
 
 	return 0;
 
@@ -708,7 +739,7 @@ err_unregister:
 	hsr_del_ports(hsr);
 err_add_master:
 	hsr_del_self_node(hsr);
-
+err_add_slaves:
 	if (unregister)
 		unregister_netdevice(hsr_dev);
 	return res;
