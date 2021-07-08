@@ -180,6 +180,8 @@
 				      <4>;	/* MII2, needed for PRUSS1_MII1 */
 		sram = <&ocmcram1>;
 		mii-rt = <&pruss1_mii_rt>;
+		interrupts = <20 2 2>, <21 3 3>;
+		interrupt-names = "rx_lre_hp", "rx_lre_lp";
 		iep = <&pruss1_iep>;
 		interrupt-parent = <&pruss1_intc>;
 
