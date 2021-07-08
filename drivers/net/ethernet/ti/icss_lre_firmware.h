@@ -64,6 +64,7 @@
 
 /* Number of frames successfully sent over port A/B that are HSR/PRP tagged */
 
+#define ICSS_LRE_CNT_TX_A			(ICSS_LRE_START + 4)
 #define ICSS_LRE_DUPLICATE_DISCARD		(ICSS_LRE_START + 104)
 #define ICSS_LRE_TRANSPARENT_RECEPTION		(ICSS_LRE_START + 108)
 #define ICSS_LRE_CNT_NODES			(ICSS_LRE_START + 52)
