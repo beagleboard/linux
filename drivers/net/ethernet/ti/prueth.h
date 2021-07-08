@@ -363,6 +363,7 @@ struct prueth_emac {
 	unsigned char mc_filter_mask[ETH_ALEN];	/* for multicast filtering */
 
 	spinlock_t lock;	/* serialize access */
+	spinlock_t addr_lock;	/* serialize access to VLAN/MC filter table */
 
 	struct nsp_counter nsp_bc;
 	struct nsp_counter nsp_mc;
