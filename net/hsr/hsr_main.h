@@ -208,6 +208,8 @@ struct hsr_proto_ops {
 
 struct hsr_prp_debug_stats {
 	u32	cnt_tx_sup;
+	u32     cnt_rx_sup_a;
+	u32	cnt_rx_sup_b;
 };
 
 struct hsr_priv {
@@ -326,6 +328,8 @@ static inline bool prp_check_lsdu_size(struct sk_buff *skb,
 }
 
 #define INC_CNT_TX_SUP(priv) ((priv)->dbg_stats.cnt_tx_sup++)
+#define INC_CNT_RX_SUP_A(priv) ((priv)->dbg_stats.cnt_rx_sup_a++)
+#define INC_CNT_RX_SUP_B(priv) ((priv)->dbg_stats.cnt_rx_sup_b++)
 
 #define INC_CNT_TX_AB(type, priv) (((type) == HSR_PT_SLAVE_A) ? \
 		(priv)->lre_stats.cnt_tx_a++ : \
