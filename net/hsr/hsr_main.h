@@ -193,6 +193,10 @@ struct hsr_proto_ops {
 	void (*update_san_info)(struct hsr_node *node, bool is_sup);
 };
 
+struct hsr_prp_debug_stats {
+	u32	cnt_tx_sup;
+};
+
 struct hsr_priv {
 	struct rcu_head		rcu_head;
 	struct list_head	ports;
@@ -201,6 +205,7 @@ struct hsr_priv {
 	struct timer_list	announce_timer;	/* Supervision frame dispatch */
 	struct timer_list	prune_timer;
 	unsigned int		rx_offloaded : 1;   /* lre handle in hw */
+	struct hsr_prp_debug_stats dbg_stats;  /* debug stats */
 	int announce_count;
 	u16 sequence_nr;
 	u16 sup_sequence_nr;	/* For HSRv1 separate seq_nr for supervision */
@@ -217,6 +222,8 @@ struct hsr_priv {
 	unsigned char		sup_multicast_addr[ETH_ALEN];
 #ifdef	CONFIG_DEBUG_FS
 	struct dentry *node_tbl_root;
+	struct dentry *node_tbl_file;
+	struct dentry *lre_info_file;
 #endif
 };
 
@@ -276,6 +283,8 @@ static inline bool prp_check_lsdu_size(struct sk_buff *skb,
 
 	return (expected_lsdu_size == get_prp_LSDU_size(rct));
 }
+
+#define INC_CNT_TX_SUP(priv) ((priv)->dbg_stats.cnt_tx_sup++)
 
 #if IS_ENABLED(CONFIG_DEBUG_FS)
 void hsr_debugfs_rename(struct net_device *dev);
