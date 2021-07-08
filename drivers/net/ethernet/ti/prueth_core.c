@@ -10,6 +10,7 @@
 #include <linux/etherdevice.h>
 #include <linux/genalloc.h>
 #include <linux/if_bridge.h>
+#include <linux/if_hsr.h>
 #include <linux/if_vlan.h>
 #include <linux/interrupt.h>
 #include <linux/kernel.h>
@@ -2159,6 +2160,72 @@ static int emac_ndo_get_phys_port_name(struct net_device *ndev, char *name,
 	return 0;
 }
 
+/**
+ * emac_ndo_set_features - function to set feature flag
+ * @ndev: The network adapter device
+ *
+ * Called when ethtool -K option is invoked by user
+ *
+ * Change the eth_type in the prueth structure  based on hsr or prp
+ * offload options from user through ethtool -K command. If the device
+ * is running or if the other paired device is running, then don't accept.
+ * Otherwise, set the ethernet type and offload feature flag
+ *
+ * Returns success if eth_type and feature flags are updated  or error
+ * otherwise.
+ */
+static int emac_ndo_set_features(struct net_device *ndev,
+				 netdev_features_t features)
+{
+	struct prueth_emac *emac = netdev_priv(ndev), *other_emac;
+	struct prueth *prueth = emac->prueth;
+	enum prueth_port other_port;
+	netdev_features_t wanted = features & NETIF_F_HW_HSR_TAG_RM;
+	netdev_features_t have = ndev->features & NETIF_F_HW_HSR_TAG_RM;
+	bool change_request = ((wanted ^ have) != 0);
+	int ret = -EBUSY;
+
+	if (!prueth->support_lre)
+		return 0;
+
+	if (PRUETH_IS_SWITCH(prueth)) {
+		/* Don't allow switching to HSR/PRP ethtype from Switch.
+		 * User needs to first remove eth ports from a bridge which
+		 * will automatically put the ethtype back to EMAC. So
+		 * disallow this.
+		 */
+		netdev_err(ndev,
+			   "Switch to HSR/PRP/EMAC not allowed\n");
+		return -EINVAL;
+	}
+
+	if (netif_running(ndev) && change_request) {
+		netdev_err(ndev,
+			   "Can't change feature when device runs\n");
+		return ret;
+	}
+
+	other_port = other_port_id(emac->port_id);
+	/* MAC instance index starts from 0. So index by port_id - 1 */
+	other_emac = prueth->emac[other_port - 1];
+	if (other_emac && netif_running(other_emac->ndev) && change_request) {
+		netdev_err(ndev,
+			   "Can't change feature when other device runs\n");
+		return ret;
+	}
+
+	if (features & NETIF_F_HW_HSR_TAG_RM) {
+		ndev->features |= NETIF_F_HW_HSR_TAG_RM;
+	} else if (features & NETIF_F_HW_HSR_FWD) {
+		ndev->features |= NETIF_F_HW_HSR_FWD;
+	} else {
+		prueth->eth_type = PRUSS_ETHTYPE_EMAC;
+		ndev->features &= ~(NETIF_F_HW_HSR_TAG_RM | NETIF_F_HW_HSR_FWD);
+	}
+
+	return 0;
+}
+
 static const struct net_device_ops emac_netdev_ops = {
 	.ndo_open = emac_ndo_open,
 	.ndo_stop = emac_ndo_stop,
@@ -2169,6 +2236,7 @@ static const struct net_device_ops emac_netdev_ops = {
 	.ndo_get_stats = emac_ndo_get_stats,
 	.ndo_set_rx_mode = emac_ndo_set_rx_mode,
 	.ndo_do_ioctl = emac_ndo_ioctl,
+	.ndo_set_features = emac_ndo_set_features,
 	.ndo_vlan_rx_add_vid = emac_ndo_vlan_rx_add_vid,
 	.ndo_vlan_rx_kill_vid = emac_ndo_vlan_rx_kill_vid,
 	.ndo_setup_tc = emac_ndo_setup_tc,
@@ -2596,7 +2664,7 @@ bool prueth_sw_port_dev_check(const struct net_device *ndev)
 	if (ndev->netdev_ops != &emac_netdev_ops)
 		return false;
 
-	if (ndev->features & NETIF_F_HW_L2FW_DOFFLOAD)
+	if (ndev->features & NETIF_F_HW_HSR_TAG_RM)
 		return true;
 
 	return false;
@@ -2674,7 +2742,10 @@ static int prueth_ndev_event(struct notifier_block *unused,
 {
 	struct net_device *ndev = netdev_notifier_info_to_dev(ptr);
 	struct netdev_notifier_changeupper_info *info;
+	struct prueth_emac *emac = netdev_priv(ndev);
+	struct prueth *prueth = emac->prueth;
 	int ret = NOTIFY_DONE;
+	enum hsr_version ver;
 
 	if (!prueth_sw_port_dev_check(ndev))
 		return NOTIFY_DONE;
@@ -2682,6 +2753,16 @@ static int prueth_ndev_event(struct notifier_block *unused,
 	switch (event) {
 	case NETDEV_CHANGEUPPER:
 		info = ptr;
+
+		if (ndev->features & NETIF_F_HW_HSR_TAG_RM) {
+			if (is_hsr_master(info->upper_dev)) {
+				hsr_get_version(info->upper_dev, &ver);
+				if (ver == HSR_V1)
+					prueth->eth_type = PRUSS_ETHTYPE_HSR;
+				else if (ver == PRP_V1)
+					prueth->eth_type = PRUSS_ETHTYPE_PRP;
+			}
+		}
 
 		if (netif_is_bridge_master(info->upper_dev)) {
 			if (info->linking)
