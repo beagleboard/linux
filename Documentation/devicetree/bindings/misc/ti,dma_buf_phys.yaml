@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: GPL-2.0-only OR BSD-2-Clause
+# Copyright 2021 Texas Instruments Incorporated
+%YAML 1.2
+---
+$id: "http://devicetree.org/schemas/misc/ti,dma_buf_phys.yaml#"
+$schema: "http://devicetree.org/meta-schemas/core.yaml#"
+
+title: DMA-BUF contiguous buffer physical address user-space exporter
+
+maintainer: Gowtham Tammana <g-tammana@ti.com>
+
+description: |
+  Driver allowing user-space attaching of DMA-BUFs returning CPU
+  physical addresses. The reasoning for making this act like a regular
+  device described by DT is so the virtual device that binds the buffer
+  can be made to act as if it is out on a bus or behind an IOMMU, for
+  example.
+
+properties:
+  compatible:
+    const: ti,dma_buf_phys
+
+required:
+  - compatible
+
+examples:
+  - |
+    dma_buf_phys {
+            compatible = "ti,dma_buf_phys";
+            iommus = <&some_iommu>;
+            dma-coherent;
+    };
