@@ -1,0 +1,136 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/* Copyright (C) 2017-2020 Texas Instruments Incorporated - http://www.ti.com
+ *
+ */
+
+#ifndef __ICSS_LRE_FIRMWARE_H
+#define __ICSS_LRE_FIRMWARE_H
+
+#define ICSS_LRE_TAG_RCT_SIZE                 6       /* HSR tag or PRP RCT size */
+
+#define ICSS_LRE_HSR_MODE		0x1E76
+#define ICSS_LRE_MODEH			0x01
+
+/* PRU0 DMEM */
+#define ICSS_LRE_DBG_START			0x1E00
+
+#define ICSS_LRE_DUPLICATE_HOST_TABLE		0x0200
+
+/* PRU1 DMEM */
+#define ICSS_LRE_DUPLICATE_PORT_TABLE_PRU0	0x0200
+#define ICSS_LRE_DUPLICATE_PORT_TABLE_PRU1	0x0E00
+
+/* Size and setup (N and M) of duplicate host table */
+#define ICSS_LRE_DUPLICATE_HOST_TABLE_SIZE	0x1C08
+/* Size and setup (N and M) of duplicate port table (HSR Only) */
+#define ICSS_LRE_DUPLICATE_PORT_TABLE_SIZE	0x1C1C
+/* Time after which an entry is removed from the dup table (10ms resolution) */
+#define ICSS_LRE_DUPLI_FORGET_TIME		0x1C24
+/* Time interval to check the port duplicate table */
+#define ICSS_LRE_DUPLI_PORT_CHECK_RESO		0x1C2C
+/* Time interval to check the host duplicate table */
+#define ICSS_LRE_DUPLI_HOST_CHECK_RESO		0x1C30
+/* NodeTable | Host | Port */
+#define ICSS_LRE_HOST_TIMER_CHECK_FLAGS		0x1C38
+/* Arbitration flag for the host duplicate t */
+#define ICSS_LRE_HOST_DUPLICATE_ARBITRATION	0x1C3C
+/* Supervision address in LRE */
+#define ICSS_LRE_SUP_ADDR			0x1C4C
+#define ICSS_LRE_SUP_ADDR_LOW			0x1C50
+
+/* Time in TimeTicks (1/100s) */
+#define ICSS_LRE_DUPLICATE_FORGET_TIME_400_MS	40
+/* Time in TimeTicks (1/100s) */
+#define ICSS_LRE_NODE_FORGET_TIME_60000_MS	6000
+#define ICSS_LRE_MAX_FORGET_TIME		0xffdf
+
+#define ICSS_LRE_DUPLICATE_PORT_TABLE_DMEM_SIZE	0x0C00
+#define ICSS_LRE_DUPLICATE_HOST_TABLE_DMEM_SIZE	0x1800
+#define ICSS_LRE_STATS_DMEM_SIZE		0x0088
+#define ICSS_LRE_DEBUG_COUNTER_DMEM_SIZE	0x0050
+
+#define ICSS_LRE_DUPLICATE_HOST_TABLE_SIZE_INIT	0x800004 /* N = 128, M = 4 */
+#define ICSS_LRE_DUPLICATE_PORT_TABLE_SIZE_INIT	0x400004 /* N = 64, M = 4 */
+#define ICSS_LRE_MASTER_SLAVE_BUSY_BITS_CLEAR	0x0
+#define ICSS_LRE_TABLE_CHECK_RESOLUTION_10_MS	0xA
+#define ICSS_LRE_SUP_ADDRESS_INIT_OCTETS_HIGH	0x4E1501 /* 01-15-4E-00- */
+#define ICSS_LRE_SUP_ADDRESS_INIT_OCTETS_LOW	0x1 /* -01-00 */
+
+/* SHARED RAM */
+
+/* 8 bytes of VLAN PCP to RX QUEUE MAPPING */
+#define ICSS_LRE_QUEUE_2_PCP_MAP_OFFSET		0x120
+#define ICSS_LRE_START				0x140
+
+/* Number of frames successfully sent over port A/B that are HSR/PRP tagged */
+
+#define ICSS_LRE_CNT_TX_A			(ICSS_LRE_START + 4)
+#define ICSS_LRE_DUPLICATE_DISCARD		(ICSS_LRE_START + 104)
+#define ICSS_LRE_TRANSPARENT_RECEPTION		(ICSS_LRE_START + 108)
+#define ICSS_LRE_CNT_NODES			(ICSS_LRE_START + 52)
+
+/* SRAM */
+
+#define ICSS_LRE_IEC62439_CONST_DUPLICATE_ACCEPT		0x01
+#define ICSS_LRE_IEC62439_CONST_DUPLICATE_DISCARD		0x02
+#define ICSS_LRE_IEC62439_CONST_TRANSP_RECEPTION_REMOVE_RCT	0x01
+#define ICSS_LRE_IEC62439_CONST_TRANSP_RECEPTION_PASS_RCT	0x02
+
+/* Enable/disable interrupts for high/low priority instead of per port.
+ * 0 = disabled (default) 1 = enabled
+ */
+#define ICSS_LRE_PRIORITY_INTRS_STATUS_OFFSET	0x1FAA
+/* Enable/disable timestamping of packets. 0 = disabled (default) 1 = enabled */
+#define ICSS_LRE_TIMESTAMP_PKTS_STATUS_OFFSET	0x1FAB
+#define ICSS_LRE_TIMESTAMP_ARRAY_OFFSET          0xC200
+
+/* HOST_TIMER_CHECK_FLAGS bits */
+#define ICSS_LRE_HOST_TIMER_NODE_TABLE_CHECK_BIT	BIT(0)
+#define ICSS_LRE_HOST_TIMER_NODE_TABLE_CLEAR_BIT	BIT(4)
+#define ICSS_LRE_HOST_TIMER_HOST_TABLE_CHECK_BIT	BIT(8)
+#define ICSS_LRE_HOST_TIMER_P1_TABLE_CHECK_BIT		BIT(16)
+#define ICSS_LRE_HOST_TIMER_P2_TABLE_CHECK_BIT		BIT(24)
+#define ICSS_LRE_HOST_TIMER_PORT_TABLE_CHECK_BITS \
+			(ICSS_LRE_HOST_TIMER_P1_TABLE_CHECK_BIT | \
+			 ICSS_LRE_HOST_TIMER_P2_TABLE_CHECK_BIT)
+
+#define ICSS_LRE_NODE_FREE			0x10
+/* PRU1 DMEM */
+#define ICSS_LRE_V2_1_HASH_MASK                 0xFF
+#define ICSS_LRE_V2_1_INDEX_ARRAY_NT            0x3000
+#define ICSS_LRE_V2_1_BIN_ARRAY \
+	(ICSS_LRE_V2_1_INDEX_ARRAY_NT + \
+	(ICSS_LRE_V2_1_INDEX_TBL_MAX_ENTRIES * 6))
+#define ICSS_LRE_V2_1_NODE_TABLE_NEW \
+	(ICSS_LRE_V2_1_BIN_ARRAY + \
+	(ICSS_LRE_V2_1_BIN_TBL_MAX_ENTRIES * 8))
+#define ICSS_LRE_V2_1_INDEX_ARRAY_LOC           PRUETH_MEM_SHARED_RAM
+#define ICSS_LRE_V2_1_BIN_ARRAY_LOC             PRUETH_MEM_SHARED_RAM
+#define ICSS_LRE_V2_1_NODE_TABLE_LOC            PRUETH_MEM_SHARED_RAM
+#define ICSS_LRE_V2_1_INDEX_TBL_MAX_ENTRIES     256
+#define ICSS_LRE_V2_1_BIN_TBL_MAX_ENTRIES       256
+#define ICSS_LRE_V2_1_NODE_TBL_MAX_ENTRIES      256
+
+#define ICSS_LRE_NODE_FREE			0x10
+#define ICSS_LRE_NODE_TAKEN			0x01
+#define ICSS_LRE_NT_REM_NODE_TYPE_MASK		0x1F
+#define ICSS_LRE_NT_REM_NODE_TYPE_SHIFT		0x00
+
+#define ICSS_LRE_NT_REM_NODE_TYPE_SANA		0x01
+#define ICSS_LRE_NT_REM_NODE_TYPE_SANB		0x02
+#define ICSS_LRE_NT_REM_NODE_TYPE_SANAB		0x03
+#define ICSS_LRE_NT_REM_NODE_TYPE_DAN		0x04
+#define ICSS_LRE_NT_REM_NODE_TYPE_REDBOX	0x08
+#define ICSS_LRE_NT_REM_NODE_TYPE_VDAN		0x10
+
+#define ICSS_LRE_NT_REM_NODE_HSR_BIT		0x20 /* if set node is HSR */
+
+#define ICSS_LRE_NT_REM_NODE_DUP_MASK		0xC0
+#define ICSS_LRE_NT_REM_NODE_DUP_SHIFT		0x06
+
+/* Node ent duplicate type: DupAccept */
+#define ICSS_LRE_NT_REM_NODE_DUP_ACCEPT		0x40
+/* Node ent duplicate type: DupDiscard */
+#define ICSS_LRE_NT_REM_NODE_DUP_DISCARD	0x80
+
+#endif /* __ICSS_LRE_FIRMWARE_H */

@@ -23,6 +23,9 @@ static const struct nla_policy hsr_policy[IFLA_HSR_MAX + 1] = {
 	[IFLA_HSR_SUPERVISION_ADDR]	= { .len = ETH_ALEN },
 	[IFLA_HSR_SEQ_NR]		= { .type = NLA_U16 },
 	[IFLA_HSR_PROTOCOL]		= { .type = NLA_U8 },
+	[IFLA_HSR_SV_VID]		= { .type = NLA_U16 },
+	[IFLA_HSR_SV_PCP]		= { .type = NLA_U8 },
+	[IFLA_HSR_SV_DEI]		= { .type = NLA_U8 },
 };
 
 /* Here, it seems a netdevice has already been allocated for us, and the
@@ -32,10 +35,14 @@ static int hsr_newlink(struct net *src_net, struct net_device *dev,
 		       struct nlattr *tb[], struct nlattr *data[],
 		       struct netlink_ext_ack *extack)
 {
+	bool sv_vlan_tag_needed = false;
 	enum hsr_version proto_version;
+	unsigned char pcp = 0, dei = 0;
 	unsigned char multicast_spec;
 	u8 proto = HSR_PROTOCOL_HSR;
 	struct net_device *link[2];
+	unsigned short vid = 0;
+	char *sproto = "HSR";
 
 	if (!data) {
 		NL_SET_ERR_MSG_MOD(extack, "No slave devices specified");
@@ -96,10 +103,36 @@ static int hsr_newlink(struct net *src_net, struct net_device *dev,
 		}
 	}
 
-	if (proto == HSR_PROTOCOL_PRP)
+	if (proto == HSR_PROTOCOL_PRP) {
+		sproto = "PRP";
 		proto_version = PRP_V1;
+	}
 
-	return hsr_dev_finalize(dev, link, multicast_spec, proto_version, extack);
+	if (data[IFLA_HSR_SV_VID]) {
+		sv_vlan_tag_needed = true;
+		vid = nla_get_u16(data[IFLA_HSR_SV_VID]);
+	}
+
+	if (data[IFLA_HSR_SV_PCP]) {
+		sv_vlan_tag_needed = true;
+		pcp = nla_get_u8(data[IFLA_HSR_SV_PCP]);
+	}
+
+	if (data[IFLA_HSR_SV_DEI]) {
+		sv_vlan_tag_needed = true;
+		dei = nla_get_u8(data[IFLA_HSR_SV_DEI]);
+	}
+
+	if (sv_vlan_tag_needed &&
+	    (vid >= (VLAN_N_VID - 1) || dei > 1 || pcp > 7)) {
+		netdev_info(dev,
+			    "%s: wrong vlan params: vid %d, pcp %d, dei %d\n",
+			    sproto, vid, pcp, dei);
+		return -EINVAL;
+	}
+
+	return hsr_dev_finalize(dev, link, multicast_spec, proto_version,
+				extack, sv_vlan_tag_needed, vid, pcp, dei);
 }
 
 static void hsr_dellink(struct net_device *dev, struct list_head *head)
@@ -110,7 +143,7 @@ static void hsr_dellink(struct net_device *dev, struct list_head *head)
 	del_timer_sync(&hsr->announce_timer);
 
 	hsr_debugfs_term(hsr);
-	hsr_del_ports(hsr);
+	hsr_del_ports(hsr, dev);
 
 	hsr_del_self_node(hsr);
 	hsr_del_nodes(&hsr->node_db);

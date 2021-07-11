@@ -53,6 +53,16 @@
 /* Multicast table */
 #define ICSS_EMAC_FW_MULTICAST_FILTER_TABLE              (ICSS_EMAC_FW_MULTICAST_FILTER_DROP_CNT_OFFSET + ICSS_EMAC_FW_MULTICAST_FILTER_DROP_CNT_SIZE_BYTES)
 
+/* Multicast filter defines & offsets for LRE
+ */
+#define ICSS_LRE_FW_MULTICAST_TABLE_SEARCH_OP_CONTROL_BIT	0xE0
+/* one byte field :
+ * 0 -> multicast filtering disabled
+ * 1 -> multicast filtering enabled
+ */
+#define ICSS_LRE_FW_MULTICAST_FILTER_MASK                        0xE4
+#define ICSS_LRE_FW_MULTICAST_FILTER_TABLE                       0x100
+
 /* VLAN table Offsets */
 #define ICSS_EMAC_FW_VLAN_FLTR_TBL_BASE_ADDR             0x200
 #define ICSS_EMAC_FW_VLAN_FILTER_CTRL_BITMAP_OFFSET      0xEF
@@ -76,5 +86,15 @@
 /* VLAN Filtering Commands */
 #define ICSS_EMAC_FW_VLAN_FILTER_ADD_VLAN_VID_CMD                      0x00
 #define ICSS_EMAC_FW_VLAN_FILTER_REMOVE_VLAN_VID_CMD                   0x01
+
+/* Switch defines for VLAN/MC filtering */
+/* SRAM
+ * VLAN filter defines & offsets
+ */
+#define ICSS_LRE_FW_VLAN_FLTR_CTRL_BYTE                          0x1FE
+/* one bit field | 0 : VLAN filter disabled
+ *               | 1 : VLAN filter enabled
+ */
+#define ICSS_LRE_FW_VLAN_FLTR_TBL_BASE_ADDR                      0x200
 
 #endif /* ICSS_MULTICAST_FILTER_MM_H */

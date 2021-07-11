@@ -11,6 +11,8 @@
 #include <linux/types.h>
 #include <linux/phy.h>
 #include <linux/pruss.h>
+#include <linux/types.h>
+#include <net/lredev.h>
 
 #include "icss_switch.h"
 #include "prueth_ptp.h"
@@ -24,6 +26,8 @@
 #define EMAC_MAX_PKTLEN		(ETH_HLEN + VLAN_HLEN + ETH_DATA_LEN)
 
 #define PRUETH_NSP_TIMER_MS	(100) /* Refresh NSP counters every 100ms */
+/* default timer for NSP and HSR/PRP */
+#define PRUETH_TIMER_MS	(10)
 
 #define PRUETH_REG_DUMP_VER		1
 
@@ -35,12 +39,17 @@
  */
 enum pruss_ethtype {
 	PRUSS_ETHTYPE_EMAC = 0,
-	PRUSS_ETHTYPE_SWITCH = 3,
+	PRUSS_ETHTYPE_HSR,
+	PRUSS_ETHTYPE_PRP,
+	PRUSS_ETHTYPE_SWITCH,
 	PRUSS_ETHTYPE_MAX,
 };
 
 #define PRUETH_IS_EMAC(p)	((p)->eth_type == PRUSS_ETHTYPE_EMAC)
 #define PRUETH_IS_SWITCH(p)	((p)->eth_type == PRUSS_ETHTYPE_SWITCH)
+#define PRUETH_IS_HSR(p)	((p)->eth_type == PRUSS_ETHTYPE_HSR)
+#define PRUETH_IS_PRP(p)	((p)->eth_type == PRUSS_ETHTYPE_PRP)
+#define PRUETH_IS_LRE(p)	(PRUETH_IS_HSR(p) || PRUETH_IS_PRP(p))
 
 /**
  * struct prueth_queue_desc - Queue descriptor
@@ -85,21 +94,25 @@ struct prueth_queue_info {
 
 /**
  * struct prueth_packet_info - Info about a packet in buffer
+ * @start_offset: start offset of the frame in the buffer for HSR/PRP
  * @shadow: this packet is stored in the collision queue
  * @port: port packet is on
  * @length: length of packet
  * @broadcast: this packet is a broadcast packet
  * @error: this packet has an error
+ * @sv_frame: indicate if the frame is a SV frame for HSR/PRP
  * @lookup_success: src mac found in FDB
  * @flood: packet is to be flooded
  * @timstamp: Specifies if timestamp is appended to the packet
  */
 struct prueth_packet_info {
+	bool start_offset;
 	bool shadow;
 	unsigned int port;
 	unsigned int length;
 	bool broadcast;
 	bool error;
+	bool sv_frame;
 	bool lookup_success;
 	bool flood;
 	bool timestamp;
@@ -273,6 +286,29 @@ enum prueth_mem {
 	PRUETH_MEM_MAX,
 };
 
+/* Firmware offsets/size information */
+struct prueth_fw_offsets {
+	u32 index_array_offset;
+	u32 bin_array_offset;
+	u32 nt_array_offset;
+	u32 index_array_loc;
+	u32 bin_array_loc;
+	u32 nt_array_loc;
+	u32 index_array_max_entries;
+	u32 bin_array_max_entries;
+	u32 nt_array_max_entries;
+	u32 vlan_ctrl_byte;
+	u32 vlan_filter_tbl;
+	u32 mc_ctrl_byte;
+	u32 mc_filter_mask;
+	u32 mc_filter_tbl;
+	/* IEP wrap is used in the rx packet ordering logic and
+	 * is different for ICSSM v1.0 vs 2.1
+	 */
+	u32 iep_wrap;
+	u16 hash_mask;
+};
+
 /**
  * @fw_name: firmware names of firmware to run on PRU
  */
@@ -285,7 +321,9 @@ struct prueth_firmware {
  * @fw_names: firmware names to be used for PRUSS ethernet usecases
  */
 struct prueth_private_data {
-	struct prueth_firmware fw_pru[PRUSS_NUM_PRUS];
+	const struct prueth_firmware fw_pru[PRUSS_NUM_PRUS];
+	bool support_lre;
+	bool support_switch;
 };
 
 struct nsp_counter {
@@ -328,6 +366,7 @@ struct prueth_emac {
 	unsigned char mc_filter_mask[ETH_ALEN];	/* for multicast filtering */
 
 	spinlock_t lock;	/* serialize access */
+	spinlock_t addr_lock;	/* serialize access to VLAN/MC filter table */
 
 	struct nsp_counter nsp_bc;
 	struct nsp_counter nsp_mc;
@@ -341,6 +380,11 @@ struct prueth_emac {
 	int emac_ptp_tx_irq;
 	bool ptp_tx_enable;
 	bool ptp_rx_enable;
+};
+
+struct prueth_ndev_priority {
+	struct net_device *ndev;
+	int priority;
 };
 
 /**
@@ -378,11 +422,34 @@ struct prueth {
 	struct gen_pool *sram_pool;
 	struct regmap *mii_rt;
 	struct icss_iep *iep;
+	struct hrtimer tbl_check_timer;
 	const struct prueth_private_data *fw_data;
+	struct prueth_fw_offsets *fw_offsets;
+
+	/* HSR-PRP */
+	bool support_lre;
+	struct prueth_ndev_priority *hp, *lp;
+	int rx_lpq_irq;
+	int rx_hpq_irq;
+	unsigned int hsr_mode;
+	unsigned int tbl_check_period;
+	unsigned int node_table_clear;
+	unsigned int node_table_clear_last_cmd;
+	unsigned int tbl_check_mask;
+	enum iec62439_3_tr_modes prp_tr_mode;
+	struct node_tbl	*nt;
+	struct nt_queue_t *mac_queue;
+	struct kthread_worker *nt_kworker;
+	struct kthread_work nt_work;
+	u32 rem_cnt;
+	/* lock between kthread worker and rx packet processing code */
+	spinlock_t nt_lock;
+	struct lre_statistics *lre_stats;
 
 	struct device_node *eth_node[PRUETH_NUM_MACS];
 	struct prueth_emac *emac[PRUETH_NUM_MACS];
 	struct net_device *registered_netdevs[PRUETH_NUM_MACS];
+	struct device_node *prueth_np;
 
 	struct net_device *hw_bridge_dev;
 	struct fdb_tbl *fdb_tbl;
@@ -404,6 +471,14 @@ struct prueth {
 
 int emac_ndo_setup_tc(struct net_device *dev, enum tc_setup_type type,
 		      void *type_data);
+void parse_packet_info(struct prueth *prueth, u32 buffer_descriptor,
+		       struct prueth_packet_info *pkt_info);
+int emac_rx_packet(struct prueth_emac *emac, u16 *bd_rd_ptr,
+		   struct prueth_packet_info *pkt_info,
+		   const struct prueth_queue_info *rxqueue);
+int emac_add_del_vid(struct prueth_emac *emac,
+		     bool add, __be16 proto, u16 vid);
+
 extern const struct prueth_queue_desc queue_descs[][NUM_QUEUES];
 
 void emac_mc_filter_bin_allow(struct prueth_emac *emac, u8 hash);
