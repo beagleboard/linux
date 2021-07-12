@@ -39,10 +39,10 @@ static DEFINE_MUTEX(sysfs_lock);
 /*
  * /sys/class/gpio/gpioN... only for GPIOs that are exported
  *   /direction
- *      * MAY BE OMITTED if kernel won't allow direction changes
  *      * is read/write as "in" or "out"
  *      * may also be written as "high" or "low", initializing
  *        output value as specified ("out" implies "low")
+ *      * read-only if kernel won't allow direction changes
  *   /value
  *      * always readable, subject to hardware behavior
  *      * may be writable, as zero/nonzero
@@ -55,6 +55,8 @@ static DEFINE_MUTEX(sysfs_lock);
  *      * is read/write as zero/nonzero
  *      * also affects existing and subsequent "falling" and "rising"
  *        /edge configuration
+ *   /label
+ *      * descriptor label
  */
 
 static ssize_t direction_show(struct device *dev,
@@ -83,7 +85,9 @@ static ssize_t direction_store(struct device *dev,
 
 	mutex_lock(&data->mutex);
 
-	if (sysfs_streq(buf, "high"))
+	if (!data->direction_can_change)
+		status = -EPERM;
+	else if (sysfs_streq(buf, "high"))
 		status = gpiod_direction_output_raw(desc, 1);
 	else if (sysfs_streq(buf, "out") || sysfs_streq(buf, "low"))
 		status = gpiod_direction_output_raw(desc, 0);
@@ -338,6 +342,23 @@ static ssize_t active_low_store(struct device *dev,
 }
 static DEVICE_ATTR_RW(active_low);
 
+static ssize_t label_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct gpiod_data *data = dev_get_drvdata(dev);
+	struct gpio_desc *desc = data->desc;
+	ssize_t			status;
+
+	mutex_lock(&data->mutex);
+
+	status = sprintf(buf, "%s\n", desc->label);
+
+	mutex_unlock(&data->mutex);
+
+	return status;
+}
+static DEVICE_ATTR_RO(label);
+
 static umode_t gpio_is_visible(struct kobject *kobj, struct attribute *attr,
 			       int n)
 {
@@ -349,12 +370,15 @@ static umode_t gpio_is_visible(struct kobject *kobj, struct attribute *attr,
 
 	if (attr == &dev_attr_direction.attr) {
 		if (!show_direction)
-			mode = 0;
+			mode &= 0444;
 	} else if (attr == &dev_attr_edge.attr) {
 		if (gpiod_to_irq(desc) < 0)
 			mode = 0;
 		if (!show_direction && test_bit(FLAG_IS_OUT, &desc->flags))
 			mode = 0;
+	} else if (attr == &dev_attr_value.attr) {
+		if (!show_direction && !test_bit(FLAG_IS_OUT, &desc->flags))
+			mode &= 0444;
 	}
 
 	return mode;
@@ -365,6 +389,7 @@ static struct attribute *gpio_attrs[] = {
 	&dev_attr_edge.attr,
 	&dev_attr_value.attr,
 	&dev_attr_active_low.attr,
+	&dev_attr_label.attr,
 	NULL,
 };
 
@@ -377,6 +402,10 @@ static const struct attribute_group *gpio_groups[] = {
 	&gpio_group,
 	NULL
 };
+
+/* bwlegh, a second device in the same file... get out of my namespace! */
+#define dev_attr_label dev_attr_chip_label
+#define label_show chip_label_show
 
 /*
  * /sys/class/gpio/gpiochipN/
