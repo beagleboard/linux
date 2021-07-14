@@ -1248,4 +1248,73 @@ extern const struct v4l2_subdev_ops v4l2_subdev_call_wrappers;
 void v4l2_subdev_notify_event(struct v4l2_subdev *sd,
 			      const struct v4l2_event *ev);
 
+/**
+ * v4l2_subdev_get_routing() - Get routing from a subdevice
+ *
+ * @sd: The subdev from which to get the routing
+ * @state: Pointer to &struct v4l2_subdev_state
+ * @routing: Pointer to the target &struct v4l2_subdev_krouting
+ *
+ * Get a copy of the subdevice's routing table.
+ *
+ * Must be freed with v4l2_subdev_free_routing after use.
+ */
+int v4l2_subdev_get_routing(struct v4l2_subdev *sd,
+			    struct v4l2_subdev_state *state,
+			    struct v4l2_subdev_krouting *routing);
+
+/**
+ * v4l2_subdev_free_routing() - Free the routing
+ *
+ * @routing: The routing to be freed
+ *
+ * Frees the routing data in @routing.
+ */
+void v4l2_subdev_free_routing(struct v4l2_subdev_krouting *routing);
+
+/**
+ * v4l2_subdev_cpy_routing() - Copy the routing
+ *
+ * @dst: The destination routing
+ * @src: The source routing
+ *
+ * Copies routing from @src to @dst without allocating space. If @dst does not
+ * have enough space, set dst->num_routes to the required number of routes, and
+ * return -ENOSPC.
+ *
+ * Can be used in subdevice's v4l2_subdev_pad_ops.get_routing() callback.
+ */
+int v4l2_subdev_cpy_routing(struct v4l2_subdev_krouting *dst,
+			    const struct v4l2_subdev_krouting *src);
+
+/**
+ * v4l2_subdev_dup_routing() - Duplicate the routing
+ *
+ * @dst: The destination routing
+ * @src: The source routing
+ *
+ * Makes a duplicate of the routing from @src to @dst by allocating enough
+ * memory and making a copy of the routing.
+ *
+ * Can be used in subdevice's v4l2_subdev_pad_ops.set_routing() callback
+ * to store the given routing.
+ *
+ * Must be freed with v4l2_subdev_free_routing after use.
+ */
+int v4l2_subdev_dup_routing(struct v4l2_subdev_krouting *dst,
+			    const struct v4l2_subdev_krouting *src);
+
+/**
+ * v4l2_subdev_has_route() - Check if there is a route between two pads
+ *
+ * @routing: The subdevice's routing
+ * @pad0: First pad
+ * @pad1: Second pad
+ *
+ * Returns whether there is a route between @pad0 and @pad1 of the same
+ * subdevice according to the given routing.
+ */
+bool v4l2_subdev_has_route(struct v4l2_subdev_krouting *routing,
+			   unsigned int pad0, unsigned int pad1);
+
 #endif
