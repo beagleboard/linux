@@ -683,6 +683,52 @@ static long subdev_do_ioctl(struct file *file, unsigned int cmd, void *arg)
 	case VIDIOC_SUBDEV_QUERYSTD:
 		return v4l2_subdev_call(sd, video, querystd, arg);
 
+	case VIDIOC_SUBDEV_G_ROUTING: {
+		struct v4l2_subdev_routing *routing = arg;
+		struct v4l2_subdev_krouting krouting = {
+			.which = routing->which,
+			.num_routes = routing->num_routes,
+			.routes = (struct v4l2_subdev_route *)(uintptr_t)
+					  routing->routes,
+		};
+		int ret;
+
+		ret = v4l2_subdev_call(sd, pad, get_routing, subdev_fh->state, &krouting);
+
+		routing->num_routes = krouting.num_routes;
+
+		return ret;
+	}
+
+	case VIDIOC_SUBDEV_S_ROUTING: {
+		struct v4l2_subdev_routing *routing = arg;
+		struct v4l2_subdev_route *routes =
+			(struct v4l2_subdev_route *)(uintptr_t)routing->routes;
+		struct v4l2_subdev_krouting krouting = {};
+		unsigned int i;
+
+		if (routing->which != V4L2_SUBDEV_FORMAT_TRY && ro_subdev)
+			return -EPERM;
+
+		for (i = 0; i < routing->num_routes; ++i) {
+			if (routes[i].sink_pad >= sd->entity.num_pads ||
+			    routes[i].source_pad >= sd->entity.num_pads)
+				return -EINVAL;
+
+			if (!(sd->entity.pads[routes[i].sink_pad].flags &
+			      MEDIA_PAD_FL_SINK) ||
+			    !(sd->entity.pads[routes[i].source_pad].flags &
+			      MEDIA_PAD_FL_SOURCE))
+				return -EINVAL;
+		}
+
+		krouting.which = routing->which;
+		krouting.num_routes = routing->num_routes;
+		krouting.routes = routes;
+
+		return v4l2_subdev_call(sd, pad, set_routing, subdev_fh->state, &krouting);
+	}
+
 	default:
 		return v4l2_subdev_call(sd, core, ioctl, cmd, arg);
 	}
