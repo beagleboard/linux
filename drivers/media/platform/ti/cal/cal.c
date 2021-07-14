@@ -743,8 +743,12 @@ static int cal_async_notifier_complete(struct v4l2_async_notifier *notifier)
 	int ret = 0;
 
 	for (i = 0; i < ARRAY_SIZE(cal->ctx); ++i) {
-		if (cal->ctx[i])
-			cal_ctx_v4l2_register(cal->ctx[i]);
+		if (!cal->ctx[i])
+			continue;
+
+		ret = cal_ctx_v4l2_register(cal->ctx[i]);
+		if (ret)
+			return ret;
 	}
 
 	if (cal_mc_api)
