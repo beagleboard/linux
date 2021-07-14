@@ -191,6 +191,13 @@ struct v4l2_subdev_capability {
 #define V4L2_SUBDEV_ROUTE_FL_IMMUTABLE		BIT(1)
 
 /**
+ * Is the route a source endpoint? A source endpoint route doesn't come
+ * from "anywhere", and the sink_pad and sink_stream fields are unused.
+ * Set by the driver.
+ */
+#define V4L2_SUBDEV_ROUTE_FL_SOURCE		BIT(2)
+
+/**
  * struct v4l2_subdev_route - A route inside a subdev
  *
  * @sink_pad: the sink pad index
