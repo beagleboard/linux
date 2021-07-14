@@ -662,6 +662,37 @@ struct v4l2_subdev_pad_config {
 };
 
 /**
+ * struct v4l2_subdev_stream_config - Used for storing stream configuration.
+ *
+ * @pad: pad number
+ * @stream: stream number
+ * @fmt: &struct v4l2_mbus_framefmt
+ * @crop: &struct v4l2_rect to be used for crop
+ * @compose: &struct v4l2_rect to be used for compose
+ *
+ * This structure stores configuration for a stream.
+ */
+struct v4l2_subdev_stream_config {
+	u32 pad;
+	u32 stream;
+
+	struct v4l2_mbus_framefmt fmt;
+	struct v4l2_rect crop;
+	struct v4l2_rect compose;
+};
+
+/**
+ * struct v4l2_subdev_stream_configs - A collection of stream configs.
+ *
+ * @num_configs: number of entries in @config.
+ * @config: an array of &struct v4l2_subdev_stream_configs.
+ */
+struct v4l2_subdev_stream_configs {
+	u32 num_configs;
+	struct v4l2_subdev_stream_config *configs;
+};
+
+/**
  * struct v4l2_subdev_krouting - subdev routing table
  *
  * @which: format type (from enum v4l2_subdev_format_whence)
@@ -1316,5 +1347,29 @@ int v4l2_subdev_dup_routing(struct v4l2_subdev_krouting *dst,
  */
 bool v4l2_subdev_has_route(struct v4l2_subdev_krouting *routing,
 			   unsigned int pad0, unsigned int pad1);
+
+
+/**
+ * v4l2_init_stream_configs() - Initialize stream configs according to routing
+ *
+ * @stream_configs: The stream configs to initialize
+ * @routing: The routing used for the stream configs
+ *
+ * Initializes @stream_configs according to @routing, allocating enough
+ * space to hold configuration for each route endpoint.
+ *
+ * Must be freed with v4l2_uninit_stream_configs().
+ */
+int v4l2_init_stream_configs(struct v4l2_subdev_stream_configs *stream_configs,
+			     const struct v4l2_subdev_krouting *routing);
+
+/**
+ * v4l2_uninit_stream_configs() - Uninitialize stream configs
+ *
+ * @stream_configs: The stream configs to uninitialize
+ *
+ * Frees any allocated memory in @stream_configs.
+ */
+void v4l2_uninit_stream_configs(struct v4l2_subdev_stream_configs *stream_configs);
 
 #endif
