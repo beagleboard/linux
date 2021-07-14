@@ -469,9 +469,55 @@ static bool cal_ctx_wr_dma_stopped(struct cal_ctx *ctx)
 	return stopped;
 }
 
+static int
+cal_get_remote_frame_desc_entry(struct cal_camerarx *phy, u32 stream,
+				struct v4l2_mbus_frame_desc_entry *entry)
+{
+	struct v4l2_mbus_frame_desc fd;
+	unsigned int i;
+	int ret;
+
+	ret = cal_camerarx_get_remote_frame_desc(phy, &fd);
+	if (ret) {
+		if (ret != -ENOIOCTLCMD)
+			dev_err(phy->cal->dev,
+				"Failed to get remote frame desc: %d\n", ret);
+		return ret;
+	}
+
+	for (i = 0; i < fd.num_entries; i++) {
+		if (stream == fd.entry[i].stream) {
+			*entry = fd.entry[i];
+			return 0;
+		}
+	}
+
+	return -ENODEV;
+}
+
 int cal_ctx_prepare(struct cal_ctx *ctx)
 {
+	struct v4l2_mbus_frame_desc_entry entry;
 	int ret;
+
+	ret = cal_get_remote_frame_desc_entry(ctx->phy, ctx->stream, &entry);
+
+	if (ret == -ENOIOCTLCMD) {
+		ctx->vc = 0;
+		ctx->datatype = CAL_CSI2_CTX_DT_ANY;
+	} else if (!ret) {
+		ctx_dbg(2, ctx, "Framedesc: stream %u, len %u, vc %u, dt %#x\n",
+		       entry.stream,
+		       entry.length,
+		       entry.bus.csi2.vc,
+		       entry.bus.csi2.dt);
+
+		ctx->vc = entry.bus.csi2.vc;
+		ctx->datatype = entry.bus.csi2.dt;
+	} else {
+		ctx_err(ctx, "Failed to get remote frame desc: %d\n", ret);
+		return ret;
+	}
 
 	ctx->use_pix_proc = !ctx->fmtinfo->meta;
 
@@ -927,8 +973,7 @@ static struct cal_ctx *cal_ctx_create(struct cal_dev *cal, int inst)
 	ctx->dma_ctx = inst;
 	ctx->csi2_ctx = inst;
 	ctx->cport = inst;
-	ctx->vc = 0;
-	ctx->datatype = CAL_CSI2_CTX_DT_ANY;
+	ctx->stream = 0;
 
 	ret = cal_ctx_v4l2_init(ctx);
 	if (ret)

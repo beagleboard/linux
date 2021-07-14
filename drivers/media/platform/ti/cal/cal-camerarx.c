@@ -583,6 +583,32 @@ done:
 	return ret;
 }
 
+int cal_camerarx_get_remote_frame_desc(struct cal_camerarx *phy,
+				       struct v4l2_mbus_frame_desc *fd)
+{
+	struct media_pad *pad;
+	int ret;
+
+	if (!phy->source)
+		return -ENODEV;
+
+	pad = media_entity_remote_pad(&phy->pads[CAL_CAMERARX_PAD_SINK]);
+	if (!pad)
+		return -ENODEV;
+
+	ret = v4l2_subdev_call(phy->source, pad, get_frame_desc, pad->index,
+			       fd);
+	if (ret)
+		return ret;
+
+	if (fd->type != V4L2_MBUS_FRAME_DESC_TYPE_CSI2) {
+		dev_err(phy->cal->dev, "Frame desc do not describe CSI-2 link");
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 /* ------------------------------------------------------------------
  *	V4L2 Subdev Operations
  * ------------------------------------------------------------------
