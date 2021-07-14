@@ -736,7 +736,7 @@ static int dcmi_start_streaming(struct vb2_queue *vq, unsigned int count)
 		goto err_pm_put;
 	}
 
-	ret = media_pipeline_start(&dcmi->vdev->entity, &dcmi->pipeline);
+	ret = media_pipeline_start(dcmi->vdev->entity.pads, &dcmi->pipeline);
 	if (ret < 0) {
 		dev_err(dcmi->dev, "%s: Failed to start streaming, media pipeline start error (%d)\n",
 			__func__, ret);
@@ -833,7 +833,7 @@ err_pipeline_stop:
 	dcmi_pipeline_stop(dcmi);
 
 err_media_pipeline_stop:
-	media_pipeline_stop(&dcmi->vdev->entity);
+	media_pipeline_stop(dcmi->vdev->entity.pads);
 
 err_pm_put:
 	pm_runtime_put(dcmi->dev);
@@ -859,7 +859,7 @@ static void dcmi_stop_streaming(struct vb2_queue *vq)
 
 	dcmi_pipeline_stop(dcmi);
 
-	media_pipeline_stop(&dcmi->vdev->entity);
+	media_pipeline_stop(dcmi->vdev->entity.pads);
 
 	spin_lock_irq(&dcmi->irqlock);
 

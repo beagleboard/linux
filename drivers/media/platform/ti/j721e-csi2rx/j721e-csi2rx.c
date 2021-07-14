@@ -655,7 +655,7 @@ static int ti_csi2rx_start_streaming(struct vb2_queue *vq, unsigned int count)
 	if (ret)
 		return ret;
 
-	ret = media_pipeline_start(&csi->vdev.entity, &csi->pipe);
+	ret = media_pipeline_start(csi->vdev.entity.pads, &csi->pipe);
 	if (ret)
 		return ret;
 
@@ -695,7 +695,7 @@ static int ti_csi2rx_start_streaming(struct vb2_queue *vq, unsigned int count)
 err_stream:
 	v4l2_subdev_call(csi->subdev, video, s_stream, 0);
 err:
-	media_pipeline_stop(&csi->vdev.entity);
+	media_pipeline_stop(csi->vdev.entity.pads);
 
 	spin_lock_irqsave(&dma->lock, flags);
 	list_for_each_entry_safe(buf, tmp, &dma->queue, list) {
@@ -716,7 +716,7 @@ static void ti_csi2rx_stop_streaming(struct vb2_queue *vq)
 	unsigned long flags = 0;
 	int ret;
 
-	media_pipeline_stop(&csi->vdev.entity);
+	media_pipeline_stop(csi->vdev.entity.pads);
 
 	ret = v4l2_subdev_call(csi->subdev, video, s_stream, 0);
 	if (ret)
