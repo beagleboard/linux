@@ -166,6 +166,8 @@ struct cal_camerarx {
 
 	/* mutex for camerarx ops */
 	struct mutex		mutex;
+
+	unsigned int enable_count;
 };
 
 struct cal_dev {
