@@ -45,7 +45,7 @@
 
 #define CAL_CAMERARX_PAD_SINK		0
 #define CAL_CAMERARX_PAD_FIRST_SOURCE	1
-#define CAL_CAMERARX_NUM_SOURCE_PADS	1
+#define CAL_CAMERARX_NUM_SOURCE_PADS	8
 #define CAL_CAMERARX_NUM_PADS		(1 + CAL_CAMERARX_NUM_SOURCE_PADS)
 
 static inline bool cal_rx_pad_is_sink(u32 pad)
@@ -178,12 +178,14 @@ struct cal_camerarx {
 
 	struct v4l2_subdev	subdev;
 	struct media_pad	pads[CAL_CAMERARX_NUM_PADS];
-	struct v4l2_mbus_framefmt	formats[CAL_CAMERARX_NUM_PADS];
 
 	/* mutex for camerarx ops */
 	struct mutex		mutex;
 
 	unsigned int enable_count;
+
+	struct v4l2_subdev_krouting routing;
+	struct v4l2_subdev_stream_configs stream_configs;
 };
 
 struct cal_dev {
@@ -321,6 +323,7 @@ void cal_quickdump_regs(struct cal_dev *cal);
 
 int cal_camerarx_get_remote_frame_desc(struct cal_camerarx *phy,
 				       struct v4l2_mbus_frame_desc *fd);
+struct cal_camerarx *cal_camerarx_get_phy_from_entity(struct media_entity *entity);
 void cal_camerarx_disable(struct cal_camerarx *phy);
 void cal_camerarx_i913_errata(struct cal_camerarx *phy);
 struct cal_camerarx *cal_camerarx_create(struct cal_dev *cal,
@@ -337,5 +340,10 @@ int cal_ctx_v4l2_register(struct cal_ctx *ctx);
 void cal_ctx_v4l2_unregister(struct cal_ctx *ctx);
 int cal_ctx_v4l2_init(struct cal_ctx *ctx);
 void cal_ctx_v4l2_cleanup(struct cal_ctx *ctx);
+
+struct v4l2_mbus_framefmt *
+cal_camerarx_get_stream_format(struct cal_camerarx *phy,
+			       struct v4l2_subdev_state *state,
+			       unsigned int pad, u32 stream, u32 which);
 
 #endif /* __TI_CAL_H__ */

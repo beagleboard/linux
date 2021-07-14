@@ -693,7 +693,11 @@ static int cal_video_check_format(struct cal_ctx *ctx)
 	if (!remote_pad)
 		return -ENODEV;
 
-	format = &ctx->phy->formats[remote_pad->index];
+	format = cal_camerarx_get_stream_format(ctx->phy, NULL,
+						remote_pad->index, 0,
+						V4L2_SUBDEV_FORMAT_ACTIVE);
+	if (!format)
+		return -EINVAL;
 
 	if (ctx->fmtinfo->code != format->code ||
 	    ctx->v_fmt.fmt.pix.height != format->height ||
@@ -710,6 +714,48 @@ static int cal_start_streaming(struct vb2_queue *vq, unsigned int count)
 	struct cal_buffer *buf;
 	dma_addr_t addr;
 	int ret;
+
+	if (cal_mc_api) {
+		struct v4l2_subdev_route *route = NULL;
+		struct media_pad *remote_pad;
+		unsigned int i;
+
+		/* Find the PHY connected to this video device */
+
+		remote_pad = media_entity_remote_pad(&ctx->pad);
+		if (!remote_pad) {
+			ctx_err(ctx, "Context not connected\n");
+			ret = -ENODEV;
+			goto error_release_buffers;
+		}
+
+		ctx->phy = cal_camerarx_get_phy_from_entity(remote_pad->entity);
+
+		/* Find the stream */
+
+		for (i = 0; i < ctx->phy->routing.num_routes; ++i) {
+			struct v4l2_subdev_route *r =
+				&ctx->phy->routing.routes[i];
+
+			if (!(r->flags & V4L2_SUBDEV_ROUTE_FL_ACTIVE))
+				continue;
+
+			if (r->source_pad != remote_pad->index)
+				continue;
+
+			route = r;
+
+			break;
+		}
+
+		if (!route) {
+			ctx_err(ctx, "Failed to find route\n");
+			ret = -ENODEV;
+			goto error_release_buffers;
+		}
+
+		ctx->stream = route->sink_stream;
+	}
 
 	ret = media_pipeline_start(ctx->vdev.entity.pads, &ctx->phy->pipe);
 	if (ret < 0) {
@@ -786,6 +832,9 @@ static void cal_stop_streaming(struct vb2_queue *vq)
 	cal_release_buffers(ctx, VB2_BUF_STATE_ERROR);
 
 	media_pipeline_stop(ctx->vdev.entity.pads);
+
+	if (cal_mc_api)
+		ctx->phy = NULL;
 }
 
 static const struct vb2_ops cal_video_qops = {
@@ -947,16 +996,48 @@ int cal_ctx_v4l2_register(struct cal_ctx *ctx)
 		return ret;
 	}
 
-	ret = media_create_pad_link(&ctx->phy->subdev.entity,
-				    CAL_CAMERARX_PAD_FIRST_SOURCE,
-				    &vfd->entity, 0,
-				    MEDIA_LNK_FL_IMMUTABLE |
-				    MEDIA_LNK_FL_ENABLED);
-	if (ret) {
-		ctx_err(ctx, "Failed to create media link for context %u\n",
-			ctx->dma_ctx);
-		video_unregister_device(vfd);
-		return ret;
+	if (cal_mc_api) {
+		u16 phy_idx;
+		u16 pad_idx;
+
+		/* Create links from all video nodes to all PHYs */
+
+		for (phy_idx = 0; phy_idx < ctx->cal->data->num_csi2_phy; ++phy_idx) {
+			for (pad_idx = 1; pad_idx < CAL_CAMERARX_NUM_PADS; ++pad_idx) {
+				/*
+				 * Enable only links from video0 to PHY0 pad 1, and
+				 * video1 to PHY1 pad 1.
+				 */
+				bool enable = (ctx->dma_ctx == 0 &&
+					       phy_idx == 0 && pad_idx == 1) ||
+					      (ctx->dma_ctx == 1 &&
+					       phy_idx == 1 && pad_idx == 1);
+
+				ret = media_create_pad_link(
+					&ctx->cal->phy[phy_idx]->subdev.entity,
+					pad_idx, &vfd->entity, 0,
+					enable ? MEDIA_LNK_FL_ENABLED : 0);
+				if (ret) {
+					ctx_err(ctx,
+						"Failed to create media link for context %u\n",
+						ctx->dma_ctx);
+					video_unregister_device(vfd);
+					return ret;
+				}
+			}
+		}
+	} else {
+		ret = media_create_pad_link(
+			&ctx->phy->subdev.entity, CAL_CAMERARX_PAD_FIRST_SOURCE,
+			&vfd->entity, 0,
+			MEDIA_LNK_FL_IMMUTABLE | MEDIA_LNK_FL_ENABLED);
+		if (ret) {
+			ctx_err(ctx,
+				"Failed to create media link for context %u\n",
+				ctx->dma_ctx);
+			video_unregister_device(vfd);
+			return ret;
+		}
 	}
 
 	ctx_info(ctx, "V4L2 device registered as %s\n",
