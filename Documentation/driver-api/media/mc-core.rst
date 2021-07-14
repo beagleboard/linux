@@ -169,8 +169,11 @@ Drivers initiate a graph traversal by calling
 The graph structure, provided by the caller, is initialized to start graph
 traversal at the given pad in an entity.
 
-Drivers can then retrieve the next entity by calling
-:c:func:`media_graph_walk_next()`
+Drivers can then retrieve the next pad by calling
+:c:func:`media_graph_walk_next()`. Only the pad through which the entity
+is first reached is returned. If the caller is interested in knowing which
+further pads would be connected, the :c:func:`media_entity_has_route()`
+function can be used for that.
 
 When the graph traversal is complete the function will return ``NULL``.
 
