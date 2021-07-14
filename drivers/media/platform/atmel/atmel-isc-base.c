@@ -1224,7 +1224,7 @@ static int isc_try_configure_pipeline(struct isc_device *isc)
 }
 
 static void isc_try_fse(struct isc_device *isc,
-			struct v4l2_subdev_pad_config *pad_cfg)
+			struct v4l2_subdev_state *sd_state)
 {
 	int ret;
 	struct v4l2_subdev_frame_size_enum fse = {};
@@ -1240,17 +1240,17 @@ static void isc_try_fse(struct isc_device *isc,
 	fse.which = V4L2_SUBDEV_FORMAT_TRY;
 
 	ret = v4l2_subdev_call(isc->current_subdev->sd, pad, enum_frame_size,
-			       pad_cfg, &fse);
+			       sd_state, &fse);
 	/*
 	 * Attempt to obtain format size from subdev. If not available,
 	 * just use the maximum ISC can receive.
 	 */
 	if (ret) {
-		pad_cfg->try_crop.width = ISC_MAX_SUPPORT_WIDTH;
-		pad_cfg->try_crop.height = ISC_MAX_SUPPORT_HEIGHT;
+		sd_state->pads->try_crop.width = ISC_MAX_SUPPORT_WIDTH;
+		sd_state->pads->try_crop.height = ISC_MAX_SUPPORT_HEIGHT;
 	} else {
-		pad_cfg->try_crop.width = fse.max_width;
-		pad_cfg->try_crop.height = fse.max_height;
+		sd_state->pads->try_crop.width = fse.max_width;
+		sd_state->pads->try_crop.height = fse.max_height;
 	}
 }
 
@@ -1261,6 +1261,9 @@ static int isc_try_fmt(struct isc_device *isc, struct v4l2_format *f,
 	struct isc_format *sd_fmt = NULL, *direct_fmt = NULL;
 	struct v4l2_pix_format *pixfmt = &f->fmt.pix;
 	struct v4l2_subdev_pad_config pad_cfg = {};
+	struct v4l2_subdev_state pad_state = {
+		.pads = &pad_cfg
+		};
 	struct v4l2_subdev_format format = {
 		.which = V4L2_SUBDEV_FORMAT_TRY,
 	};
@@ -1358,11 +1361,11 @@ static int isc_try_fmt(struct isc_device *isc, struct v4l2_format *f,
 		goto isc_try_fmt_err;
 
 	/* Obtain frame sizes if possible to have crop requirements ready */
-	isc_try_fse(isc, &pad_cfg);
+	isc_try_fse(isc, &pad_state);
 
 	v4l2_fill_mbus_format(&format.format, pixfmt, mbus_code);
 	ret = v4l2_subdev_call(isc->current_subdev->sd, pad, set_fmt,
-			       &pad_cfg, &format);
+			       &pad_state, &format);
 	if (ret < 0)
 		goto isc_try_fmt_subdev_err;
 

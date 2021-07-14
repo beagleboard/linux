@@ -452,7 +452,7 @@ static const struct v4l2_subdev_video_ops ov5647_subdev_video_ops = {
 };
 
 static int ov5647_enum_mbus_code(struct v4l2_subdev *sd,
-				struct v4l2_subdev_pad_config *cfg,
+				struct v4l2_subdev_state *sd_state,
 				struct v4l2_subdev_mbus_code_enum *code)
 {
 	if (code->index > 0)
@@ -507,9 +507,9 @@ static int ov5647_detect(struct v4l2_subdev *sd)
 static int ov5647_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 {
 	struct v4l2_mbus_framefmt *format =
-				v4l2_subdev_get_try_format(sd, fh->pad, 0);
+				v4l2_subdev_get_try_format(sd, fh->state, 0);
 	struct v4l2_rect *crop =
-				v4l2_subdev_get_try_crop(sd, fh->pad, 0);
+				v4l2_subdev_get_try_crop(sd, fh->state, 0);
 
 	crop->left = OV5647_COLUMN_START_DEF;
 	crop->top = OV5647_ROW_START_DEF;
