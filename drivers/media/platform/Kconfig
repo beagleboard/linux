@@ -168,6 +168,20 @@ config VIDEO_TI_CAL
 	  In TI Technical Reference Manual this module is referred as
 	  Camera Interface Subsystem (CAMSS).
 
+if VIDEO_TI_CAL
+
+config VIDEO_TI_CAL_MC
+	bool "Media Controller centric mode by default"
+	default n
+	help
+	  Enables Media Controller centric mode by default.
+
+	  If set, CAL driver will start in Media Controller mode by
+	  default. Note that this behavior can be overridden via
+	  module parameter 'mc_api'.
+
+endif # VIDEO_TI_CAL
+
 config VIDEO_TI_J721E_CSI2RX
 	tristate "TI J721E CSI2RX wrapper layer driver"
 	depends on VIDEO_DEV && VIDEO_V4L2 && VIDEO_V4L2_SUBDEV_API
