@@ -108,6 +108,14 @@ patternProperties:
           manipulation of the page attributes.
         type: boolean
 
+      dma-heap-export:
+        description: |
+          Similar to 'pool' and 'export' this region will be exported
+          for use by drivers, devices, and userspace using the
+          DMA-Heaps framework. NOTE: This region must be page aligned
+          on start and end in order to properly allow manipulation of
+          the page attributes.
+
       label:
         description:
           The name for the reserved partition, if omitted, the label is taken
