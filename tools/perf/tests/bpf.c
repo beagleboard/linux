@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <sys/epoll.h>
 #include <util/bpf-loader.h>
 #include <util/evlist.h>
@@ -176,6 +177,7 @@ static int __test__bpf(int idx)
 		      bpf_testcase_table[idx].target_func,
 		      bpf_testcase_table[idx].expect_result);
 out:
+	free(obj_buf);
 	bpf__clear();
 	return ret;
 }
