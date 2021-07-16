@@ -246,7 +246,7 @@ EXPORT_SYMBOL_GPL(xvip_cleanup_resources);
  * is not valid.
  */
 int xvip_enum_mbus_code(struct v4l2_subdev *subdev,
-			struct v4l2_subdev_pad_config *cfg,
+			struct v4l2_subdev_state *sd_state,
 			struct v4l2_subdev_mbus_code_enum *code)
 {
 	struct v4l2_mbus_framefmt *format;
@@ -260,7 +260,7 @@ int xvip_enum_mbus_code(struct v4l2_subdev *subdev,
 	if (code->index)
 		return -EINVAL;
 
-	format = v4l2_subdev_get_try_format(subdev, cfg, code->pad);
+	format = v4l2_subdev_get_try_format(subdev, sd_state, code->pad);
 
 	code->code = format->code;
 
@@ -284,7 +284,7 @@ EXPORT_SYMBOL_GPL(xvip_enum_mbus_code);
  * if the index or the code is not valid.
  */
 int xvip_enum_frame_size(struct v4l2_subdev *subdev,
-			 struct v4l2_subdev_pad_config *cfg,
+			 struct v4l2_subdev_state *sd_state,
 			 struct v4l2_subdev_frame_size_enum *fse)
 {
 	struct v4l2_mbus_framefmt *format;
@@ -295,7 +295,7 @@ int xvip_enum_frame_size(struct v4l2_subdev *subdev,
 	if (fse->which == V4L2_SUBDEV_FORMAT_ACTIVE)
 		return -EINVAL;
 
-	format = v4l2_subdev_get_try_format(subdev, cfg, fse->pad);
+	format = v4l2_subdev_get_try_format(subdev, sd_state, fse->pad);
 
 	if (fse->index || fse->code != format->code)
 		return -EINVAL;

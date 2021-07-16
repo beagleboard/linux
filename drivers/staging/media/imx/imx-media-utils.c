@@ -408,7 +408,7 @@ EXPORT_SYMBOL_GPL(imx_media_init_mbus_fmt);
  * of a subdev. Can be used as the .init_cfg pad operation.
  */
 int imx_media_init_cfg(struct v4l2_subdev *sd,
-		       struct v4l2_subdev_pad_config *cfg)
+		       struct v4l2_subdev_state *sd_state)
 {
 	struct v4l2_mbus_framefmt *mf_try;
 	struct v4l2_subdev_format format;
@@ -424,7 +424,7 @@ int imx_media_init_cfg(struct v4l2_subdev *sd,
 		if (ret)
 			continue;
 
-		mf_try = v4l2_subdev_get_try_format(sd, cfg, pad);
+		mf_try = v4l2_subdev_get_try_format(sd, sd_state, pad);
 		*mf_try = format.format;
 	}
 
@@ -884,16 +884,16 @@ int imx_media_pipeline_set_stream(struct imx_media_dev *imxmd,
 	mutex_lock(&imxmd->md.graph_mutex);
 
 	if (on) {
-		ret = __media_pipeline_start(entity, &imxmd->pipe);
+		ret = __media_pipeline_start(entity->pads, &imxmd->pipe);
 		if (ret)
 			goto out;
 		ret = v4l2_subdev_call(sd, video, s_stream, 1);
 		if (ret)
-			__media_pipeline_stop(entity);
+			__media_pipeline_stop(entity->pads);
 	} else {
 		v4l2_subdev_call(sd, video, s_stream, 0);
-		if (entity->pipe)
-			__media_pipeline_stop(entity);
+		if (entity->pads->pipe)
+			__media_pipeline_stop(entity->pads);
 	}
 
 out:

@@ -222,8 +222,8 @@ static int isp_video_get_graph_data(struct isp_video *video,
 				    struct isp_pipeline *pipe)
 {
 	struct media_graph graph;
-	struct media_entity *entity = &video->video.entity;
-	struct media_device *mdev = entity->graph_obj.mdev;
+	struct media_pad *pad = video->video.entity.pads;
+	struct media_device *mdev = video->video.entity.graph_obj.mdev;
 	struct isp_video *far_end = NULL;
 	int ret;
 
@@ -234,23 +234,24 @@ static int isp_video_get_graph_data(struct isp_video *video,
 		return ret;
 	}
 
-	media_graph_walk_start(&graph, entity);
+	media_graph_walk_start(&graph, pad);
 
-	while ((entity = media_graph_walk_next(&graph))) {
+	while ((pad = media_graph_walk_next(&graph))) {
 		struct isp_video *__video;
 
-		media_entity_enum_set(&pipe->ent_enum, entity);
+		media_entity_enum_set(&pipe->ent_enum, pad->entity);
 
 		if (far_end != NULL)
 			continue;
 
-		if (entity == &video->video.entity)
+		if (pad == video->video.entity.pads)
 			continue;
 
-		if (!is_media_entity_v4l2_video_device(entity))
+		if (!is_media_entity_v4l2_video_device(pad->entity))
 			continue;
 
-		__video = to_isp_video(media_entity_to_video_device(entity));
+		__video = to_isp_video(media_entity_to_video_device(
+					       pad->entity));
 		if (__video->type != video->type)
 			far_end = __video;
 	}
@@ -1093,7 +1094,7 @@ isp_video_streamon(struct file *file, void *fh, enum v4l2_buf_type type)
 	/* Start streaming on the pipeline. No link touching an entity in the
 	 * pipeline can be activated or deactivated once streaming is started.
 	 */
-	pipe = video->video.entity.pipe
+	pipe = video->video.entity.pads->pipe
 	     ? to_isp_pipeline(&video->video.entity) : &video->pipe;
 
 	ret = media_entity_enum_init(&pipe->ent_enum, &video->isp->media_dev);
@@ -1104,7 +1105,7 @@ isp_video_streamon(struct file *file, void *fh, enum v4l2_buf_type type)
 	pipe->l3_ick = clk_get_rate(video->isp->clock[ISP_CLK_L3_ICK]);
 	pipe->max_rate = pipe->l3_ick;
 
-	ret = media_pipeline_start(&video->video.entity, &pipe->pipe);
+	ret = media_pipeline_start(video->video.entity.pads, &pipe->pipe);
 	if (ret < 0)
 		goto err_pipeline_start;
 
@@ -1161,7 +1162,7 @@ isp_video_streamon(struct file *file, void *fh, enum v4l2_buf_type type)
 	return 0;
 
 err_check_format:
-	media_pipeline_stop(&video->video.entity);
+	media_pipeline_stop(video->video.entity.pads);
 err_pipeline_start:
 	/* TODO: Implement PM QoS */
 	/* The DMA queue must be emptied here, otherwise CCDC interrupts that
@@ -1228,7 +1229,7 @@ isp_video_streamoff(struct file *file, void *fh, enum v4l2_buf_type type)
 	video->error = false;
 
 	/* TODO: Implement PM QoS */
-	media_pipeline_stop(&video->video.entity);
+	media_pipeline_stop(video->video.entity.pads);
 
 	media_entity_enum_cleanup(&pipe->ent_enum);
 

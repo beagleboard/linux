@@ -132,13 +132,17 @@ static int rvin_group_link_notify(struct media_link *link, u32 flags,
 		return 0;
 
 	/*
-	 * Don't allow link changes if any entity in the graph is
-	 * streaming, modifying the CHSEL register fields can disrupt
-	 * running streams.
+	 * Don't allow link changes if any stream in the graph is active as
+	 * modifying the CHSEL register fields can disrupt running streams.
 	 */
-	media_device_for_each_entity(entity, &group->mdev)
-		if (entity->stream_count)
-			return -EBUSY;
+	media_device_for_each_entity(entity, &group->mdev) {
+		struct media_pad *iter;
+
+		media_entity_for_each_pad(entity, iter) {
+			if (iter->stream_count)
+				return -EBUSY;
+		}
+	}
 
 	mutex_lock(&group->lock);
 

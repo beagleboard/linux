@@ -33,6 +33,7 @@ struct ipu3_cio2_fmt {
 	u32 mbus_code;
 	u32 fourcc;
 	u8 mipicode;
+	u8 bpp;
 };
 
 /*
@@ -46,18 +47,22 @@ static const struct ipu3_cio2_fmt formats[] = {
 		.mbus_code	= MEDIA_BUS_FMT_SGRBG10_1X10,
 		.fourcc		= V4L2_PIX_FMT_IPU3_SGRBG10,
 		.mipicode	= 0x2b,
+		.bpp		= 10,
 	}, {
 		.mbus_code	= MEDIA_BUS_FMT_SGBRG10_1X10,
 		.fourcc		= V4L2_PIX_FMT_IPU3_SGBRG10,
 		.mipicode	= 0x2b,
+		.bpp		= 10,
 	}, {
 		.mbus_code	= MEDIA_BUS_FMT_SBGGR10_1X10,
 		.fourcc		= V4L2_PIX_FMT_IPU3_SBGGR10,
 		.mipicode	= 0x2b,
+		.bpp		= 10,
 	}, {
 		.mbus_code	= MEDIA_BUS_FMT_SRGGB10_1X10,
 		.fourcc		= V4L2_PIX_FMT_IPU3_SRGGB10,
 		.mipicode	= 0x2b,
+		.bpp		= 10,
 	},
 };
 
@@ -288,35 +293,20 @@ static s32 cio2_rx_timing(s32 a, s32 b, s64 freq, int def)
 
 /* Calculate the the delay value for termination enable of clock lane HS Rx */
 static int cio2_csi2_calc_timing(struct cio2_device *cio2, struct cio2_queue *q,
-				 struct cio2_csi2_timing *timing)
+				 struct cio2_csi2_timing *timing,
+				 unsigned int bpp, unsigned int lanes)
 {
 	struct device *dev = &cio2->pci_dev->dev;
-	struct v4l2_querymenu qm = { .id = V4L2_CID_LINK_FREQ };
-	struct v4l2_ctrl *link_freq;
 	s64 freq;
-	int r;
 
 	if (!q->sensor)
 		return -ENODEV;
 
-	link_freq = v4l2_ctrl_find(q->sensor->ctrl_handler, V4L2_CID_LINK_FREQ);
-	if (!link_freq) {
-		dev_err(dev, "failed to find LINK_FREQ\n");
-		return -EPIPE;
+	freq = v4l2_get_link_freq(q->sensor->ctrl_handler, bpp, lanes);
+	if (freq < 0) {
+		dev_err(dev, "error %lld, invalid link_freq\n", freq);
+		return freq;
 	}
-
-	qm.index = v4l2_ctrl_g_ctrl(link_freq);
-	r = v4l2_querymenu(q->sensor->ctrl_handler, &qm);
-	if (r) {
-		dev_err(dev, "failed to get menu item\n");
-		return r;
-	}
-
-	if (!qm.value) {
-		dev_err(dev, "error invalid link_freq\n");
-		return -EINVAL;
-	}
-	freq = qm.value;
 
 	timing->clk_termen = cio2_rx_timing(CIO2_CSIRX_DLY_CNT_TERMEN_CLANE_A,
 					    CIO2_CSIRX_DLY_CNT_TERMEN_CLANE_B,
@@ -364,7 +354,7 @@ static int cio2_hw_init(struct cio2_device *cio2, struct cio2_queue *q)
 
 	lanes = q->csi2.lanes;
 
-	r = cio2_csi2_calc_timing(cio2, q, &timing);
+	r = cio2_csi2_calc_timing(cio2, q, &timing, fmt->bpp, lanes);
 	if (r)
 		return r;
 
@@ -1211,11 +1201,11 @@ static int cio2_subdev_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	};
 
 	/* Initialize try_fmt */
-	format = v4l2_subdev_get_try_format(sd, fh->pad, CIO2_PAD_SINK);
+	format = v4l2_subdev_get_try_format(sd, fh->state, CIO2_PAD_SINK);
 	*format = fmt_default;
 
 	/* same as sink */
-	format = v4l2_subdev_get_try_format(sd, fh->pad, CIO2_PAD_SOURCE);
+	format = v4l2_subdev_get_try_format(sd, fh->state, CIO2_PAD_SOURCE);
 	*format = fmt_default;
 
 	return 0;
@@ -1229,7 +1219,7 @@ static int cio2_subdev_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
  * return -EINVAL or zero on success
  */
 static int cio2_subdev_get_fmt(struct v4l2_subdev *sd,
-			       struct v4l2_subdev_pad_config *cfg,
+			       struct v4l2_subdev_state *sd_state,
 			       struct v4l2_subdev_format *fmt)
 {
 	struct cio2_queue *q = container_of(sd, struct cio2_queue, subdev);
@@ -1237,7 +1227,8 @@ static int cio2_subdev_get_fmt(struct v4l2_subdev *sd,
 	mutex_lock(&q->subdev_lock);
 
 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY)
-		fmt->format = *v4l2_subdev_get_try_format(sd, cfg, fmt->pad);
+		fmt->format = *v4l2_subdev_get_try_format(sd, sd_state,
+							  fmt->pad);
 	else
 		fmt->format = q->subdev_fmt;
 
@@ -1254,7 +1245,7 @@ static int cio2_subdev_get_fmt(struct v4l2_subdev *sd,
  * return -EINVAL or zero on success
  */
 static int cio2_subdev_set_fmt(struct v4l2_subdev *sd,
-			       struct v4l2_subdev_pad_config *cfg,
+			       struct v4l2_subdev_state *sd_state,
 			       struct v4l2_subdev_format *fmt)
 {
 	struct cio2_queue *q = container_of(sd, struct cio2_queue, subdev);
@@ -1267,10 +1258,10 @@ static int cio2_subdev_set_fmt(struct v4l2_subdev *sd,
 	 * source always propagates from sink
 	 */
 	if (fmt->pad == CIO2_PAD_SOURCE)
-		return cio2_subdev_get_fmt(sd, cfg, fmt);
+		return cio2_subdev_get_fmt(sd, sd_state, fmt);
 
 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY)
-		mbus = v4l2_subdev_get_try_format(sd, cfg, fmt->pad);
+		mbus = v4l2_subdev_get_try_format(sd, sd_state, fmt->pad);
 	else
 		mbus = &q->subdev_fmt;
 
@@ -1296,7 +1287,7 @@ static int cio2_subdev_set_fmt(struct v4l2_subdev *sd,
 }
 
 static int cio2_subdev_enum_mbus_code(struct v4l2_subdev *sd,
-				      struct v4l2_subdev_pad_config *cfg,
+				      struct v4l2_subdev_state *sd_state,
 				      struct v4l2_subdev_mbus_code_enum *code)
 {
 	if (code->index >= ARRAY_SIZE(formats))
@@ -1476,7 +1467,8 @@ static int cio2_parse_firmware(struct cio2_device *cio2)
 		struct v4l2_fwnode_endpoint vep = {
 			.bus_type = V4L2_MBUS_CSI2_DPHY
 		};
-		struct sensor_async_subdev *s_asd = NULL;
+		struct sensor_async_subdev *s_asd;
+		struct v4l2_async_subdev *asd;
 		struct fwnode_handle *ep;
 
 		ep = fwnode_graph_get_endpoint_by_id(
@@ -1490,19 +1482,16 @@ static int cio2_parse_firmware(struct cio2_device *cio2)
 		if (ret)
 			goto err_parse;
 
-		s_asd = kzalloc(sizeof(*s_asd), GFP_KERNEL);
-		if (!s_asd) {
-			ret = -ENOMEM;
+		asd = v4l2_async_notifier_add_fwnode_remote_subdev(
+				&cio2->notifier, ep, sizeof(*s_asd));
+		if (IS_ERR(asd)) {
+			ret = PTR_ERR(asd);
 			goto err_parse;
 		}
 
+		s_asd = container_of(asd, struct sensor_async_subdev, asd);
 		s_asd->csi2.port = vep.base.port;
 		s_asd->csi2.lanes = vep.bus.mipi_csi2.num_data_lanes;
-
-		ret = v4l2_async_notifier_add_fwnode_remote_subdev(
-			&cio2->notifier, ep, &s_asd->asd);
-		if (ret)
-			goto err_parse;
 
 		fwnode_handle_put(ep);
 
@@ -1510,7 +1499,6 @@ static int cio2_parse_firmware(struct cio2_device *cio2)
 
 err_parse:
 		fwnode_handle_put(ep);
-		kfree(s_asd);
 		return ret;
 	}
 

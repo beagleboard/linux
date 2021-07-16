@@ -870,7 +870,7 @@ static int imx274_binning_goodness(struct stimx274 *imx274,
  *          available (when called from set_fmt)
  */
 static int __imx274_change_compose(struct stimx274 *imx274,
-				   struct v4l2_subdev_pad_config *cfg,
+				   struct v4l2_subdev_state *sd_state,
 				   u32 which,
 				   u32 *width,
 				   u32 *height,
@@ -884,8 +884,8 @@ static int __imx274_change_compose(struct stimx274 *imx274,
 	int best_goodness = INT_MIN;
 
 	if (which == V4L2_SUBDEV_FORMAT_TRY) {
-		cur_crop = &cfg->try_crop;
-		tgt_fmt = &cfg->try_fmt;
+		cur_crop = &sd_state->pads->try_crop;
+		tgt_fmt = &sd_state->pads->try_fmt;
 	} else {
 		cur_crop = &imx274->crop;
 		tgt_fmt = &imx274->format;
@@ -933,7 +933,7 @@ static int __imx274_change_compose(struct stimx274 *imx274,
  * Return: 0 on success
  */
 static int imx274_get_fmt(struct v4l2_subdev *sd,
-			  struct v4l2_subdev_pad_config *cfg,
+			  struct v4l2_subdev_state *sd_state,
 			  struct v4l2_subdev_format *fmt)
 {
 	struct stimx274 *imx274 = to_imx274(sd);
@@ -955,7 +955,7 @@ static int imx274_get_fmt(struct v4l2_subdev *sd,
  * Return: 0 on success
  */
 static int imx274_set_fmt(struct v4l2_subdev *sd,
-			  struct v4l2_subdev_pad_config *cfg,
+			  struct v4l2_subdev_state *sd_state,
 			  struct v4l2_subdev_format *format)
 {
 	struct v4l2_mbus_framefmt *fmt = &format->format;
@@ -964,7 +964,7 @@ static int imx274_set_fmt(struct v4l2_subdev *sd,
 
 	mutex_lock(&imx274->lock);
 
-	err = __imx274_change_compose(imx274, cfg, format->which,
+	err = __imx274_change_compose(imx274, sd_state, format->which,
 				      &fmt->width, &fmt->height, 0);
 
 	if (err)
@@ -977,7 +977,7 @@ static int imx274_set_fmt(struct v4l2_subdev *sd,
 	 */
 	fmt->field = V4L2_FIELD_NONE;
 	if (format->which == V4L2_SUBDEV_FORMAT_TRY)
-		cfg->try_fmt = *fmt;
+		sd_state->pads->try_fmt = *fmt;
 	else
 		imx274->format = *fmt;
 
@@ -988,7 +988,7 @@ out:
 }
 
 static int imx274_get_selection(struct v4l2_subdev *sd,
-				struct v4l2_subdev_pad_config *cfg,
+				struct v4l2_subdev_state *sd_state,
 				struct v4l2_subdev_selection *sel)
 {
 	struct stimx274 *imx274 = to_imx274(sd);
@@ -1008,8 +1008,8 @@ static int imx274_get_selection(struct v4l2_subdev *sd,
 	}
 
 	if (sel->which == V4L2_SUBDEV_FORMAT_TRY) {
-		src_crop = &cfg->try_crop;
-		src_fmt = &cfg->try_fmt;
+		src_crop = &sd_state->pads->try_crop;
+		src_fmt = &sd_state->pads->try_fmt;
 	} else {
 		src_crop = &imx274->crop;
 		src_fmt = &imx274->format;
@@ -1043,7 +1043,7 @@ static int imx274_get_selection(struct v4l2_subdev *sd,
 }
 
 static int imx274_set_selection_crop(struct stimx274 *imx274,
-				     struct v4l2_subdev_pad_config *cfg,
+				     struct v4l2_subdev_state *sd_state,
 				     struct v4l2_subdev_selection *sel)
 {
 	struct v4l2_rect *tgt_crop;
@@ -1080,7 +1080,7 @@ static int imx274_set_selection_crop(struct stimx274 *imx274,
 	sel->r = new_crop;
 
 	if (sel->which == V4L2_SUBDEV_FORMAT_TRY)
-		tgt_crop = &cfg->try_crop;
+		tgt_crop = &sd_state->pads->try_crop;
 	else
 		tgt_crop = &imx274->crop;
 
@@ -1094,7 +1094,7 @@ static int imx274_set_selection_crop(struct stimx274 *imx274,
 
 	/* if crop size changed then reset the output image size */
 	if (size_changed)
-		__imx274_change_compose(imx274, cfg, sel->which,
+		__imx274_change_compose(imx274, sd_state, sel->which,
 					&new_crop.width, &new_crop.height,
 					sel->flags);
 
@@ -1104,7 +1104,7 @@ static int imx274_set_selection_crop(struct stimx274 *imx274,
 }
 
 static int imx274_set_selection(struct v4l2_subdev *sd,
-				struct v4l2_subdev_pad_config *cfg,
+				struct v4l2_subdev_state *sd_state,
 				struct v4l2_subdev_selection *sel)
 {
 	struct stimx274 *imx274 = to_imx274(sd);
@@ -1113,13 +1113,13 @@ static int imx274_set_selection(struct v4l2_subdev *sd,
 		return -EINVAL;
 
 	if (sel->target == V4L2_SEL_TGT_CROP)
-		return imx274_set_selection_crop(imx274, cfg, sel);
+		return imx274_set_selection_crop(imx274, sd_state, sel);
 
 	if (sel->target == V4L2_SEL_TGT_COMPOSE) {
 		int err;
 
 		mutex_lock(&imx274->lock);
-		err =  __imx274_change_compose(imx274, cfg, sel->which,
+		err =  __imx274_change_compose(imx274, sd_state, sel->which,
 					       &sel->r.width, &sel->r.height,
 					       sel->flags);
 		mutex_unlock(&imx274->lock);

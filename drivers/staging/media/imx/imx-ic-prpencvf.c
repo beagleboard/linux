@@ -790,13 +790,13 @@ static void prp_stop(struct prp_priv *priv)
 }
 
 static struct v4l2_mbus_framefmt *
-__prp_get_fmt(struct prp_priv *priv, struct v4l2_subdev_pad_config *cfg,
+__prp_get_fmt(struct prp_priv *priv, struct v4l2_subdev_state *sd_state,
 	      unsigned int pad, enum v4l2_subdev_format_whence which)
 {
 	struct imx_ic_priv *ic_priv = priv->ic_priv;
 
 	if (which == V4L2_SUBDEV_FORMAT_TRY)
-		return v4l2_subdev_get_try_format(&ic_priv->sd, cfg, pad);
+		return v4l2_subdev_get_try_format(&ic_priv->sd, sd_state, pad);
 	else
 		return &priv->format_mbus[pad];
 }
@@ -844,7 +844,7 @@ static bool prp_bound_align_output(struct v4l2_mbus_framefmt *outfmt,
  */
 
 static int prp_enum_mbus_code(struct v4l2_subdev *sd,
-			      struct v4l2_subdev_pad_config *cfg,
+			      struct v4l2_subdev_state *sd_state,
 			      struct v4l2_subdev_mbus_code_enum *code)
 {
 	if (code->pad >= PRPENCVF_NUM_PADS)
@@ -855,7 +855,7 @@ static int prp_enum_mbus_code(struct v4l2_subdev *sd,
 }
 
 static int prp_get_fmt(struct v4l2_subdev *sd,
-		       struct v4l2_subdev_pad_config *cfg,
+		       struct v4l2_subdev_state *sd_state,
 		       struct v4l2_subdev_format *sdformat)
 {
 	struct prp_priv *priv = sd_to_priv(sd);
@@ -867,7 +867,7 @@ static int prp_get_fmt(struct v4l2_subdev *sd,
 
 	mutex_lock(&priv->lock);
 
-	fmt = __prp_get_fmt(priv, cfg, sdformat->pad, sdformat->which);
+	fmt = __prp_get_fmt(priv, sd_state, sdformat->pad, sdformat->which);
 	if (!fmt) {
 		ret = -EINVAL;
 		goto out;
@@ -880,7 +880,7 @@ out:
 }
 
 static void prp_try_fmt(struct prp_priv *priv,
-			struct v4l2_subdev_pad_config *cfg,
+			struct v4l2_subdev_state *sd_state,
 			struct v4l2_subdev_format *sdformat,
 			const struct imx_media_pixfmt **cc)
 {
@@ -897,7 +897,8 @@ static void prp_try_fmt(struct prp_priv *priv,
 		sdformat->format.code = (*cc)->codes[0];
 	}
 
-	infmt = __prp_get_fmt(priv, cfg, PRPENCVF_SINK_PAD, sdformat->which);
+	infmt = __prp_get_fmt(priv, sd_state, PRPENCVF_SINK_PAD,
+			      sdformat->which);
 
 	if (sdformat->pad == PRPENCVF_SRC_PAD) {
 		sdformat->format.field = infmt->field;
@@ -923,7 +924,7 @@ static void prp_try_fmt(struct prp_priv *priv,
 }
 
 static int prp_set_fmt(struct v4l2_subdev *sd,
-		       struct v4l2_subdev_pad_config *cfg,
+		       struct v4l2_subdev_state *sd_state,
 		       struct v4l2_subdev_format *sdformat)
 {
 	struct prp_priv *priv = sd_to_priv(sd);
@@ -941,9 +942,9 @@ static int prp_set_fmt(struct v4l2_subdev *sd,
 		goto out;
 	}
 
-	prp_try_fmt(priv, cfg, sdformat, &cc);
+	prp_try_fmt(priv, sd_state, sdformat, &cc);
 
-	fmt = __prp_get_fmt(priv, cfg, sdformat->pad, sdformat->which);
+	fmt = __prp_get_fmt(priv, sd_state, sdformat->pad, sdformat->which);
 	*fmt = sdformat->format;
 
 	/* propagate a default format to source pad */
@@ -955,9 +956,9 @@ static int prp_set_fmt(struct v4l2_subdev *sd,
 		format.pad = PRPENCVF_SRC_PAD;
 		format.which = sdformat->which;
 		format.format = sdformat->format;
-		prp_try_fmt(priv, cfg, &format, &outcc);
+		prp_try_fmt(priv, sd_state, &format, &outcc);
 
-		outfmt = __prp_get_fmt(priv, cfg, PRPENCVF_SRC_PAD,
+		outfmt = __prp_get_fmt(priv, sd_state, PRPENCVF_SRC_PAD,
 				       sdformat->which);
 		*outfmt = format.format;
 		if (sdformat->which == V4L2_SUBDEV_FORMAT_ACTIVE)
@@ -973,7 +974,7 @@ out:
 }
 
 static int prp_enum_frame_size(struct v4l2_subdev *sd,
-			       struct v4l2_subdev_pad_config *cfg,
+			       struct v4l2_subdev_state *sd_state,
 			       struct v4l2_subdev_frame_size_enum *fse)
 {
 	struct prp_priv *priv = sd_to_priv(sd);
@@ -991,7 +992,7 @@ static int prp_enum_frame_size(struct v4l2_subdev *sd,
 	format.format.code = fse->code;
 	format.format.width = 1;
 	format.format.height = 1;
-	prp_try_fmt(priv, cfg, &format, &cc);
+	prp_try_fmt(priv, sd_state, &format, &cc);
 	fse->min_width = format.format.width;
 	fse->min_height = format.format.height;
 
@@ -1003,7 +1004,7 @@ static int prp_enum_frame_size(struct v4l2_subdev *sd,
 	format.format.code = fse->code;
 	format.format.width = -1;
 	format.format.height = -1;
-	prp_try_fmt(priv, cfg, &format, &cc);
+	prp_try_fmt(priv, sd_state, &format, &cc);
 	fse->max_width = format.format.width;
 	fse->max_height = format.format.height;
 out:

@@ -576,23 +576,23 @@ unlock:
 static int ti_csi2rx_validate_pipeline(struct ti_csi2rx_dev *csi)
 {
 	struct media_pipeline *pipe = &csi->pipe;
-	struct media_entity *entity;
+	struct media_pad *pad;
 	struct v4l2_subdev *sd;
 	struct v4l2_subdev_format fmt;
 	struct v4l2_pix_format *pix = &csi->v_fmt.fmt.pix;
 	const struct ti_csi2rx_fmt *ti_fmt;
 	int ret;
 
-	media_graph_walk_start(&pipe->graph, &csi->vdev.entity);
+	media_graph_walk_start(&pipe->graph, csi->vdev.entity.pads);
 
-	while ((entity = media_graph_walk_next(&pipe->graph))) {
-		if (!is_media_entity_v4l2_subdev(entity))
+	while ((pad = media_graph_walk_next(&pipe->graph))) {
+		if (!is_media_entity_v4l2_subdev(pad->entity))
 			continue;
 
-		sd = media_entity_to_v4l2_subdev(entity);
+		sd = media_entity_to_v4l2_subdev(pad->entity);
 
 		fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
-		fmt.pad = media_get_pad_index(entity, 0, PAD_SIGNAL_DEFAULT);
+		fmt.pad = pad->index;
 
 		ret = v4l2_subdev_call(sd, pad, get_fmt, NULL, &fmt);
 		if (ret && ret != -ENOIOCTLCMD)
@@ -602,7 +602,7 @@ static int ti_csi2rx_validate_pipeline(struct ti_csi2rx_dev *csi)
 	}
 
 	/* Could not find input format. */
-	if (!entity)
+	if (!pad)
 		return -EPIPE;
 
 	if (fmt.format.width != pix->width)
@@ -655,7 +655,7 @@ static int ti_csi2rx_start_streaming(struct vb2_queue *vq, unsigned int count)
 	if (ret)
 		return ret;
 
-	ret = media_pipeline_start(&csi->vdev.entity, &csi->pipe);
+	ret = media_pipeline_start(csi->vdev.entity.pads, &csi->pipe);
 	if (ret)
 		return ret;
 
@@ -695,7 +695,7 @@ static int ti_csi2rx_start_streaming(struct vb2_queue *vq, unsigned int count)
 err_stream:
 	v4l2_subdev_call(csi->subdev, video, s_stream, 0);
 err:
-	media_pipeline_stop(&csi->vdev.entity);
+	media_pipeline_stop(csi->vdev.entity.pads);
 
 	spin_lock_irqsave(&dma->lock, flags);
 	list_for_each_entry_safe(buf, tmp, &dma->queue, list) {
@@ -716,7 +716,7 @@ static void ti_csi2rx_stop_streaming(struct vb2_queue *vq)
 	unsigned long flags = 0;
 	int ret;
 
-	media_pipeline_stop(&csi->vdev.entity);
+	media_pipeline_stop(csi->vdev.entity.pads);
 
 	ret = v4l2_subdev_call(csi->subdev, video, s_stream, 0);
 	if (ret)

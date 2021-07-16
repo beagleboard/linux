@@ -309,7 +309,18 @@ struct v4l2_subdev_audio_ops {
 };
 
 /**
- * enum v4l2_mbus_frame_desc_entry - media bus frame description flags
+ * struct v4l2_mbus_frame_desc_entry_csi2
+ *
+ * @vc: CSI-2 virtual channel
+ * @dt: CSI-2 data type ID
+ */
+struct v4l2_mbus_frame_desc_entry_csi2 {
+	u8 vc;
+	u8 dt;
+};
+
+/**
+ * enum v4l2_mbus_frame_desc_flags - media bus frame description flags
  *
  * @V4L2_MBUS_FRAME_DESC_FL_LEN_MAX:
  *	Indicates that &struct v4l2_mbus_frame_desc_entry->length field
@@ -327,25 +338,56 @@ enum v4l2_mbus_frame_desc_flags {
  * struct v4l2_mbus_frame_desc_entry - media bus frame description structure
  *
  * @flags:	bitmask flags, as defined by &enum v4l2_mbus_frame_desc_flags.
+ * @stream:	stream in routing configuration
  * @pixelcode:	media bus pixel code, valid if @flags
  *		%FRAME_DESC_FL_BLOB is not set.
  * @length:	number of octets per frame, valid if @flags
  *		%V4L2_MBUS_FRAME_DESC_FL_LEN_MAX is set.
+ * @bus:	Bus-specific frame descriptor parameters
+ * @bus.csi2:	CSI-2-specific bus configuration
  */
 struct v4l2_mbus_frame_desc_entry {
 	enum v4l2_mbus_frame_desc_flags flags;
+	u32 stream;
 	u32 pixelcode;
 	u32 length;
+	union {
+		struct v4l2_mbus_frame_desc_entry_csi2 csi2;
+	} bus;
 };
 
-#define V4L2_FRAME_DESC_ENTRY_MAX	4
+ /*
+  * FIXME: If this number is too small, it should be dropped altogether and the
+  * API switched to a dynamic number of frame descriptor entries.
+  */
+#define V4L2_FRAME_DESC_ENTRY_MAX	8
+
+/**
+ * enum v4l2_mbus_frame_desc_type - media bus frame description type
+ *
+ * @V4L2_MBUS_FRAME_DESC_TYPE_UNDEFINED:
+ *	Undefined frame desc type. Drivers should not use this, it is
+ *	for backwards compatibility.
+ * @V4L2_MBUS_FRAME_DESC_TYPE_PARALLEL:
+ *	Parallel media bus.
+ * @V4L2_MBUS_FRAME_DESC_TYPE_CSI2:
+ *	CSI-2 media bus. Frame desc parameters must be set in
+ *	&struct v4l2_mbus_frame_desc_entry->csi2.
+ */
+enum v4l2_mbus_frame_desc_type {
+	V4L2_MBUS_FRAME_DESC_TYPE_UNDEFINED = 0,
+	V4L2_MBUS_FRAME_DESC_TYPE_PARALLEL,
+	V4L2_MBUS_FRAME_DESC_TYPE_CSI2,
+};
 
 /**
  * struct v4l2_mbus_frame_desc - media bus data frame description
+ * @type: type of the bus (enum v4l2_mbus_frame_desc_type)
  * @entry: frame descriptors array
  * @num_entries: number of entries in @entry array
  */
 struct v4l2_mbus_frame_desc {
+	enum v4l2_mbus_frame_desc_type type;
 	struct v4l2_mbus_frame_desc_entry entry[V4L2_FRAME_DESC_ENTRY_MAX];
 	unsigned short num_entries;
 };
@@ -624,6 +666,70 @@ struct v4l2_subdev_pad_config {
 };
 
 /**
+ * struct v4l2_subdev_stream_config - Used for storing stream configuration.
+ *
+ * @pad: pad number
+ * @stream: stream number
+ * @fmt: &struct v4l2_mbus_framefmt
+ * @crop: &struct v4l2_rect to be used for crop
+ * @compose: &struct v4l2_rect to be used for compose
+ *
+ * This structure stores configuration for a stream.
+ */
+struct v4l2_subdev_stream_config {
+	u32 pad;
+	u32 stream;
+
+	struct v4l2_mbus_framefmt fmt;
+	struct v4l2_rect crop;
+	struct v4l2_rect compose;
+};
+
+/**
+ * struct v4l2_subdev_stream_configs - A collection of stream configs.
+ *
+ * @num_configs: number of entries in @config.
+ * @config: an array of &struct v4l2_subdev_stream_configs.
+ */
+struct v4l2_subdev_stream_configs {
+	u32 num_configs;
+	struct v4l2_subdev_stream_config *configs;
+};
+
+/**
+ * struct v4l2_subdev_krouting - subdev routing table
+ *
+ * @which: format type (from enum v4l2_subdev_format_whence)
+ * @routes: &struct v4l2_subdev_route
+ * @num_routes: number of routes
+ *
+ * This structure is used to translate arguments received from
+ * VIDIOC_SUBDEV_G/S_ROUTING() ioctl to subdev device drivers operations.
+ */
+struct v4l2_subdev_krouting {
+	u32 which;
+	struct v4l2_subdev_route *routes;
+	unsigned int num_routes;
+};
+
+/**
+ * struct v4l2_subdev_state - Used for storing subdev information.
+ *
+ * @pads: &struct v4l2_subdev_pad_config array
+ * @routing: routing table for the subdev
+ * @stream_configs: stream configurations (only for V4L2_SUBDEV_FL_MULTIPLEXED)
+ *
+ * This structure only needs to be passed to the pad op if the 'which' field
+ * of the main argument is set to %V4L2_SUBDEV_FORMAT_TRY. For
+ * %V4L2_SUBDEV_FORMAT_ACTIVE it is safe to pass %NULL.
+ */
+struct v4l2_subdev_state {
+	struct v4l2_subdev_pad_config *pads;
+	struct v4l2_subdev_krouting routing;
+	struct v4l2_subdev_stream_configs stream_configs;
+};
+
+/**
  * struct v4l2_subdev_pad_ops - v4l2-subdev pad level operations
  *
  * @init_cfg: initialize the pad config to default values
@@ -684,30 +790,34 @@ struct v4l2_subdev_pad_config {
  *		     applied to the hardware. The operation shall fail if the
  *		     pad index it has been called on is not valid or in case of
  *		     unrecoverable failures.
+ *
+ * @get_routing: get the subdevice routing table.
+ * @set_routing: enable or disable data connection routes described in the
+ *		 subdevice routing table.
  */
 struct v4l2_subdev_pad_ops {
 	int (*init_cfg)(struct v4l2_subdev *sd,
-			struct v4l2_subdev_pad_config *cfg);
+			struct v4l2_subdev_state *state);
 	int (*enum_mbus_code)(struct v4l2_subdev *sd,
-			      struct v4l2_subdev_pad_config *cfg,
+			      struct v4l2_subdev_state *state,
 			      struct v4l2_subdev_mbus_code_enum *code);
 	int (*enum_frame_size)(struct v4l2_subdev *sd,
-			       struct v4l2_subdev_pad_config *cfg,
+			       struct v4l2_subdev_state *state,
 			       struct v4l2_subdev_frame_size_enum *fse);
 	int (*enum_frame_interval)(struct v4l2_subdev *sd,
-				   struct v4l2_subdev_pad_config *cfg,
+				   struct v4l2_subdev_state *state,
 				   struct v4l2_subdev_frame_interval_enum *fie);
 	int (*get_fmt)(struct v4l2_subdev *sd,
-		       struct v4l2_subdev_pad_config *cfg,
+		       struct v4l2_subdev_state *state,
 		       struct v4l2_subdev_format *format);
 	int (*set_fmt)(struct v4l2_subdev *sd,
-		       struct v4l2_subdev_pad_config *cfg,
+		       struct v4l2_subdev_state *state,
 		       struct v4l2_subdev_format *format);
 	int (*get_selection)(struct v4l2_subdev *sd,
-			     struct v4l2_subdev_pad_config *cfg,
+			     struct v4l2_subdev_state *state,
 			     struct v4l2_subdev_selection *sel);
 	int (*set_selection)(struct v4l2_subdev *sd,
-			     struct v4l2_subdev_pad_config *cfg,
+			     struct v4l2_subdev_state *state,
 			     struct v4l2_subdev_selection *sel);
 	int (*get_edid)(struct v4l2_subdev *sd, struct v4l2_edid *edid);
 	int (*set_edid)(struct v4l2_subdev *sd, struct v4l2_edid *edid);
@@ -728,6 +838,12 @@ struct v4l2_subdev_pad_ops {
 			       struct v4l2_mbus_config *config);
 	int (*set_mbus_config)(struct v4l2_subdev *sd, unsigned int pad,
 			       struct v4l2_mbus_config *config);
+	int (*get_routing)(struct v4l2_subdev *sd,
+			   struct v4l2_subdev_state *state,
+			   struct v4l2_subdev_krouting *route);
+	int (*set_routing)(struct v4l2_subdev *sd,
+			   struct v4l2_subdev_state *state,
+			   struct v4l2_subdev_krouting *route);
 };
 
 /**
@@ -802,6 +918,12 @@ struct v4l2_subdev_internal_ops {
  * should set this flag.
  */
 #define V4L2_SUBDEV_FL_HAS_EVENTS		(1U << 3)
+/*
+ * Set this flag if this subdev supports multiplexed streams. This means
+ * that the driver supports routing and handles the stream parameter in its
+ * v4l2_subdev_pad_ops handlers.
+ */
+#define V4L2_SUBDEV_FL_MULTIPLEXED		(1U << 4)
 
 struct regulator_bulk_data;
 
@@ -918,14 +1040,14 @@ struct v4l2_subdev {
  * struct v4l2_subdev_fh - Used for storing subdev information per file handle
  *
  * @vfh: pointer to &struct v4l2_fh
- * @pad: pointer to &struct v4l2_subdev_pad_config
+ * @state: pointer to &struct v4l2_subdev_state
  * @owner: module pointer to the owner of this file handle
  */
 struct v4l2_subdev_fh {
 	struct v4l2_fh vfh;
 	struct module *owner;
 #if defined(CONFIG_VIDEO_V4L2_SUBDEV_API)
-	struct v4l2_subdev_pad_config *pad;
+	struct v4l2_subdev_state *state;
 #endif
 };
 
@@ -945,17 +1067,17 @@ struct v4l2_subdev_fh {
  *	&struct v4l2_subdev_pad_config->try_fmt
  *
  * @sd: pointer to &struct v4l2_subdev
- * @cfg: pointer to &struct v4l2_subdev_pad_config array.
- * @pad: index of the pad in the @cfg array.
+ * @state: pointer to &struct v4l2_subdev_state.
+ * @pad: index of the pad in the @state array.
  */
 static inline struct v4l2_mbus_framefmt *
 v4l2_subdev_get_try_format(struct v4l2_subdev *sd,
-			   struct v4l2_subdev_pad_config *cfg,
+			   struct v4l2_subdev_state *state,
 			   unsigned int pad)
 {
 	if (WARN_ON(pad >= sd->entity.num_pads))
 		pad = 0;
-	return &cfg[pad].try_fmt;
+	return &state->pads[pad].try_fmt;
 }
 
 /**
@@ -963,17 +1085,17 @@ v4l2_subdev_get_try_format(struct v4l2_subdev *sd,
  *	&struct v4l2_subdev_pad_config->try_crop
  *
  * @sd: pointer to &struct v4l2_subdev
- * @cfg: pointer to &struct v4l2_subdev_pad_config array.
- * @pad: index of the pad in the @cfg array.
+ * @state: pointer to &struct v4l2_subdev_state.
+ * @pad: index of the pad in the @state array.
  */
 static inline struct v4l2_rect *
 v4l2_subdev_get_try_crop(struct v4l2_subdev *sd,
-			 struct v4l2_subdev_pad_config *cfg,
+			 struct v4l2_subdev_state *state,
 			 unsigned int pad)
 {
 	if (WARN_ON(pad >= sd->entity.num_pads))
 		pad = 0;
-	return &cfg[pad].try_crop;
+	return &state->pads[pad].try_crop;
 }
 
 /**
@@ -981,17 +1103,17 @@ v4l2_subdev_get_try_crop(struct v4l2_subdev *sd,
  *	&struct v4l2_subdev_pad_config->try_compose
  *
  * @sd: pointer to &struct v4l2_subdev
- * @cfg: pointer to &struct v4l2_subdev_pad_config array.
- * @pad: index of the pad in the @cfg array.
+ * @state: pointer to &struct v4l2_subdev_state.
+ * @pad: index of the pad in the @state array.
  */
 static inline struct v4l2_rect *
 v4l2_subdev_get_try_compose(struct v4l2_subdev *sd,
-			    struct v4l2_subdev_pad_config *cfg,
+			    struct v4l2_subdev_state *state,
 			    unsigned int pad)
 {
 	if (WARN_ON(pad >= sd->entity.num_pads))
 		pad = 0;
-	return &cfg[pad].try_compose;
+	return &state->pads[pad].try_compose;
 }
 
 #endif
@@ -1093,20 +1215,17 @@ int v4l2_subdev_link_validate_default(struct v4l2_subdev *sd,
 int v4l2_subdev_link_validate(struct media_link *link);
 
 /**
- * v4l2_subdev_alloc_pad_config - Allocates memory for pad config
+ * v4l2_subdev_alloc_state - allocate v4l2_subdev_state
  *
- * @sd: pointer to struct v4l2_subdev
+ * Must call v4l2_subdev_free_state() when state is no longer needed.
  */
-struct
-v4l2_subdev_pad_config *v4l2_subdev_alloc_pad_config(struct v4l2_subdev *sd);
+struct v4l2_subdev_state *v4l2_subdev_alloc_state(struct v4l2_subdev *sd);
 
 /**
- * v4l2_subdev_free_pad_config - Frees memory allocated by
- *	v4l2_subdev_alloc_pad_config().
- *
- * @cfg: pointer to &struct v4l2_subdev_pad_config
+ * v4l2_subdev_free_state - uninitialize v4l2_subdev_state
  */
-void v4l2_subdev_free_pad_config(struct v4l2_subdev_pad_config *cfg);
+void v4l2_subdev_free_state(struct v4l2_subdev_state *state);
+
 #endif /* CONFIG_MEDIA_CONTROLLER */
 
 /**
@@ -1173,5 +1292,98 @@ extern const struct v4l2_subdev_ops v4l2_subdev_call_wrappers;
  */
 void v4l2_subdev_notify_event(struct v4l2_subdev *sd,
 			      const struct v4l2_event *ev);
+
+/**
+ * v4l2_subdev_get_routing() - Get routing from a subdevice
+ *
+ * @sd: The subdev from which to get the routing
+ * @state: Pointer to &struct v4l2_subdev_state
+ * @routing: Pointer to the target &struct v4l2_subdev_krouting
+ *
+ * Get a copy of the subdevice's routing table.
+ *
+ * Must be freed with v4l2_subdev_free_routing after use.
+ */
+int v4l2_subdev_get_routing(struct v4l2_subdev *sd,
+			    struct v4l2_subdev_state *state,
+			    struct v4l2_subdev_krouting *routing);
+
+/**
+ * v4l2_subdev_free_routing() - Free the routing
+ *
+ * @routing: The routing to be freed
+ *
+ * Frees the routing data in @routing.
+ */
+void v4l2_subdev_free_routing(struct v4l2_subdev_krouting *routing);
+
+/**
+ * v4l2_subdev_cpy_routing() - Copy the routing
+ *
+ * @dst: The destination routing
+ * @src: The source routing
+ *
+ * Copies routing from @src to @dst without allocating space. If @dst does not
+ * have enough space, set dst->num_routes to the required number of routes, and
+ * return -ENOSPC.
+ *
+ * Can be used in subdevice's v4l2_subdev_pad_ops.get_routing() callback.
+ */
+int v4l2_subdev_cpy_routing(struct v4l2_subdev_krouting *dst,
+			    const struct v4l2_subdev_krouting *src);
+
+/**
+ * v4l2_subdev_dup_routing() - Duplicate the routing
+ *
+ * @dst: The destination routing
+ * @src: The source routing
+ *
+ * Makes a duplicate of the routing from @src to @dst by allocating enough
+ * memory and making a copy of the routing.
+ *
+ * Can be used in subdevice's v4l2_subdev_pad_ops.set_routing() callback
+ * to store the given routing.
+ *
+ * Must be freed with v4l2_subdev_free_routing after use.
+ */
+int v4l2_subdev_dup_routing(struct v4l2_subdev_krouting *dst,
+			    const struct v4l2_subdev_krouting *src);
+
+/**
+ * v4l2_subdev_has_route() - Check if there is a route between two pads
+ *
+ * @routing: The subdevice's routing
+ * @pad0: First pad
+ * @pad1: Second pad
+ *
+ * Returns whether there is a route between @pad0 and @pad1 of the same
+ * subdevice according to the given routing.
+ */
+bool v4l2_subdev_has_route(struct v4l2_subdev_krouting *routing,
+			   unsigned int pad0, unsigned int pad1);
+
+
+/**
+ * v4l2_init_stream_configs() - Initialize stream configs according to routing
+ *
+ * @stream_configs: The stream configs to initialize
+ * @routing: The routing used for the stream configs
+ *
+ * Initializes @stream_configs according to @routing, allocating enough
+ * space to hold configuration for each route endpoint.
+ *
+ * Must be freed with v4l2_uninit_stream_configs().
+ */
+int v4l2_init_stream_configs(struct v4l2_subdev_stream_configs *stream_configs,
+			     const struct v4l2_subdev_krouting *routing);
+
+/**
+ * v4l2_uninit_stream_configs() - Uninitialize stream configs
+ *
+ * @stream_configs: The stream configs to uninitialize
+ *
+ * Frees any allocated memory in @stream_configs.
+ */
+void v4l2_uninit_stream_configs(struct v4l2_subdev_stream_configs *stream_configs);
 
 #endif

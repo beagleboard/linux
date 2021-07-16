@@ -559,8 +559,8 @@ static int vsp1_video_pipeline_build(struct vsp1_pipeline *pipe,
 				     struct vsp1_video *video)
 {
 	struct media_graph graph;
-	struct media_entity *entity = &video->video.entity;
-	struct media_device *mdev = entity->graph_obj.mdev;
+	struct media_pad *pad = video->video.entity.pads;
+	struct media_device *mdev = video->video.entity.graph_obj.mdev;
 	unsigned int i;
 	int ret;
 
@@ -569,17 +569,17 @@ static int vsp1_video_pipeline_build(struct vsp1_pipeline *pipe,
 	if (ret)
 		return ret;
 
-	media_graph_walk_start(&graph, entity);
+	media_graph_walk_start(&graph, pad);
 
-	while ((entity = media_graph_walk_next(&graph))) {
+	while ((pad = media_graph_walk_next(&graph))) {
 		struct v4l2_subdev *subdev;
 		struct vsp1_rwpf *rwpf;
 		struct vsp1_entity *e;
 
-		if (!is_media_entity_v4l2_subdev(entity))
+		if (!is_media_entity_v4l2_subdev(pad->entity))
 			continue;
 
-		subdev = media_entity_to_v4l2_subdev(entity);
+		subdev = media_entity_to_v4l2_subdev(pad->entity);
 		e = to_vsp1_entity(subdev);
 		list_add_tail(&e->list_pipe, &pipe->entities);
 		e->pipe = pipe;
@@ -927,7 +927,7 @@ static void vsp1_video_stop_streaming(struct vb2_queue *vq)
 	}
 	mutex_unlock(&pipe->lock);
 
-	media_pipeline_stop(&video->video.entity);
+	media_pipeline_stop(video->video.entity.pads);
 	vsp1_video_release_buffers(video);
 	vsp1_video_pipeline_put(pipe);
 }
@@ -1048,7 +1048,7 @@ vsp1_video_streamon(struct file *file, void *fh, enum v4l2_buf_type type)
 		return PTR_ERR(pipe);
 	}
 
-	ret = __media_pipeline_start(&video->video.entity, &pipe->pipe);
+	ret = __media_pipeline_start(video->video.entity.pads, &pipe->pipe);
 	if (ret < 0) {
 		mutex_unlock(&mdev->graph_mutex);
 		goto err_pipe;
@@ -1072,7 +1072,7 @@ vsp1_video_streamon(struct file *file, void *fh, enum v4l2_buf_type type)
 	return 0;
 
 err_stop:
-	media_pipeline_stop(&video->video.entity);
+	media_pipeline_stop(video->video.entity.pads);
 err_pipe:
 	vsp1_video_pipeline_put(pipe);
 	return ret;
