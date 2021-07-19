@@ -11,6 +11,7 @@
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
 #include <linux/sched_clock.h>
+#include <linux/irqchip/arm-gic.h>
 
 #include <linux/clk/clk-conf.h>
 
@@ -31,6 +32,9 @@ static u32 clocksource;
 static u32 clockevent;
 static struct irq_chip *clkev_irq_chip;
 static struct irq_desc *clkev_irq_desc;
+
+#define AM43XX_GIC_CPU_BASE				0x48240100
+static void __iomem *gic_cpu_base;
 
 /*
  * Subset of the timer registers we use. Note that the register offsets
@@ -509,11 +513,29 @@ static int dmtimer_set_periodic(struct clock_event_device *evt)
 	return 0;
 }
 
+static int omap_clockevent_late_ack_init(void)
+{
+	gic_cpu_base = ioremap(AM43XX_GIC_CPU_BASE, SZ_4K);
+
+	if (!gic_cpu_base)
+		return -ENOMEM;
+
+	return 0;
+}
+
 static void omap_clockevent_late_ack(void)
 {
+	u32 val;
+
 	if (!clkev_irq_chip)
 		return;
 
+	/*
+	 * For the gic to properly clear an interrupt it must be read
+	 * from INTACK register
+	 */
+	if (gic_cpu_base)
+		val = readl_relaxed(gic_cpu_base + GIC_CPU_INTACK);
 	if (clkev_irq_chip->irq_ack)
 		clkev_irq_chip->irq_ack(&clkev_irq_desc->irq_data);
 	if (clkev_irq_chip->irq_eoi)
@@ -650,6 +672,9 @@ static int __init dmtimer_clockevent_init(struct device_node *np)
 		if (clkev_irq_desc)
 			clkev_irq_chip = irq_desc_get_chip(clkev_irq_desc);
 	}
+
+	if (of_machine_is_compatible("ti,am43"))
+		omap_clockevent_late_ack_init();
 
 	return 0;
 
