@@ -310,7 +310,7 @@ static void pruss_intc_irq_ack(struct irq_data *data)
 	unsigned int hwirq = data->hwirq;
 
 	if (hwirq < MAX_PRU_INT_EVENTS &&
-	    intc->soc_config->quirky_events & BIT(hwirq))
+	    intc->soc_config->quirky_events & BIT_ULL(hwirq))
 		return;
 
 	pruss_intc_write_reg(intc, PRU_INTC_SICR, hwirq);
@@ -330,7 +330,7 @@ static void pruss_intc_irq_unmask(struct irq_data *data)
 	unsigned int hwirq = data->hwirq;
 
 	if (hwirq < MAX_PRU_INT_EVENTS &&
-	    intc->soc_config->quirky_events & BIT(hwirq))
+	    intc->soc_config->quirky_events & BIT_ULL(hwirq))
 		pruss_intc_write_reg(intc, PRU_INTC_SICR, hwirq);
 	pruss_intc_write_reg(intc, PRU_INTC_EISR, hwirq);
 }
@@ -659,13 +659,13 @@ static int pruss_intc_remove(struct platform_device *pdev)
 static const struct pruss_intc_match_data pruss_intc_data = {
 	.num_system_events = 64,
 	.num_host_events = 10,
-	.quirky_events = BIT(7), /* IEP capture/compare event */
+	.quirky_events = BIT_ULL(7), /* IEP capture/compare event */
 };
 
 static const struct pruss_intc_match_data icssg_intc_data = {
 	.num_system_events = 160,
 	.num_host_events = 20,
-	.quirky_events = BIT(7) | BIT(56), /* IEP{0,1} capture/compare events */
+	.quirky_events = BIT_ULL(7) | BIT_ULL(56), /* IEP{0,1} capture/compare events */
 };
 
 static const struct of_device_id pruss_intc_of_match[] = {
