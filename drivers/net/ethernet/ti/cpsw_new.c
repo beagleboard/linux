@@ -46,6 +46,8 @@ static int debug_level;
 static int ale_ageout = CPSW_ALE_AGEOUT_DEFAULT;
 static int rx_packet_max = CPSW_MAX_PACKET_SIZE;
 static int descs_pool_size = CPSW_CPDMA_DESCS_POOL_SIZE_DEFAULT;
+module_param(descs_pool_size, int, 0444);
+MODULE_PARM_DESC(descs_pool_size, "Number of CPDMA CPPI descriptors in pool");
 
 struct cpsw_devlink {
 	struct cpsw_common *cpsw;
