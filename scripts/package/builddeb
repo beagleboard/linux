@@ -148,6 +148,7 @@ else
 	cp $KCONFIG_CONFIG "$tmpdir/boot/config-$version"
 fi
 cp "$($MAKE -s -f $srctree/Makefile image_name)" "$tmpdir/$installed_image_path"
+cp arch/arm64/boot/Image "$tmpdir/boot/Image-$version"
 
 if is_enabled CONFIG_OF_EARLY_FLATTREE; then
 	# Only some architectures with OF support have this target
