@@ -606,6 +606,7 @@ static int j721e_pcie_probe(struct platform_device *pdev)
 		clk = devm_clk_get_optional(dev, "pcie_refclk");
 		if (IS_ERR(clk)) {
 			dev_err(dev, "failed to get pcie_refclk\n");
+			ret = PTR_ERR(clk);
 			goto err_pcie_setup;
 		}
 
