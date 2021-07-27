@@ -6,7 +6,6 @@
 
 #include "am33xx.dtsi"
 #include "am335x-bone-common.dtsi"
-#include "am335x-boneblack-common.dtsi"
 #include <dt-bindings/interrupt-controller/irq.h>
 
 / {
@@ -14,7 +13,7 @@
 	compatible = "sancloud,am335x-boneenhanced", "ti,am335x-bone-black", "ti,am335x-bone", "ti,am33xx";
 
 	chosen {
-		base_dtb = "am335x-sancloud-bbe.dts";
+		base_dtb = "am335x-sancloud-bbe-uboot.dts";
 		base_dtb_timestamp = __TIMESTAMP__;
 	};
 };
@@ -110,4 +109,14 @@
 		reset-gpios = <&gpio0 29 GPIO_ACTIVE_LOW>;
 		/* wifi on port 4 */
 	};
+};
+
+&ldo3_reg {
+	regulator-min-microvolt = <1800000>;
+	regulator-max-microvolt = <1800000>;
+	regulator-always-on;
+};
+
+&mmc1 {
+	vmmc-supply = <&vmmcsd_fixed>;
 };
