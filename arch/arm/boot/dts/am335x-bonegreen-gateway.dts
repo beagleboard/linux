@@ -6,15 +6,20 @@
 
 #include "am33xx.dtsi"
 #include "am335x-bone-common.dtsi"
-#include "am335x-boneblack-common.dtsi"
+#include "am335x-bonegreen-common.dtsi"
 #include <dt-bindings/interrupt-controller/irq.h>
 
 / {
-	model = "TI AM335x BeagleBone Black Wireless";
-	compatible = "ti,am335x-bone-black-wireless", "ti,am335x-bone-black", "ti,am335x-bone", "ti,am33xx";
+	model = "SeeedStudio BeagleBone Green Gateway";
+	compatible = "ti,am335x-bone-green-gateway", "ti,am335x-bone-green", "ti,am335x-bone-black", "ti,am335x-bone", "ti,am33xx";
+
+	aliases {
+		rtc0 = &extrtc;
+		rtc1 = &rtc;
+	};
 
 	chosen {
-		base_dtb = "am335x-boneblack-wireless.dts";
+		base_dtb = "am335x-bonegreen-gateway.dts";
 		base_dtb_timestamp = __TIMESTAMP__;
 	};
 
@@ -29,9 +34,38 @@
 		gpio = <&gpio3 9 0>;
 		enable-active-high;
 	};
+
+	leds {
+		pinctrl-0 = <&user_leds_s0 &extra_led_pins>;
+
+		led6 {
+			label = "beaglebone:green:usr4";
+			gpios = <&gpio2 21 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "netdev";
+			default-state = "off";
+		};
+	};
+};
+
+&cpu0_opp_table {
+	/*
+	 * Octavo Systems:
+	 * The EFUSE_SMA register is not programmed for any of the AM335x wafers
+	 * we get and we are not programming them during our production test.
+	 * Therefore, from a DEVICE_ID revision point of view, the silicon looks
+	 * like it is Revision 2.1.  However, from an EFUSE_SMA point of view for
+	 * the HW OPP table, the silicon looks like it is Revision 1.0 (ie the
+	 * EFUSE_SMA register reads as all zeros).
+	 */
+	oppnitro-1000000000 {
+		opp-supported-hw = <0x06 0x0100>;
+	};
 };
 
 &am33xx_pinmux {
+	pinctrl-names = "default";
+	pinctrl-0 = <&usbhost_pins>;
+
 	bt_pins: pinmux_bt_pins {
 		pinctrl-single,pins = <
 			AM33XX_PADCONF(AM335X_PIN_MII1_TXD0, PIN_OUTPUT_PULLUP, MUX_MODE7)	/* gmii1_txd0.gpio0_28 - BT_EN */
@@ -49,12 +83,25 @@
 		>;
 	};
 
+	uart2_grove_pins: pinmux_uart2_grove_pins {
+		pinctrl-single,pins = <
+			AM33XX_IOPAD(0x90c, PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE6)
+			AM33XX_IOPAD(0x910, PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE6)
+		>;
+	};
+
 	uart3_pins: pinmux_uart3_pins {
 		pinctrl-single,pins = <
 			AM33XX_PADCONF(AM335X_PIN_MII1_RXD3, PIN_INPUT_PULLUP, MUX_MODE1)	/* gmii1_rxd3.uart3_rxd */
 			AM33XX_PADCONF(AM335X_PIN_MII1_RXD2, PIN_OUTPUT_PULLDOWN, MUX_MODE1)	/* gmii1_rxd2.uart3_txd */
 			AM33XX_PADCONF(AM335X_PIN_MDIO, PIN_INPUT, MUX_MODE3)		/* mdio_data.uart3_ctsn */
 			AM33XX_PADCONF(AM335X_PIN_MDC, PIN_OUTPUT_PULLDOWN, MUX_MODE3)	/* mdio_clk.uart3_rtsn */
+		>;
+	};
+
+	extra_led_pins: pinmux_extra_led_pins {
+		pinctrl-single,pins = <
+			AM33XX_PADCONF(AM335X_PIN_MII1_RXD0, PIN_OUTPUT, MUX_MODE7)	/* WL_Active_LED / USR4 */
 		>;
 	};
 
@@ -65,9 +112,15 @@
 			AM33XX_PADCONF(AM335X_PIN_MII1_RX_CLK, PIN_OUTPUT_PULLUP, MUX_MODE7)	/* gmii1_rxclk.gpio3_10 LS_BUF_EN */
 		>;
 	};
+
+	usbhost_pins: pinmux_usbhost_pins {
+		pinctrl-single,pins = <
+			AM33XX_IOPAD(0x924, PIN_OUTPUT_PULLUP | MUX_MODE7) /* gmii1_txd1.gpio0[21] */
+		>;
+	};
 };
 
-&mac_sw {
+&mac {
 	status = "disabled";
 };
 
@@ -94,6 +147,12 @@
 	};
 };
 
+&uart2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart2_grove_pins>;
+	status = "okay";
+};
+
 &uart3 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart3_pins &bt_pins>;
@@ -105,11 +164,45 @@
 	};
 };
 
+&i2c0 {
+	extrtc: rtc@68 {
+		compatible = "dallas,ds1340";
+		reg = <0x68>;
+	};
+};
+
+// (K16) gmii1_txd1.gpio0[21]
+&gpio0 {
+	usb_reset {
+		gpio-hog;
+		gpios = <21 GPIO_ACTIVE_HIGH>;
+		output-high;
+		line-name = "usb_reset";
+	};
+};
+
 &gpio3 {
-	ls-buf-en-hog {
+	ls_buf_en {
 		gpio-hog;
 		gpios = <10 GPIO_ACTIVE_HIGH>;
 		output-high;
 		line-name = "LS_BUF_EN";
+	};
+};
+
+&usb1 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	hub@1 {
+		compatible = "usb424,9512";
+		reg = <1>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		ethernet: ethernet@1 {
+			compatible = "usb424,ec00";
+			reg = <1>;
+		};
 	};
 };
