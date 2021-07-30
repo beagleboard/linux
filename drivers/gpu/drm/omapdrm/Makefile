@@ -23,4 +23,6 @@ omapdrm-y := omap_drv.o \
 
 omapdrm-$(CONFIG_DRM_FBDEV_EMULATION) += omap_fbdev.o
 
+omapdrm-$(CONFIG_DRM_OMAP_WB) += omap_wb.o omap_wb_cap.o omap_wb_m2m.o
+
 obj-$(CONFIG_DRM_OMAP)	+= omapdrm.o

@@ -11,6 +11,17 @@ config DRM_OMAP
 
 if DRM_OMAP
 
+config DRM_OMAP_WB
+	bool "Enable writeback support for OMAP DRM driver"
+	depends on DRM_OMAP
+	depends on (VIDEO_V4L2 = y) || (VIDEO_V4L2 = m && DRM_OMAP = m)
+	depends on VIDEO_DEV && HAS_DMA
+	select VIDEOBUF2_DMA_CONTIG
+	select V4L2_MEM2MEM_DEV
+	default n
+	help
+	  Select this to enable memory-to-memory/capture writeback support.
+
 source "drivers/gpu/drm/omapdrm/dss/Kconfig"
 source "drivers/gpu/drm/omapdrm/displays/Kconfig"
 
