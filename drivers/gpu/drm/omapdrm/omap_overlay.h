@@ -30,7 +30,8 @@ int omap_hwoverlays_init(struct omap_drm_private *priv);
 void omap_hwoverlays_destroy(struct omap_drm_private *priv);
 int omap_overlay_assign(struct drm_atomic_state *s, struct drm_plane *plane,
 			u32 caps, u32 fourcc, u32 crtc_mask,
-			struct omap_hw_overlay **overlay);
+			struct omap_hw_overlay **overlay,
+			struct omap_hw_overlay **r_overlay);
 void omap_overlay_release(struct drm_atomic_state *s,
 			  struct drm_plane *plane,
 			  struct omap_hw_overlay *overlay);
