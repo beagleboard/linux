@@ -72,6 +72,9 @@ struct omap_drm_private {
 	/* properties: */
 	struct drm_property *zorder_prop;
 
+	/* crtc properties */
+	struct drm_property *background_color_prop;
+
 	/* irq handling: */
 	spinlock_t wait_lock;		/* protects the wait_list */
 	struct list_head wait_list;	/* list of omap_irq_wait */
