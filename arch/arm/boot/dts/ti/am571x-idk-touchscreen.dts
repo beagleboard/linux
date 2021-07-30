@@ -11,3 +11,15 @@
 	interrupt-parent = <&gpio5>;
 	interrupts = <6 IRQ_TYPE_EDGE_FALLING>;
 };
+
+/* pruss1_eth conflicts with display, so we need to disable it */
+/ {
+  fragment@101 {
+	target-path = "/pruss1_eth";
+
+	__overlay__ {
+
+		status = "disabled";
+	};
+  };
+};
