@@ -24,7 +24,12 @@ dtb-$(CONFIG_SOC_DRA7XX) += \
 
 # overlays
 dtb-$(CONFIG_SOC_DRA7XX) += \
-	am57xx-evm-common.dtbo
+	am57xx-evm-common.dtbo \
+	lcd-osd101t2045.dtbo \
+	lcd-osd101t2587.dtbo \
+	dra72-evm-touchscreen.dtbo \
+	dra74-evm-touchscreen.dtbo \
+	dra7x-evm-osd-lcd-common.dtbo
 
 $(obj)/%.dtb: $(src)/../%.dts FORCE
 	$(call if_changed_dep,dtc,dtb)
