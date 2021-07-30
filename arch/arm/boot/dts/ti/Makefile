@@ -29,7 +29,10 @@ dtb-$(CONFIG_SOC_DRA7XX) += \
 	lcd-osd101t2587.dtbo \
 	dra72-evm-touchscreen.dtbo \
 	dra74-evm-touchscreen.dtbo \
-	dra7x-evm-osd-lcd-common.dtbo
+	dra7x-evm-osd-lcd-common.dtbo \
+	am571x-idk-touchscreen.dtbo \
+	am572x-idk-touchscreen.dtbo \
+	am57xx-idk-osd-lcd-common.dtbo
 
 $(obj)/%.dtb: $(src)/../%.dts FORCE
 	$(call if_changed_dep,dtc,dtb)
