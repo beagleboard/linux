@@ -76,6 +76,7 @@ struct omap_drm_private {
 	struct drm_property *background_color_prop;
 	struct drm_property *trans_key_mode_prop;
 	struct drm_property *trans_key_prop;
+	struct drm_property *alpha_blender_prop;
 
 	/* irq handling: */
 	spinlock_t wait_lock;		/* protects the wait_list */
