@@ -24,4 +24,8 @@ void omap_plane_install_properties(struct drm_plane *plane,
 		struct drm_mode_object *obj);
 bool is_omap_plane_dual_overlay(struct drm_plane_state *state);
 
+enum omap_plane_id omap_plane_id_wb(struct drm_plane *plane);
+struct drm_plane *omap_plane_reserve_wb(struct drm_device *dev);
+void omap_plane_release_wb(struct drm_plane *plane);
+
 #endif /* __OMAPDRM_PLANE_H__ */
