@@ -602,12 +602,13 @@ static int virt_cpsw_nuss_tx_poll(struct napi_struct *napi_tx, int budget)
 	/* process every unprocessed channel */
 	num_tx = virt_cpsw_nuss_tx_compl_packets(common, 0, budget);
 
-	if (num_tx < budget) {
-		napi_complete(napi_tx);
-		enable_irq(common->tx_chns.irq);
-	}
+	if (num_tx >= budget)
+		return budget;
 
-	return num_tx;
+	if (napi_complete_done(napi_tx, num_tx))
+		enable_irq(common->tx_chns.irq);
+
+	return 0;
 }
 
 static irqreturn_t virt_cpsw_nuss_rx_irq(int irq, void *dev_id)
