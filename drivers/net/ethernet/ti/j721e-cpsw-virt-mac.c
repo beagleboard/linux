@@ -70,11 +70,15 @@ struct virt_cpsw_common {
 
 	struct virt_cpsw_tx_chn tx_chns;
 	struct napi_struct napi_tx;
+	struct hrtimer tx_hrtimer;
+	unsigned long tx_pace_timeout;
 	struct completion tdown_complete;
 	atomic_t tdown_cnt;
 	struct virt_cpsw_rx_chn rx_chns;
 	struct napi_struct napi_rx;
 	bool rx_irq_disabled;
+	struct hrtimer rx_hrtimer;
+	unsigned long rx_pace_timeout;
 
 	const char *rdev_name;
 	struct rpmsg_remotedev *rdev;
@@ -233,6 +237,7 @@ static void virt_cpsw_nuss_common_stop(struct virt_cpsw_common *common)
 				  virt_cpsw_nuss_tx_cleanup);
 	k3_udma_glue_disable_tx_chn(common->tx_chns.tx_chn);
 	napi_disable(&common->napi_tx);
+	hrtimer_cancel(&common->tx_hrtimer);
 
 	k3_udma_glue_rx_flow_disable(common->rx_chns.rx_chn, 0);
 	/* Need some delay to process RX ring before reset */
@@ -241,6 +246,7 @@ static void virt_cpsw_nuss_common_stop(struct virt_cpsw_common *common)
 				  &common->rx_chns,
 				  virt_cpsw_nuss_rx_cleanup, false);
 	napi_disable(&common->napi_rx);
+	hrtimer_cancel(&common->rx_hrtimer);
 }
 
 static int virt_cpsw_nuss_ndo_stop(struct net_device *ndev)
@@ -439,6 +445,15 @@ static int virt_cpsw_nuss_rx_packets(struct virt_cpsw_common *common,
 	return ret;
 }
 
+static enum hrtimer_restart virt_cpsw_nuss_rx_timer_callback(struct hrtimer *timer)
+{
+	struct virt_cpsw_common *common =
+			container_of(timer, struct virt_cpsw_common, rx_hrtimer);
+
+	enable_irq(common->rx_chns.irq);
+	return HRTIMER_NORESTART;
+}
+
 static int virt_cpsw_nuss_rx_poll(struct napi_struct *napi_rx, int budget)
 {
 	struct virt_cpsw_common *common =
@@ -462,7 +477,13 @@ static int virt_cpsw_nuss_rx_poll(struct napi_struct *napi_rx, int budget)
 	if (num_rx < budget && napi_complete_done(napi_rx, num_rx)) {
 		if (common->rx_irq_disabled) {
 			common->rx_irq_disabled = false;
-			enable_irq(common->rx_chns.irq);
+			if (unlikely(common->rx_pace_timeout)) {
+				hrtimer_start(&common->rx_hrtimer,
+					      ns_to_ktime(common->rx_pace_timeout),
+					      HRTIMER_MODE_REL_PINNED);
+			} else {
+				enable_irq(common->rx_chns.irq);
+			}
 		}
 	}
 
@@ -518,7 +539,7 @@ static void virt_cpsw_nuss_tx_cleanup(void *data, dma_addr_t desc_dma)
 }
 
 static int virt_cpsw_nuss_tx_compl_packets(struct virt_cpsw_common *common,
-					   int chn, unsigned int budget)
+					   int chn, unsigned int budget, bool *tdown)
 {
 	struct cppi5_host_desc_t *desc_tx;
 	struct device *dev = common->dev;
@@ -544,6 +565,7 @@ static int virt_cpsw_nuss_tx_compl_packets(struct virt_cpsw_common *common,
 		if (desc_dma & 0x1) {
 			if (atomic_dec_and_test(&common->tdown_cnt))
 				complete(&common->tdown_complete);
+			*tdown = true;
 			break;
 		}
 
@@ -593,20 +615,37 @@ static int virt_cpsw_nuss_tx_compl_packets(struct virt_cpsw_common *common,
 	return num_tx;
 }
 
+static enum hrtimer_restart virt_cpsw_nuss_tx_timer_callback(struct hrtimer *timer)
+{
+	struct virt_cpsw_common *common =
+			container_of(timer, struct virt_cpsw_common, tx_hrtimer);
+
+	enable_irq(common->tx_chns.irq);
+	return HRTIMER_NORESTART;
+}
+
 static int virt_cpsw_nuss_tx_poll(struct napi_struct *napi_tx, int budget)
 {
 	struct virt_cpsw_common *common =
 			container_of(napi_tx, struct virt_cpsw_common, napi_tx);
+	bool tdown = false;
 	int num_tx;
 
 	/* process every unprocessed channel */
-	num_tx = virt_cpsw_nuss_tx_compl_packets(common, 0, budget);
+	num_tx = virt_cpsw_nuss_tx_compl_packets(common, 0, budget, &tdown);
 
 	if (num_tx >= budget)
 		return budget;
 
-	if (napi_complete_done(napi_tx, num_tx))
-		enable_irq(common->tx_chns.irq);
+	if (napi_complete_done(napi_tx, num_tx)) {
+		if (unlikely(common->tx_pace_timeout && !tdown)) {
+			hrtimer_start(&common->tx_hrtimer,
+				      ns_to_ktime(common->tx_pace_timeout),
+				      HRTIMER_MODE_REL_PINNED);
+		} else {
+			enable_irq(common->tx_chns.irq);
+		}
+	}
 
 	return 0;
 }
@@ -922,12 +961,40 @@ static void virt_cpsw_nuss_self_test(struct net_device *ndev,
 	}
 }
 
+static int virt_cpsw_nuss_get_coalesce(struct net_device *ndev, struct ethtool_coalesce *coal)
+{
+	struct virt_cpsw_common *common = virt_ndev_to_common(ndev);
+
+	coal->rx_coalesce_usecs = common->rx_pace_timeout / 1000;
+	coal->tx_coalesce_usecs = common->tx_pace_timeout / 1000;
+	return 0;
+}
+
+static int virt_cpsw_nuss_set_coalesce(struct net_device *ndev, struct ethtool_coalesce *coal)
+{
+	struct virt_cpsw_common *common = virt_ndev_to_common(ndev);
+
+	if (coal->rx_coalesce_usecs && coal->rx_coalesce_usecs < 20)
+		coal->rx_coalesce_usecs = 20;
+
+	if (coal->tx_coalesce_usecs && coal->tx_coalesce_usecs < 20)
+		coal->tx_coalesce_usecs = 20;
+
+	common->tx_pace_timeout = coal->tx_coalesce_usecs * 1000;
+	common->rx_pace_timeout = coal->rx_coalesce_usecs * 1000;
+
+	return 0;
+}
+
 const struct ethtool_ops virt_cpsw_nuss_ethtool_ops = {
 	.get_drvinfo		= virt_cpsw_nuss_get_drvinfo,
 	.get_sset_count		= virt_cpsw_nuss_get_sset_count,
 	.get_strings		= virt_cpsw_nuss_get_strings,
 	.self_test		= virt_cpsw_nuss_self_test,
 	.get_link		= ethtool_op_get_link,
+	.supported_coalesce_params = ETHTOOL_COALESCE_USECS,
+	.get_coalesce           = virt_cpsw_nuss_get_coalesce,
+	.set_coalesce           = virt_cpsw_nuss_set_coalesce,
 };
 
 static void virt_cpsw_nuss_free_tx_chns(void *data)
@@ -1217,6 +1284,11 @@ static int virt_cpsw_nuss_init_ndev(struct virt_cpsw_common *common)
 			  virt_cpsw_nuss_tx_poll, NAPI_POLL_WEIGHT);
 	netif_napi_add(port->ndev, &common->napi_rx,
 		       virt_cpsw_nuss_rx_poll, NAPI_POLL_WEIGHT);
+
+	hrtimer_init(&common->tx_hrtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL_PINNED);
+	common->tx_hrtimer.function = &virt_cpsw_nuss_tx_timer_callback;
+	hrtimer_init(&common->rx_hrtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL_PINNED);
+	common->rx_hrtimer.function = &virt_cpsw_nuss_rx_timer_callback;
 
 	ret = register_netdev(port->ndev);
 	if (ret)
