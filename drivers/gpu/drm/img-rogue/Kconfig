@@ -1,0 +1,38 @@
+config DRM_POWERVR_ROGUE
+	tristate "PowerVR Rogue"
+	depends on HAS_IOMEM
+	depends on DRM
+	select DRM_KMS_HELPER
+	select DRM_POWERVR_APOLLO
+	select PM_DEVFREQ
+	select DEVFREQ_GOV_SIMPLE_ONDEMAND
+	select PM_OPP
+	select DEVFREQ_THERMAL
+	help
+	  Driver for PowerVR Rogue graphics hardware.
+
+	  Say Y here if your SoC contains a PowerVR Rogue GPU. For more
+	  information, see <http://www.imgtec.com/powervr/>.
+
+config DRM_POWERVR_ROGUE_DEBUG
+	bool "Enable PowerVR Rogue debug features"
+	depends on DRM_POWERVR_ROGUE
+	default n
+	help
+	  Add additional debug features to the PowerVR Rogue driver.
+	  To build a matching userspace, enable the following build options:
+	  BUILD=debug SUPPORT_PAGE_FAULT_DEBUG=1 PVRSRV_ENABLE_GPU_MEMORY_INFO=1
+
+config DRM_POWERVR_PDP
+	tristate "DRM Support for PowerVR PDP for Testchip"
+	depends on DRM
+	select DRM_KMS_HELPER
+	select DRM_POWERVR_APOLLO
+	help
+	  Choose this option if you have a PowerVR Apollo-based testchip.
+	  Containing a PDP.
+
+config DRM_POWERVR_APOLLO
+	tristate "PowerVR Apollo test chip support"
+	depends on X86
+	default n
