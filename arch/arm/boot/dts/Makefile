@@ -867,7 +867,8 @@ dtb-$(CONFIG_SOC_DRA7XX) += \
 	dra76-evm.dtb
 dtb-merge-$(CONFIG_SOC_DRA7XX) += \
 	am57xx-evm.dtb \
-	am57xx-evm-reva3.dtb
+	am57xx-evm-reva3.dtb \
+	dra71-evm-nand.dtb
 dtb-$(CONFIG_ARCH_ORION5X) += \
 	orion5x-kuroboxpro.dtb \
 	orion5x-lacie-d2-network.dtb \
