@@ -254,6 +254,7 @@ static const char *powersave_parents[] = {
 static const struct clk_muxing_soc_desc kirkwood_mux_desc[] __initconst = {
 	{ "powersave", powersave_parents, ARRAY_SIZE(powersave_parents),
 		11, 1, 0 },
+	{ }
 };
 
 #define to_clk_mux(_hw) container_of(_hw, struct clk_mux, hw)
