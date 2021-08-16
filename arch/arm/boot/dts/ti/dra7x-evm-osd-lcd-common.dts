@@ -1,0 +1,116 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (C) 2019 Texas Instruments Incorporated - http://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+
+/ {
+  fragment@101 {
+	target-path = "/";
+
+	__overlay__ {
+		aliases {
+			display0 = "/display";
+			display1 = "/connector";
+		};
+
+		lcd_bl: backlight {
+			compatible = "led-backlight";
+			leds = <&backlight_led>;
+			brightness-levels = <0 243 245 247 248 249 251 252 256>;
+			default-brightness = <8>;
+			enable-gpios = <&pcf_lcd 13 GPIO_ACTIVE_LOW>;
+		};
+
+		tc358768_refclk: tc358768_refclk {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <20000000>;
+		};
+	};
+  };
+};
+
+&i2c1 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	dsi_bridge: tc358768@0e {
+		compatible = "toshiba,tc358768";
+		reg = <0x0e>;
+
+		clocks = <&tc358768_refclk>;
+		clock-names = "refclk";
+
+		reset-gpios = <&pcf_display_board 0 GPIO_ACTIVE_LOW>;
+
+		dsi_bridge_ports: ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+				rgb_in: endpoint {
+					remote-endpoint = <&dpi_out>;
+					data-lines = <24>;
+				};
+			};
+		};
+	};
+
+	tlc59108: tlc59116@40 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		compatible = "ti,tlc59108";
+		reg = <0x40>;
+
+		backlight_led: bl@2 {
+			label = "backlight";
+			reg = <0x2>;
+		};
+	};
+
+	pcf_display_board: gpio@27 {
+		compatible = "nxp,pcf8575";
+		reg = <0x27>;
+		gpio-controller;
+		#gpio-cells = <2>;
+	};
+
+	touchscreen: edt-ft5506@38 {
+		status = "okay";
+		compatible = "edt,edt-ft5506", "edt,edt-ft5x06";
+
+		reg = <0x38>;
+
+		/* GPIO line is inverted before going to touch panel */
+		reset-gpios = <&pcf_display_board 5 GPIO_ACTIVE_HIGH>;
+
+		touchscreen-size-x = <1920>;
+		touchscreen-size-y = <1200>;
+
+		wakeup-source;
+	};
+};
+
+&dss {
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+
+			dpi_out: endpoint {
+				remote-endpoint = <&rgb_in>;
+				data-lines = <24>;
+			};
+		};
+
+	};
+};

@@ -92,6 +92,8 @@ struct dispc_features {
 	u8 mgr_height_start;
 	u16 mgr_width_max;
 	u16 mgr_height_max;
+	u16 ovl_width_max;
+	u16 ovl_height_max;
 	unsigned long max_lcd_pclk;
 	unsigned long max_tv_pclk;
 	unsigned int max_downscale;
@@ -892,32 +894,91 @@ static void dispc_wb_write_color_conv_coef(struct dispc_device *dispc,
 #undef CVAL
 }
 
-static void dispc_setup_color_conv_coef(struct dispc_device *dispc)
+/* YUV -> RGB, ITU-R BT.601, full range */
+static const struct csc_coef_yuv2rgb coefs_yuv2rgb_bt601_full = {
+	256,   0,  358,		/* ry, rcb, rcr |1.000  0.000  1.402|*/
+	256, -88, -182,		/* gy, gcb, gcr |1.000 -0.344 -0.714|*/
+	256, 452,    0,		/* by, bcb, bcr |1.000  1.772  0.000|*/
+	true,			/* full range */
+};
+
+/* YUV -> RGB, ITU-R BT.601, limited range */
+static const struct csc_coef_yuv2rgb coefs_yuv2rgb_bt601_lim = {
+	298,    0,  409,	/* ry, rcb, rcr |1.164  0.000  1.596|*/
+	298, -100, -208,	/* gy, gcb, gcr |1.164 -0.392 -0.813|*/
+	298,  516,    0,	/* by, bcb, bcr |1.164  2.017  0.000|*/
+	false,			/* limited range */
+};
+
+/* YUV -> RGB, ITU-R BT.709, full range */
+static const struct csc_coef_yuv2rgb coefs_yuv2rgb_bt709_full = {
+	256,    0,  402,        /* ry, rcb, rcr |1.000  0.000  1.570|*/
+	256,  -48, -120,        /* gy, gcb, gcr |1.000 -0.187 -0.467|*/
+	256,  475,    0,        /* by, bcb, bcr |1.000  1.856  0.000|*/
+	true,                   /* full range */
+};
+
+/* YUV -> RGB, ITU-R BT.709, limited range */
+static const struct csc_coef_yuv2rgb coefs_yuv2rgb_bt709_lim = {
+	298,    0,  459,	/* ry, rcb, rcr |1.164  0.000  1.793|*/
+	298,  -55, -136,	/* gy, gcb, gcr |1.164 -0.213 -0.533|*/
+	298,  541,    0,	/* by, bcb, bcr |1.164  2.112  0.000|*/
+	false,			/* limited range */
+};
+
+/* RGB -> YUV, ITU-R BT.601, limited range */
+static const struct csc_coef_rgb2yuv coefs_rgb2yuv_bt601_lim = {
+	 66, 129,  25,		/* yr,   yg,  yb | 0.257  0.504  0.098|*/
+	-38, -74, 112,		/* cbr, cbg, cbb |-0.148 -0.291  0.439|*/
+	112, -94, -18,		/* crr, crg, crb | 0.439 -0.368 -0.071|*/
+	false,			/* limited range */
+};
+
+/* RGB -> YUV, ITU-R BT.601, full range */
+static const struct csc_coef_rgb2yuv coefs_rgb2yuv_bt601_full = {
+	 77,  150,  29,		/* yr,   yg,  yb | 0.299  0.587  0.114|*/
+	-43,  -85, 128,		/* cbr, cbg, cbb |-0.173 -0.339  0.511|*/
+	128, -107, -21,		/* crr, crg, crb | 0.511 -0.428 -0.083|*/
+	true,			/* full range */
+};
+
+/* RGB -> YUV, ITU-R BT.709, limited range */
+static const struct csc_coef_rgb2yuv coefs_rgb2yuv_bt701_lim = {
+	 47,  157,   16,	/* yr,   yg,  yb | 0.1826  0.6142  0.0620|*/
+	-26,  -87,  112,	/* cbr, cbg, cbb |-0.1006 -0.3386  0.4392|*/
+	112, -102,  -10,	/* crr, crg, crb | 0.4392 -0.3989 -0.0403|*/
+	false,			/* limited range */
+};
+
+static int dispc_ovl_set_csc(struct dispc_device *dispc,
+			     enum omap_plane_id plane,
+			     enum drm_color_encoding color_encoding,
+			     enum drm_color_range color_range)
 {
-	int i;
-	int num_ovl = dispc_get_num_ovls(dispc);
+	const struct csc_coef_yuv2rgb *csc;
 
-	/* YUV -> RGB, ITU-R BT.601, limited range */
-	const struct csc_coef_yuv2rgb coefs_yuv2rgb_bt601_lim = {
-		298,    0,  409,	/* ry, rcb, rcr */
-		298, -100, -208,	/* gy, gcb, gcr */
-		298,  516,    0,	/* by, bcb, bcr */
-		false,			/* limited range */
-	};
+	switch (color_encoding) {
+	case DRM_COLOR_YCBCR_BT601:
+		if (color_range == DRM_COLOR_YCBCR_FULL_RANGE)
+			csc = &coefs_yuv2rgb_bt601_full;
+		else
+			csc = &coefs_yuv2rgb_bt601_lim;
+		break;
+	case DRM_COLOR_YCBCR_BT709:
+		if (color_range == DRM_COLOR_YCBCR_FULL_RANGE)
+			csc = &coefs_yuv2rgb_bt709_full;
+		else
+			csc = &coefs_yuv2rgb_bt709_lim;
+		break;
+	default:
+		DSSERR("Unsupported CSC mode %d for plane %d\n",
+		       color_encoding, plane);
+		return -EINVAL;
+	}
 
-	/* RGB -> YUV, ITU-R BT.601, limited range */
-	const struct csc_coef_rgb2yuv coefs_rgb2yuv_bt601_lim = {
-		 66, 129,  25,		/* yr,   yg,  yb */
-		-38, -74, 112,		/* cbr, cbg, cbb */
-		112, -94, -18,		/* crr, crg, crb */
-		false,			/* limited range */
-	};
+	dispc_ovl_write_color_conv_coef(dispc, plane, csc);
 
-	for (i = 1; i < num_ovl; i++)
-		dispc_ovl_write_color_conv_coef(dispc, i, &coefs_yuv2rgb_bt601_lim);
-
-	if (dispc->feat->has_writeback)
-		dispc_wb_write_color_conv_coef(dispc, &coefs_rgb2yuv_bt601_lim);
+	return 0;
 }
 
 static void dispc_ovl_set_ba0(struct dispc_device *dispc,
@@ -2475,6 +2536,12 @@ static int dispc_ovl_calc_scaling_44xx(struct dispc_device *dispc,
 	return 0;
 }
 
+static enum omap_overlay_caps dispc_ovl_get_caps(struct dispc_device *dispc,
+						 enum omap_plane_id plane)
+{
+	return dispc->feat->overlay_caps[plane];
+}
+
 #define DIV_FRAC(dividend, divisor) \
 	((dividend) * 100 / (divisor) - ((dividend) / (divisor) * 100))
 
@@ -2587,6 +2654,13 @@ static int dispc_ovl_calc_scaling(struct dispc_device *dispc,
 	return 0;
 }
 
+static void dispc_ovl_get_max_size(struct dispc_device *dispc,
+				   u16 *width, u16 *height)
+{
+	*width = dispc->feat->ovl_width_max;
+	*height = dispc->feat->ovl_height_max;
+}
+
 static int dispc_ovl_setup_common(struct dispc_device *dispc,
 				  enum omap_plane_id plane,
 				  enum omap_overlay_caps caps,
@@ -2598,7 +2672,9 @@ static int dispc_ovl_setup_common(struct dispc_device *dispc,
 				  u8 pre_mult_alpha, u8 global_alpha,
 				  enum omap_dss_rotation_type rotation_type,
 				  bool replication, const struct videomode *vm,
-				  bool mem_to_mem)
+				  bool mem_to_mem,
+				  enum drm_color_encoding color_encoding,
+				  enum drm_color_range color_range)
 {
 	bool five_taps = true;
 	bool fieldmode = false;
@@ -2747,6 +2823,9 @@ static int dispc_ovl_setup_common(struct dispc_device *dispc,
 				      fieldmode, fourcc, rotation);
 		dispc_ovl_set_output_size(dispc, plane, out_width, out_height);
 		dispc_ovl_set_vid_color_conv(dispc, plane, cconv);
+
+		if (plane != OMAP_DSS_WB)
+			dispc_ovl_set_csc(dispc, plane, color_encoding, color_range);
 	}
 
 	dispc_ovl_set_rotation_attrs(dispc, plane, rotation, rotation_type,
@@ -2783,7 +2862,8 @@ static int dispc_ovl_setup(struct dispc_device *dispc,
 		oi->screen_width, oi->pos_x, oi->pos_y, oi->width, oi->height,
 		oi->out_width, oi->out_height, oi->fourcc, oi->rotation,
 		oi->zorder, oi->pre_mult_alpha, oi->global_alpha,
-		oi->rotation_type, replication, vm, mem_to_mem);
+		oi->rotation_type, replication, vm, mem_to_mem,
+		oi->color_encoding, oi->color_range);
 
 	return r;
 }
@@ -2816,7 +2896,8 @@ static int dispc_wb_setup(struct dispc_device *dispc,
 		wi->buf_width, pos_x, pos_y, in_width, in_height, wi->width,
 		wi->height, wi->fourcc, wi->rotation, zorder,
 		wi->pre_mult_alpha, global_alpha, wi->rotation_type,
-		replication, vm, mem_to_mem);
+		replication, vm, mem_to_mem, DRM_COLOR_YCBCR_BT601,
+		DRM_COLOR_YCBCR_LIMITED_RANGE);
 	if (r)
 		return r;
 
@@ -2976,7 +3057,7 @@ static void dispc_mgr_setup(struct dispc_device *dispc,
 				info->trans_key);
 	dispc_mgr_enable_trans_key(dispc, channel, info->trans_enabled);
 	dispc_mgr_enable_alpha_fixed_zorder(dispc, channel,
-			info->partial_alpha_enabled);
+			info->alpha_blender_enabled);
 	if (dispc_has_feature(dispc, FEAT_CPR)) {
 		dispc_mgr_enable_cpr(dispc, channel, info->cpr_enable);
 		dispc_mgr_set_cpr_coef(dispc, channel, &info->cpr_coefs);
@@ -3927,7 +4008,8 @@ static void _omap_dispc_initial_config(struct dispc_device *dispc)
 	    dispc->feat->has_gamma_table)
 		REG_FLD_MOD(dispc, DISPC_CONFIG, 1, 9, 9);
 
-	dispc_setup_color_conv_coef(dispc);
+	if (dispc->feat->has_writeback)
+		dispc_wb_write_color_conv_coef(dispc, &coefs_rgb2yuv_bt601_full);
 
 	dispc_set_loadmode(dispc, OMAP_DSS_LOAD_FRAME_ONLY);
 
@@ -4223,6 +4305,8 @@ static const struct dispc_features omap24xx_dispc_feats = {
 	.mgr_height_start	=	26,
 	.mgr_width_max		=	2048,
 	.mgr_height_max		=	2048,
+	.ovl_width_max		=	2048,
+	.ovl_height_max		=	2048,
 	.max_lcd_pclk		=	66500000,
 	.max_downscale		=	2,
 	/*
@@ -4261,6 +4345,8 @@ static const struct dispc_features omap34xx_rev1_0_dispc_feats = {
 	.mgr_height_start	=	26,
 	.mgr_width_max		=	2048,
 	.mgr_height_max		=	2048,
+	.ovl_width_max		=	2048,
+	.ovl_height_max		=	2048,
 	.max_lcd_pclk		=	173000000,
 	.max_tv_pclk		=	59000000,
 	.max_downscale		=	4,
@@ -4296,6 +4382,8 @@ static const struct dispc_features omap34xx_rev3_0_dispc_feats = {
 	.mgr_height_start	=	26,
 	.mgr_width_max		=	2048,
 	.mgr_height_max		=	2048,
+	.ovl_width_max		=	2048,
+	.ovl_height_max		=	2048,
 	.max_lcd_pclk		=	173000000,
 	.max_tv_pclk		=	59000000,
 	.max_downscale		=	4,
@@ -4331,6 +4419,8 @@ static const struct dispc_features omap36xx_dispc_feats = {
 	.mgr_height_start	=	26,
 	.mgr_width_max		=	2048,
 	.mgr_height_max		=	2048,
+	.ovl_width_max		=	2048,
+	.ovl_height_max		=	2048,
 	.max_lcd_pclk		=	173000000,
 	.max_tv_pclk		=	59000000,
 	.max_downscale		=	4,
@@ -4366,6 +4456,8 @@ static const struct dispc_features am43xx_dispc_feats = {
 	.mgr_height_start	=	26,
 	.mgr_width_max		=	2048,
 	.mgr_height_max		=	2048,
+	.ovl_width_max		=	2048,
+	.ovl_height_max		=	2048,
 	.max_lcd_pclk		=	173000000,
 	.max_tv_pclk		=	59000000,
 	.max_downscale		=	4,
@@ -4401,6 +4493,8 @@ static const struct dispc_features omap44xx_dispc_feats = {
 	.mgr_height_start	=	26,
 	.mgr_width_max		=	2048,
 	.mgr_height_max		=	2048,
+	.ovl_width_max		=	2048,
+	.ovl_height_max		=	2048,
 	.max_lcd_pclk		=	170000000,
 	.max_tv_pclk		=	185625000,
 	.max_downscale		=	4,
@@ -4440,6 +4534,8 @@ static const struct dispc_features omap54xx_dispc_feats = {
 	.mgr_height_start	=	27,
 	.mgr_width_max		=	4096,
 	.mgr_height_max		=	4096,
+	.ovl_width_max		=	2048,
+	.ovl_height_max		=	4096,
 	.max_lcd_pclk		=	170000000,
 	.max_tv_pclk		=	192000000,
 	.max_downscale		=	4,
@@ -4571,7 +4667,7 @@ static const struct dispc_errata_i734_data {
 	.mgri = {
 		.default_color = 0,
 		.trans_enabled = false,
-		.partial_alpha_enabled = false,
+		.alpha_blender_enabled = false,
 		.cpr_enable = false,
 	},
 	.lcd_conf = {
@@ -4714,6 +4810,9 @@ static const struct dispc_ops dispc_ops = {
 	.ovl_enable = dispc_ovl_enable,
 	.ovl_setup = dispc_ovl_setup,
 	.ovl_get_color_modes = dispc_ovl_get_color_modes,
+	.ovl_color_mode_supported = dispc_ovl_color_mode_supported,
+	.ovl_get_caps = dispc_ovl_get_caps,
+	.ovl_get_max_size = dispc_ovl_get_max_size,
 
 	.wb_get_framedone_irq = dispc_wb_get_framedone_irq,
 	.wb_setup = dispc_wb_setup,

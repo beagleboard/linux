@@ -838,8 +838,10 @@ dtb-$(CONFIG_ARCH_OMAP4) += \
 	omap4-var-stk-om44.dtb
 dtb-$(CONFIG_SOC_AM43XX) += \
 	am43x-epos-evm.dtb \
+	am43x-epos-evm-hdmi.dtb \
 	am437x-cm-t43.dtb \
 	am437x-gp-evm.dtb \
+	am437x-gp-evm-hdmi.dtb \
 	am437x-idk-evm.dtb \
 	am437x-sbc-t43.dtb \
 	am437x-sk-evm.dtb
@@ -865,7 +867,8 @@ dtb-$(CONFIG_SOC_DRA7XX) += \
 	dra76-evm.dtb
 dtb-merge-$(CONFIG_SOC_DRA7XX) += \
 	am57xx-evm.dtb \
-	am57xx-evm-reva3.dtb
+	am57xx-evm-reva3.dtb \
+	dra71-evm-nand.dtb
 dtb-$(CONFIG_ARCH_ORION5X) += \
 	orion5x-kuroboxpro.dtb \
 	orion5x-lacie-d2-network.dtb \
