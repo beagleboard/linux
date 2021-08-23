@@ -37,6 +37,29 @@ static const int gyro_scale_6050[] = {133090, 266181, 532362, 1064724};
  */
 static const int accel_scale[] = {598, 1196, 2392, 4785};
 
+static const struct inv_mpu6050_reg_map reg_set_icm20948 = {
+	.sample_rate_div	= INV_ICM20948_REG_SAMPLE_RATE_DIV,
+	.lpf                    = INV_ICM20948_REG_GYRO_CONFIG,
+	.accel_lpf              = INV_ICM20948_REG_ACCEL_CONFIG,
+	.user_ctrl              = INV_ICM20948_REG_USER_CTRL,
+	.fifo_en                = INV_ICM20948_REG_FIFO_EN,
+	.gyro_config            = INV_ICM20948_REG_GYRO_CONFIG,
+	.accl_config            = INV_ICM20948_REG_ACCEL_CONFIG,
+	.fifo_count_h           = INV_ICM20948_REG_FIFO_COUNT_H,
+	.fifo_r_w               = INV_ICM20948_REG_FIFO_R_W,
+	.raw_gyro               = INV_ICM20948_REG_RAW_GYRO,
+	.raw_accl               = INV_ICM20948_REG_RAW_ACCEL,
+	.temperature            = INV_ICM20948_REG_TEMPERATURE,
+	.int_enable             = INV_ICM20948_REG_INT_ENABLE,
+	.int_status             = INV_ICM20948_REG_INT_STATUS,
+	.pwr_mgmt_1             = INV_ICM20948_REG_PWR_MGMT_1,
+	.pwr_mgmt_2             = INV_ICM20948_REG_PWR_MGMT_2,
+	.int_pin_cfg            = INV_ICM20948_REG_INT_PIN_CFG,
+	.accl_offset            = INV_ICM20948_REG_ACCEL_OFFSET,
+	.gyro_offset            = INV_ICM20948_REG_GYRO_OFFSET,
+	.i2c_if                 = 0,
+};
+
 static const struct inv_mpu6050_reg_map reg_set_icm20602 = {
 	.sample_rate_div	= INV_MPU6050_REG_SAMPLE_RATE_DIV,
 	.lpf                    = INV_MPU6050_REG_CONFIG,
@@ -108,8 +131,8 @@ static const struct inv_mpu6050_chip_config chip_config_6050 = {
 	.fsr = INV_MPU6050_FSR_2000DPS,
 	.lpf = INV_MPU6050_FILTER_20HZ,
 	.divider = INV_MPU6050_FIFO_RATE_TO_DIVIDER(INV_MPU6050_INIT_FIFO_RATE),
-	.gyro_fifo_enable = false,
-	.accl_fifo_enable = false,
+	.gyro_fifo_enable = true,
+	.accl_fifo_enable = true,
 	.accl_fs = INV_MPU6050_FS_02G,
 	.user_ctrl = 0,
 };
@@ -188,6 +211,14 @@ static const struct inv_mpu6050_hw hw_info[] = {
 		.fifo_size = 1008,
 		.temp = {INV_ICM20608_TEMP_OFFSET, INV_ICM20608_TEMP_SCALE},
 	},
+	{
+		.whoami = 0,
+		.name = "ICM20948",
+		.reg = &reg_set_icm20948,
+		.config = &chip_config_6050,
+		.fifo_size = 4 * 1024,
+		.temp = {INV_ICM20948_TEMP_OFFSET, INV_MPU6500_TEMP_SCALE},
+	}
 };
 
 int inv_mpu6050_switch_engine(struct inv_mpu6050_state *st, bool en, u32 mask)
@@ -286,7 +317,13 @@ static int inv_mpu6050_set_lpf_regs(struct inv_mpu6050_state *st,
 {
 	int result;
 
-	result = regmap_write(st->map, st->reg->lpf, val);
+	switch (st->chip_type) {
+	case INV_ICM20948:
+		result = regmap_update_bits(st->map, st->reg->lpf, 0x7 << 3, val << 3);
+		break;
+	default:
+		result = regmap_write(st->map, st->reg->lpf, val);
+	}
 	if (result)
 		return result;
 
@@ -296,6 +333,9 @@ static int inv_mpu6050_set_lpf_regs(struct inv_mpu6050_state *st,
 	case INV_MPU9150:
 		/* old chips, nothing to do */
 		result = 0;
+		break;
+	case INV_ICM20948:
+		result = regmap_update_bits(st->map, st->reg->accel_lpf, 0x7 << 3, val << 3);
 		break;
 	default:
 		/* set accel lpf */
@@ -324,8 +364,16 @@ static int inv_mpu6050_init_config(struct iio_dev *indio_dev)
 	result = inv_mpu6050_set_power_itg(st, true);
 	if (result)
 		return result;
-	d = (INV_MPU6050_FSR_2000DPS << INV_MPU6050_GYRO_CONFIG_FSR_SHIFT);
-	result = regmap_write(st->map, st->reg->gyro_config, d);
+
+	switch (st->chip_type) {
+	case INV_ICM20948:
+		d = (INV_MPU6050_FSR_2000DPS << 1);
+		result = regmap_update_bits(st->map, st->reg->gyro_config, 0xf, d | 1);
+		break;
+	default:
+		d = (INV_MPU6050_FSR_2000DPS << INV_MPU6050_GYRO_CONFIG_FSR_SHIFT);
+		result = regmap_write(st->map, st->reg->gyro_config, d);
+	}
 	if (result)
 		goto error_power_off;
 
@@ -338,8 +386,21 @@ static int inv_mpu6050_init_config(struct iio_dev *indio_dev)
 	if (result)
 		goto error_power_off;
 
-	d = (INV_MPU6050_FS_02G << INV_MPU6050_ACCL_CONFIG_FSR_SHIFT);
-	result = regmap_write(st->map, st->reg->accl_config, d);
+	if (st->chip_type == INV_ICM20948) {
+		result = regmap_write(st->map, INV_ICM20948_REG_ACCEL_SAMPLE_RATE_DIV2, d);
+		if (result)
+			goto error_power_off;
+	}
+
+	switch (st->chip_type) {
+	case INV_ICM20948:
+		d = (INV_MPU6050_FS_02G << 1);
+		result = regmap_update_bits(st->map, st->reg->accl_config, 0x7 << 1, d);
+		break;
+	default:
+		d = (INV_MPU6050_FS_02G << INV_MPU6050_ACCL_CONFIG_FSR_SHIFT);
+		result = regmap_write(st->map, st->reg->accl_config, d);
+	}
 	if (result)
 		goto error_power_off;
 
@@ -531,8 +592,15 @@ static int inv_mpu6050_write_gyro_scale(struct inv_mpu6050_state *st, int val)
 
 	for (i = 0; i < ARRAY_SIZE(gyro_scale_6050); ++i) {
 		if (gyro_scale_6050[i] == val) {
-			d = (i << INV_MPU6050_GYRO_CONFIG_FSR_SHIFT);
-			result = regmap_write(st->map, st->reg->gyro_config, d);
+			switch (st->chip_type) {
+			case INV_ICM20948:
+				d = (INV_MPU6050_FSR_2000DPS << 1);
+				result = regmap_update_bits(st->map, st->reg->gyro_config, 0x7 << 1, d);
+				break;
+			default:
+				d = (i << INV_MPU6050_GYRO_CONFIG_FSR_SHIFT);
+				result = regmap_write(st->map, st->reg->gyro_config, d);
+			}
 			if (result)
 				return result;
 
@@ -569,8 +637,15 @@ static int inv_mpu6050_write_accel_scale(struct inv_mpu6050_state *st, int val)
 
 	for (i = 0; i < ARRAY_SIZE(accel_scale); ++i) {
 		if (accel_scale[i] == val) {
-			d = (i << INV_MPU6050_ACCL_CONFIG_FSR_SHIFT);
-			result = regmap_write(st->map, st->reg->accl_config, d);
+			switch (st->chip_type) {
+			case INV_ICM20948:
+				d = (i << 1);
+				result = regmap_update_bits(st->map, st->reg->accl_config, 0xf, d | 1);
+				break;
+			default:
+				d = (i << INV_MPU6050_ACCL_CONFIG_FSR_SHIFT);
+				result = regmap_write(st->map, st->reg->accl_config, d);
+			}
 			if (result)
 				return result;
 
@@ -721,6 +796,12 @@ inv_mpu6050_fifo_rate_store(struct device *dev, struct device_attribute *attr,
 	result = regmap_write(st->map, st->reg->sample_rate_div, d);
 	if (result)
 		goto fifo_rate_fail_power_off;
+
+	if (st->chip_type == INV_ICM20948) {
+		result = regmap_write(st->map, INV_ICM20948_REG_ACCEL_SAMPLE_RATE_DIV2, d);
+		if (result)
+			goto fifo_rate_fail_power_off;
+	}
 	st->chip_config.divider = d;
 
 	result = inv_mpu6050_set_lpf(st, fifo_rate);
@@ -976,15 +1057,16 @@ static const struct iio_info mpu_info = {
  */
 static int inv_check_and_setup_chip(struct inv_mpu6050_state *st)
 {
-	int result;
-	unsigned int regval;
+	int result = 0;
+	unsigned int regval = 0;
 	int i;
 
 	st->hw  = &hw_info[st->chip_type];
 	st->reg = hw_info[st->chip_type].reg;
 
 	/* check chip self-identification */
-	result = regmap_read(st->map, INV_MPU6050_REG_WHOAMI, &regval);
+	if (st->hw->whoami)
+		result = regmap_read(st->map, INV_MPU6050_REG_WHOAMI, &regval);
 	if (result)
 		return result;
 	if (regval != st->hw->whoami) {
