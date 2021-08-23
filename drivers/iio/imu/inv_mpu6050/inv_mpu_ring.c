@@ -145,10 +145,20 @@ int inv_reset_fifo(struct iio_dev *indio_dev)
 		goto reset_fifo_fail;
 	/* enable sensor output to FIFO */
 	d = 0;
-	if (st->chip_config.gyro_fifo_enable)
-		d |= INV_MPU6050_BITS_GYRO_OUT;
-	if (st->chip_config.accl_fifo_enable)
-		d |= INV_MPU6050_BIT_ACCEL_OUT;
+
+	switch (st->chip_type) {
+	case INV_ICM20948:
+		if (st->chip_config.gyro_fifo_enable)
+			d |= INV_ICM20948_BITS_GYRO_OUT;
+		if (st->chip_config.accl_fifo_enable)
+			d |= INV_ICM20948_BIT_ACCEL_OUT;
+		break;
+	default:
+		if (st->chip_config.gyro_fifo_enable)
+			d |= INV_MPU6050_BITS_GYRO_OUT;
+		if (st->chip_config.accl_fifo_enable)
+			d |= INV_MPU6050_BIT_ACCEL_OUT;
+	};
 	result = regmap_write(st->map, st->reg->fifo_en, d);
 	if (result)
 		goto reset_fifo_fail;

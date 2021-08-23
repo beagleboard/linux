@@ -20,9 +20,33 @@
 #include <linux/of_device.h>
 #include "inv_mpu_iio.h"
 
+#define INV_ICM20948_REG_BANK_SEL	0x7F
+#define INV_ICM20948_BANK_SEL_MASK	GENMASK(5,4)
+
+static const struct regmap_range_cfg inv_icm20948_regmap_ranges[] = {
+	{
+		.name = "user banks",
+		.range_min = 0x0000,
+		.range_max = 0x4FFF,
+		.selector_reg = INV_ICM20948_REG_BANK_SEL,
+		.selector_mask = INV_ICM20948_BANK_SEL_MASK,
+		.selector_shift = 4,
+		.window_start = 0,
+		.window_len = 0x1000,
+	},
+};
+
 static const struct regmap_config inv_mpu_regmap_config = {
 	.reg_bits = 8,
 	.val_bits = 8,
+};
+
+static const struct regmap_config inv_icm20948_regmap_config = {
+	.reg_bits = 8,
+	.val_bits = 8,
+	.max_register = 0x4FFF,
+	.ranges = inv_icm20948_regmap_ranges,
+	.num_ranges = ARRAY_SIZE(inv_icm20948_regmap_ranges),
 };
 
 static int inv_mpu6050_select_bypass(struct i2c_mux_core *muxc, u32 chan_id)
@@ -88,7 +112,7 @@ static int inv_mpu_probe(struct i2c_client *client,
 {
 	struct inv_mpu6050_state *st;
 	int result;
-	enum inv_devices chip_type;
+	enum inv_devices chip_type = 0;
 	struct regmap *regmap;
 	const char *name;
 
@@ -112,7 +136,14 @@ static int inv_mpu_probe(struct i2c_client *client,
 		return -ENOSYS;
 	}
 
-	regmap = devm_regmap_init_i2c(client, &inv_mpu_regmap_config);
+	switch (chip_type) {
+	case INV_ICM20948:
+		regmap = devm_regmap_init_i2c(client, &inv_icm20948_regmap_config);
+		break;
+	default:
+		regmap = devm_regmap_init_i2c(client, &inv_mpu_regmap_config);
+	}
+
 	if (IS_ERR(regmap)) {
 		dev_err(&client->dev, "Failed to register i2c regmap %d\n",
 			(int)PTR_ERR(regmap));
@@ -128,6 +159,7 @@ static int inv_mpu_probe(struct i2c_client *client,
 	switch (st->chip_type) {
 	case INV_ICM20608:
 	case INV_ICM20602:
+	//case INV_ICM20948:
 		/* no i2c auxiliary bus on the chip */
 		break;
 	default:
@@ -181,6 +213,7 @@ static const struct i2c_device_id inv_mpu_id[] = {
 	{"mpu9255", INV_MPU9255},
 	{"icm20608", INV_ICM20608},
 	{"icm20602", INV_ICM20602},
+	{"icm20948", INV_ICM20948},
 	{}
 };
 
@@ -218,6 +251,10 @@ static const struct of_device_id inv_of_match[] = {
 	{
 		.compatible = "invensense,icm20602",
 		.data = (void *)INV_ICM20602
+	},
+	{
+		.compatible = "invensense,icm20948",
+		.data = (void *)INV_ICM20948
 	},
 	{ }
 };
