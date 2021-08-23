@@ -47,26 +47,26 @@
  *  @i2c_if:		Controls the i2c interface
  */
 struct inv_mpu6050_reg_map {
-	u8 sample_rate_div;
-	u8 lpf;
-	u8 accel_lpf;
-	u8 user_ctrl;
-	u8 fifo_en;
-	u8 gyro_config;
-	u8 accl_config;
-	u8 fifo_count_h;
-	u8 fifo_r_w;
-	u8 raw_gyro;
-	u8 raw_accl;
-	u8 temperature;
-	u8 int_enable;
-	u8 int_status;
-	u8 pwr_mgmt_1;
-	u8 pwr_mgmt_2;
-	u8 int_pin_cfg;
-	u8 accl_offset;
-	u8 gyro_offset;
-	u8 i2c_if;
+	u16 sample_rate_div;
+	u16 lpf;
+	u16 accel_lpf;
+	u16 user_ctrl;
+	u16 fifo_en;
+	u16 gyro_config;
+	u16 accl_config;
+	u16 fifo_count_h;
+	u16 fifo_r_w;
+	u16 raw_gyro;
+	u16 raw_accl;
+	u16 temperature;
+	u16 int_enable;
+	u16 int_status;
+	u16 pwr_mgmt_1;
+	u16 pwr_mgmt_2;
+	u16 int_pin_cfg;
+	u16 accl_offset;
+	u16 gyro_offset;
+	u16 i2c_if;
 };
 
 /*device enum */
@@ -80,6 +80,7 @@ enum inv_devices {
 	INV_MPU9255,
 	INV_ICM20608,
 	INV_ICM20602,
+	INV_ICM20948,
 	INV_NUM_PARTS
 };
 
@@ -243,6 +244,8 @@ struct inv_mpu6050_state {
 #define INV_ICM20608_TEMP_OFFSET	     8170
 #define INV_ICM20608_TEMP_SCALE		     3059976
 
+#define INV_ICM20948_TEMP_OFFSET	     6863
+
 /* 6 + 6 round up and plus 8 */
 #define INV_MPU6050_OUTPUT_DATA_SIZE         24
 
@@ -283,6 +286,32 @@ struct inv_mpu6050_state {
 #define INV_MPU6515_WHOAMI_VALUE		0x74
 #define INV_ICM20608_WHOAMI_VALUE		0xAF
 #define INV_ICM20602_WHOAMI_VALUE		0x12
+
+
+#define INV_ICM20948_REG_SAMPLE_RATE_DIV	0x2000
+#define INV_ICM20948_REG_ACCEL_SAMPLE_RATE_DIV2	0x2011
+#define INV_ICM20948_REG_CONFIG				0x2001
+#define INV_ICM20948_REG_ACCEL_CONFIG_2		0x2015
+#define INV_ICM20948_REG_USER_CTRL			0x0003
+
+#define INV_ICM20948_REG_FIFO_EN			0x0067
+#define INV_ICM20948_BIT_ACCEL_OUT          0x0010
+#define INV_ICM20948_BITS_GYRO_OUT          0x000e
+
+#define INV_ICM20948_REG_GYRO_CONFIG		0x2001
+#define INV_ICM20948_REG_ACCEL_CONFIG	  	0x2014
+#define INV_ICM20948_REG_FIFO_COUNT_H		0x0070
+#define INV_ICM20948_REG_FIFO_R_W			0x0072
+#define INV_ICM20948_REG_RAW_GYRO			0x0033
+#define INV_ICM20948_REG_RAW_ACCEL			0x002d
+#define INV_ICM20948_REG_TEMPERATURE		0x0039
+#define INV_ICM20948_REG_INT_ENABLE			0x0011
+#define INV_ICM20948_REG_INT_STATUS			0x001a
+#define INV_ICM20948_REG_PWR_MGMT_1			0x0006
+#define INV_ICM20948_REG_PWR_MGMT_2			0x0007
+#define INV_ICM20948_REG_INT_PIN_CFG		0x000f
+#define INV_ICM20948_REG_ACCEL_OFFSET		0x1014
+#define INV_ICM20948_REG_GYRO_OFFSET		0x2003
 
 /* scan element definition for generic MPU6xxx devices */
 enum inv_mpu6050_scan {
