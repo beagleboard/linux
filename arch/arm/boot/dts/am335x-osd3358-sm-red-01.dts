@@ -143,6 +143,25 @@
 		compatible = "st,lps22hb-press";
 		reg = <0x5c>;
 	};
+
+	icm20948: imu@68 {
+		compatible = "invensense,icm20948";
+		reg = <0x68>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&imu_interrupt>;
+
+		interrupt-parent = <&gpio3>;
+		interrupts = <2 IRQ_TYPE_EDGE_RISING>;
+		i2c-gate {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			ak09916@c {
+				compatible = "asahi-kasei,ak09916";
+				reg = <0x0c>;
+			};
+		};
+	};
 };
 
 &rtc {
