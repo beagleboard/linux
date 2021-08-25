@@ -382,7 +382,6 @@ struct cpsw_priv {
 	struct cpsw_common *cpsw;
 	int offload_fwd_mark;
 	u32 tx_packet_min;
-	u8 port_state[3];
 };
 
 #define ndev_to_cpsw(ndev) (((struct cpsw_priv *)netdev_priv(ndev))->cpsw)
@@ -441,7 +440,7 @@ int cpsw_ndo_bpf(struct net_device *ndev, struct netdev_bpf *bpf);
 int cpsw_xdp_tx_frame(struct cpsw_priv *priv, struct xdp_frame *xdpf,
 		      struct page *page, int port);
 int cpsw_run_xdp(struct cpsw_priv *priv, int ch, struct xdp_buff *xdp,
-		 struct page *page, int port, int *len);
+		 struct page *page, int port);
 irqreturn_t cpsw_tx_interrupt(int irq, void *dev_id);
 irqreturn_t cpsw_rx_interrupt(int irq, void *dev_id);
 irqreturn_t cpsw_misc_interrupt(int irq, void *dev_id);
@@ -495,20 +494,5 @@ int cpsw_set_channels_common(struct net_device *ndev,
 			     struct ethtool_channels *chs,
 			     cpdma_handler_fn rx_handler);
 int cpsw_get_ts_info(struct net_device *ndev, struct ethtool_ts_info *info);
-
-#if IS_ENABLED(CONFIG_TI_CPTS)
-int cpsw_hwtstamp_set(struct net_device *dev, struct ifreq *ifr);
-int cpsw_hwtstamp_get(struct net_device *dev, struct ifreq *ifr);
-#else
-static int cpsw_hwtstamp_get(struct net_device *dev, struct ifreq *ifr)
-{
-	return -EOPNOTSUPP;
-}
-
-static int cpsw_hwtstamp_set(struct net_device *dev, struct ifreq *ifr)
-{
-	return -EOPNOTSUPP;
-}
-#endif /*CONFIG_TI_CPTS*/
 
 #endif /* DRIVERS_NET_ETHERNET_TI_CPSW_PRIV_H_ */
