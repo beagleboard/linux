@@ -829,6 +829,8 @@ static int ptrace_resume(struct task_struct *child, long request,
 		user_disable_single_step(child);
 	}
 
+	__ipipe_report_ptrace_resume(child, request);
+
 	/*
 	 * Change ->exit_code and ->state under siglock to avoid the race
 	 * with wait_task_stopped() in between; a non-zero ->exit_code will

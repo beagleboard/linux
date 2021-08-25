@@ -125,6 +125,9 @@ static void desc_set_defaults(unsigned int irq, struct irq_desc *desc, int node,
 	for_each_possible_cpu(cpu)
 		*per_cpu_ptr(desc->kstat_irqs, cpu) = 0;
 	desc_smp_init(desc, node, affinity);
+#ifdef CONFIG_IPIPE
+	desc->istate |= IPIPE_IRQS_NEEDS_STARTUP;
+#endif
 }
 
 int nr_irqs = NR_IRQS;
@@ -578,11 +581,13 @@ int __init early_irq_init(void)
 	return arch_early_irq_init();
 }
 
+#ifndef CONFIG_IPIPE
 struct irq_desc *irq_to_desc(unsigned int irq)
 {
 	return (irq < NR_IRQS) ? irq_desc + irq : NULL;
 }
 EXPORT_SYMBOL(irq_to_desc);
+#endif /* CONFIG_IPIPE */
 
 static void free_desc(unsigned int irq)
 {

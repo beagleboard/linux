@@ -82,6 +82,11 @@ static void __init imx51_dt_init(void)
 static void __init imx51_init_late(void)
 {
 	mx51_neon_fixup();
+#ifdef CONFIG_IPIPE
+	/* Allow user-space access to emulated tsc */
+	imx_set_aips(IMX_IO_ADDRESS(0x73f00000));
+	imx_set_aips(IMX_IO_ADDRESS(0x83f00000));
+#endif
 	imx51_pm_init();
 }
 

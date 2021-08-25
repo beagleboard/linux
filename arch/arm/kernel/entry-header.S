@@ -25,7 +25,7 @@
 @
 #define S_OFF		8
 
-/* 
+/*
  * The SWI code relies on the fact that R0 is at the bottom of the stack
  * (due to slow/fast restore user regs).
  */
@@ -203,17 +203,28 @@
 	.macro	svc_exit, rpsr, irq = 0
 	.if	\irq != 0
 	@ IRQs already off
+#ifdef CONFIG_IPIPE_DEBUG_INTERNAL
+	bl	__ipipe_bugon_irqs_enabled
+#endif
 #ifdef CONFIG_TRACE_IRQFLAGS
 	@ The parent context IRQs must have been enabled to get here in
 	@ the first place, so there's no point checking the PSR I bit.
+#ifdef CONFIG_IPIPE
+	bl	trace_hardirqs_on_virt
+#else
 	bl	trace_hardirqs_on
+#endif
 #endif
 	.else
 	@ IRQs off again before pulling preserved data off the stack
 	disable_irq_notrace
 #ifdef CONFIG_TRACE_IRQFLAGS
 	tst	\rpsr, #PSR_I_BIT
+#ifdef CONFIG_IPIPE
+	bleq	trace_hardirqs_on_virt
+#else
 	bleq	trace_hardirqs_on
+#endif
 	tst	\rpsr, #PSR_I_BIT
 	blne	trace_hardirqs_off
 #endif
@@ -222,6 +233,14 @@
 
 #ifndef CONFIG_THUMB2_KERNEL
 	@ ARM mode SVC restore
+
+#ifdef CONFIG_IPIPE_TRACE_IRQSOFF
+	mov	r0, #2		/* IPIPE_TRACE_END */
+	mov	r3, #0x90000000
+	ldr	r2, [sp, #S_PC]
+	mov	r1, pc
+	bl	ipipe_trace_asm
+#endif /* CONFIG_IPIPE_TRACE_IRQSOFF */
 	msr	spsr_cxsf, \rpsr
 #if defined(CONFIG_CPU_V6) || defined(CONFIG_CPU_32v6K)
 	@ We must avoid clrex due to Cortex-A15 erratum #830321
@@ -295,6 +314,22 @@
 	uaccess_enable r1, isb=0
 #ifndef CONFIG_THUMB2_KERNEL
 	@ ARM mode restore
+#ifdef CONFIG_IPIPE_DEBUG_INTERNAL
+	bl	__ipipe_bugon_irqs_enabled
+#endif
+#ifdef CONFIG_IPIPE_TRACE_IRQSOFF
+	.if	\fast
+	mov	r4, r0
+	.endif
+	mov	r0, #2		/* IPIPE_TRACE_END */
+	mov	r3, #0x90000000
+	ldr	r2, [sp, #\offset + S_PC]
+	mov	r1, pc
+	bl	ipipe_trace_asm
+	.if	\fast
+	mov	r0, r4
+	.endif
+#endif /* CONFIG_IPIPE_TRACE_IRQSOFF */
 	mov	r2, sp
 	ldr	r1, [r2, #\offset + S_PSR]	@ get calling cpsr
 	ldr	lr, [r2, #\offset + S_PC]!	@ get pc
@@ -400,6 +435,13 @@
 	ldrcc	pc, [\table, \nr, lsl #2]	@ call sys_* routine
 #endif
 	.endm
+
+	.macro slow_restore_user_regs
+	/* perform architecture specific actions before user return */
+	arch_ret_to_user r1, lr
+	ct_user_enter save = 0
+	restore_user_regs fast = 0, offset = 0
+       .endm
 
 /*
  * These are the registers used in the syscall handler, and allow us to

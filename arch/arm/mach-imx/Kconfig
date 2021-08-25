@@ -5,6 +5,7 @@ menuconfig ARCH_MXC
 	select ARCH_SUPPORTS_BIG_ENDIAN
 	select CLKSRC_IMX_GPT
 	select GENERIC_IRQ_CHIP
+	select IPIPE_ARM_KUSER_TSC if IPIPE
 	select GPIOLIB
 	select PINCTRL
 	select PM_OPP if PM

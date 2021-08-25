@@ -3347,6 +3347,17 @@ EXPORT_SYMBOL(dev_printk_emit);
 static void __dev_printk(const char *level, const struct device *dev,
 			struct va_format *vaf)
 {
+#ifdef CONFIG_IPIPE
+	/*
+	 * Console logging only if hard locked, or over the head
+	 * stage.
+	 */
+	if (hard_irqs_disabled() || !ipipe_root_p) {
+		__ipipe_log_printk(vaf->fmt, *vaf->va);
+		return;
+	}
+#endif
+
 	if (dev)
 		dev_printk_emit(level[1] - '0', dev, "%s %s: %pV",
 				dev_driver_string(dev), dev_name(dev), vaf);
