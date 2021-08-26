@@ -47,6 +47,7 @@ static int hclge_gen_resp_to_vf(struct hclge_vport *vport,
 
 	resp_pf_to_vf->dest_vfid = vf_to_pf_req->mbx_src_vfid;
 	resp_pf_to_vf->msg_len = vf_to_pf_req->msg_len;
+	resp_pf_to_vf->match_id = vf_to_pf_req->match_id;
 
 	resp_pf_to_vf->msg.code = HCLGE_MBX_PF_VF_RESP;
 	resp_pf_to_vf->msg.vf_mbx_msg_code = vf_to_pf_req->msg.code;
@@ -678,7 +679,6 @@ void hclge_mbx_handler(struct hclge_dev *hdev)
 	unsigned int flag;
 	int ret = 0;
 
-	memset(&resp_msg, 0, sizeof(resp_msg));
 	/* handle all the mailbox requests in the queue */
 	while (!hclge_cmd_crq_empty(&hdev->hw)) {
 		if (test_bit(HCLGE_STATE_CMD_DISABLE, &hdev->state)) {
@@ -705,6 +705,9 @@ void hclge_mbx_handler(struct hclge_dev *hdev)
 		vport = &hdev->vport[req->mbx_src_vfid];
 
 		trace_hclge_pf_mbx_get(hdev, req);
+
+		/* clear the resp_msg before processing every mailbox message */
+		memset(&resp_msg, 0, sizeof(resp_msg));
 
 		switch (req->msg.code) {
 		case HCLGE_MBX_MAP_RING_TO_VECTOR:

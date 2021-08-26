@@ -9,13 +9,13 @@
 #include <dt-bindings/mux/ti-serdes.h>
 
 / {
-	cmn_refclk: cmn-refclk {
+	cmn_refclk: clock-cmnrefclk {
 		#clock-cells = <0>;
 		compatible = "fixed-clock";
 		clock-frequency = <0>;
 	};
 
-	cmn_refclk1: cmn-refclk1 {
+	cmn_refclk1: clock-cmnrefclk1 {
 		#clock-cells = <0>;
 		compatible = "fixed-clock";
 		clock-frequency = <0>;
