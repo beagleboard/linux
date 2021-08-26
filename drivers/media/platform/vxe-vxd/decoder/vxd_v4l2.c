@@ -1905,7 +1905,26 @@ static int job_ready(void *priv)
 static void job_abort(void *priv)
 {
 	struct vxd_dec_ctx *ctx = priv;
+	struct vb2_v4l2_buffer  *dst_vb;
+	struct vxd_buffer *dst_vxdb;
+	dst_vb = v4l2_m2m_dst_buf_remove(ctx->fh.m2m_ctx);
+	dst_vxdb = container_of(dst_vb, struct vxd_buffer, buffer.vb);
 
+	if (ctx->core_streaming) {
+		core_stream_stop(ctx->res_str_id);
+		ctx->core_streaming = FALSE;
+
+		core_stream_flush(ctx->res_str_id, TRUE);
+	}
+
+	pr_err("%s %d, dst_vxdb->buf_map_id %d\n",__func__,__LINE__, dst_vxdb->buf_map_id);
+	vxd_return_resource((void *)ctx, VXD_CB_PICT_DECODED, dst_vxdb->buf_map_id);
+
+	vxd_return_resource((void *)ctx, VXD_CB_PICT_DISPLAY, dst_vxdb->buf_map_id);
+
+	vxd_return_resource((void *)ctx, VXD_CB_PICT_RELEASE, dst_vxdb->buf_map_id);
+
+	vxd_return_resource((void *)ctx, VXD_CB_STR_END, 0);
 	/* Cancel the transaction at next callback */
 	ctx->aborting = 1;
 }
