@@ -2053,8 +2053,6 @@ int decoder_stream_flush(void *dec_str_ctx_arg, unsigned char discard_refs)
 	 */
 	dec_str_unit = lst_first(&dec_str_ctx->pend_strunit_list);
 	while (dec_str_unit) {
-		VDEC_ASSERT(dec_str_unit->str_unit->str_unit_type !=
-			VDECDD_STRUNIT_PICTURE_START);
 		dec_str_unit = lst_next(dec_str_unit);
 	}
 

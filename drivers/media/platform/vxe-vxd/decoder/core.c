@@ -3185,7 +3185,6 @@ int core_stream_unmap_buf(unsigned int buf_map_id)
 #endif
 
 	/* Buffer should only be held by the client. */
-	VDEC_ASSERT(ddbuf_map_info->ddbuf_info.ref_count == 1);
 	if (ddbuf_map_info->ddbuf_info.ref_count != 1)
 		return IMG_ERROR_MEMORY_IN_USE;
 
