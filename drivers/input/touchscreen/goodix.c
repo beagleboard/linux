@@ -675,30 +675,29 @@ static int goodix_reset(struct goodix_ts_data *ts)
 {
 	int error;
 
-	/* begin select I2C slave addr */
-	error = gpiod_direction_output(ts->gpiod_rst, 0);
-	if (error)
-		return error;
-
 	msleep(20);				/* T2: > 10ms */
 
 	/* HIGH: 0x28/0x29, LOW: 0xBA/0xBB */
+#ifdef ACPI_GPIO_SUPPORT
 	error = goodix_irq_direction_output(ts, ts->client->addr == 0x14);
 	if (error)
 		return error;
+#else
+	if (ts->irq_pin_access_method == IRQ_PIN_ACCESS_ACPI_GPIO)
+		/*
+		 * The IRQ pin triggers on a falling edge, so its gets marked
+		 * as active-low, manually invert the value.
+		 */
+		gpiod_set_value_cansleep(ts->gpiod_int, ts->client->addr != 0x14);
+	else
+		gpiod_set_value_cansleep(ts->gpiod_int, ts->client->addr == 0x14);
+#endif
 
 	usleep_range(100, 2000);		/* T3: > 100us */
 
-	error = gpiod_direction_output(ts->gpiod_rst, 1);
-	if (error)
-		return error;
+	gpiod_set_value_cansleep(ts->gpiod_rst, 1);
 
 	usleep_range(6000, 10000);		/* T4: > 5ms */
-
-	/* end select I2C slave addr */
-	error = gpiod_direction_input(ts->gpiod_rst);
-	if (error)
-		return error;
 
 	error = goodix_int_sync(ts);
 	if (error)
@@ -861,7 +860,8 @@ static int goodix_get_gpio_config(struct goodix_ts_data *ts)
 
 retry_get_irq_gpio:
 	/* Get the interrupt GPIO pin number */
-	gpiod = devm_gpiod_get_optional(dev, GOODIX_GPIO_INT_NAME, GPIOD_IN);
+	gpiod = devm_gpiod_get_optional(dev, GOODIX_GPIO_INT_NAME,
+					GPIOD_OUT_LOW);
 	if (IS_ERR(gpiod)) {
 		error = PTR_ERR(gpiod);
 		if (error != -EPROBE_DEFER)
@@ -878,7 +878,8 @@ retry_get_irq_gpio:
 	ts->gpiod_int = gpiod;
 
 	/* Get the reset line GPIO pin number */
-	gpiod = devm_gpiod_get_optional(dev, GOODIX_GPIO_RST_NAME, GPIOD_IN);
+	gpiod = devm_gpiod_get_optional(dev, GOODIX_GPIO_RST_NAME,
+					GPIOD_OUT_LOW);
 	if (IS_ERR(gpiod)) {
 		error = PTR_ERR(gpiod);
 		if (error != -EPROBE_DEFER)
