@@ -82,6 +82,19 @@ static const struct i2c_device_id tmp468_id[] = {
 };
 MODULE_DEVICE_TABLE(i2c, tmp468_id);
 
+static const struct of_device_id tmp468_of_match[] = {
+	{
+		.compatible = "ti,tmp464",
+		.data = (void *)tmp464,
+	},
+	{
+		.compatible = "ti,tmp468",
+		.data = (void *)tmp468,
+	},
+	{},
+};
+MODULE_DEVICE_TABLE(of, tmp468_of_match);
+
 /*
  * Client data
  */
@@ -488,6 +501,7 @@ static struct i2c_driver tmp468_driver = {
 	.class		= I2C_CLASS_HWMON,
 	.driver = {
 		.name	= "tmp468",
+		.of_match_table = of_match_ptr(tmp468_of_match),
 	},
 	.probe		= tmp468_probe,
 	.id_table	= tmp468_id,
