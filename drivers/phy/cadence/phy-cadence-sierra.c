@@ -170,6 +170,20 @@ static const struct reg_field phy_pll_cfg_1 =
 static const struct reg_field pllctrl_lock =
 				REG_FIELD(SIERRA_PLLCTRL_STATUS_PREG, 0, 0);
 
+
+#define SIERRA_PHY_PMA_COMMON_OFFSET(block_offset)	\
+				     (0xE000 << (block_offset))
+#define PHY_PMA_CMN_CTRL1					0x0000U
+#define SIERRA_CMN_PLLLC_CLK1_PREG			0x4D
+
+static const struct reg_field phy_pma_cmn_ctrl_rcv_out_en =
+				REG_FIELD(PHY_PMA_CMN_CTRL1, 6, 7);
+static const struct reg_field cmn_plllc_clk1outdiv =
+				REG_FIELD(SIERRA_CMN_PLLLC_CLK1_PREG, 0, 6);
+static const struct reg_field cmn_plllc_clk1_en =
+				REG_FIELD(SIERRA_CMN_PLLLC_CLK1_PREG, 12, 12);
+
+
 static const char * const clk_names[] = {
 	[CDNS_SIERRA_PLL_CMNLC] = "pll_cmnlc",
 	[CDNS_SIERRA_PLL_CMNLC1] = "pll_cmnlc1",
@@ -259,13 +273,17 @@ struct cdns_sierra_phy {
 	struct reset_control *apb_rst;
 	struct regmap *regmap_lane_cdb[SIERRA_MAX_LANES];
 	struct regmap *regmap_phy_config_ctrl;
+	struct regmap *regmap_phy_pma_common_cdb;
 	struct regmap *regmap_common_cdb;
 	struct regmap_field *macro_id_type;
 	struct regmap_field *phy_pll_cfg_1;
+	struct regmap_field *phy_pma_cmn_ctrl_rcv_out_en;
 	struct regmap_field *pllctrl_lock[SIERRA_MAX_LANES];
 	struct regmap_field *cmn_refrcv_refclk_plllc1en_preg[SIERRA_NUM_CMN_PLLC];
 	struct regmap_field *cmn_refrcv_refclk_termen_preg[SIERRA_NUM_CMN_PLLC];
 	struct regmap_field *cmn_plllc_pfdclk1_sel_preg[SIERRA_NUM_CMN_PLLC];
+	struct regmap_field *cmn_plllc_clk1outdiv;
+	struct regmap_field *cmn_plllc_clk1_en;
 	struct clk *input_clks[CDNS_SIERRA_INPUT_CLOCKS];
 	int nsubnodes;
 	u32 num_lanes;
@@ -331,6 +349,14 @@ static const struct regmap_config cdns_sierra_common_cdb_config = {
 
 static const struct regmap_config cdns_sierra_phy_config_ctrl_config = {
 	.name = "sierra_phy_config_ctrl",
+	.reg_stride = 1,
+	.fast_io = true,
+	.reg_write = cdns_regmap_write,
+	.reg_read = cdns_regmap_read,
+};
+
+static struct regmap_config cdns_sierra_phy_pma_cmn_config = {
+	.name = "sierra_phy_pma_cmn",
 	.reg_stride = 1,
 	.fast_io = true,
 	.reg_write = cdns_regmap_write,
@@ -656,6 +682,20 @@ static int cdns_regfield_init(struct cdns_sierra_phy *sp)
 		sp->cmn_refrcv_refclk_termen_preg[i] = field;
 	}
 
+	field = devm_regmap_field_alloc(dev, regmap, cmn_plllc_clk1outdiv);
+	if (IS_ERR(field)) {
+		dev_err(dev, "cmn_plllc_clk1outdiv reg field init failed\n");
+		return PTR_ERR(field);
+	}
+	sp->cmn_plllc_clk1outdiv = field;
+
+	field = devm_regmap_field_alloc(dev, regmap, cmn_plllc_clk1_en);
+	if (IS_ERR(field)) {
+		dev_err(dev, "cmn_plllc_clk1_en field init failed\n");
+		return PTR_ERR(field);
+	}
+	sp->cmn_plllc_clk1_en = field;
+
 	regmap = sp->regmap_phy_config_ctrl;
 	field = devm_regmap_field_alloc(dev, regmap, phy_pll_cfg_1);
 	if (IS_ERR(field)) {
@@ -663,6 +703,14 @@ static int cdns_regfield_init(struct cdns_sierra_phy *sp)
 		return PTR_ERR(field);
 	}
 	sp->phy_pll_cfg_1 = field;
+
+	regmap = sp->regmap_phy_pma_common_cdb;
+	field = devm_regmap_field_alloc(dev, regmap, phy_pma_cmn_ctrl_rcv_out_en);
+	if (IS_ERR(field)) {
+		dev_err(dev, "phy_pma_cmn_ctrl_rcv_out_en field init failed\n");
+		return PTR_ERR(field);
+	}
+	sp->phy_pma_cmn_ctrl_rcv_out_en = field;
 
 	for (i = 0; i < SIERRA_MAX_LANES; i++) {
 		regmap = sp->regmap_lane_cdb[i];
@@ -716,6 +764,15 @@ static int cdns_regmap_init_blocks(struct cdns_sierra_phy *sp,
 		return PTR_ERR(regmap);
 	}
 	sp->regmap_phy_config_ctrl = regmap;
+
+	block_offset = SIERRA_PHY_PMA_COMMON_OFFSET(block_offset_shift);
+	regmap = cdns_regmap_init(dev, base, block_offset, reg_offset_shift,
+				  &cdns_sierra_phy_pma_cmn_config);
+	if (IS_ERR(regmap)) {
+		dev_err(dev, "Failed to init PHY PMA common CDB regmap\n");
+		return PTR_ERR(regmap);
+	}
+	sp->regmap_phy_pma_common_cdb = regmap;
 
 	return 0;
 }
@@ -950,6 +1007,27 @@ static int cdns_sierra_phy_probe(struct platform_device *pdev)
 	/* If more than one subnode, configure the PHY as multilink */
 	if (!sp->autoconf && sp->nsubnodes > 1)
 		regmap_field_write(sp->phy_pll_cfg_1, 0x1);
+
+	dev_dbg(dev, "\t[SIERRA] %s : Configuring Clock Out from SoC...\n", __func__);
+	regmap_field_write(sp->cmn_plllc_clk1_en, 0x1);
+	/* Programming to get 100Mhz clock output in ref_der_clk_out 5GHz VCO/50 = 100MHz */
+	regmap_field_write(sp->cmn_plllc_clk1outdiv, 0x2e);
+
+	/* Un-lock Partition 2 : 8000h to 9FFFh */
+	writel(0x68EF3490, ioremap(0x00109008, 0x4)); /* LOCK2_KICK0 */
+	writel(0xD172BC5A, ioremap(0x0010900C, 0x4)); /* LOCK2_KICK1 */
+
+	/* Un-lock Partition 6 : 18000h to 19FFFh */
+	writel(0x68EF3490, ioremap(0x00119008, 0x4)); /* LOCK6_KICK0 */
+	writel(0xD172BC5A, ioremap(0x0011900C, 0x4)); /* LOCK6_KICK1 */
+
+	/* Enable ACSPCIe0 PAD 0 and 1 */
+	writel(0x01000000, ioremap(0x00118090, 0x4));
+
+	/* PCIE_REFCLK0_CLKSEL : EN + SERDES0_REF_DER_OUT_CLK */
+	writel(0x00000100, ioremap(0x00108070, 0x4));
+	/* PCIE_REFCLK1_CLKSEL : EN + SERDES1_REF_DER_OUT_CLK */
+	writel(0x00000101, ioremap(0x00108074, 0x4));
 
 	pm_runtime_enable(dev);
 	phy_provider = devm_of_phy_provider_register(dev, of_phy_simple_xlate);
