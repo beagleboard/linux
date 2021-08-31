@@ -1,0 +1,177 @@
+/*
+* Copyright (C) 2018 Patryk Mezydlo <mezydlo.p@gmail.com>
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License version 2 as
+* published by the Free Software Foundation.
+*/
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "ti,beaglebone", "ti,beaglebone-black";
+	part-number = "BW-ICE40Cape";
+	version = "00A0";
+
+	/* state the resources this cape uses */
+	exclusive-use =
+		/* the pin header uses */
+		"P9.31",	/* bw_spi1_sclk */
+		"P9.29",	/* bw_spi1_d0 */
+		"P9.30",	/* bw_spi1_d1 */
+		"P9.28",	/* bw_spi1_cs0 */
+		"P9.25",	/* bw_creset */
+		"P9.21",	/* bw_cdone */
+		"P8.25",	/* bw_gpmc_ad0 */
+		"P8.24",	/* bw_gpmc_ad1 */
+		"P8.5",		/* bw_gpmc_ad2 */
+		"P8.6",		/* bw_gpmc_ad3 */
+		"P8.23",	/* bw_gpmc_ad4 */
+		"P8.22",	/* bw_gpmc_ad5 */
+		"P8.3",		/* bw_gpmc_ad6 */
+		"P8.4",		/* bw_gpmc_ad7 */
+		"P8.19",	/* bw_gpmc_ad8 */
+		"P8.13",	/* bw_gpmc_ad9 */
+		"P8.14",	/* bw_gpmc_ad10 */
+		"P8.17",	/* bw_gpmc_ad11 */
+		"P8.12",	/* bw_gpmc_ad12 */
+		"P8.11",	/* bw_gpmc_ad13 */
+		"P8.16",	/* bw_gpmc_ad14 */
+		"P8.15",	/* bw_gpmc_ad15 */
+		"P9.12",	/* bw_gpmc_ben1 */
+		"P8.21",	/* bw_gpmc_csn1 */
+		"P8.18",	/* bw_gpmc_clk */
+		"P8.7",		/* bw_gpmc_advn_ale */
+		"P8.8",		/* bw_gpmc_oen_ren */
+		"P8.10",	/* bw_gpmc_wen */
+		"P8.9",		/* bw_gpmc_ben0_cle */
+		"gpmc",
+		"spi1";
+
+	fragment@0 {
+		target = <&am33xx_pinmux>;
+		__overlay__ {
+			bw_spi1_pins: pinmux_bw_spi1_pins {
+				pinctrl-single,pins = <
+					0x190 0x33	/* mcasp0_aclkx.spi1_sclk, INPUT_PULLUP | MODE3 */
+					0x194 0x33	/* mcasp0_fsx.spi1_d0, INPUT_PULLUP | MODE3 */
+					0x198 0x13	/* mcasp0_axr0.spi1_d1, OUTPUT_PULLUP | MODE3 */
+					0x19c 0x13	/* mcasp0_ahclkr.spi1_cs0, OUTPUT_PULLUP | MODE3 */
+					0x1ac 0x07	/* CRESET GPIO OUTPUT | MODE7 */
+					0x154 0x27	/* CDONE GPIO INPUT | MODE7 */
+				>;
+			};
+
+			bw_gpmc_pins: pinmux_bw_gpmc_pins {
+				pinctrl-single,pins = <
+					0x000 0x30	/* gpmc_ad0.gpmc_ad0 MODE0 | INPUT | PULLUP */
+					0x004 0x30	/* gpmc_ad1.gpmc_ad1 MODE0 | INPUT | PULLUP */
+					0x008 0x30	/* gpmc_ad2.gpmc_ad2 MODE0 | INPUT | PULLUP */
+					0x00C 0x30	/* gpmc_ad3.gpmc_ad3 MODE0 | INPUT | PULLUP */
+					0x010 0x30	/* gpmc_ad4.gpmc_ad4 MODE0 | INPUT | PULLUP */
+					0x014 0x30	/* gpmc_ad5.gpmc_ad5 MODE0 | INPUT | PULLUP */
+					0x018 0x30	/* gpmc_ad6.gpmc_ad6 MODE0 | INPUT | PULLUP */
+					0x01C 0x30	/* gpmc_ad7.gpmc_ad7 MODE0 | INPUT | PULLUP */
+					0x020 0x30	/* gpmc_ad8.gpmc_ad8 MODE0 | INPUT | PULLUP */
+					0x024 0x30	/* gpmc_ad9.gpmc_ad9 MODE0 | INPUT | PULLUP */
+					0x028 0x30	/* gpmc_ad10.gpmc_ad10 MODE0 | INPUT | PULLUP */
+					0x02C 0x30	/* gpmc_ad11.gpmc_ad11 MODE0 | INPUT | PULLUP */
+					0x030 0x30	/* gpmc_ad12.gpmc_ad12 MODE0 | INPUT | PULLUP */
+					0x034 0x30	/* gpmc_ad13.gpmc_ad13 MODE0 | INPUT | PULLUP */
+					0x038 0x30	/* gpmc_ad14.gpmc_ad14 MODE0 | INPUT | PULLUP */
+					0x03C 0x30	/* gpmc_ad15.gpmc_ad15 MODE0 | INPUT | PULLUP */
+					0x080 0x08	/* gpmc_cscn1.gpmc_cscn1 MODE0 | OUTPUT */
+					0x08C 0x28	/* gpmc_clk.gpmc_clk MODE0 | INPUT */
+					0x090 0x08	/* gpmc_advn_ale.gpmc_advn_ale MODE0 | OUTPUT */
+					0x094 0x08	/* gpmc_oen_ren.gpmc_oen_ren MODE0 | OUTPUT */
+					0x098 0x08	/* gpmc_wen.gpmc_wen MODE0 | OUTPUT */
+					0x09C 0x08	/* gpmc_ben0_cle.gpmc_ben0_cle MODE0 | OUTPUT */
+					0x078 0x08	/* gpmc_ben1_cle.gpmc_ben1_cle MODE0 | OUTPUT */
+				>;
+			};
+		};
+	};
+
+	fragment@1 {
+		target = <&spi1>;
+		__overlay__ {
+			status = "okay";
+			pinctrl-names = "default";
+			pinctrl-0 = <&bw_spi1_pins>;
+
+			ice40: fpga@0 {
+				compatible = "lattice,ice40-fpga-mgr";
+				reg = <0>;
+				spi-max-frequency = <10000000>;
+				cdone-gpios = <&gpio0 3 0>;
+				reset-gpios = <&gpio3 21 1>;
+			};
+		};
+	};
+
+	fragment@2 {
+		target = <&gpmc>;
+		depth = <1>;	/* only create devices on depth 1 */
+
+		/* stupid warnings */
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		__overlay__ {
+
+			status = "okay";
+
+			#address-cells = <2>;
+			#size-cells = <1>;
+
+			pinctrl-names = "default";
+			pinctrl-0 = <&bw_gpmc_pins>;
+
+			/* chip select ranges */
+			ranges = <1 0 0x01000000 0x1000000>;
+
+			nor {
+				reg = <1 0 0x01000000>;			/*CSn1*/
+				bank-width = <2>;			/* GPMC_CONFIG1_DEVICESIZE(1) */
+				/*gpmc,burst-write;
+				gpmc,burst-read;
+				gpmc,burst-wrap;*/
+				gpmc,sync-read;				/* GPMC_CONFIG1_READTYPE_ASYNC */
+				gpmc,sync-write;			/* GPMC_CONFIG1_WRITETYPE_ASYNC */
+				gpmc,clk-activation-ns = <0>;		/* GPMC_CONFIG1_CLKACTIVATIONTIME(2) */
+				gpmc,burst-length = <16>;		/* GPMC_CONFIG1_PAGE_LEN(2) */
+				gpmc,mux-add-data = <2>;		/* GPMC_CONFIG1_MUXTYPE(2) */
+
+				/* CONFIG2 */
+				gpmc,sync-clk-ps = <40000>;
+				gpmc,cs-on-ns = <0>;
+				gpmc,cs-rd-off-ns = <200>;
+				gpmc,cs-wr-off-ns = <200>;
+
+				/* CONFIG3 */
+				gpmc,adv-on-ns = <0>;
+				gpmc,adv-rd-off-ns = <80>;
+				gpmc,adv-wr-off-ns = <80>;
+
+				/* CONFIG4 */
+				gpmc,we-on-ns = <40>;
+				gpmc,we-off-ns = <200>;
+				gpmc,oe-on-ns = <40>;
+				gpmc,oe-off-ns = <200>;
+
+				/* CONFIG 5 */
+				gpmc,page-burst-access-ns = <40>;
+				gpmc,access-ns = <200>;
+				gpmc,rd-cycle-ns = <280>;
+				gpmc,wr-cycle-ns = <280>;
+
+				/* CONFIG 6 */
+				gpmc,wr-access-ns = <40>;
+				gpmc,wr-data-mux-bus-ns = <40>;
+				/*gpmc,bus-turnaround-ns = <40>;*/	/* CONFIG6:3:0 = 4 */
+				/*gpmc,cycle2cycle-samecsen;*/		/* CONFIG6:7 = 1 */
+				/*gpmc,cycle2cycle-delay-ns = <40>;*/	/* CONFIG6:11:8 = 4 */
+			};
+		};
+	};
+};

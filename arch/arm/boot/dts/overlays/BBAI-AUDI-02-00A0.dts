@@ -1,0 +1,83 @@
+/*
+ * Copyright (C) 2021 Dhruva Gole <goledhruva@gmail.com>
+ *
+ * Overlay for Audio DTS
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+/dts-v1/;
+/plugin/;
+
+/*
+* Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+*/
+&{/chosen} {
+    overlays {
+        AUDI-TEST = __TIMESTAMP__;
+    };
+};
+
+/*
+ * Update the default pinmux of the pins.
+ * See this files for the phandles (&P9_* & &P8_*)
+ * https://github.com/DhruvaG2000/BeagleBoard-DeviceTrees/blob/v4.19.x-ti-overlays/src/arm/am572x-bone-common-univ.dtsi
+ */
+&ocp {
+    P9_25_pinmux { pinctrl-0 = <&P9_25_mcasp_pin>; };  /* xref_clk0.mcasp1_ahclkx */
+    P9_28_pinmux { pinctrl-0 = <&P9_28_mcasp_pin>; };  /* mcasp1_axr11.mcasp1_axr11 */
+    P9_29_pinmux { pinctrl-0 = <&P9_29_mcasp_pin>; };  /* mcasp1_fsx.mcasp1_fsx, mcasp1_axr9.off */
+    P9_30_pinmux { pinctrl-0 = <&P9_30_mcasp_pin>; };  /* mcasp1_axr10.mcasp1_axr10 */
+    P9_31_pinmux { pinctrl-0 = <&P9_31_mcasp_pin>; };  /* mcasp1_aclkx.mcasp1_aclkx, mcasp1_axr8.off */
+
+    sound {
+        compatible = "simple-audio-card";
+        simple-audio-card,name = "AudioCapeAI";
+        simple-audio-card,widgets =
+            "Headphone", "Headphone Jack",
+            "Line", "Line In";
+        simple-audio-card,routing =
+            "Headphone Jack",       "HPLOUT",
+            "Headphone Jack",       "HPROUT",
+            "LINE1L",               "Line In",
+            "LINE1R",               "Line In";
+        simple-audio-card,format = "dsp_b";
+        simple-audio-card,bitclock-master = <&sound_master>;
+        simple-audio-card,frame-master = <&sound_master>;
+        simple-audio-card,bitclock-inversion;
+
+        simple-audio-card,cpu {
+            sound-dai = <&mcasp1>;
+            compatible = "fixed-clock";
+            system-clock-frequency = <20000000>;
+            system-clock-direction-out = <1>;
+        };
+
+        sound_master: simple-audio-card,codec {
+            #sound-dai-cells = <0>;
+            sound-dai = <&tlv320aic3104>;
+            clocks = <&sys_clkin1>;
+            clock-frequency = <22579200>;
+            clock-names = "mclk";
+        };
+    };
+};
+
+&bone_i2c_2 {
+    status = "okay";
+    #address-cells = <1>;
+    #size-cells = <0>;
+    clock-frequency = <100000>;
+
+    tlv320aic3104: tlv320aic3104@18 {
+        #sound-dai-cells = <0>;
+        compatible = "ti,tlv320aic3104";
+        reg = <0x18>;
+    };
+};
+
+&mcasp1 {
+    status = "okay";
+};
