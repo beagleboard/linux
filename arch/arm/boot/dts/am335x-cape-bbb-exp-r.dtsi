@@ -1,0 +1,214 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright (C) 2012 Texas Instruments Incorporated - https://www.ti.com/
+ */
+
+#include <dt-bindings/board/am335x-bbw-bbb-base.h>
+
+#include "am335x-peripheral-can0.dtsi"
+#include "am335x-bone-pinmux-can0.dtsi"
+
+#include "am335x-peripheral-ttyS1.dtsi"
+#include "am335x-bone-pinmux-ttyS1.dtsi"
+
+#include "am335x-peripheral-ttyS2.dtsi"
+#include "am335x-bone-pinmux-ttyS2.dtsi"
+
+#include "am335x-peripheral-ttyS4.dtsi"
+#include "am335x-bone-pinmux-ttyS4.dtsi"
+
+&am33xx_pinmux {
+	user_leds_s1: user_leds_s1 {
+		pinctrl-single,pins = <
+			0x98 0x7	/* gpmc_wen.gpio2_4, OUTPUT | MODE7 */
+			0x9c 0x7	/* gpmc_ben0_cle.gpio2_5, OUTPUT | MODE7 */
+		>;
+	};
+
+	bb_lcd_pwm_backlight_pins: pinmux_bb_lcd_pwm_backlight_pins {
+		pinctrl-single,pins = <
+			BONE_P9_14 (PIN_OUTPUT_PULLDOWN | MUX_MODE6) /* gpmc_a2.ehrpwm1a */
+		>;
+	};
+
+	keymap3_pins: pinmux_keymap3_pins {
+		pinctrl-single,pins = <
+			0x040 0x2f	/* KEY_UP gpmc_a0.gpio1_16, INPUT | PULLDIS | MODE7 */
+			0x04c 0x2f	/* KEY_DOWN gpmc_a3.gpio1_19, INPUT | PULLDIS | MODE7 */
+			0x078 0x2f	/* KEY_RIGHT gpmc_ben1.gpio1_28, INPUT | PULLDIS | MODE7 */
+			0x164 0x2f	/* KEY_LEFT ecap0_in_pwm0_out.gpio0_7, INPUT | PULLDIS | MODE7 */
+			0x1a4 0x2f	/* KEY_ENTER mcasp0_fxr.gpio3_19, INPUT | PULLDIS | MODE7 */
+		>;
+	};
+
+	i2c1_pins: pinmux_i2c1_pins {
+		pinctrl-single,pins = <
+			/* spi0_d1.i2c1_sda, SLEWCTRL_SLOW | INPUT_PULLUP | MODE2 */
+			BONE_P9_18 (PIN_INPUT_PULLUP | SLEWCTRL_FAST | MUX_MODE2)
+			/* spi0_cs0.i2c1_scl, SLEWCTRL_SLOW | INPUT_PULLUP | MODE2 */
+			BONE_P9_17 (PIN_INPUT_PULLUP | SLEWCTRL_FAST | MUX_MODE2)
+		>;
+	};
+
+	mcasp0_pins: pinmux_mcasp0_pins {
+		pinctrl-single,pins = <
+			0x190 0x20      /* mcasp0_aclkx.mcasp0_aclkx, INPUT | MODE0 */
+			0x194 0x20      /* mcasp0_fsx.mcasp0_fsx, INPUT | MODE0 */
+			0x198 0x20      /* mcasp0_axr0.mcasp0_axr0, INPUT | MODE0 */
+			0x19c 0x22      /* mcasp0_ahclkr.mcasp0_axr2, INPUT | MODE2 */
+		>;
+	};
+};
+
+&epwmss1 {
+	status = "okay";
+};
+
+
+&ehrpwm1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&bb_lcd_pwm_backlight_pins>;
+	status = "okay";
+};
+
+&i2c1 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c1_pins>;
+	clock-frequency = <400000>;
+
+	tlv320aic3x: tlv320aic3x@1b {
+		compatible = "ti,tlv320aic3x";
+		reg = <0x1b>;
+		status = "okay";
+	};
+};
+
+&mcasp0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&mcasp0_pins>;
+
+	status = "okay";
+
+	op-mode = <0>;          /* MCASP_IIS_MODE */
+	tdm-slots = <2>;
+	num-serializer = <16>;
+	serial-dir = <  /* 0: INACTIVE, 1: TX, 2: RX */
+		1 0 2 0
+		0 0 0 0
+		0 0 0 0
+		0 0 0 0
+	>;
+	tx-num-evt = <1>;
+	rx-num-evt = <1>;
+};
+
+&tscadc {
+	status = "okay";
+	tsc {
+		ti,wires = <4>;
+		ti,x-plate-resistance = <200>;
+		ti,coordinate-readouts = <5>;
+		ti,wire-config = <0x00 0x11 0x22 0x33>;
+	};
+
+	adc {
+		ti,adc-channels = <4 5 6 7>;
+	};
+};
+
+/ {
+	backlight {
+		status = "okay";
+		compatible = "pwm-backlight";
+		pwms = <&ehrpwm1 0 50000 0>;
+		brightness-levels = <0 51 53 56 62 75 101 152 255>;
+		default-brightness-level = <8>;
+	};
+
+	gpio_keys {
+		compatible = "gpio-keys";
+		pinctrl-names = "default";
+		pinctrl-0 = <&keymap3_pins>;
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		button@1 {
+			debounce_interval = <50>;
+			linux,code = <105>;
+			label = "left";
+			gpios = <&gpio0 7 0x1>;
+			gpio-key,wakeup;
+			autorepeat;
+		};
+		button@2 {
+			debounce_interval = <50>;
+			linux,code = <106>;
+			label = "right";
+			gpios = <&gpio1 28 0x1>;
+			gpio-key,wakeup;
+			autorepeat;
+		};
+		button@3 {
+			debounce_interval = <50>;
+			linux,code = <103>;
+			label = "up";
+			gpios = <&gpio1 16 0x1>;
+			gpio-key,wakeup;
+			autorepeat;
+		};
+		button@4 {
+			debounce_interval = <50>;
+			linux,code = <108>;
+			label = "down";
+			gpios = <&gpio1 19 0x1>;
+			gpio-key,wakeup;
+			autorepeat;
+		};
+		button@5 {
+			debounce_interval = <50>;
+			linux,code = <28>;
+			label = "enter";
+			gpios = <&gpio3 19 0x1>;
+			gpio-key,wakeup;
+		};
+	};
+
+	gpio-leds-cape-lcd {
+		compatible = "gpio-leds";
+		pinctrl-names = "default";
+
+		pinctrl-0 = <&user_leds_s1>;
+
+		lcd-led0 {
+			label = "lcd:green:usr0";
+			gpios = <&gpio2 4 0>;
+			linux,default-trigger = "heartbeat";
+			default-state = "off";
+		};
+
+		lcd-led1 {
+			label = "lcd:green:usr1";
+			gpios = <&gpio2 5 0>;
+			linux,default-trigger = "mmc0";
+			default-state = "off";
+		};
+	};
+
+	sound {
+		compatible = "ti,da830-evm-audio";
+		ti,model = "DA830 EVM";
+		ti,audio-codec = <&tlv320aic3x>;
+		ti,mcasp-controller = <&mcasp0>;
+		ti,codec-clock-rate = <12000000>;
+		ti,audio-routing =
+			"Headphone Jack",       "HPLOUT",
+			"Headphone Jack",       "HPROUT",
+			"MIC3L",                "Mic Jack",
+			"MIC3R",                "Mic Jack";
+	};
+};
+
+#include "am335x-peripheral-panel-1024x600-24bit.dtsi"
+#include "am335x-bone-pinmux-panel-1024x600-24bit.dtsi"
