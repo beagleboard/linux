@@ -135,7 +135,7 @@
 		};
 	};
 
-	transceiver1: can-phy@0 {
+	transceiver1: can-phy0 {
 		compatible = "ti,tcan1043";
 		#phy-cells = <0>;
 		max-bitrate = <5000000>;
@@ -145,7 +145,7 @@
 		enable-gpios = <&wkup_gpio0 0 GPIO_ACTIVE_HIGH>;
 	};
 
-	transceiver2: can-phy@1 {
+	transceiver2: can-phy1 {
 		compatible = "ti,tcan1042";
 		#phy-cells = <0>;
 		max-bitrate = <5000000>;
@@ -928,14 +928,12 @@
 };
 
 &mcu_mcan0 {
-	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&mcu_mcan0_pins_default>;
 	phys = <&transceiver1>;
 };
 
 &mcu_mcan1 {
-	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&mcu_mcan1_pins_default>;
 	phys = <&transceiver2>;
