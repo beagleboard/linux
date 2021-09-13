@@ -273,7 +273,7 @@ static inline int prueth_emac_slice(struct prueth_emac *emac)
 }
 
 /* config helpers */
-void icssg_config_ipg(struct prueth *prueth, int speed, int mii);
+void icssg_config_ipg(struct prueth_emac *emac);
 void icssg_config_sr1(struct prueth *prueth, struct prueth_emac *emac,
 		      int slice);
 int icssg_config_sr2(struct prueth *prueth, struct prueth_emac *emac,

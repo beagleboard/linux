@@ -98,8 +98,6 @@ static void icssg_config_mii_init(struct prueth *prueth, int mii)
 	pcnt_reg = (mii == ICSS_MII0) ? PRUSS_MII_RT_RX_PCNT0 :
 				       PRUSS_MII_RT_RX_PCNT1;
 
-	icssg_config_ipg(prueth, SPEED_1000, mii);
-
 	rxcfg = MII_RXCFG_DEFAULT;
 	txcfg = MII_TXCFG_DEFAULT;
 
@@ -177,21 +175,24 @@ static void icssg_config_rgmii_init(struct prueth *prueth, int slice)
 	}
 }
 
-void icssg_config_ipg(struct prueth *prueth, int speed, int mii)
+void icssg_config_ipg(struct prueth_emac *emac)
 {
-	switch (speed) {
+	struct prueth *prueth = emac->prueth;
+	int slice = prueth_emac_slice(emac);
+
+	switch (emac->speed) {
 	case SPEED_1000:
-		icssg_mii_update_ipg(prueth->mii_rt, mii, prueth->is_sr1 ?
+		icssg_mii_update_ipg(prueth->mii_rt, slice, prueth->is_sr1 ?
 				     MII_RT_TX_IPG_1G_SR1 : MII_RT_TX_IPG_1G);
 		break;
 	case SPEED_100:
-		icssg_mii_update_ipg(prueth->mii_rt, mii, prueth->is_sr1 ?
+		icssg_mii_update_ipg(prueth->mii_rt, slice, prueth->is_sr1 ?
 				     MII_RT_TX_IPG_100M_SR1 : MII_RT_TX_IPG_100M);
 		break;
 	case SPEED_10:
 		/* Firmware hardcodes IPG  for PG1. PG2 same as 100M */
 		if (!prueth->is_sr1)
-			icssg_mii_update_ipg(prueth->mii_rt, mii,
+			icssg_mii_update_ipg(prueth->mii_rt, slice,
 					     MII_RT_TX_IPG_100M);
 		break;
 	default:
@@ -292,6 +293,9 @@ int icssg_config_sr2(struct prueth *prueth, struct prueth_emac *emac, int slice)
 	memset_io(config, 0, TAS_GATE_MASK_LIST0);
 	icssg_config_rgmii_init(prueth, slice);
 	icssg_config_mii_init(prueth, slice);
+	emac->speed = SPEED_1000;
+	emac->duplex = DUPLEX_FULL;
+	icssg_config_ipg(emac);
 
 	/* set GPI mode */
 	pruss_cfg_gpimode(prueth->pruss, prueth->pru_id[slice],

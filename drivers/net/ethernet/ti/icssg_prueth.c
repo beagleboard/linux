@@ -1281,7 +1281,7 @@ static void emac_adjust_link(struct net_device *ndev)
 
 			/* update the Tx IPG based on 100M/1G speed */
 			spin_lock_irqsave(&emac->lock, flags);
-			icssg_config_ipg(prueth, emac->speed, slice);
+			icssg_config_ipg(emac);
 			spin_unlock_irqrestore(&emac->lock, flags);
 			icssg_config_set_speed(emac);
 			if (!emac->is_sr1)
