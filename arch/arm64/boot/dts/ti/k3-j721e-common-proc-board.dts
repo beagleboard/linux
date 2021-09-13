@@ -12,9 +12,11 @@
 #include <dt-bindings/phy/phy-cadence.h>
 
 / {
-	chosen {
+	chosen: chosen {
 		stdout-path = "serial2:115200n8";
 		bootargs = "console=ttyS2,115200n8 earlycon=ns16550a,mmio32,0x02800000";
+		base_dtb = "k3-j721e-common-proc-board.dts";
+		base_dtb_timestamp = __TIMESTAMP__;
 	};
 
 	gpio_keys: gpio-keys {
