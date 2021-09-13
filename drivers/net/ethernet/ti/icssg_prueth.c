@@ -2046,6 +2046,9 @@ static int prueth_config_rgmiidelay(struct prueth *prueth,
 	u32 rgmii_tx_id = 0;
 	u32 icssgctrl_reg;
 
+	if (!phy_interface_mode_is_rgmii(phy_if))
+		return 0;
+
 	ctrl_mmr = syscon_regmap_lookup_by_phandle(eth_np, "syscon-rgmii-delay");
 	if (IS_ERR(ctrl_mmr)) {
 		dev_err(dev, "couldn't get syscon-rgmii-delay\n");
