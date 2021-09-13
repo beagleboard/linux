@@ -85,46 +85,48 @@ struct map hwq_map[2][ICSSG_NUM_OTHER_QUEUES] = {
 	},
 };
 
-static void icssg_config_mii_init(struct prueth *prueth, int mii)
+static void icssg_config_mii_init(struct prueth_emac *emac)
 {
+	struct prueth *prueth = emac->prueth;
 	struct regmap *mii_rt = prueth->mii_rt;
+	int slice = prueth_emac_slice(emac);
 	u32 rxcfg_reg, txcfg_reg, pcnt_reg;
 	u32 rxcfg, txcfg;
 
-	rxcfg_reg = (mii == ICSS_MII0) ? PRUSS_MII_RT_RXCFG0 :
+	rxcfg_reg = (slice == ICSS_MII0) ? PRUSS_MII_RT_RXCFG0 :
 				       PRUSS_MII_RT_RXCFG1;
-	txcfg_reg = (mii == ICSS_MII0) ? PRUSS_MII_RT_TXCFG0 :
+	txcfg_reg = (slice == ICSS_MII0) ? PRUSS_MII_RT_TXCFG0 :
 				       PRUSS_MII_RT_TXCFG1;
-	pcnt_reg = (mii == ICSS_MII0) ? PRUSS_MII_RT_RX_PCNT0 :
+	pcnt_reg = (slice == ICSS_MII0) ? PRUSS_MII_RT_RX_PCNT0 :
 				       PRUSS_MII_RT_RX_PCNT1;
 
 	rxcfg = MII_RXCFG_DEFAULT;
 	txcfg = MII_TXCFG_DEFAULT;
 
-	if (mii == ICSS_MII1) {
+	if (slice == ICSS_MII1)
 		rxcfg |= PRUSS_MII_RT_RXCFG_RX_MUX_SEL;
+
+	/* In MII mode TX lines swapped inside ICSSG, so TX_MUX_SEL cfg need
+	 * to be swapped also comparing to RGMII mode. TODO: errata?
+	 */
+	if (emac->phy_if == PHY_INTERFACE_MODE_MII && slice == ICSS_MII0)
 		txcfg |= PRUSS_MII_RT_TXCFG_TX_MUX_SEL;
-	}
+	else if (emac->phy_if != PHY_INTERFACE_MODE_MII && slice == ICSS_MII1)
+		txcfg |= PRUSS_MII_RT_TXCFG_TX_MUX_SEL;
 
 	regmap_write(mii_rt, rxcfg_reg, rxcfg);
 	regmap_write(mii_rt, txcfg_reg, txcfg);
 	regmap_write(mii_rt, pcnt_reg, 0x1);
 }
 
-static void icssg_config_rgmii_init(struct prueth *prueth, int slice)
+static void icssg_miig_queues_init(struct prueth *prueth, int slice)
 {
-	void __iomem *smem = prueth->shram.va;
 	struct regmap *miig_rt = prueth->miig_rt;
-	int queue = 0, i, j;
+	void __iomem *smem = prueth->shram.va;
 	u8 pd[ICSSG_SPECIAL_PD_SIZE];
+	int queue = 0, i, j;
 	u32 *pdword;
-	u32 mii_mode;
 
-	mii_mode = MII_MODE_RGMII << ICSSG_CFG_MII0_MODE_SHIFT;
-	mii_mode |= MII_MODE_RGMII << ICSSG_CFG_MII1_MODE_SHIFT;
-	regmap_write(miig_rt, ICSSG_CFG_OFFSET, ICSSG_CFG_DEFAULT | mii_mode);
-
-	icssg_update_rgmii_cfg(miig_rt, SPEED_1000, DUPLEX_FULL, slice);
 	/* reset hwqueues */
 	if (slice)
 		queue = ICSSG_NUM_TX_QUEUES;
@@ -291,11 +293,19 @@ int icssg_config_sr2(struct prueth *prueth, struct prueth_emac *emac, int slice)
 
 	rxq_ctx = emac->dram.va + HOST_RX_Q_PRE_CONTEXT_OFFSET;
 	memset_io(config, 0, TAS_GATE_MASK_LIST0);
-	icssg_config_rgmii_init(prueth, slice);
-	icssg_config_mii_init(prueth, slice);
+	icssg_miig_queues_init(prueth, slice);
+
 	emac->speed = SPEED_1000;
 	emac->duplex = DUPLEX_FULL;
+	if (!phy_interface_mode_is_rgmii(emac->phy_if)) {
+		emac->speed = SPEED_100;
+		emac->duplex = DUPLEX_FULL;
+	}
+	regmap_update_bits(prueth->miig_rt, ICSSG_CFG_OFFSET, ICSSG_CFG_DEFAULT, ICSSG_CFG_DEFAULT);
+	icssg_miig_set_interface_mode(prueth->miig_rt, slice, emac->phy_if);
+	icssg_config_mii_init(emac);
 	icssg_config_ipg(emac);
+	icssg_update_rgmii_cfg(prueth->miig_rt, emac);
 
 	/* set GPI mode */
 	pruss_cfg_gpimode(prueth->pruss, prueth->pru_id[slice],

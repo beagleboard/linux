@@ -26,30 +26,46 @@ void icssg_mii_update_ipg(struct regmap *mii_rt, int mii, u32 ipg)
 	}
 }
 
-void icssg_update_rgmii_cfg(struct regmap *miig_rt, int speed,
-			    int duplex, int mii)
+void icssg_update_rgmii_cfg(struct regmap *miig_rt, struct prueth_emac *emac)
 {
 	u32 gig_en_mask, gig_val = 0, full_duplex_mask, full_duplex_val = 0;
+	int slice = prueth_emac_slice(emac);
 	u32 inband_en_mask, inband_val = 0;
 
-	gig_en_mask = (mii == ICSS_MII0) ? RGMII_CFG_GIG_EN_MII0 :
+	gig_en_mask = (slice == ICSS_MII0) ? RGMII_CFG_GIG_EN_MII0 :
 					RGMII_CFG_GIG_EN_MII1;
-	if (speed == SPEED_1000)
+	if (emac->speed == SPEED_1000)
 		gig_val = gig_en_mask;
 	regmap_update_bits(miig_rt, RGMII_CFG_OFFSET, gig_en_mask, gig_val);
 
-	inband_en_mask = (mii == ICSS_MII0) ? RGMII_CFG_INBAND_EN_MII0 :
+	inband_en_mask = (slice == ICSS_MII0) ? RGMII_CFG_INBAND_EN_MII0 :
 					RGMII_CFG_INBAND_EN_MII1;
-	if (speed == SPEED_10)
+	if (emac->speed == SPEED_10 && phy_interface_mode_is_rgmii(emac->phy_if))
 		inband_val = inband_en_mask;
 	regmap_update_bits(miig_rt, RGMII_CFG_OFFSET, inband_en_mask, inband_val);
 
-	full_duplex_mask = (mii == ICSS_MII0) ? RGMII_CFG_FULL_DUPLEX_MII0 :
+	full_duplex_mask = (slice == ICSS_MII0) ? RGMII_CFG_FULL_DUPLEX_MII0 :
 					   RGMII_CFG_FULL_DUPLEX_MII1;
-	if (duplex == DUPLEX_FULL)
+	if (emac->duplex == DUPLEX_FULL)
 		full_duplex_val = full_duplex_mask;
 	regmap_update_bits(miig_rt, RGMII_CFG_OFFSET, full_duplex_mask,
 			   full_duplex_val);
+}
+
+void icssg_miig_set_interface_mode(struct regmap *miig_rt, int mii, phy_interface_t phy_if)
+{
+	u32 val, mask, shift;
+
+	mask = mii == ICSS_MII0 ? ICSSG_CFG_MII0_MODE : ICSSG_CFG_MII1_MODE;
+	shift =  mii == ICSS_MII0 ? ICSSG_CFG_MII0_MODE_SHIFT : ICSSG_CFG_MII1_MODE_SHIFT;
+
+	val = MII_MODE_RGMII;
+	if (phy_if == PHY_INTERFACE_MODE_MII)
+		val = MII_MODE_MII;
+
+	val <<= shift;
+	regmap_update_bits(miig_rt, ICSSG_CFG_OFFSET, mask, val);
+	regmap_read(miig_rt, ICSSG_CFG_OFFSET, &val);
 }
 
 u32 icssg_rgmii_cfg_get_bitfield(struct regmap *miig_rt, u32 mask, u32 shift)

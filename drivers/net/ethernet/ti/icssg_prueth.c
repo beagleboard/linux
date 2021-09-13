@@ -1238,7 +1238,6 @@ static void emac_adjust_link(struct net_device *ndev)
 	struct prueth_emac *emac = netdev_priv(ndev);
 	struct phy_device *phydev = emac->phydev;
 	struct prueth *prueth = emac->prueth;
-	int slice = prueth_emac_slice(emac);
 	bool new_state = false;
 	unsigned long flags;
 
@@ -1276,8 +1275,7 @@ static void emac_adjust_link(struct net_device *ndev)
 		 */
 		if (emac->link) {
 			/* Set the RGMII cfg for gig en and full duplex */
-			icssg_update_rgmii_cfg(prueth->miig_rt, emac->speed,
-					       emac->duplex, slice);
+			icssg_update_rgmii_cfg(prueth->miig_rt, emac);
 
 			/* update the Tx IPG based on 100M/1G speed */
 			spin_lock_irqsave(&emac->lock, flags);
@@ -2165,6 +2163,12 @@ skip_irq:
 		goto free;
 	}
 
+	if (emac->phy_if != PHY_INTERFACE_MODE_MII &&
+	    !phy_interface_mode_is_rgmii(emac->phy_if)) {
+		dev_err(prueth->dev, "PHY mode unsupported %s\n", phy_modes(emac->phy_if));
+		goto free;
+	}
+
 	ret = prueth_config_rgmiidelay(prueth, eth_node, emac->phy_if);
 	if (ret)
 		goto free;
@@ -2185,6 +2189,9 @@ skip_irq:
 	phy_remove_link_mode(emac->phydev, ETHTOOL_LINK_MODE_1000baseT_Half_BIT);
 	phy_remove_link_mode(emac->phydev, ETHTOOL_LINK_MODE_Pause_BIT);
 	phy_remove_link_mode(emac->phydev, ETHTOOL_LINK_MODE_Asym_Pause_BIT);
+
+	if (emac->phy_if == PHY_INTERFACE_MODE_MII)
+		phy_set_max_speed(emac->phydev, SPEED_100);
 
 	/* get mac address from DT and set private and netdev addr */
 	mac_addr = of_get_mac_address(eth_node);

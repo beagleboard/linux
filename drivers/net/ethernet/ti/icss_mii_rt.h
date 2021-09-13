@@ -9,6 +9,7 @@
 #define __NET_PRUSS_MII_RT_H__
 
 #include <linux/if_ether.h>
+#include <linux/phy.h>
 
 #include "icss_lre_firmware.h"
 
@@ -114,7 +115,11 @@
 #define ICSSG_CFG_TX_L2_EN	BIT(1)
 #define ICSSG_CFG_TX_L1_EN	BIT(0)
 
-enum mii_mode { MII_MODE_MII = 0, MII_MODE_RGMII, MII_MODE_SGMII };
+enum mii_mode {
+	MII_MODE_MII = 0,
+	MII_MODE_RGMII,
+	MII_MODE_SGMII
+};
 
 /* RGMII CFG Register bits */
 #define RGMII_CFG_INBAND_EN_MII0	BIT(16)
@@ -135,11 +140,14 @@ enum mii_mode { MII_MODE_MII = 0, MII_MODE_RGMII, MII_MODE_SGMII };
 #define RGMII_CFG_SPEED_100M	1
 #define RGMII_CFG_SPEED_1G	2
 
+struct regmap;
+struct prueth_emac;
+
 void icssg_mii_update_ipg(struct regmap *mii_rt, int mii, u32 ipg);
-void icssg_update_rgmii_cfg(struct regmap *miig_rt, int speed,
-			    int duplex, int mii);
+void icssg_update_rgmii_cfg(struct regmap *miig_rt, struct prueth_emac *emac);
 u32 icssg_rgmii_cfg_get_bitfield(struct regmap *miig_rt, u32 mask, u32 shift);
 u32 icssg_rgmii_get_speed(struct regmap *miig_rt, int mii);
 u32 icssg_rgmii_get_fullduplex(struct regmap *miig_rt, int mii);
+void icssg_miig_set_interface_mode(struct regmap *miig_rt, int mii, phy_interface_t phy_if);
 
 #endif /* __NET_PRUSS_MII_RT_H__ */
