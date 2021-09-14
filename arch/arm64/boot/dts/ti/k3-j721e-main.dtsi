@@ -1380,6 +1380,17 @@
 		power-domains = <&k3_pds 193 TI_SCI_PD_EXCLUSIVE>;
 	};
 
+	main_spi6: spi@2160000 {
+		compatible = "ti,omap4-mcspi";
+		reg = <0x0 0x2160000 0x0 0x400>;
+		interrupts = <GIC_SPI 190 IRQ_TYPE_LEVEL_HIGH>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		clock-names = "fck";
+		clocks = <&k3_clks 272 1>;
+		power-domains = <&k3_pds 272 TI_SCI_PD_EXCLUSIVE>;
+	};
+
 	ufs_wrapper: ufs-wrapper@4e80000 {
 		compatible = "ti,j721e-ufs";
 		reg = <0x0 0x4e80000 0x0 0x100>;
