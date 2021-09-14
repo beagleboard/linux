@@ -21,6 +21,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/module.h>
 #include <linux/clk.h>
+#include <linux/delay.h>
 #include <linux/err.h>
 
 #include <lantiq_soc.h>
@@ -231,6 +232,8 @@ ltq_dma_init(struct platform_device *pdev)
 
 	clk_enable(clk);
 	ltq_dma_w32_mask(0, DMA_RESET, LTQ_DMA_CTRL);
+
+	usleep_range(1, 10);
 
 	/* disable all interrupts */
 	ltq_dma_w32(0, LTQ_DMA_IRNEN);
