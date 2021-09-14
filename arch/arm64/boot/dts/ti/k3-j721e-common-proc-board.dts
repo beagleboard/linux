@@ -135,7 +135,7 @@
 		};
 	};
 
-	transceiver1: can-phy@0 {
+	transceiver1: can-phy0 {
 		compatible = "ti,tcan1043";
 		#phy-cells = <0>;
 		max-bitrate = <5000000>;
@@ -145,13 +145,30 @@
 		enable-gpios = <&wkup_gpio0 0 GPIO_ACTIVE_HIGH>;
 	};
 
-	transceiver2: can-phy@1 {
+	transceiver2: can-phy1 {
 		compatible = "ti,tcan1042";
 		#phy-cells = <0>;
 		max-bitrate = <5000000>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&mcu_mcan1_gpio_pins_default>;
 		standby-gpios = <&wkup_gpio0 2 GPIO_ACTIVE_HIGH>;
+	};
+
+	transceiver3: can-phy2 {
+		compatible = "ti,tcan1043";
+		#phy-cells = <0>;
+		max-bitrate = <5000000>;
+		standby-gpios = <&exp2 7 GPIO_ACTIVE_LOW>;
+		enable-gpios = <&exp2 6 GPIO_ACTIVE_HIGH>;
+	};
+
+	transceiver4: can-phy3 {
+		compatible = "ti,tcan1042";
+		#phy-cells = <0>;
+		max-bitrate = <5000000>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&main_mcan2_gpio_pins_default>;
+		standby-gpios = <&main_gpio0 127 GPIO_ACTIVE_HIGH>;
 	};
 
 	dp_pwr_3v3: fixedregulator-dp-prw {
@@ -283,6 +300,26 @@
 	audi_ext_refclk2_pins_default: audi-ext-refclk2-pins-default {
 		pinctrl-single,pins = <
 			J721E_IOPAD(0x1a4, PIN_OUTPUT, 3) /* (W26) RGMII6_RXC.AUDIO_EXT_REFCLK2 */
+		>;
+	};
+
+	main_mcan0_pins_default: main-mcan0-pins-default {
+		pinctrl-single,pins = <
+			J721E_IOPAD(0x208, PIN_INPUT, 0) /* (W5) MCAN0_RX */
+			J721E_IOPAD(0x20c, PIN_OUTPUT, 0) /* (W6) MCAN0_TX */
+		>;
+	};
+
+	main_mcan2_pins_default: main-mcan2-pins-default {
+		pinctrl-single,pins = <
+			J721E_IOPAD(0x01f0, PIN_INPUT, 3) /* (AC2) MCAN2_RX.GPIO0_123 */
+			J721E_IOPAD(0x01f4, PIN_OUTPUT, 3) /* (AB1) MCAN2_TX.GPIO0_124 */
+		>;
+	};
+
+	main_mcan2_gpio_pins_default: main-mcan2-gpio-pins-default {
+		pinctrl-single,pins = <
+			J721E_IOPAD(0x200, PIN_INPUT, 7) /* (AC4) UART1_CTSn.GPIO0_127 */
 		>;
 	};
 };
@@ -928,21 +965,21 @@
 };
 
 &mcu_mcan0 {
-	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&mcu_mcan0_pins_default>;
 	phys = <&transceiver1>;
 };
 
 &mcu_mcan1 {
-	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&mcu_mcan1_pins_default>;
 	phys = <&transceiver2>;
 };
 
 &main_mcan0 {
-	status = "disabled";
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_mcan0_pins_default>;
+	phys = <&transceiver3>;
 };
 
 &main_mcan1 {
@@ -950,7 +987,9 @@
 };
 
 &main_mcan2 {
-	status = "disabled";
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_mcan2_pins_default>;
+	phys = <&transceiver4>;
 };
 
 &main_mcan3 {

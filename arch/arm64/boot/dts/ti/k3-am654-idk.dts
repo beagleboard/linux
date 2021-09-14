@@ -23,7 +23,7 @@
 				ethernet6 = "/icssg1-eth/ethernet-mii1";
 			};
 
-			transceiver1: can-phy@0 {
+			transceiver1: can-phy0 {
 				compatible = "ti,tcan1042";
 				#phy-cells = <0>;
 				max-bitrate = <5000000>;
@@ -32,7 +32,7 @@
 				standby-gpios = <&main_gpio1 47 GPIO_ACTIVE_LOW>;
 			};
 
-			transceiver2: can-phy@1 {
+			transceiver2: can-phy1 {
 				compatible = "ti,tcan1042";
 				#phy-cells = <0>;
 				max-bitrate = <5000000>;
@@ -290,14 +290,12 @@
 };
 
 &m_can0 {
-	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&mcu_mcan0_pins_default>;
 	phys = <&transceiver1>;
 };
 
 &m_can1 {
-	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&mcu_mcan1_pins_default>;
 	phys = <&transceiver2>;
