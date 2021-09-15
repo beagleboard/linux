@@ -40,14 +40,6 @@
 #define GB_UART_FIRMWARE_CREDITS	4096
 #define GB_UART_CREDIT_WAIT_TIMEOUT_MSEC	10000
 
-struct gb_tty_line_coding {
-	__le32	rate;
-	__u8	format;
-	__u8	parity;
-	__u8	data_bits;
-	__u8	flow_control;
-};
-
 struct gb_tty {
 	struct gbphy_device *gbphy_dev;
 	struct tty_port port;
@@ -66,7 +58,7 @@ struct gb_tty {
 	struct mutex mutex;
 	u8 ctrlin;	/* input control lines */
 	u8 ctrlout;	/* output control lines */
-	struct gb_tty_line_coding line_coding;
+	struct gb_uart_set_line_coding_request line_coding;
 	struct work_struct tx_work;
 	struct kfifo write_fifo;
 	bool close_pending;
@@ -288,12 +280,9 @@ static void  gb_uart_tx_write_work(struct work_struct *work)
 
 static int send_line_coding(struct gb_tty *tty)
 {
-	struct gb_uart_set_line_coding_request request;
-
-	memcpy(&request, &tty->line_coding,
-	       sizeof(tty->line_coding));
 	return gb_operation_sync(tty->connection, GB_UART_TYPE_SET_LINE_CODING,
-				 &request, sizeof(request), NULL, 0);
+				 &tty->line_coding, sizeof(tty->line_coding),
+				 NULL, 0);
 }
 
 static int send_control(struct gb_tty *gb_tty, u8 control)
@@ -493,9 +482,9 @@ static int gb_tty_break_ctl(struct tty_struct *tty, int state)
 static void gb_tty_set_termios(struct tty_struct *tty,
 			       struct ktermios *termios_old)
 {
+	struct gb_uart_set_line_coding_request newline;
 	struct gb_tty *gb_tty = tty->driver_data;
 	struct ktermios *termios = &tty->termios;
-	struct gb_tty_line_coding newline;
 	u8 newctrl = gb_tty->ctrlout;
 
 	newline.rate = cpu_to_le32(tty_get_baud_rate(tty));
@@ -625,10 +614,12 @@ static int get_serial_info(struct tty_struct *tty,
 	ss->line = gb_tty->minor;
 	ss->xmit_fifo_size = 16;
 	ss->baud_base = 9600;
-	ss->close_delay = gb_tty->port.close_delay / 10;
+	ss->close_delay = jiffies_to_msecs(gb_tty->port.close_delay) / 10;
 	ss->closing_wait =
 		gb_tty->port.closing_wait == ASYNC_CLOSING_WAIT_NONE ?
-		ASYNC_CLOSING_WAIT_NONE : gb_tty->port.closing_wait / 10;
+		ASYNC_CLOSING_WAIT_NONE :
+		jiffies_to_msecs(gb_tty->port.closing_wait) / 10;
+
 	return 0;
 }
 
@@ -640,17 +631,16 @@ static int set_serial_info(struct tty_struct *tty,
 	unsigned int close_delay;
 	int retval = 0;
 
-	close_delay = ss->close_delay * 10;
+	close_delay = msecs_to_jiffies(ss->close_delay * 10);
 	closing_wait = ss->closing_wait == ASYNC_CLOSING_WAIT_NONE ?
-			ASYNC_CLOSING_WAIT_NONE : ss->closing_wait * 10;
+			ASYNC_CLOSING_WAIT_NONE :
+			msecs_to_jiffies(ss->closing_wait * 10);
 
 	mutex_lock(&gb_tty->port.mutex);
 	if (!capable(CAP_SYS_ADMIN)) {
 		if ((close_delay != gb_tty->port.close_delay) ||
 		    (closing_wait != gb_tty->port.closing_wait))
 			retval = -EPERM;
-		else
-			retval = -EOPNOTSUPP;
 	} else {
 		gb_tty->port.close_delay = close_delay;
 		gb_tty->port.closing_wait = closing_wait;
