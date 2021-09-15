@@ -81,6 +81,25 @@
 				default-brightness-level = <8>;
 				pwms = <&ehrpwm1 0 50000 0>;
 			};
+
+		com_3v6: fixedregulator-com_3v6 {
+			compatible = "regulator-fixed";
+			regulator-name = "com_3v6";
+			regulator-min-microvolt = <3600000>;
+			regulator-max-microvolt = <3600000>;
+			vin-supply = <&evm_5v0>;
+			regulator-always-on;
+			regulator-boot-on;
+		};
+
+		vmmcwl_fixed: fixedregulator-mmcwl {
+			compatible = "regulator-fixed";
+			regulator-name = "vmmcwl_fixed";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			gpio = <&gpio5 8 GPIO_ACTIVE_HIGH>;
+			enable-active-high;
+		};
 		};
 	};
 };
@@ -128,5 +147,29 @@
 				remote-endpoint = <&lcd_in>;
 			};
 		};
+	};
+};
+
+&mmc3 {
+	status = "okay";
+	vmmc-supply = <&com_3v6>;
+	vqmmc-supply = <&vmmcwl_fixed>;
+	bus-width = <4>;
+	cap-power-off-card;
+	keep-power-in-suspend;
+	non-removable;
+	#address-cells = <1>;
+	#size-cells = <0>;
+	pinctrl-names = "default", "hs", "sdr12", "sdr25", "sdr50";
+	pinctrl-0 = <&mmc3_pins_default>;
+	pinctrl-1 = <&mmc3_pins_hs>;
+	pinctrl-2 = <&mmc3_pins_sdr12>;
+	pinctrl-3 = <&mmc3_pins_sdr25>;
+	pinctrl-4 = <&mmc3_pins_sdr50 &mmc3_iodelay_manual1_rev11_conf>;
+	wlcore: wlcore@2 {
+		compatible = "ti,wl1835";
+		reg = <2>;
+		interrupt-parent = <&gpio5>;
+	interrupts = <7 IRQ_TYPE_EDGE_RISING>;
 	};
 };

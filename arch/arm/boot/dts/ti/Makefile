@@ -25,6 +25,7 @@ dtb-$(CONFIG_SOC_DRA7XX) += \
 # overlays
 dtb-$(CONFIG_SOC_DRA7XX) += \
 	am57xx-evm-common.dtbo \
+	am57xx-evm-reva3.dtbo \
 	lcd-osd101t2045.dtbo \
 	lcd-osd101t2587.dtbo \
 	dra72-evm-touchscreen.dtbo \
