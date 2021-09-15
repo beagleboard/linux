@@ -22,6 +22,12 @@
 #define BRCMF_NROF_COMMON_MSGRINGS	(BRCMF_NROF_H2D_COMMON_MSGRINGS + \
 					 BRCMF_NROF_D2H_COMMON_MSGRINGS)
 
+/* The interval to poll console */
+#define BRCMF_CONSOLE	10
+
+/* The maximum console interval value (5 mins) */
+#define MAX_CONSOLE_INTERVAL	(5 * 60)
+
 /* The level of bus communication with the dongle */
 enum brcmf_bus_state {
 	BRCMF_BUS_DOWN,		/* Not ready for frame transfers */
@@ -152,6 +158,9 @@ struct brcmf_bus {
 
 	const struct brcmf_bus_ops *ops;
 	struct brcmf_bus_msgbuf *msgbuf;
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 16, 0))
+	bool allow_skborphan;
+#endif
 };
 
 /*
@@ -255,7 +264,7 @@ void brcmf_rx_event(struct device *dev, struct sk_buff *rxp);
 
 int brcmf_alloc(struct device *dev, struct brcmf_mp_device *settings);
 /* Indication from bus module regarding presence/insertion of dongle. */
-int brcmf_attach(struct device *dev);
+int brcmf_attach(struct device *dev, bool start_bus);
 /* Indication from bus module regarding removal/absence of dongle */
 void brcmf_detach(struct device *dev);
 void brcmf_free(struct device *dev);
@@ -271,6 +280,7 @@ void brcmf_bus_change_state(struct brcmf_bus *bus, enum brcmf_bus_state state);
 
 s32 brcmf_iovar_data_set(struct device *dev, char *name, void *data, u32 len);
 void brcmf_bus_add_txhdrlen(struct device *dev, uint len);
+int brcmf_fwlog_attach(struct device *dev);
 
 #ifdef CONFIG_BRCMFMAC_SDIO
 void brcmf_sdio_exit(void);
