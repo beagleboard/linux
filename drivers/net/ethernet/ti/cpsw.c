@@ -34,8 +34,6 @@
 #include <net/page_pool.h>
 #include <linux/bpf.h>
 #include <linux/bpf_trace.h>
-//#include <linux/filter.h>
-#include <linux/net_switch_config.h>
 
 #include <linux/pinctrl/consumer.h>
 #include <net/pkt_cls.h>
@@ -60,10 +58,6 @@ MODULE_PARM_DESC(ale_ageout, "cpsw ale ageout interval (seconds)");
 static int rx_packet_max = CPSW_MAX_PACKET_SIZE;
 module_param(rx_packet_max, int, 0);
 MODULE_PARM_DESC(rx_packet_max, "maximum receive packet size (bytes)");
-
-static int tx_packet_min = CPSW_MIN_PACKET_SIZE;
-module_param(tx_packet_min, int, 0444);
-MODULE_PARM_DESC(tx_packet_min, "minimum tx packet size (bytes)");
 
 static int descs_pool_size = CPSW_CPDMA_DESCS_POOL_SIZE_DEFAULT;
 module_param(descs_pool_size, int, 0444);
@@ -415,10 +409,12 @@ static void cpsw_rx_handler(void *token, int len, int status)
 		xdp.frame_sz = PAGE_SIZE;
 
 		port = priv->emac_port + cpsw->data.dual_emac;
-		ret = cpsw_run_xdp(priv, ch, &xdp, page, port, &len);
+		ret = cpsw_run_xdp(priv, ch, &xdp, page, port);
 		if (ret != CPSW_XDP_PASS)
 			goto requeue;
 
+		/* XDP prog might have changed packet data and boundaries */
+		len = xdp.data_end - xdp.data;
 		headroom = xdp.data - xdp.data_hard_start;
 
 		/* XDP prog can modify vlan tag, so can't use encap header */
@@ -502,8 +498,7 @@ static void _cpsw_adjust_link(struct cpsw_slave *slave,
 
 		/* enable forwarding */
 		cpsw_ale_control_set(cpsw->ale, slave_port,
-				     ALE_PORT_STATE,
-				     priv->port_state[slave_port]);
+				     ALE_PORT_STATE, ALE_PORT_STATE_FORWARD);
 
 		*link = true;
 
@@ -616,7 +611,6 @@ static void cpsw_slave_open(struct cpsw_slave *slave, struct cpsw_priv *priv)
 	slave->mac_control = 0;	/* no link yet */
 
 	slave_port = cpsw_get_slave_port(slave->slave_num);
-	priv->port_state[slave_port] = ALE_PORT_STATE_FORWARD;
 
 	if (cpsw->data.dual_emac)
 		cpsw_add_dual_emac_def_ale_entries(priv, slave, slave_port);
@@ -917,16 +911,13 @@ static netdev_tx_t cpsw_ndo_start_xmit(struct sk_buff *skb,
 	struct cpts *cpts = cpsw->cpts;
 	struct netdev_queue *txq;
 	struct cpdma_chan *txch;
-	unsigned int len;
 	int ret, q_idx;
 
-	if (skb_padto(skb, tx_packet_min)) {
+	if (skb_padto(skb, CPSW_MIN_PACKET_SIZE)) {
 		cpsw_err(priv, tx_err, "packet pad failed\n");
 		ndev->stats.tx_dropped++;
 		return NET_XMIT_DROP;
 	}
-
-	len = skb->len < tx_packet_min ? tx_packet_min : skb->len;
 
 	if (skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP &&
 	    priv->tx_ts_enabled && cpts_can_timestamp(cpts, skb))
@@ -1147,7 +1138,7 @@ static int cpsw_ndo_xdp_xmit(struct net_device *ndev, int n,
 
 	for (i = 0; i < n; i++) {
 		xdpf = frames[i];
-		if (xdpf->len < tx_packet_min) {
+		if (xdpf->len < CPSW_MIN_PACKET_SIZE) {
 			xdp_return_frame_rx_napi(xdpf);
 			drops++;
 			continue;
@@ -1173,37 +1164,12 @@ static void cpsw_ndo_poll_controller(struct net_device *ndev)
 }
 #endif
 
-#include "cpsw_switch_ioctl.c"
-
-static int cpsw_ndo_ioctl_legacy(struct net_device *dev, struct ifreq *req, int cmd)
-{
-	struct cpsw_priv *priv = netdev_priv(dev);
-	struct cpsw_common *cpsw = priv->cpsw;
-	int slave_no = cpsw_slave_index(cpsw, priv);
-
-	if (!netif_running(dev))
-		return -EINVAL;
-
-	switch (cmd) {
-	case SIOCSHWTSTAMP:
-		return cpsw_hwtstamp_set(dev, req);
-	case SIOCGHWTSTAMP:
-		return cpsw_hwtstamp_get(dev, req);
-	case SIOCSWITCHCONFIG:
-		return cpsw_switch_config_ioctl(dev, req, cmd);
-	}
-
-	if (!cpsw->slaves[slave_no].phy)
-		return -EOPNOTSUPP;
-	return phy_mii_ioctl(cpsw->slaves[slave_no].phy, req, cmd);
-}
-
 static const struct net_device_ops cpsw_netdev_ops = {
 	.ndo_open		= cpsw_ndo_open,
 	.ndo_stop		= cpsw_ndo_stop,
 	.ndo_start_xmit		= cpsw_ndo_start_xmit,
 	.ndo_set_mac_address	= cpsw_ndo_set_mac_address,
-	.ndo_do_ioctl		= cpsw_ndo_ioctl_legacy,
+	.ndo_do_ioctl		= cpsw_ndo_ioctl,
 	.ndo_validate_addr	= eth_validate_addr,
 	.ndo_tx_timeout		= cpsw_ndo_tx_timeout,
 	.ndo_set_rx_mode	= cpsw_ndo_set_rx_mode,

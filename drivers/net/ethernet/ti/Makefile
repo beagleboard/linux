@@ -25,17 +25,5 @@ obj-$(CONFIG_TI_KEYSTONE_NETCP_ETHSS) += keystone_netcp_ethss.o
 keystone_netcp_ethss-y := netcp_ethss.o netcp_sgmii.o netcp_xgbepcsr.o cpsw_ale.o
 
 obj-$(CONFIG_TI_K3_AM65_CPSW_NUSS) += ti-am65-cpsw-nuss.o
-ti-am65-cpsw-nuss-y := am65-cpsw-nuss.o cpsw_sl.o am65-cpsw-ethtool.o cpsw_ale.o k3-cppi-desc-pool.o am65-cpsw-qos.o am65-debugfs.o
-ti-am65-cpsw-nuss-$(CONFIG_TI_K3_AM65_CPSW_SWITCHDEV) += am65-cpsw-switchdev.o
+ti-am65-cpsw-nuss-y := am65-cpsw-nuss.o cpsw_sl.o am65-cpsw-ethtool.o cpsw_ale.o k3-cppi-desc-pool.o am65-cpsw-qos.o
 obj-$(CONFIG_TI_K3_AM65_CPTS) += am65-cpts.o
-
-
-obj-$(CONFIG_TI_RDEV_ETH_SWITCH_VIRT_EMAC) += ti-j721e-cpsw-virt-mac.o
-ti-j721e-cpsw-virt-mac-y := j721e-cpsw-virt-mac.o k3-cppi-desc-pool.o
-
-obj-$(CONFIG_TI_PRUETH) += prueth.o
-prueth-y := prueth_core.o prueth_qos.o prueth_switch.o prueth_lre.o
-obj-$(CONFIG_TI_ICSS_IEP) += icss_iep.o
-
-obj-$(CONFIG_TI_ICSSG_PRUETH) += icssg-prueth.o
-icssg-prueth-y := icssg_prueth.o icssg_classifier.o icssg_ethtool.o icssg_queues.o icssg_config.o k3-cppi-desc-pool.o icssg_mii_cfg.o
