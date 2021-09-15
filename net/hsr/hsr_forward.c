@@ -371,7 +371,7 @@ struct sk_buff *hsr_create_tagged_frame(struct hsr_frame_info *frame,
 	if (REDINFO_T(skb) == DIRECTED_TX)
 		return skb;
 
-	skb_shinfo(skb)->tx_flags = skb_shinfo(frame->skb_std)->tx_flags;
+	skb_shinfo(skb)->tx_flags |= skb_shinfo(frame->skb_std)->tx_flags & SKBTX_ANY_TSTAMP;
 	skb->sk = frame->skb_std->sk;
 
 	/* TODO: should check socket option instead? */
