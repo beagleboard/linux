@@ -1,0 +1,31 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (C) 2021 BayLibre SAS
+ * Copyright (C) 2021 Texas Instruments
+ */
+
+#include <dt-bindings/gpio/gpio.h>
+
+&i2c1 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	ov2659: ov2659@30 {
+		compatible = "ovti,ov2659";
+		reg = <0x30>;
+
+		clocks = <&src_clk_x1>;
+		clock-names = "xvclk";
+
+		pwrdn-gpios = <&gpio6 14 GPIO_ACTIVE_LOW>;
+
+		port {
+			ov2659_1: endpoint {
+				hsync-active = <1>;
+				vsync-active = <1>;
+				pclk-sample = <1>;
+				link-frequencies = /bits/ 64 <70000000>;
+			};
+		};
+	};
+};

@@ -1,0 +1,14 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (C) 2021 BayLibre SAS
+ * Copyright (C) 2021 Texas Instruments
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include "ov2659.dtsi"
+
+&ov2659_1 {
+	remote-endpoint = <&vin1b_ep>;
+};
