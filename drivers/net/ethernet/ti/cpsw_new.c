@@ -46,8 +46,6 @@ static int debug_level;
 static int ale_ageout = CPSW_ALE_AGEOUT_DEFAULT;
 static int rx_packet_max = CPSW_MAX_PACKET_SIZE;
 static int descs_pool_size = CPSW_CPDMA_DESCS_POOL_SIZE_DEFAULT;
-module_param(descs_pool_size, int, 0444);
-MODULE_PARM_DESC(descs_pool_size, "Number of CPDMA CPPI descriptors in pool");
 
 struct cpsw_devlink {
 	struct cpsw_common *cpsw;
@@ -353,10 +351,12 @@ static void cpsw_rx_handler(void *token, int len, int status)
 		xdp.rxq = &priv->xdp_rxq[ch];
 		xdp.frame_sz = PAGE_SIZE;
 
-		ret = cpsw_run_xdp(priv, ch, &xdp, page, priv->emac_port, &len);
+		ret = cpsw_run_xdp(priv, ch, &xdp, page, priv->emac_port);
 		if (ret != CPSW_XDP_PASS)
 			goto requeue;
 
+		/* XDP prog might have changed packet data and boundaries */
+		len = xdp.data_end - xdp.data;
 		headroom = xdp.data - xdp.data_hard_start;
 
 		/* XDP prog can modify vlan tag, so can't use encap header */
@@ -926,16 +926,13 @@ static netdev_tx_t cpsw_ndo_start_xmit(struct sk_buff *skb,
 	struct cpts *cpts = cpsw->cpts;
 	struct netdev_queue *txq;
 	struct cpdma_chan *txch;
-	unsigned int len;
 	int ret, q_idx;
 
-	if (skb_padto(skb, priv->tx_packet_min)) {
+	if (skb_put_padto(skb, READ_ONCE(priv->tx_packet_min))) {
 		cpsw_err(priv, tx_err, "packet pad failed\n");
 		ndev->stats.tx_dropped++;
 		return NET_XMIT_DROP;
 	}
-
-	len = skb->len < priv->tx_packet_min ? priv->tx_packet_min : skb->len;
 
 	if (skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP &&
 	    priv->tx_ts_enabled && cpts_can_timestamp(cpts, skb))
@@ -948,7 +945,7 @@ static netdev_tx_t cpsw_ndo_start_xmit(struct sk_buff *skb,
 	txch = cpsw->txv[q_idx].ch;
 	txq = netdev_get_tx_queue(ndev, q_idx);
 	skb_tx_timestamp(skb);
-	ret = cpdma_chan_submit(txch, skb, skb->data, len,
+	ret = cpdma_chan_submit(txch, skb, skb->data, skb->len,
 				priv->emac_port);
 	if (unlikely(ret != 0)) {
 		cpsw_err(priv, tx_err, "desc submit failed\n");
@@ -1111,8 +1108,7 @@ static int cpsw_ndo_xdp_xmit(struct net_device *ndev, int n,
 
 	for (i = 0; i < n; i++) {
 		xdpf = frames[i];
-
-		if (xdpf->len < priv->tx_packet_min) {
+		if (xdpf->len < READ_ONCE(priv->tx_packet_min)) {
 			xdp_return_frame_rx_napi(xdpf);
 			drops++;
 			continue;
@@ -1704,7 +1700,7 @@ static int cpsw_dl_switch_mode_set(struct devlink *dl, u32 id,
 
 			priv = netdev_priv(sl_ndev);
 			slave->port_vlan = vlan;
-			priv->tx_packet_min = CPSW_MIN_PACKET_SIZE_VLAN;
+			WRITE_ONCE(priv->tx_packet_min, CPSW_MIN_PACKET_SIZE_VLAN);
 			if (netif_running(sl_ndev))
 				cpsw_port_add_switch_def_ale_entries(priv,
 								     slave);
@@ -1733,7 +1729,7 @@ static int cpsw_dl_switch_mode_set(struct devlink *dl, u32 id,
 
 			priv = netdev_priv(slave->ndev);
 			slave->port_vlan = slave->data->dual_emac_res_vlan;
-			priv->tx_packet_min = CPSW_MIN_PACKET_SIZE;
+			WRITE_ONCE(priv->tx_packet_min, CPSW_MIN_PACKET_SIZE);
 			cpsw_port_add_dual_emac_def_ale_entries(priv, slave);
 		}
 
