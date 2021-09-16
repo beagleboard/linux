@@ -374,12 +374,32 @@
 			line-name = "vin6_sel_s0";
 		};
 
+		/*
+		 * Dual pin selection
+		 * ENET: vin2_sel_s0: high: vin2_sel_s2: high
+		 * VIN2: vin2_sel_s0: low: vin2_sel_s2: high
+		 * CAM : vin2_sel_s0: high: vin2_sel_s2: low
+		 */
+		p2 {
+			gpio-hog;
+			gpios = <2 GPIO_ACTIVE_HIGH>;
+			output-high;
+			line-name = "vin2_sel_s0";
+		};
+
 		p3 {
 			/* cam_fpd_mux_s0: high: vin1a low: cam */
 			gpio-hog;
 			gpios = <3 GPIO_ACTIVE_HIGH>;
 			output-low;
 			line-name = "cam_fpd_mux_s0";
+		};
+
+		p6 {
+			gpio-hog;
+			gpios = <6 GPIO_ACTIVE_HIGH>;
+			output-low;
+			line-name = "vin2_sel_s2";
 		};
 	};
 

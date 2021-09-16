@@ -400,6 +400,28 @@
 	};
 };
 
+&i2c5 {
+	status = "okay";
+	clock-frequency = <400000>;
+
+	ov10633@37 {
+		compatible = "ovti,ov10633";
+		reg = <0x37>;
+
+		clocks = <&clk_ov10633_fixed>;
+		clock-names = "xvclk";
+
+		port {
+			onboardLI: endpoint {
+				remote-endpoint = <&vin2a_ep>;
+				hsync-active = <1>;
+				vsync-active = <1>;
+				pclk-sample = <0>;
+			};
+		};
+	};
+};
+
 &cpu0 {
 	vdd-supply = <&buck10_reg>;
 };
@@ -564,4 +586,13 @@
 &dsp2 {
 	status = "okay";
 	memory-region = <&dsp2_cma_pool>;
+};
+
+&vin2a {
+	vin2a_ep: endpoint {
+		remote-endpoint = <&onboardLI>;
+		hsync-active = <1>;
+		vsync-active = <1>;
+		pclk-sample = <0>;
+	};
 };
