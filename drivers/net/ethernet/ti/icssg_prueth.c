@@ -2103,8 +2103,10 @@ static int prueth_netdev_init(struct prueth *prueth,
 	emac->ndev = ndev;
 	emac->port_id = port;
 	emac->cmd_wq = create_singlethread_workqueue("icssg_cmd_wq");
-	if (!emac->cmd_wq)
+	if (!emac->cmd_wq) {
+		ret = -ENOMEM;
 		goto free_ndev;
+	}
 	INIT_WORK(&emac->rx_mode_work, emac_ndo_set_rx_mode_work);
 
 	ret = pruss_request_mem_region(prueth->pruss,
