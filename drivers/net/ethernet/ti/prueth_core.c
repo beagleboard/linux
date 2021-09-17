@@ -836,7 +836,6 @@ static int prueth_tx_enqueue(struct prueth_emac *emac, struct sk_buff *skb,
 	void __iomem *sram = prueth->mem[PRUETH_MEM_SHARED_RAM].va;
 	void __iomem *dram;
 	u32 wr_buf_desc;
-	int ret;
 	int txport = emac->tx_port_queue; /* which port to tx: MII0 or MII1 */
 
 	if (!PRUETH_IS_EMAC(prueth))
@@ -847,7 +846,7 @@ static int prueth_tx_enqueue(struct prueth_emac *emac, struct sk_buff *skb,
 	if (eth_skb_pad(skb)) {
 		if (netif_msg_tx_err(emac) && net_ratelimit())
 			netdev_err(ndev, "packet pad failed");
-		return ret;
+		return -ENOMEM;
 	}
 	src_addr = skb->data;
 	pktlen = skb->len;
