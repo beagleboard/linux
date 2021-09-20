@@ -79,6 +79,7 @@ struct virt_cpsw_common {
 	bool rx_irq_disabled;
 	struct hrtimer rx_hrtimer;
 	unsigned long rx_pace_timeout;
+	u32 mac_only_port;
 
 	const char *rdev_name;
 	struct rpmsg_remotedev *rdev;
@@ -89,6 +90,10 @@ struct virt_cpsw_common {
 	u32 rdev_tx_psil_dst_id;
 	u32 tx_psil_id_base;
 	u32 rdev_rx_flow_id;
+	struct notifier_block virt_cpsw_inetaddr_nb;
+	bool mac_only;
+	struct work_struct rx_mode_work;
+	struct workqueue_struct	*cmd_wq;
 };
 
 struct virt_cpsw_ndev_stats {
@@ -247,6 +252,7 @@ static void virt_cpsw_nuss_common_stop(struct virt_cpsw_common *common)
 				  virt_cpsw_nuss_rx_cleanup, false);
 	napi_disable(&common->napi_rx);
 	hrtimer_cancel(&common->rx_hrtimer);
+	cancel_work_sync(&common->rx_mode_work);
 }
 
 static int virt_cpsw_nuss_ndo_stop(struct net_device *ndev)
@@ -712,7 +718,7 @@ static netdev_tx_t virt_cpsw_nuss_ndo_xmit(struct sk_buff *skb,
 	cppi5_desc_set_pktids(&first_desc->hdr, 0, 0x3FFF);
 	cppi5_hdesc_set_pkttype(first_desc, 0x7);
 	/* target port has to be 0 */
-	cppi5_desc_set_tags_ids(&first_desc->hdr, 0, 0);
+	cppi5_desc_set_tags_ids(&first_desc->hdr, 0, common->mac_only_port);
 
 	cppi5_hdesc_attach_buf(first_desc, buf_dma, pkt_len, buf_dma, pkt_len);
 	swdata = cppi5_hdesc_get_swdata(first_desc);
@@ -854,6 +860,33 @@ static void virt_cpsw_nuss_ndo_get_stats(struct net_device *dev,
 	stats->tx_dropped	= dev->stats.tx_dropped;
 }
 
+static void virt_cpsw_nuss_ndo_set_rx_mode_work(struct work_struct *work)
+{
+	struct rpmsg_remotedev_eth_switch_ops *rdev_ops;
+	struct virt_cpsw_common *common;
+	struct device *dev;
+	int ret;
+
+	common = container_of(work, struct virt_cpsw_common, rx_mode_work);
+	dev = common->dev;
+	rdev_ops = common->rdev_switch_ops;
+
+	ret = rdev_ops->set_promisc_mode(common->rdev,
+					 common->ports.ndev->flags & IFF_PROMISC);
+	if (ret) {
+		dev_err(dev, "set_promisc rpmsg - fail %d\n", ret);
+		return;
+	}
+}
+
+static void virt_cpsw_nuss_ndo_set_rx_mode(struct net_device *ndev)
+{
+	struct virt_cpsw_common *common = virt_ndev_to_common(ndev);
+
+	if (common->mac_only)
+		queue_work(common->cmd_wq, &common->rx_mode_work);
+}
+
 static const struct net_device_ops virt_cpsw_nuss_netdev_ops = {
 	.ndo_open		= virt_cpsw_nuss_ndo_open,
 	.ndo_stop		= virt_cpsw_nuss_ndo_stop,
@@ -862,6 +895,7 @@ static const struct net_device_ops virt_cpsw_nuss_netdev_ops = {
 	.ndo_validate_addr	= eth_validate_addr,
 	.ndo_set_mac_address	= eth_mac_addr,
 	.ndo_tx_timeout		= virt_cpsw_nuss_ndo_host_tx_timeout,
+	.ndo_set_rx_mode	= virt_cpsw_nuss_ndo_set_rx_mode,
 };
 
 static void virt_cpsw_nuss_get_drvinfo(struct net_device *ndev,
@@ -1213,18 +1247,27 @@ static int virt_cpsw_nuss_rdev_init(struct virt_cpsw_common *common)
 		dev_err(dev, "rpmsg attach - fail %d\n", ret);
 		return ret;
 	}
-	dev_dbg(dev, "rpmsg attach_ext - rx_mtu:%d features:%08X tx_mtu[0]:%d flow_idx:%d tx_cpsw_psil_dst_id:%d mac_addr:%pM\n",
+	dev_err(dev, "rpmsg attach_ext - rx_mtu:%d features:%08X tx_mtu[0]:%d flow_idx:%d tx_cpsw_psil_dst_id:%d mac_addr:%pM mac-only:%d\n",
 		attach_info.rx_mtu, attach_info.features,
 		attach_info.tx_mtu[0],
 		attach_info.flow_idx,
 		attach_info.tx_cpsw_psil_dst_id,
-		attach_info.mac_addr);
+		attach_info.mac_addr,
+		attach_info.mac_only_port);
 	common->rdev_features = attach_info.features;
 	common->rdev_mtu = VIRT_CPSW_MAX_PACKET_SIZE;
 	common->rdev_tx_psil_dst_id = attach_info.tx_cpsw_psil_dst_id &
 				     (~0x8000);
 	common->rdev_rx_flow_id = attach_info.flow_idx;
 	ether_addr_copy(common->rdev_mac_addr, attach_info.mac_addr);
+
+	if (common->rdev_features & RPMSG_KDRV_ETHSWITCH_FEATURE_MAC_ONLY) {
+		common->mac_only = true;
+		common->mac_only_port = attach_info.mac_only_port;
+	}
+
+	if (!common->mac_only && common->mac_only_port)
+		return -EINVAL;
 
 	return 0;
 }
@@ -1309,7 +1352,9 @@ static void virt_cpsw_nuss_cleanup_ndev(struct virt_cpsw_common *common)
 
 static bool virt_cpsw_dev_check(const struct net_device *ndev)
 {
-	return ndev->netdev_ops == &virt_cpsw_nuss_netdev_ops;
+	struct virt_cpsw_common *common = virt_ndev_to_common(ndev);
+
+	return ndev->netdev_ops == &virt_cpsw_nuss_netdev_ops && !common->mac_only;
 }
 
 static int virt_cpsw_inetaddr_event(struct notifier_block *unused,
@@ -1351,10 +1396,6 @@ static int virt_cpsw_inetaddr_event(struct notifier_block *unused,
 out:
 	return notifier_from_errno(ret);
 }
-
-static struct notifier_block virt_cpsw_inetaddr_nb __read_mostly = {
-	.notifier_call = virt_cpsw_inetaddr_event,
-};
 
 static const struct of_device_id virt_cpsw_virt_of_mtable[] = {
 	{ .compatible = "ti,j721e-cpsw-virt-mac", },
@@ -1415,6 +1456,14 @@ static int virt_cpsw_nuss_probe(struct platform_device *pdev)
 		return -ENXIO;
 
 	dev_set_drvdata(dev, common);
+	INIT_WORK(&common->rx_mode_work, virt_cpsw_nuss_ndo_set_rx_mode_work);
+	if (common->mac_only) {
+		common->cmd_wq = create_singlethread_workqueue("virt_cpsw");
+		if (!common->cmd_wq) {
+			dev_err(dev, "failure requesting wq\n");
+			return -ENOMEM;
+		}
+	}
 
 	ret = virt_cpsw_nuss_init_ndev(common);
 	if (ret)
@@ -1444,14 +1493,18 @@ static int virt_cpsw_nuss_probe(struct platform_device *pdev)
 		goto unreg_ndev;
 	}
 
-	register_inetaddr_notifier(&virt_cpsw_inetaddr_nb);
+	if (!common->mac_only) {
+		common->virt_cpsw_inetaddr_nb.notifier_call = &virt_cpsw_inetaddr_event;
+		register_inetaddr_notifier(&common->virt_cpsw_inetaddr_nb);
+	}
 
 	dev_info(common->dev, "virt_cpsw_nuss mac loaded\n");
-	dev_info(dev, "rdev_features:%08X rdev_mtu:%d flow_id:%d tx_psil_dst_id:%04X\n",
+	dev_info(dev, "rdev_features:%08X rdev_mtu:%d flow_id:%d tx_psil_dst_id:%04X mac_only:%d\n",
 		 common->rdev_features,
 		 common->rdev_mtu,
 		 common->rdev_rx_flow_id,
-		 common->rdev_tx_psil_dst_id);
+		 common->rdev_tx_psil_dst_id,
+		 common->mac_only_port);
 	dev_info(dev, "local_mac_addr:%pM rdev_mac_addr:%pM\n",
 		 common->ports.local_mac_addr,
 		 common->rdev_mac_addr);
@@ -1469,12 +1522,15 @@ static int virt_cpsw_nuss_remove(struct platform_device *pdev)
 	struct device *dev = common->dev;
 	int ret;
 
-	unregister_inetaddr_notifier(&virt_cpsw_inetaddr_nb);
+	if (!common->mac_only)
+		unregister_inetaddr_notifier(&common->virt_cpsw_inetaddr_nb);
 
 	/* must unregister ndevs here because DD release_driver routine calls
 	 * dma_deconfigure(dev) before devres_release_all(dev)
 	 */
 	virt_cpsw_nuss_cleanup_ndev(common);
+	if (common->mac_only)
+		destroy_workqueue(common->cmd_wq);
 
 	ret = common->rdev_switch_ops->detach(common->rdev);
 	if (ret)
