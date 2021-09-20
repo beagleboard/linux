@@ -150,6 +150,7 @@ rpmsg_kdrv_switch_attach(struct rpmsg_remotedev *rdev,
 	if (priv->uart_connected)
 		attach_info->features |=
 				RPMSG_KDRV_ETHSWITCH_FEATURE_DUMP_STATS;
+	attach_info->mac_only_port = resp->mac_only_port;
 
 out:
 	devm_kfree(&kddev->dev, resp);
@@ -214,6 +215,8 @@ rpmsg_kdrv_switch_attach_ext(struct rpmsg_remotedev *rdev,
 	attach_ext_info->flow_idx = resp->alloc_flow_idx;
 	attach_ext_info->tx_cpsw_psil_dst_id = resp->tx_cpsw_psil_dst_id;
 	ether_addr_copy(attach_ext_info->mac_addr, resp->mac_address);
+	if (attach_ext_info->features | RPMSG_KDRV_ETHSWITCH_FEATURE_MAC_ONLY)
+		attach_ext_info->mac_only_port = resp->mac_only_port;
 
 out:
 	devm_kfree(&kddev->dev, resp);
@@ -689,6 +692,51 @@ static int rpmsg_kdrv_switch_c2s_dbg_dump_stats(struct rpmsg_remotedev *rdev)
 	return ret;
 }
 
+static int rpmsg_kdrv_switch_set_promisc(struct rpmsg_remotedev *rdev, u32 enable)
+{
+	struct rpmsg_kdrv_switch_private *priv =
+		container_of(rdev, struct rpmsg_kdrv_switch_private, rdev);
+	struct rpmsg_kdrv_device *kddev = priv->kddev;
+	struct rpmsg_device *rpdev = kddev->rpdev;
+	struct rpmsg_kdrv_ethswitch_set_promisc_mode_req *req;
+	struct rpmsg_kdrv_ethswitch_set_promisc_mode_resp *resp;
+	int ret;
+
+	req = devm_kzalloc(&kddev->dev, sizeof(*req), GFP_KERNEL);
+	if (!req)
+		return -ENOMEM;
+
+	resp = devm_kzalloc(&kddev->dev, sizeof(*resp), GFP_KERNEL);
+	if (!resp) {
+		devm_kfree(&kddev->dev, req);
+		return -ENOMEM;
+	}
+
+	req->header.message_type = RPMSG_KDRV_TP_ETHSWITCH_SET_PROMISC_MODE;
+	req->info.id = priv->session_id;
+	req->info.core_key = priv->core_key;
+	req->enable = enable ? 1 : 0;
+
+	ret = rpmsg_kdrv_send_request_with_response(rpdev, kddev->device_id,
+						    req, sizeof(*req),
+						    resp, sizeof(*resp));
+	if (ret) {
+		dev_dbg(&kddev->dev, "%s: send: %d\n", __func__, ret);
+		goto out;
+	}
+
+	ret = rpmsg_kdrv_switch_check_resp_status(&resp->info);
+	if (ret)
+		goto out;
+
+	dev_dbg(&kddev->dev, "%s: done\n", __func__);
+
+out:
+	devm_kfree(&kddev->dev, resp);
+	devm_kfree(&kddev->dev, req);
+	return ret;
+}
+
 static void rpmsg_kdrv_switch_get_fw_ver(struct rpmsg_remotedev *rdev,
 					 char *buf, size_t size)
 {
@@ -723,6 +771,7 @@ static struct rpmsg_remotedev_eth_switch_ops switch_ops = {
 	.ping = rpmsg_kdrv_switch_ping,
 	.read_reg = rpmsg_kdrv_switch_reg_read,
 	.dbg_dump_stats = rpmsg_kdrv_switch_c2s_dbg_dump_stats,
+	.set_promisc_mode = rpmsg_kdrv_switch_set_promisc,
 };
 
 static int rpmsg_kdrv_switch_callback(struct rpmsg_kdrv_device *dev,
