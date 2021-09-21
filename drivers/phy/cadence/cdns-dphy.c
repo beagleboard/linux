@@ -12,6 +12,7 @@
 #include <linux/module.h>
 #include <linux/of_address.h>
 #include <linux/of_device.h>
+#include <linux/sys_soc.h>
 #include <linux/platform_device.h>
 #include <linux/reset.h>
 
@@ -29,6 +30,7 @@
 #define DPHY_PMA_RDATA(lane, reg)	(0x700 + ((lane) * 0x100) + (reg))
 #define DPHY_PCS(reg)			(0xb00 + (reg))
 #define DPHY_ISO(reg)			(0xc00 + (reg))
+#define DPHY_WRAP(reg)			(0x1000 + (reg))
 
 #define DPHY_CMN_SSM			DPHY_PMA_CMN(0x20)
 #define DPHY_CMN_SSM_EN			BIT(0)
@@ -64,6 +66,9 @@
 #define DPHY_POWER_ISLAND_EN_DATA_VAL	0xaaaaaaaa
 #define DPHY_POWER_ISLAND_EN_CLK	DPHY_PCS(0xc)
 #define DPHY_POWER_ISLAND_EN_CLK_VAL	0xaa
+
+#define DPHY_LANE			DPHY_WRAP(0x0)
+#define DPHY_LANE_RESET_CMN_EN		BIT(23)
 
 #define DPHY_ISO_CL_CTRL_L		DPHY_ISO(0x10)
 #define DPHY_ISO_DL_CTRL_L0		DPHY_ISO(0x14)
@@ -113,6 +118,10 @@ struct cdns_dphy_ops {
 	void (*set_pll_cfg)(struct cdns_dphy *dphy,
 			    const struct cdns_dphy_cfg *cfg);
 	unsigned long (*get_wakeup_time_ns)(struct cdns_dphy *dphy);
+};
+
+struct cdns_dphy_soc_data {
+	bool has_cmn_reset;
 };
 
 struct cdns_dphy {
@@ -430,11 +439,35 @@ static int cdns_dphy_rx_wait_lane_ready(struct cdns_dphy *dphy, int lanes)
 	return 0;
 }
 
+static struct cdns_dphy_soc_data j721e_soc_data = {
+	.has_cmn_reset = true,
+};
+
+static const struct soc_device_attribute cdns_dphy_socinfo[] = {
+	{
+		.family = "J721E",
+		.revision = "SR2.0",
+		.data = &j721e_soc_data,
+	},
+	{/* sentinel */}
+};
+
 static int cdns_dphy_rx_configure(struct cdns_dphy *dphy,
 				  union phy_configure_opts *opts)
 {
+	const struct soc_device_attribute *soc;
+	const struct cdns_dphy_soc_data *soc_data;
 	unsigned int reg;
 	int band_ctrl, ret;
+
+	soc = soc_device_match(cdns_dphy_socinfo);
+	if (soc && soc->data) {
+		soc_data = soc->data;
+		if (soc_data->has_cmn_reset) {
+			reg = DPHY_LANE_RESET_CMN_EN;
+			writel(reg, dphy->regs + DPHY_LANE);
+		}
+	}
 
 	band_ctrl = cdns_dphy_rx_get_band_ctrl(opts->mipi_dphy.hs_clk_rate);
 	if (band_ctrl < 0)
@@ -643,6 +676,7 @@ static int cdns_dphy_remove(struct platform_device *pdev)
 
 static const struct of_device_id cdns_dphy_of_match[] = {
 	{ .compatible = "cdns,dphy", .data = &ref_dphy_ops },
+	{ .compatible = "ti,j721e-dphy", .data = &ref_dphy_ops },
 	{ /* sentinel */ },
 };
 MODULE_DEVICE_TABLE(of, cdns_dphy_of_match);
