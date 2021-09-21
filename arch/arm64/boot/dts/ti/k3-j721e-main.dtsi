@@ -2398,7 +2398,7 @@
 	};
 
 	dphy0: phy@4580000 {
-		compatible = "cdns,dphy";
+		compatible = "ti,j721e-dphy", "cdns,dphy";
 		reg = <0x0 0x4580000 0x0 0x1100>;
 		#phy-cells = <0>;
 		power-domains = <&k3_pds 147 TI_SCI_PD_EXCLUSIVE>;
