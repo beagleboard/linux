@@ -2,21 +2,44 @@
 /*
  * Copyright (C) 2012 Texas Instruments Incorporated - https://www.ti.com/
  */
-/dts-v1/;
 
-#include "am33xx.dtsi"
-#include "am335x-bone-common.dtsi"
-#include "am335x-bonegreen-common.dtsi"
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/pinctrl/am33xx.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 
-/ {
-	model = "TI AM335x BeagleBone Green Wireless";
-	compatible = "ti,am335x-bone-green-wireless", "ti,am335x-bone-green", "ti,am335x-bone-black", "ti,am335x-bone", "ti,am33xx";
-
-	chosen {
-		base_dtb = "am335x-bonegreen-wireless.dts";
-		base_dtb_timestamp = __TIMESTAMP__;
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+ */
+&{/chosen} {
+	overlays {
+		BB-BBGW-WL1835-00A0.kernel = __TIMESTAMP__;
 	};
+};
+
+/*
+ * Free up the pins used by the cape from the pinmux helpers.
+ */
+&ocp {
+	P9_12_pinmux { status = "disabled"; };	/* gpmc_ad12.gpio1_28 BT_EN */
+	P8_12_pinmux { status = "disabled"; };	/* gpmc_ad12.mmc2_dat0 */
+	P8_11_pinmux { status = "disabled"; };	/* gpmc_ad13.mmc2_dat1 */
+	P8_16_pinmux { status = "disabled"; };	/* gpmc_ad14.mmc2_dat2 */
+	P8_15_pinmux { status = "disabled"; };	/* gpmc_ad15.mmc2_dat3 */
+
+	P8_18_pinmux { status = "disabled"; };	/* gpmc_clk.mmc2_clk */
+
+	//Audio...
+	P9_28_pinmux { status = "disabled"; };
+	P9_29_pinmux { status = "disabled"; };
+	P9_31_pinmux { status = "disabled"; };
+};
+
+&{/} {
+	model = "TI AM335x BeagleBone Green Wireless";
+	compatible = "ti,am335x-bone-green-wireless", "ti,am335x-bone-green", "ti,am335x-bone", "ti,am33xx";
 
 	wlan_en_reg: fixedregulator@2 {
 		compatible = "regulator-fixed";
