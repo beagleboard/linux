@@ -1,0 +1,89 @@
+// SPDX-License-Identifier: GPL-2.0
+/**
+ * DT Overlay for OV5640 Camera on I2C bus interfaced to CSI2 with J721E-EAIK board.
+ *
+ * Copyright (C) 2021 Texas Instruments Incorporated - https://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/pinctrl/k3.h>
+
+&main_pmx0 {
+	csi2_exp_reset_pins_default: csi2-exp-reset-pins-default {
+		pinctrl-single,pins = <
+			J721E_IOPAD(0x140, PIN_OUTPUT, 7) /* (AG29) PRG0_PRU1_GPO16.GPIO0_79 */
+		>;
+	};
+
+	csi2_exp_refclk_pins_default: csi2-exp-refclk-pins-default {
+		pinctrl-single,pins = <
+			J721E_IOPAD(0x1A4, PIN_OUTPUT, 3) /* (W26) RGMII6_RXC.AUDIO_EXT_REFCLK2 */
+		>;
+	};
+};
+
+&k3_clks {
+	/* Confiure AUDIO_EXT_REFCLK2 pin as output */
+	pinctrl-names = "default";
+	pinctrl-0 = <&csi2_exp_refclk_pins_default>;
+};
+
+&main_i2c3 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	i2c-switch@70 {
+		compatible = "nxp,pca9543";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0x70>;
+
+		/* CAM0 I2C */
+		ti_cam0_i2c: i2c@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+
+			ov5640: camera@3c {
+				compatible = "ovti,ov5640";
+				reg = <0x3c>;
+
+				pinctrl-names = "default";
+				pinctrl-0 = <&csi2_exp_reset_pins_default>;
+				reset-gpios = <&main_gpio0 79 GPIO_ACTIVE_LOW>;
+
+				/* C_AUDIO_REFCLK3 -> RGMII6_RXC (W26) */
+				clocks = <&k3_clks 157 371>;
+				clock-names = "xclk";
+
+				/* HSDIV3_16FFT_MAIN_4_HSDIVOUT2_CLK -> REFCLK2 */
+				assigned-clocks = <&k3_clks 157 371>;
+				assigned-clock-parents = <&k3_clks 157 400>;
+				assigned-clock-rates = <25000000>;
+
+				port {
+					csi2_cam0: endpoint {
+						remote-endpoint = <&csi2rx0_in_sensor>;
+						clock-lanes = <0>;
+						data-lanes = <1 2>;
+					};
+				};
+			};
+		};
+
+	};
+};
+
+&csi0_port0 {
+	csi2rx0_in_sensor: endpoint {
+		remote-endpoint = <&csi2_cam0>;
+		bus-type = <4>; /* CSI2 DPHY. */
+		clock-lanes = <0>;
+		data-lanes = <1 2>;
+	};
+
+};
