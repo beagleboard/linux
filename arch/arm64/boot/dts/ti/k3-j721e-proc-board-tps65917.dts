@@ -7,6 +7,11 @@
 
 #include "k3-j721e-common-proc-board.dts"
 
+&chosen {
+	base_dtb = "k3-j721e-proc-board-tps65917.dts";
+	base_dtb_timestamp = __TIMESTAMP__;
+};
+
 &wkup_i2c0 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&wkup_i2c0_pins_default>;
