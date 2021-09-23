@@ -2878,6 +2878,7 @@ static int prueth_probe(struct platform_device *pdev)
 	prueth->dev = dev;
 	prueth->fw_data = match->data;
 	prueth->prueth_np = np;
+	prueth->fw_offsets = &fw_offsets_v2_1;
 
 	eth0_node = of_get_child_by_name(np, "ethernet-mii0");
 	if (!of_device_is_available(eth0_node)) {
@@ -2992,10 +2993,8 @@ static int prueth_probe(struct platform_device *pdev)
 		prueth->mem[PRUETH_MEM_OCMC].va,
 		prueth->mem[PRUETH_MEM_OCMC].size);
 
-	if (IS_ENABLED(CONFIG_HSR) && prueth->fw_data->support_lre) {
-		prueth->fw_offsets = &fw_offsets_v2_1;
+	if (IS_ENABLED(CONFIG_HSR) && prueth->fw_data->support_lre)
 		has_lre = true;
-	}
 
 	/* if lre is supported, then both eth nodes to be present in
 	 * DT node. If not, reset the support flag
