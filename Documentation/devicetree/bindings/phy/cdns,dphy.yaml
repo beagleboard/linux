@@ -11,7 +11,11 @@ maintainers:
 
 properties:
   compatible:
-    items:
+    oneOf:
+      - items:
+          - enum:
+              - ti,j721e-dphy
+          - const: cdns,dphy
       - const: cdns,dphy
 
   reg:

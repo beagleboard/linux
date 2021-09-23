@@ -116,6 +116,8 @@ struct rpmsg_rdev_eth_switch_attach_info {
 	u32 features;
 #define RPMSG_KDRV_ETHSWITCH_FEATURE_TXCSUM BIT(0)
 #define RPMSG_KDRV_ETHSWITCH_FEATURE_DUMP_STATS BIT(1)
+#define RPMSG_KDRV_ETHSWITCH_FEATURE_MAC_ONLY BIT(2)
+	u32 mac_only_port;
 };
 
 struct rpmsg_rdev_eth_switch_attach_ext_info {
@@ -127,9 +129,11 @@ struct rpmsg_rdev_eth_switch_attach_ext_info {
 	u32 features;
 #define RPMSG_KDRV_ETHSWITCH_FEATURE_TXCSUM BIT(0)
 #define RPMSG_KDRV_ETHSWITCH_FEATURE_DUMP_STATS BIT(1)
+#define RPMSG_KDRV_ETHSWITCH_FEATURE_MAC_ONLY BIT(2)
 	u32 flow_idx;
 	u32 tx_cpsw_psil_dst_id;
 	u8 mac_addr[ETH_ALEN];
+	u32 mac_only_port;
 };
 
 struct rpmsg_rdev_eth_switch_tx_info {
@@ -165,6 +169,7 @@ struct rpmsg_remotedev_eth_switch_ops {
 	int (*ping)(struct rpmsg_remotedev *rdev, const u8 *data, int size);
 	int (*read_reg)(struct rpmsg_remotedev *rdev, u32 reg_addr, u32 *val);
 	int (*dbg_dump_stats)(struct rpmsg_remotedev *rdev);
+	int (*set_promisc_mode)(struct rpmsg_remotedev *rdev, u32 enable);
 };
 
 enum rpmsg_remotedev_type {
