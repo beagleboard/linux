@@ -1393,7 +1393,7 @@ static void prueth_reset_rx_chan(struct prueth_rx_chn *chn,
 		k3_udma_glue_disable_rx_chn(chn->rx_chn);
 }
 
-static u64 prueth_iep_gettime(void *clockops_data)
+static u64 prueth_iep_gettime(void *clockops_data, struct ptp_system_timestamp *sts)
 {
 	u32 hi_rollover_count, hi_rollover_count_r;
 	struct prueth_emac *emac = clockops_data;
@@ -1401,23 +1401,28 @@ static u64 prueth_iep_gettime(void *clockops_data)
 	void __iomem *fw_hi_r_count_addr;
 	void __iomem *fw_count_hi_addr;
 	u32 iepcount_hi, iepcount_hi_r;
+	unsigned long flags;
 	u32 iepcount_lo;
 	u64 ts = 0;
 
 	fw_count_hi_addr = prueth->shram.va + TIMESYNC_FW_WC_COUNT_HI_SW_OFFSET_OFFSET;
 	fw_hi_r_count_addr = prueth->shram.va + TIMESYNC_FW_WC_HI_ROLLOVER_COUNT_OFFSET;
 
+	local_irq_save(flags);
 	do {
 		iepcount_hi = icss_iep_get_count_hi(emac->iep);
 		iepcount_hi += readl(fw_count_hi_addr);
 		hi_rollover_count = readl(fw_hi_r_count_addr);
+		ptp_read_system_prets(sts);
 		iepcount_lo = icss_iep_get_count_low(emac->iep);
+		ptp_read_system_postts(sts);
 
 		iepcount_hi_r = icss_iep_get_count_hi(emac->iep);
 		iepcount_hi_r += readl(fw_count_hi_addr);
 		hi_rollover_count_r = readl(fw_hi_r_count_addr);
 	} while ((iepcount_hi_r != iepcount_hi) ||
 		 (hi_rollover_count != hi_rollover_count_r));
+	local_irq_restore(flags);
 
 	ts = ((u64)hi_rollover_count) << 23 | iepcount_hi;
 	ts = ts * (u64)IEP_DEFAULT_CYCLE_TIME_NS + iepcount_lo;
