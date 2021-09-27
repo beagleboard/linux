@@ -223,7 +223,7 @@ static u64 icss_iep_gettime(struct icss_iep *iep,
 	unsigned long flags;
 
 	if (iep->ops && iep->ops->gettime)
-		return iep->ops->gettime(iep->clockops_data);
+		return iep->ops->gettime(iep->clockops_data, sts);
 
 	/* use local_irq_x() to make it work for both RT/non-RT */
 	local_irq_save(flags);
