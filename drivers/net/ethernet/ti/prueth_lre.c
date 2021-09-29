@@ -117,7 +117,7 @@ static u16 get_hash(u8 *mac, u16 hash_mask)
 	return hash;
 }
 
-void pru_spin_lock(struct node_tbl *nt)
+static void pru_spin_lock(struct node_tbl *nt)
 {
 	while (1) {
 		nt->nt_info->arm_lock = 1;
@@ -264,7 +264,7 @@ static void inc_time(u16 *t)
 		*t = ICSS_LRE_MAX_FORGET_TIME;
 }
 
-void node_table_update_time(struct node_tbl *nt)
+static void node_table_update_time(struct node_tbl *nt)
 {
 	int j;
 	u16 ofs;
@@ -467,7 +467,7 @@ static int node_table_insert_from_queue(struct node_tbl *nt,
 	return LRE_OK;
 }
 
-void node_table_check_and_remove(struct node_tbl *nt, u16 forget_time)
+static void node_table_check_and_remove(struct node_tbl *nt, u16 forget_time)
 {
 	int j, end_bin;
 	u16 node;
@@ -527,7 +527,7 @@ static int pop_queue(struct prueth *prueth, spinlock_t *lock)
 	return ret;
 }
 
-void pop_queue_process(struct prueth *prueth, spinlock_t *lock)
+static void pop_queue_process(struct prueth *prueth, spinlock_t *lock)
 {
 	while (pop_queue(prueth, lock) == 0)
 		;
@@ -702,13 +702,12 @@ static int prueth_lre_emac_rx_packets(struct prueth_emac *emac,
 	int ret, used = 0, port, port0_q_empty, port1_q_empty;
 	unsigned int emac_max_pktlen = PRUETH_MAX_PKTLEN_LRE;
 	const struct prueth_queue_info *rxqueue, *rxqueue_o;
-	u8 overflow_cnt, overflow_cnt_o, status, status_o;
-	struct prueth_queue_desc __iomem *queue_desc_p;
 	struct prueth_packet_info pkt_info, pkt_info_o;
 	const struct prueth_queue_info *rxqueue_p;
 	struct prueth_packet_info *pkt_info_p;
 	struct net_device_stats *ndevstats_o;
 	struct net_device_stats *ndevstats_p;
+	u8 overflow_cnt, overflow_cnt_o;
 	u32 rd_buf_desc, rd_buf_desc_o;
 	struct prueth_emac *other_emac;
 	u16 *bd_rd_ptr_p, *bd_wr_ptr_p;
@@ -727,9 +726,6 @@ static int prueth_lre_emac_rx_packets(struct prueth_emac *emac,
 
 	rxqueue = &sw_queue_infos[PRUETH_PORT_HOST][qid1];
 	rxqueue_o = &sw_queue_infos[PRUETH_PORT_HOST][qid2];
-
-	status = readb(&queue_desc->status);
-	status_o = readb(&queue_desc_o->status);
 
 retry:
 	overflow_cnt = readb(&queue_desc->overflow_cnt);
@@ -798,7 +794,6 @@ retry:
 			emac_p = emac;
 			ndevstats_p = ndevstats;
 			rxqueue_p = rxqueue;
-			queue_desc_p = queue_desc;
 		} else {
 			pkt_info_p = &pkt_info_o;
 			bd_wr_ptr_p = &bd_wr_ptr_o;
@@ -806,7 +801,6 @@ retry:
 			emac_p = other_emac;
 			ndevstats_p = ndevstats_o;
 			rxqueue_p = rxqueue_o;
-			queue_desc_p = queue_desc_o;
 		}
 
 		if ((*pkt_info_p).length <= 0) {
