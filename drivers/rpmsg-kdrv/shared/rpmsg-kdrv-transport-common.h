@@ -23,7 +23,7 @@
 /*
  * Maximum number of proxy devices per remotecore
  */
-#define RPMSG_KDRV_TP_MAX_DEVICES		(2)
+#define RPMSG_KDRV_TP_MAX_DEVICES		(4)
 
 /*
  * Maximum length of proxy device name
