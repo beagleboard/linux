@@ -2453,6 +2453,17 @@ static int emac_get_regs_len(struct net_device *ndev)
 		       ICSS_EMAC_FW_VLAN_FILTER_TABLE_SIZE_BYTES;
 	}
 
+	/* MultiCast table and VLAN filter table are in different
+	 * memories in case of HSR/PRP firmware. Therefore add the sizes
+	 * of individual region.
+	 */
+	if (PRUETH_IS_LRE(prueth)) {
+		return ICSS_LRE_FW_VLAN_FLTR_TBL_BASE_ADDR +
+		       ICSS_EMAC_FW_VLAN_FILTER_TABLE_SIZE_BYTES +
+		       ICSS_LRE_FW_MULTICAST_FILTER_TABLE +
+		       ICSS_EMAC_FW_MULTICAST_TABLE_SIZE_BYTES;
+	}
+
 	return 0;
 }
 
@@ -2471,6 +2482,21 @@ static void emac_get_regs(struct net_device *ndev, struct ethtool_regs *regs,
 		ram = prueth->mem[emac->dram].va;
 		memcpy_fromio(reg, ram, emac_get_regs_len(ndev));
 		return;
+	}
+
+	if (PRUETH_IS_LRE(prueth)) {
+		size_t len = ICSS_LRE_FW_VLAN_FLTR_TBL_BASE_ADDR +
+			     ICSS_EMAC_FW_VLAN_FILTER_TABLE_SIZE_BYTES;
+
+		ram =  prueth->mem[PRUETH_MEM_SHARED_RAM].va;
+		memcpy_fromio(reg, ram, len);
+
+		reg += len;
+
+		ram = prueth->mem[PRUETH_MEM_DRAM1].va;
+		len = ICSS_LRE_FW_MULTICAST_FILTER_TABLE +
+		      ICSS_EMAC_FW_MULTICAST_TABLE_SIZE_BYTES;
+		memcpy_fromio(reg, ram, len);
 	}
 }
 
