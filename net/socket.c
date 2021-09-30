@@ -846,7 +846,7 @@ EXPORT_SYMBOL_GPL(__sock_recv_timestamp);
 void __sock_recv_redinfo_timestamp(struct msghdr *msg, struct sock *sk,
 				   struct sk_buff *skb)
 {
-	struct scm_timestamping_internal tss;
+	struct scm_timestamping_internal tss = { 0 };
 	int empty = 1;
 	struct skb_shared_hwtstamps *red_shhwtstamps =
 		skb_redinfo_hwtstamps(skb);
@@ -856,9 +856,18 @@ void __sock_recv_redinfo_timestamp(struct msghdr *msg, struct sock *sk,
 	    ktime_to_timespec64_cond(red_shhwtstamps->hwtstamp, tss.ts + 2))
 		empty = 0;
 
-	if (!empty)
+	if (!empty) {
+		struct scm_timestamping tss1;
+		int i;
+
+		for (i = 0; i < ARRAY_SIZE(tss.ts); i++) {
+			tss1.ts[i].tv_sec = tss.ts[i].tv_sec;
+			tss1.ts[i].tv_nsec = tss.ts[i].tv_nsec;
+		}
+
 		put_cmsg(msg, SOL_SOCKET,
-			 SCM_RED_TIMESTAMPING, sizeof(tss), &tss);
+			 SCM_RED_TIMESTAMPING, sizeof(tss1), &tss1);
+	}
 }
 EXPORT_SYMBOL_GPL(__sock_recv_redinfo_timestamp);
 

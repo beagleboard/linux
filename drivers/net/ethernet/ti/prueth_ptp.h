@@ -38,20 +38,20 @@
 #define DISABLE_SWITCH_SYNC_RELAY_OFFSET        0xbb   /* 1 byte */
 #define MII_RX_CORRECTION_OFFSET                0xbc   /* 2 bytes */
 #define MII_TX_CORRECTION_OFFSET                0xbe   /* 2 bytes */
-#define TIMESYNC_CMP1_CMP_OFFSET                0xc1   /* 8 bytes */
-#define TIMESYNC_SYNC0_CMP_OFFSET               0xc9   /* 8 bytes */
-#define TIMESYNC_CMP1_PERIOD_OFFSET             0xd1   /* 4 bytes */
-#define TIMESYNC_SYNC0_WIDTH_OFFSET             0xd5   /* 4 bytes */
-#define SINGLE_STEP_IEP_OFFSET_P1               0xd9   /* 8 bytes */
-#define SINGLE_STEP_SECONDS_OFFSET_P1           0xe1   /* 8 bytes */
-#define SINGLE_STEP_IEP_OFFSET_P2               0xe9   /* 8 bytes */
-#define SINGLE_STEP_SECONDS_OFFSET_P2           0xf1   /* 8 bytes */
-#define LINK_LOCAL_FRAME_HAS_HSR_TAG            0xf9   /* 1 bytes */
-#define PTP_PREV_TX_TIMESTAMP_P1                0x101  /* 8 bytes */
-#define PTP_PREV_TX_TIMESTAMP_P2                0x109  /* 8 bytes */
-#define PTP_CLK_IDENTITY_OFFSET                 0x111  /* 8 bytes */
-#define PTP_SCRATCH_MEM                         0x119  /* 16 byte */
-#define PTP_IPV4_UDP_E2E_ENABLE                 0x129  /* 1 byte */
+#define TIMESYNC_CMP1_CMP_OFFSET                0xc0   /* 8 bytes */
+#define TIMESYNC_SYNC0_CMP_OFFSET               0xc8   /* 8 bytes */
+#define TIMESYNC_CMP1_PERIOD_OFFSET             0xd0   /* 4 bytes */
+#define TIMESYNC_SYNC0_WIDTH_OFFSET             0xd4   /* 4 bytes */
+#define SINGLE_STEP_IEP_OFFSET_P1               0xd8   /* 8 bytes */
+#define SINGLE_STEP_SECONDS_OFFSET_P1           0xe0   /* 8 bytes */
+#define SINGLE_STEP_IEP_OFFSET_P2               0xe8   /* 8 bytes */
+#define SINGLE_STEP_SECONDS_OFFSET_P2           0xf0   /* 8 bytes */
+#define LINK_LOCAL_FRAME_HAS_HSR_TAG            0xf8   /* 1 bytes */
+#define PTP_PREV_TX_TIMESTAMP_P1                0xf9  /* 8 bytes */
+#define PTP_PREV_TX_TIMESTAMP_P2                0x101  /* 8 bytes */
+#define PTP_CLK_IDENTITY_OFFSET                 0x109  /* 8 bytes */
+#define PTP_SCRATCH_MEM                         0x111  /* 16 byte */
+#define PTP_IPV4_UDP_E2E_ENABLE                 0x121  /* 1 byte */
 
 enum {
 	PRUETH_PTP_SYNC,
