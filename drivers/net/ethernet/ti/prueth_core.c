@@ -1063,7 +1063,7 @@ static int prueth_hsr_ptp_ct_tx_ts_enqueue(struct prueth_emac *emac, struct sk_b
 	/* Store the skb so that tx irq handler will populate the ts */
 	spin_lock_irqsave(&other_emac->ptp_skb_lock, flags);
 	if (other_emac->ptp_ct_skb[event]) {
-		netdev_warn(other_emac->ndev, "Dropped cut through event waiting for tx ts. %d %x\n", event, (u32)skb);
+		netdev_warn(other_emac->ndev, "Dropped cut through event waiting for tx ts.\n");
 		dev_consume_skb_any(other_emac->ptp_ct_skb[event]);
 		prueth_ptp_tx_ts_reset(other_emac, event);
 	}
