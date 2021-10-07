@@ -2213,6 +2213,8 @@ skip_irq:
 
 	ndev->netdev_ops = &emac_netdev_ops;
 	ndev->ethtool_ops = &icssg_ethtool_ops;
+	ndev->hw_features = NETIF_F_SG;
+	ndev->features = ndev->hw_features;
 
 	netif_napi_add(ndev, &emac->napi_rx,
 		       emac_napi_rx_poll, NAPI_POLL_WEIGHT);
