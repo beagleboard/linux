@@ -274,6 +274,8 @@ static void nci_core_conn_close_rsp_packet(struct nci_dev *ndev,
 		conn_info = nci_get_conn_info_by_conn_id(ndev, ndev->cur_id);
 		if (conn_info) {
 			list_del(&conn_info->list);
+			if (conn_info == ndev->rf_conn_info)
+				ndev->rf_conn_info = NULL;
 			devm_kfree(&ndev->nfc_dev->dev, conn_info);
 		}
 	}
