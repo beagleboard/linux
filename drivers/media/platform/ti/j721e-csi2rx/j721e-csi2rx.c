@@ -41,7 +41,7 @@
 #define CSI_DF_RGB888			0x24
 
 #define PSIL_WORD_SIZE_BYTES		16
-#define TI_CSI2RX_NUM_CTX		1
+#define TI_CSI2RX_NUM_CTX		16
 
 /*
  * There are no hard limits on the width or height. The DMA engine can handle
@@ -54,7 +54,7 @@
 
 #define TI_CSI2RX_PAD_SINK		0
 #define TI_CSI2RX_PAD_FIRST_SOURCE	1
-#define TI_CSI2RX_NUM_SOURCE_PADS	1
+#define TI_CSI2RX_NUM_SOURCE_PADS	TI_CSI2RX_NUM_CTX
 #define TI_CSI2RX_NUM_PADS		(1 + TI_CSI2RX_NUM_SOURCE_PADS)
 
 #define DRAIN_TIMEOUT_MS		50
