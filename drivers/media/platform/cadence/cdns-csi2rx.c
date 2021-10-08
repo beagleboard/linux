@@ -133,21 +133,6 @@ static u8 csi2rx_get_bpp(u32 code)
 	return 0;
 }
 
-static s64 csi2rx_get_pixel_rate(struct csi2rx_priv *csi2rx)
-{
-	struct v4l2_ctrl *ctrl;
-
-	ctrl = v4l2_ctrl_find(csi2rx->source_subdev->ctrl_handler,
-			      V4L2_CID_PIXEL_RATE);
-	if (!ctrl) {
-		dev_err(csi2rx->dev, "no pixel rate control in subdev: %s\n",
-			csi2rx->source_subdev->name);
-		return -EINVAL;
-	}
-
-	return v4l2_ctrl_g_ctrl_int64(ctrl);
-}
-
 static int csi2rx_get_frame_desc_from_source(struct csi2rx_priv *csi2rx,
 					     struct v4l2_mbus_frame_desc *fd)
 {
@@ -161,6 +146,56 @@ static int csi2rx_get_frame_desc_from_source(struct csi2rx_priv *csi2rx,
 
 	return v4l2_subdev_call(csi2rx->source_subdev, pad, get_frame_desc,
 				remote_pad->index, fd);
+}
+
+static s64 csi2rx_get_link_freq(struct csi2rx_priv *csi2rx)
+{
+	struct v4l2_mbus_frame_desc fd;
+	bool has_fd = true;
+	int ret;
+	u8 bpp;
+
+	/* First check if the source is sending a multiplexed stream. */
+	ret = csi2rx_get_frame_desc_from_source(csi2rx, &fd);
+	if (ret == -ENOIOCTLCMD)
+		/*
+		 * Assume not multiplexed if source can't send frame descriptor.
+		 */
+		has_fd = false;
+	else if (ret)
+		return ret;
+
+	if (has_fd && fd.num_entries > 1) {
+		/*
+		 * With multistream input we don't have bpp, and cannot use
+		 * V4L2_CID_PIXEL_RATE. Passing 0 as bpp causes
+		 * v4l2_get_link_freq() to return an error if it falls back to
+		 * V4L2_CID_PIXEL_RATE.
+		 */
+		bpp = 0;
+	} else if (has_fd && fd.num_entries == 1) {
+		bpp = csi2rx_get_bpp(fd.entry[0].pixelcode);
+		if (!bpp)
+			return -EINVAL;
+	} else {
+		struct v4l2_subdev_format sd_fmt;
+
+		sd_fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
+		sd_fmt.pad = 0;
+		sd_fmt.stream = 0;
+
+		ret = v4l2_subdev_call(csi2rx->source_subdev, pad, get_fmt,
+				       NULL, &sd_fmt);
+		if (ret)
+			return ret;
+
+		bpp = csi2rx_get_bpp(sd_fmt.format.code);
+		if (!bpp)
+			return -EINVAL;
+	}
+
+	return v4l2_get_link_freq(csi2rx->source_subdev->ctrl_handler, bpp,
+				  2 * csi2rx->num_lanes);
 }
 
 static inline
@@ -193,32 +228,20 @@ static int csi2rx_configure_external_dphy(struct csi2rx_priv *csi2rx)
 {
 	union phy_configure_opts opts = { };
 	struct phy_configure_opts_mipi_dphy *cfg = &opts.mipi_dphy;
-	struct v4l2_subdev_format sd_fmt;
-	s64 pixel_rate;
+	s64 link_freq;
 	int ret;
-	u8 bpp;
 	bool got_pm = true;
 
-	sd_fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
-	sd_fmt.pad = 0;
+	link_freq = csi2rx_get_link_freq(csi2rx);
+	if (link_freq < 0)
+		return link_freq;
 
-	ret = v4l2_subdev_call(csi2rx->source_subdev, pad, get_fmt, NULL,
-			       &sd_fmt);
+	/* link_freq already takes bpp and num_lanes into account. */
+	ret = phy_mipi_dphy_get_default_config(link_freq, 1, 1, cfg);
 	if (ret)
 		return ret;
 
-	bpp = csi2rx_get_bpp(sd_fmt.format.code);
-	if (!bpp)
-		return -EINVAL;
-
-	pixel_rate = csi2rx_get_pixel_rate(csi2rx);
-	if (pixel_rate < 0)
-		return pixel_rate;
-
-	ret = phy_mipi_dphy_get_default_config(pixel_rate / 2 /* DDR clock */,
-					       bpp, csi2rx->num_lanes, cfg);
-	if (ret)
-		return ret;
+	cfg->lanes = csi2rx->num_lanes;
 
 	ret = phy_pm_runtime_get_sync(csi2rx->dphy);
 	if (ret == -ENOTSUPP)
