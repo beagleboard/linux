@@ -110,7 +110,7 @@ struct ti_csi2rx_dev {
 	struct media_pipeline		pipe;
 	struct media_pad		pad;
 	struct v4l2_device		v4l2_dev;
-	struct v4l2_subdev		*subdev;
+	struct v4l2_subdev		*source;
 	struct ti_csi2rx_ctx		ctx[TI_CSI2RX_NUM_CTX];
 };
 
@@ -325,15 +325,15 @@ static int ti_csi2rx_video_register(struct ti_csi2rx_ctx *ctx)
 	if (ret)
 		return ret;
 
-	src_pad = media_entity_get_fwnode_pad(&csi->subdev->entity,
-					      csi->subdev->fwnode,
+	src_pad = media_entity_get_fwnode_pad(&csi->source->entity,
+					      csi->source->fwnode,
 					      MEDIA_PAD_FL_SOURCE);
 	if (src_pad < 0) {
 		dev_err(csi->dev, "Couldn't find source pad for subdev\n");
 		return src_pad;
 	}
 
-	ret = media_create_pad_link(&csi->subdev->entity, src_pad,
+	ret = media_create_pad_link(&csi->source->entity, src_pad,
 				    &vdev->entity, 0,
 				    MEDIA_LNK_FL_IMMUTABLE |
 				    MEDIA_LNK_FL_ENABLED);
@@ -351,7 +351,7 @@ static int csi_async_notifier_bound(struct v4l2_async_notifier *notifier,
 {
 	struct ti_csi2rx_dev *csi = dev_get_drvdata(notifier->v4l2_dev->dev);
 
-	csi->subdev = subdev;
+	csi->source = subdev;
 
 	return 0;
 }
@@ -774,7 +774,7 @@ static int ti_csi2rx_start_streaming(struct vb2_queue *vq, unsigned int count)
 
 	ti_csi2rx_setup_shim(ctx);
 
-	ret = v4l2_subdev_call(csi->subdev, video, s_stream, 1);
+	ret = v4l2_subdev_call(csi->source, video, s_stream, 1);
 	if (ret)
 		goto err;
 
@@ -799,7 +799,7 @@ static int ti_csi2rx_start_streaming(struct vb2_queue *vq, unsigned int count)
 	return 0;
 
 err_stream:
-	v4l2_subdev_call(csi->subdev, video, s_stream, 0);
+	v4l2_subdev_call(csi->source, video, s_stream, 0);
 err:
 	media_pipeline_stop(ctx->vdev.entity.pads);
 
@@ -826,7 +826,7 @@ static void ti_csi2rx_stop_streaming(struct vb2_queue *vq)
 
 	media_pipeline_stop(ctx->vdev.entity.pads);
 
-	ret = v4l2_subdev_call(csi->subdev, video, s_stream, 0);
+	ret = v4l2_subdev_call(csi->source, video, s_stream, 0);
 	if (ret)
 		dev_err(csi->dev, "Failed to stop subdev stream\n");
 
