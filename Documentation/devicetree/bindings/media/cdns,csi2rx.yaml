@@ -44,6 +44,9 @@ properties:
     items:
       - const: dphy
 
+  power-domains:
+    maxItems: 1
+
   ports:
     $ref: /schemas/graph.yaml#/properties/ports
 
