@@ -932,6 +932,7 @@ static int ti_csi2rx_init_vb2q(struct ti_csi2rx_ctx *ctx)
 static int ti_csi2rx_init_dma(struct ti_csi2rx_ctx *ctx)
 {
 	struct dma_slave_config cfg;
+	char name[32];
 	int ret;
 
 	INIT_LIST_HEAD(&ctx->dma.queue);
@@ -939,7 +940,8 @@ static int ti_csi2rx_init_dma(struct ti_csi2rx_ctx *ctx)
 
 	ctx->dma.state = TI_CSI2RX_DMA_STOPPED;
 
-	ctx->dma.chan = dma_request_chan(ctx->csi->dev, "rx0");
+	snprintf(name, sizeof(name), "rx%u", ctx->idx);
+	ctx->dma.chan = dma_request_chan(ctx->csi->dev, name);
 	if (IS_ERR(ctx->dma.chan))
 		return PTR_ERR(ctx->dma.chan);
 
