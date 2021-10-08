@@ -903,6 +903,8 @@ static void ti_csi2rx_cleanup_ctx(struct ti_csi2rx_ctx *ctx)
 	ti_csi2rx_cleanup_vb2q(ctx);
 
 	video_unregister_device(&ctx->vdev);
+
+	mutex_destroy(&ctx->mutex);
 }
 
 static int ti_csi2rx_init_vb2q(struct ti_csi2rx_ctx *ctx)
