@@ -41,6 +41,14 @@
 #define CSI_DF_RGB888			0x24
 
 #define PSIL_WORD_SIZE_BYTES		16
+/*
+ * There are no hard limits on the width or height. The DMA engine can handle
+ * all sizes. The max width and height are arbitrary numbers for this driver.
+ * Use 16M * 16M as the arbitrary limit. It is large enough that it is unlikely
+ * the limit will be hit in practice.
+ */
+#define MAX_WIDTH_BYTES			SZ_16M
+#define MAX_HEIGHT_BYTES		SZ_16M
 
 #define DRAIN_TIMEOUT_MS		50
 
@@ -243,6 +251,7 @@ static int ti_csi2rx_enum_framesizes(struct file *file, void *fh,
 				     struct v4l2_frmsizeenum *fsize)
 {
 	const struct ti_csi2rx_fmt *fmt;
+	unsigned int pixels_in_word;
 	u8 bpp;
 
 	fmt = find_format_by_pix(fsize->pixel_format);
@@ -251,12 +260,18 @@ static int ti_csi2rx_enum_framesizes(struct file *file, void *fh,
 
 	bpp = ALIGN(fmt->bpp, 8);
 
+	/*
+	 * Number of pixels in one PSI-L word. The transfer happens in multiples
+	 * of PSI-L word sizes.
+	 */
+	pixels_in_word = PSIL_WORD_SIZE_BYTES * 8 / bpp;
+
 	fsize->type = V4L2_FRMSIZE_TYPE_STEPWISE;
-	fsize->stepwise.min_width = PSIL_WORD_SIZE_BYTES * 8 / bpp;
-	fsize->stepwise.max_width = UINT_MAX;
-	fsize->stepwise.step_width = PSIL_WORD_SIZE_BYTES * 8 / bpp;
+	fsize->stepwise.min_width = pixels_in_word;
+	fsize->stepwise.max_width = rounddown(MAX_WIDTH_BYTES, pixels_in_word);
+	fsize->stepwise.step_width = pixels_in_word;
 	fsize->stepwise.min_height = 1;
-	fsize->stepwise.max_height = UINT_MAX;
+	fsize->stepwise.max_height = MAX_HEIGHT_BYTES;
 	fsize->stepwise.step_height = 1;
 
 	return 0;
