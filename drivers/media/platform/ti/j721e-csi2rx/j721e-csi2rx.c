@@ -52,6 +52,11 @@
 #define MAX_WIDTH_BYTES			SZ_16M
 #define MAX_HEIGHT_BYTES		SZ_16M
 
+#define TI_CSI2RX_PAD_SINK		0
+#define TI_CSI2RX_PAD_FIRST_SOURCE	1
+#define TI_CSI2RX_NUM_SOURCE_PADS	1
+#define TI_CSI2RX_NUM_PADS		(1 + TI_CSI2RX_NUM_SOURCE_PADS)
+
 #define DRAIN_TIMEOUT_MS		50
 
 struct ti_csi2rx_fmt {
@@ -98,6 +103,7 @@ struct ti_csi2rx_ctx {
 	struct mutex			mutex; /* To serialize ioctls. */
 	struct v4l2_format		v_fmt;
 	struct ti_csi2rx_dma		dma;
+	struct media_pad		pad;
 	u32				sequence;
 	u32				idx;
 };
@@ -105,12 +111,16 @@ struct ti_csi2rx_ctx {
 struct ti_csi2rx_dev {
 	struct device			*dev;
 	void __iomem			*shim;
+	/* To serialize core subdev ioctls. */
+	struct mutex			mutex;
+	unsigned int			enable_count;
 	struct v4l2_async_notifier	notifier;
 	struct media_device		mdev;
 	struct media_pipeline		pipe;
-	struct media_pad		pad;
+	struct media_pad		pads[TI_CSI2RX_NUM_PADS];
 	struct v4l2_device		v4l2_dev;
 	struct v4l2_subdev		*source;
+	struct v4l2_subdev		subdev;
 	struct ti_csi2rx_ctx		ctx[TI_CSI2RX_NUM_CTX];
 };
 
@@ -319,21 +329,14 @@ static int ti_csi2rx_video_register(struct ti_csi2rx_ctx *ctx)
 {
 	struct ti_csi2rx_dev *csi = ctx->csi;
 	struct video_device *vdev = &ctx->vdev;
-	int ret, src_pad;
+	int ret;
 
 	ret = video_register_device(vdev, VFL_TYPE_VIDEO, -1);
 	if (ret)
 		return ret;
 
-	src_pad = media_entity_get_fwnode_pad(&csi->source->entity,
-					      csi->source->fwnode,
-					      MEDIA_PAD_FL_SOURCE);
-	if (src_pad < 0) {
-		dev_err(csi->dev, "Couldn't find source pad for subdev\n");
-		return src_pad;
-	}
-
-	ret = media_create_pad_link(&csi->source->entity, src_pad,
+	ret = media_create_pad_link(&csi->subdev.entity,
+				    TI_CSI2RX_PAD_FIRST_SOURCE + ctx->idx,
 				    &vdev->entity, 0,
 				    MEDIA_LNK_FL_IMMUTABLE |
 				    MEDIA_LNK_FL_ENABLED);
@@ -351,6 +354,9 @@ static int csi_async_notifier_bound(struct v4l2_async_notifier *notifier,
 {
 	struct ti_csi2rx_dev *csi = dev_get_drvdata(notifier->v4l2_dev->dev);
 
+	/* Should register only one source. */
+	WARN_ON(csi->source);
+
 	csi->source = subdev;
 
 	return 0;
@@ -359,7 +365,22 @@ static int csi_async_notifier_bound(struct v4l2_async_notifier *notifier,
 static int csi_async_notifier_complete(struct v4l2_async_notifier *notifier)
 {
 	struct ti_csi2rx_dev *csi = dev_get_drvdata(notifier->v4l2_dev->dev);
-	int ret, i;
+	int ret, i, src_pad;
+
+	src_pad = media_entity_get_fwnode_pad(&csi->source->entity,
+					      csi->source->fwnode,
+					      MEDIA_PAD_FL_SOURCE);
+	if (src_pad < 0) {
+		dev_err(csi->dev, "Couldn't find source pad for subdev\n");
+		return src_pad;
+	}
+
+	ret = media_create_pad_link(&csi->source->entity, src_pad,
+				    &csi->subdev.entity, TI_CSI2RX_PAD_SINK,
+				    MEDIA_LNK_FL_IMMUTABLE |
+				    MEDIA_LNK_FL_ENABLED);
+	if (ret)
+		return ret;
 
 	for (i = 0; i < TI_CSI2RX_NUM_CTX; i++) {
 		ret = ti_csi2rx_video_register(&csi->ctx[i]);
@@ -774,7 +795,7 @@ static int ti_csi2rx_start_streaming(struct vb2_queue *vq, unsigned int count)
 
 	ti_csi2rx_setup_shim(ctx);
 
-	ret = v4l2_subdev_call(csi->source, video, s_stream, 1);
+	ret = v4l2_subdev_call(&csi->subdev, video, s_stream, 1);
 	if (ret)
 		goto err;
 
@@ -799,7 +820,7 @@ static int ti_csi2rx_start_streaming(struct vb2_queue *vq, unsigned int count)
 	return 0;
 
 err_stream:
-	v4l2_subdev_call(csi->source, video, s_stream, 0);
+	v4l2_subdev_call(&csi->subdev, video, s_stream, 0);
 err:
 	media_pipeline_stop(ctx->vdev.entity.pads);
 
@@ -826,7 +847,7 @@ static void ti_csi2rx_stop_streaming(struct vb2_queue *vq)
 
 	media_pipeline_stop(ctx->vdev.entity.pads);
 
-	ret = v4l2_subdev_call(csi->source, video, s_stream, 0);
+	ret = v4l2_subdev_call(&csi->subdev, video, s_stream, 0);
 	if (ret)
 		dev_err(csi->dev, "Failed to stop subdev stream\n");
 
@@ -872,6 +893,54 @@ static const struct vb2_ops csi_vb2_qops = {
 	.stop_streaming = ti_csi2rx_stop_streaming,
 	.wait_prepare = vb2_ops_wait_prepare,
 	.wait_finish = vb2_ops_wait_finish,
+};
+
+static inline struct ti_csi2rx_dev *to_csi2rx_dev(struct v4l2_subdev *sd)
+{
+	return container_of(sd, struct ti_csi2rx_dev, subdev);
+}
+
+static int ti_csi2rx_sd_s_stream(struct v4l2_subdev *sd, int enable)
+{
+	struct ti_csi2rx_dev *csi = to_csi2rx_dev(sd);
+	int ret = 0;
+
+	mutex_lock(&csi->mutex);
+
+	if (enable) {
+		if (csi->enable_count > 0) {
+			csi->enable_count++;
+			goto out;
+		}
+
+		ret = v4l2_subdev_call(csi->source, video, s_stream, 1);
+		if (ret)
+			goto out;
+
+		csi->enable_count++;
+	} else {
+		if (csi->enable_count == 0) {
+			ret = -EINVAL;
+			goto out;
+		}
+
+		if (--csi->enable_count > 0)
+			goto out;
+
+		ret = v4l2_subdev_call(csi->source, video, s_stream, 0);
+	}
+
+out:
+	mutex_unlock(&csi->mutex);
+	return ret;
+}
+
+static const struct v4l2_subdev_video_ops ti_csi2rx_subdev_video_ops = {
+	.s_stream = ti_csi2rx_sd_s_stream,
+};
+
+static const struct v4l2_subdev_ops ti_csi2rx_subdev_ops = {
+	.video = &ti_csi2rx_subdev_video_ops,
 };
 
 static void ti_csi2rx_cleanup_dma(struct ti_csi2rx_ctx *ctx)
@@ -961,7 +1030,8 @@ static int ti_csi2rx_init_dma(struct ti_csi2rx_ctx *ctx)
 static int ti_csi2rx_v4l2_init(struct ti_csi2rx_dev *csi)
 {
 	struct media_device *mdev = &csi->mdev;
-	int ret;
+	struct v4l2_subdev *sd = &csi->subdev;
+	int ret, i;
 
 	mdev->dev = csi->dev;
 	mdev->hw_revision = 1;
@@ -975,16 +1045,42 @@ static int ti_csi2rx_v4l2_init(struct ti_csi2rx_dev *csi)
 
 	ret = v4l2_device_register(csi->dev, &csi->v4l2_dev);
 	if (ret)
-		return ret;
+		goto cleanup_media;
 
 	ret = media_device_register(mdev);
-	if (ret) {
-		v4l2_device_unregister(&csi->v4l2_dev);
-		media_device_cleanup(mdev);
-		return ret;
-	}
+	if (ret)
+		goto unregister_v4l2;
+
+	v4l2_subdev_init(sd, &ti_csi2rx_subdev_ops);
+	sd->entity.function = MEDIA_ENT_F_VID_IF_BRIDGE;
+	sd->flags = V4L2_SUBDEV_FL_HAS_DEVNODE;
+	strscpy(sd->name, dev_name(csi->dev), sizeof(sd->name));
+	sd->dev = csi->dev;
+
+	csi->pads[TI_CSI2RX_PAD_SINK].flags = MEDIA_PAD_FL_SINK;
+
+	for (i = TI_CSI2RX_PAD_FIRST_SOURCE; i < TI_CSI2RX_NUM_PADS; i++)
+		csi->pads[i].flags = MEDIA_PAD_FL_SOURCE;
+
+	ret = media_entity_pads_init(&sd->entity, ARRAY_SIZE(csi->pads),
+				     csi->pads);
+	if (ret)
+		goto unregister_media;
+
+	ret = v4l2_device_register_subdev(&csi->v4l2_dev, sd);
+	if (ret)
+		goto unregister_media;
 
 	return 0;
+
+unregister_media:
+	media_device_unregister(mdev);
+unregister_v4l2:
+	v4l2_device_unregister(&csi->v4l2_dev);
+cleanup_media:
+	media_device_cleanup(mdev);
+
+	return ret;
 }
 
 static int ti_csi2rx_init_ctx(struct ti_csi2rx_ctx *ctx)
@@ -1006,8 +1102,8 @@ static int ti_csi2rx_init_ctx(struct ti_csi2rx_ctx *ctx)
 
 	ti_csi2rx_fill_fmt(fmt, &ctx->v_fmt);
 
-	csi->pad.flags = MEDIA_PAD_FL_SINK;
-	ret = media_entity_pads_init(&ctx->vdev.entity, 1, &csi->pad);
+	ctx->pad.flags = MEDIA_PAD_FL_SINK;
+	ret = media_entity_pads_init(&ctx->vdev.entity, 1, &ctx->pad);
 	if (ret)
 		return ret;
 
@@ -1057,6 +1153,8 @@ static int ti_csi2rx_probe(struct platform_device *pdev)
 	csi->shim = devm_ioremap_resource(&pdev->dev, res);
 	if (IS_ERR(csi->shim))
 		return PTR_ERR(csi->shim);
+
+	mutex_init(&csi->mutex);
 
 	ret = ti_csi2rx_v4l2_init(csi);
 	if (ret)
@@ -1116,6 +1214,8 @@ static int ti_csi2rx_remove(struct platform_device *pdev)
 
 	/* Assert the pixel reset. */
 	writel(0, csi->shim + SHIM_CNTL);
+
+	mutex_destroy(&csi->mutex);
 
 	return 0;
 }
