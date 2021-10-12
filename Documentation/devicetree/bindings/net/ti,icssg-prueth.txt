@@ -39,6 +39,10 @@ Required properties for children:
 
 Optional properties for children:
 - local-mac-address	: mac address for the port.
+- ti,half-duplex-capable : Enable half duplex operation on ICSSG MII port.
+			  This requires board modification to route PHY
+			  output pin (COL) to ICSSG GPIO pin
+			  (PRG0_PRU1_GPIO10) as input.
 
 Example (k3-am654 base board SR2.0, dual-emac):
 ==============================================
