@@ -1232,6 +1232,15 @@ static void prueth_emac_stop(struct prueth_emac *emac)
 	rproc_shutdown(prueth->pru[slice]);
 }
 
+static void icssg_config_half_duplex(struct prueth *prueth, int slice)
+{
+	void __iomem *va = prueth->shram.va + slice * ICSSG_CONFIG_OFFSET_SLICE1;
+	struct icssg_config_sr1 *config = (struct icssg_config_sr1 *)va;
+	u32 val = get_random_int();
+
+	writel(val, &config->rand_seed);
+}
+
 /* called back by PHY layer if there is change in link state of hw port*/
 static void emac_adjust_link(struct net_device *ndev)
 {
@@ -1274,6 +1283,8 @@ static void emac_adjust_link(struct net_device *ndev)
 		 * values
 		 */
 		if (emac->link) {
+			if (emac->duplex == DUPLEX_HALF)
+				icssg_config_half_duplex(prueth, prueth_emac_slice(emac));
 			/* Set the RGMII cfg for gig en and full duplex */
 			icssg_update_rgmii_cfg(prueth->miig_rt, emac);
 
@@ -2190,9 +2201,13 @@ skip_irq:
 		goto free;
 	}
 
+	emac->half_duplex = of_property_read_bool(eth_node, "ti,half-duplex-capable");
+
 	/* remove unsupported modes */
-	phy_remove_link_mode(emac->phydev, ETHTOOL_LINK_MODE_10baseT_Half_BIT);
-	phy_remove_link_mode(emac->phydev, ETHTOOL_LINK_MODE_100baseT_Half_BIT);
+	if (!emac->half_duplex) {
+		phy_remove_link_mode(emac->phydev, ETHTOOL_LINK_MODE_10baseT_Half_BIT);
+		phy_remove_link_mode(emac->phydev, ETHTOOL_LINK_MODE_100baseT_Half_BIT);
+	}
 	phy_remove_link_mode(emac->phydev, ETHTOOL_LINK_MODE_1000baseT_Half_BIT);
 	phy_remove_link_mode(emac->phydev, ETHTOOL_LINK_MODE_Pause_BIT);
 	phy_remove_link_mode(emac->phydev, ETHTOOL_LINK_MODE_Asym_Pause_BIT);

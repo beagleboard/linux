@@ -139,6 +139,7 @@ struct prueth_emac {
 	struct icss_iep *iep;
 	unsigned int rx_ts_enabled : 1;
 	unsigned int tx_ts_enabled : 1;
+	unsigned int half_duplex : 1;
 
 	/* DMA related */
 	struct prueth_tx_chn tx_chns[PRUETH_MAX_TX_QUEUES];

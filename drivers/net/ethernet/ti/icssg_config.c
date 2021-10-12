@@ -242,6 +242,7 @@ void icssg_config_sr1(struct prueth *prueth, struct prueth_emac *emac,
 	config->num_tx_threads = 0;
 	config->rx_flow_id = emac->rx_flow_id_base; /* flow id for host port */
 	config->rx_mgr_flow_id = emac->rx_mgm_flow_id_base; /* for mgm ch */
+	config->rand_seed = get_random_int();
 
 	for (i = PRUETH_EMAC_BUF_POOL_START_SR1; i < PRUETH_NUM_BUF_POOLS_SR1;
 	     i++) {
