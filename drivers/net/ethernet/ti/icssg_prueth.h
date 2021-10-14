@@ -229,10 +229,11 @@ struct prueth {
 	struct platform_device *pdev;
 	struct icss_iep *iep0;
 	struct icss_iep *iep1;
-	int iep_initialized;
 	struct prueth_pdata pdata;
 	struct prueth_vlan_tbl *vlan_tbl;
 	u8 icssg_hwcmdseq;
+
+	int emacs_initialized;
 };
 
 struct emac_tx_ts_response_sr1 {

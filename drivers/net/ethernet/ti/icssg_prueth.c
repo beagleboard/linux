@@ -1547,10 +1547,13 @@ static int emac_ndo_open(struct net_device *ndev)
 	int max_rx_flows;
 	int rx_flow;
 
-	/* clear SMEM of this slice */
+	/* clear SMEM and MSMC settings for all slices */
+	if (!prueth->emacs_initialized) {
+		memset_io(prueth->msmcram.va, 0, prueth->msmcram.size);
+		memset_io(prueth->shram.va, 0, ICSSG_CONFIG_OFFSET_SLICE1 * PRUETH_NUM_MACS);
+	}
+
 	if (emac->is_sr1) {
-		memset_io(prueth->shram.va + slice * ICSSG_CONFIG_OFFSET_SLICE1,
-			  0, ICSSG_CONFIG_OFFSET_SLICE1);
 		/* For SR1, high priority channel is used exclusively for
 		 * management messages. Do reduce number of data channels.
 		 */
@@ -1643,11 +1646,10 @@ skip_mgm_irq:
 	if (ret)
 		goto free_rx_mgmt_ts_irq;
 
-	if (!emac->is_sr1 && !prueth->iep_initialized) {
+	if (!emac->is_sr1 && !prueth->emacs_initialized) {
 		ret = icss_iep_init(emac->iep, &prueth_iep_clockops,
 				    emac, IEP_DEFAULT_CYCLE_TIME_NS);
 	}
-	prueth->iep_initialized++;
 
 	if (!emac->is_sr1) {
 		ret = request_threaded_irq(emac->tx_ts_irq, NULL, prueth_tx_ts_irq,
@@ -1691,6 +1693,8 @@ skip_mgm_irq:
 
 	/* start PHY */
 	phy_start(emac->phydev);
+
+	prueth->emacs_initialized++;
 
 	if (netif_msg_drv(emac))
 		dev_notice(&ndev->dev, "started\n");
@@ -1793,10 +1797,8 @@ static int emac_ndo_stop(struct net_device *ndev)
 
 	napi_disable(&emac->napi_rx);
 
-	if (!emac->is_sr1 && prueth->iep_initialized == 1)
+	if (!emac->is_sr1 && prueth->emacs_initialized == 1)
 		icss_iep_exit(emac->iep);
-
-	prueth->iep_initialized--;
 
 	cancel_work_sync(&emac->rx_mode_work);
 	/* stop PRUs */
@@ -1820,6 +1822,8 @@ static int emac_ndo_stop(struct net_device *ndev)
 				       PRUETH_MAX_RX_MGM_FLOWS);
 	prueth_cleanup_rx_chns(emac, &emac->rx_chns, max_rx_flows);
 	prueth_cleanup_tx_chns(emac);
+
+	prueth->emacs_initialized--;
 
 	if (netif_msg_drv(emac))
 		dev_notice(&ndev->dev, "stopped\n");
