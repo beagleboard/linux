@@ -232,11 +232,29 @@ static int emac_nway_reset(struct net_device *ndev)
 	return genphy_restart_aneg(emac->phydev);
 }
 
+/* Ethtool priv_flags for IET/Frame Preemption configuration.
+ * TODO: This is a temporary solution until upstream interface
+ * is available.
+ */
+static const char emac_ethtool_priv_flags[][ETH_GSTRING_LEN] = {
+#define EMAC_PRIV_IET_FRAME_PREEMPTION	BIT(0)
+	"iet-frame-preemption",
+#define EMAC_PRIV_IET_MAC_VERIFY		BIT(1)
+	"iet-mac-verify",
+};
+
 static int emac_get_sset_count(struct net_device *ndev, int stringset)
 {
+	struct prueth_emac *emac = netdev_priv(ndev);
+	struct prueth *prueth = emac->prueth;
+
 	switch (stringset) {
 	case ETH_SS_STATS:
 		return ARRAY_SIZE(icssg_ethtool_stats);
+	case ETH_SS_PRIV_FLAGS:
+		if (!prueth->is_sr1)
+			return ARRAY_SIZE(emac_ethtool_priv_flags);
+		return -EOPNOTSUPP;
 	default:
 		return -EOPNOTSUPP;
 	}
@@ -244,6 +262,8 @@ static int emac_get_sset_count(struct net_device *ndev, int stringset)
 
 static void emac_get_strings(struct net_device *ndev, u32 stringset, u8 *data)
 {
+	struct prueth_emac *emac = netdev_priv(ndev);
+	struct prueth *prueth = emac->prueth;
 	u8 *p = data;
 	int i;
 
@@ -251,6 +271,16 @@ static void emac_get_strings(struct net_device *ndev, u32 stringset, u8 *data)
 	case ETH_SS_STATS:
 		for (i = 0; i < ARRAY_SIZE(icssg_ethtool_stats); i++) {
 			memcpy(p, icssg_ethtool_stats[i].name,
+			       ETH_GSTRING_LEN);
+			p += ETH_GSTRING_LEN;
+		}
+		break;
+	case ETH_SS_PRIV_FLAGS:
+		if (prueth->is_sr1)
+			return;
+
+		for (i = 0; i < ARRAY_SIZE(emac_ethtool_priv_flags); i++) {
+			memcpy(p, emac_ethtool_priv_flags[i],
 			       ETH_GSTRING_LEN);
 			p += ETH_GSTRING_LEN;
 		}
@@ -336,6 +366,58 @@ static int emac_set_channels(struct net_device *ndev,
 	return 0;
 }
 
+/* TODO : This is temporary until a formal ethtool interface become available
+ * in LKML to configure IET FPE.
+ */
+static u32 emac_get_ethtool_priv_flags(struct net_device *ndev)
+{
+	struct prueth_emac *emac = netdev_priv(ndev);
+	struct prueth_qos_iet *iet = &emac->qos.iet;
+	u32 priv_flags = 0;
+
+	if (emac->is_sr1)
+		return priv_flags;
+
+	/* Port specific flags */
+	if (iet->fpe_configured)
+		priv_flags |= EMAC_PRIV_IET_FRAME_PREEMPTION;
+	if (iet->mac_verify_configured)
+		priv_flags |= EMAC_PRIV_IET_MAC_VERIFY;
+
+	return priv_flags;
+}
+
+static int emac_set_ethtool_priv_flags(struct net_device *ndev, u32 flags)
+{
+	struct prueth_emac *emac = netdev_priv(ndev);
+	struct prueth_qos_iet *iet = &emac->qos.iet;
+	int iet_fpe, mac_verify;
+
+	if (emac->is_sr1)
+		return -EOPNOTSUPP;
+
+	iet_fpe = !!(flags & EMAC_PRIV_IET_FRAME_PREEMPTION);
+	mac_verify = !!(flags & EMAC_PRIV_IET_MAC_VERIFY);
+
+	if (netif_running(ndev))
+		return -EBUSY;
+
+	if (emac->tx_ch_num < 2 && iet_fpe) {
+		netdev_err(ndev, "IET fpe needs at least 2 h/w queues\n");
+		return -EINVAL;
+	}
+
+	if (mac_verify && (!iet->fpe_configured && !iet_fpe)) {
+		netdev_err(ndev, "Enable IET FPE for IET MAC verify\n");
+		return -EINVAL;
+	}
+
+	iet->fpe_configured = iet_fpe;
+	iet->mac_verify_configured = mac_verify;
+
+	return 0;
+}
+
 const struct ethtool_ops icssg_ethtool_ops = {
 	.get_drvinfo = emac_get_drvinfo,
 	.get_msglevel = emac_get_msglevel,
@@ -344,6 +426,8 @@ const struct ethtool_ops icssg_ethtool_ops = {
 	.get_strings = emac_get_strings,
 	.get_ethtool_stats = emac_get_ethtool_stats,
 	.get_ts_info = emac_get_ts_info,
+	.get_priv_flags = emac_get_ethtool_priv_flags,
+	.set_priv_flags = emac_set_ethtool_priv_flags,
 
 	.get_channels = emac_get_channels,
 	.set_channels = emac_set_channels,
