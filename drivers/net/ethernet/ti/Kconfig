@@ -216,6 +216,7 @@ config TI_ICSSG_PRUETH
 	select TI_ICSS_IEP
 	imply PTP_1588_CLOCK
 	depends on PRU_REMOTEPROC
+	depends on NET_SWITCHDEV
 	depends on ARCH_K3 && OF && TI_K3_UDMA_GLUE_LAYER
 	help
 	  Support dual Gigabit Ethernet ports over the ICSSG PRU Subsystem

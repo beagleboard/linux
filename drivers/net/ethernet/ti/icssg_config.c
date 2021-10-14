@@ -98,6 +98,42 @@ struct map hwq_map[2][ICSSG_NUM_OTHER_QUEUES] = {
 	},
 };
 
+static void icssg_config_mii_init_switch(struct prueth_emac *emac)
+{
+	struct prueth *prueth = emac->prueth;
+	struct regmap *mii_rt = prueth->mii_rt;
+	int mii = prueth_emac_slice(emac);
+	u32 rxcfg_reg, txcfg_reg, pcnt_reg;
+	u32 rxcfg, txcfg;
+
+	rxcfg_reg = (mii == ICSS_MII0) ? PRUSS_MII_RT_RXCFG0 :
+				       PRUSS_MII_RT_RXCFG1;
+	txcfg_reg = (mii == ICSS_MII0) ? PRUSS_MII_RT_TXCFG0 :
+				       PRUSS_MII_RT_TXCFG1;
+	pcnt_reg = (mii == ICSS_MII0) ? PRUSS_MII_RT_RX_PCNT0 :
+				       PRUSS_MII_RT_RX_PCNT1;
+
+	rxcfg =	PRUSS_MII_RT_RXCFG_RX_ENABLE |
+		PRUSS_MII_RT_RXCFG_RX_L2_EN |
+		PRUSS_MII_RT_RXCFG_RX_L2_EOF_SCLR_DIS;
+
+	txcfg = PRUSS_MII_RT_TXCFG_TX_ENABLE |
+		PRUSS_MII_RT_TXCFG_TX_AUTO_PREAMBLE |
+		PRUSS_MII_RT_TXCFG_TX_IPG_WIRE_CLK_EN;
+
+	if (mii == ICSS_MII1)
+		rxcfg |= PRUSS_MII_RT_RXCFG_RX_MUX_SEL;
+
+	if (emac->phy_if == PHY_INTERFACE_MODE_MII && mii == ICSS_MII1)
+		txcfg |= PRUSS_MII_RT_TXCFG_TX_MUX_SEL;
+	else if (emac->phy_if != PHY_INTERFACE_MODE_MII && mii == ICSS_MII0)
+		txcfg |= PRUSS_MII_RT_TXCFG_TX_MUX_SEL;
+
+	regmap_write(mii_rt, rxcfg_reg, rxcfg);
+	regmap_write(mii_rt, txcfg_reg, txcfg);
+	regmap_write(mii_rt, pcnt_reg, 0x1);
+}
+
 static void icssg_config_mii_init(struct prueth_emac *emac)
 {
 	struct prueth *prueth = emac->prueth;
@@ -295,6 +331,62 @@ static int emac_r30_is_done(struct prueth_emac *emac)
 	return 1;
 }
 
+static int prueth_switch_buffer_setup(struct prueth_emac *emac)
+{
+	struct icssg_buffer_pool_cfg *bpool_cfg;
+	struct prueth *prueth = emac->prueth;
+	int slice = prueth_emac_slice(emac);
+	struct icssg_rxq_ctx *rxq_ctx;
+	u32 addr;
+	int i;
+
+	addr = lower_32_bits(prueth->msmcram.pa);
+	if (slice)
+		addr += PRUETH_NUM_BUF_POOLS_SR2 * PRUETH_EMAC_BUF_POOL_SIZE_SR2;
+
+	if (addr % SZ_64K) {
+		dev_warn(prueth->dev, "buffer pool needs to be 64KB aligned\n");
+		return -EINVAL;
+	}
+
+	bpool_cfg = emac->dram.va + BUFFER_POOL_0_ADDR_OFFSET;
+	/* workaround for f/w bug. bpool 0 needs to be initilalized */
+	for (i = 0;
+	     i <  PRUETH_NUM_BUF_POOLS_SR2;
+	     i++) {
+		bpool_cfg[i].addr = cpu_to_le32(addr);
+		bpool_cfg[i].len = cpu_to_le32(PRUETH_EMAC_BUF_POOL_SIZE_SR2);
+		addr += PRUETH_EMAC_BUF_POOL_SIZE_SR2;
+	}
+
+	if (!slice)
+		addr += PRUETH_NUM_BUF_POOLS_SR2 * PRUETH_EMAC_BUF_POOL_SIZE_SR2;
+	else
+		addr += PRUETH_SW_NUM_BUF_POOLS_HOST_SR2 * PRUETH_SW_BUF_POOL_SIZE_HOST_SR2;
+
+	for (i = PRUETH_NUM_BUF_POOLS_SR2;
+	     i <  PRUETH_SW_NUM_BUF_POOLS_HOST_SR2 + PRUETH_NUM_BUF_POOLS_SR2;
+	     i++) {
+		bpool_cfg[i].addr = cpu_to_le32(addr);
+		bpool_cfg[i].len = cpu_to_le32(PRUETH_SW_BUF_POOL_SIZE_HOST_SR2);
+		addr += PRUETH_SW_BUF_POOL_SIZE_HOST_SR2;
+	}
+
+	if (!slice)
+		addr += PRUETH_SW_NUM_BUF_POOLS_HOST_SR2 * PRUETH_SW_BUF_POOL_SIZE_HOST_SR2;
+	else
+		addr += PRUETH_EMAC_RX_CTX_BUF_SIZE;
+
+	rxq_ctx = emac->dram.va + HOST_RX_Q_PRE_CONTEXT_OFFSET;
+	for (i = 0; i < 3; i++)
+		rxq_ctx->start[i] = cpu_to_le32(addr);
+
+	addr += PRUETH_EMAC_RX_CTX_BUF_SIZE;
+	rxq_ctx->end = cpu_to_le32(addr) - SZ_2K;
+
+	return 0;
+}
+
 static int prueth_emac_buffer_setup(struct prueth_emac *emac)
 {
 	struct icssg_buffer_pool_cfg *bpool_cfg;
@@ -344,6 +436,42 @@ static int prueth_emac_buffer_setup(struct prueth_emac *emac)
 	return 0;
 }
 
+static void icssg_init_emac_mode(struct prueth *prueth)
+{
+	u8 mac[ETH_ALEN] = { 0 };
+
+	if (prueth->emacs_initialized)
+		return;
+
+	regmap_update_bits(prueth->miig_rt, FDB_GEN_CFG1, SMEM_VLAN_OFFSET_MASK, 0);
+	regmap_write(prueth->miig_rt, FDB_GEN_CFG2, 0);
+	/* Clear host MAC address */
+	icssg_class_set_host_mac_addr(prueth->miig_rt, mac);
+}
+
+static void icssg_init_switch_mode(struct prueth *prueth)
+{
+	int i;
+	u32 addr = prueth->shram.pa + EMAC_ICSSG_SWITCH_DEFAULT_VLAN_TABLE_OFFSET;
+
+	if (prueth->emacs_initialized)
+		return;
+
+	/* Set VLAN TABLE address base */
+	regmap_update_bits(prueth->miig_rt, FDB_GEN_CFG1, SMEM_VLAN_OFFSET_MASK,
+			   addr <<  SMEM_VLAN_OFFSET);
+	/* Set enable VLAN aware mode, and FDBs for all PRUs */
+	regmap_write(prueth->miig_rt, FDB_GEN_CFG2, FDB_EN_ALL);
+	prueth->vlan_tbl = prueth->shram.va + EMAC_ICSSG_SWITCH_DEFAULT_VLAN_TABLE_OFFSET;
+	for (i = 0; i < SZ_4K - 1; i++) {
+		prueth->vlan_tbl[i].fid = i;
+		prueth->vlan_tbl[i].fid_c1 = 0;
+	}
+
+	icssg_class_set_host_mac_addr(prueth->miig_rt, prueth->hw_bridge_dev->dev_addr);
+	icssg_set_pvid(prueth, prueth->default_vlan, PRUETH_PORT_HOST);
+}
+
 int icssg_config_sr2(struct prueth *prueth, struct prueth_emac *emac, int slice)
 {
 	void *config = emac->dram.va + ICSSG_CONFIG_OFFSET;
@@ -351,6 +479,11 @@ int icssg_config_sr2(struct prueth *prueth, struct prueth_emac *emac, int slice)
 	struct icssg_flow_cfg *flow_cfg;
 	u32 mask;
 	int ret;
+
+	if (prueth->is_switch_mode)
+		icssg_init_switch_mode(prueth);
+	else
+		icssg_init_emac_mode(prueth);
 
 	memset_io(config, 0, TAS_GATE_MASK_LIST0);
 	icssg_miig_queues_init(prueth, slice);
@@ -363,7 +496,10 @@ int icssg_config_sr2(struct prueth *prueth, struct prueth_emac *emac, int slice)
 	}
 	regmap_update_bits(prueth->miig_rt, ICSSG_CFG_OFFSET, ICSSG_CFG_DEFAULT, ICSSG_CFG_DEFAULT);
 	icssg_miig_set_interface_mode(prueth->miig_rt, slice, emac->phy_if);
-	icssg_config_mii_init(emac);
+	if (prueth->is_switch_mode)
+		icssg_config_mii_init_switch(emac);
+	else
+		icssg_config_mii_init(emac);
 	icssg_config_ipg(emac);
 	icssg_update_rgmii_cfg(prueth->miig_rt, emac);
 
@@ -386,7 +522,10 @@ int icssg_config_sr2(struct prueth *prueth, struct prueth_emac *emac, int slice)
 	*(cfg_byte_ptr + SPL_PKT_DEFAULT_PRIORITY) = 0;
 	*(cfg_byte_ptr + QUEUE_NUM_UNTAGGED) = 0x0;
 
-	ret = prueth_emac_buffer_setup(emac);
+	if (prueth->is_switch_mode)
+		ret = prueth_switch_buffer_setup(emac);
+	else
+		ret = prueth_emac_buffer_setup(emac);
 	if (ret)
 		return ret;
 
