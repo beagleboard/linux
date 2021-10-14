@@ -5,6 +5,7 @@
  */
 
 #include <linux/regmap.h>
+#include <uapi/linux/if_ether.h>
 #include "icssg_config.h"
 #include "icssg_prueth.h"
 #include "icssg_switch_map.h"
@@ -60,6 +61,18 @@
 				 ICSSG_CFG_TX_L2_EN | ICSSG_CFG_RX_L2_G_EN | \
 				 ICSSG_CFG_TX_PRU_EN | /* SR2.0 only */ \
 				 ICSSG_CFG_SGMII_MODE)
+
+#define FDB_GEN_CFG1		0x60
+#define SMEM_VLAN_OFFSET	8
+#define SMEM_VLAN_OFFSET_MASK	GENMASK(25, 8)
+
+#define FDB_GEN_CFG2		0x64
+#define FDB_VLAN_EN		BIT(6)
+#define FDB_HOST_EN		BIT(2)
+#define FDB_PRU1_EN		BIT(1)
+#define FDB_PRU0_EN		BIT(0)
+#define FDB_EN_ALL		(FDB_PRU0_EN | FDB_PRU1_EN | \
+				 FDB_HOST_EN | FDB_VLAN_EN)
 
 struct map {
 	int queue;
@@ -401,7 +414,9 @@ static struct icssg_r30_cmd emac_r32_bitmask[] = {
 	{{EMAC_NONE,  EMAC_NONE,  0xffff0800, EMAC_NONE}},	/* MC flooding ENABLE*/
 	{{EMAC_NONE,  EMAC_NONE,  0xf7ff0000, EMAC_NONE}},	/* MC flooding DISABLE*/
 	{{EMAC_NONE,  0xffff4000, EMAC_NONE, EMAC_NONE}},	/* Preemption on Tx ENABLE*/
-	{{EMAC_NONE,  0xbfff0000, EMAC_NONE, EMAC_NONE}}	/* Preemption on Tx DISABLE*/
+	{{EMAC_NONE,  0xbfff0000, EMAC_NONE, EMAC_NONE}},	/* Preemption on Tx DISABLE*/
+	{{0xffff0010,  EMAC_NONE, 0xffff0010, EMAC_NONE}},	/* VLAN AWARE*/
+	{{0xffef0000,  EMAC_NONE, 0xffef0000, EMAC_NONE}}	/* VLAN UNWARE*/
 };
 
 int emac_set_port_state(struct prueth_emac *emac,
@@ -495,4 +510,196 @@ void icssg_config_half_duplex(struct prueth_emac *emac)
 
 	val = get_random_int();
 	writel(val, emac->dram.va + HD_RAND_SEED_OFFSET);
+}
+
+int icssg_send_fdb_msg(struct prueth_emac *emac, struct mgmt_cmd *cmd,
+		       struct mgmt_cmd_rsp *rsp)
+{
+	struct prueth *prueth = emac->prueth;
+	int slice = prueth_emac_slice(emac);
+	int addr;
+	int i = 10000;
+
+	addr = icssg_queue_pop(prueth, slice == 0 ?
+			       ICSSG_CMD_POP_SLICE0 : ICSSG_CMD_POP_SLICE1);
+	if (addr < 0)
+		return addr;
+
+	/* First 4 bytes have FW owned buffer linking info which should
+	 * not be touched
+	 */
+	memcpy_toio(prueth->shram.va + addr + 4, cmd, sizeof(*cmd));
+	icssg_queue_push(prueth, slice == 0 ?
+			 ICSSG_CMD_PUSH_SLICE0 : ICSSG_CMD_PUSH_SLICE1, addr);
+	while (i--) {
+		addr = icssg_queue_pop(prueth, slice == 0 ?
+				       ICSSG_RSP_POP_SLICE0 : ICSSG_RSP_POP_SLICE1);
+		if (addr < 0) {
+			usleep_range(1000, 2000);
+			continue;
+		}
+
+		memcpy_fromio(rsp, prueth->shram.va + addr, sizeof(*rsp));
+		/* Return buffer back for to pool */
+		icssg_queue_push(prueth, slice == 0 ?
+				 ICSSG_RSP_PUSH_SLICE0 : ICSSG_RSP_PUSH_SLICE1, addr);
+		break;
+	}
+	if (i <= 0) {
+		netdev_err(emac->ndev, "Timedout sending HWQ message\n");
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+int icssg_fdb_add_del(struct prueth_emac *emac, const unsigned char *addr,
+		      u8 vid, u8 fid_c2, bool add)
+{
+	struct mgmt_cmd_rsp fdb_cmd_rsp = { 0 };
+	struct mgmt_cmd fdb_cmd = { 0 };
+	int slice = prueth_emac_slice(emac);
+	u8 mac_fid[ETH_ALEN + 2];
+	u8 fid = vid;
+	int ret, i;
+	u16 fdb_slot;
+
+	for (i = 0; i < ETH_ALEN; i++)
+		mac_fid[i] = addr[i];
+
+	/* 1-1 VID-FID mapping is already setup */
+	mac_fid[ETH_ALEN] = fid;
+	mac_fid[ETH_ALEN + 1] = 0;
+
+	fdb_slot = bitrev32(crc32_le(0, mac_fid, 8)) & PRUETH_SWITCH_FDB_MASK;
+
+	fdb_cmd.header = ICSSG_FW_MGMT_CMD_HEADER;
+	fdb_cmd.type   = ICSSG_FW_MGMT_FDB_CMD_TYPE;
+	fdb_cmd.seqnum = ++(emac->prueth->icssg_hwcmdseq);
+	if (add)
+		fdb_cmd.param  = ICSS_CMD_ADD_FDB;
+	else
+		fdb_cmd.param = ICSS_CMD_DEL_FDB;
+
+	fdb_cmd.param |= (slice << 4);
+
+	fid_c2 |= ICSSG_FDB_ENTRY_VALID;
+	memcpy(&fdb_cmd.cmd_args[0], addr, 4);
+	memcpy(&fdb_cmd.cmd_args[1], &addr[4], 2);
+	fdb_cmd.cmd_args[1] |= ((fid << 16) | (fid_c2 << 24));
+	fdb_cmd.cmd_args[2] = fdb_slot;
+
+	netdev_dbg(emac->ndev, "MAC %pM slot %X vlan %X FID %X\n",
+		   addr, fdb_slot, vid, fid);
+
+	ret = icssg_send_fdb_msg(emac, &fdb_cmd, &fdb_cmd_rsp);
+	if (ret)
+		return ret;
+
+	WARN_ON(fdb_cmd.seqnum != fdb_cmd_rsp.seqnum);
+	if (fdb_cmd_rsp.status == 1)
+		return 0;
+
+	return -EINVAL;
+}
+
+int icssg_fdb_lookup(struct prueth_emac *emac, const unsigned char *addr,
+		     u8 vid)
+{
+	struct mgmt_cmd_rsp fdb_cmd_rsp = { 0 };
+	struct mgmt_cmd fdb_cmd = { 0 };
+	int slice = prueth_emac_slice(emac);
+	struct prueth_fdb_slot *slot;
+	u8 mac_fid[ETH_ALEN + 2];
+	u8 fid = vid;
+	int ret, i;
+	u16 fdb_slot;
+
+	for (i = 0; i < ETH_ALEN; i++)
+		mac_fid[i] = addr[i];
+
+	/* 1-1 VID-FID mapping is already setup */
+	mac_fid[ETH_ALEN] = fid;
+	mac_fid[ETH_ALEN + 1] = 0;
+
+	fdb_slot = bitrev32(crc32_le(0, mac_fid, 8)) & PRUETH_SWITCH_FDB_MASK;
+
+	fdb_cmd.header = ICSSG_FW_MGMT_CMD_HEADER;
+	fdb_cmd.type   = ICSSG_FW_MGMT_FDB_CMD_TYPE;
+	fdb_cmd.seqnum = ++(emac->prueth->icssg_hwcmdseq);
+	fdb_cmd.param  = ICSS_CMD_GET_FDB_SLOT;
+
+	fdb_cmd.param |= (slice << 4);
+
+	memcpy(&fdb_cmd.cmd_args[0], addr, 4);
+	memcpy(&fdb_cmd.cmd_args[1], &addr[4], 2);
+	fdb_cmd.cmd_args[1] |= fid << 16;
+	fdb_cmd.cmd_args[2] = fdb_slot;
+
+	ret = icssg_send_fdb_msg(emac, &fdb_cmd, &fdb_cmd_rsp);
+	if (ret)
+		return ret;
+
+	WARN_ON(fdb_cmd.seqnum != fdb_cmd_rsp.seqnum);
+
+	slot = emac->dram.va + FDB_CMD_BUFFER;
+	for (i = 0; i < 4; i++) {
+		if (ether_addr_equal(addr, slot->mac) && vid == slot->fid)
+			return (slot->fid_c2 & ~ICSSG_FDB_ENTRY_VALID);
+		slot++;
+	}
+
+	return 0;
+}
+
+void icssg_vtbl_modify(struct prueth_emac *emac, u8 vid, u8 port_mask,
+		       u8 untag_mask, bool add)
+{
+	struct prueth *prueth = emac->prueth;
+	struct prueth_vlan_tbl *tbl = prueth->vlan_tbl;
+	u8 fid_c1 = tbl[vid].fid_c1;
+
+	/* FID_C1: bit0..2 port membership mask,
+	 * bit3..5 tagging mask for each port
+	 * bit6 Stream VID (not handled currently)
+	 * bit7 MC flood (not handled currently)
+	 */
+	if (add) {
+		fid_c1 |= (port_mask | port_mask << 3);
+		fid_c1 &= ~(untag_mask << 3);
+	} else {
+		fid_c1 &= ~(port_mask | port_mask << 3);
+	}
+
+	tbl[vid].fid_c1 = fid_c1;
+}
+
+u16 icssg_get_pvid(struct prueth_emac *emac)
+{
+	struct prueth *prueth = emac->prueth;
+	u32 pvid;
+
+	if (emac->port_id == PRUETH_PORT_MII0)
+		pvid = readl(prueth->shram.va + EMAC_ICSSG_SWITCH_PORT1_DEFAULT_VLAN_OFFSET);
+	else
+		pvid = readl(prueth->shram.va + EMAC_ICSSG_SWITCH_PORT2_DEFAULT_VLAN_OFFSET);
+
+	pvid = pvid >> 24;
+
+	return pvid;
+}
+
+void icssg_set_pvid(struct prueth *prueth, u8 vid, u8 port)
+{
+	u32 pvid;
+
+	/* only 256 VLANs are supported */
+	pvid = cpu_to_be32((ETH_P_8021Q << 16) | (vid & 0xff));
+
+	if (port == PRUETH_PORT_MII0)
+		writel(pvid, prueth->shram.va + EMAC_ICSSG_SWITCH_PORT1_DEFAULT_VLAN_OFFSET);
+	else if (port == PRUETH_PORT_MII1)
+		writel(pvid, prueth->shram.va + EMAC_ICSSG_SWITCH_PORT2_DEFAULT_VLAN_OFFSET);
+	else
+		writel(pvid, prueth->shram.va + EMAC_ICSSG_SWITCH_PORT0_DEFAULT_VLAN_OFFSET);
 }

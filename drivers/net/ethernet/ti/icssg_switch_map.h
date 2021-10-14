@@ -9,6 +9,13 @@
 #ifndef __NET_TI_ICSSG_SWITCH_MAP_H
 #define __NET_TI_ICSSG_SWITCH_MAP_H
 
+/************************* Ethernet Switch Constants *********************/
+
+/* if bucket size is changed in firmware then this too should be changed */
+/* because it directly impacts FDB ageing calculation */
+#define NUMBER_OF_FDB_BUCKET_ENTRIES            (4)
+#define SIZE_OF_FDB                             (2048)  /* This is fixed in ICSSG */
+
 /* Memory Usage of : SHARED_MEMORY
  *
  */
