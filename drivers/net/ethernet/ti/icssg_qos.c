@@ -7,18 +7,51 @@
 #include "icssg_prueth.h"
 #include "icssg_switch_map.h"
 
+/* in msec */
+#define ICSSG_IET_FPE_VERIFY_TIMEOUT_MS	1000
+
 static void icssg_qos_tas_init(struct net_device *ndev);
+static void icssg_prueth_iet_fpe_disable(struct prueth_qos_iet *iet);
+static int icssg_prueth_iet_fpe_enable(struct prueth_emac *emac);
+static void icssg_prueth_iet_fpe_disable(struct prueth_qos_iet *iet);
+static void icssg_qos_enable_ietfpe(struct work_struct *work);
 
 void icssg_qos_init(struct net_device *ndev)
 {
+	struct prueth_emac *emac = netdev_priv(ndev);
+	struct prueth_qos_iet *iet = &emac->qos.iet;
+
 	icssg_qos_tas_init(ndev);
 
-	/* IET init goes here */
+	if (!iet->fpe_configured) {
+		iet->fpe_mask_configured = 0;
+		return;
+	}
+
+	iet->fpe_mask_configured = GENMASK(emac->tx_ch_num - 2, 0);
+	/* Init work queue for IET MAC verify process */
+	iet->emac = emac;
+	INIT_WORK(&iet->fpe_config_task, icssg_qos_enable_ietfpe);
+	init_completion(&iet->fpe_config_compl);
+
+	/* As worker may be sleeping, check this flag to abort
+	 * as soon as it comes of out of sleep and cancel the
+	 * fpe config task.
+	 */
+	atomic_set(&iet->cancel_fpe_config, 0);
 }
 
 void icssg_qos_cleanup(struct net_device *ndev)
 {
-	/* IET cleanup goes here */
+	struct prueth_emac *emac = netdev_priv(ndev);
+	struct prueth_qos_iet *iet = &emac->qos.iet;
+
+	if (!iet->fpe_enabled)
+		return;
+
+	iet->fpe_mask_configured = 0;
+	/* Send a command to firmware to stop FPE */
+	icssg_prueth_iet_fpe_disable(iet);
 }
 
 static void tas_update_fw_list_pointers(struct prueth_emac *emac)
@@ -34,6 +67,25 @@ static void tas_update_fw_list_pointers(struct prueth_emac *emac)
 	}
 }
 
+void icssg_qos_link_up(struct net_device *ndev)
+{
+	struct prueth_emac *emac = netdev_priv(ndev);
+	struct prueth_qos_iet *iet = &emac->qos.iet;
+
+	if (!iet->fpe_configured)
+		return;
+
+	icssg_prueth_iet_fpe_enable(emac);
+}
+
+void icssg_qos_link_down(struct net_device *ndev)
+{
+	struct prueth_emac *emac = netdev_priv(ndev);
+	struct prueth_qos_iet *iet = &emac->qos.iet;
+
+	if (iet->fpe_configured)
+		icssg_prueth_iet_fpe_disable(iet);
+}
 static void tas_update_maxsdu_table(struct prueth_emac *emac)
 {
 	struct tas_config *tas = &emac->qos.tas.config;
@@ -295,4 +347,144 @@ static void icssg_qos_tas_init(struct net_device *ndev)
 
 	if (need_setup)
 		emac_set_taprio(emac);
+}
+
+static int icssg_config_ietfpe(struct prueth_qos_iet *iet, bool enable)
+{
+	void *config = iet->emac->dram.va + ICSSG_CONFIG_OFFSET;
+	u8 val;
+	int ret, i;
+
+	/* If FPE is to be enabled, first configure MAC Verify state
+	 * machine in firmware as firmware kicks the Verify process
+	 * as soon as ICSSG_EMAC_PORT_PREMPT_TX_ENABLE command is
+	 * received.
+	 */
+	if (enable && iet->mac_verify_configured) {
+		writeb(1, config + PRE_EMPTION_ENABLE_VERIFY);
+		/* should be a multiple of 64. TODO to configure
+		 * through ethtool.
+		 */
+		writew(64, config + PRE_EMPTION_ADD_FRAG_SIZE_LOCAL);
+		writel(ICSSG_IET_FPE_VERIFY_TIMEOUT_MS, config + PRE_EMPTION_VERIFY_TIME);
+	}
+
+	/* Send command to enable FPE Tx side. Rx is always enabled */
+	ret = emac_set_port_state(iet->emac,
+				  enable ? ICSSG_EMAC_PORT_PREMPT_TX_ENABLE :
+					   ICSSG_EMAC_PORT_PREMPT_TX_DISABLE);
+	if (ret) {
+		netdev_err(iet->emac->ndev, "TX pre-empt %s command failed\n",
+			   enable ? "enable" : "disable");
+		writeb(0, config + PRE_EMPTION_ENABLE_VERIFY);
+		return ret;
+	}
+
+	/* Update FPE Tx enable bit. Assume firmware use this bit
+	 * and enable PRE_EMPTION_ACTIVE_TX if everything looks
+	 * good at firmware
+	 */
+	writeb(enable ? 1 : 0, config + PRE_EMPTION_ENABLE_TX);
+
+	if (iet->mac_verify_configured) {
+		ret = readb_poll_timeout(config + PRE_EMPTION_VERIFY_STATUS, val,
+					 (val == ICSSG_IETFPE_STATE_SUCCEEDED),
+					 USEC_PER_MSEC, 5 * USEC_PER_SEC);
+		if (ret == -ETIMEDOUT) {
+			netdev_err(iet->emac->ndev,
+				   "timeout for MAC Verify: status %x\n",
+				   val);
+			return ret;
+		}
+	} else {
+		/* Give f/w some time to update PRE_EMPTION_ACTIVE_TX state */
+		usleep_range(100, 200);
+	}
+
+	if (enable) {
+		val = readb(config + PRE_EMPTION_ACTIVE_TX);
+		if (val != 1) {
+			netdev_err(iet->emac->ndev,
+				   "F/w fails to activate IET/FPE\n");
+			writeb(0, config + PRE_EMPTION_ENABLE_TX);
+			return -ENODEV;
+		}
+	}
+
+	/* Configure highest queue as express. Set Bit 4 for FPE,
+	 * Reset for express
+	 */
+
+	/* first set all 8 queues as Pre-emptive */
+	for (i = 0; i < PRUETH_MAX_TX_QUEUES * PRUETH_NUM_MACS; i++)
+		writeb(BIT(4), config + EXPRESS_PRE_EMPTIVE_Q_MAP + i);
+
+	/* set highest priority channel queue as express */
+	writeb(0, config + EXPRESS_PRE_EMPTIVE_Q_MAP + iet->emac->tx_ch_num - 1);
+
+	/* set up queue mask for FPE. 1 means express */
+	writeb(BIT(iet->emac->tx_ch_num - 1), config + EXPRESS_PRE_EMPTIVE_Q_MASK);
+
+	iet->fpe_enabled = true;
+
+	return ret;
+}
+
+static void icssg_qos_enable_ietfpe(struct work_struct *work)
+{
+	struct prueth_qos_iet *iet =
+		container_of(work, struct prueth_qos_iet, fpe_config_task);
+	int ret;
+
+	/* Set the required flag and send a command to ICSSG firmware to
+	 * enable FPE and start MAC verify
+	 */
+	ret = icssg_config_ietfpe(iet, true);
+
+	/* if verify configured, poll for the status and complete.
+	 * Or just do completion
+	 */
+	if (!ret)
+		netdev_err(iet->emac->ndev, "IET FPE configured successfully\n");
+	else
+		netdev_err(iet->emac->ndev, "IET FPE config error\n");
+	complete(&iet->fpe_config_compl);
+}
+
+static void icssg_prueth_iet_fpe_disable(struct prueth_qos_iet *iet)
+{
+	int ret;
+
+	atomic_set(&iet->cancel_fpe_config, 1);
+	cancel_work_sync(&iet->fpe_config_task);
+	ret = icssg_config_ietfpe(iet, false);
+	if (!ret)
+		netdev_err(iet->emac->ndev, "IET FPE disabled successfully\n");
+	else
+		netdev_err(iet->emac->ndev, "IET FPE disable failed\n");
+}
+
+static int icssg_prueth_iet_fpe_enable(struct prueth_emac *emac)
+{
+	struct prueth_qos_iet *iet = &emac->qos.iet;
+	int ret;
+
+	/* Schedule MAC Verify and enable IET FPE if configured */
+	atomic_set(&iet->cancel_fpe_config, 0);
+	reinit_completion(&iet->fpe_config_compl);
+	schedule_work(&iet->fpe_config_task);
+	/* By trial, found it takes about 1.5s. So
+	 * wait for 10s
+	 */
+	ret = wait_for_completion_timeout(&iet->fpe_config_compl,
+					  msecs_to_jiffies(10000));
+	if (!ret) {
+		netdev_err(emac->ndev,
+			   "IET verify completion timeout\n");
+		/* cancel verify in progress */
+		atomic_set(&iet->cancel_fpe_config, 1);
+		cancel_work_sync(&iet->fpe_config_task);
+	}
+
+	return ret;
 }
