@@ -28,6 +28,7 @@
 #include <linux/dma/ti-cppi5.h>
 
 #include "icssg_prueth.h"
+#include "icssg_switchdev.h"
 #include "icss_mii_rt.h"
 #include "k3-cppi-desc-pool.h"
 
