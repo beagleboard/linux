@@ -1340,8 +1340,12 @@ static void emac_adjust_link(struct net_device *ndev)
 		/* send command to firmware to change speed and duplex
 		 * setting when link is up.
 		 */
-		if (emac->link)
+		if (emac->link) {
 			emac_change_port_speed_duplex(emac);
+			icssg_qos_link_up(ndev);
+		} else {
+			icssg_qos_link_down(ndev);
+		}
 	}
 
 	if (emac->link) {

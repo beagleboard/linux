@@ -375,14 +375,23 @@ static int prueth_switch_buffer_setup(struct prueth_emac *emac)
 	if (!slice)
 		addr += PRUETH_SW_NUM_BUF_POOLS_HOST_SR2 * PRUETH_SW_BUF_POOL_SIZE_HOST_SR2;
 	else
-		addr += PRUETH_EMAC_RX_CTX_BUF_SIZE;
+		addr += PRUETH_EMAC_RX_CTX_BUF_SIZE * 2;
 
+	/* Pre-emptible RX buffer queue */
 	rxq_ctx = emac->dram.va + HOST_RX_Q_PRE_CONTEXT_OFFSET;
 	for (i = 0; i < 3; i++)
 		rxq_ctx->start[i] = cpu_to_le32(addr);
 
 	addr += PRUETH_EMAC_RX_CTX_BUF_SIZE;
-	rxq_ctx->end = cpu_to_le32(addr) - SZ_2K;
+	rxq_ctx->end = cpu_to_le32(addr);
+
+	/* Express RX buffer queue */
+	rxq_ctx = emac->dram.va + HOST_RX_Q_EXP_CONTEXT_OFFSET;
+	for (i = 0; i < 3; i++)
+		rxq_ctx->start[i] = cpu_to_le32(addr);
+
+	addr += PRUETH_EMAC_RX_CTX_BUF_SIZE;
+	rxq_ctx->end = cpu_to_le32(addr);
 
 	return 0;
 }
@@ -424,9 +433,18 @@ static int prueth_emac_buffer_setup(struct prueth_emac *emac)
 
 	addr += PRUETH_NUM_BUF_POOLS_SR2 * PRUETH_EMAC_BUF_POOL_SIZE_SR2;
 	if (slice)
-		addr += PRUETH_EMAC_RX_CTX_BUF_SIZE;
+		addr += PRUETH_EMAC_RX_CTX_BUF_SIZE * 2;
 
+	/* Pre-emptible RX buffer queue */
 	rxq_ctx = emac->dram.va + HOST_RX_Q_PRE_CONTEXT_OFFSET;
+	for (i = 0; i < 3; i++)
+		rxq_ctx->start[i] = cpu_to_le32(addr);
+
+	addr += PRUETH_EMAC_RX_CTX_BUF_SIZE;
+	rxq_ctx->end = cpu_to_le32(addr);
+
+	/* Express RX buffer queue */
+	rxq_ctx = emac->dram.va + HOST_RX_Q_EXP_CONTEXT_OFFSET;
 	for (i = 0; i < 3; i++)
 		rxq_ctx->start[i] = cpu_to_le32(addr);
 

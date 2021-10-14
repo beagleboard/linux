@@ -166,6 +166,8 @@
 #define TAS_QUEUE_MAX_SDU_LIST                             0x08FA
 /*Used by FW to generate random number with the SEED value*/
 #define HD_RAND_SEED_OFFSET                                0x0934
+/*16B for Host Egress MSMC Q (Express) context*/
+#define HOST_RX_Q_EXP_CONTEXT_OFFSET                       0x0940
 
 /* Memory Usage of : DMEM1
  *
