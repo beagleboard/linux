@@ -282,17 +282,63 @@ static int emac_r30_is_done(struct prueth_emac *emac)
 	return 1;
 }
 
+static int prueth_emac_buffer_setup(struct prueth_emac *emac)
+{
+	struct icssg_buffer_pool_cfg *bpool_cfg;
+	struct prueth *prueth = emac->prueth;
+	int slice = prueth_emac_slice(emac);
+	struct icssg_rxq_ctx *rxq_ctx;
+	u32 addr;
+	int i;
+
+	/* Layout to have 64KB aligned buffer pool
+	 * |BPOOL0|BPOOL1|RX_CTX0|RX_CTX1|
+	 */
+
+	addr = lower_32_bits(prueth->msmcram.pa);
+	if (slice)
+		addr += PRUETH_NUM_BUF_POOLS_SR2 * PRUETH_EMAC_BUF_POOL_SIZE_SR2;
+
+	if (addr % SZ_64K) {
+		dev_warn(prueth->dev, "buffer pool needs to be 64KB aligned\n");
+		return -EINVAL;
+	}
+
+	bpool_cfg = emac->dram.va + BUFFER_POOL_0_ADDR_OFFSET;
+	/* workaround for f/w bug. bpool 0 needs to be initilalized */
+	bpool_cfg[0].addr = cpu_to_le32(addr);
+	bpool_cfg[0].len = 0;
+
+	for (i = PRUETH_EMAC_BUF_POOL_START_SR2;
+	     i < (PRUETH_EMAC_BUF_POOL_START_SR2 + PRUETH_NUM_BUF_POOLS_SR2);
+	     i++) {
+		bpool_cfg[i].addr = cpu_to_le32(addr);
+		bpool_cfg[i].len = cpu_to_le32(PRUETH_EMAC_BUF_POOL_SIZE_SR2);
+		addr += PRUETH_EMAC_BUF_POOL_SIZE_SR2;
+	}
+
+	addr += PRUETH_NUM_BUF_POOLS_SR2 * PRUETH_EMAC_BUF_POOL_SIZE_SR2;
+	if (slice)
+		addr += PRUETH_EMAC_RX_CTX_BUF_SIZE;
+
+	rxq_ctx = emac->dram.va + HOST_RX_Q_PRE_CONTEXT_OFFSET;
+	for (i = 0; i < 3; i++)
+		rxq_ctx->start[i] = cpu_to_le32(addr);
+
+	addr += PRUETH_EMAC_RX_CTX_BUF_SIZE;
+	rxq_ctx->end = cpu_to_le32(addr);
+
+	return 0;
+}
+
 int icssg_config_sr2(struct prueth *prueth, struct prueth_emac *emac, int slice)
 {
 	void *config = emac->dram.va + ICSSG_CONFIG_OFFSET;
 	u8 *cfg_byte_ptr = config;
 	struct icssg_flow_cfg *flow_cfg;
-	struct icssg_buffer_pool_cfg *bpool_cfg;
-	struct icssg_rxq_ctx *rxq_ctx;
-	int i;
-	u32 addr, mask;
+	u32 mask;
+	int ret;
 
-	rxq_ctx = emac->dram.va + HOST_RX_Q_PRE_CONTEXT_OFFSET;
 	memset_io(config, 0, TAS_GATE_MASK_LIST0);
 	icssg_miig_queues_init(prueth, slice);
 
@@ -321,50 +367,18 @@ int icssg_config_sr2(struct prueth *prueth, struct prueth_emac *emac, int slice)
 	pru_rproc_set_ctable(prueth->rtu[slice], PRU_C28, 0x100 << 8);
 	pru_rproc_set_ctable(prueth->txpru[slice], PRU_C28, 0x100 << 8);
 
-	bpool_cfg = emac->dram.va + BUFFER_POOL_0_ADDR_OFFSET;
-
 	flow_cfg = config + PSI_L_REGULAR_FLOW_ID_BASE_OFFSET;
 	flow_cfg->rx_base_flow = cpu_to_le32(emac->rx_flow_id_base);
 	flow_cfg->mgm_base_flow = 0;
 	*(cfg_byte_ptr + SPL_PKT_DEFAULT_PRIORITY) = 0;
 	*(cfg_byte_ptr + QUEUE_NUM_UNTAGGED) = 0x0;
 
-	/* Layout to have 64KB aligned buffer pool
-	 * |BPOOL0|BPOOL1|RX_CTX0|RX_CTX1|
-	 */
-
-	addr = lower_32_bits(prueth->msmcram.pa);
-	if (slice)
-		addr += PRUETH_NUM_BUF_POOLS_SR2 * PRUETH_EMAC_BUF_POOL_SIZE_SR2;
-
-	if (addr % SZ_64K) {
-		dev_warn(prueth->dev, "buffer pool needs to be 64KB aligned\n");
-		return -EINVAL;
-	}
-
-	/* workaround for f/w bug. bpool 0 needs to be initilalized */
-	bpool_cfg[0].addr = cpu_to_le32(addr);
-	bpool_cfg[0].len = 0;
-
-	for (i = PRUETH_EMAC_BUF_POOL_START_SR2;
-	     i < (PRUETH_EMAC_BUF_POOL_START_SR2 + PRUETH_NUM_BUF_POOLS_SR2);
-	     i++) {
-		bpool_cfg[i].addr = cpu_to_le32(addr);
-		bpool_cfg[i].len = cpu_to_le32(PRUETH_EMAC_BUF_POOL_SIZE_SR2);
-		addr += PRUETH_EMAC_BUF_POOL_SIZE_SR2;
-	}
-
-	addr += PRUETH_NUM_BUF_POOLS_SR2 * PRUETH_EMAC_BUF_POOL_SIZE_SR2;
-	if (slice)
-		addr += PRUETH_EMAC_RX_CTX_BUF_SIZE;
-
-	for (i = 0; i < 3; i++)
-		rxq_ctx->start[i] = cpu_to_le32(addr);
-
-	addr += PRUETH_EMAC_RX_CTX_BUF_SIZE;
-	rxq_ctx->end = cpu_to_le32(addr);
+	ret = prueth_emac_buffer_setup(emac);
+	if (ret)
+		return ret;
 
 	emac_r30_cmd_init(emac);
+
 	return 0;
 }
 
