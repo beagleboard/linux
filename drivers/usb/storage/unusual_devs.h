@@ -311,6 +311,16 @@ UNUSUAL_DEV(  0x045e, 0xffff, 0x0000, 0x0000,
 		US_FL_MAX_SECTORS_64 ),
 
 /*
+ * Reported by James Buren <braewoods+lkml@braewoods.net>
+ * Virtual ISOs cannot be remounted if ejected while the device is locked
+ * Disable locking to mimic Windows behavior that bypasses the issue
+ */
+UNUSUAL_DEV(  0x04c5, 0x2028, 0x0001, 0x0001,
+		"iODD",
+		"2531/2541",
+		USB_SC_DEVICE, USB_PR_DEVICE, NULL, US_FL_NOT_LOCKABLE),
+
+/*
  * This virtual floppy is found in Sun equipment (x4600, x4200m2, etc.)
  * Reported by Pete Zaitcev <zaitcev@redhat.com>
  * This device chokes on both version of MODE SENSE which we have, so
