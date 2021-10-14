@@ -349,4 +349,5 @@ void icssg_set_pvid(struct prueth *prueth, u8 vid, u8 port);
 #define prueth_napi_to_tx_chn(pnapi) \
 	container_of(pnapi, struct prueth_tx_chn, napi_tx)
 
+u64 prueth_iep_gettime(void *clockops_data, struct ptp_system_timestamp *sts);
 #endif /* __NET_TI_ICSSG_PRUETH_H */

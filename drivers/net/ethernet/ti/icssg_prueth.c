@@ -1440,7 +1440,7 @@ static void prueth_reset_rx_chan(struct prueth_rx_chn *chn,
 		k3_udma_glue_disable_rx_chn(chn->rx_chn);
 }
 
-static u64 prueth_iep_gettime(void *clockops_data, struct ptp_system_timestamp *sts)
+u64 prueth_iep_gettime(void *clockops_data, struct ptp_system_timestamp *sts)
 {
 	u32 hi_rollover_count, hi_rollover_count_r;
 	struct prueth_emac *emac = clockops_data;
