@@ -36,6 +36,7 @@
 #include "icssg_config.h"
 #include "icss_iep.h"
 #include "icssg_switch_map.h"
+#include "icssg_qos.h"
 
 #define ICSS_SLICE0	0
 #define ICSS_SLICE1	1
@@ -188,6 +189,9 @@ struct prueth_emac {
 	bool offload_fwd_mark;
 	struct devlink_port devlink_port;
 	int port_vlan;
+
+	struct prueth_qos qos;
+	struct work_struct ts_work;
 };
 
 /**

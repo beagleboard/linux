@@ -162,6 +162,8 @@
 #define HOST_RX_Q_PRE_CONTEXT_OFFSET                       0x0684
 /*Buffer for 8 FDB entries to be added by 'Add Multiple FDB entries IOCTL*/
 #define FDB_CMD_BUFFER                                     0x0894
+/*TAS queue max sdu length list*/
+#define TAS_QUEUE_MAX_SDU_LIST                             0x08FA
 /*Used by FW to generate random number with the SEED value*/
 #define HD_RAND_SEED_OFFSET                                0x0934
 

@@ -1733,6 +1733,8 @@ skip_mgm_irq:
 		napi_enable(&emac->tx_chns[i].napi_tx);
 	napi_enable(&emac->napi_rx);
 
+	icssg_qos_init(ndev);
+
 	/* Get attached phy details */
 	phy_attached_info(emac->phydev);
 
@@ -1812,6 +1814,8 @@ static int emac_ndo_stop(struct net_device *ndev)
 	int max_rx_flows;
 	int rx_flow = emac->is_sr1 ?
 			PRUETH_RX_FLOW_DATA_SR1 : PRUETH_RX_FLOW_DATA_SR2;
+
+	icssg_qos_cleanup(ndev);
 
 	/* inform the upper layers. */
 	netif_tx_stop_all_queues(ndev);
@@ -2073,6 +2077,7 @@ static const struct net_device_ops emac_netdev_ops = {
 	.ndo_set_rx_mode = emac_ndo_set_rx_mode,
 	.ndo_do_ioctl = emac_ndo_ioctl,
 	.ndo_get_devlink_port = emac_ndo_get_devlink_port,
+	.ndo_setup_tc = icssg_qos_ndo_setup_tc,
 };
 
 /* get emac_port corresponding to eth_node name */
