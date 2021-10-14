@@ -60,6 +60,8 @@ struct icssg_config_sr1 {
 	__le32 n_burst;		/* for debug */
 	__le32 rtu_status;	/* RTU status */
 	__le32 info;		/* reserved */
+	__le32 reserve;
+	__le32 rand_seed;	/* Used for the random number generation at fw */
 } __packed;
 
 /* Shutdown command to stop processing at firmware.

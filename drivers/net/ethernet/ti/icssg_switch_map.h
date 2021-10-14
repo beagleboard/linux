@@ -16,6 +16,7 @@
 #define FW_LINK_SPEED_1G                           (0x00)
 #define FW_LINK_SPEED_100M                         (0x01)
 #define FW_LINK_SPEED_10M                          (0x02)
+#define FW_LINK_SPEED_HD                           (0x80)
 
 /*Time after which FDB entries are checked for aged out values. Value in nanoseconds*/
 #define FDB_AGEING_TIMEOUT_OFFSET                          0x0014
@@ -154,6 +155,8 @@
 #define HOST_RX_Q_PRE_CONTEXT_OFFSET                       0x0684
 /*Buffer for 8 FDB entries to be added by 'Add Multiple FDB entries IOCTL*/
 #define FDB_CMD_BUFFER                                     0x0894
+/*Used by FW to generate random number with the SEED value*/
+#define HD_RAND_SEED_OFFSET                                0x0934
 
 /* Memory Usage of : DMEM1
  *
