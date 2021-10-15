@@ -28,6 +28,7 @@
 
 #include <linux/omap-gpmc.h>
 #include <linux/platform_data/mtd-nand-omap2.h>
+#include <linux/sys_soc.h>
 
 #define	DRIVER_NAME	"omap2-nand"
 #define	OMAP_NAND_TIMEOUT_MS	5000
@@ -178,6 +179,7 @@ struct omap_nand_info {
 	void (*data_out)(struct nand_chip *chip,
 			 const void *buf, unsigned int len,
 			 bool force_8bit);
+	bool force_32bit;
 };
 
 static inline struct omap_nand_info *mtd_to_omap(struct mtd_info *mtd)
@@ -2017,6 +2019,25 @@ static void omap_nand_data_in(struct nand_chip *chip, void *buf,
 	struct omap_nand_info *info = mtd_to_omap(nand_to_mtd(chip));
 	u32 alignment = ((uintptr_t)buf | len) & 3;
 
+	if (info->force_32bit) {
+		u32 val;
+		int left;
+		u8 *ptr;
+
+		ioread32_rep(info->fifo, buf, len >> 2);
+		left = len & 0x3;
+		if (left) {
+			val = ioread32(info->fifo);
+			ptr = (u8 *)(buf + (len - left));
+			while (left--) {
+				*ptr++ = val & 0xff;
+				val >>= 8;
+			}
+		}
+
+		return;
+	}
+
 	if (force_8bit || (alignment & 1))
 		ioread8_rep(info->fifo, buf, len);
 	else if (alignment & 3)
@@ -2116,8 +2137,15 @@ static const struct nand_controller_ops omap_nand_controller_ops = {
 static struct nand_controller omap_gpmc_controller;
 static bool omap_gpmc_controller_initialized;
 
+static const struct of_device_id omap_nand_ids[];
+
 static int omap_nand_probe(struct platform_device *pdev)
 {
+	const struct soc_device_attribute k3_soc_devices[] = {
+		{ .family = "AM64X", .revision = "SR1.0" },
+		{ /* sentinel */ }
+	};
+
 	struct omap_nand_info		*info;
 	struct mtd_info			*mtd;
 	struct nand_chip		*nand_chip;
@@ -2132,6 +2160,12 @@ static int omap_nand_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	info->pdev = pdev;
+
+	/* Some SoC's have 32-bit at least, read limitation */
+	if (soc_device_match(k3_soc_devices)) {
+		dev_info(&pdev->dev, "force 32-bit\n");
+		info->force_32bit = true;
+	}
 
 	err = omap_get_dt_info(dev, info);
 	if (err)
@@ -2237,6 +2271,7 @@ static int omap_nand_remove(struct platform_device *pdev)
 
 static const struct of_device_id omap_nand_ids[] = {
 	{ .compatible = "ti,omap2-nand", },
+	{ .compatible = "ti,am64-nand", },
 	{},
 };
 MODULE_DEVICE_TABLE(of, omap_nand_ids);
