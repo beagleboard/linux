@@ -7993,6 +7993,15 @@ void cfg80211_pmsr_complete(struct wireless_dev *wdev,
 bool cfg80211_iftype_allowed(struct wiphy *wiphy, enum nl80211_iftype iftype,
 			     bool is_4addr, u8 check_swif);
 
+/**
+ * cfg80211_is_gratuitous_arp_unsolicited_na - packet is grat. ARP/unsol. NA
+ * @skb: the input packet, must be an ethernet frame already
+ *
+ * Return: %true if the packet is a gratuitous ARP or unsolicited NA packet.
+ * This is used to drop packets that shouldn't occur because the AP implements
+ * a proxy service.
+ */
+bool cfg80211_is_gratuitous_arp_unsolicited_na(struct sk_buff *skb);
 
 /* Logging, debugging and troubleshooting/diagnostic helpers. */
 
