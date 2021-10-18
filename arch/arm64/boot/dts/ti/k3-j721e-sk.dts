@@ -11,8 +11,8 @@
 #include <dt-bindings/net/ti-dp83867.h>
 
 / {
-	compatible = "ti,j721e-eaik", "ti,j721e";
-	model = "Texas Instruments J721E EAIK";
+	compatible = "ti,j721e-sk", "ti,j721e";
+	model = "Texas Instruments J721E SK";
 
 	chosen {
 		stdout-path = "serial2:115200n8";
