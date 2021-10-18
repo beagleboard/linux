@@ -114,6 +114,8 @@ enum rx_class_sel_type {
 #define RX_CLASS_SEL_MASK(n)	(0x3 << RX_CLASS_SEL_SHIFT((n)))
 
 #define ICSSG_CFG_OFFSET	0
+#define MAC_INTERFACE_0		0x18
+#define MAC_INTERFACE_1		0x1c
 
 #define ICSSG_CFG_RX_L2_G_EN	BIT(2)
 
@@ -285,6 +287,12 @@ static u32 rx_class_get_or(struct regmap *miig_rt, int slice, int n)
 	regmap_read(miig_rt, offset, &val);
 
 	return val;
+}
+
+void icssg_class_set_host_mac_addr(struct regmap *miig_rt, u8 *mac)
+{
+	regmap_write(miig_rt, MAC_INTERFACE_0, addr_to_da0(mac));
+	regmap_write(miig_rt, MAC_INTERFACE_1, addr_to_da1(mac));
 }
 
 void icssg_class_set_mac_addr(struct regmap *miig_rt, int slice, u8 *mac)

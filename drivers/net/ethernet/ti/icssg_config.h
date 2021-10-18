@@ -103,7 +103,15 @@ struct icssg_config_sr1 {
 #define PRUETH_EMAC_RX_CTX_BUF_SIZE	SZ_16K	/* per slice */
 #define MSMC_RAM_SIZE_SR2	\
 	(2 * (PRUETH_EMAC_BUF_POOL_SIZE_SR2 * PRUETH_NUM_BUF_POOLS_SR2 + \
-	 PRUETH_EMAC_RX_CTX_BUF_SIZE))
+	 PRUETH_EMAC_RX_CTX_BUF_SIZE * 2))
+
+#define PRUETH_SW_BUF_POOL_SIZE_HOST_SR2 SZ_2K
+#define PRUETH_SW_NUM_BUF_POOLS_HOST_SR2 16
+#define MSMC_RAM_SIZE_SR2_SWITCH_MODE \
+	(MSMC_RAM_SIZE_SR2 + \
+	(2 * PRUETH_SW_BUF_POOL_SIZE_HOST_SR2 * PRUETH_SW_NUM_BUF_POOLS_HOST_SR2))
+
+#define PRUETH_SWITCH_FDB_MASK ((SIZE_OF_FDB / NUMBER_OF_FDB_BUCKET_ENTRIES) - 1)
 
 struct icssg_rxq_ctx {
 	__le32 start[3];
@@ -139,6 +147,8 @@ enum icssg_port_state_cmd {
 	ICSSG_EMAC_PORT_MC_FLOODING_DISABLE,
 	ICSSG_EMAC_PORT_PREMPT_TX_ENABLE,
 	ICSSG_EMAC_PORT_PREMPT_TX_DISABLE,
+	ICSSG_EMAC_PORT_VLAN_AWARE_ENABLE,
+	ICSSG_EMAC_PORT_VLAN_AWARE_DISABLE,
 	ICSSG_EMAC_PORT_MAX_COMMANDS
 };
 
@@ -210,4 +220,72 @@ struct icssg_setclock_desc {
 #define ICSSG_TS_PUSH_SLICE0	40
 #define ICSSG_TS_PUSH_SLICE1	41
 
+struct mgmt_cmd {
+	u8 param;
+	u8 seqnum;
+	u8 type;
+	u8 header;
+	u32 cmd_args[3];
+} __packed;
+
+struct mgmt_cmd_rsp {
+	u32 reserved;
+	u8 status;
+	u8 seqnum;
+	u8 type;
+	u8 header;
+	u32 cmd_args[3];
+} __packed;
+
+/* FDB FID_C2 flag definitions */
+/* Indicates host port membership.*/
+#define ICSSG_FDB_ENTRY_P0_MEMBERSHIP         BIT(0)
+/* Indicates that MAC ID is connected to physical port 1 */
+#define ICSSG_FDB_ENTRY_P1_MEMBERSHIP         BIT(1)
+/* Indicates that MAC ID is connected to physical port 2 */
+#define ICSSG_FDB_ENTRY_P2_MEMBERSHIP         BIT(2)
+/* Ageable bit is set for learned entries and cleared for static entries */
+#define ICSSG_FDB_ENTRY_AGEABLE               BIT(3)
+/* If set for DA then packet is determined to be a special packet */
+#define ICSSG_FDB_ENTRY_BLOCK                 BIT(4)
+/* If set for DA then the SA from the packet is not learned */
+#define ICSSG_FDB_ENTRY_SECURE                BIT(5)
+/* If set, it means packet has been seen recently with source address + FID
+ * matching MAC address/FID of entry
+ */
+#define ICSSG_FDB_ENTRY_TOUCHED               BIT(6)
+/* Set if entry is valid */
+#define ICSSG_FDB_ENTRY_VALID                 BIT(7)
+
+/**
+ * struct prueth_vlan_tbl - VLAN table entries struct in ICSSG SMEM
+ * @fid_c1: membership and forwarding rules flag to this table. See
+ *          above to defines for bit definitions
+ * @fid: FDB index for this VID (there is 1-1 mapping b/w VID and FID)
+ */
+struct prueth_vlan_tbl {
+	u8 fid_c1;
+	u8 fid;
+} __packed;
+
+/**
+ * struct prueth_fdb_slot - Result of FDB slot lookup
+ * @mac: MAC address
+ * @fid: fid to be associated with MAC
+ * @fid_c2: FID_C2 entry for this MAC
+ */
+struct prueth_fdb_slot {
+	u8 mac[ETH_ALEN];
+	u8 fid;
+	u8 fid_c2;
+} __packed;
+
+enum icssg_ietfpe_verify_states {
+	ICSSG_IETFPE_STATE_UNKNOWN = 0,
+	ICSSG_IETFPE_STATE_INITIAL,
+	ICSSG_IETFPE_STATE_VERIFYING,
+	ICSSG_IETFPE_STATE_SUCCEEDED,
+	ICSSG_IETFPE_STATE_FAILED,
+	ICSSG_IETFPE_STATE_DISABLED
+};
 #endif /* __NET_TI_ICSSG_CONFIG_H */

@@ -9,6 +9,13 @@
 #ifndef __NET_TI_ICSSG_SWITCH_MAP_H
 #define __NET_TI_ICSSG_SWITCH_MAP_H
 
+/************************* Ethernet Switch Constants *********************/
+
+/* if bucket size is changed in firmware then this too should be changed */
+/* because it directly impacts FDB ageing calculation */
+#define NUMBER_OF_FDB_BUCKET_ENTRIES            (4)
+#define SIZE_OF_FDB                             (2048)  /* This is fixed in ICSSG */
+
 /* Memory Usage of : SHARED_MEMORY
  *
  */
@@ -155,8 +162,12 @@
 #define HOST_RX_Q_PRE_CONTEXT_OFFSET                       0x0684
 /*Buffer for 8 FDB entries to be added by 'Add Multiple FDB entries IOCTL*/
 #define FDB_CMD_BUFFER                                     0x0894
+/*TAS queue max sdu length list*/
+#define TAS_QUEUE_MAX_SDU_LIST                             0x08FA
 /*Used by FW to generate random number with the SEED value*/
 #define HD_RAND_SEED_OFFSET                                0x0934
+/*16B for Host Egress MSMC Q (Express) context*/
+#define HOST_RX_Q_EXP_CONTEXT_OFFSET                       0x0940
 
 /* Memory Usage of : DMEM1
  *
