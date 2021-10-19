@@ -91,9 +91,11 @@ struct virt_cpsw_common {
 	u32 tx_psil_id_base;
 	u32 rdev_rx_flow_id;
 	struct notifier_block virt_cpsw_inetaddr_nb;
-	bool mac_only;
 	struct work_struct rx_mode_work;
 	struct workqueue_struct	*cmd_wq;
+	struct netdev_hw_addr_list mc_list;
+	unsigned int mac_only:1;
+	unsigned int mc_filter:1;
 };
 
 struct virt_cpsw_ndev_stats {
@@ -255,6 +257,8 @@ static void virt_cpsw_nuss_common_stop(struct virt_cpsw_common *common)
 	cancel_work_sync(&common->rx_mode_work);
 }
 
+static int virt_cpsw_nuss_del_mc(struct net_device *ndev, const u8 *addr);
+
 static int virt_cpsw_nuss_ndo_stop(struct net_device *ndev)
 {
 	struct virt_cpsw_common *common = virt_ndev_to_common(ndev);
@@ -271,6 +275,8 @@ static int virt_cpsw_nuss_ndo_stop(struct net_device *ndev)
 	if (ret)
 		dev_err(dev, "unregister_mac rpmsg - fail %d\n", ret);
 
+	__dev_mc_unsync(ndev, virt_cpsw_nuss_del_mc);
+	__hw_addr_init(&common->mc_list);
 	virt_cpsw_nuss_common_stop(common);
 
 	dev_info(common->dev, "virt_cpsw_nuss mac stopped\n");
@@ -860,10 +866,49 @@ static void virt_cpsw_nuss_ndo_get_stats(struct net_device *dev,
 	stats->tx_dropped	= dev->stats.tx_dropped;
 }
 
+static int virt_cpsw_nuss_add_mc(struct net_device *ndev, const u8 *addr)
+{
+	struct virt_cpsw_common *common = virt_ndev_to_common(ndev);
+	struct rpmsg_remotedev_eth_switch_ops *rdev_ops;
+	struct device *dev;
+	int ret;
+
+	dev = common->dev;
+	rdev_ops = common->rdev_switch_ops;
+
+	ret = rdev_ops->filter_add_mc(common->rdev, addr, 0, common->rdev_rx_flow_id);
+	if (ret) {
+		dev_err(dev, "filter_add_mc rpmsg - fail %d\n", ret);
+		return ret;
+	}
+
+	return 0;
+}
+
+static int virt_cpsw_nuss_del_mc(struct net_device *ndev, const u8 *addr)
+{
+	struct virt_cpsw_common *common = virt_ndev_to_common(ndev);
+	struct rpmsg_remotedev_eth_switch_ops *rdev_ops;
+	struct device *dev;
+	int ret;
+
+	dev = common->dev;
+	rdev_ops = common->rdev_switch_ops;
+
+	ret = rdev_ops->filter_del_mc(common->rdev, addr, 0, common->rdev_rx_flow_id);
+	if (ret) {
+		dev_err(dev, "filter_add_mc rpmsg - fail %d\n", ret);
+		return ret;
+	}
+
+	return 0;
+}
+
 static void virt_cpsw_nuss_ndo_set_rx_mode_work(struct work_struct *work)
 {
 	struct rpmsg_remotedev_eth_switch_ops *rdev_ops;
 	struct virt_cpsw_common *common;
+	struct net_device *ndev;
 	struct device *dev;
 	int ret;
 
@@ -871,11 +916,23 @@ static void virt_cpsw_nuss_ndo_set_rx_mode_work(struct work_struct *work)
 	dev = common->dev;
 	rdev_ops = common->rdev_switch_ops;
 
-	ret = rdev_ops->set_promisc_mode(common->rdev,
-					 common->ports.ndev->flags & IFF_PROMISC);
-	if (ret) {
-		dev_err(dev, "set_promisc rpmsg - fail %d\n", ret);
-		return;
+	if (common->mac_only) {
+		ret = rdev_ops->set_promisc_mode(common->rdev,
+						 common->ports.ndev->flags & IFF_PROMISC);
+		if (ret) {
+			dev_err(dev, "set_promisc rpmsg - fail %d\n", ret);
+			return;
+		}
+	} else if (common->mc_filter) {
+		ndev = common->ports.ndev;
+
+		/* make a mc list copy */
+		netif_addr_lock_bh(ndev);
+		__hw_addr_sync(&common->mc_list, &ndev->mc, ndev->addr_len);
+		netif_addr_unlock_bh(ndev);
+
+		__hw_addr_sync_dev(&common->mc_list, ndev,
+				   virt_cpsw_nuss_add_mc, virt_cpsw_nuss_del_mc);
 	}
 }
 
@@ -883,7 +940,7 @@ static void virt_cpsw_nuss_ndo_set_rx_mode(struct net_device *ndev)
 {
 	struct virt_cpsw_common *common = virt_ndev_to_common(ndev);
 
-	if (common->mac_only)
+	if (common->mac_only || common->mc_filter)
 		queue_work(common->cmd_wq, &common->rx_mode_work);
 }
 
@@ -1266,6 +1323,9 @@ static int virt_cpsw_nuss_rdev_init(struct virt_cpsw_common *common)
 		common->mac_only_port = attach_info.mac_only_port;
 	}
 
+	if (common->rdev_features & RPMSG_KDRV_ETHSWITCH_FEATURE_MC_FILTER)
+		common->mc_filter = true;
+
 	if (!common->mac_only && common->mac_only_port)
 		return -EINVAL;
 
@@ -1456,13 +1516,12 @@ static int virt_cpsw_nuss_probe(struct platform_device *pdev)
 		return -ENXIO;
 
 	dev_set_drvdata(dev, common);
+	__hw_addr_init(&common->mc_list);
 	INIT_WORK(&common->rx_mode_work, virt_cpsw_nuss_ndo_set_rx_mode_work);
-	if (common->mac_only) {
-		common->cmd_wq = create_singlethread_workqueue("virt_cpsw");
-		if (!common->cmd_wq) {
-			dev_err(dev, "failure requesting wq\n");
-			return -ENOMEM;
-		}
+	common->cmd_wq = create_singlethread_workqueue("virt_cpsw");
+	if (!common->cmd_wq) {
+		dev_err(dev, "failure requesting wq\n");
+		return -ENOMEM;
 	}
 
 	ret = virt_cpsw_nuss_init_ndev(common);
