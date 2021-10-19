@@ -233,16 +233,16 @@
 		interrupts = <24 0 2>, <25 1 3>;
 		interrupt-names = "tx_ts0", "tx_ts1";
 
-		dmas = <&main_pktdma 0xc200 0>, /* egress slice 0 */
-		       <&main_pktdma 0xc201 0>, /* egress slice 0 */
-		       <&main_pktdma 0xc202 0>, /* egress slice 0 */
-		       <&main_pktdma 0xc203 0>, /* egress slice 0 */
-		       <&main_pktdma 0xc204 0>, /* egress slice 1 */
-		       <&main_pktdma 0xc205 0>, /* egress slice 1 */
-		       <&main_pktdma 0xc206 0>, /* egress slice 1 */
-		       <&main_pktdma 0xc207 0>, /* egress slice 1 */
-		       <&main_pktdma 0x4200 0>, /* ingress slice 0 */
-		       <&main_pktdma 0x4201 0>, /* ingress slice 1 */
+		dmas = <&main_pktdma 0xc200 15>, /* egress slice 0 */
+		       <&main_pktdma 0xc201 15>, /* egress slice 0 */
+		       <&main_pktdma 0xc202 15>, /* egress slice 0 */
+		       <&main_pktdma 0xc203 15>, /* egress slice 0 */
+		       <&main_pktdma 0xc204 15>, /* egress slice 1 */
+		       <&main_pktdma 0xc205 15>, /* egress slice 1 */
+		       <&main_pktdma 0xc206 15>, /* egress slice 1 */
+		       <&main_pktdma 0xc207 15>, /* egress slice 1 */
+		       <&main_pktdma 0x4200 15>, /* ingress slice 0 */
+		       <&main_pktdma 0x4201 15>, /* ingress slice 1 */
 		       <&main_pktdma 0x4202 0>, /* mgmnt rsp slice 0 */
 		       <&main_pktdma 0x4203 0>; /* mgmnt rsp slice 1 */
 		dma-names = "tx0-0", "tx0-1", "tx0-2", "tx0-3",
