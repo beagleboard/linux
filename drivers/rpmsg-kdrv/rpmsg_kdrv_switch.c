@@ -737,6 +737,104 @@ out:
 	return ret;
 }
 
+static int rpmsg_kdrv_switch_filter_add_mc(struct rpmsg_remotedev *rdev,
+					   const void *mac_addr, u16 vlan_id, u32 flow_idx)
+{
+	struct rpmsg_kdrv_switch_private *priv =
+		container_of(rdev, struct rpmsg_kdrv_switch_private, rdev);
+	struct rpmsg_kdrv_device *kddev = priv->kddev;
+	struct rpmsg_device *rpdev = kddev->rpdev;
+	struct rpmsg_kdrv_ethswitch_filter_add_mc_req *req;
+	struct rpmsg_kdrv_ethswitch_filter_add_mc_resp *resp;
+	int ret;
+
+	if (!priv->attached)
+		return -EINVAL;
+
+	req = devm_kzalloc(&kddev->dev, sizeof(*req), GFP_KERNEL);
+	if (!req)
+		return -ENOMEM;
+
+	resp = devm_kzalloc(&kddev->dev, sizeof(*resp), GFP_KERNEL);
+	if (!resp) {
+		devm_kfree(&kddev->dev, req);
+		return -ENOMEM;
+	}
+
+	req->header.message_type = RPMSG_KDRV_TP_ETHSWITCH_FILTER_ADD_MAC;
+	req->info.id = priv->session_id;
+	req->info.core_key = priv->core_key;
+	ether_addr_copy(req->mac_address, mac_addr);
+	req->flow_idx = flow_idx;
+	req->vlan_id = vlan_id;
+
+	ret = rpmsg_kdrv_send_request_with_response(rpdev, kddev->device_id,
+						    req, sizeof(*req),
+						    resp, sizeof(*resp));
+	if (ret) {
+		dev_dbg(&kddev->dev, "%s: send: %d\n", __func__, ret);
+		goto out;
+	}
+
+	ret = rpmsg_kdrv_switch_check_resp_status(&resp->info);
+
+	dev_dbg(&kddev->dev, "%s: done\n", __func__);
+
+out:
+	devm_kfree(&kddev->dev, resp);
+	devm_kfree(&kddev->dev, req);
+	return ret;
+}
+
+static int rpmsg_kdrv_switch_filter_del_mc(struct rpmsg_remotedev *rdev,
+					   const void *mac_addr, u16 vlan_id, u32 flow_idx)
+{
+	struct rpmsg_kdrv_switch_private *priv =
+		container_of(rdev, struct rpmsg_kdrv_switch_private, rdev);
+	struct rpmsg_kdrv_device *kddev = priv->kddev;
+	struct rpmsg_device *rpdev = kddev->rpdev;
+	struct rpmsg_kdrv_ethswitch_filter_del_mc_req *req;
+	struct rpmsg_kdrv_ethswitch_filter_del_mc_resp *resp;
+	int ret;
+
+	if (!priv->attached)
+		return -EINVAL;
+
+	req = devm_kzalloc(&kddev->dev, sizeof(*req), GFP_KERNEL);
+	if (!req)
+		return -ENOMEM;
+
+	resp = devm_kzalloc(&kddev->dev, sizeof(*resp), GFP_KERNEL);
+	if (!resp) {
+		devm_kfree(&kddev->dev, req);
+		return -ENOMEM;
+	}
+
+	req->header.message_type = RPMSG_KDRV_TP_ETHSWITCH_FILTER_DEL_MAC;
+	req->info.id = priv->session_id;
+	req->info.core_key = priv->core_key;
+	ether_addr_copy(req->mac_address, mac_addr);
+	req->flow_idx = flow_idx;
+	req->vlan_id = vlan_id;
+
+	ret = rpmsg_kdrv_send_request_with_response(rpdev, kddev->device_id,
+						    req, sizeof(*req),
+						    resp, sizeof(*resp));
+	if (ret) {
+		dev_dbg(&kddev->dev, "%s: send: %d\n", __func__, ret);
+		goto out;
+	}
+
+	ret = rpmsg_kdrv_switch_check_resp_status(&resp->info);
+
+	dev_dbg(&kddev->dev, "%s: done\n", __func__);
+
+out:
+	devm_kfree(&kddev->dev, resp);
+	devm_kfree(&kddev->dev, req);
+	return ret;
+}
+
 static void rpmsg_kdrv_switch_get_fw_ver(struct rpmsg_remotedev *rdev,
 					 char *buf, size_t size)
 {
@@ -772,6 +870,8 @@ static struct rpmsg_remotedev_eth_switch_ops switch_ops = {
 	.read_reg = rpmsg_kdrv_switch_reg_read,
 	.dbg_dump_stats = rpmsg_kdrv_switch_c2s_dbg_dump_stats,
 	.set_promisc_mode = rpmsg_kdrv_switch_set_promisc,
+	.filter_add_mc = rpmsg_kdrv_switch_filter_add_mc,
+	.filter_del_mc = rpmsg_kdrv_switch_filter_del_mc,
 };
 
 static int rpmsg_kdrv_switch_callback(struct rpmsg_kdrv_device *dev,

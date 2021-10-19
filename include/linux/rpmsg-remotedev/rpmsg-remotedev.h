@@ -107,6 +107,12 @@ struct rpmsg_remotedev_display_ops {
 
 #define RPMSG_RDEV_ETHSWITCH_CPSW_PRIORITY_NUM   (8)
 
+/* features bits */
+#define RPMSG_KDRV_ETHSWITCH_FEATURE_TXCSUM BIT(0)
+#define RPMSG_KDRV_ETHSWITCH_FEATURE_DUMP_STATS BIT(1)
+#define RPMSG_KDRV_ETHSWITCH_FEATURE_MAC_ONLY BIT(2)
+#define RPMSG_KDRV_ETHSWITCH_FEATURE_MC_FILTER BIT(3)
+
 struct rpmsg_rdev_eth_switch_attach_info {
 	/* MTU of rx packet */
 	u32 rx_mtu;
@@ -114,9 +120,6 @@ struct rpmsg_rdev_eth_switch_attach_info {
 	u32 tx_mtu[RPMSG_RDEV_ETHSWITCH_CPSW_PRIORITY_NUM];
 	/* Supported Features mask */
 	u32 features;
-#define RPMSG_KDRV_ETHSWITCH_FEATURE_TXCSUM BIT(0)
-#define RPMSG_KDRV_ETHSWITCH_FEATURE_DUMP_STATS BIT(1)
-#define RPMSG_KDRV_ETHSWITCH_FEATURE_MAC_ONLY BIT(2)
 	u32 mac_only_port;
 };
 
@@ -127,9 +130,6 @@ struct rpmsg_rdev_eth_switch_attach_ext_info {
 	u32 tx_mtu[RPMSG_RDEV_ETHSWITCH_CPSW_PRIORITY_NUM];
 	/* Supported Features mask */
 	u32 features;
-#define RPMSG_KDRV_ETHSWITCH_FEATURE_TXCSUM BIT(0)
-#define RPMSG_KDRV_ETHSWITCH_FEATURE_DUMP_STATS BIT(1)
-#define RPMSG_KDRV_ETHSWITCH_FEATURE_MAC_ONLY BIT(2)
 	u32 flow_idx;
 	u32 tx_cpsw_psil_dst_id;
 	u8 mac_addr[ETH_ALEN];
@@ -170,6 +170,10 @@ struct rpmsg_remotedev_eth_switch_ops {
 	int (*read_reg)(struct rpmsg_remotedev *rdev, u32 reg_addr, u32 *val);
 	int (*dbg_dump_stats)(struct rpmsg_remotedev *rdev);
 	int (*set_promisc_mode)(struct rpmsg_remotedev *rdev, u32 enable);
+	int (*filter_add_mc)(struct rpmsg_remotedev *rdev,
+			     const void *mac_addr, u16 vlan_id, u32 flow_idx);
+	int (*filter_del_mc)(struct rpmsg_remotedev *rdev,
+			     const void *mac_addr, u16 vlan_id, u32 flow_idx);
 };
 
 enum rpmsg_remotedev_type {

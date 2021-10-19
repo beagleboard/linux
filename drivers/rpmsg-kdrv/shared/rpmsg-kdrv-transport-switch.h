@@ -46,7 +46,9 @@ enum rpmsg_kdrv_ethswitch_message_type {
 	RPMSG_KDRV_TP_ETHSWITCH_REGISTER_REMOTETIMER = 0x19,
 	RPMSG_KDRV_TP_ETHSWITCH_UNREGISTER_REMOTETIMER = 0x1A,
 	RPMSG_KDRV_TP_ETHSWITCH_SET_PROMISC_MODE = 0x1B,
-	RPMSG_KDRV_TP_ETHSWITCH_MAX = 0x1C,
+	RPMSG_KDRV_TP_ETHSWITCH_FILTER_ADD_MAC = 0x1C,
+	RPMSG_KDRV_TP_ETHSWITCH_FILTER_DEL_MAC = 0x1D,
+	RPMSG_KDRV_TP_ETHSWITCH_MAX = 0x1E,
 };
 
 /**
@@ -162,6 +164,7 @@ struct rpmsg_kdrv_ethswitch_attach_resp {
 	u32 features;
 #define RPMSG_KDRV_TP_ETHSWITCH_FEATURE_TXCSUM BIT(0)
 #define RPMSG_KDRV_ETHSWITCH_FEATURE_MAC_ONLY BIT(2)
+#define RPMSG_KDRV_ETHSWITCH_FEATURE_MC_FILTER BIT(3)
 	u32 mac_only_port;
 } __packed;
 
@@ -548,6 +551,67 @@ struct rpmsg_kdrv_ethswitch_set_promisc_mode_req {
  * The @info.status field is @RPMSG_KDRV_TP_ETHSWITCH_CMDSTATUS_OK on success.
  */
 struct rpmsg_kdrv_ethswitch_set_promisc_mode_resp {
+	struct rpmsg_kdrv_ethswitch_common_resp_info info;
+} __packed;
+
+/**
+ * struct rpmsg_kdrv_ethswitch_filter_add_mc_req - add multicast MAC address to filter
+ *
+ * @header: msg header
+ * @info: common request msg data
+ * @mac_address: Multicast address to be added
+ * @vlan_id: VLAN id
+ * @flow_idx: RX UDMA flow ID (used for multicast addresses marked as 'exclusive' in
+ *            switch firmware)
+ *
+ * Client message @RPMSG_KDRV_TP_ETHSWITCH_FILTER_ADD_MAC is sent to add a multicast
+ * address to the receive filter.
+ */
+struct rpmsg_kdrv_ethswitch_filter_add_mc_req {
+	struct rpmsg_kdrv_ethswitch_msg_header header;
+	struct rpmsg_kdrv_ethswitch_common_req_info info;
+	u8 mac_address[ETH_ALEN];
+	u16 vlan_id;
+	u32 flow_idx;
+} __packed;
+
+/**
+ * Response msg received as response to client's request to add a multicas address to
+ * receive filter via @RPMSG_KDRV_TP_ETHSWITCH_FILTER_ADD_MAC.
+ * The @info.status field is @RPMSG_KDRV_TP_ETHSWITCH_CMDSTATUS_OK on success.
+ */
+struct rpmsg_kdrv_ethswitch_filter_add_mc_resp {
+	struct rpmsg_kdrv_ethswitch_common_resp_info info;
+} __packed;
+
+/**
+ * struct rpmsg_kdrv_ethswitch_filter_del_mac_req - delete multicast MAC address
+ * from filter
+ *
+ * @header: msg header
+ * @info: common request msg data
+ * @mac_address: Multicast address to be removed
+ * @vlan_id: VLAN id
+ * @flow_idx: RX UDMA flow ID (used for multicast addresses marked as 'exclusive' in
+ *            switch firmware)
+ *
+ * Client message @RPMSG_KDRV_TP_ETHSWITCH_FILTER_DEL_MAC is sent to delete a multicast
+ * address from the receive filter.
+ */
+struct rpmsg_kdrv_ethswitch_filter_del_mc_req {
+	struct rpmsg_kdrv_ethswitch_msg_header header;
+	struct rpmsg_kdrv_ethswitch_common_req_info info;
+	u8 mac_address[ETH_ALEN];
+	u16 vlan_id;
+	u32 flow_idx;
+} __packed;
+
+/**
+ * Response msg received as response to client's request to delete a multicas address to
+ * receive filter via @RPMSG_KDRV_TP_ETHSWITCH_FILTER_DEL_MAC.
+ * The @info.status field is @RPMSG_KDRV_TP_ETHSWITCH_CMDSTATUS_OK on success.
+ */
+struct rpmsg_kdrv_ethswitch_filter_del_mc_resp {
 	struct rpmsg_kdrv_ethswitch_common_resp_info info;
 } __packed;
 
