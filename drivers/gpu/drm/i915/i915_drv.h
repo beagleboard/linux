@@ -1719,6 +1719,8 @@ struct drm_i915_private {
 
 	struct intel_uncore uncore;
 
+	struct mutex tlb_invalidate_lock;
+
 	struct i915_virtual_gpu vgpu;
 
 	struct intel_guc guc;
@@ -2065,6 +2067,9 @@ struct drm_i915_gem_object {
 	 * inactive (ready to be unbound) list.
 	 */
 	unsigned int active:I915_NUM_RINGS;
+
+	unsigned long flags;
+#define I915_BO_WAS_BOUND_BIT    0
 
 	/**
 	 * This is set if the object has been written to since last bound

@@ -2212,6 +2212,85 @@ i915_gem_object_put_pages_gtt(struct drm_i915_gem_object *obj)
 	kfree(obj->pages);
 }
 
+#define _wait_for_us(COND, US, W) ({ \
+	unsigned long timeout__ = jiffies + usecs_to_jiffies(US) + 1;   \
+	int ret__;                                                      \
+	for (;;) {                                                      \
+		bool expired__ = time_after(jiffies, timeout__);        \
+		if (COND) {                                             \
+			ret__ = 0;                                      \
+			break;                                          \
+		}                                                       \
+		if (expired__) {                                        \
+			ret__ = -ETIMEDOUT;                             \
+			break;                                          \
+		}                                                       \
+		usleep_range((W), (W)*2);                               \
+	}                                                               \
+	ret__;                                                          \
+})
+
+static int
+__intel_wait_for_register_fw(struct drm_i915_private *dev_priv,
+			     u32 reg,
+			     const u32 mask,
+			     const u32 value,
+			     const unsigned int timeout_us,
+			     const unsigned int timeout_ms)
+{
+#define done ((I915_READ_FW(reg) & mask) == value)
+	int ret = _wait_for_us(done, timeout_us, 2);
+	if (ret)
+		ret = wait_for(done, timeout_ms);
+	return ret;
+#undef done
+}
+
+static void invalidate_tlbs(struct drm_i915_private *dev_priv)
+{
+	static const u32 gen8_regs[] = {
+		[RCS]  = GEN8_RTCR,
+		[VCS]  = GEN8_M1TCR,
+		[VCS2] = GEN8_M2TCR,
+		[VECS] = GEN8_VTCR,
+		[BCS]  = GEN8_BTCR,
+	};
+	enum intel_ring_id id;
+
+	if (INTEL_INFO(dev_priv)->gen < 8)
+		return;
+
+	mutex_lock(&dev_priv->tlb_invalidate_lock);
+	intel_uncore_forcewake_get(dev_priv, FORCEWAKE_ALL);
+
+	for (id = 0; id < I915_NUM_RINGS; id++) {
+		struct intel_engine_cs *engine = &dev_priv->ring[id];
+		/*
+		 * HW architecture suggest typical invalidation time at 40us,
+		 * with pessimistic cases up to 100us and a recommendation to
+		 * cap at 1ms. We go a bit higher just in case.
+		 */
+		const unsigned int timeout_us = 100;
+		const unsigned int timeout_ms = 4;
+
+		if (!intel_ring_initialized(engine))
+			continue;
+
+		if (WARN_ON_ONCE(id >= ARRAY_SIZE(gen8_regs) || !gen8_regs[id]))
+			continue;
+
+		I915_WRITE_FW(gen8_regs[id], 1);
+		if (__intel_wait_for_register_fw(dev_priv,
+						 gen8_regs[id], 1, 0,
+						 timeout_us, timeout_ms))
+			DRM_ERROR_RATELIMITED("%s TLB invalidation did not complete in %ums!\n",
+					      engine->name, timeout_ms);
+	}
+
+	intel_uncore_forcewake_put(dev_priv, FORCEWAKE_ALL);
+	mutex_unlock(&dev_priv->tlb_invalidate_lock);
+}
+
 int
 i915_gem_object_put_pages(struct drm_i915_gem_object *obj)
 {
@@ -2229,6 +2308,14 @@ i915_gem_object_put_pages(struct drm_i915_gem_object *obj)
 	 * array, hence protect them from being reaped by removing them from gtt
 	 * lists early. */
 	list_del(&obj->global_list);
+
+	if (test_and_clear_bit(I915_BO_WAS_BOUND_BIT, &obj->flags)) {
+		struct drm_i915_private *i915 = to_i915(obj->base.dev);
+
+		intel_runtime_pm_get(i915);
+		invalidate_tlbs(i915);
+		intel_runtime_pm_put(i915);
+	}
 
 	ops->put_pages(obj);
 	obj->pages = NULL;
@@ -5050,6 +5137,8 @@ i915_gem_load(struct drm_device *dev)
 	i915_gem_shrinker_init(dev_priv);
 
 	mutex_init(&dev_priv->fb_tracking.lock);
+
+	mutex_init(&dev_priv->tlb_invalidate_lock);
 }
 
 void i915_gem_release(struct drm_device *dev, struct drm_file *file)

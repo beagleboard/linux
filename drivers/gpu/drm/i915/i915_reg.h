@@ -1592,6 +1592,12 @@ enum skl_disp_power_wells {
 
 #define GEN7_TLB_RD_ADDR	0x4700
 
+#define GEN8_RTCR	0x4260
+#define GEN8_M1TCR	0x4264
+#define GEN8_M2TCR	0x4268
+#define GEN8_BTCR	0x426c
+#define GEN8_VTCR	0x4270
+
 #if 0
 #define PRB0_TAIL	0x02030
 #define PRB0_HEAD	0x02034
