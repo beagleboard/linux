@@ -1763,6 +1763,8 @@ struct drm_i915_private {
 
 	struct intel_uncore uncore;
 
+	struct mutex tlb_invalidate_lock;
+
 	struct i915_virtual_gpu vgpu;
 
 	struct intel_gvt gvt;
@@ -2211,7 +2213,8 @@ struct drm_i915_gem_object {
 	 * rendering and so a non-zero seqno), and is not set if it i s on
 	 * inactive (ready to be unbound) list.
 	 */
-#define I915_BO_ACTIVE_SHIFT 0
+#define I915_BO_WAS_BOUND_BIT    0
+#define I915_BO_ACTIVE_SHIFT 1
 #define I915_BO_ACTIVE_MASK ((1 << I915_NUM_ENGINES) - 1)
 #define __I915_BO_ACTIVE(bo) \
 	((READ_ONCE((bo)->flags) >> I915_BO_ACTIVE_SHIFT) & I915_BO_ACTIVE_MASK)

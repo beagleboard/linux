@@ -2185,6 +2185,67 @@ i915_gem_object_put_pages_gtt(struct drm_i915_gem_object *obj)
 	kfree(obj->pages);
 }
 
+static int
+__intel_wait_for_register_fw(struct drm_i915_private *dev_priv,
+			     i915_reg_t reg,
+			     const u32 mask,
+			     const u32 value,
+			     const unsigned int timeout_us,
+			     const unsigned int timeout_ms)
+{
+#define done ((I915_READ_FW(reg) & mask) == value)
+	int ret = wait_for_us(done, timeout_us);
+	if (ret)
+		ret = wait_for(done, timeout_ms);
+	return ret;
+#undef done
+}
+
+static void invalidate_tlbs(struct drm_i915_private *dev_priv)
+{
+	static const i915_reg_t gen8_regs[] = {
+		[RCS]  = GEN8_RTCR,
+		[VCS]  = GEN8_M1TCR,
+		[VCS2] = GEN8_M2TCR,
+		[VECS] = GEN8_VTCR,
+		[BCS]  = GEN8_BTCR,
+	};
+	struct intel_engine_cs *engine;
+
+	if (INTEL_GEN(dev_priv) < 8)
+		return;
+
+	assert_rpm_wakelock_held(dev_priv);
+
+	mutex_lock(&dev_priv->tlb_invalidate_lock);
+	intel_uncore_forcewake_get(dev_priv, FORCEWAKE_ALL);
+
+	for_each_engine(engine, dev_priv) {
+		/*
+		 * HW architecture suggest typical invalidation time at 40us,
+		 * with pessimistic cases up to 100us and a recommendation to
+		 * cap at 1ms. We go a bit higher just in case.
+		 */
+		const unsigned int timeout_us = 100;
+		const unsigned int timeout_ms = 4;
+		const enum intel_engine_id id = engine->id;
+
+		if (WARN_ON_ONCE(id >= ARRAY_SIZE(gen8_regs) ||
+				 !i915_mmio_reg_offset(gen8_regs[id])))
+			continue;
+
+		I915_WRITE_FW(gen8_regs[id], 1);
+		if (__intel_wait_for_register_fw(dev_priv,
+						 gen8_regs[id], 1, 0,
+						 timeout_us, timeout_ms))
+			DRM_ERROR_RATELIMITED("%s TLB invalidation did not complete in %ums!\n",
+					      engine->name, timeout_ms);
+	}
+
+	intel_uncore_forcewake_put(dev_priv, FORCEWAKE_ALL);
+	mutex_unlock(&dev_priv->tlb_invalidate_lock);
+}
+
 int
 i915_gem_object_put_pages(struct drm_i915_gem_object *obj)
 {
@@ -2213,6 +2274,15 @@ i915_gem_object_put_pages(struct drm_i915_gem_object *obj)
 			kunmap(kmap_to_page(ptr));
 
 		obj->mapping = NULL;
+	}
+
+	if (test_and_clear_bit(I915_BO_WAS_BOUND_BIT, &obj->flags)) {
+		struct drm_i915_private *i915 = to_i915(obj->base.dev);
+
+		if (intel_runtime_pm_get_if_in_use(i915)) {
+			invalidate_tlbs(i915);
+			intel_runtime_pm_put(i915);
+		}
 	}
 
 	ops->put_pages(obj);
@@ -4626,6 +4696,8 @@ i915_gem_load_init(struct drm_device *dev)
 	dev_priv->mm.interruptible = true;
 
 	atomic_set(&dev_priv->mm.bsd_engine_dispatch_index, 0);
+
+	mutex_init(&dev_priv->tlb_invalidate_lock);
 
 	spin_lock_init(&dev_priv->fb_tracking.lock);
 }
