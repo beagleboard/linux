@@ -510,6 +510,9 @@
 					      <0x22400 0x100>;
 					reg-names = "iram", "control", "debug";
 					firmware-name = "am437x-pru1_0-fw";
+					interrupt-parent = <&pruss1_intc>;
+					interrupts = <16 2 2>;
+					interrupt-names = "vring";
 				};
 
 				pru1_1: pru@38000 {
@@ -519,6 +522,9 @@
 					      <0x24400 0x100>;
 					reg-names = "iram", "control", "debug";
 					firmware-name = "am437x-pru1_1-fw";
+					interrupt-parent = <&pruss1_intc>;
+					interrupts = <18 3 3>;
+					interrupt-names = "vring";
 				};
 
 				pruss1_mdio: mdio@32400 {
@@ -605,6 +611,9 @@
 					      <0x62400 0x100>;
 					reg-names = "iram", "control", "debug";
 					firmware-name = "am437x-pru0_0-fw";
+					interrupt-parent = <&pruss0_intc>;
+					interrupts = <16 2 2>;
+					interrupt-names = "vring";
 				};
 
 				pru0_1: pru@78000 {
@@ -614,6 +623,9 @@
 					      <0x64400 0x100>;
 					reg-names = "iram", "control", "debug";
 					firmware-name = "am437x-pru0_1-fw";
+					interrupt-parent = <&pruss0_intc>;
+					interrupts = <18 3 3>;
+					interrupt-names = "vring";
 				};
 			};
 		};
