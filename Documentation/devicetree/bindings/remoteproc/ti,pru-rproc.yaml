@@ -31,6 +31,9 @@ description: |
   including a complete example,
     Documentation/devicetree/bindings/soc/ti/ti,pruss.yaml
 
+allOf:
+  - $ref: /schemas/interrupts.yaml#
+
 properties:
   compatible:
     enum:
@@ -65,6 +68,23 @@ properties:
       Should contain the name of the default firmware image
       file located on the firmware search path.
 
+# Optional Properties:
+# --------------------
+# The virtio based communication between the MPU and a PRU core _requires_ the
+# set of 'interrupt-parent', 'interrupts' and 'interrupt-names' properties.
+
+  interrupts:
+    description: |
+      Array of interrupt specifiers if using PRU system events for IPC
+      signalling between host and a PRU core. This property should match
+      with the PRU system event used in the corresponding firmware image.
+    items:
+      - description: PRU event number used to receive virtqueue events
+
+  interrupt-names:
+    items:
+      - const: vring # for PRU to HOST virtqueue signalling
+
 if:
   properties:
     compatible:
@@ -92,6 +112,9 @@ else:
     properties:
       $nodename:
         pattern: "^pru@[0-9a-f]+$"
+
+dependencies:
+  interrupts: [interrupt-names, interrupt-parent]
 
 required:
   - compatible
@@ -131,6 +154,9 @@ examples:
                 <0x22400 0x100>;
           reg-names = "iram", "control", "debug";
           firmware-name = "am335x-pru0-fw";
+          interrupt-parent = <&pruss_intc>;
+          interrupts = <16 2 2>;
+          interrupt-names = "vring";
         };
 
         pru1: pru@38000 {
@@ -140,6 +166,9 @@ examples:
                 <0x24400 0x100>;
           reg-names = "iram", "control", "debug";
           firmware-name = "am335x-pru1-fw";
+          interrupt-parent = <&pruss_intc>;
+          interrupts = <18 3 3>;
+          interrupt-names = "vring";
         };
       };
     };
