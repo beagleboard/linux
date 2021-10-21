@@ -279,50 +279,28 @@
 	};
 };
 
-&oc_sram {
-	main_r5fss0_core0_sram: r5f-sram@40000 {
-		reg = <0x40000 0x40000>;
-	};
-
-	main_r5fss0_core1_sram: r5f-sram@80000 {
-		reg = <0x80000 0x40000>;
-	};
-
-	main_r5fss1_core0_sram: r5f-sram@c0000 {
-		reg = <0xc0000 0x40000>;
-	};
-
-	main_r5fss1_core1_sram: r5f-sram@100000 {
-		reg = <0x100000 0x40000>;
-	};
-};
-
 &main_r5fss0_core0 {
 	mboxes = <&mailbox0_cluster2 &mbox_main_r5fss0_core0>;
 	memory-region = <&main_r5fss0_core0_dma_memory_region>,
 			<&main_r5fss0_core0_memory_region>;
-	sram = <&main_r5fss0_core0_sram>;
 };
 
 &main_r5fss0_core1 {
 	mboxes = <&mailbox0_cluster2 &mbox_main_r5fss0_core1>;
 	memory-region = <&main_r5fss0_core1_dma_memory_region>,
 			<&main_r5fss0_core1_memory_region>;
-	sram = <&main_r5fss0_core1_sram>;
 };
 
 &main_r5fss1_core0 {
 	mboxes = <&mailbox0_cluster4 &mbox_main_r5fss1_core0>;
 	memory-region = <&main_r5fss1_core0_dma_memory_region>,
 			<&main_r5fss1_core0_memory_region>;
-	sram = <&main_r5fss1_core0_sram>;
 };
 
 &main_r5fss1_core1 {
 	mboxes = <&mailbox0_cluster4 &mbox_main_r5fss1_core1>;
 	memory-region = <&main_r5fss1_core1_dma_memory_region>,
 			<&main_r5fss1_core1_memory_region>;
-	sram = <&main_r5fss1_core1_sram>;
 };
 
 &mcu_m4fss {
