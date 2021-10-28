@@ -234,6 +234,8 @@
 
 			gpio-controller;
 			#gpio-cells = <2>;
+			interrupt-controller;
+			#interrupt-cells = <2>;
 		};
 
 		usb2: usb2@21000 {
