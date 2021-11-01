@@ -43,7 +43,7 @@ config BRCMFMAC_PCIE_BARWIN_SZ
 	depends on BRCMFMAC
 	depends on PCI
 	default n
-	---help---
+	help
 	  If you say Y here, the FMAC driver will use custom PCIE BAR
 	  window size. Say Y to allow developers to use custom PCIE
 	  BAR window size when HOST PCIE IP can support less then 4MB
