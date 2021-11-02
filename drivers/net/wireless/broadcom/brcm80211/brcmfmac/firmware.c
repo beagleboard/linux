@@ -613,8 +613,11 @@ static int brcmf_fw_request_firmware(const struct firmware **fw,
 		strlcat(alt_path, fwctx->req->board_type, BRCMF_FW_NAME_LEN);
 		strlcat(alt_path, ".txt", BRCMF_FW_NAME_LEN);
 
-		ret = request_firmware(fw, alt_path, fwctx->dev);
-		if (ret == 0)
+		ret = firmware_request_nowarn(fw, alt_path, fwctx->dev);
+		if (ret)
+			brcmf_info("no board-specific nvram available (err=%d), device will use %s\n",
+				   ret, cur->path);
+		else
 			return ret;
 	}
 
