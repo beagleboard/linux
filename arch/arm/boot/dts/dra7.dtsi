@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (C) 2013 Texas Instruments Incorporated - http://www.ti.com/
+ * Copyright (C) 2013 Texas Instruments Incorporated - https://www.ti.com/
  *
  * Based on "omap4.dtsi"
  */
@@ -385,10 +385,10 @@
 			reg = <0x58820000 0x10000>;
 			reg-names = "l2ram";
 			iommus = <&mmu_ipu1>;
+			status = "disabled";
 			resets = <&prm_ipu 0>, <&prm_ipu 1>;
 			clocks = <&ipu1_clkctrl DRA7_IPU1_MMU_IPU1_CLKCTRL 0>;
 			firmware-name = "dra7-ipu1-fw.xem4";
-			status = "disabled";
 		};
 
 		ipu2: ipu@55020000 {
@@ -396,10 +396,10 @@
 			reg = <0x55020000 0x10000>;
 			reg-names = "l2ram";
 			iommus = <&mmu_ipu2>;
+			status = "disabled";
 			resets = <&prm_core 0>, <&prm_core 1>;
 			clocks = <&ipu2_clkctrl DRA7_IPU2_MMU_IPU2_CLKCTRL 0>;
 			firmware-name = "dra7-ipu2-fw.xem4";
-			status = "disabled";
 		};
 
 		dsp1: dsp@40800000 {
@@ -410,10 +410,10 @@
 			reg-names = "l2ram", "l1pram", "l1dram";
 			ti,bootreg = <&scm_conf 0x55c 10>;
 			iommus = <&mmu0_dsp1>, <&mmu1_dsp1>;
+			status = "disabled";
 			resets = <&prm_dsp1 0>;
 			clocks = <&dsp1_clkctrl DRA7_DSP1_MMU0_DSP1_CLKCTRL 0>;
 			firmware-name = "dra7-dsp1-fw.xe66";
-			status = "disabled";
 		};
 
 		target-module@40d01000 {
@@ -740,7 +740,7 @@
 		};
 
 		bb2d: bb2d@59000000 {
-			compatible = "ti,dra7-bb2d";
+			compatible = "ti,dra7-bb2d", "vivante,gc";
 			reg = <0x59000000 0x0700>;
 			interrupts = <GIC_SPI 120 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "bb2d";

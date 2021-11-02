@@ -1,7 +1,7 @@
 /*
  * Device Tree Source for AM33XX SoC
  *
- * Copyright (C) 2012 Texas Instruments Incorporated - http://www.ti.com/
+ * Copyright (C) 2012 Texas Instruments Incorporated - https://www.ti.com/
  *
  * This file is licensed under the terms of the GNU General Public License
  * version 2.  This program is licensed "as is" without any warranty of any
@@ -20,7 +20,7 @@
 	#size-cells = <1>;
 	chosen { };
 
-	aliases {
+	aliases: aliases {
 		i2c0 = &i2c0;
 		i2c1 = &i2c1;
 		i2c2 = &i2c2;
@@ -40,6 +40,9 @@
 		ethernet1 = &cpsw_emac1;
 		spi0 = &spi0;
 		spi1 = &spi1;
+		mmc0 = &mmc1;
+		mmc1 = &mmc2;
+		mmc2 = &mmc3;
 	};
 
 	cpus {
@@ -172,7 +175,7 @@
 	 * for the moment, just use a fake OCP bus entry to represent
 	 * the whole bus hierarchy.
 	 */
-	ocp {
+	ocp: ocp {
 		compatible = "simple-bus";
 		#address-cells = <1>;
 		#size-cells = <1>;
@@ -483,6 +486,10 @@
 			#size-cells = <1>;
 			ranges = <0x0 0x56000000 0x10000>;
 
+			/*
+			 * Closed source PowerVR driver, no child device
+			 * binding or driver in mainline
+			 */
 			gpu: gpu@0 {
 				compatible = "ti,am3352-sgx530", "img,sgx530";
 				reg = <0x0 0x10000>;
