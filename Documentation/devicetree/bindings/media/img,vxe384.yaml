@@ -1,0 +1,48 @@
+# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
+
+%YAML 1.2
+---
+$id: "http://devicetree.org/schemas/media/img,vxe384.yaml#"
+$schema: "http://devicetree.org/meta-schemas/core.yaml#"
+
+title: Imagination VXE384 Driver
+
+maintainers:
+  - Sidraya Jayagond  <sidraya.bj@pathpartnertech.com>
+
+description: |
+  The IMG VXE384 video encode driver for the VXE384 is a video encoder for
+  multiple video formats including H.264 on the TI J721E family of SoCs.
+
+properties:
+  compatible:
+    const: img,vxe384
+
+  reg:
+    maxItems: 2
+
+  interrupts:
+    maxItems: 1
+
+  power-domains:
+    maxItems: 1
+
+required:
+  - compatible
+  - reg
+  - interrupts
+
+additionalProperties: false
+
+examples:
+  - |
+       #include <dt-bindings/interrupt-controller/irq.h>
+       #include <dt-bindings/interrupt-controller/arm-gic.h>
+
+       vxe384: video-encoder@4200000 {
+               compatible = "img,vxe384";
+               reg = <0x00 0x04200000>,
+                     <0x00 0x100000>;
+               power-domains = <&k3_pds 153>;
+               interrupts = <GIC_SPI 181 IRQ_TYPE_LEVEL_HIGH>;
+       };
