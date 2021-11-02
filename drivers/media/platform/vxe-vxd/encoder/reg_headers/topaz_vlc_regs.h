@@ -1,0 +1,46 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * firmware header
+ *
+ * Copyright (c) Imagination Technologies Ltd.
+ * Copyright (c) 2021 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * Authors:
+ *	Sunita Nadampalli <sunitan@ti.com>
+ *
+ * Re-written for upstreming
+ *	Sidraya Jayagond <sidraya.bj@pathpartnertech.com>
+ */
+
+#ifndef _REGCONV_H_topaz_vlc_regs_h
+#define _REGCONV_H_topaz_vlc_regs_h
+
+///* Register CR_VLC_CONTROL */
+#define MASK_TOPAZ_VLC_CR_CODEC     0x00000003
+#define SHIFT_TOPAZ_VLC_CR_CODEC    0
+#define MASK_TOPAZ_VLC_CR_CABAC_ENABLE		0x00000100
+#define SHIFT_TOPAZ_VLC_CR_CABAC_ENABLE		8
+#define MASK_TOPAZ_VLC_CR_VLC_FIELD_CODED	0x00000200
+#define SHIFT_TOPAZ_VLC_CR_VLC_FIELD_CODED	9
+#define MASK_TOPAZ_VLC_CR_VLC_8X8_TRANSFORM	0x00000400
+#define SHIFT_TOPAZ_VLC_CR_VLC_8X8_TRANSFORM	10
+#define MASK_TOPAZ_VLC_CR_VLC_CONSTRAINED_INTRA	0x00000800
+#define SHIFT_TOPAZ_VLC_CR_VLC_CONSTRAINED_INTRA	11
+#define MASK_TOPAZ_VLC_CR_CODEC_EXTEND	0x10000000
+#define SHIFT_TOPAZ_VLC_CR_CODEC_EXTEND	28
+
+///* Register CR_VLC_IPCM_0 */
+#define MASK_TOPAZ_VLC_CR_CABAC_DB_MARGIN	0x03FF0000
+#define SHIFT_TOPAZ_VLC_CR_CABAC_DB_MARGIN	16
+#define MASK_TOPAZ_VLC_CR_CABAC_BIN_FLEX	0x00001FFF
+#define SHIFT_TOPAZ_VLC_CR_CABAC_BIN_FLEX	0
+#define MASK_TOPAZ_VLC_CR_IPCM_THRESHOLD	0x00000FFF
+#define SHIFT_TOPAZ_VLC_CR_IPCM_THRESHOLD	0
+#define MASK_TOPAZ_VLC_CR_CABAC_BIN_LIMIT	0x1FFF0000
+#define SHIFT_TOPAZ_VLC_CR_CABAC_BIN_LIMIT	16
+#define MASK_TOPAZ_VLC_CR_SLICE_SIZE_LIMIT	0x00FFFFFF
+#define SHIFT_TOPAZ_VLC_CR_SLICE_SIZE_LIMIT	0
+#define MASK_TOPAZ_VLC_CR_SLICE_MBS_LIMIT	0x00003FFF
+#define SHIFT_TOPAZ_VLC_CR_SLICE_MBS_LIMIT	0
+
+#endif
