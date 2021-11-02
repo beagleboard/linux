@@ -79,6 +79,19 @@
 			alignment = <0x1000>;
 			no-map;
 		};
+
+		main_r5fss0_core0_shared_memory_queue_region:r5f-virtual-eth-queues@a5000000 {
+			compatible = "shared-dma-pool";
+			reg = <0x00 0xa5000000 0x00 0x200000>;
+			no-map;
+		};
+
+		main_r5fss0_core0_shared_memory_bufpool_region:r5f-virtual-eth-buffers@a5200000 {
+			compatible = "shared-dma-pool";
+			reg = <0x00 0xa5200000 0x00 0x1e00000>;
+			no-map;
+		};
+
 	};
 };
 
@@ -226,7 +239,9 @@
 &main_r5fss0_core0 {
 	mboxes = <&mailbox0_cluster1 &mbox_main_r5fss0_core0>;
 	memory-region = <&main_r5fss0_core0_dma_memory_region>,
-			<&main_r5fss0_core0_memory_region>;
+			<&main_r5fss0_core0_memory_region>,
+			<&main_r5fss0_core0_shared_memory_queue_region>,
+			<&main_r5fss0_core0_shared_memory_bufpool_region>;
 };
 
 &main_r5fss0_core1 {
