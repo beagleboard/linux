@@ -73,7 +73,7 @@
 			     <1 IRQ_TYPE_NONE>;	/* termcount */
 		rb-gpios = <&gpmc0 0 GPIO_ACTIVE_HIGH>;	/* gpmc_wait0 */
 		ti,nand-xfer-type = "prefetch-polled";
-		ti,nand-ecc-opt = "bch16";
+		ti,nand-ecc-opt = "bch8";	/* BCH8: Bootrom limitation */
 		ti,elm-id = <&elm0>;
 		nand-bus-width = <8>;
 		gpmc,device-width = <1>;
