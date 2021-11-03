@@ -1588,6 +1588,32 @@ const struct icss_iep_clockops prueth_iep_clockops = {
 	.perout_enable = prueth_perout_enable,
 };
 
+static int emac_phy_connect(struct prueth_emac *emac)
+{
+	struct prueth *prueth = emac->prueth;
+
+	/* connect PHY */
+	emac->phydev = of_phy_connect(emac->ndev, emac->phy_node,
+				      &emac_adjust_link, 0, emac->phy_if);
+	if (!emac->phydev) {
+		dev_err(prueth->dev, "couldn't connect to phy %s\n",
+			emac->phy_node->full_name);
+		return -ENODEV;
+	}
+
+	/* remove unsupported modes */
+	phy_remove_link_mode(emac->phydev, ETHTOOL_LINK_MODE_10baseT_Half_BIT);
+	phy_remove_link_mode(emac->phydev, ETHTOOL_LINK_MODE_100baseT_Half_BIT);
+	phy_remove_link_mode(emac->phydev, ETHTOOL_LINK_MODE_1000baseT_Half_BIT);
+	phy_remove_link_mode(emac->phydev, ETHTOOL_LINK_MODE_Pause_BIT);
+	phy_remove_link_mode(emac->phydev, ETHTOOL_LINK_MODE_Asym_Pause_BIT);
+
+	if (emac->phy_if == PHY_INTERFACE_MODE_MII)
+		phy_set_max_speed(emac->phydev, SPEED_100);
+
+	return 0;
+}
+
 /**
  * emac_ndo_open - EMAC device open
  * @ndev: network adapter device
@@ -1749,6 +1775,7 @@ skip_mgm_irq:
 
 	icssg_qos_init(ndev);
 
+	emac_phy_connect(emac);
 	/* Get attached phy details */
 	phy_attached_info(emac->phydev);
 
@@ -1836,6 +1863,9 @@ static int emac_ndo_stop(struct net_device *ndev)
 
 	/* block packets from wire */
 	phy_stop(emac->phydev);
+	phy_disconnect(emac->phydev);
+	emac->phydev = NULL;
+
 	icssg_class_disable(prueth->miig_rt, prueth_emac_slice(emac));
 
 	/* send shutdown command */
@@ -2071,6 +2101,9 @@ static int emac_ndo_ioctl(struct net_device *ndev, struct ifreq *ifr, int cmd)
 		break;
 	}
 
+	if (!emac->phydev)
+		return -EOPNOTSUPP;
+
 	return phy_mii_ioctl(emac->phydev, ifr, cmd);
 }
 
@@ -2256,30 +2289,6 @@ skip_irq:
 	if (ret)
 		goto free;
 
-	/* connect PHY */
-	emac->phydev = of_phy_connect(ndev, emac->phy_node,
-				      &emac_adjust_link, 0, emac->phy_if);
-	if (!emac->phydev) {
-		dev_err(prueth->dev, "couldn't connect to phy %s\n",
-			emac->phy_node->full_name);
-		ret = -EPROBE_DEFER;
-		goto free;
-	}
-
-	emac->half_duplex = of_property_read_bool(eth_node, "ti,half-duplex-capable");
-
-	/* remove unsupported modes */
-	if (!emac->half_duplex) {
-		phy_remove_link_mode(emac->phydev, ETHTOOL_LINK_MODE_10baseT_Half_BIT);
-		phy_remove_link_mode(emac->phydev, ETHTOOL_LINK_MODE_100baseT_Half_BIT);
-	}
-	phy_remove_link_mode(emac->phydev, ETHTOOL_LINK_MODE_1000baseT_Half_BIT);
-	phy_remove_link_mode(emac->phydev, ETHTOOL_LINK_MODE_Pause_BIT);
-	phy_remove_link_mode(emac->phydev, ETHTOOL_LINK_MODE_Asym_Pause_BIT);
-
-	if (emac->phy_if == PHY_INTERFACE_MODE_MII)
-		phy_set_max_speed(emac->phydev, SPEED_100);
-
 	/* get mac address from DT and set private and netdev addr */
 	mac_addr = of_get_mac_address(eth_node);
 	if (!IS_ERR(mac_addr))
@@ -2324,8 +2333,6 @@ static void prueth_netdev_exit(struct prueth *prueth,
 	emac = prueth->emac[mac];
 	if (!emac)
 		return;
-
-	phy_disconnect(emac->phydev);
 
 	if (of_phy_is_fixed_link(emac->phy_node))
 		of_phy_deregister_fixed_link(emac->phy_node);
