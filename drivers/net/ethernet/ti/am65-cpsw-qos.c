@@ -53,6 +53,8 @@
 #define AM65_CPSW_PN_IET_MAC_PENABLE		BIT(0)
 #define AM65_CPSW_PN_IET_MAC_DISABLEVERIFY	BIT(2)
 #define AM65_CPSW_PN_IET_MAC_LINKFAIL		BIT(3)
+#define AM65_CPSW_PN_IET_MAC_MAC_ADDFRAGSIZE_MASK	GENMASK(10, 8)
+#define AM65_CPSW_PN_IET_MAC_MAC_ADDFRAGSIZE_OFFSET	8
 #define AM65_CPSW_PN_IET_PREMPT_MASK		GENMASK(23, 16)
 #define AM65_CPSW_PN_IET_PREMPT_OFFSET		16
 
@@ -252,6 +254,9 @@ static void am65_cpsw_iet_config_mac_preempt(struct am65_cpsw_port *port,
 		val |= ((iet->fpe_mask_configured <<
 			AM65_CPSW_PN_IET_PREMPT_OFFSET) &
 			AM65_CPSW_PN_IET_PREMPT_MASK);
+		val |= ((iet->addfragsize <<
+			AM65_CPSW_PN_IET_MAC_MAC_ADDFRAGSIZE_OFFSET) &
+			AM65_CPSW_PN_IET_MAC_MAC_ADDFRAGSIZE_MASK);
 	}
 	writel(val, port->port_base + AM65_CPSW_PN_REG_IET_CTRL);
 	iet->fpe_enabled = enable;

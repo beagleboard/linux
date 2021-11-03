@@ -29,6 +29,7 @@ struct am65_cpsw_iet {
 	u32 fpe_mask_configured;
 	/* current mask */
 	u32 mask;
+	u32 addfragsize;
 };
 
 struct am65_cpsw_mqprio {

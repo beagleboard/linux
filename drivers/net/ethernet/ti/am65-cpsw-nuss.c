@@ -1962,6 +1962,7 @@ static int am65_cpsw_nuss_init_slave_ports(struct am65_cpsw_common *common)
 		port->fetch_ram_base =
 				common->cpsw_base + AM65_CPSW_NU_FRAM_BASE +
 				(AM65_CPSW_NU_FRAM_PORT_OFFSET * (port_id - 1));
+		port->qos.iet.addfragsize = 1;
 
 		port->slave.mac_sl = cpsw_sl_get("am65", dev, port->port_base);
 		if (IS_ERR(port->slave.mac_sl))
