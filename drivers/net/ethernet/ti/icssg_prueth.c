@@ -1200,6 +1200,17 @@ static struct icssg_firmwares icssg_emac_firmwares[] = {
 	}
 };
 
+static struct icssg_firmwares icssg_emac_firmwares_sr1[] = {
+	{
+		.pru = "ti-pruss/am65x-pru0-prueth-fw.elf",
+		.rtu = "ti-pruss/am65x-rtu0-prueth-fw.elf",
+	},
+	{
+		.pru = "ti-pruss/am65x-pru1-prueth-fw.elf",
+		.rtu = "ti-pruss/am65x-rtu1-prueth-fw.elf",
+	}
+};
+
 static int prueth_emac_start(struct prueth *prueth, struct prueth_emac *emac)
 {
 	struct icssg_firmwares *firmwares;
@@ -1208,6 +1219,8 @@ static int prueth_emac_start(struct prueth *prueth, struct prueth_emac *emac)
 
 	if (prueth->is_switch_mode)
 		firmwares = icssg_switch_firmwares;
+	else if (prueth->is_sr1)
+		firmwares = icssg_emac_firmwares_sr1;
 	else
 		firmwares = icssg_emac_firmwares;
 
@@ -2942,14 +2955,14 @@ static int prueth_probe(struct platform_device *pdev)
 		prueth->registered_netdevs[PRUETH_MAC1] = prueth->emac[PRUETH_MAC1]->ndev;
 	}
 
+	ret = prueth_register_devlink(prueth);
+	if (ret)
+		goto netdev_unregister;
+
 	if (prueth->is_switchmode_supported) {
 		ret = prueth_register_notifiers(prueth);
 		if (ret)
 			goto netdev_unregister;
-
-		ret = prueth_register_devlink(prueth);
-		if (ret)
-			goto clean_unregister_notifiers;
 
 		sprintf(prueth->switch_id, "%s", dev_name(dev));
 	}
@@ -2964,8 +2977,6 @@ static int prueth_probe(struct platform_device *pdev)
 
 	return 0;
 
-clean_unregister_notifiers:
-	prueth_unregister_notifiers(prueth);
 netdev_unregister:
 	for (i = 0; i < PRUETH_NUM_MACS; i++) {
 		if (!prueth->registered_netdevs[i])
