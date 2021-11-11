@@ -661,8 +661,14 @@ static void ks_pcie_quirk(struct pci_dev *dev)
 		{ 0, },
 	};
 
-	if (pci_is_root_bus(bus))
+	if (pci_is_root_bus(bus)) {
 		bridge = dev;
+		if (pci_match_id(am6_pci_devids, bridge)) {
+			struct resource *r = &dev->resource[0];
+
+			r->flags |= IORESOURCE_UNSET;
+		}
+	}
 
 	/* look for the host bridge */
 	while (!pci_is_root_bus(bus)) {

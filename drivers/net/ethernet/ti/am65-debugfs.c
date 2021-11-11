@@ -124,6 +124,50 @@ err:
 DEFINE_DEBUGFS_ATTRIBUTE(fops_cut_thru_rx_pri_mask, cut_thru_rx_pri_mask_get,
 			 cut_thru_rx_pri_mask_set, "%llx\n");
 
+static int
+iet_addfragsize_get(void *data, u64 *val)
+{
+	struct am65_cpsw_port *port = data;
+	struct am65_cpsw_iet *iet;
+	int ret = -EINVAL;
+
+	read_lock(&dev_base_lock);
+	iet = &port->qos.iet;
+	if (port->ndev->reg_state == NETREG_REGISTERED) {
+		*val =  (iet->addfragsize + 1) << 6;
+		ret = 0;
+	}
+	read_unlock(&dev_base_lock);
+
+	return ret;
+}
+
+static int
+iet_addfragsize_set(void *data, u64 val)
+{
+	struct am65_cpsw_iet *iet;
+	struct am65_cpsw_port *port = data;
+	struct am65_cpsw_common *common;
+	int ret = 0;
+
+	if (val > 512)
+		return -EINVAL;
+
+	if (!rtnl_trylock())
+		return restart_syscall();
+
+	common = port->common;
+	iet = &port->qos.iet;
+
+	/* hw addfragsize is in 64 octet units*/
+	iet->addfragsize = (val >> 6) - 1;
+
+	rtnl_unlock();
+	return ret;
+}
+
+DEFINE_DEBUGFS_ATTRIBUTE(fops_iet_addfragsize, iet_addfragsize_get, iet_addfragsize_set, "%llu\n");
+
 int am65_cpsw_nuss_register_port_debugfs(struct am65_cpsw_port *port)
 {
 	struct am65_cpsw_common *common = port->common;
@@ -147,6 +191,10 @@ int am65_cpsw_nuss_register_port_debugfs(struct am65_cpsw_port *port)
 				    port->debugfs_port,
 				    port, &fops_cut_thru_rx_pri_mask);
 	}
+
+	debugfs_create_file("iet_addfragsize", 0600,
+			    port->debugfs_port,
+			    port, &fops_iet_addfragsize);
 
 	return 0;
 }
