@@ -136,3 +136,12 @@ config IEEE802154_HWSIM
 
 	  This driver can also be built as a module. To do so say M here.
 	  The module will be called 'mac802154_hwsim'.
+
+config IEEE802154_BCFSERIAL
+	tristate "BCFSERIAL driver"
+	depends on IEEE802154_DRIVERS && MAC802154
+	help
+	  Adds support for BCFSERIAL 802.15.4 adapters.
+
+	  This driver should work with at least the following devices:
+	  * BeagleBoard.org BeagleConnect Freedom
