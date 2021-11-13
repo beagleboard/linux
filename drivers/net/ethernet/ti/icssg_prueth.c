@@ -2695,6 +2695,9 @@ static int prueth_register_devlink(struct prueth *prueth)
 
 	for (i = PRUETH_MAC0; i < PRUETH_NUM_MACS; i++) {
 		emac = prueth->emac[i];
+		if (!emac)
+			continue;
+
 		dl_port = &emac->devlink_port;
 
 		attrs.flavour = DEVLINK_PORT_FLAVOUR_PHYSICAL;
