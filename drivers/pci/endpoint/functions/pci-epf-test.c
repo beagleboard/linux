@@ -314,12 +314,12 @@ static int pci_epf_test_read(struct pci_epf_test *epf_test)
 	u32 crc32;
 	bool use_dma;
 	phys_addr_t phys_addr;
+	struct device *dma_dev;
 	phys_addr_t dst_phys_addr;
 	struct timespec64 start, end;
 	struct pci_epf *epf = epf_test->epf;
 	struct device *dev = &epf->dev;
 	struct pci_epc *epc = epf->epc;
-	struct device *dma_dev = epf->epc->dev.parent;
 	enum pci_barno test_reg_bar = epf_test->test_reg_bar;
 	struct pci_epf_test_reg *reg = epf_test->reg[test_reg_bar];
 
@@ -353,6 +353,7 @@ static int pci_epf_test_read(struct pci_epf_test *epf_test)
 			goto err_dma_map;
 		}
 
+		dma_dev = dmaengine_get_dma_device(epf_test->dma_chan);
 		dst_phys_addr = dma_map_single(dma_dev, buf, reg->size,
 					       DMA_FROM_DEVICE);
 		if (dma_mapping_error(dma_dev, dst_phys_addr)) {
@@ -402,12 +403,12 @@ static int pci_epf_test_write(struct pci_epf_test *epf_test)
 	void *buf;
 	bool use_dma;
 	phys_addr_t phys_addr;
+	struct device *dma_dev;
 	phys_addr_t src_phys_addr;
 	struct timespec64 start, end;
 	struct pci_epf *epf = epf_test->epf;
 	struct device *dev = &epf->dev;
 	struct pci_epc *epc = epf->epc;
-	struct device *dma_dev = epf->epc->dev.parent;
 	enum pci_barno test_reg_bar = epf_test->test_reg_bar;
 	struct pci_epf_test_reg *reg = epf_test->reg[test_reg_bar];
 
@@ -444,6 +445,7 @@ static int pci_epf_test_write(struct pci_epf_test *epf_test)
 			goto err_map_addr;
 		}
 
+		dma_dev = dmaengine_get_dma_device(epf_test->dma_chan);
 		src_phys_addr = dma_map_single(dma_dev, buf, reg->size,
 					       DMA_TO_DEVICE);
 		if (dma_mapping_error(dma_dev, src_phys_addr)) {
