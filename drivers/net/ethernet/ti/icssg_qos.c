@@ -370,7 +370,7 @@ static int icssg_config_ietfpe(struct prueth_qos_iet *iet, bool enable)
 	 */
 	writeb(enable ? 1 : 0, config + PRE_EMPTION_ENABLE_TX);
 
-	if (iet->mac_verify_configured) {
+	if (enable && iet->mac_verify_configured) {
 		ret = readb_poll_timeout(config + PRE_EMPTION_VERIFY_STATUS, val,
 					 (val == ICSSG_IETFPE_STATE_SUCCEEDED),
 					 USEC_PER_MSEC, 5 * USEC_PER_SEC);
@@ -393,6 +393,8 @@ static int icssg_config_ietfpe(struct prueth_qos_iet *iet, bool enable)
 			writeb(0, config + PRE_EMPTION_ENABLE_TX);
 			return -ENODEV;
 		}
+	} else {
+		return ret;
 	}
 
 	/* Configure highest queue as express. Set Bit 4 for FPE,
