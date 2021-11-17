@@ -1869,8 +1869,6 @@ static int emac_ndo_stop(struct net_device *ndev)
 	int rx_flow = emac->is_sr1 ?
 			PRUETH_RX_FLOW_DATA_SR1 : PRUETH_RX_FLOW_DATA_SR2;
 
-	icssg_qos_cleanup(ndev);
-
 	/* inform the upper layers. */
 	netif_tx_stop_all_queues(ndev);
 

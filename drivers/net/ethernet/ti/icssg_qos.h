@@ -121,8 +121,6 @@ struct prueth_qos_iet {
 	 * in firmware
 	 */
 	bool mac_verify_configured;
-	/* configured queue mask */
-	u32 fpe_mask_configured;
 };
 
 struct prueth_qos {
@@ -131,7 +129,6 @@ struct prueth_qos {
 };
 
 void icssg_qos_init(struct net_device *ndev);
-void icssg_qos_cleanup(struct net_device *ndev);
 int icssg_qos_ndo_setup_tc(struct net_device *ndev, enum tc_setup_type type,
 			   void *type_data);
 void icssg_qos_link_up(struct net_device *ndev);
