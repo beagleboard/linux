@@ -23,12 +23,9 @@ void icssg_qos_init(struct net_device *ndev)
 
 	icssg_qos_tas_init(ndev);
 
-	if (!iet->fpe_configured) {
-		iet->fpe_mask_configured = 0;
+	if (!iet->fpe_configured)
 		return;
-	}
 
-	iet->fpe_mask_configured = GENMASK(emac->tx_ch_num - 2, 0);
 	/* Init work queue for IET MAC verify process */
 	iet->emac = emac;
 	INIT_WORK(&iet->fpe_config_task, icssg_qos_enable_ietfpe);
@@ -39,19 +36,6 @@ void icssg_qos_init(struct net_device *ndev)
 	 * fpe config task.
 	 */
 	atomic_set(&iet->cancel_fpe_config, 0);
-}
-
-void icssg_qos_cleanup(struct net_device *ndev)
-{
-	struct prueth_emac *emac = netdev_priv(ndev);
-	struct prueth_qos_iet *iet = &emac->qos.iet;
-
-	if (!iet->fpe_enabled)
-		return;
-
-	iet->fpe_mask_configured = 0;
-	/* Send a command to firmware to stop FPE */
-	icssg_prueth_iet_fpe_disable(iet);
 }
 
 static void tas_update_fw_list_pointers(struct prueth_emac *emac)
@@ -386,7 +370,7 @@ static int icssg_config_ietfpe(struct prueth_qos_iet *iet, bool enable)
 	 */
 	writeb(enable ? 1 : 0, config + PRE_EMPTION_ENABLE_TX);
 
-	if (iet->mac_verify_configured) {
+	if (enable && iet->mac_verify_configured) {
 		ret = readb_poll_timeout(config + PRE_EMPTION_VERIFY_STATUS, val,
 					 (val == ICSSG_IETFPE_STATE_SUCCEEDED),
 					 USEC_PER_MSEC, 5 * USEC_PER_SEC);
@@ -409,6 +393,8 @@ static int icssg_config_ietfpe(struct prueth_qos_iet *iet, bool enable)
 			writeb(0, config + PRE_EMPTION_ENABLE_TX);
 			return -ENODEV;
 		}
+	} else {
+		return ret;
 	}
 
 	/* Configure highest queue as express. Set Bit 4 for FPE,
