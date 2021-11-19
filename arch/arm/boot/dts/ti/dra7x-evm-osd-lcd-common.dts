@@ -23,7 +23,6 @@
 			leds = <&backlight_led>;
 			brightness-levels = <0 243 245 247 248 249 251 252 256>;
 			default-brightness = <8>;
-			enable-gpios = <&pcf_lcd 13 GPIO_ACTIVE_LOW>;
 		};
 
 		tc358768_refclk: tc358768_refclk {
@@ -112,5 +111,14 @@
 			};
 		};
 
+	};
+};
+
+&pcf_lcd {
+	backlight-hog {
+		gpio-hog;
+		gpios = <13 GPIO_ACTIVE_LOW>;
+		line-name = "enable_backlight";
+		output-high;
 	};
 };
