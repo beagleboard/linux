@@ -27,7 +27,7 @@ struct sk_buff;
 
 #ifdef CONFIG_BATMAN_ADV_BLA
 int batadv_bla_rx(struct batadv_priv *bat_priv, struct sk_buff *skb,
-		  unsigned short vid, bool is_bcast);
+		  unsigned short vid, int packet_type);
 int batadv_bla_tx(struct batadv_priv *bat_priv, struct sk_buff *skb,
 		  unsigned short vid);
 int batadv_bla_is_backbone_gw(struct sk_buff *skb,
@@ -50,7 +50,7 @@ void batadv_bla_free(struct batadv_priv *bat_priv);
 
 static inline int batadv_bla_rx(struct batadv_priv *bat_priv,
 				struct sk_buff *skb, unsigned short vid,
-				bool is_bcast)
+				int packet_type)
 {
 	return 0;
 }
