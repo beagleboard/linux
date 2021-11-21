@@ -165,6 +165,13 @@ static inline void __tlb_reset_range(struct mmu_gather *tlb)
 #define tlb_end_vma	__tlb_end_vma
 #endif
 
+static inline void tlb_flush_pmd_range(struct mmu_gather *tlb,
+				unsigned long address, unsigned long size)
+{
+	tlb->start = min(tlb->start, address);
+	tlb->end = max(tlb->end, address + size);
+}
+
 #ifndef __tlb_remove_tlb_entry
 #define __tlb_remove_tlb_entry(tlb, ptep, address) do { } while (0)
 #endif

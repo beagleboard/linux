@@ -3290,8 +3290,11 @@ again:
 			continue;
 
 		ptl = huge_pte_lock(h, mm, ptep);
-		if (huge_pmd_unshare(mm, &address, ptep))
+		if (huge_pmd_unshare(mm, &address, ptep)) {
+			tlb_flush_pmd_range(tlb, address & PUD_MASK, PUD_SIZE);
+			force_flush = 1;
 			goto unlock;
+		}
 
 		pte = huge_ptep_get(ptep);
 		if (huge_pte_none(pte))
