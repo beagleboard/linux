@@ -115,6 +115,16 @@ static inline bool __tlb_remove_page_size(struct mmu_gather *tlb,
 	return __tlb_remove_page(tlb, page);
 }
 
+static inline void
+tlb_flush_pmd_range(struct mmu_gather *tlb, unsigned long address,
+		    unsigned long size)
+{
+	if (tlb->start > address)
+		tlb->start = address;
+	if (tlb->end < address + size)
+		tlb->end = address + size;
+}
+
 static inline bool __tlb_remove_pte_page(struct mmu_gather *tlb,
 					 struct page *page)
 {
