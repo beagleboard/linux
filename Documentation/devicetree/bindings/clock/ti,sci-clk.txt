@@ -16,7 +16,7 @@ Required properties:
   In clock consumers, this cell represents the device ID and clock ID
   exposed by the PM firmware. The list of valid values for the device IDs
   and clocks IDs for 66AK2G SoC are documented at
-  http://processors.wiki.ti.com/index.php/TISCI#66AK2G02_Data
+  https://software-dl.ti.com/tisci/esd/latest/5_soc_doc/am6x/clocks.html
 
 Examples:
 --------
