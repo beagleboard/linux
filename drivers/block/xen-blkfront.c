@@ -64,6 +64,7 @@ enum blkif_state {
 	BLKIF_STATE_DISCONNECTED,
 	BLKIF_STATE_CONNECTED,
 	BLKIF_STATE_SUSPENDED,
+	BLKIF_STATE_ERROR,
 };
 
 struct grant {
@@ -79,6 +80,7 @@ struct blk_shadow {
 	struct grant **indirect_grants;
 	struct scatterlist *sg;
 	unsigned int num_sg;
+	bool inflight;
 };
 
 struct split_bio {
@@ -495,6 +497,7 @@ static int blkif_queue_discard_req(struct request *req)
 
 	/* Copy the request to the ring page. */
 	*final_ring_req = *ring_req;
+	info->shadow[id].inflight = true;
 
 	return 0;
 }
@@ -712,6 +715,7 @@ static int blkif_queue_rw_req(struct request *req)
 
 	/* Copy request(s) to the ring page. */
 	*final_ring_req = *ring_req;
+	info->shadow[id].inflight = true;
 
 	if (new_persistent_gnts)
 		gnttab_free_grant_references(setup.gref_head);
@@ -1324,11 +1328,17 @@ static irqreturn_t blkif_interrupt(int irq, void *dev_id)
 	}
 
  again:
-	rp = info->ring.sring->rsp_prod;
+	rp = READ_ONCE(info->ring.sring->rsp_prod);
 	rmb(); /* Ensure we see queued responses up to 'rp'. */
+	if (RING_RESPONSE_PROD_OVERFLOW(&info->ring, rp)) {
+		pr_alert("%s: illegal number of responses %u\n",
+			 info->gd->disk_name, rp - info->ring.rsp_cons);
+		goto err;
+	}
 
 	for (i = info->ring.rsp_cons; i != rp; i++) {
 		unsigned long id;
+		unsigned int op;
 
 		RING_COPY_RESPONSE(&info->ring, i, &bret);
 		id   = bret.id;
@@ -1339,13 +1349,27 @@ static irqreturn_t blkif_interrupt(int irq, void *dev_id)
 		 * look in get_id_from_freelist.
 		 */
 		if (id >= BLK_RING_SIZE(info)) {
-			WARN(1, "%s: response to %s has incorrect id (%ld)\n",
-			     info->gd->disk_name, op_name(bret.operation), id);
-			/* We can't safely get the 'struct request' as
-			 * the id is busted. */
-			continue;
+			pr_alert("%s: response has incorrect id (%ld)\n",
+				 info->gd->disk_name, id);
+			goto err;
 		}
+		if (!info->shadow[id].inflight) {
+			pr_alert("%s: response references no pending request\n",
+				 info->gd->disk_name);
+			goto err;
+		}
+
+		info->shadow[id].inflight = false;
 		req  = info->shadow[id].request;
+
+		op = info->shadow[id].req.operation;
+		if (op == BLKIF_OP_INDIRECT)
+			op = info->shadow[id].req.u.indirect.indirect_op;
+		if (bret.operation != op) {
+			pr_alert("%s: response has wrong operation (%u instead of %u)\n",
+				 info->gd->disk_name, bret.operation, op);
+			goto err;
+		}
 
 		if (bret.operation != BLKIF_OP_DISCARD)
 			blkif_completion(&info->shadow[id], info, &bret);
@@ -1361,7 +1385,8 @@ static irqreturn_t blkif_interrupt(int irq, void *dev_id)
 		case BLKIF_OP_DISCARD:
 			if (unlikely(bret.status == BLKIF_RSP_EOPNOTSUPP)) {
 				struct request_queue *rq = info->rq;
-				printk(KERN_WARNING "blkfront: %s: %s op failed\n",
+
+				pr_warn_ratelimited("blkfront: %s: %s op failed\n",
 					   info->gd->disk_name, op_name(bret.operation));
 				error = -EOPNOTSUPP;
 				info->feature_discard = 0;
@@ -1374,13 +1399,13 @@ static irqreturn_t blkif_interrupt(int irq, void *dev_id)
 		case BLKIF_OP_FLUSH_DISKCACHE:
 		case BLKIF_OP_WRITE_BARRIER:
 			if (unlikely(bret.status == BLKIF_RSP_EOPNOTSUPP)) {
-				printk(KERN_WARNING "blkfront: %s: %s op failed\n",
+				pr_warn_ratelimited("blkfront: %s: %s op failed\n",
 				       info->gd->disk_name, op_name(bret.operation));
 				error = -EOPNOTSUPP;
 			}
 			if (unlikely(bret.status == BLKIF_RSP_ERROR &&
 				     info->shadow[id].req.u.rw.nr_segments == 0)) {
-				printk(KERN_WARNING "blkfront: %s: empty %s op failed\n",
+				pr_warn_ratelimited("blkfront: %s: empty %s op failed\n",
 				       info->gd->disk_name, op_name(bret.operation));
 				error = -EOPNOTSUPP;
 			}
@@ -1394,8 +1419,9 @@ static irqreturn_t blkif_interrupt(int irq, void *dev_id)
 		case BLKIF_OP_READ:
 		case BLKIF_OP_WRITE:
 			if (unlikely(bret.status != BLKIF_RSP_OKAY))
-				dev_dbg(&info->xbdev->dev, "Bad return from blkdev data "
-					"request: %x\n", bret.status);
+				dev_dbg_ratelimited(&info->xbdev->dev,
+					"Bad return from blkdev data request: %x\n",
+					bret.status);
 
 			blk_mq_complete_request(req, error);
 			break;
@@ -1418,6 +1444,14 @@ static irqreturn_t blkif_interrupt(int irq, void *dev_id)
 
 	spin_unlock_irqrestore(&info->io_lock, flags);
 
+	return IRQ_HANDLED;
+
+ err:
+	info->connected = BLKIF_STATE_ERROR;
+
+	spin_unlock_irqrestore(&info->io_lock, flags);
+
+	pr_alert("%s disabled for further use\n", info->gd->disk_name);
 	return IRQ_HANDLED;
 }
 
@@ -1928,6 +1962,7 @@ out_of_memory:
 		info->shadow[i].sg = NULL;
 		kfree(info->shadow[i].indirect_grants);
 		info->shadow[i].indirect_grants = NULL;
+		info->shadow[i].inflight = false;
 	}
 	if (!list_empty(&info->indirect_pages)) {
 		struct page *indirect_page, *n;
