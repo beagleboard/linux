@@ -2646,6 +2646,9 @@ static void prueth_unregister_devlink_ports(struct prueth *prueth)
 
 	for (i = PRUETH_MAC0; i < PRUETH_NUM_MACS; i++) {
 		emac = prueth->emac[i];
+		if (!emac)
+			continue;
+
 		dl_port = &emac->devlink_port;
 
 		if (dl_port->registered)
