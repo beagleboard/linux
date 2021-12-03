@@ -20,7 +20,6 @@
 			leds = <&backlight_led>;
 			brightness-levels = <0 2 38 74 110 146 182 218 256>;
 			default-brightness = <8>;
-			enable-gpios = <&pcf_display_board 0 GPIO_ACTIVE_LOW>;
 		};
 
 		lcd: display {
@@ -64,6 +63,13 @@
 		#gpio-cells = <2>;
 		gpio-controller;
 		reg = <0x27>;
+
+		backlight-hog {
+			gpio-hog;
+			gpios = <0 GPIO_ACTIVE_LOW>;
+			line-name = "enable_backlight";
+			output-high;
+		};
 	};
 
 	tlc59108@40 {
