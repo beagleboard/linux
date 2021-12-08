@@ -356,7 +356,7 @@ static struct its_collection *its_build_invall_cmd(struct its_cmd_block *cmd,
 
 	its_fixup_cmd(cmd);
 
-	return NULL;
+	return desc->its_invall_cmd.col;
 }
 
 static u64 its_cmd_ptr_to_offset(struct its_node *its,
