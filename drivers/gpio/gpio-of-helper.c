@@ -341,6 +341,8 @@ static int gpio_of_helper_probe(struct platform_device *pdev)
 	}
 
 	for_each_child_of_node(pnode, cnode) {
+		if (!of_device_is_available(cnode))
+			continue;
 
 		entry = gpio_of_entry_create(info, cnode);
 		if (IS_ERR_OR_NULL(entry)) {
