@@ -314,8 +314,8 @@ struct cdns_pcie_rc {
 	u32			vendor_id;
 	u32			device_id;
 	bool			avail_ib_bar[CDNS_PCIE_RP_MAX_IB];
-	bool                    quirk_retrain_flag;
-	bool                    quirk_detect_quiet_flag;
+	unsigned int		quirk_retrain_flag:1;
+	unsigned int		quirk_detect_quiet_flag:1;
 };
 
 /**
@@ -363,7 +363,7 @@ struct cdns_pcie_ep {
 	/* protect writing to PCI_STATUS while raising legacy interrupts */
 	spinlock_t		lock;
 	struct cdns_pcie_epf	*epf;
-	bool                    quirk_detect_quiet_flag;
+	unsigned int		quirk_detect_quiet_flag:1;
 };
 
 

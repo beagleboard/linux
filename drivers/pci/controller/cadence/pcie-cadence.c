@@ -15,7 +15,6 @@ void cdns_pcie_detect_quiet_min_delay_set(struct cdns_pcie *pcie)
 	/*
 	 * Set the LTSSM Detect Quiet state min. delay to 2ms.
 	 */
-
 	ltssm_control_cap = cdns_pcie_readl(pcie, CDNS_PCIE_LTSSM_CONTROL_CAP);
 	ltssm_control_cap = ((ltssm_control_cap &
 			    ~CDNS_PCIE_DETECT_QUIET_MIN_DELAY_MASK) |
