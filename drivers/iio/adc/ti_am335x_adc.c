@@ -560,7 +560,7 @@ static int tiadc_request_dma(struct platform_device *pdev,
 	}
 
 	/* RX buffer */
-	dma->buf = dma_alloc_coherent(&pdev->dev, DMA_BUFFER_SIZE,
+	dma->buf = dma_alloc_coherent(dma->chan->device->dev, DMA_BUFFER_SIZE,
 				      &dma->addr, GFP_KERNEL);
 	if (!dma->buf)
 		goto err;
@@ -676,7 +676,7 @@ static int tiadc_remove(struct platform_device *pdev)
 	u32 step_en;
 
 	if (dma->chan) {
-		dma_free_coherent(&pdev->dev, DMA_BUFFER_SIZE,
+		dma_free_coherent(dma->chan->device->dev, DMA_BUFFER_SIZE,
 				  dma->buf, dma->addr);
 		dma_release_channel(dma->chan);
 	}
