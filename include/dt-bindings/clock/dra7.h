@@ -1,20 +1,14 @@
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright 2017 Texas Instruments, Inc.
- *
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
  */
 #ifndef __DT_BINDINGS_CLK_DRA7_H
 #define __DT_BINDINGS_CLK_DRA7_H
 
 #define DRA7_CLKCTRL_OFFSET	0x20
 #define DRA7_CLKCTRL_INDEX(offset)	((offset) - DRA7_CLKCTRL_OFFSET)
+
+/* XXX: Compatibility part begin, remove this once compatibility support is no longer needed */
 
 /* mpu clocks */
 #define DRA7_MPU_CLKCTRL	DRA7_CLKCTRL_INDEX(0x20)
@@ -41,6 +35,16 @@
 #define DRA7_RTC_CLKCTRL_OFFSET	0x40
 #define DRA7_RTC_CLKCTRL_INDEX(offset)	((offset) - DRA7_RTC_CLKCTRL_OFFSET)
 #define DRA7_RTCSS_CLKCTRL	DRA7_RTC_CLKCTRL_INDEX(0x44)
+
+/* vip clocks */
+#define DRA7_VIP1_CLKCTRL	DRA7_CLKCTRL_INDEX(0x20)
+#define DRA7_VIP2_CLKCTRL	DRA7_CLKCTRL_INDEX(0x28)
+#define DRA7_VIP3_CLKCTRL	DRA7_CLKCTRL_INDEX(0x30)
+
+/* vpe clocks */
+#define DRA7_VPE_CLKCTRL_OFFSET	0x60
+#define DRA7_VPE_CLKCTRL_INDEX(offset)	((offset) - DRA7_VPE_CLKCTRL_OFFSET)
+#define DRA7_VPE_CLKCTRL	DRA7_VPE_CLKCTRL_INDEX(0x64)
 
 /* coreaon clocks */
 #define DRA7_SMARTREFLEX_MPU_CLKCTRL	DRA7_CLKCTRL_INDEX(0x28)
@@ -90,9 +94,16 @@
 #define DRA7_L3_MAIN_2_CLKCTRL	DRA7_CLKCTRL_INDEX(0x20)
 #define DRA7_L3_INSTR_CLKCTRL	DRA7_CLKCTRL_INDEX(0x28)
 
+/* iva clocks */
+#define DRA7_IVA_CLKCTRL	DRA7_CLKCTRL_INDEX(0x20)
+#define DRA7_SL2IF_CLKCTRL	DRA7_CLKCTRL_INDEX(0x28)
+
 /* dss clocks */
 #define DRA7_DSS_CORE_CLKCTRL	DRA7_CLKCTRL_INDEX(0x20)
 #define DRA7_BB2D_CLKCTRL	DRA7_CLKCTRL_INDEX(0x30)
+
+/* gpu clocks */
+#define DRA7_GPU_CLKCTRL	DRA7_CLKCTRL_INDEX(0x20)
 
 /* l3init clocks */
 #define DRA7_MMC1_CLKCTRL	DRA7_CLKCTRL_INDEX(0x28)
