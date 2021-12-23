@@ -493,8 +493,6 @@ static int blkif_queue_discard_req(struct request *req)
 	else
 		ring_req->u.discard.flag = 0;
 
-	info->ring.req_prod_pvt++;
-
 	/* Copy the request to the ring page. */
 	*final_ring_req = *ring_req;
 	info->shadow[id].inflight = true;
@@ -710,8 +708,6 @@ static int blkif_queue_rw_req(struct request *req)
 	}
 	if (setup.segments)
 		kunmap_atomic(setup.segments);
-
-	info->ring.req_prod_pvt++;
 
 	/* Copy request(s) to the ring page. */
 	*final_ring_req = *ring_req;
