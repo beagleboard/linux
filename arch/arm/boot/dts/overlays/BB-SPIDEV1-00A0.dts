@@ -1,0 +1,81 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright (C) 2013 CircuitCo
+ * Virtual cape for SPI1 on connector pins P9.29 P9.31 P9.30 P9.28
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/pinctrl/am33xx.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+ */
+&{/chosen} {
+	overlays {
+		BB-SPIDEV1-00A0.kernel = __TIMESTAMP__;
+	};
+};
+
+/*
+ * Free up the pins used by the cape from the pinmux helpers.
+ */
+&ocp {
+	P9_28_pinmux { status = "disabled"; };	/* P9_28 (C12) mcasp0_ahclkr.spi1_cs0 */
+	P9_30_pinmux { status = "disabled"; };	/* P9_30 (D12) mcasp0_axr0.spi1_d1 */
+	P9_29_pinmux { status = "disabled"; };	/* P9_29 (B13) mcasp0_fsx.spi1_d0 */
+	P9_31_pinmux { status = "disabled"; };	/* P9_31 (A13) mcasp0_aclkx.spi1_sclk */
+};
+
+&am33xx_pinmux {
+	bb_spi1_pins: pinmux_bb_spi1_pins {
+		pinctrl-single,pins = <
+			AM33XX_PADCONF(AM335X_PIN_MCASP0_ACLKX, PIN_INPUT, MUX_MODE3)	/* P9_31 (A13) mcasp0_aclkx.spi1_sclk */
+			AM33XX_PADCONF(AM335X_PIN_MCASP0_FSX, PIN_INPUT, MUX_MODE3)	/* P9_29 (B13) mcasp0_fsx.spi1_d0 */
+			AM33XX_PADCONF(AM335X_PIN_MCASP0_AXR0, PIN_INPUT, MUX_MODE3)	/* P9_30 (D12) mcasp0_axr0.spi1_d1 */
+			AM33XX_PADCONF(AM335X_PIN_MCASP0_AHCLKR, PIN_INPUT, MUX_MODE3)	/* P9_28 (C12) mcasp0_ahclkr.spi1_cs0 */
+		>;
+	};
+};
+
+&spi1 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&bb_spi1_pins>;
+
+	/*
+	 * Select the D0 pin as output and D1 as
+	 * input. The default is D0 as input and
+	 * D1 as output.
+	 */
+	//ti,pindir-d0-out-d1-in;
+
+	channel@0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		compatible = "spidev";
+		symlink = "bone/spi/1.0";
+
+		reg = <0>;
+		spi-max-frequency = <16000000>;
+		spi-cpha;
+	};
+
+	channel@1 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		compatible = "spidev";
+		symlink = "bone/spi/1.1";
+
+		reg = <1>;
+		spi-max-frequency = <16000000>;
+	};
+};
