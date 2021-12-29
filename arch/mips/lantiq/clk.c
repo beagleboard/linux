@@ -165,6 +165,12 @@ struct clk *of_clk_get_from_provider(struct of_phandle_args *clkspec)
 	return NULL;
 }
 
+int clk_set_parent(struct clk *clk, struct clk *parent)
+{
+	return 0;
+}
+EXPORT_SYMBOL(clk_set_parent);
+
 static inline u32 get_counter_resolution(void)
 {
 	u32 res;
