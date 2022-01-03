@@ -2646,6 +2646,9 @@ static void prueth_unregister_devlink_ports(struct prueth *prueth)
 
 	for (i = PRUETH_MAC0; i < PRUETH_NUM_MACS; i++) {
 		emac = prueth->emac[i];
+		if (!emac)
+			continue;
+
 		dl_port = &emac->devlink_port;
 
 		if (dl_port->registered)
@@ -2880,7 +2883,7 @@ static int prueth_probe(struct platform_device *pdev)
 	prueth->iep1 = icss_iep_get_idx(np, 1);
 	if (IS_ERR(prueth->iep1)) {
 		ret = dev_err_probe(dev, PTR_ERR(prueth->iep1), "iep1 get failed\n");
-		icss_iep_put(prueth->iep1);
+		icss_iep_put(prueth->iep0);
 		prueth->iep0 = NULL;
 		prueth->iep1 = NULL;
 		goto free_pool;

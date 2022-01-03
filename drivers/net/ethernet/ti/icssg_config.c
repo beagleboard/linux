@@ -431,8 +431,9 @@ static int prueth_emac_buffer_setup(struct prueth_emac *emac)
 		addr += PRUETH_EMAC_BUF_POOL_SIZE_SR2;
 	}
 
-	addr += PRUETH_NUM_BUF_POOLS_SR2 * PRUETH_EMAC_BUF_POOL_SIZE_SR2;
-	if (slice)
+	if (!slice)
+		addr += PRUETH_NUM_BUF_POOLS_SR2 * PRUETH_EMAC_BUF_POOL_SIZE_SR2;
+	else
 		addr += PRUETH_EMAC_RX_CTX_BUF_SIZE * 2;
 
 	/* Pre-emptible RX buffer queue */
