@@ -147,7 +147,6 @@ iet_addfragsize_set(void *data, u64 val)
 {
 	struct am65_cpsw_iet *iet;
 	struct am65_cpsw_port *port = data;
-	struct am65_cpsw_common *common;
 	int ret = 0;
 
 	if (val > 512)
@@ -156,7 +155,6 @@ iet_addfragsize_set(void *data, u64 val)
 	if (!rtnl_trylock())
 		return restart_syscall();
 
-	common = port->common;
 	iet = &port->qos.iet;
 
 	/* hw addfragsize is in 64 octet units*/
