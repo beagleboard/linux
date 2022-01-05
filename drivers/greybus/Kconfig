@@ -30,10 +30,11 @@ config GREYBUS_ES2
 
 config GREYBUS_NETLINK
 	tristate "Greybus netlink host controller"
-	---help---
-	Select this option if you want to implement a Greybus
-	"host controller" in userspace.
-	To compile this code as a module, chose M here: the module
-	will be called gb-netlink.ko
+	help
+	  Select this option if you want to implement a Greybus
+	  "host controller" in userspace.
+	  To compile this code as a module, chose M here: the module
+	  will be called gb-netlink.ko
+
 endif	# GREYBUS
 
