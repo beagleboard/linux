@@ -7,6 +7,7 @@
 
 #include <linux/types.h>
 #include <linux/device.h>
+#include <linux/mod_devicetable.h>
 #include <linux/termios.h>
 #include <linux/delay.h>
 
@@ -45,6 +46,7 @@ struct serdev_device {
 	const struct serdev_device_ops *ops;
 	struct completion write_comp;
 	struct mutex write_lock;
+	char modalias[SERDEV_NAME_SIZE];
 };
 
 static inline struct serdev_device *to_serdev_device(struct device *d)
@@ -63,6 +65,7 @@ struct serdev_device_driver {
 	struct device_driver driver;
 	int	(*probe)(struct serdev_device *);
 	void	(*remove)(struct serdev_device *);
+	const struct serdev_device_id *id_table;
 };
 
 static inline struct serdev_device_driver *to_serdev_device_driver(struct device_driver *d)
@@ -111,6 +114,8 @@ static inline struct serdev_controller *to_serdev_controller(struct device *d)
 {
 	return container_of(d, struct serdev_controller, dev);
 }
+
+struct serdev_controller *of_find_serdev_controller_by_node(struct device_node *node);
 
 static inline void *serdev_device_get_drvdata(const struct serdev_device *serdev)
 {
