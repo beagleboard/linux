@@ -286,7 +286,7 @@ static int msm_init_vram(struct drm_device *dev)
 		ret = of_address_to_resource(node, 0, &r);
 		if (ret)
 			return ret;
-		size = r.end - r.start;
+		size = r.end - r.start + 1;
 		DRM_INFO("using VRAM carveout: %lx@%pa\n", size, &r.start);
 	} else
 #endif
