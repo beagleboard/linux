@@ -28,6 +28,10 @@ config LOGO_LINUX_CLUT224
 	bool "Standard 224-color Linux logo"
 	default y
 
+config LOGO_BEAGLE_CLUT224
+	bool "224-color Linux logo with BeagleBoard.org mascot Boris"
+	default y
+
 config LOGO_DEC_CLUT224
 	bool "224-color Digital Equipment Corporation Linux logo"
 	depends on MACH_DECSTATION || ALPHA
