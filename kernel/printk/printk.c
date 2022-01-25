@@ -1312,6 +1312,35 @@ static size_t print_caller(u32 id, char *buf)
 #define print_caller(id, buf) 0
 #endif
 
+#ifdef CONFIG_PRINTK_EMOJI
+static size_t print_emoji(unsigned int level, char *buf)
+{
+	switch (level) {
+	case LOGLEVEL_EMERG:
+		return sprintf(buf, " %s", "🆘");
+	case LOGLEVEL_ALERT:
+		return sprintf(buf, " %s", "😲");
+	case LOGLEVEL_CRIT:
+		return sprintf(buf, " %s", "🔥");
+	case LOGLEVEL_ERR:
+		return sprintf(buf, " %s", "❌");
+	case LOGLEVEL_WARNING:
+		return sprintf(buf, " %s", "⚠️");
+	case LOGLEVEL_NOTICE:
+		return sprintf(buf, " %s", "📍");
+	case LOGLEVEL_INFO:
+		return sprintf(buf, " %s", "ℹ️");
+	case LOGLEVEL_DEBUG:
+		return sprintf(buf, " %s", "🪲");
+	default:
+		return sprintf(buf, " %s", "🤔");
+	}
+}
+#else
+#define print_emoji(level, buf) 0
+#endif
+
+
 static size_t info_print_prefix(const struct printk_info  *info, bool syslog,
 				bool time, char *buf)
 {
@@ -1322,7 +1351,8 @@ static size_t info_print_prefix(const struct printk_info  *info, bool syslog,
 
 	if (time)
 		len += print_time(info->ts_nsec, buf + len);
-
+	
+	len += print_emoji(info->level, buf + len);
 	len += print_caller(info->caller_id, buf + len);
 
 	if (IS_ENABLED(CONFIG_PRINTK_CALLER) || time) {
