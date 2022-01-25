@@ -1552,6 +1552,13 @@ config EPOLL
 	  Disabling this option will cause the kernel to be built without
 	  support for epoll family of system calls.
 
+config PRINTK_EMOJI
+	default n
+	bool "Enable support for printk" if PRINTK
+	help
+	  This option enables emojis prefix for printk log levels.
+
+
 config SIGNALFD
 	bool "Enable signalfd() system call" if EXPERT
 	default y
