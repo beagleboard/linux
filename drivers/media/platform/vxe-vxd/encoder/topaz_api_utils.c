@@ -1319,8 +1319,8 @@ void setup_rc_data(struct img_video_context *video, struct pic_params *pic_param
 void topaz_setup_input_format(struct img_video_context *video,
 			      struct img_vxe_scaler_setup *scaler_setup)
 {
-	const unsigned int scaler_coeff_regs_no_crop[] = {4261951490, 4178589440,
-						    4078580480, 4045614080};
+	const unsigned int scaler_coeff_regs_no_crop[] = {4261951490U, 4178589440U,
+						    4078580480U, 4045614080U};
 
 	if (video->enable_scaler) {
 		unsigned int pitch_x, pitch_y;
