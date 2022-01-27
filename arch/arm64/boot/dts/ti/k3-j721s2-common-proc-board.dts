@@ -485,6 +485,26 @@
 	phys = <&transceiver2>;
 };
 
+&dss {
+	/*
+	 * These clock assignments are chosen to enable the following outputs:
+	 *
+	 * VP0 - DisplayPort SST
+	 * VP1 - DPI0
+	 * VP2 - DSI
+	 * VP3 - DPI1
+	 */
+
+	assigned-clocks = <&k3_clks 158 35>,
+			  <&k3_clks 158 17>,
+			  <&k3_clks 158 26>,
+			  <&k3_clks 158 0>;
+	assigned-clock-parents = <&k3_clks 158 36>,
+				 <&k3_clks 158 19>,
+				 <&k3_clks 158 28>,
+				 <&k3_clks 158 4>;
+};
+
 &main_mcan0 {
 	status = "disabled";
 };
