@@ -1,0 +1,110 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/media/i2c/ov1063x.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: OmniVision OV10633/OV1035 8/10 bit digital camera Device Tree Bindings
+
+maintainers:
+  - Benoit Parrot <bparrot@ti.com>
+
+description: |-
+  The Omnivision digital camera is a 720p camera which is configurable at
+  8/10bit YUYV output and can be configured for various resolutions.
+
+  Each camera nodes should contain a 'port' child node with child
+  'endpoint' node. Please refer to the bindings defined in
+  Documentation/devicetree/bindings/media/video-interfaces.txt.
+
+properties:
+  compatible:
+    enum:
+      - ovti,ov10633
+      - ovti,ov10635
+
+  reg:
+    maxItems: 1
+
+  clocks:
+    maxItems: 1
+
+  clocks-names:
+    const: xvclk
+
+  reset-gpios:
+    maxItems: 1
+    description:
+      phandle to the GPIO connected to the reset pin, if any.
+
+  powerdown-gpios:
+    maxItems: 1
+    description:
+      phandle to the GPIO connected to the pwdn pin, if any.
+
+  # See ./video-interfaces.txt for details
+  port:
+    type: object
+    additionalProperties: false
+
+    patternProperties:
+      endpoint:
+        type: object
+        additionalProperties: false
+
+        properties:
+          hsync-active:
+            maxItems: 1
+
+          vsync-active:
+            maxItems: 1
+
+          pclk-sample:
+            maxItems: 1
+
+          bus-width:
+            maxItems: 1
+
+          remote-endpoint: true
+
+required:
+  - compatible
+  - reg
+  - clocks
+  - clocks-names
+  - port
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/gpio/gpio.h>
+
+    i2c5: i2c@4807c000 {
+        clock-frequency = <400000>;
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+         camera@37 {
+              compatible = "ovti,ov10633";
+              reg = <0x37>;
+
+              clocks = <&fixed_clock>;
+              clocks-names = "xvclk";
+
+              reset-gpios = <&gpio4 17 GPIO_ACTIVE_HIGH>;
+              powerdown-gpios = <&gpio5 11 GPIO_ACTIVE_HIGH>;
+
+              port {
+                   camera1: endpoint {
+                           remote-endpoint = <&vin1a_ep>;
+                           hsync-active = <1>;
+                           vsync-active = <1>;
+                           pclk-sample = <0>;
+                           bus-width = <8>;
+                   };
+              };
+         };
+    };
+
+...

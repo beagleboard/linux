@@ -1,0 +1,70 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (C) 2015-2018 Texas Instruments Incorporated - http://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+#include <dt-bindings/gpio/gpio.h>
+
+/ {
+	fragment@101 {
+		target-path = "/";
+
+		__overlay__ {
+			clk_ov10635: clock-gate {
+				compatible = "gpio-gate-clock";
+				#clock-cells = <0>;
+				clocks = <&clk_ov10635_fixed>;
+				enable-gpios = <&gpio5 10 GPIO_ACTIVE_HIGH>;
+			};
+
+			clk_ov10635_fixed: clock-fixed {
+				compatible = "fixed-clock";
+				#clock-cells = <0>;
+				clock-frequency = <24000000>;
+			};
+		};
+	};
+};
+
+&i2c5 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	ov10635@30 {
+		compatible = "ovti,ov10635";
+		reg = <0x30>;
+		clock-names = "xvclk";
+		clocks = <&clk_ov10635>;
+		powerdown-gpios = <&gpio5 11 GPIO_ACTIVE_HIGH>;
+		reset-gpios = <&gpio4 17 GPIO_ACTIVE_HIGH>;
+
+		port {
+			cam: endpoint {
+				remote-endpoint = <&vin3a_ep>;
+				hsync-active = <1>;
+				pclk-sample = <1>;
+				vsync-active = <1>;
+			};
+		};
+	};
+};
+
+&vin3a {
+	vin3a_ep: endpoint {
+		remote-endpoint = <&cam>;
+		hsync-active = <1>;
+		pclk-sample = <1>;
+		vsync-active = <1>;
+	};
+};
+
+&gpio6 {
+	p11 {
+		gpio-hog;
+		gpios = <11 GPIO_ACTIVE_LOW>;
+		line-name = "cm-camen-gpio";
+		output-high;
+	};
+};
