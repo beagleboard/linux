@@ -401,12 +401,6 @@ static void vxd_return_resource(void *ctx_handle, enum vxd_cb_type type,
 	int i;
 	struct vxd_dec_q_data *q_data;
 
-	if (ctx->aborting) {
-		v4l2_m2m_job_finish(ctx->dev->m2m_dev, ctx->fh.m2m_ctx);
-		ctx->aborting = 0;
-		return;
-	}
-
 	switch (type) {
 	case VXD_CB_STRUNIT_PROCESSED:
 
@@ -824,6 +818,7 @@ static int vxd_dec_start_streaming(struct vb2_queue *vq, unsigned int count)
 			return ret;
 		}
 		ctx->core_streaming = TRUE;
+		ctx->aborting = 0;
 	}
 
 	return 0;
@@ -840,6 +835,11 @@ static void vxd_dec_stop_streaming(struct vb2_queue *vq)
 		ctx->dst_streaming = FALSE;
 	else
 		ctx->src_streaming = FALSE;
+
+	if (!ctx->stream_created) {
+		vxd_dec_return_all_buffers(ctx, vq, VB2_BUF_STATE_ERROR);
+		return;
+	}
 
 	if (ctx->core_streaming) {
 		core_stream_stop(ctx->res_str_id);
@@ -871,6 +871,7 @@ static void vxd_dec_stop_streaming(struct vb2_queue *vq)
 		}
 	}
 
+	ctx->flag_last = FALSE;
 	vxd_dec_return_all_buffers(ctx, vq, VB2_BUF_STATE_ERROR);
 }
 
@@ -899,7 +900,7 @@ static int queue_init(void *priv, struct vb2_queue *src_vq, struct vb2_queue *ds
 	src_vq->ops = &vxd_dec_video_ops;
 	src_vq->mem_ops = &vb2_dma_sg_memops;
 	src_vq->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_COPY;
-	src_vq->lock = vxd->mutex;
+	src_vq->lock = vxd->mutex_queue;
 	src_vq->dev = vxd->v4l2_dev.dev;
 	ret = vb2_queue_init(src_vq);
 	if (ret)
@@ -918,7 +919,7 @@ static int queue_init(void *priv, struct vb2_queue *src_vq, struct vb2_queue *ds
 	dst_vq->mem_ops = &vb2_dma_sg_memops;
 #endif
 	dst_vq->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_COPY;
-	dst_vq->lock = vxd->mutex;
+	dst_vq->lock = vxd->mutex_queue;
 	dst_vq->dev = vxd->v4l2_dev.dev;
 	ret = vb2_queue_init(dst_vq);
 	if (ret) {
@@ -1042,9 +1043,38 @@ static int vxd_dec_release(struct file *file)
 	struct bspp_ddbuf_array_info *fw_pps = ctx->fw_pps;
 	int i, ret = 0;
 	struct vxd_dec_q_data *s_q_data;
+	struct list_head *list;
+	struct list_head *temp;
+	struct vxd_buffer *buf = NULL;
 
 	s_q_data = &ctx->q_data[Q_DATA_SRC];
+	if (ctx->core_streaming) {
+		core_stream_stop(ctx->res_str_id);
+		ctx->core_streaming = FALSE;
 
+		core_stream_flush(ctx->res_str_id, TRUE);
+	}
+
+	list_for_each(list, &ctx->out_buffers) {
+		buf = list_entry(list, struct vxd_buffer, list);
+		core_stream_unmap_buf_sg(buf->buf_map_id);
+		buf->mapped = FALSE;
+		__list_del_entry(&buf->list);
+	}
+
+	list_for_each_safe(list, temp, &ctx->reuse_queue) {
+		buf = list_entry(list, struct vxd_buffer, list);
+		core_stream_unmap_buf_sg(buf->buf_map_id);
+		buf->mapped = FALSE;
+		__list_del_entry(&buf->list);
+	}
+
+	list_for_each(list, &ctx->cap_buffers) {
+		buf = list_entry(list, struct vxd_buffer, list);
+		core_stream_unmap_buf_sg(buf->buf_map_id);
+		buf->mapped = FALSE;
+		__list_del_entry(&buf->list);
+	}
 	if (ctx->stream_created) {
 		bspp_stream_destroy(ctx->bspp_context);
 
@@ -1860,6 +1890,13 @@ static int vxd_dec_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	mutex_init(vxd->mutex);
+
+	vxd->mutex_queue = kzalloc(sizeof(*vxd->mutex_queue), GFP_KERNEL);
+	if (!vxd->mutex_queue)
+		return -ENOMEM;
+
+	mutex_init(vxd->mutex_queue);
+
 	platform_set_drvdata(pdev, vxd);
 
 	pm_runtime_enable(&pdev->dev);
@@ -2075,8 +2112,11 @@ static int vxd_dec_remove(struct platform_device *pdev)
 	pm_runtime_disable(&pdev->dev);
 	kfree(vxd->dwork);
 	mutex_destroy(vxd->mutex);
+	mutex_destroy(vxd->mutex_queue);
 	kfree(vxd->mutex);
+	kfree(vxd->mutex_queue);
 	vxd->mutex = NULL;
+	vxd->mutex_queue = NULL;
 
 	video_unregister_device(vxd->vfd_dec);
 	v4l2_m2m_release(vxd->m2m_dev);
