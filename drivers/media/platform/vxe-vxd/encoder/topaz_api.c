@@ -3103,9 +3103,15 @@ static int topaz_video_destroy_context(struct topaz_stream_context *str_ctx)
 			 &video->coded_package[i]->mtx_info.code_package_fw_buffer->mem_info))
 			IMG_DBG_ASSERT("Free failed" == NULL);
 
+		kfree(video->coded_package[i]->mtx_info.code_package_fw_buffer);
+		video->coded_package[i]->mtx_info.code_package_fw_buffer = NULL;
+
 		if (topaz_mmu_stream_free(str_ctx->mmu_ctx,
 					  &video->coded_package[i]->header_buffer->mem_info))
 			IMG_DBG_ASSERT("Free failed" == NULL);
+
+			kfree(video->coded_package[i]->header_buffer);
+			video->coded_package[i]->header_buffer = NULL;
 
 		kfree(video->coded_package[i]);
 		video->coded_package[i] = NULL;
