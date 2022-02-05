@@ -231,6 +231,14 @@ static int rpmsg_sock_recvmsg(struct socket *sock, struct msghdr *msg,
 		return -EOPNOTSUPP;
 	}
 
+	/* return failure on errored-out Rx sockets */
+	lock_sock(sk);
+	if (sk->sk_state == RPMSG_ERROR) {
+		release_sock(sk);
+		return -ENOLINK;
+	}
+	release_sock(sk);
+
 	msg->msg_namelen = 0;
 
 	skb = skb_recv_datagram(sk, flags, noblock, &ret);
