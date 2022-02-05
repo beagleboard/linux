@@ -1,0 +1,178 @@
+/*
+ * Copyright (C) 2020 Deepak Khatri <deepaklorkhatri7@gmail.com>
+ * https://lorforlinux.github.io/GSoC2020_BeagleBoard.org/
+ *
+ * See Cape Interface Spec page for more info on Bone Buses
+ * https://elinux.org/Beagleboard:BeagleBone_cape_interface_spec
+ *
+ * BBBAI Overlay for 4D Systems GEN4-4DCAPE-43CT-CLB Cape and similar Displays
+ *
+ * Based on older BB-BONE-4D4C-01-00A1.dts from TI for kernel < 4.14
+ * Copyright (C) 2012 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+/dts-v1/;
+/plugin/;
+
+&{/chosen} {
+	overlays {
+		BBAI-4D4C-00A1 = __TIMESTAMP__;
+	};
+};
+
+/*
+ * Update the default pinmux of the pins.
+ * See these files for the phandles (&P9_* & &P8_*)
+ * BeagleBoard-DeviceTrees/v4.19.x-ti-overlays/src/arm/am335x-bone-common-univ.dtsi
+ * BeagleBoard-DeviceTrees/v4.19.x-ti-overlays/src/arm/am572x-bone-common-univ.dtsi
+ */
+&ocp {
+	P8_45_pinmux { pinctrl-0 = <&P8_45_lcd_pin>;};	/* lcd: lcd_data0 */
+	P8_46_pinmux { pinctrl-0 = <&P8_46_lcd_pin>;};	/* lcd: lcd_data1 */
+	P8_43_pinmux { pinctrl-0 = <&P8_43_lcd_pin>;};	/* lcd: lcd_data2 */
+	P8_44_pinmux { pinctrl-0 = <&P8_44_lcd_pin>;};	/* lcd: lcd_data3 */
+	P8_41_pinmux { pinctrl-0 = <&P8_41_lcd_pin>;};	/* lcd: lcd_data4 */
+	P8_42_pinmux { pinctrl-0 = <&P8_42_lcd_pin>;};	/* lcd: lcd_data5 */
+	P8_39_pinmux { pinctrl-0 = <&P8_39_lcd_pin>;};	/* lcd: lcd_data6 */
+	P8_40_pinmux { pinctrl-0 = <&P8_40_lcd_pin>;};	/* lcd: lcd_data7 */
+	P8_37_pinmux { pinctrl-0 = <&P8_37_lcd_pin>;};	/* lcd: lcd_data8 */
+	P8_38_pinmux { pinctrl-0 = <&P8_38_lcd_pin>;};	/* lcd: lcd_data9 */
+	P8_36_pinmux { pinctrl-0 = <&P8_36_lcd_pin>;};	/* lcd: lcd_data10 */
+	P8_34_pinmux { pinctrl-0 = <&P8_34_lcd_pin>;};	/* lcd: lcd_data11 */
+	P8_35_pinmux { pinctrl-0 = <&P8_35_lcd_pin>;};	/* lcd: lcd_data12 */
+	P8_33_pinmux { pinctrl-0 = <&P8_33_lcd_pin>;};	/* lcd: lcd_data13 */
+	P8_31_pinmux { pinctrl-0 = <&P8_31_lcd_pin>;};	/* lcd: lcd_data14 */
+	P8_32_pinmux { pinctrl-0 = <&P8_32_lcd_pin>;};	/* lcd: lcd_data15 */
+
+	P8_27_pinmux { pinctrl-0 = <&P8_27_lcd_pin>;};	/* lcd: lcd_vsync */
+	P8_29_pinmux { pinctrl-0 = <&P8_29_lcd_pin>;};	/* lcd: lcd_hsync */
+	P8_28_pinmux { pinctrl-0 = <&P8_28_lcd_pin>;};	/* lcd: lcd_pclk */
+	P8_30_pinmux { pinctrl-0 = <&P8_30_lcd_pin>;};	/* lcd: lcd_ac_bias_en */
+
+	P9_27_pinmux { pinctrl-0 = <&P9_27_gpio_pin>;};	/* lcd: gpio4_15 DISPEN */
+
+	P9_14_pinmux { pinctrl-0 = <&P9_14_pwm_pin>;};	/* pwm: ehrpwm1a PWM_BL */
+
+	P9_18_pinmux { pinctrl-0 = <&P9_18_i2c_pin>;};	/* i2c1_sda */
+	P9_17_pinmux { pinctrl-0 = <&P9_17_i2c_pin>;};	/* i2c1_scl */
+	P9_26_pinmux { pinctrl-0 = <&P9_26_gpio_pin>;};	/* touch interrupt on gpio6_14 */
+};
+
+/*
+ * See these files for the phandles (&bone_*) and other bone bus nodes
+ * BeagleBoard-DeviceTrees/v4.19.x-ti-overlays/src/arm/bbai-bone-buses.dtsi
+ * BeagleBoard-DeviceTrees/v4.19.x-ti-overlays/src/arm/bbb-bone-buses.dtsi
+ */
+
+// PWM Backlight
+&bone_pwm_1{
+	status = "okay";
+};
+
+// Touch Controller
+&bone_i2c_1 {
+	status = "okay";
+	clock-frequency = <100000>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	polytouch: edt-ft5x06@38 {
+		compatible = "edt,edt-ft5x06";
+		reg = <0x38>;
+		interrupt-parent = <&gpio6>;
+		interrupts = <14 2>;
+		touchscreen-size-y = <480>;
+		touchscreen-size-x = <272>;
+		touchscreen-swapped-x-y;
+	};
+};
+
+// Display Sub System (DSS)
+&dss {
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port {
+			reg = <0>;
+
+			dpi_out: endpoint {
+				data-lines = <16>;
+				remote-endpoint = <&lcd_in>;
+			};
+		};
+	};
+};
+
+&{/} {
+	aliases {
+		display0 = &lcd0;
+	};
+
+	// Backlight
+	lcd_bl: backlight {
+		status = "okay";
+		compatible = "pwm-backlight";
+		pwms = <&bone_pwm_1 0 500000 0>;
+		brightness-levels = <
+			0  1  2  3  4  5  6  7  8  9
+			10 11 12 13 14 15 16 17 18 19
+			20 21 22 23 24 25 26 27 28 29
+			30 31 32 33 34 35 36 37 38 39
+			40 41 42 43 44 45 46 47 48 49
+			50 51 52 53 54 55 56 57 58 59
+			60 61 62 63 64 65 66 67 68 69
+			70 71 72 73 74 75 76 77 78 79
+			80 81 82 83 84 85 86 87 88 89
+			90 91 92 93 94 95 96 97 98 99
+			100
+		>;
+		default-brightness-level = <100>;
+	};
+
+	// Display
+	lcd0: display {
+		compatible = "qiaodian,qd43003c0-40", "panel-dpi";
+		backlight = <&lcd_bl>;
+		enable-gpios = <&gpio2 5 0>;
+		label = "lcd";
+
+		panel-info {
+			ac-bias           = <255>;
+			ac-bias-intrpt    = <0>;
+			dma-burst-sz      = <16>;
+			bpp               = <16>;
+			fdd               = <0x80>;
+			sync-edge         = <0>;
+			sync-ctrl         = <1>;
+			raster-order      = <0>;
+			fifo-th           = <0>;
+		};
+
+		panel-timing {
+			clock-frequency = <9200000>;
+			hactive = <480>;
+			vactive = <272>;
+			hfront-porch = <8>;
+			hback-porch = <47>;
+			hsync-len = <41>;
+			vback-porch = <2>;
+			vfront-porch = <3>;
+			vsync-len = <10>;
+			hsync-active = <0>;
+			vsync-active = <0>;
+			de-active = <1>;
+			pixelclk-active = <0>;
+		};
+
+		port {
+			lcd_in: endpoint {
+				remote-endpoint = <&dpi_out>;
+			};
+		};
+	};
+};

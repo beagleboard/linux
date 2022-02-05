@@ -1,0 +1,97 @@
+/*
+ * Copyright (C) 2020 Deepak Khatri <deepaklorkhatri7@gmail.com>
+ * See Cape Interface Spec page for more info on Bone Buses
+ * https://elinux.org/Beagleboard:BeagleBone_cape_interface_spec
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+/dts-v1/;
+/plugin/;
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+ */
+&{/chosen} {
+	overlays {
+		BBORG_RELAY-00A2 = __TIMESTAMP__;
+	};
+};
+
+/*
+ * Update the default pinmux of the pins.
+ * See these files for the phandles (&P9_* & &P8_*)
+ * BeagleBoard-DeviceTrees/v4.19.x-ti-overlays/src/arm/am335x-bone-common-univ.dtsi
+ * BeagleBoard-DeviceTrees/v4.19.x-ti-overlays/src/arm/am572x-bone-common-univ.dtsi
+ */
+&ocp {
+	P9_42_pinmux { pinctrl-0 = <&P9_42_gpio_pin>; };	/* Sink1 */
+	P9_41_pinmux { pinctrl-0 = <&P9_41_gpio_pin>; };	/* Sink2 */
+	P9_30_pinmux { pinctrl-0 = <&P9_30_gpio_pin>; };	/* Sink3 */
+	P9_27_pinmux { pinctrl-0 = <&P9_27_gpio_pin>; };	/* Sink4 */
+	P8_12_pinmux { pinctrl-0 = <&P8_12_gpio_pin>; };	/* Sink5 */
+	P8_11_pinmux { pinctrl-0 = <&P8_11_gpio_pin>; };	/* Sink6 */
+	P8_15_pinmux { pinctrl-0 = <&P8_15_gpio_pin>; };	/* Sink7 */
+	P8_17_pinmux { pinctrl-0 = <&P8_17_gpio_pin>; };	/* Sink8 */
+};
+
+/*
+ * Easy load control through sysfs (/sys/class/leds/) using gpio-leds driver
+ * See these files for the led_P8_#/led_P9_#  definition
+ * https://github.com/beagleboard/BeagleBoard-DeviceTrees/src/arm/bbai-bone-buses.dtsi
+ * https://github.com/beagleboard/BeagleBoard-DeviceTrees/src/arm/bbb-bone-buses.dtsi
+ *
+ */
+&{/} {
+	leds {
+		led_P9_42 {
+			status = "okay";
+			label = "load-sink1";
+			default-state = "keep";
+		};
+
+		led_P9_41 {
+			status = "okay";
+			label = "load-sink2";
+			default-state = "keep";
+		};
+
+		led_P9_30 {
+			status = "okay";
+			label = "load-sink3";
+			default-state = "keep";
+		};
+
+		led_P9_27 {
+			status = "okay";
+			label = "load-sink4";
+			default-state = "keep";
+		};
+
+		led_P8_12 {
+			status = "okay";
+			label = "load-sink5";
+			default-state = "keep";
+		};
+
+		led_P8_11 {
+			status = "okay";
+			label = "load-sink6";
+			default-state = "keep";
+		};
+
+		led_P8_15 {
+			status = "okay";
+			label = "load-sink7";
+			default-state = "keep";
+		};
+
+		led_P8_17 {
+			status = "okay";
+			label = "load-sink8";
+			default-state = "keep";
+		};
+	};
+};
