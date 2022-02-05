@@ -42,3 +42,8 @@ dtb-$(CONFIG_ARCH_K3) += k3-j721e-edgeai-apps.dtb
 dtb-$(CONFIG_ARCH_K3) += k3-j721e-sk-rpi-exp-header.dtb
 dtb-$(CONFIG_ARCH_K3) += k3-j721e-vision-apps.dtb
 dtb-$(CONFIG_ARCH_K3) += k3-j721e-beagleboneai64.dtb
+
+targets += dtbs dtbs_install
+targets += $(dtb-y)
+
+subdir-y	:= overlays
