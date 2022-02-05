@@ -403,7 +403,6 @@ static void vxd_return_resource(void *ctx_handle, enum vxd_cb_type type,
 
 	if (ctx->aborting) {
 		v4l2_m2m_job_finish(ctx->dev->m2m_dev, ctx->fh.m2m_ctx);
-		ctx->aborting = 0;
 		return;
 	}
 
@@ -426,6 +425,7 @@ static void vxd_return_resource(void *ctx_handle, enum vxd_cb_type type,
 					      ctx->pict_bufcfg.plane_size[i]);
 
 		v4l2_m2m_buf_done(&buf->buffer.vb, VB2_BUF_STATE_DONE);
+		ctx->call_back_no++;
 		break;
 	case VXD_CB_SPS_RELEASE:
 		break;
@@ -445,6 +445,7 @@ static void vxd_return_resource(void *ctx_handle, enum vxd_cb_type type,
 
 		schedule_work(res->work);
 
+		ctx->call_back_no++;
 		break;
 	case VXD_CB_PICT_DISPLAY:
 		buf = find_buffer(buf_map_id, &ctx->cap_buffers);
@@ -464,6 +465,7 @@ static void vxd_return_resource(void *ctx_handle, enum vxd_cb_type type,
 					      ctx->pict_bufcfg.plane_size[i]);
 
 		v4l2_m2m_buf_done(&buf->buffer.vb, VB2_BUF_STATE_DONE);
+		ctx->call_back_no++;
 		break;
 	case VXD_CB_PICT_RELEASE:
 		buf = find_buffer(buf_map_id, &ctx->reuse_queue);
@@ -824,6 +826,9 @@ static int vxd_dec_start_streaming(struct vb2_queue *vq, unsigned int count)
 			return ret;
 		}
 		ctx->core_streaming = TRUE;
+		ctx->unmap_flag = FALSE;
+		ctx->dev->map_info_flag = FALSE;
+		ctx->aborting = 0;
 	}
 
 	return 0;
@@ -841,20 +846,21 @@ static void vxd_dec_stop_streaming(struct vb2_queue *vq)
 	else
 		ctx->src_streaming = FALSE;
 
+	if (!ctx->stream_created) {
+		vxd_dec_return_all_buffers(ctx, vq, VB2_BUF_STATE_ERROR);
+		return;
+	}
 	if (ctx->core_streaming) {
 		core_stream_stop(ctx->res_str_id);
 		ctx->core_streaming = FALSE;
 
 		core_stream_flush(ctx->res_str_id, TRUE);
 	}
-
+	ctx->aborting = 1;
 	/* unmap all the output and capture plane buffers */
 	if (V4L2_TYPE_IS_OUTPUT(vq->type)) {
 		list_for_each(list, &ctx->out_buffers) {
 			buf = list_entry(list, struct vxd_buffer, list);
-			core_stream_unmap_buf_sg(buf->buf_map_id);
-			buf->mapped = FALSE;
-			__list_del_entry(&buf->list);
 		}
 	} else {
 		list_for_each_safe(list, temp, &ctx->reuse_queue) {
@@ -865,12 +871,10 @@ static void vxd_dec_stop_streaming(struct vb2_queue *vq)
 
 		list_for_each(list, &ctx->cap_buffers) {
 			buf = list_entry(list, struct vxd_buffer, list);
-			core_stream_unmap_buf_sg(buf->buf_map_id);
-			buf->mapped = FALSE;
-			__list_del_entry(&buf->list);
 		}
 	}
-
+	ctx->unmap_flag = TRUE;
+	ctx->dev->map_info_flag = TRUE;
 	vxd_dec_return_all_buffers(ctx, vq, VB2_BUF_STATE_ERROR);
 }
 
@@ -1036,6 +1040,9 @@ exit:
 
 static int vxd_dec_release(struct file *file)
 {
+	struct list_head *list;
+	struct list_head *temp;
+	struct vxd_buffer *buf = NULL;
 	struct vxd_dev *vxd = video_drvdata(file);
 	struct vxd_dec_ctx *ctx = file2ctx(file);
 	struct bspp_ddbuf_array_info *fw_sequ = ctx->fw_sequ;
@@ -1045,6 +1052,26 @@ static int vxd_dec_release(struct file *file)
 
 	s_q_data = &ctx->q_data[Q_DATA_SRC];
 
+	list_for_each(list, &ctx->out_buffers) {
+		buf = list_entry(list, struct vxd_buffer, list);
+		core_stream_unmap_buf_sg(buf->buf_map_id);
+		buf->mapped = FALSE;
+		__list_del_entry(&buf->list);
+	}
+
+	list_for_each_safe(list, temp, &ctx->reuse_queue) {
+		buf = list_entry(list, struct vxd_buffer, list);
+		core_stream_unmap_buf_sg(buf->buf_map_id);
+		buf->mapped = FALSE;
+		__list_del_entry(&buf->list);
+	}
+
+	list_for_each(list, &ctx->cap_buffers) {
+		buf = list_entry(list, struct vxd_buffer, list);
+		core_stream_unmap_buf_sg(buf->buf_map_id);
+		buf->mapped = FALSE;
+		__list_del_entry(&buf->list);
+	}
 	if (ctx->stream_created) {
 		bspp_stream_destroy(ctx->bspp_context);
 
@@ -1682,6 +1709,9 @@ static void device_run(void *priv)
 	    (v4l2_m2m_num_src_bufs_ready(ctx->fh.m2m_ctx) == 0))
 		ctx->eos = TRUE;
 
+	ctx->curr_src = src_vxdb;
+	ctx->curr_dst = dst_vxdb;
+	ctx->call_back_no = 0;
 	mutex_unlock(ctx->mutex);
 
 	ret = bspp_stream_preparse_buffers(ctx->bspp_context, NULL, 0, &ctx->seg_list,
@@ -1792,9 +1822,25 @@ static int job_ready(void *priv)
 static void job_abort(void *priv)
 {
 	struct vxd_dec_ctx *ctx = priv;
+	mutex_lock_nested(ctx->mutex, SUBCLASS_VXD_CORE);
+	if (ctx->core_streaming) {
+		core_stream_stop(ctx->res_str_id);
+		ctx->core_streaming = FALSE;
 
-	/* Cancel the transaction at next callback */
-	ctx->aborting = 1;
+		core_stream_flush(ctx->res_str_id, TRUE);
+	}
+	if (ctx->call_back_no == 0) {
+		vxd_return_resource((void *)ctx, VXD_CB_PICT_DECODED,
+				    ctx->curr_dst->buf_map_id);
+		vxd_return_resource((void *)ctx, VXD_CB_PICT_DISPLAY,
+				    ctx->curr_dst->buf_map_id);
+		vxd_return_resource((void *)ctx, VXD_CB_PICT_RELEASE,
+				    ctx->curr_dst->buf_map_id);
+		vxd_return_resource((void *)ctx, VXD_CB_STRUNIT_PROCESSED,
+				    ctx->curr_src->buf_map_id);
+		v4l2_m2m_job_finish(ctx->dev->m2m_dev, ctx->fh.m2m_ctx);
+	}
+	mutex_unlock(ctx->mutex);
 }
 
 static const struct v4l2_m2m_ops m2m_ops = {
