@@ -565,6 +565,7 @@
 &mhdp {
 	pinctrl-names = "default";
 	pinctrl-0 = <&dp0_pins_default>;
+	cdns,no-hpd;
 };
 
 &dp0_ports {
