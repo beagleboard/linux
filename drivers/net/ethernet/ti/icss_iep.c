@@ -1002,6 +1002,7 @@ static struct regmap_config am654_icss_iep_regmap_config = {
 	.reg_read = icss_iep_regmap_read,
 	.writeable_reg = am654_icss_iep_valid_reg,
 	.readable_reg = am654_icss_iep_valid_reg,
+	.fast_io = 1,
 };
 
 static const struct icss_iep_plat_data am654_icss_iep_plat_data = {
