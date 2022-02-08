@@ -442,6 +442,7 @@ struct cdns_dsi_input {
 struct cdns_dsi {
 	struct mipi_dsi_host base;
 	void __iomem *regs;
+	void __iomem *wrap_regs;
 	struct cdns_dsi_input input;
 	struct cdns_dsi_output output;
 	unsigned int direct_cmd_fifo_depth;
