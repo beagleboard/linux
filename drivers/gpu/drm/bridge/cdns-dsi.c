@@ -453,6 +453,7 @@ struct cdns_dsi_input {
 struct cdns_dsi {
 	struct mipi_dsi_host base;
 	void __iomem *regs;
+	void __iomem *wrap_regs;
 	struct cdns_dsi_input input;
 	struct cdns_dsi_output output;
 	unsigned int direct_cmd_fifo_depth;
@@ -1214,6 +1215,11 @@ static int cdns_dsi_drm_probe(struct platform_device *pdev)
 	if (IS_ERR(dsi->regs))
 		return PTR_ERR(dsi->regs);
 
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	dsi->wrap_regs = devm_ioremap_resource(&pdev->dev, res);
+	if (IS_ERR(dsi->regs))
+		return PTR_ERR(dsi->regs);
+
 	dsi->dsi_p_clk = devm_clk_get(&pdev->dev, "dsi_p_clk");
 	if (IS_ERR(dsi->dsi_p_clk))
 		return PTR_ERR(dsi->dsi_p_clk);
@@ -1245,6 +1251,8 @@ static int cdns_dsi_drm_probe(struct platform_device *pdev)
 		ret = -EINVAL;
 		goto err_disable_pclk;
 	}
+
+	writel(1, dsi->wrap_regs + 4);
 
 	val = readl(dsi->regs + IP_CONF);
 	dsi->direct_cmd_fifo_depth = 1 << (DIRCMD_FIFO_DEPTH(val) + 2);
