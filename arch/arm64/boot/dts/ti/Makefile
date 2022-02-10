@@ -118,3 +118,8 @@ dtb-$(CONFIG_ARCH_K3) += k3-am62a7-fpdlink-ov2312-0-3.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-am62a7-sk-csi2-imx219.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-j721e-beagleboneai64.dtb
 dtb-$(CONFIG_ARCH_K3) += k3-j721e-beagleboneai64-no-shared-mem.dtb
+
+targets += dtbs dtbs_install
+targets += $(dtb-y)
+
+subdir-y	:= overlays
