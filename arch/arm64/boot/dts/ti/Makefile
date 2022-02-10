@@ -122,3 +122,8 @@ dtb-$(CONFIG_ARCH_K3) += k3-am625-pocketbeagle2.dtb
 dtb-$(CONFIG_ARCH_K3) += k3-j721e-beagleboneai64.dtb
 dtb-$(CONFIG_ARCH_K3) += k3-j721e-beagleboneai64-no-shared-mem.dtb
 dtb-$(CONFIG_ARCH_K3) += k3-am625-beagleplay.dtb
+
+targets += dtbs dtbs_install
+targets += $(dtb-y)
+
+subdir-y	:= overlays
