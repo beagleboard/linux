@@ -676,6 +676,11 @@ void prueth_lre_config(struct prueth *prueth)
 	prueth_lre_config_packet_timestamping(prueth);
 }
 
+void prueth_lre_cleanup(struct prueth *prueth)
+{
+	hrtimer_cancel(&prueth->tbl_check_timer);
+}
+
 static void nt_updater(struct kthread_work *work)
 {
 	struct prueth *prueth = container_of(work, struct prueth, nt_work);
