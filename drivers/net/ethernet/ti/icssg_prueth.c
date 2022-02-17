@@ -771,12 +771,6 @@ static void tx_ts_work(struct prueth_emac *emac)
 	struct emac_tx_ts_response tsr;
 	u32 hi_sw;
 
-	if (!test_bit(__STATE_TX_TS_IN_PROGRESS, &emac->state)) {
-		netdev_err(emac->ndev, "unexpected TS response\n");
-		return;
-	}
-
-	skb = emac->tx_ts_skb;
 	while (timeout-- > 0) {
 		/* wait for response or timeout */
 		ret = emac_get_tx_ts(emac, &tsr);
@@ -787,13 +781,21 @@ static void tx_ts_work(struct prueth_emac *emac)
 
 	if (ret) {
 		netdev_err(emac->ndev, "TX timestamp timeout\n");
-		goto error;
+		return;
 	}
 
-	if (tsr.cookie != emac->tx_ts_cookie) {
-		netdev_err(emac->ndev, "TX TS cookie mismatch 0x%x:0x%x\n",
-			   tsr.cookie, emac->tx_ts_cookie);
-		goto error;
+	if (tsr.cookie >= PRUETH_MAX_TX_TS_REQUESTS ||
+	    !emac->tx_ts_skb[tsr.cookie]) {
+		netdev_err(emac->ndev, "Invalid TX TS cookie 0x%x\n",
+			   tsr.cookie);
+		return;
+	}
+
+	skb = emac->tx_ts_skb[tsr.cookie];
+	emac->tx_ts_skb[tsr.cookie] = NULL;	/* free slot */
+	if (!skb) {
+		netdev_err(emac->ndev, "Driver Bug! got NULL skb\n");
+		return;
 	}
 
 	hi_sw = readl(emac->prueth->shram.va +
@@ -801,20 +803,28 @@ static void tx_ts_work(struct prueth_emac *emac)
 	ns = icssg_ts_to_ns(hi_sw, tsr.hi_ts, tsr.lo_ts,
 			    IEP_DEFAULT_CYCLE_TIME_NS);
 
-	emac->tx_ts_cookie++;
 	memset(&ssh, 0, sizeof(ssh));
 	ssh.hwtstamp = ns_to_ktime(ns);
-	clear_bit_unlock(__STATE_TX_TS_IN_PROGRESS, &emac->state);
 
 	skb_tstamp_tx(skb, &ssh);
 	dev_consume_skb_any(skb);
 
 	return;
+}
 
-error:
-	dev_kfree_skb_any(skb);
-	emac->tx_ts_skb = NULL;
-	clear_bit_unlock(__STATE_TX_TS_IN_PROGRESS, &emac->state);
+int prueth_tx_ts_cookie_get(struct prueth_emac *emac)
+{
+	int i;
+
+	/* search and get the next free slot */
+	for (i = 0; i < PRUETH_MAX_TX_TS_REQUESTS; i++) {
+		if (!emac->tx_ts_skb[i]) {
+			emac->tx_ts_skb[i] = ERR_PTR(-EBUSY); /* reserve slot */
+			return i;
+		}
+	}
+
+	return -EBUSY;
 }
 
 /**
@@ -841,6 +851,7 @@ static int emac_ndo_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 	void **swdata;
 	u32 pkt_len;
 	u32 *epib;
+	int tx_ts_cookie;
 
 	pkt_len = skb_headlen(skb);
 	q_idx = skb_get_queue_mapping(skb);
@@ -873,13 +884,13 @@ static int emac_ndo_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 	if (skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP &&
 	    emac->tx_ts_enabled) {
 		/* We currently support only one TX HW timestamp at a time */
-		if (!test_and_set_bit_lock(__STATE_TX_TS_IN_PROGRESS,
-					   &emac->state)) {
+		tx_ts_cookie = prueth_tx_ts_cookie_get(emac);
+		if (tx_ts_cookie >= 0) {
 			skb_shinfo(skb)->tx_flags |= SKBTX_IN_PROGRESS;
 			/* Request TX timestamp */
-			epib[0] = emac->tx_ts_cookie;
+			epib[0] = (u32)tx_ts_cookie;
 			epib[1] = 0x80000000;	/* TX TS request */
-			emac->tx_ts_skb = skb_get(skb);
+			emac->tx_ts_skb[tx_ts_cookie] = skb_get(skb);
 			in_tx_ts = 1;
 		}
 	}
@@ -964,9 +975,8 @@ tx_push:
 
 cleanup_tx_ts:
 	if (in_tx_ts) {
-		dev_kfree_skb_any(emac->tx_ts_skb);
-		emac->tx_ts_skb = NULL;
-		clear_bit_unlock(__STATE_TX_TS_IN_PROGRESS, &emac->state);
+		dev_kfree_skb_any(emac->tx_ts_skb[tx_ts_cookie]);
+		emac->tx_ts_skb[tx_ts_cookie] = NULL;
 	}
 
 drop_free_descs:
@@ -1086,32 +1096,22 @@ static void prueth_tx_ts_sr1(struct prueth_emac *emac,
 
 	ns = (u64)tsr->hi_ts << 32 | tsr->lo_ts;
 
-	if (!test_bit(__STATE_TX_TS_IN_PROGRESS, &emac->state)) {
-		netdev_err(emac->ndev, "unexpected TS response\n");
+	if (tsr->cookie >= PRUETH_MAX_TX_TS_REQUESTS) {
+		netdev_dbg(emac->ndev, "Invalid TX TS cookie 0x%x\n",
+			   tsr->cookie);
 		return;
 	}
 
-	skb = emac->tx_ts_skb;
-	if (tsr->cookie != emac->tx_ts_cookie) {
-		netdev_err(emac->ndev, "TX TS cookie mismatch 0x%x:0x%x\n",
-			   tsr->cookie, emac->tx_ts_cookie);
-		goto error;
-	}
+	skb = emac->tx_ts_skb[tsr->cookie];
+	emac->tx_ts_skb[tsr->cookie] = NULL;	/* free slot */
 
-	emac->tx_ts_cookie++;
 	memset(&ssh, 0, sizeof(ssh));
 	ssh.hwtstamp = ns_to_ktime(ns);
-	clear_bit_unlock(__STATE_TX_TS_IN_PROGRESS, &emac->state);
 
 	skb_tstamp_tx(skb, &ssh);
 	dev_consume_skb_any(skb);
 
 	return;
-
-error:
-	dev_kfree_skb_any(skb);
-	emac->tx_ts_skb = NULL;
-	clear_bit_unlock(__STATE_TX_TS_IN_PROGRESS, &emac->state);
 }
 
 static irqreturn_t prueth_rx_mgm_ts_thread_sr1(int irq, void *dev_id)

@@ -113,10 +113,6 @@ struct prueth_rx_chn {
 	char name[32];
 };
 
-enum prueth_state_flags {
-	__STATE_TX_TS_IN_PROGRESS,
-};
-
 enum prueth_devlink_param_id {
 	PRUETH_DEVLINK_PARAM_ID_BASE = DEVLINK_PARAM_GENERIC_ID_MAX,
 	PRUETH_DL_PARAM_SWITCH_MODE,
@@ -130,6 +126,8 @@ struct prueth_devlink {
  * and lower three are lower priority channels or threads.
  */
 #define PRUETH_MAX_TX_QUEUES	4
+
+#define PRUETH_MAX_TX_TS_REQUESTS	50	/* Max simultaneous TX_TS requests */
 
 /* data for each emac port */
 struct prueth_emac {
@@ -170,9 +168,8 @@ struct prueth_emac {
 	spinlock_t lock;	/* serialize access */
 
 	/* TX HW Timestamping */
-	u32 tx_ts_cookie;
-	struct sk_buff *tx_ts_skb;
-	unsigned long state;
+	/* TX TS cookie will be index to the tx_ts_skb array */
+	struct sk_buff *tx_ts_skb[PRUETH_MAX_TX_TS_REQUESTS];
 	int tx_ts_irq;
 
 	u8 cmd_seq;
