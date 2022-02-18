@@ -238,7 +238,6 @@ struct cdns_sierra_inst {
 	u32 num_lanes;
 	u32 mlane;
 	struct reset_control *lnk_rst;
-	enum cdns_sierra_ssc_mode ssc_mode;
 };
 
 struct cdns_reg_pairs {
@@ -361,7 +360,7 @@ static int cdns_sierra_phy_init(struct phy *gphy)
 	const struct cdns_sierra_data *init_data = phy->init_data;
 	struct cdns_sierra_vals *pma_cmn_vals, *pma_ln_vals;
 	enum cdns_sierra_phy_type phy_type = ins->phy_type;
-	enum cdns_sierra_ssc_mode ssc = ins->ssc_mode;
+	enum cdns_sierra_ssc_mode ssc = EXTERNAL_SSC;
 	const struct cdns_reg_pairs *reg_pairs;
 	struct regmap *regmap;
 	u32 num_regs;
@@ -623,9 +622,6 @@ static int cdns_sierra_get_optional(struct cdns_sierra_inst *inst,
 	default:
 		return -EINVAL;
 	}
-
-	inst->ssc_mode = EXTERNAL_SSC;
-	of_property_read_u32(child, "cdns,ssc-mode", &inst->ssc_mode);
 
 	return 0;
 }
