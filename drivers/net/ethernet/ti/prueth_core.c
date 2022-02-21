@@ -1715,8 +1715,10 @@ static int emac_ndo_stop(struct net_device *ndev)
 
 	/* save and lre stats */
 	emac_get_stats(emac, &emac->stats);
-	if (PRUETH_IS_LRE(prueth) && !prueth->emac_configured)
+	if (PRUETH_IS_LRE(prueth) && !prueth->emac_configured) {
 		prueth_lre_get_stats(prueth, prueth->lre_stats);
+		prueth_lre_cleanup(prueth);
+	}
 
 	/* free table memory of the switch */
 	if (PRUETH_IS_SWITCH(emac->prueth))

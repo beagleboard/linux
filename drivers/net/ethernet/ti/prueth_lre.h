@@ -180,6 +180,7 @@ struct node_tbl {
 };
 
 void prueth_lre_config(struct prueth *prueth);
+void prueth_lre_cleanup(struct prueth *prueth);
 int prueth_lre_init_node_table(struct prueth *prueth);
 int prueth_lre_request_irqs(struct prueth_emac *emac);
 void prueth_lre_free_irqs(struct prueth_emac *emac);
