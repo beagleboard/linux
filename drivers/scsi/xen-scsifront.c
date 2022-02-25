@@ -210,12 +210,11 @@ static void scsifront_gnttab_done(struct vscsifrnt_info *info, uint32_t id)
 		return;
 
 	for (i = 0; i < s->nr_grants; i++) {
-		if (unlikely(gnttab_query_foreign_access(s->gref[i]) != 0)) {
+		if (unlikely(!gnttab_try_end_foreign_access(s->gref[i]))) {
 			shost_printk(KERN_ALERT, info->host, KBUILD_MODNAME
 				     "grant still in use by backend\n");
 			BUG();
 		}
-		gnttab_end_foreign_access(s->gref[i], 0, 0UL);
 	}
 
 	kfree(s->sg);
