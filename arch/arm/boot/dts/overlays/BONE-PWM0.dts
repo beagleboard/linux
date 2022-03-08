@@ -1,0 +1,43 @@
+/*
+ * Copyright (C) 2020 Deepak Khatri <deepaklorkhatri7@gmail.com>
+ * See Cape Interface Spec page for more info on Bone Buses
+ * https://elinux.org/Beagleboard:BeagleBone_cape_interface_spec
+ *
+ * Virtual cape for /dev/pwm/ehrpwm0a & /dev/pwm/ehrpwm0a (only on BBBWL/BBB)
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+/dts-v1/;
+/plugin/;
+
+/*
+* Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+*/
+&{/chosen} {
+    overlays {
+        BONE-PWM0 = __TIMESTAMP__;
+    };
+};
+
+/*
+ * Update the default pinmux of the pins.
+ * See these files for the phandles (&P9_* & &P8_*)
+ * BeagleBoard-DeviceTrees/v4.19.x-ti-overlays/src/arm/am335x-bone-common-univ.dtsi
+ * BeagleBoard-DeviceTrees/v4.19.x-ti-overlays/src/arm/am572x-bone-common-univ.dtsi
+ */
+&ocp {
+    P9_22_pinmux { pinctrl-0 = <&P9_22_pwm_pin>; };    /* PWM A */
+    P9_21_pinmux { pinctrl-0 = <&P9_21_pwm_pin>; };    /* PWM B */
+};
+
+/*
+ * See these files for the phandles (&bone_*) and other bone bus nodes
+ * BeagleBoard-DeviceTrees/v4.19.x-ti-overlays/src/arm/bbai-bone-buses.dtsi
+ * BeagleBoard-DeviceTrees/v4.19.x-ti-overlays/src/arm/bbb-bone-buses.dtsi
+ */
+&bone_pwm_0 {
+    status = "okay";
+};
