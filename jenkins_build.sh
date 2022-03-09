@@ -3,14 +3,7 @@
 #git clone -b 5.10 https://github.com/beagleboard/linux --depth=10
 #cd ./linux
 
-if [ ! -d ./gcc-linaro-7.5.0-2019.12-x86_64_arm-linux-gnueabihf/ ] ; then
-	rm -rf ./gcc-* || true
-	#wget -c ${site}/${version}/${filename}
-	wget -c http://192.168.3.125/jenkins/gcc-linaro-7.5.0-2019.12-x86_64_arm-linux-gnueabihf.tar.xz
-	tar xf gcc-linaro-7.5.0-2019.12-x86_64_arm-linux-gnueabihf.tar.xz
-fi
-
-export CC=`pwd`/gcc-linaro-7.5.0-2019.12-x86_64_arm-linux-gnueabihf/bin/arm-linux-gnueabihf-
+export CC=/usr/bin/arm-linux-gnueabihf-
 
 make ARCH=arm CROSS_COMPILE=${CC} clean
 make ARCH=arm CROSS_COMPILE=${CC} bb.org_defconfig
@@ -44,4 +37,3 @@ else
 fi
 
 make ARCH=arm CROSS_COMPILE=${CC} clean
-rm -rf ./gcc-* || true
