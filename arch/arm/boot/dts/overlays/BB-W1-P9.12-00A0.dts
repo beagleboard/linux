@@ -1,0 +1,46 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright (C) 2015 Robert Nelson <robertcnelson@gmail.com>
+ * Virtual cape for onewire on connector pin P9.12
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/pinctrl/am33xx.h>
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+ */
+&{/chosen} {
+	overlays {
+		BB-W1-P9.12-00A0.kernel = __TIMESTAMP__;
+	};
+};
+
+/*
+ * Free up the pins used by the cape from the pinmux helpers.
+ */
+&ocp {
+	P9_12_pinmux { status = "disabled"; };	/* P9_12 (U18) gpmc_be1n.gpio1_28 */
+};
+
+&am33xx_pinmux {
+	bb_dallas_w1_pins: pinmux_bb_dallas_w1_pins {
+		pinctrl-single,pins = <
+			AM33XX_PADCONF(AM335X_PIN_GPMC_BEN1, PIN_INPUT_PULLUP, MUX_MODE7)	/* P9_12 (U18) gpmc_be1n.gpio1_28 */
+		>;
+	};
+};
+
+&{/} {
+	onewire {
+		status = "okay";
+		pinctrl-names = "default";
+		pinctrl-0 = <&bb_dallas_w1_pins>;
+
+		compatible = "w1-gpio";
+		gpios = <&gpio1 28 GPIO_ACTIVE_HIGH>;
+	};
+};
