@@ -276,11 +276,13 @@ static const struct dev_pm_ops uio_pdrv_genirq_dev_pm_ops = {
 
 #ifdef CONFIG_OF
 static struct of_device_id uio_of_genirq_match[] = {
+	{ .compatible = "uio" },
+	{ .compatible = "ti,pruss-shmem" },
 	{ /* This is filled with module_parm */ },
 	{ /* Sentinel */ },
 };
 MODULE_DEVICE_TABLE(of, uio_of_genirq_match);
-module_param_string(of_id, uio_of_genirq_match[0].compatible, 128, 0);
+module_param_string(of_id, uio_of_genirq_match[2].compatible, 128, 0);
 MODULE_PARM_DESC(of_id, "Openfirmware id of the device to be handled by uio");
 #endif
 
