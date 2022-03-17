@@ -52,9 +52,9 @@
 			no-map;
 		};
 
-		wkup_r5fss0_core0_dma_memory_region: r5f-dma-memory@a0000000 {
+		wkup_r5fss0_core0_dma_memory_region: r5f-dma-memory@9db00000 {
 			compatible = "shared-dma-pool";
-			reg = <0x00 0xa0000000 0x00 0x200000>;
+			reg = <0x00 0x9db00000 0x00 0xc00000>;
 			no-map;
 		};
 	};
