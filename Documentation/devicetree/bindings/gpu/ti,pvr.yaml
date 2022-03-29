@@ -23,6 +23,10 @@ properties:
     oneOf:
       - items:
           - enum:
+              - ti,j721s2-pvr
+          - const: img,pvr-bxs64
+      - items:
+          - enum:
               - ti,am62-pvr
           - const: img,pvr-axe116m
       - items:
@@ -74,6 +78,41 @@ required:
 additionalProperties: false
 
 allOf:
+  - if:
+      properties:
+        compatible:
+          contains:
+            enum:
+              - ti,j721s2-pvr
+    then:
+      properties:
+        clocks:
+          minItems: 1
+          maxItems: 1
+        power-domains:
+          minItems: 2
+          maxItems: 2
+          items:
+            - description: power domain for register access
+            - description: power domain for gpu internal cores
+        power-domain-names:
+          minItems: 2
+          maxItems: 2
+          items:
+            - const: gpu_0
+            - const: gpucore_0
+        reg:
+          minItems: 1
+          maxItems: 1
+        interrupts:
+          minItems: 1
+          maxItems: 1
+      required:
+        - clocks
+        - reg
+        - power-domains
+        - power-domain-names
+        - interrupts
   - if:
       properties:
         compatible:
@@ -188,6 +227,21 @@ examples:
       interrupts = <GIC_SPI 86 IRQ_TYPE_LEVEL_HIGH>;
       power-domains = <&k3_pds 187 TI_SCI_PD_EXCLUSIVE>;
       clocks = <&k3_clks 187 0>;
+    };
+
+  - |
+    #include <dt-bindings/interrupt-controller/irq.h>
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+    #include <dt-bindings/soc/ti,sci_pm_domain.h>
+
+    gpu: gpu@4e20000000 {
+      compatible = "ti,j721s2-pvr", "img,pvr-bxs64";
+      reg = <0x4e 0x20000000 0x00 0x80000>;
+      interrupts = <GIC_SPI 24 IRQ_TYPE_LEVEL_HIGH>;
+      power-domains = <&k3_pds 130 TI_SCI_PD_EXCLUSIVE>,
+                      <&k3_pds 373 TI_SCI_PD_EXCLUSIVE>;
+      power-domain-names = "gpu_0", "gpucore_0";
+      clocks = <&k3_clks 130 1>;
     };
 
   - |
