@@ -311,13 +311,13 @@
 				   "VPP_LDO_EN", "EXP_PS_3V3_En",
 				   "EXP_PS_5V0_En", "EXP_HAT_DETECT",
 				   "GPIO_AUD_RSTn", "GPIO_eMMC_RSTn",
-				   "UART1_MUX_SEL", "WL_LT_EN",
+				   "UART1_FET_BUF_EN", "WL_LT_EN",
 				   "GPIO_HDMI_RSTn", "CSI_GPIO1",
 				   "CSI_GPIO2", "PRU_3V3_EN",
 				   "HDMI_INTn", "TEST_GPIO2",
-				   "AUD_BUF_EN", "WL_BUF_EN",
-				   "AUD_BUF_CLK_DIR", "WL_BUF_CLK_DIR",
-				   "VLED_ENB", "IO_EXP_TEST_LED";
+				   "MCASP1_FET_EN", "MCASP1_BUF_BT_EN",
+				   "MCASP1_FET_SEL", "UART1_FET_SEL",
+				   "TSINT#", "IO_EXP_TEST_LED";
 	};
 };
 
