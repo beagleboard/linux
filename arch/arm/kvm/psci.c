@@ -431,6 +431,10 @@ int kvm_hvc_call_handler(struct kvm_vcpu *vcpu)
 				break;
 			}
 			break;
+		case ARM_SMCCC_ARCH_WORKAROUND_3:
+			if (kvm_arm_spectre_bhb_mitigated())
+				val = SMCCC_RET_SUCCESS;
+			break;
 		}
 		break;
 	default:

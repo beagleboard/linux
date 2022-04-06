@@ -349,4 +349,9 @@ static inline int kvm_arm_have_ssbd(void)
 	return KVM_SSBD_UNKNOWN;
 }
 
+static inline bool kvm_arm_spectre_bhb_mitigated(void)
+{
+	/* 32bit guests don't need firmware for this */
+	return false;
+}
 #endif /* __ARM_KVM_HOST_H__ */
