@@ -1638,11 +1638,36 @@ static int try_to_unmap_one(struct page *page, struct vm_area_struct *vma,
 		 */
 		VM_BUG_ON_PAGE(!PageSwapCache(page), page);
 
-		if (!PageDirty(page) && (flags & TTU_LZFREE)) {
-			/* It's a freeable page by MADV_FREE */
-			dec_mm_counter(mm, MM_ANONPAGES);
-			rp->lazyfreed++;
-			goto discard;
+		if (flags & TTU_LZFREE) {
+			int ref_count, map_count;
+
+			/*
+			 * Synchronize with gup_pte_range():
+			 * - clear PTE; barrier; read refcount
+			 * - inc refcount; barrier; read PTE
+			 */
+			smp_mb();
+
+			ref_count = page_ref_count(page);
+			map_count = page_mapcount(page);
+
+			/*
+			 * Order reads for page refcount and dirty flag
+			 * (see comments in __remove_mapping()).
+			 */
+			smp_rmb();
+
+			/*
+			 * The only page refs must be one from isolation
+			 * plus the rmap(s) (dropped by discard:).
+			 */
+			if (ref_count == 1 + map_count &&
+			    !PageDirty(page)) {
+				/* It's a freeable page by MADV_FREE */
+				dec_mm_counter(mm, MM_ANONPAGES);
+				rp->lazyfreed++;
+				goto discard;
+			}
 		}
 
 		if (swap_duplicate(entry) < 0) {
