@@ -2713,7 +2713,6 @@ static int prueth_register_devlink(struct prueth *prueth)
 				emac->port_id, ret);
 			goto dl_port_unreg;
 		}
-		devlink_port_type_eth_set(dl_port, emac->ndev);
 	}
 
 	return ret;
@@ -2938,6 +2937,10 @@ static int prueth_probe(struct platform_device *pdev)
 			prueth->emac[PRUETH_MAC1]->iep = prueth->iep0;
 	}
 
+	ret = prueth_register_devlink(prueth);
+	if (ret)
+		goto netdev_exit;
+
 	/* register the network devices */
 	if (eth0_node) {
 		ret = register_netdev(prueth->emac[PRUETH_MAC0]->ndev);
@@ -2946,6 +2949,8 @@ static int prueth_probe(struct platform_device *pdev)
 			goto netdev_exit;
 		}
 
+		devlink_port_type_eth_set(&prueth->emac[PRUETH_MAC0]->devlink_port,
+					  prueth->emac[PRUETH_MAC0]->ndev);
 		prueth->registered_netdevs[PRUETH_MAC0] = prueth->emac[PRUETH_MAC0]->ndev;
 	}
 
@@ -2955,13 +2960,11 @@ static int prueth_probe(struct platform_device *pdev)
 			dev_err(dev, "can't register netdev for port MII1");
 			goto netdev_unregister;
 		}
+		devlink_port_type_eth_set(&prueth->emac[PRUETH_MAC1]->devlink_port,
+					  prueth->emac[PRUETH_MAC1]->ndev);
 
 		prueth->registered_netdevs[PRUETH_MAC1] = prueth->emac[PRUETH_MAC1]->ndev;
 	}
-
-	ret = prueth_register_devlink(prueth);
-	if (ret)
-		goto netdev_unregister;
 
 	if (prueth->is_switchmode_supported) {
 		ret = prueth_register_notifiers(prueth);
@@ -3039,13 +3042,13 @@ static int prueth_remove(struct platform_device *pdev)
 	int i;
 
 	prueth_unregister_notifiers(prueth);
-	prueth_unregister_devlink(prueth);
 
 	for (i = 0; i < PRUETH_NUM_MACS; i++) {
 		if (!prueth->registered_netdevs[i])
 			continue;
 		unregister_netdev(prueth->registered_netdevs[i]);
 	}
+	prueth_unregister_devlink(prueth);
 
 	for (i = 0; i < PRUETH_NUM_MACS; i++) {
 		eth_node = prueth->eth_node[i];
