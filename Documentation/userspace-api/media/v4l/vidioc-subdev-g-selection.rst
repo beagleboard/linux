@@ -94,10 +94,7 @@ Selection targets and flags are documented in
       - ``r``
       - Selection rectangle, in pixels.
     * - __u32
-      - ``stream``
-      - Stream identifier.
-    * - __u32
-      - ``reserved``\ [7]
+      - ``reserved``\ [8]
       - Reserved for future extensions. Applications and drivers must set
 	the array to zero.
 

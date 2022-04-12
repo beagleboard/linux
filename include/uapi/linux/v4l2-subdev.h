@@ -49,8 +49,7 @@ struct v4l2_subdev_format {
 	__u32 which;
 	__u32 pad;
 	struct v4l2_mbus_framefmt format;
-	__u32 stream;
-	__u32 reserved[7];
+	__u32 reserved[8];
 };
 
 /**
@@ -63,8 +62,7 @@ struct v4l2_subdev_crop {
 	__u32 which;
 	__u32 pad;
 	struct v4l2_rect rect;
-	__u32 stream;
-	__u32 reserved[7];
+	__u32 reserved[8];
 };
 
 #define V4L2_SUBDEV_MBUS_CODE_CSC_COLORSPACE	0x00000001
@@ -87,8 +85,7 @@ struct v4l2_subdev_mbus_code_enum {
 	__u32 code;
 	__u32 which;
 	__u32 flags;
-	__u32 stream;
-	__u32 reserved[6];
+	__u32 reserved[7];
 };
 
 /**
@@ -107,8 +104,7 @@ struct v4l2_subdev_frame_size_enum {
 	__u32 min_height;
 	__u32 max_height;
 	__u32 which;
-	__u32 stream;
-	__u32 reserved[7];
+	__u32 reserved[8];
 };
 
 /**
@@ -119,8 +115,7 @@ struct v4l2_subdev_frame_size_enum {
 struct v4l2_subdev_frame_interval {
 	__u32 pad;
 	struct v4l2_fract interval;
-	__u32 stream;
-	__u32 reserved[8];
+	__u32 reserved[9];
 };
 
 /**
@@ -141,8 +136,7 @@ struct v4l2_subdev_frame_interval_enum {
 	__u32 height;
 	struct v4l2_fract interval;
 	__u32 which;
-	__u32 stream;
-	__u32 reserved[7];
+	__u32 reserved[8];
 };
 
 /**
@@ -166,8 +160,7 @@ struct v4l2_subdev_selection {
 	__u32 target;
 	__u32 flags;
 	struct v4l2_rect r;
-	__u32 stream;
-	__u32 reserved[7];
+	__u32 reserved[8];
 };
 
 /**
