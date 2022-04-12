@@ -202,6 +202,9 @@ struct v4l2_subdev_capability {
 /* The v4l2 sub-device video device node is registered in read-only mode. */
 #define V4L2_SUBDEV_CAP_RO_SUBDEV		0x00000001
 
+/* The v4l2 sub-device supports multiplexed streams. */
+#define V4L2_SUBDEV_CAP_MPLEXED         0x00000002
+
 /*
  * Is the route active? An active route will start when streaming is enabled
  * on a video node.
