@@ -623,6 +623,32 @@ void cal_ctx_stop(struct cal_ctx *ctx)
  * ------------------------------------------------------------------
  */
 
+/*
+ * Track a sequence number for each virtual channel, which is shared by
+ * all contexts using the same virtual channel. This is done using the
+ * CSI-2 frame number as a base.
+ */
+static void cal_update_seq_number(struct cal_ctx *ctx)
+{
+	struct cal_dev *cal = ctx->cal;
+	struct cal_camerarx *phy = ctx->phy;
+	u32 prev_frame_num, frame_num;
+	u8 vc = ctx->vc;
+
+	frame_num = cal_read(cal, CAL_CSI2_STATUS(phy->instance, ctx->csi2_ctx));
+	frame_num &= 0xffff;
+
+	if (phy->vc_frame_number[vc] != frame_num) {
+		prev_frame_num = phy->vc_frame_number[vc];
+
+		if (prev_frame_num > frame_num)
+			prev_frame_num = 0;
+
+		phy->vc_sequence[vc] += frame_num - prev_frame_num;
+		phy->vc_frame_number[vc] = frame_num;
+	}
+}
+
 static inline void cal_irq_wdma_start(struct cal_ctx *ctx)
 {
 	spin_lock(&ctx->dma.lock);
@@ -653,11 +679,14 @@ static inline void cal_irq_wdma_start(struct cal_ctx *ctx)
 	}
 
 	spin_unlock(&ctx->dma.lock);
+
+	cal_update_seq_number(ctx);
 }
 
 static inline void cal_irq_wdma_end(struct cal_ctx *ctx)
 {
 	struct cal_buffer *buf = NULL;
+
 	spin_lock(&ctx->dma.lock);
 
 	/* If the DMA context was stopping, it is now stopped. */
@@ -676,27 +705,9 @@ static inline void cal_irq_wdma_end(struct cal_ctx *ctx)
 	spin_unlock(&ctx->dma.lock);
 
 	if (buf) {
-		struct cal_dev *cal = ctx->cal;
-		struct cal_camerarx *phy = ctx->phy;
-		u32 prev_frame_num, frame_num;
-		u8 vc = ctx->vc;
-
-		frame_num = cal_read(cal, CAL_CSI2_STATUS(ctx->phy->instance,
-							  ctx->csi2_ctx)) & 0xffff;
-
-		if (phy->vc_frame_number[vc] != frame_num) {
-			prev_frame_num = phy->vc_frame_number[vc];
-
-			if (prev_frame_num > frame_num)
-				prev_frame_num = 0;
-
-			phy->vc_sequence[vc] += frame_num - prev_frame_num;
-			phy->vc_frame_number[vc] = frame_num;
-		}
-
 		buf->vb.vb2_buf.timestamp = ktime_get_ns();
 		buf->vb.field = ctx->v_fmt.fmt.pix.field;
-		buf->vb.sequence = phy->vc_sequence[vc];
+		buf->vb.sequence = ctx->phy->vc_sequence[ctx->vc];
 
 		vb2_buffer_done(&buf->vb.vb2_buf, VB2_BUF_STATE_DONE);
 	}
