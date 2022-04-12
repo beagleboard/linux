@@ -890,12 +890,12 @@ static int ti_csi2rx_start_streaming(struct vb2_queue *vq, unsigned int count)
 
 	ret = media_pipeline_start(ctx->vdev.entity.pads, &csi->pipe);
 	if (ret)
-		goto err;
+		return ret;
 
 	remote_pad = media_entity_remote_pad(&ctx->pad);
 	if (!remote_pad) {
 		ret = -ENODEV;
-		goto err_pipeline;
+		goto err;
 	}
 
 	/* Find the stream to process. */
@@ -914,7 +914,7 @@ static int ti_csi2rx_start_streaming(struct vb2_queue *vq, unsigned int count)
 
 	if (!route) {
 		ret = -ENODEV;
-		goto err_pipeline;
+		goto err;
 	}
 
 	ctx->stream = route->sink_stream;
@@ -923,7 +923,7 @@ static int ti_csi2rx_start_streaming(struct vb2_queue *vq, unsigned int count)
 	if (ret == -ENOIOCTLCMD)
 		ctx->vc = 0;
 	else if (ret < 0)
-		goto err_pipeline;
+		goto err;
 	else
 		ctx->vc = ret;
 
@@ -931,14 +931,14 @@ static int ti_csi2rx_start_streaming(struct vb2_queue *vq, unsigned int count)
 	if (ret) {
 		dev_err(csi->dev,
 			"Format mismatch between source and video node\n");
-		goto err_pipeline;
+		goto err;
 	}
 
 	ti_csi2rx_setup_shim(ctx);
 
 	ret = v4l2_subdev_call(&csi->subdev, video, s_stream, 1);
 	if (ret)
-		goto err_pipeline;
+		goto err;
 
 	ctx->sequence = 0;
 
@@ -962,9 +962,9 @@ static int ti_csi2rx_start_streaming(struct vb2_queue *vq, unsigned int count)
 
 err_stream:
 	v4l2_subdev_call(&csi->subdev, video, s_stream, 0);
-err_pipeline:
-	media_pipeline_stop(ctx->vdev.entity.pads);
 err:
+	media_pipeline_stop(ctx->vdev.entity.pads);
+
 	spin_lock_irqsave(&dma->lock, flags);
 	list_for_each_entry_safe(buf, tmp, &dma->queue, list) {
 		list_del(&buf->list);
