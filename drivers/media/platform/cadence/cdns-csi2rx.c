@@ -152,6 +152,22 @@ static const struct csi2rx_fmt formats[] = {
 		.code	= MEDIA_BUS_FMT_SRGGB10_1X10,
 		.bpp	= 10,
 	},
+	{
+		.code	= MEDIA_BUS_FMT_SBGGR12_1X12,
+		.bpp	= 12,
+	},
+	{
+		.code	= MEDIA_BUS_FMT_SGBRG12_1X12,
+		.bpp	= 12,
+	},
+	{
+		.code	= MEDIA_BUS_FMT_SGRBG12_1X12,
+		.bpp	= 12,
+	},
+	{
+		.code	= MEDIA_BUS_FMT_SRGGB12_1X12,
+		.bpp	= 12,
+	},
 };
 
 static u8 csi2rx_get_bpp(u32 code)
