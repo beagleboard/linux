@@ -16,6 +16,7 @@
 #include <linux/videodev2.h>
 #include <linux/export.h>
 #include <linux/version.h>
+#include <linux/sort.h>
 
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-device.h>
@@ -1016,6 +1017,7 @@ EXPORT_SYMBOL_GPL(v4l2_subdev_link_validate_default);
 
 static int
 v4l2_subdev_link_validate_get_format(struct media_pad *pad,
+				     u32 stream,
 				     struct v4l2_subdev_format *fmt)
 {
 	if (is_media_entity_v4l2_subdev(pad->entity)) {
@@ -1027,6 +1029,7 @@ v4l2_subdev_link_validate_get_format(struct media_pad *pad,
 
 		fmt->which = V4L2_SUBDEV_FORMAT_ACTIVE;
 		fmt->pad = pad->index;
+		fmt->stream = stream;
 		return v4l2_subdev_call(sd, pad, get_fmt, state, fmt);
 	}
 
@@ -1037,31 +1040,209 @@ v4l2_subdev_link_validate_get_format(struct media_pad *pad,
 	return -EINVAL;
 }
 
+static int cmp_u32(const void *a, const void *b)
+{
+	u32 a32 = *(u32 *)a;
+	u32 b32 = *(u32 *)b;
+
+	return a32 > b32 ? 1 : (a32 < b32 ? -1 : 0);
+}
+
+static int v4l2_link_validate_get_streams(struct media_link *link,
+					  bool is_source, u32 *out_num_streams,
+					  const u32 **out_streams,
+					  bool *allocated)
+{
+	static const u32 default_streams[] = { 0 };
+	struct v4l2_subdev_krouting *routing;
+	struct v4l2_subdev *subdev;
+	u32 num_streams;
+	u32 *streams;
+	unsigned int i;
+	struct v4l2_subdev_state *state;
+
+	if (is_source)
+		subdev = media_entity_to_v4l2_subdev(link->source->entity);
+	else
+		subdev = media_entity_to_v4l2_subdev(link->sink->entity);
+
+	if (!(subdev->flags & V4L2_SUBDEV_FL_MULTIPLEXED)) {
+		*out_num_streams = 1;
+		*out_streams = default_streams;
+		*allocated = false;
+		return 0;
+	}
+
+	state = v4l2_subdev_lock_active_state(subdev);
+
+	routing = &state->routing;
+
+	streams = kmalloc_array(routing->num_routes, sizeof(u32), GFP_KERNEL);
+
+	if (!streams) {
+		v4l2_subdev_unlock_state(state);
+		return -ENOMEM;
+	}
+
+	num_streams = 0;
+
+	for (i = 0; i < routing->num_routes; ++i) {
+		struct v4l2_subdev_route *route = &routing->routes[i];
+		int j;
+		u32 route_pad;
+		u32 route_stream;
+		u32 link_pad;
+
+		if (is_source) {
+			route_pad = route->source_pad;
+			route_stream = route->source_stream;
+			link_pad = link->source->index;
+		} else {
+			route_pad = route->sink_pad;
+			route_stream = route->sink_stream;
+			link_pad = link->sink->index;
+		}
+
+		if (!(route->flags & V4L2_SUBDEV_ROUTE_FL_ACTIVE))
+			continue;
+
+		if (route_pad != link_pad)
+			continue;
+
+		/* look for duplicates... */
+		for (j = 0; j < num_streams; ++j) {
+			if (streams[j] == route_stream)
+				break;
+		}
+
+		/* ...and drop the stream if we already have it */
+		if (j != num_streams)
+			continue;
+
+		streams[num_streams++] = route_stream;
+	}
+
+	v4l2_subdev_unlock_state(state);
+
+	sort(streams, num_streams, sizeof(u32), &cmp_u32, NULL);
+
+	*out_num_streams = num_streams;
+	*out_streams = streams;
+	*allocated = true;
+
+	return 0;
+}
+
 int v4l2_subdev_link_validate(struct media_link *link)
 {
-	struct v4l2_subdev *sink;
-	struct v4l2_subdev_format sink_fmt, source_fmt;
-	int rval;
+	struct v4l2_subdev *sink_subdev =
+		media_entity_to_v4l2_subdev(link->sink->entity);
+	struct device *dev = sink_subdev->entity.graph_obj.mdev->dev;
+	u32 num_source_streams;
+	const u32 *source_streams;
+	bool source_allocated;
+	u32 num_sink_streams;
+	const u32 *sink_streams;
+	bool sink_allocated;
+	unsigned int sink_idx;
+	unsigned int source_idx;
+	int ret;
 
-	rval = v4l2_subdev_link_validate_get_format(
-		link->source, &source_fmt);
-	if (rval < 0)
-		return 0;
+	dev_dbg(dev, "validating link \"%s\":%u -> \"%s\":%u\n",
+		link->source->entity->name, link->source->index,
+		link->sink->entity->name, link->sink->index);
 
-	rval = v4l2_subdev_link_validate_get_format(
-		link->sink, &sink_fmt);
-	if (rval < 0)
-		return 0;
+	ret = v4l2_link_validate_get_streams(link, true, &num_source_streams,
+					     &source_streams,
+					     &source_allocated);
+	if (ret)
+		return ret;
 
-	sink = media_entity_to_v4l2_subdev(link->sink->entity);
+	ret = v4l2_link_validate_get_streams(link, false, &num_sink_streams,
+					     &sink_streams, &sink_allocated);
+	if (ret)
+		goto free_source;
 
-	rval = v4l2_subdev_call(sink, pad, link_validate, link,
-				&source_fmt, &sink_fmt);
-	if (rval != -ENOIOCTLCMD)
-		return rval;
+	/* It is ok to have more source streams than sink streams */
+	if (num_source_streams < num_sink_streams) {
+		dev_err(dev,
+			"Not enough source streams: %d < %d\n",
+			num_source_streams, num_sink_streams);
+		ret = -EINVAL;
+		goto out;
+	}
 
-	return v4l2_subdev_link_validate_default(
-		sink, link, &source_fmt, &sink_fmt);
+	/* Validate source and sink stream formats */
+
+	source_idx = 0;
+
+	for (sink_idx = 0; sink_idx < num_sink_streams; ++sink_idx) {
+		struct v4l2_subdev_format sink_fmt, source_fmt;
+		u32 stream;
+
+		stream = sink_streams[sink_idx];
+
+		for (; source_idx < num_source_streams; ++source_idx) {
+			if (source_streams[source_idx] == stream)
+				break;
+		}
+
+		if (source_idx == num_source_streams) {
+			dev_err(dev, "No source stream for sink stream %u\n",
+				stream);
+			ret = -EINVAL;
+			goto out;
+		}
+
+		dev_dbg(dev, "validating stream \"%s\":%u:%u -> \"%s\":%u:%u\n",
+			link->source->entity->name, link->source->index, stream,
+			link->sink->entity->name, link->sink->index, stream);
+
+		ret = v4l2_subdev_link_validate_get_format(link->source, stream,
+							   &source_fmt);
+		if (ret < 0) {
+			dev_dbg(dev, "Failed to get format for \"%s\":%u:%u (but that's ok)\n",
+				link->source->entity->name, link->source->index,
+				stream);
+			ret = 0;
+			continue;
+		}
+
+		ret = v4l2_subdev_link_validate_get_format(link->sink, stream,
+							   &sink_fmt);
+		if (ret < 0) {
+			dev_dbg(dev, "Failed to get format for \"%s\":%u:%u (but that's ok)\n",
+				link->sink->entity->name, link->sink->index,
+				stream);
+			ret = 0;
+			continue;
+		}
+
+		/* TODO: add stream number to link_validate() */
+		ret = v4l2_subdev_call(sink_subdev, pad, link_validate, link,
+				       &source_fmt, &sink_fmt);
+		if (!ret)
+			continue;
+
+		if (ret != -ENOIOCTLCMD)
+			goto out;
+
+		ret = v4l2_subdev_link_validate_default(sink_subdev, link,
+							&source_fmt, &sink_fmt);
+
+		if (ret)
+			goto out;
+	}
+
+out:
+	if (sink_allocated)
+		kfree(sink_streams);
+
+free_source:
+	if (source_allocated)
+		kfree(source_streams);
+
+	return ret;
 }
 EXPORT_SYMBOL_GPL(v4l2_subdev_link_validate);
 
