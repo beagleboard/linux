@@ -1117,3 +1117,31 @@ void v4l2_subdev_unlock_state(struct v4l2_subdev_state *state)
 	mutex_unlock(&state->lock);
 }
 EXPORT_SYMBOL_GPL(v4l2_subdev_unlock_state);
+
+int v4l2_subdev_set_routing(struct v4l2_subdev *sd,
+			    struct v4l2_subdev_state *state,
+			    struct v4l2_subdev_krouting *routing)
+{
+	struct v4l2_subdev_krouting *dst = &state->routing;
+	const struct v4l2_subdev_krouting *src = routing;
+
+	lockdep_assert_held(&state->lock);
+
+	kvfree(dst->routes);
+	dst->routes = NULL;
+	dst->num_routes = 0;
+
+	if (src->num_routes > 0) {
+		dst->routes = kvmalloc_array(src->num_routes,
+					     sizeof(*src->routes), GFP_KERNEL);
+		if (!dst->routes)
+			return -ENOMEM;
+
+		memcpy(dst->routes, src->routes,
+		       src->num_routes * sizeof(*src->routes));
+		dst->num_routes = src->num_routes;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(v4l2_subdev_set_routing);
