@@ -1450,3 +1450,45 @@ v4l2_state_get_stream_format(struct v4l2_subdev_state *state, unsigned int pad,
 	return NULL;
 }
 EXPORT_SYMBOL_GPL(v4l2_state_get_stream_format);
+
+int v4l2_state_find_opposite_end(struct v4l2_subdev_krouting *routing, u32 pad,
+				 u32 stream, u32 *other_pad, u32 *other_stream)
+{
+	unsigned int i;
+
+	for (i = 0; i < routing->num_routes; ++i) {
+		struct v4l2_subdev_route *route = &routing->routes[i];
+
+		if (route->source_pad == pad &&
+		    route->source_stream == stream) {
+			*other_pad = route->sink_pad;
+			*other_stream = route->sink_stream;
+			return 0;
+		}
+
+		if (route->sink_pad == pad && route->sink_stream == stream) {
+			*other_pad = route->source_pad;
+			*other_stream = route->source_stream;
+			return 0;
+		}
+	}
+
+	return -EINVAL;
+}
+EXPORT_SYMBOL_GPL(v4l2_state_find_opposite_end);
+
+struct v4l2_mbus_framefmt *
+v4l2_state_get_opposite_stream_format(struct v4l2_subdev_state *state, u32 pad,
+				      u32 stream)
+{
+	u32 other_pad, other_stream;
+	int ret;
+
+	ret = v4l2_state_find_opposite_end(&state->routing, pad, stream,
+					   &other_pad, &other_stream);
+	if (ret)
+		return NULL;
+
+	return v4l2_state_get_stream_format(state, other_pad, other_stream);
+}
+EXPORT_SYMBOL_GPL(v4l2_state_get_opposite_stream_format);
