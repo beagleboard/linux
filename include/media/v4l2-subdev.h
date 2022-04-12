@@ -1540,4 +1540,18 @@ v4l2_state_get_opposite_stream_format(struct v4l2_subdev_state *state, u32 pad,
 int v4l2_subdev_get_fmt(struct v4l2_subdev *sd, struct v4l2_subdev_state *state,
 			struct v4l2_subdev_format *format);
 
+/**
+ * v4l2_routing_simple_verify() - Verify that all streams are non-overlapping
+ *				  1-to-1 streams
+ * @routing: routing to verify
+ *
+ * This verifies that the given routing contains only non-overlapping 1-to-1
+ * streams. In other words, no two streams have the same source or sink
+ * stream ID on a single pad. This is the most common case of routing
+ * supported by devices.
+ *
+ * Returns 0 on success, error value otherwise.
+ */
+int v4l2_routing_simple_verify(const struct v4l2_subdev_krouting *routing);
+
 #endif
