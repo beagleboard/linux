@@ -279,7 +279,6 @@ static int csi2rx_configure_external_dphy(struct csi2rx_priv *csi2rx)
 	struct phy_configure_opts_mipi_dphy *cfg = &opts.mipi_dphy;
 	s64 link_freq;
 	int ret;
-	bool got_pm = true;
 
 	link_freq = csi2rx_get_link_freq(csi2rx);
 	if (link_freq < 0)
@@ -293,9 +292,7 @@ static int csi2rx_configure_external_dphy(struct csi2rx_priv *csi2rx)
 	cfg->lanes = csi2rx->num_lanes;
 
 	ret = phy_pm_runtime_get_sync(csi2rx->dphy);
-	if (ret == -ENOTSUPP)
-		got_pm = false;
-	else if (ret)
+	if (ret < 0 && ret != -ENOTSUPP)
 		return ret;
 
 	ret = phy_set_mode_ext(csi2rx->dphy, PHY_MODE_MIPI_DPHY,
@@ -315,9 +312,7 @@ static int csi2rx_configure_external_dphy(struct csi2rx_priv *csi2rx)
 	}
 
 out:
-	if (got_pm)
-		phy_pm_runtime_put(csi2rx->dphy);
-
+	phy_pm_runtime_put(csi2rx->dphy);
 	return ret;
 }
 
