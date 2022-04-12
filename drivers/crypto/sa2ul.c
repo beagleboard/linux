@@ -2417,6 +2417,7 @@ static const struct of_device_id of_match[] = {
 	{ .compatible = "ti,j721e-sa2ul", .data = &am654_match_data, },
 	{ .compatible = "ti,am654-sa2ul", .data = &am654_match_data, },
 	{ .compatible = "ti,am64-sa2ul", .data = &am64_match_data, },
+	{ .compatible = "ti,am62-sa3ul", .data = &am64_match_data, },
 	{},
 };
 MODULE_DEVICE_TABLE(of, of_match);
