@@ -148,9 +148,9 @@ static inline int check_pad(struct v4l2_subdev *sd, u32 pad)
 	return 0;
 }
 
-static int check_cfg(u32 which, struct v4l2_subdev_state *state)
+static int check_state_pads(u32 which, struct v4l2_subdev_state *state)
 {
-	if (which == V4L2_SUBDEV_FORMAT_TRY && !state)
+	if (which == V4L2_SUBDEV_FORMAT_TRY && (!state || !state->pads))
 		return -EINVAL;
 
 	return 0;
@@ -164,7 +164,7 @@ static inline int check_format(struct v4l2_subdev *sd,
 		return -EINVAL;
 
 	return check_which(format->which) ? : check_pad(sd, format->pad) ? :
-	       check_cfg(format->which, state);
+	       check_state_pads(format->which, state);
 }
 
 static int call_get_fmt(struct v4l2_subdev *sd,
@@ -191,7 +191,7 @@ static int call_enum_mbus_code(struct v4l2_subdev *sd,
 		return -EINVAL;
 
 	return check_which(code->which) ? : check_pad(sd, code->pad) ? :
-	       check_cfg(code->which, state) ? :
+	       check_state_pads(code->which, state) ? :
 	       sd->ops->pad->enum_mbus_code(sd, state, code);
 }
 
@@ -203,7 +203,7 @@ static int call_enum_frame_size(struct v4l2_subdev *sd,
 		return -EINVAL;
 
 	return check_which(fse->which) ? : check_pad(sd, fse->pad) ? :
-	       check_cfg(fse->which, state) ? :
+	       check_state_pads(fse->which, state) ? :
 	       sd->ops->pad->enum_frame_size(sd, state, fse);
 }
 
@@ -238,7 +238,7 @@ static int call_enum_frame_interval(struct v4l2_subdev *sd,
 		return -EINVAL;
 
 	return check_which(fie->which) ? : check_pad(sd, fie->pad) ? :
-	       check_cfg(fie->which, state) ? :
+	       check_state_pads(fie->which, state) ? :
 	       sd->ops->pad->enum_frame_interval(sd, state, fie);
 }
 
@@ -250,7 +250,7 @@ static inline int check_selection(struct v4l2_subdev *sd,
 		return -EINVAL;
 
 	return check_which(sel->which) ? : check_pad(sd, sel->pad) ? :
-	       check_cfg(sel->which, state);
+	       check_state_pads(sel->which, state);
 }
 
 static int call_get_selection(struct v4l2_subdev *sd,
@@ -842,10 +842,8 @@ struct v4l2_subdev_state *v4l2_subdev_alloc_state(struct v4l2_subdev *sd)
 	int ret;
 
 	state = kzalloc(sizeof(*state), GFP_KERNEL);
-	if (!state) {
-		ret = -ENOMEM;
-		goto err;
-	}
+	if (!state)
+		return ERR_PTR(-ENOMEM);
 
 	if (sd->entity.num_pads) {
 		state->pads = kvmalloc_array(sd->entity.num_pads,
@@ -875,8 +873,11 @@ EXPORT_SYMBOL_GPL(v4l2_subdev_alloc_state);
 
 void v4l2_subdev_free_state(struct v4l2_subdev_state *state)
 {
+	if (!state)
+		return;
+
 	kvfree(state->pads);
-	kvfree(state);
+	kfree(state);
 }
 EXPORT_SYMBOL_GPL(v4l2_subdev_free_state);
 

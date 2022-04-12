@@ -670,7 +670,7 @@ struct v4l2_subdev_pad_config {
 };
 
 /**
- * struct v4l2_subdev_state - Used for storing subdev information.
+ * struct v4l2_subdev_state - Used for storing subdev state information.
  *
  * @pads: &struct v4l2_subdev_pad_config array
  *
@@ -1004,8 +1004,8 @@ struct v4l2_subdev_fh {
  *	&struct v4l2_subdev_pad_config->try_fmt
  *
  * @sd: pointer to &struct v4l2_subdev
- * @state: pointer to &struct v4l2_subdev_state.
- * @pad: index of the pad in the @state array.
+ * @state: pointer to &struct v4l2_subdev_state
+ * @pad: index of the pad in the &struct v4l2_subdev_state->pads array
  */
 static inline struct v4l2_mbus_framefmt *
 v4l2_subdev_get_try_format(struct v4l2_subdev *sd,
@@ -1023,7 +1023,7 @@ v4l2_subdev_get_try_format(struct v4l2_subdev *sd,
  *
  * @sd: pointer to &struct v4l2_subdev
  * @state: pointer to &struct v4l2_subdev_state.
- * @pad: index of the pad in the @state array.
+ * @pad: index of the pad in the &struct v4l2_subdev_state->pads array.
  */
 static inline struct v4l2_rect *
 v4l2_subdev_get_try_crop(struct v4l2_subdev *sd,
@@ -1041,7 +1041,7 @@ v4l2_subdev_get_try_crop(struct v4l2_subdev *sd,
  *
  * @sd: pointer to &struct v4l2_subdev
  * @state: pointer to &struct v4l2_subdev_state.
- * @pad: index of the pad in the @state array.
+ * @pad: index of the pad in the &struct v4l2_subdev_state->pads array.
  */
 static inline struct v4l2_rect *
 v4l2_subdev_get_try_compose(struct v4l2_subdev *sd,
@@ -1154,12 +1154,16 @@ int v4l2_subdev_link_validate(struct media_link *link);
 /**
  * v4l2_subdev_alloc_state - allocate v4l2_subdev_state
  *
+ * @sd: pointer to &struct v4l2_subdev for which the state is being allocated.
+ *
  * Must call v4l2_subdev_free_state() when state is no longer needed.
  */
 struct v4l2_subdev_state *v4l2_subdev_alloc_state(struct v4l2_subdev *sd);
 
 /**
- * v4l2_subdev_free_state - uninitialize v4l2_subdev_state
+ * v4l2_subdev_free_state - free a v4l2_subdev_state
+ *
+ * @state: v4l2_subdev_state to be freed.
  */
 void v4l2_subdev_free_state(struct v4l2_subdev_state *state);
 
