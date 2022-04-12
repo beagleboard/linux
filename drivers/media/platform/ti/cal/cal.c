@@ -543,7 +543,22 @@ void cal_ctx_unprepare(struct cal_ctx *ctx)
 
 void cal_ctx_start(struct cal_ctx *ctx)
 {
-	ctx->sequence = 0;
+	struct cal_camerarx *phy = ctx->phy;
+
+	/*
+	 * Reset the frame number & sequence number, but only if the
+	 * virtual channel is not already in use.
+	 */
+
+	spin_lock(&phy->vc_lock);
+
+	if (phy->vc_enable_count[ctx->vc]++ == 0) {
+		phy->vc_frame_number[ctx->vc] = 0;
+		phy->vc_sequence[ctx->vc] = 0;
+	}
+
+	spin_unlock(&phy->vc_lock);
+
 	ctx->dma.state = CAL_DMA_RUNNING;
 
 	/* Configure the CSI-2, pixel processing and write DMA contexts. */
@@ -563,7 +578,14 @@ void cal_ctx_start(struct cal_ctx *ctx)
 
 void cal_ctx_stop(struct cal_ctx *ctx)
 {
+	struct cal_camerarx *phy = ctx->phy;
 	long timeout;
+
+	WARN_ON(phy->vc_enable_count[ctx->vc] == 0);
+
+	spin_lock(&phy->vc_lock);
+	phy->vc_enable_count[ctx->vc]--;
+	spin_unlock(&phy->vc_lock);
 
 	/*
 	 * Request DMA stop and wait until it completes. If completion times
@@ -636,7 +658,6 @@ static inline void cal_irq_wdma_start(struct cal_ctx *ctx)
 static inline void cal_irq_wdma_end(struct cal_ctx *ctx)
 {
 	struct cal_buffer *buf = NULL;
-
 	spin_lock(&ctx->dma.lock);
 
 	/* If the DMA context was stopping, it is now stopped. */
@@ -655,9 +676,28 @@ static inline void cal_irq_wdma_end(struct cal_ctx *ctx)
 	spin_unlock(&ctx->dma.lock);
 
 	if (buf) {
+		struct cal_dev *cal = ctx->cal;
+		struct cal_camerarx *phy = ctx->phy;
+		u32 prev_frame_num, frame_num;
+		u8 vc = ctx->vc;
+
+		frame_num = cal_read(cal, CAL_CSI2_STATUS(ctx->phy->instance,
+							  ctx->csi2_ctx)) & 0xffff;
+
+		if (phy->vc_frame_number[vc] != frame_num) {
+			prev_frame_num = phy->vc_frame_number[vc];
+
+			if (prev_frame_num > frame_num)
+				prev_frame_num = 0;
+
+			phy->vc_sequence[vc] += frame_num - prev_frame_num;
+			phy->vc_frame_number[vc] = frame_num;
+		}
+
 		buf->vb.vb2_buf.timestamp = ktime_get_ns();
 		buf->vb.field = ctx->v_fmt.fmt.pix.field;
-		buf->vb.sequence = ctx->sequence++;
+		buf->vb.sequence = phy->vc_sequence[vc];
+
 		vb2_buffer_done(&buf->vb.vb2_buf, VB2_BUF_STATE_DONE);
 	}
 }
