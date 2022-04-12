@@ -1330,4 +1330,37 @@ void v4l2_subdev_lock_state(struct v4l2_subdev_state *state);
  */
 void v4l2_subdev_unlock_state(struct v4l2_subdev_state *state);
 
+/**
+ * v4l2_subdev_validate_and_lock_state() - Gets locked TRY or ACTIVE subdev
+ *					   state
+ * @sd: subdevice
+ * @state: subdevice state as passed to the subdev op
+ *
+ * Due to legacy reasons, when subdev drivers call ops in other subdevs they use
+ * NULL as the state parameter, as subdevs always used to have their active
+ * state stored privately.
+ *
+ * However, newer state-aware subdev drivers, which store their active state in
+ * a common place, subdev->state, expect to always get a proper state as a
+ * parameter.
+ *
+ * These state-aware drivers can use v4l2_subdev_validate_and_lock_state()
+ * instead of v4l2_subdev_lock_state(). v4l2_subdev_validate_and_lock_state()
+ * solves the issue by using subdev->state in case the passed state is
+ * NULL.
+ *
+ * This is a temporary helper function, and should be removed when we can ensure
+ * that all drivers pass proper state when calling other subdevs.
+ */
+static inline struct v4l2_subdev_state *
+v4l2_subdev_validate_and_lock_state(struct v4l2_subdev *sd,
+				    struct v4l2_subdev_state *state)
+{
+	state = state ? state : sd->state;
+
+	v4l2_subdev_lock_state(state);
+
+	return state;
+}
+
 #endif
