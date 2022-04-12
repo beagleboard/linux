@@ -1194,9 +1194,6 @@ EXPORT_SYMBOL_GPL(v4l2_subdev_alloc_state);
 
 void v4l2_subdev_free_state(struct v4l2_subdev_state *state)
 {
-	v4l2_subdev_free_routing(&state->routing);
-	v4l2_uninit_stream_configs(&state->stream_configs);
-
 	kvfree(state->pads);
 	kvfree(state);
 }
