@@ -611,18 +611,18 @@ cal_camerarx_get_pad_format(struct cal_camerarx *phy,
 static int cal_camerarx_sd_s_stream(struct v4l2_subdev *sd, int enable)
 {
 	struct cal_camerarx *phy = to_cal_camerarx(sd);
-	int r = 0;
+	int ret = 0;
 
 	mutex_lock(&phy->mutex);
 
 	if (enable)
-		r = cal_camerarx_start(phy);
+		ret = cal_camerarx_start(phy);
 	else
 		cal_camerarx_stop(phy);
 
 	mutex_unlock(&phy->mutex);
 
-	return r;
+	return ret;
 }
 
 static int cal_camerarx_sd_enum_mbus_code(struct v4l2_subdev *sd,
@@ -630,7 +630,7 @@ static int cal_camerarx_sd_enum_mbus_code(struct v4l2_subdev *sd,
 					  struct v4l2_subdev_mbus_code_enum *code)
 {
 	struct cal_camerarx *phy = to_cal_camerarx(sd);
-	int r = 0;
+	int ret = 0;
 
 	mutex_lock(&phy->mutex);
 
@@ -639,7 +639,7 @@ static int cal_camerarx_sd_enum_mbus_code(struct v4l2_subdev *sd,
 		struct v4l2_mbus_framefmt *fmt;
 
 		if (code->index > 0) {
-			r = -EINVAL;
+			ret = -EINVAL;
 			goto out;
 		}
 
@@ -649,7 +649,7 @@ static int cal_camerarx_sd_enum_mbus_code(struct v4l2_subdev *sd,
 		code->code = fmt->code;
 	} else {
 		if (code->index >= cal_num_formats) {
-			r = -EINVAL;
+			ret = -EINVAL;
 			goto out;
 		}
 
@@ -659,7 +659,7 @@ static int cal_camerarx_sd_enum_mbus_code(struct v4l2_subdev *sd,
 out:
 	mutex_unlock(&phy->mutex);
 
-	return r;
+	return ret;
 }
 
 static int cal_camerarx_sd_enum_frame_size(struct v4l2_subdev *sd,
@@ -668,7 +668,7 @@ static int cal_camerarx_sd_enum_frame_size(struct v4l2_subdev *sd,
 {
 	struct cal_camerarx *phy = to_cal_camerarx(sd);
 	const struct cal_format_info *fmtinfo;
-	int r = 0;
+	int ret = 0;
 
 	if (fse->index > 0)
 		return -EINVAL;
@@ -683,7 +683,7 @@ static int cal_camerarx_sd_enum_frame_size(struct v4l2_subdev *sd,
 						  CAL_CAMERARX_PAD_SINK,
 						  fse->which);
 		if (fse->code != fmt->code) {
-			r = -EINVAL;
+			ret = -EINVAL;
 			goto out;
 		}
 
@@ -694,14 +694,12 @@ static int cal_camerarx_sd_enum_frame_size(struct v4l2_subdev *sd,
 	} else {
 		fmtinfo = cal_format_by_code(fse->code);
 		if (!fmtinfo) {
-			r = -EINVAL;
+			ret = -EINVAL;
 			goto out;
 		}
 
-		fse->min_width =
-			CAL_MIN_WIDTH_BYTES * 8 / ALIGN(fmtinfo->bpp, 8);
-		fse->max_width =
-			CAL_MAX_WIDTH_BYTES * 8 / ALIGN(fmtinfo->bpp, 8);
+		fse->min_width = CAL_MIN_WIDTH_BYTES * 8 / ALIGN(fmtinfo->bpp, 8);
+		fse->max_width = CAL_MAX_WIDTH_BYTES * 8 / ALIGN(fmtinfo->bpp, 8);
 		fse->min_height = CAL_MIN_HEIGHT_LINES;
 		fse->max_height = CAL_MAX_HEIGHT_LINES;
 	}
@@ -709,7 +707,7 @@ static int cal_camerarx_sd_enum_frame_size(struct v4l2_subdev *sd,
 out:
 	mutex_unlock(&phy->mutex);
 
-	return r;
+	return ret;
 }
 
 static int cal_camerarx_sd_get_fmt(struct v4l2_subdev *sd,
@@ -772,7 +770,8 @@ static int cal_camerarx_sd_set_fmt(struct v4l2_subdev *sd,
 					  format->which);
 	*fmt = format->format;
 
-	fmt = cal_camerarx_get_pad_format(phy, sd_state, CAL_CAMERARX_PAD_FIRST_SOURCE,
+	fmt = cal_camerarx_get_pad_format(phy, sd_state,
+					  CAL_CAMERARX_PAD_FIRST_SOURCE,
 					  format->which);
 	*fmt = format->format;
 
@@ -835,8 +834,8 @@ struct cal_camerarx *cal_camerarx_create(struct cal_dev *cal,
 	struct platform_device *pdev = to_platform_device(cal->dev);
 	struct cal_camerarx *phy;
 	struct v4l2_subdev *sd;
-	int ret;
 	unsigned int i;
+	int ret;
 
 	phy = kzalloc(sizeof(*phy), GFP_KERNEL);
 	if (!phy)
@@ -911,5 +910,6 @@ void cal_camerarx_destroy(struct cal_camerarx *phy)
 	media_entity_cleanup(&phy->subdev.entity);
 	of_node_put(phy->source_ep_node);
 	of_node_put(phy->source_node);
+	mutex_destroy(&phy->mutex);
 	kfree(phy);
 }

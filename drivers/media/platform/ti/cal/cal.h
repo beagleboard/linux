@@ -180,10 +180,14 @@ struct cal_camerarx {
 	struct media_pad	pads[CAL_CAMERARX_NUM_PADS];
 	struct v4l2_mbus_framefmt	formats[CAL_CAMERARX_NUM_PADS];
 
-	/* mutex for camerarx ops */
+	/*
+	 * Lock for camerarx ops. Protects:
+	 * - formats
+	 * - enable_count
+	 */
 	struct mutex		mutex;
 
-	unsigned int enable_count;
+	unsigned int		enable_count;
 };
 
 struct cal_dev {
