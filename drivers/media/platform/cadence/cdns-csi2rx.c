@@ -454,6 +454,8 @@ static void csi2rx_stop(struct csi2rx_priv *csi2rx)
 
 		if (phy_power_off(csi2rx->dphy))
 			dev_warn(csi2rx->dev, "Couldn't power off DPHY\n");
+
+		phy_pm_runtime_put(csi2rx->dphy);
 	}
 }
 
