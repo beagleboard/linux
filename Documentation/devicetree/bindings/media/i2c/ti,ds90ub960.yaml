@@ -1,0 +1,196 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/media/i2c/ti,ds90ub960.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Texas Instruments DS90UB960 FPD-Link 3 Deserializer Hub
+
+maintainers:
+  - Tomi Valkeinen <tomi.valkeinen@ideasonboard.com>
+
+description: |-
+  The TI DS90UB960 is an FPD-Link 3 video deserializer with 4 FPD-Link 3
+  inputs and 2 MIPI CSI-2 outputs. It also features I2C and GPIO forwarding.
+
+properties:
+  compatible:
+    enum:
+      - ti,ds90ub960-q1
+
+  reg:
+    minItems: 1
+    maxItems: 5
+    description:
+      i2c addresses for the deserializer and the serializers
+
+  reg-names:
+    minItems: 1
+    items:
+      - const: main
+      - enum: [ ser0, ser1, ser2, ser3 ]
+      - enum: [ ser0, ser1, ser2, ser3 ]
+      - enum: [ ser0, ser1, ser2, ser3 ]
+      - enum: [ ser0, ser1, ser2, ser3 ]
+      - enum: [ ser0, ser1, ser2, ser3 ]
+
+
+  clocks:
+    maxItems: 1
+    description:
+      Reference clock connected to the REFCLK pin.
+
+  powerdown-gpios:
+    maxItems: 1
+    description:
+      Specifier for the GPIO connected to the PWDN pin.
+
+  ports:
+    $ref: /schemas/graph.yaml#/properties/ports
+
+    properties:
+      port@0:
+        $ref: /schemas/graph.yaml#/$defs/port-base
+        description: FPD-Link 3 input 0
+
+        properties:
+          endpoint:
+            $ref: /schemas/media/video-interfaces.yaml#
+
+            properties:
+              mode:
+                description: FPD3 Input Mode
+              bc-freq:
+                description: back channel frequency
+
+            required:
+              - mode
+              - bc-freq
+
+      port@1:
+        $ref: /schemas/graph.yaml#/$defs/port-base
+        description: FPD-Link 3 input 1
+
+        properties:
+          endpoint:
+            $ref: /schemas/media/video-interfaces.yaml#
+
+            properties:
+              mode:
+                description: FPD3 Input Mode
+              bc-freq:
+                description: back channel frequency
+
+            required:
+              - mode
+              - bc-freq
+
+      port@2:
+        $ref: /schemas/graph.yaml#/$defs/port-base
+        description: FPD-Link 3 input 2
+
+        properties:
+          endpoint:
+            $ref: /schemas/media/video-interfaces.yaml#
+
+            properties:
+              mode:
+                description: FPD3 Input Mode
+              bc-freq:
+                description: back channel frequency
+
+            required:
+              - mode
+              - bc-freq
+
+      port@3:
+        $ref: /schemas/graph.yaml#/$defs/port-base
+        description: FPD-Link 3 input 3
+
+        properties:
+          endpoint:
+            $ref: /schemas/media/video-interfaces.yaml#
+
+            properties:
+              mode:
+                description: FPD3 Input Mode
+              bc-freq:
+                description: back channel frequency
+
+            required:
+              - mode
+              - bc-freq
+
+      port@4:
+        $ref: /schemas/graph.yaml#/$defs/port-base
+        description: CSI-2 Output 0
+
+      port@5:
+        $ref: /schemas/graph.yaml#/$defs/port-base
+        description: CSI-2 Output 1
+
+required:
+  - compatible
+  - reg
+  - clocks
+  - ports
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/gpio/gpio.h>
+
+    i2c {
+      clock-frequency = <400000>;
+      #address-cells = <1>;
+      #size-cells = <0>;
+
+      deser@3d {
+        compatible = "ti,ds90ub960-q1";
+
+        reg-names = "main", "ser0", "ser1", "ser2", "ser3";
+        reg       = <0x3d>, <0x44>, <0x45>, <0x46>, <0x47>;
+
+        clocks = <&fixed_clock>;
+
+        powerdown-gpios = <&pca9555 7 GPIO_ACTIVE_LOW>;
+
+        i2c-alias-pool = /bits/ 16 <0x4a 0x4b 0x4c 0x4d 0x4e 0x4f>;
+
+        ports {
+          #address-cells = <1>;
+          #size-cells = <0>;
+
+          /* Port 0, Camera 0 */
+          port@0 {
+            reg = <0>;
+
+            ds90ub960_fpd3_in: endpoint {
+              remote-endpoint = <&ub913_out>;
+
+              mode = <0>;
+              bc-freq = <2500000>;
+
+            };
+          };
+
+          /* Port 4, CSI-2 TX */
+          port@4 {
+            reg = <4>;
+            ds90ub960_0_csi_out: endpoint {
+              clock-lanes = <0>;
+              data-lanes = <1 2 3 4>;
+              data-rate = <1600000000>;
+              remote-endpoint = <&csi2_phy0>;
+            };
+          };
+        };
+
+        ds90ub960_0_atr: i2c-atr {
+          #address-cells = <1>;
+          #size-cells = <0>;
+        };
+      };
+    };
+...
