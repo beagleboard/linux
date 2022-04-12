@@ -519,6 +519,14 @@ subdev drivers. In these cases the called subdev ops must also handle the NULL
 case. This can be easily managed by the use of
 v4l2_subdev_validate_and_lock_state() helper.
 
+Streams, multiplexed media pads and internal routing
+----------------------------------------------------
+
+A subdevice driver can implement support for multiplexed streams by setting
+the V4L2_SUBDEV_FL_MULTIPLEXED subdev flag and implementing support for
+centrally managed subdev active state, routing and stream based
+configuration.
+
 V4L2 sub-device functions and data structures
 ---------------------------------------------
 
