@@ -25,12 +25,16 @@
 #define SHIM_DMACNTX(i)			(0x20 + ((i) * 0x20))
 #define SHIM_DMACNTX_EN			BIT(31)
 #define SHIM_DMACNTX_YUV422		GENMASK(27, 26)
+#define SHIM_DMACNTX_SIZE		GENMASK(21, 20)
 #define SHIM_DMACNTX_VC			GENMASK(9, 6)
 #define SHIM_DMACNTX_FMT		GENMASK(5, 0)
 #define SHIM_DMACNTX_UYVY		0
 #define SHIM_DMACNTX_VYUY		1
 #define SHIM_DMACNTX_YUYV		2
 #define SHIM_DMACNTX_YVYU		3
+#define SHIM_DMACNTX_SIZE_8		0
+#define SHIM_DMACNTX_SIZE_16		1
+#define SHIM_DMACNTX_SIZE_32		2
 
 #define SHIM_PSI_CFG0(i)		(0x24 + ((i) * 0x20))
 #define SHIM_PSI_CFG0_SRC_TAG		GENMASK(15, 0)
@@ -66,6 +70,7 @@ struct ti_csi2rx_fmt {
 	enum v4l2_colorspace		colorspace;
 	u32				csi_df;	/* CSI Data format. */
 	u8				bpp;	/* Bits per pixel. */
+	u8				size;	/* Data size shift when unpacking. */
 };
 
 struct ti_csi2rx_buffer {
@@ -137,24 +142,28 @@ static const struct ti_csi2rx_fmt formats[] = {
 		.colorspace		= V4L2_COLORSPACE_SRGB,
 		.csi_df			= CSI_DF_YUV422,
 		.bpp			= 16,
+		.size			= SHIM_DMACNTX_SIZE_8,
 	}, {
 		.fourcc			= V4L2_PIX_FMT_UYVY,
 		.code			= MEDIA_BUS_FMT_UYVY8_2X8,
 		.colorspace		= V4L2_COLORSPACE_SRGB,
 		.csi_df			= CSI_DF_YUV422,
 		.bpp			= 16,
+		.size			= SHIM_DMACNTX_SIZE_8,
 	}, {
 		.fourcc			= V4L2_PIX_FMT_YVYU,
 		.code			= MEDIA_BUS_FMT_YVYU8_2X8,
 		.colorspace		= V4L2_COLORSPACE_SRGB,
 		.csi_df			= CSI_DF_YUV422,
 		.bpp			= 16,
+		.size			= SHIM_DMACNTX_SIZE_8,
 	}, {
 		.fourcc			= V4L2_PIX_FMT_VYUY,
 		.code			= MEDIA_BUS_FMT_VYUY8_2X8,
 		.colorspace		= V4L2_COLORSPACE_SRGB,
 		.csi_df			= CSI_DF_YUV422,
 		.bpp			= 16,
+		.size			= SHIM_DMACNTX_SIZE_8,
 	},
 
 	/* More formats can be supported but they are not listed for now. */
@@ -483,6 +492,7 @@ static void ti_csi2rx_setup_shim(struct ti_csi2rx_ctx *ctx)
 	}
 
 	reg |= FIELD_PREP(SHIM_DMACNTX_VC, ctx->vc);
+	reg |= FIELD_PREP(SHIM_DMACNTX_SIZE, fmt->size);
 
 	writel(reg, csi->shim + SHIM_DMACNTX(ctx->idx));
 
