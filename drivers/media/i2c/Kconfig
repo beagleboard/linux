@@ -1347,4 +1347,20 @@ config VIDEO_LM3646
 	  flash, torch LEDs.
 endmenu
 
+#
+# Video serializers and deserializers (e.g. FPDLink)
+#
+
+menu "Video serializers and deserializers"
+
+config VIDEO_DS90UB960
+	tristate "TI DS90UB960 Deserializer"
+	depends on OF_GPIO
+	select I2C_ATR
+	help
+	  Device driver for the Texas Instruments DS90UB960
+	  FPD-Link III Deserializer
+
+endmenu
+
 endif # VIDEO_V4L2
