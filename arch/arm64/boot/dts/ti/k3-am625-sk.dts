@@ -132,6 +132,18 @@
 			default-state = "off";
 		};
 	};
+
+	hdmi_mstrclk: hdmi-mstrclk {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <12288000>;
+	};
+
+	hdmi: connector {
+		compatible = "hdmi-connector";
+		label = "hdmi";
+		type = "a";
+	};
 };
 
 &main_pmx0 {
@@ -382,6 +394,17 @@
 
 		pinctrl-names = "default";
 		pinctrl-0 = <&main_gpio1_ioexp_intr_pins_default>;
+	};
+
+	sii9022: sii9022@3b {
+		compatible = "sil,sii9022";
+		reg = <0x3b>;
+
+		clocks = <&hdmi_mstrclk>;
+		clock-names = "mclk";
+
+		interrupt-parent = <&exp1>;
+		interrupts = <16 IRQ_TYPE_EDGE_FALLING>;
 	};
 };
 
