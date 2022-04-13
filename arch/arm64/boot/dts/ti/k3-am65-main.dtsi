@@ -855,13 +855,14 @@
 	dss: dss@4a00000 {
 		compatible = "ti,am65x-dss";
 		reg =	<0x0 0x04a00000 0x0 0x1000>, /* common */
+			<0x0 0x04a01000 0x0 0x1000>, /* common1 */
 			<0x0 0x04a02000 0x0 0x1000>, /* vidl1 */
 			<0x0 0x04a06000 0x0 0x1000>, /* vid */
 			<0x0 0x04a07000 0x0 0x1000>, /* ovr1 */
 			<0x0 0x04a08000 0x0 0x1000>, /* ovr2 */
 			<0x0 0x04a0a000 0x0 0x1000>, /* vp1 */
 			<0x0 0x04a0b000 0x0 0x1000>; /* vp2 */
-		reg-names = "common", "vidl1", "vid",
+		reg-names = "common", "common1", "vidl1", "vid",
 			"ovr1", "ovr2", "vp1", "vp2";
 
 		ti,am65x-oldi-io-ctrl = <&dss_oldi_io_ctrl>;
@@ -881,7 +882,8 @@
 		assigned-clocks = <&k3_clks 67 2>;
 		assigned-clock-parents = <&k3_clks 67 5>;
 
-		interrupts = <GIC_SPI 166 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <GIC_SPI 166 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 167 IRQ_TYPE_LEVEL_HIGH>;
 
 		dma-coherent;
 
