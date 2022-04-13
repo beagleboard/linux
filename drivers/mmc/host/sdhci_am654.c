@@ -390,8 +390,18 @@ static void sdhci_am654_reset(struct sdhci_host *host, u8 mask)
 static int sdhci_am654_execute_tuning(struct mmc_host *mmc, u32 opcode)
 {
 	struct sdhci_host *host = mmc_priv(mmc);
-	int err = sdhci_execute_tuning(mmc, opcode);
+	int err;
+	bool dcrc_was_enabled = false;
 
+	if (host->ier & SDHCI_INT_DATA_CRC) {
+		host->ier &= ~SDHCI_INT_DATA_CRC | ~SDHCI_INT_DATA_END_BIT |
+			     ~SDHCI_INT_DATA_TIMEOUT;
+		dcrc_was_enabled = true;
+		sdhci_writel(host, host->ier, SDHCI_INT_ENABLE);
+		sdhci_writel(host, host->ier, SDHCI_SIGNAL_ENABLE);
+	}
+
+	err = sdhci_execute_tuning(mmc, opcode);
 	if (err)
 		return err;
 	/*
@@ -399,6 +409,13 @@ static int sdhci_am654_execute_tuning(struct mmc_host *mmc, u32 opcode)
 	 * Do a command and data reset to get rid of it
 	 */
 	sdhci_reset(host, SDHCI_RESET_CMD | SDHCI_RESET_DATA);
+
+	/* Reenable forbidden interrupt */
+	if (dcrc_was_enabled) {
+		host->ier |= SDHCI_INT_DATA_CRC | SDHCI_INT_DATA_END_BIT | SDHCI_INT_DATA_TIMEOUT;
+		sdhci_writel(host, host->ier, SDHCI_INT_ENABLE);
+		sdhci_writel(host, host->ier, SDHCI_SIGNAL_ENABLE);
+	}
 
 	return 0;
 }
