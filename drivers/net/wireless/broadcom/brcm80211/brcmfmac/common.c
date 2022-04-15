@@ -20,6 +20,9 @@
 #include "of.h"
 #include "firmware.h"
 #include "chip.h"
+#include "defs.h"
+#include "fweh.h"
+#include <brcm_hw_ids.h>
 
 MODULE_AUTHOR("Broadcom Corporation");
 MODULE_DESCRIPTION("Broadcom 802.11 wireless LAN fullmac driver.");
@@ -66,6 +69,18 @@ MODULE_PARM_DESC(roamoff, "Do not use internal roaming engine");
 static int brcmf_iapp_enable;
 module_param_named(iapp, brcmf_iapp_enable, int, 0);
 MODULE_PARM_DESC(iapp, "Enable partial support for the obsoleted Inter-Access Point Protocol");
+
+static int brcmf_eap_restrict;
+module_param_named(eap_restrict, brcmf_eap_restrict, int, 0400);
+MODULE_PARM_DESC(eap_restrict, "Block non-802.1X frames until auth finished");
+
+static int brcmf_sdio_wq_highpri;
+module_param_named(sdio_wq_highpri, brcmf_sdio_wq_highpri, int, 0);
+MODULE_PARM_DESC(sdio_wq_highpri, "SDIO workqueue is set to high priority");
+
+static int brcmf_max_pm;
+module_param_named(max_pm, brcmf_max_pm, int, 0);
+MODULE_PARM_DESC(max_pm, "Use max power management mode by default");
 
 #ifdef DEBUG
 /* always succeed brcmf_bus_started() */
@@ -201,16 +216,18 @@ int brcmf_c_preinit_dcmds(struct brcmf_if *ifp)
 	char *clmver;
 	char *ptr;
 	s32 err;
+	struct eventmsgs_ext *eventmask_msg = NULL;
+	u8 msglen;
 
-	/* retreive mac address */
+	/* retrieve mac addresses */
 	err = brcmf_fil_iovar_data_get(ifp, "cur_etheraddr", ifp->mac_addr,
 				       sizeof(ifp->mac_addr));
 	if (err < 0) {
 		bphy_err(drvr, "Retrieving cur_etheraddr failed, %d\n", err);
 		goto done;
 	}
-	memcpy(ifp->drvr->wiphy->perm_addr, ifp->drvr->mac, ETH_ALEN);
 	memcpy(ifp->drvr->mac, ifp->mac_addr, sizeof(ifp->drvr->mac));
+	memcpy(ifp->drvr->wiphy->perm_addr, ifp->drvr->mac, ETH_ALEN);
 
 	bus = ifp->drvr->bus_if;
 	ri = &ifp->drvr->revinfo;
@@ -292,6 +309,11 @@ int brcmf_c_preinit_dcmds(struct brcmf_if *ifp)
 		brcmf_dbg(INFO, "CLM version = %s\n", clmver);
 	}
 
+	/* set apsta */
+	err = brcmf_fil_iovar_int_set(ifp, "apsta", 1);
+	if (err)
+		brcmf_info("failed setting apsta, %d\n", err);
+
 	/* set mpc */
 	err = brcmf_fil_iovar_int_set(ifp, "mpc", 1);
 	if (err) {
@@ -316,6 +338,43 @@ int brcmf_c_preinit_dcmds(struct brcmf_if *ifp)
 		goto done;
 	}
 
+	/* Enable event_msg_ext specific to 43012 chip */
+	if (bus->chip == CY_CC_43012_CHIP_ID) {
+		/* Program event_msg_ext to support event larger than 128 */
+		msglen = (roundup(BRCMF_E_LAST, NBBY) / NBBY) +
+				  EVENTMSGS_EXT_STRUCT_SIZE;
+		/* Allocate buffer for eventmask_msg */
+		eventmask_msg = kzalloc(msglen, GFP_KERNEL);
+		if (!eventmask_msg) {
+			err = -ENOMEM;
+			goto done;
+		}
+
+		/* Read the current programmed event_msgs_ext */
+		eventmask_msg->ver = EVENTMSGS_VER;
+		eventmask_msg->len = roundup(BRCMF_E_LAST, NBBY) / NBBY;
+		err = brcmf_fil_iovar_data_get(ifp, "event_msgs_ext",
+					       eventmask_msg,
+					       msglen);
+
+		/* Enable ULP event */
+		brcmf_dbg(EVENT, "enable event ULP\n");
+		setbit(eventmask_msg->mask, BRCMF_E_ULP);
+
+		/* Write updated Event mask */
+		eventmask_msg->ver = EVENTMSGS_VER;
+		eventmask_msg->command = EVENTMSGS_SET_MASK;
+		eventmask_msg->len = (roundup(BRCMF_E_LAST, NBBY) / NBBY);
+
+		err = brcmf_fil_iovar_data_set(ifp, "event_msgs_ext",
+					       eventmask_msg, msglen);
+		if (err) {
+			brcmf_err("Set event_msgs_ext error (%d)\n", err);
+			kfree(eventmask_msg);
+			goto done;
+		}
+		kfree(eventmask_msg);
+	}
 	/* Setup default scan channel time */
 	err = brcmf_fil_cmd_int_set(ifp, BRCMF_C_SET_SCAN_CHANNEL_TIME,
 				    BRCMF_DEFAULT_SCAN_CHANNEL_TIME);
@@ -336,6 +395,18 @@ int brcmf_c_preinit_dcmds(struct brcmf_if *ifp)
 
 	/* Enable tx beamforming, errors can be ignored (not supported) */
 	(void)brcmf_fil_iovar_int_set(ifp, "txbf", 1);
+
+	/* add unicast packet filter */
+	err = brcmf_pktfilter_add_remove(ifp->ndev,
+					 BRCMF_UNICAST_FILTER_NUM, true);
+	if (err == -BRCMF_FW_UNSUPPORTED) {
+		/* FW not support can be ignored */
+		err = 0;
+		goto done;
+	} else if (err) {
+		bphy_err(drvr, "Add unicast filter error (%d)\n", err);
+	}
+
 done:
 	return err;
 }
@@ -407,12 +478,15 @@ struct brcmf_mp_device *brcmf_get_module_param(struct device *dev,
 	if (!settings)
 		return NULL;
 
-	/* start by using the module paramaters */
+	/* start by using the module parameters */
 	settings->p2p_enable = !!brcmf_p2p_enable;
 	settings->feature_disable = brcmf_feature_disable;
 	settings->fcmode = brcmf_fcmode;
 	settings->roamoff = !!brcmf_roamoff;
 	settings->iapp = !!brcmf_iapp_enable;
+	settings->eap_restrict = !!brcmf_eap_restrict;
+	settings->sdio_wq_highpri = !!brcmf_sdio_wq_highpri;
+	settings->default_pm = !!brcmf_max_pm ? PM_MAX : PM_FAST;
 #ifdef DEBUG
 	settings->ignore_probe_fail = !!brcmf_ignore_probe_fail;
 #endif
@@ -460,7 +534,7 @@ static int __init brcmf_common_pd_probe(struct platform_device *pdev)
 
 	brcmfmac_pdata = dev_get_platdata(&pdev->dev);
 
-	if (brcmfmac_pdata->power_on)
+	if (brcmfmac_pdata && brcmfmac_pdata->power_on)
 		brcmfmac_pdata->power_on();
 
 	return 0;
@@ -492,7 +566,7 @@ static int __init brcmfmac_module_init(void)
 	if (err == -ENODEV)
 		brcmf_dbg(INFO, "No platform data available.\n");
 
-	/* Initialize global module paramaters */
+	/* Initialize global module parameters */
 	brcmf_mp_attach();
 
 	/* Continue the initialization by registering the different busses */

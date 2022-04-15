@@ -23,6 +23,23 @@
 #define WL_ROAM_TRIGGER_LEVEL		-75
 #define WL_ROAM_DELTA			20
 
+/* WME Access Category Indices (ACIs) */
+#define AC_BE			0	/* Best Effort */
+#define AC_BK			1	/* Background */
+#define AC_VI			2	/* Video */
+#define AC_VO			3	/* Voice */
+#define EDCF_AC_COUNT		4
+#define MAX_8021D_PRIO		8
+
+#define EDCF_ACI_MASK			0x60
+#define EDCF_ACI_SHIFT			5
+#define EDCF_ACM_MASK                  0x10
+#define EDCF_ECWMIN_MASK		0x0f
+#define EDCF_ECWMAX_SHIFT		4
+#define EDCF_AIFSN_MASK			0x0f
+#define EDCF_AIFSN_MAX			15
+#define EDCF_ECWMAX_MASK		0xf0
+
 /* Keep BRCMF_ESCAN_BUF_SIZE below 64K (65536). Allocing over 64K can be
  * problematic on some systems and should be avoided.
  */
@@ -75,6 +92,15 @@
 
 #define BRCMF_VIF_EVENT_TIMEOUT		msecs_to_jiffies(1500)
 
+#define BRCMF_PM_WAIT_MAXRETRY			100
+
+/* cfg80211 wowlan definitions */
+#define WL_WOWLAN_MAX_PATTERNS			8
+#define WL_WOWLAN_MIN_PATTERN_LEN		1
+#define WL_WOWLAN_MAX_PATTERN_LEN		255
+#define WL_WOWLAN_PKT_FILTER_ID_FIRST	201
+#define WL_WOWLAN_PKT_FILTER_ID_LAST	(WL_WOWLAN_PKT_FILTER_ID_FIRST + \
+					WL_WOWLAN_MAX_PATTERNS - 1)
 /**
  * enum brcmf_scan_status - scan engine status
  *
@@ -107,7 +133,21 @@ struct brcmf_cfg80211_security {
 enum brcmf_profile_fwsup {
 	BRCMF_PROFILE_FWSUP_NONE,
 	BRCMF_PROFILE_FWSUP_PSK,
-	BRCMF_PROFILE_FWSUP_1X
+	BRCMF_PROFILE_FWSUP_1X,
+	BRCMF_PROFILE_FWSUP_SAE
+};
+
+/**
+ * enum brcmf_profile_fwauth - firmware authenticator profile
+ *
+ * @BRCMF_PROFILE_FWAUTH_NONE: no firmware authenticator
+ * @BRCMF_PROFILE_FWAUTH_PSK: authenticator for WPA/WPA2-PSK
+ * @BRCMF_PROFILE_FWAUTH_PSK: authenticator for SAE
+ */
+enum brcmf_profile_fwauth {
+	BRCMF_PROFILE_FWAUTH_NONE,
+	BRCMF_PROFILE_FWAUTH_PSK,
+	BRCMF_PROFILE_FWAUTH_SAE
 };
 
 /**
@@ -122,6 +162,9 @@ struct brcmf_cfg80211_profile {
 	struct brcmf_cfg80211_security sec;
 	struct brcmf_wsec_key key[BRCMF_MAX_DEFAULT_KEYS];
 	enum brcmf_profile_fwsup use_fwsup;
+	u16 use_fwauth;
+	bool is_ft;
+	bool is_okc;
 };
 
 /**
@@ -145,25 +188,36 @@ enum brcmf_vif_status {
 	BRCMF_VIF_STATUS_ASSOC_SUCCESS,
 };
 
+enum brcmf_cfg80211_pm_state {
+	BRCMF_CFG80211_PM_STATE_RESUMED,
+	BRCMF_CFG80211_PM_STATE_RESUMING,
+	BRCMF_CFG80211_PM_STATE_SUSPENDED,
+	BRCMF_CFG80211_PM_STATE_SUSPENDING,
+};
+
 /**
  * struct vif_saved_ie - holds saved IEs for a virtual interface.
  *
  * @probe_req_ie: IE info for probe request.
  * @probe_res_ie: IE info for probe response.
  * @beacon_ie: IE info for beacon frame.
+ * @assoc_res_ie: IE info for association response frame.
  * @probe_req_ie_len: IE info length for probe request.
  * @probe_res_ie_len: IE info length for probe response.
  * @beacon_ie_len: IE info length for beacon frame.
+ * @assoc_res_ie_len: IE info length for association response frame.
  */
 struct vif_saved_ie {
 	u8  probe_req_ie[IE_MAX_LEN];
 	u8  probe_res_ie[IE_MAX_LEN];
 	u8  beacon_ie[IE_MAX_LEN];
 	u8  assoc_req_ie[IE_MAX_LEN];
+	u8  assoc_res_ie[IE_MAX_LEN];
 	u32 probe_req_ie_len;
 	u32 probe_res_ie_len;
 	u32 beacon_ie_len;
 	u32 assoc_req_ie_len;
+	u32 assoc_res_ie_len;
 };
 
 /**
@@ -201,6 +255,12 @@ struct brcmf_cfg80211_connect_info {
 struct brcmf_cfg80211_assoc_ielen_le {
 	__le32 req_len;
 	__le32 resp_len;
+};
+
+struct brcmf_cfg80211_edcf_acparam {
+	u8 ACI;
+	u8 ECW;
+	u16 TXOP;        /* stored in network order (ls octet first) */
 };
 
 /* dongle escan state */
@@ -321,6 +381,9 @@ struct brcmf_cfg80211_info {
 	struct brcmf_assoclist_le assoclist;
 	struct brcmf_cfg80211_wowl wowl;
 	struct brcmf_pno_info *pno;
+	u8 ac_priority[MAX_8021D_PRIO];
+	u8 pm_state;
+	u8 num_softap;
 };
 
 /**
@@ -417,5 +480,6 @@ s32 brcmf_notify_escan_complete(struct brcmf_cfg80211_info *cfg,
 void brcmf_set_mpc(struct brcmf_if *ndev, int mpc);
 void brcmf_abort_scanning(struct brcmf_cfg80211_info *cfg);
 void brcmf_cfg80211_free_netdev(struct net_device *ndev);
-
+bool brcmf_is_apmode_operating(struct wiphy *wiphy);
+void brcmf_cfg80211_update_proto_addr_mode(struct wireless_dev *wdev);
 #endif /* BRCMFMAC_CFG80211_H */
