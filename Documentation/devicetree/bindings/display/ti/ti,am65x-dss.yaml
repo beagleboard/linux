@@ -26,6 +26,7 @@ properties:
       Addresses to each DSS memory region described in the SoC's TRM.
     items:
       - description: common DSS register area
+      - description: common1 DSS register area
       - description: VIDL1 light video plane
       - description: VID video plane
       - description: OVR1 overlay manager for vp1
@@ -36,6 +37,7 @@ properties:
   reg-names:
     items:
       - const: common
+      - const: common1
       - const: vidl1
       - const: vid
       - const: ovr1
@@ -64,7 +66,7 @@ properties:
     maxItems: 3
 
   interrupts:
-    maxItems: 1
+    maxItems: 2
 
   power-domains:
     maxItems: 1
@@ -134,6 +136,7 @@ examples:
     dss: dss@4a00000 {
             compatible = "ti,am65x-dss";
             reg =   <0x04a00000 0x1000>, /* common */
+                    <0x04a01000 0x1000>, /* common1 */
                     <0x04a02000 0x1000>, /* vidl1 */
                     <0x04a06000 0x1000>, /* vid */
                     <0x04a07000 0x1000>, /* ovr1 */
@@ -148,7 +151,8 @@ examples:
                             <&k3_clks 216 1>,
                             <&k3_clks 67 2>;
             clock-names = "fck", "vp1", "vp2";
-            interrupts = <GIC_SPI 166 IRQ_TYPE_EDGE_RISING>;
+            interrupts = <GIC_SPI 166 IRQ_TYPE_EDGE_RISING>,
+                         <GIC_SPI 167 IRQ_TYPE_EDGE_RISING>;
             ports {
                     #address-cells = <1>;
                     #size-cells = <0>;
