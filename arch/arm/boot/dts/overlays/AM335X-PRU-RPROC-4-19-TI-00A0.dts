@@ -1,0 +1,120 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright (C) 2015 Texas Instruments Incorporated - https://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+ */
+&{/chosen} {
+	overlays {
+		AM335X-PRU-RPROC-4-19-TI-00A0.kernel = __TIMESTAMP__;
+	};
+};
+
+&ocp {
+	#address-cells = <1>;
+	#size-cells = <1>;
+
+	pruss_soc_bus: pruss-soc-bus@4a326004 {
+		compatible = "ti,am3356-pruss-soc-bus";
+		reg = <0x4a326004 0x4>;
+		ti,hwmods = "pruss";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+		status = "okay";
+
+		shmem@4a300000 {
+			reg = <0x4a300000 0x2000>,
+			      <0x4a302000 0x2000>,
+			      <0x4a310000 0x3000>;
+			reg-names = "dram0",
+				    "dram1",
+				    "dram2";
+			compatible = "uio";
+			symlink = "uio/pru-shmem";
+		};
+
+		pruss: pruss@4a300000 {
+			compatible = "ti,am3356-pruss";
+			reg = <0x4a300000 0x80000>;
+			interrupts = <20 21 22 23 24 25 26 27>;
+			interrupt-names = "host2", "host3", "host4",
+					  "host5", "host6", "host7",
+					  "host8", "host9";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges;
+			status = "okay";
+
+			pruss_mem: memories@4a300000 {
+				reg = <0x4a300000 0x2000>,
+				      <0x4a302000 0x2000>,
+				      <0x4a310000 0x3000>;
+				reg-names = "dram0", "dram1",
+					    "shrdram2";
+			};
+
+			pruss_cfg: cfg@4a326000 {
+				compatible = "syscon";
+				reg = <0x4a326000 0x2000>;
+			};
+
+			pruss_iep: iep@4a32e000 {
+				compatible = "syscon";
+				reg = <0x4a32e000 0x31c>;
+			};
+
+			pruss_mii_rt: mii-rt@4a332000 {
+				compatible = "syscon";
+				reg = <0x4a332000 0x58>;
+			};
+
+			pruss_intc: interrupt-controller@4a320000 {
+				compatible = "ti,am3356-pruss-intc";
+				reg = <0x4a320000 0x2000>;
+				interrupt-controller;
+				#interrupt-cells = <1>;
+			};
+
+			pru0: pru@4a334000 {
+				compatible = "ti,am3356-pru";
+				reg = <0x4a334000 0x2000>,
+				      <0x4a322000 0x400>,
+				      <0x4a322400 0x100>;
+				reg-names = "iram", "control", "debug";
+				firmware-name = "am335x-pru0-fw";
+				interrupt-parent = <&pruss_intc>;
+				interrupts = <16>, <17>;
+				interrupt-names = "vring", "kick";
+			};
+
+			pru1: pru@4a338000 {
+				compatible = "ti,am3356-pru";
+				reg = <0x4a338000 0x2000>,
+				      <0x4a324000 0x400>,
+				      <0x4a324400 0x100>;
+				reg-names = "iram", "control", "debug";
+				firmware-name = "am335x-pru1-fw";
+				interrupt-parent = <&pruss_intc>;
+				interrupts = <18>, <19>;
+				interrupt-names = "vring", "kick";
+			};
+
+			pruss_mdio: mdio@4a332400 {
+				compatible = "ti,davinci_mdio";
+				reg = <0x4a332400 0x90>;
+				clocks = <&dpll_core_m4_ck>;
+				clock-names = "fck";
+				bus_freq = <1000000>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+				status = "disabled";
+			};
+		};
+	};
+};
