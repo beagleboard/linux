@@ -577,3 +577,7 @@
 		};
 	};
 };
+
+&main_mcan0 {
+	status = "disabled";
+};
