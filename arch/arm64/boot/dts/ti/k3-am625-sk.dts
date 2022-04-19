@@ -593,3 +593,15 @@
 &epwm2 {
 	status = "disabled";
 };
+
+&ecap0 {
+	status = "disabled";
+};
+
+&ecap1 {
+	status = "disabled";
+};
+
+&ecap2 {
+	status = "disabled";
+};
