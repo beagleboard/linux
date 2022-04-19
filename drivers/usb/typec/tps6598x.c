@@ -13,6 +13,7 @@
 #include <linux/interrupt.h>
 #include <linux/usb/typec.h>
 #include <linux/usb/role.h>
+#include <linux/workqueue.h>
 
 /* Register offsets */
 #define TPS_REG_VID			0x00
@@ -95,6 +96,7 @@ struct tps6598x {
 	struct typec_partner *partner;
 	struct usb_pd_identity partner_identity;
 	struct usb_role_switch *role_sw;
+	struct delayed_work	wq_poll;
 };
 
 /*
@@ -389,9 +391,8 @@ static const struct typec_operations tps6598x_ops = {
 	.pr_set = tps6598x_pr_set,
 };
 
-static irqreturn_t tps6598x_interrupt(int irq, void *data)
+static int tps6598x_handle_interrupt_status(struct tps6598x *tps)
 {
-	struct tps6598x *tps = data;
 	u64 event1;
 	u64 event2;
 	u32 status;
@@ -431,9 +432,31 @@ err_clear_ints:
 err_unlock:
 	mutex_unlock(&tps->lock);
 
+	return ret;
+}
+
+static irqreturn_t tps6598x_interrupt(int irq, void *data)
+{
+	struct tps6598x *tps = data;
+	int ret;
+
+	ret = tps6598x_handle_interrupt_status(tps);
 	return IRQ_HANDLED;
 }
 
+/* Time interval for Polling */
+#define POLL_INTERVAL	500 /* msecs */
+static void tps6598x_poll_work(struct work_struct *work)
+{
+	struct tps6598x *tps = container_of(to_delayed_work(work),
+					    struct tps6598x, wq_poll);
+	int ret;
+
+	ret = tps6598x_handle_interrupt_status(tps);
+	if (!ret)
+		queue_delayed_work(system_power_efficient_wq,
+				   &tps->wq_poll, msecs_to_jiffies(POLL_INTERVAL));
+}
 static int tps6598x_check_mode(struct tps6598x *tps)
 {
 	char mode[5] = { };
@@ -572,10 +595,18 @@ static int tps6598x_probe(struct i2c_client *client)
 			dev_err(&client->dev, "failed to register partner\n");
 	}
 
-	ret = devm_request_threaded_irq(&client->dev, client->irq, NULL,
-					tps6598x_interrupt,
-					IRQF_SHARED | IRQF_ONESHOT,
-					dev_name(&client->dev), tps);
+	if (client->irq) {
+		ret = devm_request_threaded_irq(&client->dev, client->irq, NULL,
+						tps6598x_interrupt,
+						IRQF_SHARED | IRQF_ONESHOT,
+						dev_name(&client->dev), tps);
+	} else {
+		dev_warn(tps->dev, "Unable to find the interrupt, switching to polling\n");
+		INIT_DELAYED_WORK(&tps->wq_poll, tps6598x_poll_work);
+		queue_delayed_work(system_power_efficient_wq, &tps->wq_poll,
+				   msecs_to_jiffies(POLL_INTERVAL));
+	}
+
 	if (ret) {
 		tps6598x_disconnect(tps, 0);
 		typec_unregister_port(tps->port);
