@@ -11,6 +11,7 @@
 #include <linux/bitmap.h>
 #include <linux/debugfs.h>
 #include <linux/export.h>
+#include <linux/firmware.h>
 #include <linux/io.h>
 #include <linux/iopoll.h>
 #include <linux/kernel.h>
@@ -90,6 +91,8 @@ struct ti_sci_desc {
  * @debug_region: Memory region where the debug message are available
  * @debug_region_size: Debug region size
  * @debug_buffer: Buffer allocated to copy debug messages.
+ * @lpm_region: Memory region where the FS Stub LPM Firmware will be stored
+ * @lpm_region_size: LPM region size
  * @handle:	Instance of TI SCI handle to send to clients.
  * @cl:		Mailbox Client
  * @chan_tx:	Transmit mailbox channel
@@ -101,6 +104,8 @@ struct ti_sci_desc {
  * @mem_ctx_hi: High word of address used for low power context memory
  * @users:	Number of users of this instance
  * @is_suspending: Flag set to indicate in suspend path.
+ * @lpm_firmware_loaded: Flag to indicate if LPM firmware has been loaded
+ * @lpm_firmware_name: Name of firmware binary to load from fw search path
  */
 struct ti_sci_info {
 	struct device *dev;
@@ -110,6 +115,8 @@ struct ti_sci_info {
 	void __iomem *debug_region;
 	char *debug_buffer;
 	size_t debug_region_size;
+	void __iomem *lpm_region;
+	size_t lpm_region_size;
 	struct ti_sci_handle handle;
 	struct mbox_client cl;
 	struct mbox_chan *chan_tx;
@@ -122,6 +129,8 @@ struct ti_sci_info {
 	/* protected by ti_sci_list_mutex */
 	int users;
 	bool is_suspending;
+	bool lpm_firmware_loaded;
+	const char *lpm_firmware_name;
 };
 
 #define cl_to_ti_sci_info(c)	container_of(c, struct ti_sci_info, cl)
@@ -3351,6 +3360,30 @@ static int tisci_reboot_handler(struct notifier_block *nb, unsigned long mode,
 	return NOTIFY_BAD;
 }
 
+static int ti_sci_load_lpm_firmware(struct device *dev, struct ti_sci_info *info)
+{
+	const struct firmware *firmware;
+	int ret = 0;
+
+	/* If no firmware name is set, do not attempt to load. */
+	if (!info->lpm_firmware_name)
+		return 0;
+
+	if (request_firmware_direct(&firmware, info->lpm_firmware_name, dev)) {
+		dev_warn(dev, "Cannot load %s\n", info->lpm_firmware_name);
+		return -ENODEV;
+	}
+
+	if (firmware->size > info->lpm_region_size)
+		return -ENOMEM;
+
+	memcpy_toio(info->lpm_region, firmware->data, firmware->size);
+
+	release_firmware(firmware);
+
+	return ret;
+}
+
 static void ti_sci_set_is_suspending(struct ti_sci_info *info, bool is_suspending)
 {
 	info->is_suspending = is_suspending;
@@ -3359,6 +3392,8 @@ static void ti_sci_set_is_suspending(struct ti_sci_info *info, bool is_suspendin
 static int __maybe_unused ti_sci_suspend(struct device *dev)
 {
 	struct ti_sci_info *info = dev_get_drvdata(dev);
+	int ret = 0;
+
 	/*
 	 * We must switch operation to polled mode now as drivers and the genpd
 	 * layer may make late TI SCI calls to change clock and device states
@@ -3366,7 +3401,19 @@ static int __maybe_unused ti_sci_suspend(struct device *dev)
 	 */
 	ti_sci_set_is_suspending(info, true);
 
-	return 0;
+	if (!info->lpm_firmware_loaded) {
+		ret = ti_sci_load_lpm_firmware(dev, info);
+		if (ret) {
+			dev_err(dev,
+				"Failed to load low power mode firmware, suspend is non functional (%d)\n",
+				ret);
+			ret = -ENODEV;
+		} else {
+			info->lpm_firmware_loaded = true;
+		}
+	}
+
+	return ret;
 }
 
 static int __maybe_unused ti_sci_resume(struct device *dev)
@@ -3385,6 +3432,7 @@ static int ti_sci_init_suspend(struct platform_device *pdev, struct ti_sci_info 
 	struct device *dev = &pdev->dev;
 	struct device_node *rmem_np;
 	struct reserved_mem *rmem;
+	struct resource *res;
 
 	rmem_np = of_parse_phandle(dev->of_node, "ti,ctx-memory-region", 0);
 	if (!rmem_np) {
@@ -3399,6 +3447,25 @@ static int ti_sci_init_suspend(struct platform_device *pdev, struct ti_sci_info 
 
 	info->mem_ctx_lo = (rmem->base & 0xFFFFFFFF);
 	info->mem_ctx_hi = (rmem->base >> 32);
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "lpm");
+	if (!res) {
+		dev_warn(dev,
+			 "lpm region is required for suspend but not provided.\n");
+		return -EINVAL;
+	}
+
+	info->lpm_region = devm_ioremap_resource(dev, res);
+	if (IS_ERR(info->lpm_region))
+		return PTR_ERR(info->lpm_region);
+	info->lpm_region_size = resource_size(res);
+
+	if (of_property_read_string(dev->of_node, "ti,lpm-firmware-name",
+				    &info->lpm_firmware_name)) {
+		dev_warn(dev,
+			 "ti,lpm-firmware-name is required for suspend but not provided.\n");
+		return -EINVAL;
+	}
 
 	return 0;
 }
