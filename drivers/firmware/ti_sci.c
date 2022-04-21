@@ -17,6 +17,7 @@
 #include <linux/mailbox_client.h>
 #include <linux/module.h>
 #include <linux/of_device.h>
+#include <linux/of_reserved_mem.h>
 #include <linux/semaphore.h>
 #include <linux/slab.h>
 #include <linux/soc/ti/ti-msgmgr.h>
@@ -96,6 +97,8 @@ struct ti_sci_desc {
  * @minfo:	Message info
  * @node:	list head
  * @host_id:	Host ID
+ * @mem_ctx_lo: Low word of address used for low power context memory
+ * @mem_ctx_hi: High word of address used for low power context memory
  * @users:	Number of users of this instance
  * @is_suspending: Flag set to indicate in suspend path.
  */
@@ -114,6 +117,8 @@ struct ti_sci_info {
 	struct ti_sci_xfers_info minfo;
 	struct list_head node;
 	u8 host_id;
+	u32 mem_ctx_lo;
+	u32 mem_ctx_hi;
 	/* protected by ti_sci_list_mutex */
 	int users;
 	bool is_suspending;
@@ -3375,6 +3380,29 @@ static int __maybe_unused ti_sci_resume(struct device *dev)
 
 static SIMPLE_DEV_PM_OPS(ti_sci_pm_ops, ti_sci_suspend, ti_sci_resume);
 
+static int ti_sci_init_suspend(struct platform_device *pdev, struct ti_sci_info *info)
+{
+	struct device *dev = &pdev->dev;
+	struct device_node *rmem_np;
+	struct reserved_mem *rmem;
+
+	rmem_np = of_parse_phandle(dev->of_node, "ti,ctx-memory-region", 0);
+	if (!rmem_np) {
+		dev_warn(dev, "ti,ctx-memory-region is required for suspend but not provided.\n");
+		return -EINVAL;
+	}
+
+	rmem = of_reserved_mem_lookup(rmem_np);
+	of_node_put(rmem_np);
+	if (!rmem)
+		return -EINVAL;
+
+	info->mem_ctx_lo = (rmem->base & 0xFFFFFFFF);
+	info->mem_ctx_hi = (rmem->base >> 32);
+
+	return 0;
+}
+
 /* Description for K2G */
 static const struct ti_sci_desc ti_sci_pmmc_k2g_desc = {
 	.default_host_id = 2,
@@ -3526,6 +3554,23 @@ static int ti_sci_probe(struct platform_device *pdev)
 			return ret;
 		}
 	}
+
+	/*
+	 * Attempt to call prepare_sleep, this will be NAK'd if suspend is not
+	 * supported by firmware in use, in which case we will not attempt to
+	 * init suspend.
+	 */
+	ret = ti_sci_cmd_prepare_sleep(&info->handle, 0, info->mem_ctx_lo,
+				       info->mem_ctx_hi, 0);
+	if (!ret) {
+		ret = ti_sci_init_suspend(pdev, info);
+		if (ret)
+			dev_warn(dev,
+				 "ti_sci_init_suspend failed, mem suspend will be non-functional.\n");
+	}
+
+	/* Suspend is an optional feature, reset return value and continue. */
+	ret = 0;
 
 	dev_info(dev, "ABI: %d.%d (firmware rev 0x%04x '%s')\n",
 		 info->handle.version.abi_major, info->handle.version.abi_minor,
