@@ -23,6 +23,7 @@
 #include <linux/slab.h>
 #include <linux/soc/ti/ti-msgmgr.h>
 #include <linux/soc/ti/ti_sci_protocol.h>
+#include <linux/suspend.h>
 #include <linux/reboot.h>
 
 #include "ti_sci.h"
@@ -3389,10 +3390,41 @@ static void ti_sci_set_is_suspending(struct ti_sci_info *info, bool is_suspendin
 	info->is_suspending = is_suspending;
 }
 
+static int __maybe_unused ti_sci_prepare_system_suspend(struct ti_sci_info *info)
+{
+	int ret = -EINVAL;
+	int mode;
+#ifdef CONFIG_SUSPEND
+	switch (pm_suspend_target_state) {
+	case PM_SUSPEND_MEM:
+		mode = TISCI_MSG_VALUE_SLEEP_MODE_DEEP_SLEEP;
+		ret = 0;
+		break;
+	default:
+		ret = -EINVAL;
+	}
+#endif
+	/*
+	 * Do not fail if we don't have action to take for a
+	 * specific suspend mode.
+	 */
+	if (ret)
+		return 0;
+
+	ret = ti_sci_cmd_prepare_sleep(&info->handle, mode, info->mem_ctx_lo,
+				       info->mem_ctx_hi, 0);
+
+	return ret;
+}
+
 static int __maybe_unused ti_sci_suspend(struct device *dev)
 {
 	struct ti_sci_info *info = dev_get_drvdata(dev);
 	int ret = 0;
+
+	ret = ti_sci_prepare_system_suspend(info);
+	if (ret)
+		return ret;
 
 	/*
 	 * We must switch operation to polled mode now as drivers and the genpd
