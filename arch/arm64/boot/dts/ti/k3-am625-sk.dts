@@ -106,7 +106,7 @@
 		regulator-boot-on;
 	};
 
-	vdd_mmc1: fixed-regulator-sd {
+	vdd_mmc1: regulator-3 {
 		/* TPS22918DBVR */
 		compatible = "regulator-fixed";
 		regulator-name = "vdd_mmc1";
@@ -118,7 +118,7 @@
 		gpio = <&exp1 3 GPIO_ACTIVE_HIGH>;
 	};
 
-	vdd_sd_dv: gpio-regulator-TLV71033 {
+	vdd_sd_dv: regulator-4 {
 		/* Output of TLV71033 */
 		compatible = "regulator-gpio";
 		regulator-name = "tlv71033";
