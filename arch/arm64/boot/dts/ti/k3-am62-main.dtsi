@@ -584,7 +584,7 @@
 		cpts@3d000 {
 			compatible = "ti,j721e-cpts";
 			reg = <0x0 0x3d000 0x0 0x400>;
-			clocks = <&k3_clks 13 1>;
+			clocks = <&k3_clks 13 3>;
 			clock-names = "cpts";
 			interrupts-extended = <&gic500 GIC_SPI 102 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "cpts";
