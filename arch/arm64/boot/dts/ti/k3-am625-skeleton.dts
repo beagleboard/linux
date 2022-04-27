@@ -1,0 +1,284 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * AM625 SK: https://www.ti.com/lit/zip/sprr448
+ *
+ * Copyright (C) 2021-2022 Texas Instruments Incorporated - https://www.ti.com/
+ */
+
+/dts-v1/;
+
+#include <dt-bindings/leds/common.h>
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/net/ti-dp83867.h>
+#include "k3-am625.dtsi"
+
+/ {
+	compatible =  "ti,am625";
+	model = "Texas Instruments AM625";
+
+	aliases {
+		serial2 = &main_uart0;
+	};
+
+	chosen {
+		stdout-path = "serial2:115200n8";
+		bootargs = "console=ttyS2,115200n8 earlycon=ns16550a,mmio32,0x02800000";
+	};
+
+	cpus {
+		/delete-node/ cpu@1;
+		/delete-node/ cpu@2;
+		/delete-node/ cpu@3;
+	};
+
+	memory@80000000 {
+		device_type = "memory";
+		reg = <0x00000000 0x20000000 0x00000000 0x20000000>; /* 512M RAM */
+	};
+
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		secure_tfa_ddr: tfa@9e780000 {
+			reg = <0x00 0x9e780000 0x00 0x80000>;
+			alignment = <0x1000>;
+			no-map;
+		};
+
+		secure_ddr: optee@9e800000 {
+			reg = <0x00 0x9e800000 0x00 0x01800000>; /* for OP-TEE */
+			alignment = <0x1000>;
+			no-map;
+		};
+
+		wkup_r5fss0_core0_dma_memory_region: r5f-dma-memory@9db00000 {
+			compatible = "shared-dma-pool";
+			reg = <0x00 0x9db00000 0x00 0xc00000>;
+			no-map;
+		};
+	};
+};
+
+/* cbass_main */
+/* cbass_wkup */
+
+&wkup_i2c0 {
+	status = "disabled";
+};
+
+&wkup_uart0 {
+	/* WKUP UART0 is used by DM firmware */
+	status = "reserved";
+};
+
+/* wkup_conf */
+
+&cbass_mcu {
+	status = "disabled";
+};
+
+/* dmss */
+
+&main_pktdma {
+	status = "disabled";
+};
+
+&main_bcdma {
+	status = "disabled";
+};
+
+/* inta_main_dmss */
+/* secure_proxy_main */
+
+&fss {
+	status = "disabled";
+};
+
+&main_mcan0 {
+	status = "disabled";
+};
+
+&crypto {
+	status = "disabled";
+};
+
+&dss {
+	status = "disabled";
+};
+
+&usbss0 {
+	status = "disabled";
+};
+
+&usbss1 {
+	status = "disabled";
+};
+
+&cpsw3g {
+	status = "disabled";
+};
+
+&main_gpio0 {
+	status = "disabled";
+};
+
+&main_gpio1 {
+	status = "disabled";
+};
+
+&gpu {
+	status = "disabled";
+};
+
+&main_i2c0 {
+	status = "disabled";
+};
+
+&main_i2c1 {
+	status = "disabled";
+};
+
+&main_i2c2 {
+	status = "disabled";
+};
+
+&main_i2c3 {
+	status = "disabled";
+};
+
+/* gic500 */
+/* gic_its */
+/* main_gpio_intr */
+
+&mailbox0_cluster0 {
+	mbox_m4_0: mbox-m4-0 {
+		ti,mbox-rx = <0 0 0>;
+		ti,mbox-tx = <1 0 0>;
+	};
+};
+
+&mcasp0 {
+	status = "disabled";
+};
+
+&mcasp1 {
+	status = "disabled";
+};
+
+&mcasp2 {
+	status = "disabled";
+};
+
+&sdhci1 {
+	status = "disabled";
+};
+
+&sdhci0 {
+	status = "disabled";
+};
+
+&sdhci2 {
+	status = "disabled";
+};
+
+&dphy0 {
+	status = "disabled";
+};
+
+&main_pmx0 {
+	main_uart0_pins_default: main-uart0-pins-default {
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x1c8, PIN_INPUT, 0) /* (D14) UART0_RXD */
+			AM62X_IOPAD(0x1cc, PIN_OUTPUT, 0) /* (E14) UART0_TXD */
+		>;
+	};
+};
+
+&epwm0 {
+	status = "disabled";
+};
+
+&epwm1 {
+	status = "disabled";
+};
+
+&epwm2 {
+	status = "disabled";
+};
+
+&ecap0 {
+	status = "disabled";
+};
+
+&ecap1 {
+	status = "disabled";
+};
+
+&ecap2 {
+	status = "disabled";
+};
+
+&main_uart0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_uart0_pins_default>;
+};
+
+&main_uart1 {
+	/* Main UART1 is used by TIFS firmware */
+	status = "reserved";
+};
+
+&main_uart2 {
+	status = "disabled";
+};
+
+&main_uart3 {
+	status = "disabled";
+};
+
+&main_uart4 {
+	status = "disabled";
+};
+
+&main_uart5 {
+	status = "disabled";
+};
+
+&main_uart6 {
+	status = "disabled";
+};
+
+&main_spi0 {
+	status = "disabled";
+};
+
+&main_spi1 {
+	status = "disabled";
+};
+
+&main_spi2 {
+	status = "disabled";
+};
+
+/* hwspinlock */
+/* oc_sram */
+/* main_conf */
+/* epwm_tbclk */
+/* phy_gmii_sel */
+/* dmsc */
+
+&ti_csi2rx0 {
+	status = "disabled";
+};
+
+&cluster0 {
+	/delete-node/ core1;
+	/delete-node/ core2;
+	/delete-node/ core3;
+};
+
+/* L2_0 */
+/* pmu */
+/* a53_timer0 */
