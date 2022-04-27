@@ -50,6 +50,7 @@ properties:
       - ti,am642-pru    # for PRUs in K3 AM64x SoC family
       - ti,am642-rtu    # for RTUs in K3 AM64x SoC family
       - ti,am642-tx-pru # for Tx_PRUs in K3 AM64x SoC family
+      - ti,am625-pru    # for PRUs in K3 AM62x SoC family
 
   reg:
     items:
