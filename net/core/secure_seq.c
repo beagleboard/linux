@@ -62,7 +62,7 @@ __u32 secure_tcpv6_sequence_number(const __be32 *saddr, const __be32 *daddr,
 }
 EXPORT_SYMBOL(secure_tcpv6_sequence_number);
 
-u32 secure_ipv6_port_ephemeral(const __be32 *saddr, const __be32 *daddr,
+u64 secure_ipv6_port_ephemeral(const __be32 *saddr, const __be32 *daddr,
 			       __be16 dport)
 {
 	u32 secret[MD5_MESSAGE_BYTES / 4];
@@ -102,7 +102,7 @@ __u32 secure_tcp_sequence_number(__be32 saddr, __be32 daddr,
 	return seq_scale(hash[0]);
 }
 
-u32 secure_ipv4_port_ephemeral(__be32 saddr, __be32 daddr, __be16 dport)
+u64 secure_ipv4_port_ephemeral(__be32 saddr, __be32 daddr, __be16 dport)
 {
 	u32 hash[MD5_DIGEST_WORDS];
 
