@@ -1300,6 +1300,18 @@ static void prueth_emac_stop(struct prueth_emac *emac)
 	rproc_shutdown(prueth->pru[slice]);
 }
 
+static void prueth_cleanup_tx_ts(struct prueth_emac *emac)
+{
+	int i;
+
+	for (i = 0; i < PRUETH_MAX_TX_TS_REQUESTS; i++) {
+		if (emac->tx_ts_skb[i]) {
+			dev_kfree_skb_any(emac->tx_ts_skb[i]);
+			emac->tx_ts_skb[i] = NULL;
+		}
+	}
+}
+
 /* called back by PHY layer if there is change in link state of hw port*/
 static void emac_adjust_link(struct net_device *ndev)
 {
@@ -1380,6 +1392,7 @@ static void emac_adjust_link(struct net_device *ndev)
 		/* link OFF */
 		netif_carrier_off(ndev);
 		netif_tx_stop_all_queues(ndev);
+		prueth_cleanup_tx_ts(emac);
 	}
 }
 
