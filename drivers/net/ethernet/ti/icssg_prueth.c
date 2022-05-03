@@ -766,48 +766,44 @@ static void tx_ts_work(struct prueth_emac *emac)
 	u64 ns;
 	struct skb_shared_hwtstamps ssh;
 	struct sk_buff *skb;
-	int timeout = 10;
 	int ret = 0;
 	struct emac_tx_ts_response tsr;
 	u32 hi_sw;
 
-	while (timeout-- > 0) {
-		/* wait for response or timeout */
+	/* There may be more than one pending requests */
+	while (1) {
 		ret = emac_get_tx_ts(emac, &tsr);
-		if (!ret)
+		if (ret)	/* nothing more */
 			break;
-		usleep_range(10, 20);
+
+		if (tsr.cookie >= PRUETH_MAX_TX_TS_REQUESTS ||
+		    !emac->tx_ts_skb[tsr.cookie]) {
+			netdev_err(emac->ndev, "Invalid TX TS cookie 0x%x\n",
+				   tsr.cookie);
+			break;
+		}
+
+		skb = emac->tx_ts_skb[tsr.cookie];
+		emac->tx_ts_skb[tsr.cookie] = NULL;	/* free slot */
+		if (!skb) {
+			netdev_err(emac->ndev, "Driver Bug! got NULL skb\n");
+			break;
+		}
+
+		hi_sw = readl(emac->prueth->shram.va +
+			      TIMESYNC_FW_WC_COUNT_HI_SW_OFFSET_OFFSET);
+		ns = icssg_ts_to_ns(hi_sw, tsr.hi_ts, tsr.lo_ts,
+				    IEP_DEFAULT_CYCLE_TIME_NS);
+
+		memset(&ssh, 0, sizeof(ssh));
+		ssh.hwtstamp = ns_to_ktime(ns);
+
+		skb_tstamp_tx(skb, &ssh);
+		dev_consume_skb_any(skb);
+
+		if (atomic_dec_and_test(&emac->tx_ts_pending))	/* no more? */
+			break;
 	}
-
-	if (ret) {
-		netdev_err(emac->ndev, "TX timestamp timeout\n");
-		return;
-	}
-
-	if (tsr.cookie >= PRUETH_MAX_TX_TS_REQUESTS ||
-	    !emac->tx_ts_skb[tsr.cookie]) {
-		netdev_err(emac->ndev, "Invalid TX TS cookie 0x%x\n",
-			   tsr.cookie);
-		return;
-	}
-
-	skb = emac->tx_ts_skb[tsr.cookie];
-	emac->tx_ts_skb[tsr.cookie] = NULL;	/* free slot */
-	if (!skb) {
-		netdev_err(emac->ndev, "Driver Bug! got NULL skb\n");
-		return;
-	}
-
-	hi_sw = readl(emac->prueth->shram.va +
-		      TIMESYNC_FW_WC_COUNT_HI_SW_OFFSET_OFFSET);
-	ns = icssg_ts_to_ns(hi_sw, tsr.hi_ts, tsr.lo_ts,
-			    IEP_DEFAULT_CYCLE_TIME_NS);
-
-	memset(&ssh, 0, sizeof(ssh));
-	ssh.hwtstamp = ns_to_ktime(ns);
-
-	skb_tstamp_tx(skb, &ssh);
-	dev_consume_skb_any(skb);
 
 	return;
 }
@@ -883,7 +879,6 @@ static int emac_ndo_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 	epib[1] = 0;
 	if (skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP &&
 	    emac->tx_ts_enabled) {
-		/* We currently support only one TX HW timestamp at a time */
 		tx_ts_cookie = prueth_tx_ts_cookie_get(emac);
 		if (tx_ts_cookie >= 0) {
 			skb_shinfo(skb)->tx_flags |= SKBTX_IN_PROGRESS;
@@ -960,6 +955,9 @@ tx_push:
 		netdev_err(ndev, "tx: push failed: %d\n", ret);
 		goto drop_free_descs;
 	}
+
+	if (in_tx_ts)
+		atomic_inc(&emac->tx_ts_pending);
 
 	if (k3_cppi_desc_pool_avail(tx_chn->desc_pool) < MAX_SKB_FRAGS) {
 		netif_tx_stop_queue(netif_txq);
