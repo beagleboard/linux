@@ -72,6 +72,11 @@
 			reg = <0x00 0x9cc00000 0x00 0xf00000>;
 			no-map;
 		};
+
+		lpm_ctx_ddr: lpm-memory@a1000000 {
+			reg = <0x00 0xa1000000 0x00 0x40000>;
+			alignment = <0x1000>;
+		};
 	};
 
 	vmain_pd: regulator-0 {
