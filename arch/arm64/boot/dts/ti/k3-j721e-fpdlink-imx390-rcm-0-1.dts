@@ -1,0 +1,99 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * IMX390 FPD-Link 3 Camera Module
+ *
+ * Copyright (c) 2021 Tomi Valkeinen <tomi.valkeinen@ideasonboard.com>
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+
+/ {
+	fragment@101 {
+		target-path = "/";
+
+		__overlay__ {
+			clk_cam_27M: fixed-clock-1-27M {
+				compatible = "fixed-clock";
+				#clock-cells = <0>;
+				clock-frequency = <27000000>;
+			};
+		};
+	};
+};
+
+&ds90ub960_0_ports {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	/* FPDLink RX 1 */
+	port@1 {
+		reg = <1>;
+
+		ds90ub960_fpd3_in: endpoint {
+			remote-endpoint = <&ub953_out>;
+
+			mode = <3>;
+			bc-freq = <50000000>;
+
+			serializer: remote-chip {
+				compatible = "ti,ds90ub953-q1";
+
+				gpio-controller;
+				#gpio-cells = <2>;
+
+				ports {
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					port@0 {
+						reg = <0>;
+						ub953_in: endpoint {
+							remote-endpoint = <&sensor_out>;
+						};
+					};
+
+					port@1 {
+						reg = <1>;
+
+						ub953_out: endpoint {
+							remote-endpoint = <&ds90ub960_fpd3_in>;
+						};
+					};
+				};
+			};
+		};
+	};
+};
+
+&ds90ub960_0_atr {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	i2c@1 {
+		reg = <1>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		sensor@1a {
+			compatible = "sony,imx390";
+			reg = <0x1a>;
+
+			clocks = <&clk_cam_27M>;
+			clock-names = "inck";
+
+			xclr-gpios = <&serializer 1 GPIO_ACTIVE_LOW>;
+			error0-gpios = <&serializer 2 GPIO_ACTIVE_HIGH>;
+			error1-gpios = <&serializer 3 GPIO_ACTIVE_HIGH>;
+			comready-gpios = <&serializer 0 GPIO_ACTIVE_HIGH>;
+
+			port {
+				sensor_out: endpoint {
+					remote-endpoint = <&ub953_in>;
+				};
+			};
+		};
+	};
+};
