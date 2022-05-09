@@ -170,6 +170,7 @@ struct prueth_emac {
 	/* TX HW Timestamping */
 	/* TX TS cookie will be index to the tx_ts_skb array */
 	struct sk_buff *tx_ts_skb[PRUETH_MAX_TX_TS_REQUESTS];
+	atomic_t tx_ts_pending;
 	int tx_ts_irq;
 
 	u8 cmd_seq;

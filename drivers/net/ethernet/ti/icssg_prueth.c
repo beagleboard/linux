@@ -766,48 +766,44 @@ static void tx_ts_work(struct prueth_emac *emac)
 	u64 ns;
 	struct skb_shared_hwtstamps ssh;
 	struct sk_buff *skb;
-	int timeout = 10;
 	int ret = 0;
 	struct emac_tx_ts_response tsr;
 	u32 hi_sw;
 
-	while (timeout-- > 0) {
-		/* wait for response or timeout */
+	/* There may be more than one pending requests */
+	while (1) {
 		ret = emac_get_tx_ts(emac, &tsr);
-		if (!ret)
+		if (ret)	/* nothing more */
 			break;
-		usleep_range(10, 20);
+
+		if (tsr.cookie >= PRUETH_MAX_TX_TS_REQUESTS ||
+		    !emac->tx_ts_skb[tsr.cookie]) {
+			netdev_err(emac->ndev, "Invalid TX TS cookie 0x%x\n",
+				   tsr.cookie);
+			break;
+		}
+
+		skb = emac->tx_ts_skb[tsr.cookie];
+		emac->tx_ts_skb[tsr.cookie] = NULL;	/* free slot */
+		if (!skb) {
+			netdev_err(emac->ndev, "Driver Bug! got NULL skb\n");
+			break;
+		}
+
+		hi_sw = readl(emac->prueth->shram.va +
+			      TIMESYNC_FW_WC_COUNT_HI_SW_OFFSET_OFFSET);
+		ns = icssg_ts_to_ns(hi_sw, tsr.hi_ts, tsr.lo_ts,
+				    IEP_DEFAULT_CYCLE_TIME_NS);
+
+		memset(&ssh, 0, sizeof(ssh));
+		ssh.hwtstamp = ns_to_ktime(ns);
+
+		skb_tstamp_tx(skb, &ssh);
+		dev_consume_skb_any(skb);
+
+		if (atomic_dec_and_test(&emac->tx_ts_pending))	/* no more? */
+			break;
 	}
-
-	if (ret) {
-		netdev_err(emac->ndev, "TX timestamp timeout\n");
-		return;
-	}
-
-	if (tsr.cookie >= PRUETH_MAX_TX_TS_REQUESTS ||
-	    !emac->tx_ts_skb[tsr.cookie]) {
-		netdev_err(emac->ndev, "Invalid TX TS cookie 0x%x\n",
-			   tsr.cookie);
-		return;
-	}
-
-	skb = emac->tx_ts_skb[tsr.cookie];
-	emac->tx_ts_skb[tsr.cookie] = NULL;	/* free slot */
-	if (!skb) {
-		netdev_err(emac->ndev, "Driver Bug! got NULL skb\n");
-		return;
-	}
-
-	hi_sw = readl(emac->prueth->shram.va +
-		      TIMESYNC_FW_WC_COUNT_HI_SW_OFFSET_OFFSET);
-	ns = icssg_ts_to_ns(hi_sw, tsr.hi_ts, tsr.lo_ts,
-			    IEP_DEFAULT_CYCLE_TIME_NS);
-
-	memset(&ssh, 0, sizeof(ssh));
-	ssh.hwtstamp = ns_to_ktime(ns);
-
-	skb_tstamp_tx(skb, &ssh);
-	dev_consume_skb_any(skb);
 
 	return;
 }
@@ -883,7 +879,6 @@ static int emac_ndo_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 	epib[1] = 0;
 	if (skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP &&
 	    emac->tx_ts_enabled) {
-		/* We currently support only one TX HW timestamp at a time */
 		tx_ts_cookie = prueth_tx_ts_cookie_get(emac);
 		if (tx_ts_cookie >= 0) {
 			skb_shinfo(skb)->tx_flags |= SKBTX_IN_PROGRESS;
@@ -960,6 +955,9 @@ tx_push:
 		netdev_err(ndev, "tx: push failed: %d\n", ret);
 		goto drop_free_descs;
 	}
+
+	if (in_tx_ts)
+		atomic_inc(&emac->tx_ts_pending);
 
 	if (k3_cppi_desc_pool_avail(tx_chn->desc_pool) < MAX_SKB_FRAGS) {
 		netif_tx_stop_queue(netif_txq);
@@ -1300,6 +1298,18 @@ static void prueth_emac_stop(struct prueth_emac *emac)
 	rproc_shutdown(prueth->pru[slice]);
 }
 
+static void prueth_cleanup_tx_ts(struct prueth_emac *emac)
+{
+	int i;
+
+	for (i = 0; i < PRUETH_MAX_TX_TS_REQUESTS; i++) {
+		if (emac->tx_ts_skb[i]) {
+			dev_kfree_skb_any(emac->tx_ts_skb[i]);
+			emac->tx_ts_skb[i] = NULL;
+		}
+	}
+}
+
 /* called back by PHY layer if there is change in link state of hw port*/
 static void emac_adjust_link(struct net_device *ndev)
 {
@@ -1380,6 +1390,7 @@ static void emac_adjust_link(struct net_device *ndev)
 		/* link OFF */
 		netif_carrier_off(ndev);
 		netif_tx_stop_all_queues(ndev);
+		prueth_cleanup_tx_ts(emac);
 	}
 }
 
@@ -1788,10 +1799,6 @@ skip_mgm_irq:
 
 	icssg_qos_init(ndev);
 
-	emac_phy_connect(emac);
-	/* Get attached phy details */
-	phy_attached_info(emac->phydev);
-
 	/* start PHY */
 	phy_start(emac->phydev);
 
@@ -1874,8 +1881,6 @@ static int emac_ndo_stop(struct net_device *ndev)
 
 	/* block packets from wire */
 	phy_stop(emac->phydev);
-	phy_disconnect(emac->phydev);
-	emac->phydev = NULL;
 
 	icssg_class_disable(prueth->miig_rt, prueth_emac_slice(emac));
 
@@ -2952,6 +2957,11 @@ static int prueth_probe(struct platform_device *pdev)
 		devlink_port_type_eth_set(&prueth->emac[PRUETH_MAC0]->devlink_port,
 					  prueth->emac[PRUETH_MAC0]->ndev);
 		prueth->registered_netdevs[PRUETH_MAC0] = prueth->emac[PRUETH_MAC0]->ndev;
+
+		emac_phy_connect(prueth->emac[PRUETH_MAC0]);
+		/* Get attached phy details */
+		phy_attached_info(prueth->emac[PRUETH_MAC0]->phydev);
+
 	}
 
 	if (eth1_node) {
@@ -2960,10 +2970,15 @@ static int prueth_probe(struct platform_device *pdev)
 			dev_err(dev, "can't register netdev for port MII1");
 			goto netdev_unregister;
 		}
+
 		devlink_port_type_eth_set(&prueth->emac[PRUETH_MAC1]->devlink_port,
 					  prueth->emac[PRUETH_MAC1]->ndev);
 
 		prueth->registered_netdevs[PRUETH_MAC1] = prueth->emac[PRUETH_MAC1]->ndev;
+
+		emac_phy_connect(prueth->emac[PRUETH_MAC1]);
+		/* Get attached phy details */
+		phy_attached_info(prueth->emac[PRUETH_MAC1]->phydev);
 	}
 
 	if (prueth->is_switchmode_supported) {
@@ -2988,6 +3003,10 @@ netdev_unregister:
 	for (i = 0; i < PRUETH_NUM_MACS; i++) {
 		if (!prueth->registered_netdevs[i])
 			continue;
+		if (prueth->emac[i]->phydev) {
+			phy_disconnect(prueth->emac[i]->phydev);
+			prueth->emac[i]->phydev = NULL;
+		}
 		unregister_netdev(prueth->registered_netdevs[i]);
 	}
 
@@ -3046,6 +3065,8 @@ static int prueth_remove(struct platform_device *pdev)
 	for (i = 0; i < PRUETH_NUM_MACS; i++) {
 		if (!prueth->registered_netdevs[i])
 			continue;
+		phy_disconnect(prueth->emac[i]->phydev);
+		prueth->emac[i]->phydev = NULL;
 		unregister_netdev(prueth->registered_netdevs[i]);
 	}
 	prueth_unregister_devlink(prueth);

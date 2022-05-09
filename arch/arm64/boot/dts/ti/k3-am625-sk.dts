@@ -24,6 +24,8 @@
 		spi0 = &ospi0;
 		usb0 = &usb0;
 		usb1 = &usb1;
+		ethernet0 = &cpsw_port1;
+		ethernet1 = &cpsw_port2;
 	};
 
 	chosen {
