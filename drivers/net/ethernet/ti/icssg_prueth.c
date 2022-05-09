@@ -1799,10 +1799,6 @@ skip_mgm_irq:
 
 	icssg_qos_init(ndev);
 
-	emac_phy_connect(emac);
-	/* Get attached phy details */
-	phy_attached_info(emac->phydev);
-
 	/* start PHY */
 	phy_start(emac->phydev);
 
@@ -1885,8 +1881,6 @@ static int emac_ndo_stop(struct net_device *ndev)
 
 	/* block packets from wire */
 	phy_stop(emac->phydev);
-	phy_disconnect(emac->phydev);
-	emac->phydev = NULL;
 
 	icssg_class_disable(prueth->miig_rt, prueth_emac_slice(emac));
 
@@ -2963,6 +2957,11 @@ static int prueth_probe(struct platform_device *pdev)
 		devlink_port_type_eth_set(&prueth->emac[PRUETH_MAC0]->devlink_port,
 					  prueth->emac[PRUETH_MAC0]->ndev);
 		prueth->registered_netdevs[PRUETH_MAC0] = prueth->emac[PRUETH_MAC0]->ndev;
+
+		emac_phy_connect(prueth->emac[PRUETH_MAC0]);
+		/* Get attached phy details */
+		phy_attached_info(prueth->emac[PRUETH_MAC0]->phydev);
+
 	}
 
 	if (eth1_node) {
@@ -2971,10 +2970,15 @@ static int prueth_probe(struct platform_device *pdev)
 			dev_err(dev, "can't register netdev for port MII1");
 			goto netdev_unregister;
 		}
+
 		devlink_port_type_eth_set(&prueth->emac[PRUETH_MAC1]->devlink_port,
 					  prueth->emac[PRUETH_MAC1]->ndev);
 
 		prueth->registered_netdevs[PRUETH_MAC1] = prueth->emac[PRUETH_MAC1]->ndev;
+
+		emac_phy_connect(prueth->emac[PRUETH_MAC1]);
+		/* Get attached phy details */
+		phy_attached_info(prueth->emac[PRUETH_MAC1]->phydev);
 	}
 
 	if (prueth->is_switchmode_supported) {
@@ -2999,6 +3003,10 @@ netdev_unregister:
 	for (i = 0; i < PRUETH_NUM_MACS; i++) {
 		if (!prueth->registered_netdevs[i])
 			continue;
+		if (prueth->emac[i]->phydev) {
+			phy_disconnect(prueth->emac[i]->phydev);
+			prueth->emac[i]->phydev = NULL;
+		}
 		unregister_netdev(prueth->registered_netdevs[i]);
 	}
 
@@ -3057,6 +3065,8 @@ static int prueth_remove(struct platform_device *pdev)
 	for (i = 0; i < PRUETH_NUM_MACS; i++) {
 		if (!prueth->registered_netdevs[i])
 			continue;
+		phy_disconnect(prueth->emac[i]->phydev);
+		prueth->emac[i]->phydev = NULL;
 		unregister_netdev(prueth->registered_netdevs[i]);
 	}
 	prueth_unregister_devlink(prueth);
