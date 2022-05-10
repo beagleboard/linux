@@ -373,9 +373,10 @@ static int ti_cpufreq_probe(struct platform_device *pdev)
 	ti_opp_table = dev_pm_opp_set_supported_hw(opp_data->cpu_dev,
 						   version, VERSION_COUNT);
 	if (IS_ERR(ti_opp_table)) {
-		dev_err(opp_data->cpu_dev,
-			"Failed to set supported hardware\n");
 		ret = PTR_ERR(ti_opp_table);
+		if (ret != -EPROBE_DEFER)
+			dev_err(opp_data->cpu_dev,
+				"Failed to set supported hardware %d\n", ret);
 		goto fail_put_node;
 	}
 
