@@ -1,0 +1,12 @@
+image: debian:bullseye
+
+build:
+  stage: build
+  before_script:
+    - apt update && apt -y install build-essential bc kmod cpio flex libncurses5-dev libelf-dev libssl-dev dwarves bison lsb-release rsync lzop gcc-arm-linux-gnueabihf
+  script:
+    - ./jenkins_build.sh
+    - mv ../*.deb .
+  artifacts:
+    paths:
+      - "*.deb"
