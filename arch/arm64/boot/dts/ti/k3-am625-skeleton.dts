@@ -81,6 +81,10 @@
 
 /* wkup_conf */
 
+&wkup_rtc0 {
+	status = "disabled";
+};
+
 &cbass_mcu {
 	status = "disabled";
 };
