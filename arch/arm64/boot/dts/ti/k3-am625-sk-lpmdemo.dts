@@ -118,6 +118,10 @@
 	ti,ctx-memory-region = <&lpm_ctx_ddr>;
 };
 
+&wkup_rtc0 {
+	status = "okay";
+};
+
 &main_uart0 {
 	/delete-property/ power-domains;
 	/delete-property/ clock-names;

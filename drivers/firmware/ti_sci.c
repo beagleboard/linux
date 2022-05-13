@@ -88,6 +88,7 @@ struct ti_sci_desc {
  * @dev:	Device pointer
  * @desc:	SoC description for this instance
  * @nb:	Reboot Notifier block
+ * @pm_nb:	PM notifier block
  * @d:		Debugfs file entry
  * @debug_region: Memory region where the debug message are available
  * @debug_region_size: Debug region size
@@ -111,6 +112,7 @@ struct ti_sci_desc {
 struct ti_sci_info {
 	struct device *dev;
 	struct notifier_block nb;
+	struct notifier_block pm_nb;
 	const struct ti_sci_desc *desc;
 	struct dentry *d;
 	void __iomem *debug_region;
@@ -137,6 +139,7 @@ struct ti_sci_info {
 #define cl_to_ti_sci_info(c)	container_of(c, struct ti_sci_info, cl)
 #define handle_to_ti_sci_info(h) container_of(h, struct ti_sci_info, handle)
 #define reboot_to_ti_sci_info(n) container_of(n, struct ti_sci_info, nb)
+#define pm_nb_to_ti_sci_info(n) container_of(n, struct ti_sci_info, pm_nb)
 
 #ifdef CONFIG_DEBUG_FS
 
@@ -3433,18 +3436,6 @@ static int __maybe_unused ti_sci_suspend(struct device *dev)
 	 */
 	ti_sci_set_is_suspending(info, true);
 
-	if (!info->lpm_firmware_loaded) {
-		ret = ti_sci_load_lpm_firmware(dev, info);
-		if (ret) {
-			dev_err(dev,
-				"Failed to load low power mode firmware, suspend is non functional (%d)\n",
-				ret);
-			ret = -ENODEV;
-		} else {
-			info->lpm_firmware_loaded = true;
-		}
-	}
-
 	return ret;
 }
 
@@ -3459,12 +3450,39 @@ static int __maybe_unused ti_sci_resume(struct device *dev)
 
 static SIMPLE_DEV_PM_OPS(ti_sci_pm_ops, ti_sci_suspend, ti_sci_resume);
 
+static int tisci_pm_handler(struct notifier_block *nb, unsigned long pm_event,
+			    void *unused)
+{
+	struct ti_sci_info *info = pm_nb_to_ti_sci_info(nb);
+	int ret = NOTIFY_DONE;
+
+	switch (pm_event) {
+	case PM_SUSPEND_PREPARE:
+		if (!info->lpm_firmware_loaded) {
+			ret = ti_sci_load_lpm_firmware(info->dev, info);
+			if (ret) {
+				dev_err(info->dev,
+					"Failed to load low power mode firmware, suspend is non functional (%d)\n",
+					ret);
+				ret = NOTIFY_BAD;
+			} else {
+				info->lpm_firmware_loaded = true;
+			}
+		}
+
+		break;
+	}
+
+	return ret;
+}
+
 static int ti_sci_init_suspend(struct platform_device *pdev, struct ti_sci_info *info)
 {
 	struct device *dev = &pdev->dev;
 	struct device_node *rmem_np;
 	struct reserved_mem *rmem;
 	struct resource *res;
+	int ret;
 
 	rmem_np = of_parse_phandle(dev->of_node, "ti,ctx-memory-region", 0);
 	if (!rmem_np) {
@@ -3497,6 +3515,15 @@ static int ti_sci_init_suspend(struct platform_device *pdev, struct ti_sci_info 
 		dev_warn(dev,
 			 "ti,lpm-firmware-name is required for suspend but not provided.\n");
 		return -EINVAL;
+	}
+
+	info->pm_nb.notifier_call = tisci_pm_handler;
+	info->pm_nb.priority = 128;
+
+	ret = register_pm_notifier(&info->pm_nb);
+	if (ret) {
+		dev_err(dev, "pm_notifier registration fail(%d)\n", ret);
+		return ret;
 	}
 
 	return 0;
