@@ -45,8 +45,6 @@ static inline unsigned long get_random_long(void)
 #endif
 }
 
-unsigned long randomize_page(unsigned long start, unsigned long range);
-
 int __init random_init(const char *command_line);
 bool rng_is_initialized(void);
 int wait_for_random_bytes(void);
