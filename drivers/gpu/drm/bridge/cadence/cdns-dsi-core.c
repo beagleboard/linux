@@ -265,15 +265,11 @@ static void cdns_dsi_bridge_disable(struct drm_bridge *bridge)
 
 	val = readl(dsi->regs + MCTL_MAIN_EN) & ~IF_EN(input->id);
 	writel(val, dsi->regs + MCTL_MAIN_EN);
-	pm_runtime_put(dsi->base.dev);
 }
 
 static void cdns_dsi_bridge_post_disable(struct drm_bridge *bridge)
 {
-	struct cdns_dsi_input *input = bridge_to_cdns_dsi_input(bridge);
-	struct cdns_dsi *dsi = input_to_dsi(input);
-
-	pm_runtime_put(dsi->base.dev);
+	return;
 }
 
 static void cdns_dsi_hs_init(struct cdns_dsi *dsi)
@@ -356,9 +352,6 @@ static void cdns_dsi_bridge_enable(struct drm_bridge *bridge)
 	struct cdns_dsi_cfg dsi_cfg;
 	u32 tmp, reg_wakeup, div;
 	int nlanes;
-
-	if (WARN_ON(pm_runtime_get_sync(dsi->base.dev) < 0))
-		return;
 
 	mode = &bridge->encoder->crtc->state->adjusted_mode;
 	nlanes = output->dev->lanes;
@@ -487,9 +480,6 @@ static void cdns_dsi_bridge_pre_enable(struct drm_bridge *bridge)
 	struct cdns_dsi_input *input = bridge_to_cdns_dsi_input(bridge);
 	struct cdns_dsi *dsi = input_to_dsi(input);
 
-	if (WARN_ON(pm_runtime_get_sync(dsi->base.dev) < 0))
-		return;
-
 	cdns_dsi_init_link(dsi);
 	cdns_dsi_hs_init(dsi);
 }
@@ -610,10 +600,6 @@ static ssize_t cdns_dsi_transfer(struct mipi_dsi_host *host,
 	struct mipi_dsi_packet packet;
 	int ret, i, tx_len, rx_len;
 
-	ret = pm_runtime_resume_and_get(host->dev);
-	if (ret < 0)
-		return ret;
-
 	cdns_dsi_init_link(dsi);
 
 	ret = mipi_dsi_create_packet(&packet, msg);
@@ -714,7 +700,6 @@ static ssize_t cdns_dsi_transfer(struct mipi_dsi_host *host,
 	}
 
 out:
-	pm_runtime_put(host->dev);
 	return ret;
 }
 
@@ -840,20 +825,14 @@ static int cdns_dsi_drm_probe(struct platform_device *pdev)
 	if (ret)
 		goto err_disable_pclk;
 
-	pm_runtime_enable(&pdev->dev);
 	dsi->base.dev = &pdev->dev;
 	dsi->base.ops = &cdns_dsi_ops;
 
 	ret = mipi_dsi_host_register(&dsi->base);
-	if (ret)
-		goto err_disable_runtime_pm;
 
 	clk_disable_unprepare(dsi->dsi_p_clk);
 
 	return 0;
-
-err_disable_runtime_pm:
-	pm_runtime_disable(&pdev->dev);
 
 err_disable_pclk:
 	clk_disable_unprepare(dsi->dsi_p_clk);
@@ -866,7 +845,7 @@ static int cdns_dsi_drm_remove(struct platform_device *pdev)
 	struct cdns_dsi *dsi = platform_get_drvdata(pdev);
 
 	mipi_dsi_host_unregister(&dsi->base);
-	pm_runtime_disable(&pdev->dev);
+	//pm_runtime_disable(&pdev->dev);
 
 	return 0;
 }
