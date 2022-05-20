@@ -15,3 +15,4 @@ are configurable at compile, boot or run time.
    tsx_async_abort
    multihit
    special-register-buffer-data-sampling
+   processor_mmio_stale_data
