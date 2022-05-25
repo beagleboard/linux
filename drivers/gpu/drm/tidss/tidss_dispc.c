@@ -879,6 +879,23 @@ struct dispc_bus_format *dispc_vp_find_bus_fmt(struct dispc_device *dispc,
 					       u32 bus_fmt, u32 bus_flags)
 {
 	unsigned int i;
+	u32 override_vp;
+
+	/*
+	 * This is where the requested format is 24 bit, but the DSS is wired
+	 * up such that only 16 bits are used and the lsb's of R,G and B are
+	 * unused. This would apply to some boards where the video port is connected
+	 * to a 24bit HDMI bridge but with only 16 RGB lines are available
+	 */
+	if (bus_fmt == MEDIA_BUS_FMT_RGB888_1X24 &&
+	    !of_property_read_u32(dispc->dev->of_node, "rgb565_to_888_on_port", &override_vp)) {
+		if (override_vp == hw_videoport) {
+			dev_dbg(dispc->dev,
+				"%s: Using rgb565 override mode to output to 24bit bridge on port %d",
+				__func__, hw_videoport);
+			bus_fmt = MEDIA_BUS_FMT_RGB565_1X16;
+		}
+	}
 
 	for (i = 0; i < ARRAY_SIZE(dispc_bus_formats); ++i) {
 		if (dispc_bus_formats[i].bus_fmt == bus_fmt)
