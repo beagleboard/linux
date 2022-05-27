@@ -7,6 +7,9 @@
 
 #include <dt-bindings/soc/ti,sci_pm_domain.h>
 
+/dts-v1/;
+/plugin/;
+
 / {
 	fragment@101 {
 		target-path = "/";
@@ -96,6 +99,14 @@
 	status = "disabled";
 };
 
+&main_r5fss0_core0_shared_memory_queue_region {
+	status = "disabled";
+};
+
+&main_r5fss0_core0_shared_memory_bufpool_region {
+	status = "disabled";
+};
+
 &reserved_memory {
 	#address-cells = <2>;
 	#size-cells = <2>;
@@ -105,7 +116,7 @@
 		reg = <0x00 0xa0000000 0x00 0x00100000>;
 		no-map;
 	};
-	vision_apps_mcu_r5fss0_core0_memory_region: vision_apps-r5f-memory@a0100000 {
+	vision_apps_mcu_r5fss0_core0_memory_region: vision-apps-r5f-memory@a0100000 {
 		compatible = "shared-dma-pool";
 		reg = <0x00 0xa0100000 0x00 0x00f00000>;
 		no-map;
@@ -206,17 +217,17 @@
 	};
 	vision_apps_core_heaps_lo: vision-apps-core-heap-memory-lo@d8000000 {
 		compatible = "shared-dma-pool";
-		reg = <0x00 0xd8000000 0x00 0x24000000>;
+		reg = <0x00 0xd8000000 0x00 0x23000000>;
 		no-map;
 	};
-	intercore_eth_main_r5fss0_core1_memory_region: intercore-eth-r5f-memory@fc000000 {
+	vision_apps_main_r5fss0_core0_shared_memory_queue_region: vision-apps-r5f-virtual-eth-queues@fb000000 {
 		compatible = "shared-dma-pool";
-		reg = <0x00 0xfc000000 0x00 0x02000000>;
+		reg = <0x00 0xfb000000 0x00 0x00800000>;
 		no-map;
 	};
-	eeprom_shadow_memory_region: eeprom-shadow-r5f-memory@fe000000 {
+	vision_apps_main_r5fss0_core0_shared_memory_bufpool_region: vision-apps-r5f-virtual-eth-buffers@fb800000 {
 		compatible = "shared-dma-pool";
-		reg = <0x00 0xfe000000 0x00 0x01000000>;
+		reg = <0x00 0xfb800000 0x00 0x01800000>;
 		no-map;
 	};
 	vision_apps_core_heaps_hi: vision-apps-core-heap-memory-hi@880000000 {
@@ -238,14 +249,14 @@
 
 &main_r5fss0_core0 {
 	memory-region = <&vision_apps_main_r5fss0_core0_dma_memory_region>,
-			<&vision_apps_main_r5fss0_core0_memory_region>;
-	firmware-name = "vision_apps_eaik/vx_app_rtos_linux_mcu2_0.out";
+			<&vision_apps_main_r5fss0_core0_memory_region>,
+			<&vision_apps_main_r5fss0_core0_shared_memory_queue_region>,
+			<&vision_apps_main_r5fss0_core0_shared_memory_bufpool_region>;
 };
 
 &main_r5fss0_core1 {
 	memory-region = <&vision_apps_main_r5fss0_core1_dma_memory_region>,
 			<&vision_apps_main_r5fss0_core1_memory_region>;
-	firmware-name = "vision_apps_eaik/vx_app_rtos_linux_mcu2_1.out";
 };
 
 &main_r5fss1_core0 {
@@ -261,17 +272,14 @@
 &c66_0 {
 	memory-region = <&vision_apps_c66_0_dma_memory_region>,
 			<&vision_apps_c66_0_memory_region>;
-	firmware-name = "vision_apps_eaik/vx_app_rtos_linux_c6x_1.out";
 };
 
 &c66_1 {
 	memory-region = <&vision_apps_c66_1_dma_memory_region>,
 			<&vision_apps_c66_1_memory_region>;
-	firmware-name = "vision_apps_eaik/vx_app_rtos_linux_c6x_2.out";
 };
 
 &c71_0 {
 	memory-region = <&vision_apps_c71_0_dma_memory_region>,
 			<&vision_apps_c71_0_memory_region>;
-	firmware-name = "vision_apps_eaik/vx_app_rtos_linux_c7x_1.out";
 };
