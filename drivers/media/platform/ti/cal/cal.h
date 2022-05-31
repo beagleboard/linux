@@ -179,13 +179,21 @@ struct cal_camerarx {
 	struct v4l2_subdev	subdev;
 	struct media_pad	pads[CAL_CAMERARX_NUM_PADS];
 
-	/* mutex for camerarx ops */
+	/* protects the vc_* fields below */
+	spinlock_t		vc_lock;
+	u8			vc_enable_count[4];
+	u8			vc_frame_number[4];
+	u32			vc_sequence[4];
+
+	/*
+	 * Lock for camerarx ops. Protects:
+	 * - routing
+	 * - stream_configs
+	 * - enable_count
+	 */
 	struct mutex		mutex;
 
-	unsigned int enable_count;
-
-	struct v4l2_subdev_krouting routing;
-	struct v4l2_subdev_stream_configs stream_configs;
+	unsigned int		enable_count;
 };
 
 struct cal_dev {
@@ -322,7 +330,7 @@ const struct cal_format_info *cal_format_by_code(u32 code);
 void cal_quickdump_regs(struct cal_dev *cal);
 
 int cal_camerarx_get_remote_frame_desc(struct cal_camerarx *phy,
-				       struct v4l2_mbus_frame_desc *fd);
+				       struct v4l2_mbus_frame_desc *desc);
 struct cal_camerarx *cal_camerarx_get_phy_from_entity(struct media_entity *entity);
 void cal_camerarx_disable(struct cal_camerarx *phy);
 void cal_camerarx_i913_errata(struct cal_camerarx *phy);
@@ -340,10 +348,5 @@ int cal_ctx_v4l2_register(struct cal_ctx *ctx);
 void cal_ctx_v4l2_unregister(struct cal_ctx *ctx);
 int cal_ctx_v4l2_init(struct cal_ctx *ctx);
 void cal_ctx_v4l2_cleanup(struct cal_ctx *ctx);
-
-struct v4l2_mbus_framefmt *
-cal_camerarx_get_stream_format(struct cal_camerarx *phy,
-			       struct v4l2_subdev_state *state,
-			       unsigned int pad, u32 stream, u32 which);
 
 #endif /* __TI_CAL_H__ */

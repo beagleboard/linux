@@ -45,6 +45,10 @@ with the VIDIOC_SUBDEV_S_ROUTING ioctl, by adding or removing routes and setting
 or clearing the ``V4L2_SUBDEV_ROUTE_FL_ACTIVE`` flag of the  ``flags`` field of
 a struct :c:type:`v4l2_subdev_route`.
 
+A special case for routing are routes marked with
+``V4L2_SUBDEV_ROUTE_FL_SOURCE`` flag. These routes are used to describe
+source endpoints on sensors and the sink fields are unused.
+
 When inspecting routes through VIDIOC_SUBDEV_G_ROUTING and the application
 provided ``num_routes`` is not big enough to contain all the available routes
 the subdevice exposes, drivers return the ENOSPC error code and adjust the

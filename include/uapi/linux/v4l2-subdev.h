@@ -44,6 +44,8 @@ enum v4l2_subdev_format_whence {
  * @which: format type (from enum v4l2_subdev_format_whence)
  * @pad: pad number, as reported by the media API
  * @format: media bus format (format code and frame size)
+ * @stream: stream number, defined in subdev routing
+ * @reserved: drivers and applications must zero this array
  */
 struct v4l2_subdev_format {
 	__u32 which;
@@ -58,6 +60,8 @@ struct v4l2_subdev_format {
  * @which: format type (from enum v4l2_subdev_format_whence)
  * @pad: pad number, as reported by the media API
  * @rect: pad crop rectangle boundaries
+ * @stream: stream number, defined in subdev routing
+ * @reserved: drivers and applications must zero this array
  */
 struct v4l2_subdev_crop {
 	__u32 which;
@@ -80,6 +84,8 @@ struct v4l2_subdev_crop {
  * @code: format code (MEDIA_BUS_FMT_ definitions)
  * @which: format type (from enum v4l2_subdev_format_whence)
  * @flags: flags set by the driver, (V4L2_SUBDEV_MBUS_CODE_*)
+ * @stream: stream number, defined in subdev routing
+ * @reserved: drivers and applications must zero this array
  */
 struct v4l2_subdev_mbus_code_enum {
 	__u32 pad;
@@ -93,10 +99,16 @@ struct v4l2_subdev_mbus_code_enum {
 
 /**
  * struct v4l2_subdev_frame_size_enum - Media bus format enumeration
- * @pad: pad number, as reported by the media API
  * @index: format index during enumeration
+ * @pad: pad number, as reported by the media API
  * @code: format code (MEDIA_BUS_FMT_ definitions)
+ * @min_width: minimum frame width, in pixels
+ * @max_width: maximum frame width, in pixels
+ * @min_height: minimum frame height, in pixels
+ * @max_height: maximum frame height, in pixels
  * @which: format type (from enum v4l2_subdev_format_whence)
+ * @stream: stream number, defined in subdev routing
+ * @reserved: drivers and applications must zero this array
  */
 struct v4l2_subdev_frame_size_enum {
 	__u32 index;
@@ -115,6 +127,8 @@ struct v4l2_subdev_frame_size_enum {
  * struct v4l2_subdev_frame_interval - Pad-level frame rate
  * @pad: pad number, as reported by the media API
  * @interval: frame interval in seconds
+ * @stream: stream number, defined in subdev routing
+ * @reserved: drivers and applications must zero this array
  */
 struct v4l2_subdev_frame_interval {
 	__u32 pad;
@@ -132,6 +146,8 @@ struct v4l2_subdev_frame_interval {
  * @height: frame height in pixels
  * @interval: frame interval in seconds
  * @which: format type (from enum v4l2_subdev_format_whence)
+ * @stream: stream number, defined in subdev routing
+ * @reserved: drivers and applications must zero this array
  */
 struct v4l2_subdev_frame_interval_enum {
 	__u32 index;
@@ -154,6 +170,7 @@ struct v4l2_subdev_frame_interval_enum {
  *	    defined in v4l2-common.h; V4L2_SEL_TGT_* .
  * @flags: constraint flags, defined in v4l2-common.h; V4L2_SEL_FLAG_*.
  * @r: coordinates of the selection window
+ * @stream: stream number, defined in subdev routing
  * @reserved: for future use, set to zero for now
  *
  * Hardware may use multiple helper windows to process a video stream.
@@ -185,24 +202,29 @@ struct v4l2_subdev_capability {
 /* The v4l2 sub-device video device node is registered in read-only mode. */
 #define V4L2_SUBDEV_CAP_RO_SUBDEV		0x00000001
 
-/**
+/* The v4l2 sub-device supports multiplexed streams. */
+#define V4L2_SUBDEV_CAP_MPLEXED         0x00000002
+
+/*
  * Is the route active? An active route will start when streaming is enabled
  * on a video node.
  */
-#define V4L2_SUBDEV_ROUTE_FL_ACTIVE		BIT(0)
+#define V4L2_SUBDEV_ROUTE_FL_ACTIVE		_BITUL(0)
 
-/**
+/*
  * Is the route immutable, i.e. can it be activated and inactivated?
  * Set by the driver.
  */
-#define V4L2_SUBDEV_ROUTE_FL_IMMUTABLE		BIT(1)
+#define V4L2_SUBDEV_ROUTE_FL_IMMUTABLE		_BITUL(1)
 
-/**
- * Is the route a source endpoint? A source endpoint route doesn't come
- * from "anywhere", and the sink_pad and sink_stream fields are unused.
+/*
+ * Is the route a source endpoint? A source endpoint route refers to a stream
+ * generated internally by the subdevice (usually a sensor), and thus there
+ * is no sink-side endpoint for the route. The sink_pad and sink_stream
+ * fields are unused.
  * Set by the driver.
  */
-#define V4L2_SUBDEV_ROUTE_FL_SOURCE		BIT(2)
+#define V4L2_SUBDEV_ROUTE_FL_SOURCE		_BITUL(2)
 
 /**
  * struct v4l2_subdev_route - A route inside a subdev

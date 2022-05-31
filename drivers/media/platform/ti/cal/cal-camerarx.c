@@ -49,33 +49,47 @@ static s64 cal_camerarx_get_ext_link_freq(struct cal_camerarx *phy)
 {
 	struct v4l2_fwnode_bus_mipi_csi2 *mipi_csi2 = &phy->endpoint.bus.mipi_csi2;
 	u32 num_lanes = mipi_csi2->num_data_lanes;
+	struct v4l2_subdev_state *state;
 	u32 bpp;
 	s64 freq;
 
 	/*
-	 * With multistream input we don't have bpp, and cannot use
-	 * V4L2_CID_PIXEL_RATE. Passing 0 as bpp causes v4l2_get_link_freq()
-	 * to return an error if it falls back to V4L2_CID_PIXEL_RATE.
+	 * v4l2_get_link_freq() uses V4L2_CID_LINK_FREQ first, and falls back
+	 * to V4L2_CID_PIXEL_RATE if V4L2_CID_LINK_FREQ is not available.
+	 *
+	 * With multistream input there is no single pixel rate, and thus we
+	 * cannot use V4L2_CID_PIXEL_RATE, so we pass 0 as the bpp which
+	 * causes v4l2_get_link_freq() to return an error if it falls back to
+	 * V4L2_CID_PIXEL_RATE.
 	 */
 
-	if (phy->stream_configs.num_configs == 0)
-		return -EINVAL;
+	state = v4l2_subdev_lock_active_state(&phy->subdev);
 
-	if (phy->stream_configs.num_configs > 2) {
+	if (state->routing.num_routes == 0) {
+		v4l2_subdev_unlock_state(state);
+		return -EINVAL;
+	}
+
+	if (state->routing.num_routes > 1) {
 		bpp = 0;
 	} else {
 		const struct cal_format_info *fmtinfo;
+		struct v4l2_subdev_route *route = &state->routing.routes[0];
 		struct v4l2_mbus_framefmt *fmt;
 
-		/* The first format is for the sink */
-		fmt = &phy->stream_configs.configs[0].fmt;
+		fmt = v4l2_state_get_stream_format(state, route->sink_pad,
+						   route->sink_stream);
 
 		fmtinfo = cal_format_by_code(fmt->code);
-		if (!fmtinfo)
+		if (!fmtinfo) {
+			v4l2_subdev_unlock_state(state);
 			return -EINVAL;
+		}
 
 		bpp = fmtinfo->bpp;
 	}
+
+	v4l2_subdev_unlock_state(state);
 
 	freq = v4l2_get_link_freq(phy->source->ctrl_handler, bpp, 2 * num_lanes);
 	if (freq < 0) {
@@ -602,25 +616,26 @@ done:
 }
 
 int cal_camerarx_get_remote_frame_desc(struct cal_camerarx *phy,
-				       struct v4l2_mbus_frame_desc *fd)
+				       struct v4l2_mbus_frame_desc *desc)
 {
 	struct media_pad *pad;
 	int ret;
 
 	if (!phy->source)
-		return -ENODEV;
+		return -EPIPE;
 
 	pad = media_entity_remote_pad(&phy->pads[CAL_CAMERARX_PAD_SINK]);
 	if (!pad)
-		return -ENODEV;
+		return -EPIPE;
 
 	ret = v4l2_subdev_call(phy->source, pad, get_frame_desc, pad->index,
-			       fd);
+			       desc);
 	if (ret)
 		return ret;
 
-	if (fd->type != V4L2_MBUS_FRAME_DESC_TYPE_CSI2) {
-		dev_err(phy->cal->dev, "Frame desc do not describe CSI-2 link");
+	if (desc->type != V4L2_MBUS_FRAME_DESC_TYPE_CSI2) {
+		dev_err(phy->cal->dev,
+			"Frame descriptor does not describe CSI-2 link");
 		return -EINVAL;
 	}
 
@@ -649,142 +664,52 @@ cal_camerarx_get_phy_from_entity(struct media_entity *entity)
 	return to_cal_camerarx(sd);
 }
 
-static struct v4l2_subdev_krouting *
-cal_camerarx_get_routing_table(struct cal_camerarx *phy,
-			       struct v4l2_subdev_state *cfg, u32 which)
-{
-	if (which == V4L2_SUBDEV_FORMAT_ACTIVE)
-		return &phy->routing;
-	else
-		return &cfg->routing;
-}
-
-static struct v4l2_subdev_stream_configs *
-cal_camerarx_get_stream_configs(struct cal_camerarx *phy,
-				struct v4l2_subdev_state *cfg, u32 which)
-{
-	if (which == V4L2_SUBDEV_FORMAT_ACTIVE)
-		return &phy->stream_configs;
-	else
-		return &cfg->stream_configs;
-}
-
-struct v4l2_mbus_framefmt *
-cal_camerarx_get_stream_format(struct cal_camerarx *phy,
-			       struct v4l2_subdev_state *cfg,
-			       unsigned int pad, u32 stream, u32 which)
-{
-	struct v4l2_subdev_stream_configs *stream_configs;
-	unsigned int i;
-
-	stream_configs = cal_camerarx_get_stream_configs(phy, cfg, which);
-
-	for (i = 0; i < stream_configs->num_configs; ++i) {
-		if (stream_configs->configs[i].pad == pad &&
-		    stream_configs->configs[i].stream == stream)
-			return &stream_configs->configs[i].fmt;
-	}
-
-	return NULL;
-}
-
-static int cal_camerarx_find_opposite_end(struct v4l2_subdev_krouting *routing,
-					  u32 pad, u32 stream, u32 *other_pad,
-					  u32 *other_stream)
-{
-	unsigned int i;
-
-	for (i = 0; i < routing->num_routes; ++i) {
-		struct v4l2_subdev_route *route = &routing->routes[i];
-
-		if (cal_rx_pad_is_source(pad)) {
-			if (route->source_pad == pad &&
-			    route->source_stream == stream) {
-				*other_pad = route->sink_pad;
-				*other_stream = route->sink_stream;
-				return 0;
-			}
-		} else {
-			if (route->sink_pad == pad &&
-			    route->sink_stream == stream) {
-				*other_pad = route->source_pad;
-				*other_stream = route->source_stream;
-				return 0;
-			}
-		}
-	}
-
-	return -EINVAL;
-}
-
-static struct v4l2_mbus_framefmt *
-cal_camerarx_get_opposite_stream_format(struct cal_camerarx *phy,
-					struct v4l2_subdev_state *cfg,
-					u32 pad, u32 stream, u32 which)
-{
-	struct v4l2_subdev_krouting *routing;
-	u32 other_pad, other_stream;
-	int ret;
-
-	routing = cal_camerarx_get_routing_table(phy, cfg, which);
-
-	ret = cal_camerarx_find_opposite_end(routing, pad, stream, &other_pad,
-					     &other_stream);
-	if (ret)
-		return NULL;
-
-	return cal_camerarx_get_stream_format(phy, cfg, other_pad,
-					      other_stream, which);
-}
-
 static int cal_camerarx_sd_s_stream(struct v4l2_subdev *sd, int enable)
 {
 	struct cal_camerarx *phy = to_cal_camerarx(sd);
-	int r = 0;
+	int ret = 0;
 
 	mutex_lock(&phy->mutex);
 
 	if (enable)
-		r = cal_camerarx_start(phy);
+		ret = cal_camerarx_start(phy);
 	else
 		cal_camerarx_stop(phy);
 
 	mutex_unlock(&phy->mutex);
 
-	return r;
+	return ret;
 }
 
 static int cal_camerarx_sd_enum_mbus_code(struct v4l2_subdev *sd,
-					  struct v4l2_subdev_state *sd_state,
+					  struct v4l2_subdev_state *state,
 					  struct v4l2_subdev_mbus_code_enum *code)
 {
-	struct cal_camerarx *phy = to_cal_camerarx(sd);
-	int r = 0;
+	int ret = 0;
 
-	mutex_lock(&phy->mutex);
+	v4l2_subdev_lock_state(state);
 
 	/* No transcoding, source and sink codes must match. */
 	if (cal_rx_pad_is_source(code->pad)) {
 		struct v4l2_mbus_framefmt *fmt;
 
 		if (code->index > 0) {
-			r = -EINVAL;
+			ret = -EINVAL;
 			goto out;
 		}
 
-		fmt = cal_camerarx_get_opposite_stream_format(phy, sd_state,
-					code->pad, code->stream,
-					code->which);
+		fmt = v4l2_state_get_opposite_stream_format(state, code->pad,
+							    code->stream);
 
 		if (!fmt) {
-			r = -EINVAL;
+			ret = -EINVAL;
 			goto out;
 		}
 
 		code->code = fmt->code;
 	} else {
 		if (code->index >= cal_num_formats) {
-			r = -EINVAL;
+			ret = -EINVAL;
 			goto out;
 		}
 
@@ -792,38 +717,37 @@ static int cal_camerarx_sd_enum_mbus_code(struct v4l2_subdev *sd,
 	}
 
 out:
-	mutex_unlock(&phy->mutex);
+	v4l2_subdev_unlock_state(state);
 
-	return r;
+	return ret;
 }
 
 static int cal_camerarx_sd_enum_frame_size(struct v4l2_subdev *sd,
-					   struct v4l2_subdev_state *sd_state,
+					   struct v4l2_subdev_state *state,
 					   struct v4l2_subdev_frame_size_enum *fse)
 {
-	struct cal_camerarx *phy = to_cal_camerarx(sd);
 	const struct cal_format_info *fmtinfo;
-	int r = 0;
+	int ret = 0;
 
 	if (fse->index > 0)
 		return -EINVAL;
 
-	mutex_lock(&phy->mutex);
+	v4l2_subdev_lock_state(state);
 
 	/* No transcoding, source and sink formats must match. */
 	if (cal_rx_pad_is_source(fse->pad)) {
 		struct v4l2_mbus_framefmt *fmt;
 
-		fmt = cal_camerarx_get_opposite_stream_format(
-			phy, sd_state, fse->pad, fse->stream, fse->which);
+		fmt = v4l2_state_get_opposite_stream_format(state, fse->pad,
+							    fse->stream);
 
 		if (!fmt) {
-			r = -EINVAL;
+			ret = -EINVAL;
 			goto out;
 		}
 
 		if (fse->code != fmt->code) {
-			r = -EINVAL;
+			ret = -EINVAL;
 			goto out;
 		}
 
@@ -834,53 +758,26 @@ static int cal_camerarx_sd_enum_frame_size(struct v4l2_subdev *sd,
 	} else {
 		fmtinfo = cal_format_by_code(fse->code);
 		if (!fmtinfo) {
-			r = -EINVAL;
+			ret = -EINVAL;
 			goto out;
 		}
 
-		fse->min_width =
-			CAL_MIN_WIDTH_BYTES * 8 / ALIGN(fmtinfo->bpp, 8);
-		fse->max_width =
-			CAL_MAX_WIDTH_BYTES * 8 / ALIGN(fmtinfo->bpp, 8);
+		fse->min_width = CAL_MIN_WIDTH_BYTES * 8 / ALIGN(fmtinfo->bpp, 8);
+		fse->max_width = CAL_MAX_WIDTH_BYTES * 8 / ALIGN(fmtinfo->bpp, 8);
 		fse->min_height = CAL_MIN_HEIGHT_LINES;
 		fse->max_height = CAL_MAX_HEIGHT_LINES;
 	}
 
 out:
-	mutex_unlock(&phy->mutex);
+	v4l2_subdev_unlock_state(state);
 
-	return r;
-}
-
-static int cal_camerarx_sd_get_fmt(struct v4l2_subdev *sd,
-				   struct v4l2_subdev_state *sd_state,
-				   struct v4l2_subdev_format *format)
-{
-	struct cal_camerarx *phy = to_cal_camerarx(sd);
-	struct v4l2_mbus_framefmt *fmt;
-
-	mutex_lock(&phy->mutex);
-
-	fmt = cal_camerarx_get_stream_format(phy, sd_state, format->pad,
-					     format->stream, format->which);
-
-	if (!fmt) {
-		mutex_unlock(&phy->mutex);
-		return -EINVAL;
-	}
-
-	format->format = *fmt;
-
-	mutex_unlock(&phy->mutex);
-
-	return 0;
+	return ret;
 }
 
 static int cal_camerarx_sd_set_fmt(struct v4l2_subdev *sd,
-				   struct v4l2_subdev_state *sd_state,
+				   struct v4l2_subdev_state *state,
 				   struct v4l2_subdev_format *format)
 {
-	struct cal_camerarx *phy = to_cal_camerarx(sd);
 	const struct cal_format_info *fmtinfo;
 	struct v4l2_mbus_framefmt *fmt;
 	unsigned int bpp;
@@ -888,7 +785,7 @@ static int cal_camerarx_sd_set_fmt(struct v4l2_subdev *sd,
 
 	/* No transcoding, source and sink formats must match. */
 	if (cal_rx_pad_is_source(format->pad))
-		return cal_camerarx_sd_get_fmt(sd, sd_state, format);
+		return v4l2_subdev_get_fmt(sd, state, format);
 
 	/*
 	 * Default to the first format if the requested media bus code isn't
@@ -912,10 +809,10 @@ static int cal_camerarx_sd_set_fmt(struct v4l2_subdev *sd,
 
 	/* Store the format and propagate it to the source pad. */
 
-	mutex_lock(&phy->mutex);
+	v4l2_subdev_lock_state(state);
 
-	fmt = cal_camerarx_get_stream_format(phy, sd_state, format->pad,
-					     format->stream, format->which);
+	fmt = v4l2_state_get_stream_format(state, format->pad,
+					   format->stream);
 	if (!fmt) {
 		ret = -EINVAL;
 		goto out;
@@ -923,9 +820,8 @@ static int cal_camerarx_sd_set_fmt(struct v4l2_subdev *sd,
 
 	*fmt = format->format;
 
-	fmt = cal_camerarx_get_opposite_stream_format(phy, sd_state, format->pad,
-						      format->stream,
-						      format->which);
+	fmt = v4l2_state_get_opposite_stream_format(state, format->pad,
+						    format->stream);
 	if (!fmt) {
 		ret = -EINVAL;
 		goto out;
@@ -934,29 +830,15 @@ static int cal_camerarx_sd_set_fmt(struct v4l2_subdev *sd,
 	*fmt = format->format;
 
 out:
-	mutex_unlock(&phy->mutex);
+	v4l2_subdev_unlock_state(state);
 
 	return ret;
 }
 
-static int cal_camerarx_sd_get_routing(struct v4l2_subdev *sd,
-				       struct v4l2_subdev_state *cfg,
+static int _cal_camerarx_sd_set_routing(struct v4l2_subdev *sd,
+				       struct v4l2_subdev_state *state,
 				       struct v4l2_subdev_krouting *routing)
 {
-	struct cal_camerarx *phy = to_cal_camerarx(sd);
-	struct v4l2_subdev_krouting *src;
-
-	src = cal_camerarx_get_routing_table(phy, cfg, routing->which);
-
-	return v4l2_subdev_cpy_routing(routing, src);
-}
-
-static void cal_camerarx_init_formats(struct v4l2_subdev *sd,
-				      struct v4l2_subdev_state *cfg,
-				      u32 which)
-{
-	struct cal_camerarx *phy = to_cal_camerarx(sd);
-
 	static const struct v4l2_mbus_framefmt format = {
 		.width = 640,
 		.height = 480,
@@ -967,48 +849,37 @@ static void cal_camerarx_init_formats(struct v4l2_subdev *sd,
 		.quantization = V4L2_QUANTIZATION_LIM_RANGE,
 		.xfer_func = V4L2_XFER_FUNC_SRGB,
 	};
-
-	struct v4l2_subdev_stream_configs *stream_configs;
-	unsigned int i;
-
-	stream_configs = cal_camerarx_get_stream_configs(phy, cfg, which);
-
-	for (i = 0; i < stream_configs->num_configs; ++i)
-		stream_configs->configs[i].fmt = format;
-}
-
-static int cal_camerarx_sd_set_routing(struct v4l2_subdev *sd,
-				       struct v4l2_subdev_state *cfg,
-				       struct v4l2_subdev_krouting *routing)
-{
-	struct cal_camerarx *phy = to_cal_camerarx(sd);
 	int ret;
-	struct v4l2_subdev_krouting *dst;
-	struct v4l2_subdev_stream_configs *stream_configs;
 
-	dst = cal_camerarx_get_routing_table(phy, cfg, routing->which);
-	stream_configs =
-		cal_camerarx_get_stream_configs(phy, cfg, routing->which);
-
-	ret = v4l2_subdev_dup_routing(dst, routing);
+	ret = v4l2_routing_simple_verify(routing);
 	if (ret)
 		return ret;
 
-	ret = v4l2_init_stream_configs(stream_configs, dst);
+	/* TODO: verify that all streams from a single RX port go to a single TX port */
+
+	v4l2_subdev_lock_state(state);
+
+	ret = v4l2_subdev_set_routing_with_fmt(sd, state, routing, &format);
+
+	v4l2_subdev_unlock_state(state);
+
 	if (ret)
 		return ret;
-
-	/* Initialize stream formats */
-	cal_camerarx_init_formats(sd, cfg, routing->which);
 
 	return 0;
 }
 
-static int cal_camerarx_sd_init_cfg(struct v4l2_subdev *sd,
-				    struct v4l2_subdev_state *sd_state)
+static int cal_camerarx_sd_set_routing(struct v4l2_subdev *sd,
+				       struct v4l2_subdev_state *state,
+				       enum v4l2_subdev_format_whence which,
+				       struct v4l2_subdev_krouting *routing)
 {
-	u32 which = sd_state ? V4L2_SUBDEV_FORMAT_TRY : V4L2_SUBDEV_FORMAT_ACTIVE;
+	return _cal_camerarx_sd_set_routing(sd, state, routing);
+}
 
+static int cal_camerarx_sd_init_cfg(struct v4l2_subdev *sd,
+				    struct v4l2_subdev_state *state)
+{
 	struct v4l2_subdev_route routes[] = { {
 		.sink_pad = 0,
 		.sink_stream = 0,
@@ -1018,13 +889,12 @@ static int cal_camerarx_sd_init_cfg(struct v4l2_subdev *sd,
 	} };
 
 	struct v4l2_subdev_krouting routing = {
-		.which = which,
 		.num_routes = 1,
 		.routes = routes,
 	};
 
 	/* Initialize routing to single route to the fist source pad */
-	return cal_camerarx_sd_set_routing(sd, sd_state, &routing);
+	return _cal_camerarx_sd_set_routing(sd, state, &routing);
 }
 
 static const struct v4l2_subdev_video_ops cal_camerarx_video_ops = {
@@ -1035,9 +905,8 @@ static const struct v4l2_subdev_pad_ops cal_camerarx_pad_ops = {
 	.init_cfg = cal_camerarx_sd_init_cfg,
 	.enum_mbus_code = cal_camerarx_sd_enum_mbus_code,
 	.enum_frame_size = cal_camerarx_sd_enum_frame_size,
-	.get_fmt = cal_camerarx_sd_get_fmt,
+	.get_fmt = v4l2_subdev_get_fmt,
 	.set_fmt = cal_camerarx_sd_set_fmt,
-	.get_routing = cal_camerarx_sd_get_routing,
 	.set_routing = cal_camerarx_sd_set_routing,
 };
 
@@ -1046,18 +915,9 @@ static const struct v4l2_subdev_ops cal_camerarx_subdev_ops = {
 	.pad = &cal_camerarx_pad_ops,
 };
 
-static bool cal_camerarx_has_route(struct media_entity *entity, unsigned int pad0,
-			  unsigned int pad1)
-{
-	struct v4l2_subdev *sd = media_entity_to_v4l2_subdev(entity);
-	struct cal_camerarx *phy = to_cal_camerarx(sd);
-
-	return v4l2_subdev_has_route(&phy->routing, pad0, pad1);
-}
-
 static struct media_entity_operations cal_camerarx_media_ops = {
 	.link_validate = v4l2_subdev_link_validate,
-	.has_route = cal_camerarx_has_route,
+	.has_route = v4l2_subdev_has_route,
 };
 
 /* ------------------------------------------------------------------
@@ -1071,8 +931,8 @@ struct cal_camerarx *cal_camerarx_create(struct cal_dev *cal,
 	struct platform_device *pdev = to_platform_device(cal->dev);
 	struct cal_camerarx *phy;
 	struct v4l2_subdev *sd;
-	int ret;
 	unsigned int i;
+	int ret;
 
 	phy = kzalloc(sizeof(*phy), GFP_KERNEL);
 	if (!phy)
@@ -1081,6 +941,7 @@ struct cal_camerarx *cal_camerarx_create(struct cal_dev *cal,
 	phy->cal = cal;
 	phy->instance = instance;
 
+	spin_lock_init(&phy->vc_lock);
 	mutex_init(&phy->mutex);
 
 	phy->res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
@@ -1091,7 +952,7 @@ struct cal_camerarx *cal_camerarx_create(struct cal_dev *cal,
 	if (IS_ERR(phy->base)) {
 		cal_err(cal, "failed to ioremap\n");
 		ret = PTR_ERR(phy->base);
-		goto error;
+		goto err_free_phy;
 	}
 
 	cal_dbg(1, cal, "ioresource %s at %pa - %pa\n",
@@ -1099,11 +960,11 @@ struct cal_camerarx *cal_camerarx_create(struct cal_dev *cal,
 
 	ret = cal_camerarx_regmap_init(cal, phy);
 	if (ret)
-		goto error;
+		goto err_free_phy;
 
 	ret = cal_camerarx_parse_dt(phy);
 	if (ret)
-		goto error;
+		goto err_free_phy;
 
 	/* Initialize the V4L2 subdev and media entity. */
 	sd = &phy->subdev;
@@ -1121,22 +982,23 @@ struct cal_camerarx *cal_camerarx_create(struct cal_dev *cal,
 	ret = media_entity_pads_init(&sd->entity, ARRAY_SIZE(phy->pads),
 				     phy->pads);
 	if (ret)
-		goto error;
+		goto err_free_phy;
 
-	ret = cal_camerarx_sd_init_cfg(sd, NULL);
+	ret = v4l2_subdev_init_finalize(sd);
 	if (ret)
-		goto error;
+		goto err_entity_cleanup;
 
 	ret = v4l2_device_register_subdev(&cal->v4l2_dev, sd);
 	if (ret)
-		goto error;
+		goto err_free_state;
 
 	return phy;
 
-error:
-	v4l2_subdev_free_routing(&phy->routing);
-	v4l2_uninit_stream_configs(&phy->stream_configs);
+err_free_state:
+	v4l2_subdev_cleanup(sd);
+err_entity_cleanup:
 	media_entity_cleanup(&phy->subdev.entity);
+err_free_phy:
 	kfree(phy);
 	return ERR_PTR(ret);
 }
@@ -1147,10 +1009,12 @@ void cal_camerarx_destroy(struct cal_camerarx *phy)
 		return;
 
 	v4l2_device_unregister_subdev(&phy->subdev);
-	v4l2_subdev_free_routing(&phy->routing);
-	v4l2_uninit_stream_configs(&phy->stream_configs);
+
+	v4l2_subdev_cleanup(&phy->subdev);
+
 	media_entity_cleanup(&phy->subdev.entity);
 	of_node_put(phy->source_ep_node);
 	of_node_put(phy->source_node);
+	mutex_destroy(&phy->mutex);
 	kfree(phy);
 }

@@ -25,12 +25,16 @@
 #define SHIM_DMACNTX(i)			(0x20 + ((i) * 0x20))
 #define SHIM_DMACNTX_EN			BIT(31)
 #define SHIM_DMACNTX_YUV422		GENMASK(27, 26)
+#define SHIM_DMACNTX_SIZE		GENMASK(21, 20)
 #define SHIM_DMACNTX_VC			GENMASK(9, 6)
 #define SHIM_DMACNTX_FMT		GENMASK(5, 0)
 #define SHIM_DMACNTX_UYVY		0
 #define SHIM_DMACNTX_VYUY		1
 #define SHIM_DMACNTX_YUYV		2
 #define SHIM_DMACNTX_YVYU		3
+#define SHIM_DMACNTX_SIZE_8		0
+#define SHIM_DMACNTX_SIZE_16		1
+#define SHIM_DMACNTX_SIZE_32		2
 
 #define SHIM_PSI_CFG0(i)		(0x24 + ((i) * 0x20))
 #define SHIM_PSI_CFG0_SRC_TAG		GENMASK(15, 0)
@@ -40,6 +44,9 @@
 #define CSI_DF_YUV422			0x1e
 #define CSI_DF_RGB444			0x20
 #define CSI_DF_RGB888			0x24
+#define CSI_DF_RAW8			0x2a
+#define CSI_DF_RAW10			0x2b
+#define CSI_DF_RAW12			0x2c
 
 #define PSIL_WORD_SIZE_BYTES		16
 #define TI_CSI2RX_MAX_CTX		32
@@ -66,6 +73,7 @@ struct ti_csi2rx_fmt {
 	enum v4l2_colorspace		colorspace;
 	u32				csi_df;	/* CSI Data format. */
 	u8				bpp;	/* Bits per pixel. */
+	u8				size;	/* Data size shift when unpacking. */
 };
 
 struct ti_csi2rx_buffer {
@@ -125,8 +133,6 @@ struct ti_csi2rx_dev {
 	struct v4l2_device		v4l2_dev;
 	struct v4l2_subdev		*source;
 	struct v4l2_subdev		subdev;
-	struct v4l2_subdev_krouting	routing;
-	struct v4l2_subdev_stream_configs stream_configs;
 	struct ti_csi2rx_ctx		ctx[TI_CSI2RX_MAX_CTX];
 };
 
@@ -137,24 +143,112 @@ static const struct ti_csi2rx_fmt formats[] = {
 		.colorspace		= V4L2_COLORSPACE_SRGB,
 		.csi_df			= CSI_DF_YUV422,
 		.bpp			= 16,
+		.size			= SHIM_DMACNTX_SIZE_8,
 	}, {
 		.fourcc			= V4L2_PIX_FMT_UYVY,
 		.code			= MEDIA_BUS_FMT_UYVY8_2X8,
 		.colorspace		= V4L2_COLORSPACE_SRGB,
 		.csi_df			= CSI_DF_YUV422,
 		.bpp			= 16,
+		.size			= SHIM_DMACNTX_SIZE_8,
 	}, {
 		.fourcc			= V4L2_PIX_FMT_YVYU,
 		.code			= MEDIA_BUS_FMT_YVYU8_2X8,
 		.colorspace		= V4L2_COLORSPACE_SRGB,
 		.csi_df			= CSI_DF_YUV422,
 		.bpp			= 16,
+		.size			= SHIM_DMACNTX_SIZE_8,
 	}, {
 		.fourcc			= V4L2_PIX_FMT_VYUY,
 		.code			= MEDIA_BUS_FMT_VYUY8_2X8,
 		.colorspace		= V4L2_COLORSPACE_SRGB,
 		.csi_df			= CSI_DF_YUV422,
 		.bpp			= 16,
+		.size			= SHIM_DMACNTX_SIZE_8,
+	}, {
+		.fourcc			= V4L2_PIX_FMT_SBGGR8,
+		.code			= MEDIA_BUS_FMT_SBGGR8_1X8,
+		.colorspace		= V4L2_COLORSPACE_SRGB,
+		.csi_df			= CSI_DF_RAW8,
+		.bpp			= 8,
+		.size			= SHIM_DMACNTX_SIZE_8,
+	}, {
+		.fourcc			= V4L2_PIX_FMT_SGBRG8,
+		.code			= MEDIA_BUS_FMT_SGBRG8_1X8,
+		.colorspace		= V4L2_COLORSPACE_SRGB,
+		.csi_df			= CSI_DF_RAW8,
+		.bpp			= 8,
+		.size			= SHIM_DMACNTX_SIZE_8,
+	}, {
+		.fourcc			= V4L2_PIX_FMT_SGRBG8,
+		.code			= MEDIA_BUS_FMT_SGRBG8_1X8,
+		.colorspace		= V4L2_COLORSPACE_SRGB,
+		.csi_df			= CSI_DF_RAW8,
+		.bpp			= 8,
+		.size			= SHIM_DMACNTX_SIZE_8,
+	}, {
+		.fourcc			= V4L2_PIX_FMT_SRGGB8,
+		.code			= MEDIA_BUS_FMT_SRGGB8_1X8,
+		.colorspace		= V4L2_COLORSPACE_SRGB,
+		.csi_df			= CSI_DF_RAW8,
+		.bpp			= 8,
+		.size			= SHIM_DMACNTX_SIZE_8,
+	}, {
+		.fourcc			= V4L2_PIX_FMT_SBGGR10,
+		.code			= MEDIA_BUS_FMT_SBGGR10_1X10,
+		.colorspace		= V4L2_COLORSPACE_SRGB,
+		.csi_df			= CSI_DF_RAW10,
+		.bpp			= 16,
+		.size			= SHIM_DMACNTX_SIZE_16,
+	}, {
+		.fourcc			= V4L2_PIX_FMT_SGBRG10,
+		.code			= MEDIA_BUS_FMT_SGBRG10_1X10,
+		.colorspace		= V4L2_COLORSPACE_SRGB,
+		.csi_df			= CSI_DF_RAW10,
+		.bpp			= 16,
+		.size			= SHIM_DMACNTX_SIZE_16,
+	}, {
+		.fourcc			= V4L2_PIX_FMT_SGRBG10,
+		.code			= MEDIA_BUS_FMT_SGRBG10_1X10,
+		.colorspace		= V4L2_COLORSPACE_SRGB,
+		.csi_df			= CSI_DF_RAW10,
+		.bpp			= 16,
+		.size			= SHIM_DMACNTX_SIZE_16,
+	}, {
+		.fourcc			= V4L2_PIX_FMT_SRGGB10,
+		.code			= MEDIA_BUS_FMT_SRGGB10_1X10,
+		.colorspace		= V4L2_COLORSPACE_SRGB,
+		.csi_df			= CSI_DF_RAW10,
+		.bpp			= 16,
+		.size			= SHIM_DMACNTX_SIZE_16,
+	}, {
+		.fourcc			= V4L2_PIX_FMT_SBGGR12,
+		.code			= MEDIA_BUS_FMT_SBGGR12_1X12,
+		.colorspace		= V4L2_COLORSPACE_SRGB,
+		.csi_df			= CSI_DF_RAW12,
+		.bpp			= 16,
+		.size			= SHIM_DMACNTX_SIZE_16,
+	}, {
+		.fourcc			= V4L2_PIX_FMT_SGBRG12,
+		.code			= MEDIA_BUS_FMT_SGBRG12_1X12,
+		.colorspace		= V4L2_COLORSPACE_SRGB,
+		.csi_df			= CSI_DF_RAW12,
+		.bpp			= 16,
+		.size			= SHIM_DMACNTX_SIZE_16,
+	}, {
+		.fourcc			= V4L2_PIX_FMT_SGRBG12,
+		.code			= MEDIA_BUS_FMT_SGRBG12_1X12,
+		.colorspace		= V4L2_COLORSPACE_SRGB,
+		.csi_df			= CSI_DF_RAW12,
+		.bpp			= 16,
+		.size			= SHIM_DMACNTX_SIZE_16,
+	}, {
+		.fourcc			= V4L2_PIX_FMT_SRGGB12,
+		.code			= MEDIA_BUS_FMT_SRGGB12_1X12,
+		.colorspace		= V4L2_COLORSPACE_SRGB,
+		.csi_df			= CSI_DF_RAW12,
+		.bpp			= 16,
+		.size			= SHIM_DMACNTX_SIZE_16,
 	},
 
 	/* More formats can be supported but they are not listed for now. */
@@ -482,6 +576,7 @@ static void ti_csi2rx_setup_shim(struct ti_csi2rx_ctx *ctx)
 		break;
 	}
 
+	reg |= FIELD_PREP(SHIM_DMACNTX_SIZE, fmt->size);
 	reg |= FIELD_PREP(SHIM_DMACNTX_VC, ctx->vc);
 
 	writel(reg, csi->shim + SHIM_DMACNTX(ctx->idx));
@@ -733,10 +828,12 @@ static int ti_csi2rx_start_streaming(struct vb2_queue *vq, unsigned int count)
 	struct ti_csi2rx_dev *csi = ctx->csi;
 	struct ti_csi2rx_dma *dma = &ctx->dma;
 	struct ti_csi2rx_buffer *buf, *tmp;
+	struct v4l2_subdev_krouting *routing;
 	struct v4l2_subdev_route *route = NULL;
 	struct media_pad *remote_pad;
 	unsigned long flags = 0;
 	int ret = 0, i;
+	struct v4l2_subdev_state *state;
 
 	spin_lock_irqsave(&dma->lock, flags);
 	if (list_empty(&dma->queue))
@@ -755,9 +852,13 @@ static int ti_csi2rx_start_streaming(struct vb2_queue *vq, unsigned int count)
 		goto err_pipeline;
 	}
 
+	state = v4l2_subdev_lock_active_state(&csi->subdev);
+
+	routing = &state->routing;
+
 	/* Find the stream to process. */
-	for (i = 0; i < csi->routing.num_routes; i++) {
-		struct v4l2_subdev_route *r = &csi->routing.routes[i];
+	for (i = 0; i < routing->num_routes; i++) {
+		struct v4l2_subdev_route *r = &routing->routes[i];
 
 		if (!(r->flags & V4L2_SUBDEV_ROUTE_FL_ACTIVE))
 			continue;
@@ -771,10 +872,13 @@ static int ti_csi2rx_start_streaming(struct vb2_queue *vq, unsigned int count)
 
 	if (!route) {
 		ret = -ENODEV;
+		v4l2_subdev_unlock_state(state);
 		goto err_pipeline;
 	}
 
 	ctx->stream = route->sink_stream;
+
+	v4l2_subdev_unlock_state(state);
 
 	ret = ti_csi2rx_get_vc(ctx);
 	if (ret == -ENOIOCTLCMD)
@@ -891,67 +995,43 @@ static inline struct ti_csi2rx_dev *to_csi2rx_dev(struct v4l2_subdev *sd)
 	return container_of(sd, struct ti_csi2rx_dev, subdev);
 }
 
-static struct v4l2_subdev_krouting *
-ti_csi2rx_get_routing_table(struct ti_csi2rx_dev *csi,
-			    struct v4l2_subdev_state *state, u32 which)
-{
-	if (which == V4L2_SUBDEV_FORMAT_ACTIVE)
-		return &csi->routing;
-	else
-		return &state->routing;
-}
-
-static struct v4l2_subdev_stream_configs *
-ti_csi2rx_get_stream_configs(struct ti_csi2rx_dev *csi,
-			     struct v4l2_subdev_state *state, u32 which)
-{
-	if (which == V4L2_SUBDEV_FORMAT_ACTIVE)
-		return &csi->stream_configs;
-	else
-		return &state->stream_configs;
-}
-
-static int ti_csi2rx_sd_get_routing(struct v4l2_subdev *sd,
+static int _ti_csi2rx_sd_set_routing(struct v4l2_subdev *sd,
 				    struct v4l2_subdev_state *state,
 				    struct v4l2_subdev_krouting *routing)
 {
-	struct ti_csi2rx_dev *csi = to_csi2rx_dev(sd);
-	struct v4l2_subdev_krouting *src;
+	int ret;
 
-	src = ti_csi2rx_get_routing_table(csi, state, routing->which);
+	const struct v4l2_mbus_framefmt format = {
+		.width = 640,
+		.height = 480,
+		.code = MEDIA_BUS_FMT_UYVY8_2X8,
+		.field = V4L2_FIELD_NONE,
+		.colorspace = V4L2_COLORSPACE_SRGB,
+		.ycbcr_enc = V4L2_YCBCR_ENC_601,
+		.quantization = V4L2_QUANTIZATION_LIM_RANGE,
+		.xfer_func = V4L2_XFER_FUNC_SRGB,
+	};
 
-	return v4l2_subdev_cpy_routing(routing, src);
+	v4l2_subdev_lock_state(state);
+
+	ret = v4l2_subdev_set_routing_with_fmt(sd, state, routing, &format);
+
+	v4l2_subdev_unlock_state(state);
+
+	return ret;
 }
 
 static int ti_csi2rx_sd_set_routing(struct v4l2_subdev *sd,
 				    struct v4l2_subdev_state *state,
+				     enum v4l2_subdev_format_whence which,
 				    struct v4l2_subdev_krouting *routing)
 {
-	struct ti_csi2rx_dev *csi = to_csi2rx_dev(sd);
-	struct v4l2_subdev_krouting *dst;
-	struct v4l2_subdev_stream_configs *stream_configs;
-	int ret;
-
-	dst = ti_csi2rx_get_routing_table(csi, state, routing->which);
-	stream_configs = ti_csi2rx_get_stream_configs(csi, state,
-						      routing->which);
-
-	ret = v4l2_subdev_dup_routing(dst, routing);
-	if (ret)
-		return ret;
-
-	ret = v4l2_init_stream_configs(stream_configs, dst);
-	if (ret)
-		return ret;
-
-	return 0;
+	return _ti_csi2rx_sd_set_routing(sd, state, routing);
 }
 
 static int ti_csi2rx_sd_init_cfg(struct v4l2_subdev *sd,
-				 struct v4l2_subdev_state *sd_state)
+				 struct v4l2_subdev_state *state)
 {
-	u32 which = sd_state ? V4L2_SUBDEV_FORMAT_TRY : V4L2_SUBDEV_FORMAT_ACTIVE;
-
 	struct v4l2_subdev_route routes[] = { {
 		.sink_pad = 0,
 		.sink_stream = 0,
@@ -961,13 +1041,12 @@ static int ti_csi2rx_sd_init_cfg(struct v4l2_subdev *sd,
 	} };
 
 	struct v4l2_subdev_krouting routing = {
-		.which = which,
 		.num_routes = 1,
 		.routes = routes,
 	};
 
 	/* Initialize routing to single route to the fist source pad */
-	return ti_csi2rx_sd_set_routing(sd, sd_state, &routing);
+	return _ti_csi2rx_sd_set_routing(sd, state, &routing);
 }
 
 static int ti_csi2rx_sd_s_stream(struct v4l2_subdev *sd, int enable)
@@ -1011,7 +1090,6 @@ static const struct v4l2_subdev_video_ops ti_csi2rx_subdev_video_ops = {
 
 static const struct v4l2_subdev_pad_ops ti_csi2rx_subdev_pad_ops = {
 	.init_cfg = ti_csi2rx_sd_init_cfg,
-	.get_routing = ti_csi2rx_sd_get_routing,
 	.set_routing = ti_csi2rx_sd_set_routing,
 };
 
@@ -1130,7 +1208,7 @@ static int ti_csi2rx_v4l2_init(struct ti_csi2rx_dev *csi)
 
 	v4l2_subdev_init(sd, &ti_csi2rx_subdev_ops);
 	sd->entity.function = MEDIA_ENT_F_VID_IF_BRIDGE;
-	sd->flags = V4L2_SUBDEV_FL_HAS_DEVNODE;
+	sd->flags = V4L2_SUBDEV_FL_HAS_DEVNODE | V4L2_SUBDEV_FL_MULTIPLEXED;
 	strscpy(sd->name, dev_name(csi->dev), sizeof(sd->name));
 	sd->dev = csi->dev;
 
@@ -1146,16 +1224,18 @@ static int ti_csi2rx_v4l2_init(struct ti_csi2rx_dev *csi)
 	if (ret)
 		goto unregister_media;
 
-	ret = ti_csi2rx_sd_init_cfg(sd, NULL);
+	ret = v4l2_subdev_init_finalize(sd);
 	if (ret)
 		goto unregister_media;
 
 	ret = v4l2_device_register_subdev(&csi->v4l2_dev, sd);
 	if (ret)
-		goto unregister_media;
+		goto cleanup_subdev;
 
 	return 0;
 
+cleanup_subdev:
+	v4l2_subdev_cleanup(sd);
 unregister_media:
 	media_device_unregister(mdev);
 unregister_v4l2:

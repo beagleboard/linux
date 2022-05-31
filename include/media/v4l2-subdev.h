@@ -693,7 +693,7 @@ struct v4l2_subdev_stream_config {
  * struct v4l2_subdev_stream_configs - A collection of stream configs.
  *
  * @num_configs: number of entries in @config.
- * @config: an array of &struct v4l2_subdev_stream_configs.
+ * @configs: an array of &struct v4l2_subdev_stream_configs.
  */
 struct v4l2_subdev_stream_configs {
 	u32 num_configs;
@@ -703,22 +703,20 @@ struct v4l2_subdev_stream_configs {
 /**
  * struct v4l2_subdev_krouting - subdev routing table
  *
- * @which: format type (from enum v4l2_subdev_format_whence)
- * @routes: &struct v4l2_subdev_route
  * @num_routes: number of routes
+ * @routes: &struct v4l2_subdev_route
  *
- * This structure is used to translate arguments received from
- * VIDIOC_SUBDEV_G/S_ROUTING() ioctl to subdev device drivers operations.
+ * This structure contains the routing table for a subdev.
  */
 struct v4l2_subdev_krouting {
-	u32 which;
-	struct v4l2_subdev_route *routes;
 	unsigned int num_routes;
+	struct v4l2_subdev_route *routes;
 };
 
 /**
- * struct v4l2_subdev_state - Used for storing subdev information.
+ * struct v4l2_subdev_state - Used for storing subdev state information.
  *
+ * @lock: mutex for the state
  * @pads: &struct v4l2_subdev_pad_config array
  * @routing: routing table for the subdev
  * @stream_configs: stream configurations (only for V4L2_SUBDEV_FL_MULTIPLEXED)
@@ -728,6 +726,7 @@ struct v4l2_subdev_krouting {
  * %V4L2_SUBDEV_FORMAT_ACTIVE it is safe to pass %NULL.
  */
 struct v4l2_subdev_state {
+	struct mutex lock;
 	struct v4l2_subdev_pad_config *pads;
 	struct v4l2_subdev_krouting routing;
 	struct v4l2_subdev_stream_configs stream_configs;
@@ -795,7 +794,6 @@ struct v4l2_subdev_state {
  *		     pad index it has been called on is not valid or in case of
  *		     unrecoverable failures.
  *
- * @get_routing: get the subdevice routing table.
  * @set_routing: enable or disable data connection routes described in the
  *		 subdevice routing table.
  */
@@ -842,11 +840,9 @@ struct v4l2_subdev_pad_ops {
 			       struct v4l2_mbus_config *config);
 	int (*set_mbus_config)(struct v4l2_subdev *sd, unsigned int pad,
 			       struct v4l2_mbus_config *config);
-	int (*get_routing)(struct v4l2_subdev *sd,
-			   struct v4l2_subdev_state *state,
-			   struct v4l2_subdev_krouting *route);
 	int (*set_routing)(struct v4l2_subdev *sd,
 			   struct v4l2_subdev_state *state,
+			   enum v4l2_subdev_format_whence which,
 			   struct v4l2_subdev_krouting *route);
 };
 
@@ -925,7 +921,12 @@ struct v4l2_subdev_internal_ops {
 /*
  * Set this flag if this subdev supports multiplexed streams. This means
  * that the driver supports routing and handles the stream parameter in its
- * v4l2_subdev_pad_ops handlers.
+ * v4l2_subdev_pad_ops handlers. More specifically, this means:
+ *
+ * - Centrally managed active state is enabled
+ * - Legacy pad config is _not_ supported (state->pads)
+ * - Routing ioctls are available
+ * - Multiple streams per pad are supported
  */
 #define V4L2_SUBDEV_FL_MULTIPLEXED		(1U << 4)
 
@@ -982,6 +983,8 @@ struct v4l2_subdev_platform_data {
  * @subdev_notifier: A sub-device notifier implicitly registered for the sub-
  *		     device using v4l2_device_register_sensor_subdev().
  * @pdata: common part of subdevice platform data
+ * @state: active state for the subdev (NULL for subdevs tracking the state
+ *	   internally)
  *
  * Each instance of a subdev driver should create this struct, either
  * stand-alone or embedded in a larger struct.
@@ -1013,6 +1016,19 @@ struct v4l2_subdev {
 	struct v4l2_async_notifier *notifier;
 	struct v4l2_async_notifier *subdev_notifier;
 	struct v4l2_subdev_platform_data *pdata;
+
+	/*
+	 * The fields below are private, and should only be accessed via
+	 * appropriate functions.
+	 */
+
+	/*
+	 * TODO: state should most likely be changed from a pointer to an
+	 * embedded field. For the time being it's kept as a pointer to more
+	 * easily catch uses of state in the cases where the driver doesn't
+	 * support it.
+	 */
+	struct v4l2_subdev_state *state;
 };
 
 
@@ -1071,8 +1087,8 @@ struct v4l2_subdev_fh {
  *	&struct v4l2_subdev_pad_config->try_fmt
  *
  * @sd: pointer to &struct v4l2_subdev
- * @state: pointer to &struct v4l2_subdev_state.
- * @pad: index of the pad in the @state array.
+ * @state: pointer to &struct v4l2_subdev_state
+ * @pad: index of the pad in the &struct v4l2_subdev_state->pads array
  */
 static inline struct v4l2_mbus_framefmt *
 v4l2_subdev_get_try_format(struct v4l2_subdev *sd,
@@ -1090,7 +1106,7 @@ v4l2_subdev_get_try_format(struct v4l2_subdev *sd,
  *
  * @sd: pointer to &struct v4l2_subdev
  * @state: pointer to &struct v4l2_subdev_state.
- * @pad: index of the pad in the @state array.
+ * @pad: index of the pad in the &struct v4l2_subdev_state->pads array.
  */
 static inline struct v4l2_rect *
 v4l2_subdev_get_try_crop(struct v4l2_subdev *sd,
@@ -1108,7 +1124,7 @@ v4l2_subdev_get_try_crop(struct v4l2_subdev *sd,
  *
  * @sd: pointer to &struct v4l2_subdev
  * @state: pointer to &struct v4l2_subdev_state.
- * @pad: index of the pad in the @state array.
+ * @pad: index of the pad in the &struct v4l2_subdev_state->pads array.
  */
 static inline struct v4l2_rect *
 v4l2_subdev_get_try_compose(struct v4l2_subdev *sd,
@@ -1219,16 +1235,40 @@ int v4l2_subdev_link_validate_default(struct v4l2_subdev *sd,
 int v4l2_subdev_link_validate(struct media_link *link);
 
 /**
- * v4l2_subdev_alloc_state - allocate v4l2_subdev_state
+ * v4l2_subdev_has_route - MC has_route implementation for subdevs
  *
- * Must call v4l2_subdev_free_state() when state is no longer needed.
+ * @entity: pointer to &struct media_entity
+ * @pad0: pad number for the first pad
+ * @pad1: pad number for the second pad
+ *
+ * This function looks at the routing in subdev's active state and returns if
+ * there is a route connecting pad0 and pad1.
+ *
+ * This function can be used as implementation for
+ * media_entity_operations.has_route.
  */
-struct v4l2_subdev_state *v4l2_subdev_alloc_state(struct v4l2_subdev *sd);
+bool v4l2_subdev_has_route(struct media_entity *entity, unsigned int pad0,
+			   unsigned int pad1);
 
 /**
- * v4l2_subdev_free_state - uninitialize v4l2_subdev_state
+ * __v4l2_subdev_state_alloc - allocate v4l2_subdev_state
+ *
+ * @sd: pointer to &struct v4l2_subdev for which the state is being allocated.
+ * @lock_name: name of the state lock
+ * @key: lock_class_key for the lock
+ *
+ * Must call __v4l2_subdev_state_free() when state is no longer needed.
  */
-void v4l2_subdev_free_state(struct v4l2_subdev_state *state);
+struct v4l2_subdev_state *__v4l2_subdev_state_alloc(struct v4l2_subdev *sd,
+						    const char *lock_name,
+						    struct lock_class_key *key);
+
+/**
+ * __v4l2_subdev_state_free - free a v4l2_subdev_state
+ *
+ * @state: v4l2_subdev_state to be freed.
+ */
+void __v4l2_subdev_state_free(struct v4l2_subdev_state *state);
 
 #endif /* CONFIG_MEDIA_CONTROLLER */
 
@@ -1298,96 +1338,220 @@ void v4l2_subdev_notify_event(struct v4l2_subdev *sd,
 			      const struct v4l2_event *ev);
 
 /**
- * v4l2_subdev_get_routing() - Get routing from a subdevice
+ * v4l2_subdev_init_finalize() - Finalize the initialization of the subdevice
+ * @sd: The subdev
  *
- * @sd: The subdev from which to get the routing
- * @state: Pointer to &struct v4l2_subdev_state
- * @routing: Pointer to the target &struct v4l2_subdev_krouting
+ * This finalizes the initialization of the subdev, including allocation of
+ * the active state for the subdev.
  *
- * Get a copy of the subdevice's routing table.
+ * This must be called by the subdev drivers that use the centralized active
+ * state, after the subdev struct has been initialized and
+ * media_entity_pads_init() has been called.
  *
- * Must be freed with v4l2_subdev_free_routing after use.
+ * Must call v4l2_subdev_cleanup() when the subdev is being removed.
  */
-int v4l2_subdev_get_routing(struct v4l2_subdev *sd,
+#define v4l2_subdev_init_finalize(sd)                                          \
+	({                                                                     \
+		static struct lock_class_key __key;                            \
+		const char *name = KBUILD_BASENAME                             \
+			":" __stringify(__LINE__) ":subdev->state->lock";      \
+		__v4l2_subdev_init_finalize(sd, name, &__key);                 \
+	})
+
+int __v4l2_subdev_init_finalize(struct v4l2_subdev *sd, const char *name,
+				struct lock_class_key *key);
+
+/**
+ * v4l2_subdev_cleanup() - Release the resources needed by the subdevice
+ * @sd: The subdevice
+ *
+ * This will release the resources allocated in v4l2_subdev_init_finalize.
+ */
+void v4l2_subdev_cleanup(struct v4l2_subdev *sd);
+
+/**
+ * v4l2_subdev_get_active_state() - Return the active subdev state for subdevice
+ * @sd: The subdevice
+ *
+ * Return the active state for the subdevice, or NULL if the subdev does not
+ * support active state.
+ */
+static inline struct v4l2_subdev_state *
+v4l2_subdev_get_active_state(struct v4l2_subdev *sd)
+{
+	return sd->state;
+}
+
+/**
+ * v4l2_subdev_lock_active_state() - Lock and return the active subdev state for
+ *				     subdevice
+ * @sd: The subdevice
+ *
+ * Return the locked active state for the subdevice, or NULL if the subdev
+ * does not support active state.
+ *
+ * Must be unlocked with v4l2_subdev_unlock_state() after use.
+ */
+struct v4l2_subdev_state *v4l2_subdev_lock_active_state(struct v4l2_subdev *sd);
+
+/**
+ * v4l2_subdev_lock_state() - Lock the subdev state
+ * @state: The subdevice state
+ *
+ * Lock the given subdev state.
+ *
+ * Must be unlocked with v4l2_subdev_unlock_state() after use.
+ */
+void v4l2_subdev_lock_state(struct v4l2_subdev_state *state);
+
+/**
+ * v4l2_subdev_unlock_state() - Unlock the subdev state
+ * @state: The subdevice state
+ *
+ * Unlock the given subdev state.
+ */
+void v4l2_subdev_unlock_state(struct v4l2_subdev_state *state);
+
+/**
+ * v4l2_subdev_validate_and_lock_state() - Gets locked TRY or ACTIVE subdev
+ *					   state
+ * @sd: subdevice
+ * @state: subdevice state as passed to the subdev op
+ *
+ * Due to legacy reasons, when subdev drivers call ops in other subdevs they use
+ * NULL as the state parameter, as subdevs always used to have their active
+ * state stored privately.
+ *
+ * However, newer state-aware subdev drivers, which store their active state in
+ * a common place, subdev->state, expect to always get a proper state as a
+ * parameter.
+ *
+ * These state-aware drivers can use v4l2_subdev_validate_and_lock_state()
+ * instead of v4l2_subdev_lock_state(). v4l2_subdev_validate_and_lock_state()
+ * solves the issue by using subdev->state in case the passed state is
+ * NULL.
+ *
+ * This is a temporary helper function, and should be removed when we can ensure
+ * that all drivers pass proper state when calling other subdevs.
+ */
+static inline struct v4l2_subdev_state *
+v4l2_subdev_validate_and_lock_state(struct v4l2_subdev *sd,
+				    struct v4l2_subdev_state *state)
+{
+	state = state ? state : sd->state;
+
+	v4l2_subdev_lock_state(state);
+
+	return state;
+}
+
+/**
+ * v4l2_subdev_set_routing() - Set given routing to subdev state
+ * @sd: The subdevice
+ * @state: The subdevice state
+ * @routing: Routing that will be copied to subdev state
+ *
+ * This will release old routing table (if any) from the state, allocate
+ * enough space for the given routing, and copy the routing.
+ *
+ * This can be used from the subdev driver's set_routing op, after validating
+ * the routing.
+ */
+int v4l2_subdev_set_routing(struct v4l2_subdev *sd,
 			    struct v4l2_subdev_state *state,
 			    struct v4l2_subdev_krouting *routing);
 
 /**
- * v4l2_subdev_free_routing() - Free the routing
+ * v4l2_subdev_set_routing_with_fmt() - Set given routing and format to subdev
+ *					state
+ * @sd: The subdevice
+ * @state: The subdevice state
+ * @routing: Routing that will be copied to subdev state
+ * @fmt: Format used to initialize all the streams
  *
- * @routing: The routing to be freed
- *
- * Frees the routing data in @routing.
+ * This is the same as v4l2_subdev_set_routing, but additionally initializes
+ * all the streams using the given format.
  */
-void v4l2_subdev_free_routing(struct v4l2_subdev_krouting *routing);
+int v4l2_subdev_set_routing_with_fmt(struct v4l2_subdev *sd,
+				     struct v4l2_subdev_state *state,
+				     struct v4l2_subdev_krouting *routing,
+				     const struct v4l2_mbus_framefmt *fmt);
 
 /**
- * v4l2_subdev_cpy_routing() - Copy the routing
+ * v4l2_state_get_stream_format() - Get pointer to a stream format
+ * @state: subdevice state
+ * @pad: pad id
+ * @stream: stream id
  *
- * @dst: The destination routing
- * @src: The source routing
+ * This returns a pointer to &struct v4l2_mbus_framefmt for the given pad +
+ * stream in the subdev state.
  *
- * Copies routing from @src to @dst without allocating space. If @dst does not
- * have enough space, set dst->num_routes to the required number of routes, and
- * return -ENOSPC.
- *
- * Can be used in subdevice's v4l2_subdev_pad_ops.get_routing() callback.
+ * If the state does not contain the given pad + stream, NULL is returned.
  */
-int v4l2_subdev_cpy_routing(struct v4l2_subdev_krouting *dst,
-			    const struct v4l2_subdev_krouting *src);
+struct v4l2_mbus_framefmt *
+v4l2_state_get_stream_format(struct v4l2_subdev_state *state, unsigned int pad,
+			     u32 stream);
 
 /**
- * v4l2_subdev_dup_routing() - Duplicate the routing
+ * v4l2_state_find_opposite_end() - Find the opposite stream
+ * @routing: routing used to find the opposite side
+ * @pad: pad id
+ * @stream: stream id
+ * @other_pad: pointer used to return the opposite pad
+ * @other_stream: pointer used to return the opposite stream
  *
- * @dst: The destination routing
- * @src: The source routing
+ * This function uses the routing table to find the pad + stream which is
+ * opposite the given pad + stream.
  *
- * Makes a duplicate of the routing from @src to @dst by allocating enough
- * memory and making a copy of the routing.
- *
- * Can be used in subdevice's v4l2_subdev_pad_ops.set_routing() callback
- * to store the given routing.
- *
- * Must be freed with v4l2_subdev_free_routing after use.
+ * Returns 0 on success, or -EINVAL if no matching route is found.
  */
-int v4l2_subdev_dup_routing(struct v4l2_subdev_krouting *dst,
-			    const struct v4l2_subdev_krouting *src);
+int v4l2_state_find_opposite_end(struct v4l2_subdev_krouting *routing, u32 pad,
+				 u32 stream, u32 *other_pad, u32 *other_stream);
 
 /**
- * v4l2_subdev_has_route() - Check if there is a route between two pads
+ * v4l2_state_get_opposite_stream_format() - Get pointer to opposite stream
+ *					     format
+ * @state: subdevice state
+ * @pad: pad id
+ * @stream: stream id
  *
- * @routing: The subdevice's routing
- * @pad0: First pad
- * @pad1: Second pad
+ * This returns a pointer to &struct v4l2_mbus_framefmt for the pad + stream
+ * that is opposite the given pad + stream in the subdev state.
  *
- * Returns whether there is a route between @pad0 and @pad1 of the same
- * subdevice according to the given routing.
+ * If the state does not contain the given pad + stream, NULL is returned.
  */
-bool v4l2_subdev_has_route(struct v4l2_subdev_krouting *routing,
-			   unsigned int pad0, unsigned int pad1);
-
+struct v4l2_mbus_framefmt *
+v4l2_state_get_opposite_stream_format(struct v4l2_subdev_state *state, u32 pad,
+				      u32 stream);
+/**
+ * v4l2_subdev_get_fmt() - Fill format based on state
+ * @sd: subdevice
+ * @state: subdevice state
+ * @format: pointer to &struct v4l2_subdev_format
+ *
+ * Fill @format based on the pad and stream given in the @format struct.
+ *
+ * This function can be used by the subdev drivers to implement
+ * v4l2_subdev_pad_ops.get_fmt if the subdev driver does not need to do
+ * anything special in their get_fmt op.
+ *
+ * Returns 0 on success, error value otherwise.
+ */
+int v4l2_subdev_get_fmt(struct v4l2_subdev *sd, struct v4l2_subdev_state *state,
+			struct v4l2_subdev_format *format);
 
 /**
- * v4l2_init_stream_configs() - Initialize stream configs according to routing
+ * v4l2_routing_simple_verify() - Verify that all streams are non-overlapping
+ *				  1-to-1 streams
+ * @routing: routing to verify
  *
- * @stream_configs: The stream configs to initialize
- * @routing: The routing used for the stream configs
+ * This verifies that the given routing contains only non-overlapping 1-to-1
+ * streams. In other words, no two streams have the same source or sink
+ * stream ID on a single pad. This is the most common case of routing
+ * supported by devices.
  *
- * Initializes @stream_configs according to @routing, allocating enough
- * space to hold configuration for each route endpoint.
- *
- * Must be freed with v4l2_uninit_stream_configs().
+ * Returns 0 on success, error value otherwise.
  */
-int v4l2_init_stream_configs(struct v4l2_subdev_stream_configs *stream_configs,
-			     const struct v4l2_subdev_krouting *routing);
-
-/**
- * v4l2_uninit_stream_configs() - Uninitialize stream configs
- *
- * @stream_configs: The stream configs to uninitialize
- *
- * Frees any allocated memory in @stream_configs.
- */
-void v4l2_uninit_stream_configs(struct v4l2_subdev_stream_configs *stream_configs);
+int v4l2_routing_simple_verify(const struct v4l2_subdev_krouting *routing);
 
 #endif

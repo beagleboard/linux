@@ -120,6 +120,54 @@ static const struct csi2rx_fmt formats[] = {
 		.code	= MEDIA_BUS_FMT_VYUY8_2X8,
 		.bpp	= 16,
 	},
+	{
+		.code	= MEDIA_BUS_FMT_SBGGR8_1X8,
+		.bpp	= 8,
+	},
+	{
+		.code	= MEDIA_BUS_FMT_SGBRG8_1X8,
+		.bpp	= 8,
+	},
+	{
+		.code	= MEDIA_BUS_FMT_SGRBG8_1X8,
+		.bpp	= 8,
+	},
+	{
+		.code	= MEDIA_BUS_FMT_SRGGB8_1X8,
+		.bpp	= 8,
+	},
+	{
+		.code	= MEDIA_BUS_FMT_SBGGR10_1X10,
+		.bpp	= 10,
+	},
+	{
+		.code	= MEDIA_BUS_FMT_SGBRG10_1X10,
+		.bpp	= 10,
+	},
+	{
+		.code	= MEDIA_BUS_FMT_SGRBG10_1X10,
+		.bpp	= 10,
+	},
+	{
+		.code	= MEDIA_BUS_FMT_SRGGB10_1X10,
+		.bpp	= 10,
+	},
+	{
+		.code	= MEDIA_BUS_FMT_SBGGR12_1X12,
+		.bpp	= 12,
+	},
+	{
+		.code	= MEDIA_BUS_FMT_SGBRG12_1X12,
+		.bpp	= 12,
+	},
+	{
+		.code	= MEDIA_BUS_FMT_SGRBG12_1X12,
+		.bpp	= 12,
+	},
+	{
+		.code	= MEDIA_BUS_FMT_SRGGB12_1X12,
+		.bpp	= 12,
+	},
 };
 
 static u8 csi2rx_get_bpp(u32 code)
@@ -231,7 +279,6 @@ static int csi2rx_configure_external_dphy(struct csi2rx_priv *csi2rx)
 	struct phy_configure_opts_mipi_dphy *cfg = &opts.mipi_dphy;
 	s64 link_freq;
 	int ret;
-	bool got_pm = true;
 
 	link_freq = csi2rx_get_link_freq(csi2rx);
 	if (link_freq < 0)
@@ -245,9 +292,7 @@ static int csi2rx_configure_external_dphy(struct csi2rx_priv *csi2rx)
 	cfg->lanes = csi2rx->num_lanes;
 
 	ret = phy_pm_runtime_get_sync(csi2rx->dphy);
-	if (ret == -ENOTSUPP)
-		got_pm = false;
-	else if (ret)
+	if (ret < 0 && ret != -ENOTSUPP)
 		return ret;
 
 	ret = phy_set_mode_ext(csi2rx->dphy, PHY_MODE_MIPI_DPHY,
@@ -267,9 +312,7 @@ static int csi2rx_configure_external_dphy(struct csi2rx_priv *csi2rx)
 	}
 
 out:
-	if (got_pm)
-		phy_pm_runtime_put(csi2rx->dphy);
-
+	phy_pm_runtime_put(csi2rx->dphy);
 	return ret;
 }
 
@@ -307,10 +350,6 @@ static int csi2rx_start(struct csi2rx_priv *csi2rx)
 
 	writel(reg, csi2rx->base + CSI2RX_STATIC_CFG_REG);
 
-	ret = v4l2_subdev_call(csi2rx->source_subdev, video, s_stream, true);
-	if (ret)
-		goto err_disable_pclk;
-
 	/* Enable DPHY clk and data lanes. */
 	if (csi2rx->dphy) {
 		reg = CSI2RX_DPHY_CL_EN | CSI2RX_DPHY_CL_RST;
@@ -320,6 +359,13 @@ static int csi2rx_start(struct csi2rx_priv *csi2rx)
 		}
 
 		writel(reg, csi2rx->base + CSI2RX_DPHY_LANE_CTRL_REG);
+
+		ret = csi2rx_configure_external_dphy(csi2rx);
+		if (ret) {
+			dev_err(csi2rx->dev,
+				"Failed to configure external DPHY: %d\n", ret);
+			goto err_disable_pclk;
+		}
 	}
 
 	/*
@@ -352,14 +398,9 @@ static int csi2rx_start(struct csi2rx_priv *csi2rx)
 	if (ret)
 		goto err_disable_pixclk;
 
-	if (csi2rx->dphy) {
-		ret = csi2rx_configure_external_dphy(csi2rx);
-		if (ret) {
-			dev_err(csi2rx->dev,
-				"Failed to configure external DPHY: %d\n", ret);
-			goto err_disable_sysclk;
-		}
-	}
+	ret = v4l2_subdev_call(csi2rx->source_subdev, video, s_stream, true);
+	if (ret)
+		goto err_disable_sysclk;
 
 	clk_disable_unprepare(csi2rx->p_clk);
 
@@ -371,6 +412,10 @@ err_disable_pixclk:
 	for (; i > 0; i--)
 		clk_disable_unprepare(csi2rx->pixel_clk[i - 1]);
 
+	if (csi2rx->dphy) {
+		phy_power_off(csi2rx->dphy);
+		phy_pm_runtime_put(csi2rx->dphy);
+	}
 err_disable_pclk:
 	clk_disable_unprepare(csi2rx->p_clk);
 
@@ -411,6 +456,8 @@ static void csi2rx_stop(struct csi2rx_priv *csi2rx)
 
 		if (phy_power_off(csi2rx->dphy))
 			dev_warn(csi2rx->dev, "Couldn't power off DPHY\n");
+
+		phy_pm_runtime_put(csi2rx->dphy);
 	}
 }
 

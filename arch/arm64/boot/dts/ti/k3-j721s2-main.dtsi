@@ -1381,11 +1381,11 @@
 			"vp1", "vp2", "vp3", "vp4",
 			"wb";
 
-		clocks =	<&k3_clks 158 11>,
-				<&k3_clks 158 35>,
-				<&k3_clks 158 17>,
-				<&k3_clks 158 26>,
-				<&k3_clks 158 0>;
+		clocks =	<&k3_clks 158 0>,
+				<&k3_clks 158 2>,
+				<&k3_clks 158 5>,
+				<&k3_clks 158 14>,
+				<&k3_clks 158 18>;
 		clock-names = "fck", "vp1", "vp2", "vp3", "vp4";
 
 		power-domains = <&k3_pds 158 TI_SCI_PD_EXCLUSIVE>;

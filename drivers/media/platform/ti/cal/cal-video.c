@@ -123,12 +123,13 @@ static int __subdev_get_format(struct cal_ctx *ctx,
 {
 	struct v4l2_subdev_format sd_fmt;
 	struct v4l2_mbus_framefmt *mbus_fmt = &sd_fmt.format;
+	struct v4l2_subdev *sd = ctx->phy->source;
 	int ret;
 
 	sd_fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
 	sd_fmt.pad = 0;
 
-	ret = v4l2_subdev_call(ctx->phy->source, pad, get_fmt, NULL, &sd_fmt);
+	ret = v4l2_subdev_call(sd, pad, get_fmt, NULL, &sd_fmt);
 	if (ret)
 		return ret;
 
@@ -145,13 +146,14 @@ static int __subdev_set_format(struct cal_ctx *ctx,
 {
 	struct v4l2_subdev_format sd_fmt;
 	struct v4l2_mbus_framefmt *mbus_fmt = &sd_fmt.format;
+	struct v4l2_subdev *sd = ctx->phy->source;
 	int ret;
 
 	sd_fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
 	sd_fmt.pad = 0;
 	*mbus_fmt = *fmt;
 
-	ret = v4l2_subdev_call(ctx->phy->source, pad, set_fmt, NULL, &sd_fmt);
+	ret = v4l2_subdev_call(sd, pad, set_fmt, NULL, &sd_fmt);
 	if (ret)
 		return ret;
 
@@ -193,9 +195,10 @@ static int cal_legacy_try_fmt_vid_cap(struct file *file, void *priv,
 				      struct v4l2_format *f)
 {
 	struct cal_ctx *ctx = video_drvdata(file);
+	struct v4l2_subdev *sd = ctx->phy->source;
 	const struct cal_format_info *fmtinfo;
 	struct v4l2_subdev_frame_size_enum fse;
-	int ret, found;
+	int found;
 
 	fmtinfo = find_format_by_pix(ctx, f->fmt.pix.pixelformat);
 	if (!fmtinfo) {
@@ -210,13 +213,14 @@ static int cal_legacy_try_fmt_vid_cap(struct file *file, void *priv,
 	f->fmt.pix.field = ctx->v_fmt.fmt.pix.field;
 
 	/* check for/find a valid width/height */
-	ret = 0;
 	found = false;
 	fse.pad = 0;
 	fse.code = fmtinfo->code;
 	fse.which = V4L2_SUBDEV_FORMAT_ACTIVE;
 	for (fse.index = 0; ; fse.index++) {
-		ret = v4l2_subdev_call(ctx->phy->source, pad, enum_frame_size,
+		int ret;
+
+		ret = v4l2_subdev_call(sd, pad, enum_frame_size,
 				       NULL, &fse);
 		if (ret)
 			break;
@@ -253,6 +257,7 @@ static int cal_legacy_s_fmt_vid_cap(struct file *file, void *priv,
 				    struct v4l2_format *f)
 {
 	struct cal_ctx *ctx = video_drvdata(file);
+	struct v4l2_subdev *sd = &ctx->phy->subdev;
 	struct vb2_queue *q = &ctx->vb_vidq;
 	struct v4l2_subdev_format sd_fmt = {
 		.which = V4L2_SUBDEV_FORMAT_ACTIVE,
@@ -292,7 +297,8 @@ static int cal_legacy_s_fmt_vid_cap(struct file *file, void *priv,
 	ctx->v_fmt.fmt.pix.field = sd_fmt.format.field;
 	cal_calc_format_size(ctx, fmtinfo, &ctx->v_fmt);
 
-	v4l2_subdev_call(&ctx->phy->subdev, pad, set_fmt, NULL, &sd_fmt);
+	v4l2_subdev_call(sd, pad, set_fmt, v4l2_subdev_get_active_state(sd),
+			 &sd_fmt);
 
 	ctx->fmtinfo = fmtinfo;
 	*f = ctx->v_fmt;
@@ -304,6 +310,7 @@ static int cal_legacy_enum_framesizes(struct file *file, void *fh,
 				      struct v4l2_frmsizeenum *fsize)
 {
 	struct cal_ctx *ctx = video_drvdata(file);
+	struct v4l2_subdev *sd = ctx->phy->source;
 	const struct cal_format_info *fmtinfo;
 	struct v4l2_subdev_frame_size_enum fse;
 	int ret;
@@ -321,8 +328,8 @@ static int cal_legacy_enum_framesizes(struct file *file, void *fh,
 	fse.code = fmtinfo->code;
 	fse.which = V4L2_SUBDEV_FORMAT_ACTIVE;
 
-	ret = v4l2_subdev_call(ctx->phy->source, pad, enum_frame_size, NULL,
-			       &fse);
+	ret = v4l2_subdev_call(sd, pad, enum_frame_size,
+			       v4l2_subdev_get_active_state(sd), &fse);
 	if (ret)
 		return ret;
 
@@ -364,6 +371,7 @@ static int cal_legacy_enum_frameintervals(struct file *file, void *priv,
 					  struct v4l2_frmivalenum *fival)
 {
 	struct cal_ctx *ctx = video_drvdata(file);
+	struct v4l2_subdev *sd = ctx->phy->source;
 	const struct cal_format_info *fmtinfo;
 	struct v4l2_subdev_frame_interval_enum fie = {
 		.index = fival->index,
@@ -378,8 +386,10 @@ static int cal_legacy_enum_frameintervals(struct file *file, void *priv,
 		return -EINVAL;
 
 	fie.code = fmtinfo->code;
-	ret = v4l2_subdev_call(ctx->phy->source, pad, enum_frame_interval,
-			       NULL, &fie);
+
+	ret = v4l2_subdev_call(sd, pad, enum_frame_interval,
+			       v4l2_subdev_get_active_state(sd), &fie);
+
 	if (ret)
 		return ret;
 	fival->type = V4L2_FRMIVAL_TYPE_DISCRETE;
@@ -688,24 +698,34 @@ static int cal_video_check_format(struct cal_ctx *ctx)
 {
 	const struct v4l2_mbus_framefmt *format;
 	struct media_pad *remote_pad;
+	struct v4l2_subdev_state *state;
+	int ret = 0;
 
 	remote_pad = media_entity_remote_pad(&ctx->pad);
 	if (!remote_pad)
 		return -ENODEV;
 
-	format = cal_camerarx_get_stream_format(ctx->phy, NULL,
-						remote_pad->index, 0,
-						V4L2_SUBDEV_FORMAT_ACTIVE);
-	if (!format)
-		return -EINVAL;
+	state = v4l2_subdev_lock_active_state(&ctx->phy->subdev);
+
+	format = v4l2_state_get_stream_format(state,
+					      remote_pad->index, 0);
+	if (!format) {
+		ret = -EINVAL;
+		goto out;
+	}
 
 	if (ctx->fmtinfo->code != format->code ||
 	    ctx->v_fmt.fmt.pix.height != format->height ||
 	    ctx->v_fmt.fmt.pix.width != format->width ||
-	    ctx->v_fmt.fmt.pix.field != format->field)
-		return -EPIPE;
+	    ctx->v_fmt.fmt.pix.field != format->field) {
+		ret = -EPIPE;
+		goto out;
+	}
 
-	return 0;
+out:
+	v4l2_subdev_unlock_state(state);
+
+	return ret;
 }
 
 static int cal_start_streaming(struct vb2_queue *vq, unsigned int count)
@@ -719,6 +739,7 @@ static int cal_start_streaming(struct vb2_queue *vq, unsigned int count)
 		struct v4l2_subdev_route *route = NULL;
 		struct media_pad *remote_pad;
 		unsigned int i;
+		struct v4l2_subdev_state *state;
 
 		/* Find the PHY connected to this video device */
 
@@ -731,11 +752,13 @@ static int cal_start_streaming(struct vb2_queue *vq, unsigned int count)
 
 		ctx->phy = cal_camerarx_get_phy_from_entity(remote_pad->entity);
 
+		state = v4l2_subdev_lock_active_state(&ctx->phy->subdev);
+
 		/* Find the stream */
 
-		for (i = 0; i < ctx->phy->routing.num_routes; ++i) {
+		for (i = 0; i < state->routing.num_routes; ++i) {
 			struct v4l2_subdev_route *r =
-				&ctx->phy->routing.routes[i];
+				&state->routing.routes[i];
 
 			if (!(r->flags & V4L2_SUBDEV_ROUTE_FL_ACTIVE))
 				continue;
@@ -749,12 +772,15 @@ static int cal_start_streaming(struct vb2_queue *vq, unsigned int count)
 		}
 
 		if (!route) {
+			v4l2_subdev_unlock_state(state);
 			ctx_err(ctx, "Failed to find route\n");
 			ret = -ENODEV;
 			goto error_release_buffers;
 		}
 
 		ctx->stream = route->sink_stream;
+
+		v4l2_subdev_unlock_state(state);
 	}
 
 	ret = media_pipeline_start(ctx->vdev.entity.pads, &ctx->phy->pipe);
@@ -868,6 +894,7 @@ static int cal_ctx_v4l2_init_formats(struct cal_ctx *ctx)
 	const struct cal_format_info *fmtinfo;
 	unsigned int i, j, k;
 	int ret = 0;
+	struct v4l2_subdev *sd = ctx->phy->source;
 
 	/* Enumerate sub device formats and enable all matching local formats */
 	ctx->active_fmt = devm_kcalloc(ctx->cal->dev, cal_num_formats,
@@ -879,20 +906,20 @@ static int cal_ctx_v4l2_init_formats(struct cal_ctx *ctx)
 		memset(&mbus_code, 0, sizeof(mbus_code));
 		mbus_code.index = j;
 		mbus_code.which = V4L2_SUBDEV_FORMAT_ACTIVE;
-		ret = v4l2_subdev_call(ctx->phy->source, pad, enum_mbus_code,
+		ret = v4l2_subdev_call(sd, pad, enum_mbus_code,
 				       NULL, &mbus_code);
 		if (ret == -EINVAL)
 			break;
 
 		if (ret) {
 			ctx_err(ctx, "Error enumerating mbus codes in subdev %s: %d\n",
-				ctx->phy->source->name, ret);
+				sd->name, ret);
 			return ret;
 		}
 
 		ctx_dbg(2, ctx,
 			"subdev %s: code: %04x idx: %u\n",
-			ctx->phy->source->name, mbus_code.code, j);
+			sd->name, mbus_code.code, j);
 
 		for (k = 0; k < cal_num_formats; k++) {
 			fmtinfo = &cal_formats[k];
@@ -910,7 +937,7 @@ static int cal_ctx_v4l2_init_formats(struct cal_ctx *ctx)
 
 	if (i == 0) {
 		ctx_err(ctx, "No suitable format reported by subdev %s\n",
-			ctx->phy->source->name);
+			sd->name);
 		return -EINVAL;
 	}
 
@@ -1002,11 +1029,13 @@ int cal_ctx_v4l2_register(struct cal_ctx *ctx)
 
 		/* Create links from all video nodes to all PHYs */
 
-		for (phy_idx = 0; phy_idx < ctx->cal->data->num_csi2_phy; ++phy_idx) {
-			for (pad_idx = 1; pad_idx < CAL_CAMERARX_NUM_PADS; ++pad_idx) {
+		for (phy_idx = 0; phy_idx < ctx->cal->data->num_csi2_phy;
+		     ++phy_idx) {
+			for (pad_idx = 1; pad_idx < CAL_CAMERARX_NUM_PADS;
+			     ++pad_idx) {
 				/*
-				 * Enable only links from video0 to PHY0 pad 1, and
-				 * video1 to PHY1 pad 1.
+				 * Enable only links from video0 to PHY0 pad 1,
+				 * and video1 to PHY1 pad 1.
 				 */
 				bool enable = (ctx->dma_ctx == 0 &&
 					       phy_idx == 0 && pad_idx == 1) ||
