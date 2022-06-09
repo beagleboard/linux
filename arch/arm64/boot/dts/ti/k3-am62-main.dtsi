@@ -784,6 +784,8 @@
 		clocks = <&k3_clks 190 0>;
 		clock-names = "fck";
 		power-domains = <&k3_pds 190 TI_SCI_PD_EXCLUSIVE>;
+		assigned-clocks = <&k3_clks 190 0>;
+		assigned-clock-parents = <&k3_clks 190 2>;
 	};
 
 	mcasp1: mcasp@2b10000 {
@@ -801,6 +803,8 @@
 		clocks = <&k3_clks 191 0>;
 		clock-names = "fck";
 		power-domains = <&k3_pds 191 TI_SCI_PD_EXCLUSIVE>;
+		assigned-clocks = <&k3_clks 191 0>;
+		assigned-clock-parents = <&k3_clks 191 2>;
 	};
 
 	mcasp2: mcasp@2b20000 {
@@ -818,6 +822,8 @@
 		clocks = <&k3_clks 192 0>;
 		clock-names = "fck";
 		power-domains = <&k3_pds 192 TI_SCI_PD_EXCLUSIVE>;
+		assigned-clocks = <&k3_clks 192 0>;
+		assigned-clock-parents = <&k3_clks 192 2>;
 	};
 
 	pruss: pruss@30040000 {
