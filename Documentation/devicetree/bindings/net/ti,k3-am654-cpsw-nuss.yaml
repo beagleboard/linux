@@ -58,6 +58,7 @@ properties:
       - const: ti,j721e-cpsw-nuss
       - const: ti,am642-cpsw-nuss
       - const: ti,j7200-cpswxg-nuss
+      - const: ti,j721e-cpswxg-nuss
 
   reg:
     maxItems: 1
@@ -160,10 +161,33 @@ properties:
             compatible:
               contains:
                 enum:
+                  - ti,j721e-cpswxg-nuss
+        then:
+          patternProperties:
+            port@[1-8]:
+              type: object
+              description: CPSWxG NUSS external ports
+
+              $ref: ethernet-controller.yaml#
+
+              properties:
+                reg:
+                  minimum: 1
+                  maximum: 8
+                  description: CPSW port number
+
+              required:
+                - reg
+      - if:
+          properties:
+            compatible:
+              contains:
+                enum:
                   - ti,am654-cpsw-nuss
                   - ti,j721e-cpsw-nuss
                   - ti,am642-cpsw-nuss
                   - ti,j7200-cpswxg-nuss
+                  - ti,j721e-cpswxg-nuss
         then:
           patternProperties:
             port@[*]:
