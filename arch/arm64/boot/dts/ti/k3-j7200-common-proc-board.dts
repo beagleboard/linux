@@ -389,6 +389,14 @@
 	};
 };
 
+&cpsw0 {
+	/* Disable cpsw0 since cpsw5g_virt_mac is the default Ethernet
+	 * controller. cpsw0 is enabled with overlay for native
+	 * Ethernet driver support
+	 */
+	status = "disabled";
+};
+
 &pcie1_rc {
 	reset-gpios = <&exp1 2 GPIO_ACTIVE_HIGH>;
 	phys = <&serdes0_pcie_link>;
