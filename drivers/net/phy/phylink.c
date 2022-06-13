@@ -326,6 +326,7 @@ void phylink_get_linkmodes(unsigned long *linkmodes, phy_interface_t interface,
 
 	case PHY_INTERFACE_MODE_REVRMII:
 	case PHY_INTERFACE_MODE_RMII:
+	case PHY_INTERFACE_MODE_SMII:
 	case PHY_INTERFACE_MODE_REVMII:
 	case PHY_INTERFACE_MODE_MII:
 		caps |= MAC_10HD | MAC_10FD;
@@ -375,7 +376,6 @@ void phylink_get_linkmodes(unsigned long *linkmodes, phy_interface_t interface,
 
 	case PHY_INTERFACE_MODE_NA:
 	case PHY_INTERFACE_MODE_MAX:
-	case PHY_INTERFACE_MODE_SMII:
 		break;
 	}
 
