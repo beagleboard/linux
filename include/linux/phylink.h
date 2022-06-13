@@ -74,6 +74,7 @@ struct phylink_config {
 	bool poll_fixed_state;
 	void (*get_fixed_state)(struct phylink_config *config,
 				struct phylink_link_state *state);
+	DECLARE_PHY_INTERFACE_MASK(supported_interfaces);
 };
 
 /**
