@@ -215,6 +215,13 @@ struct phy_gmii_sel_soc_data phy_gmii_sel_cpsw5g_soc_j7200 = {
 	.extra_modes = BIT(PHY_INTERFACE_MODE_QSGMII),
 };
 
+static const
+struct phy_gmii_sel_soc_data phy_gmii_sel_cpsw9g_soc_j721e = {
+	.use_of_data = true,
+	.regfields = phy_gmii_sel_fields_am654,
+	.extra_modes = BIT(PHY_INTERFACE_MODE_QSGMII),
+};
+
 static const struct of_device_id phy_gmii_sel_id_table[] = {
 	{
 		.compatible	= "ti,am3352-phy-gmii-sel",
@@ -239,6 +246,10 @@ static const struct of_device_id phy_gmii_sel_id_table[] = {
 	{
 		.compatible	= "ti,j7200-cpsw5g-phy-gmii-sel",
 		.data		= &phy_gmii_sel_cpsw5g_soc_j7200,
+	},
+	{
+		.compatible	= "ti,j721e-cpsw9g-phy-gmii-sel",
+		.data		= &phy_gmii_sel_cpsw9g_soc_j721e,
 	},
 	{}
 };
@@ -381,7 +392,7 @@ static int phy_gmii_sel_probe(struct platform_device *pdev)
 	struct device_node *node = dev->of_node;
 	const struct of_device_id *of_id;
 	struct phy_gmii_sel_priv *priv;
-	u32 main_ports = 1;
+	u32 main_ports[2] = {1, 1};
 	int ret;
 
 	of_id = of_match_node(phy_gmii_sel_id_table, pdev->dev.of_node);
@@ -395,8 +406,15 @@ static int phy_gmii_sel_probe(struct platform_device *pdev)
 	priv->dev = &pdev->dev;
 	priv->soc_data = of_id->data;
 	priv->num_ports = priv->soc_data->num_ports;
-	of_property_read_u32_array(node, "ti,qsgmii-main-ports", &main_ports, 1);
-	priv->qsgmii_main_ports = PHY_GMII_PORT(main_ports);
+	/* Differentiate between J7200 CPSW5G and J721E CPSW9G */
+	if (of_device_is_compatible(node, "ti,j7200-cpsw5g-phy-gmii-sel") > 0) {
+		of_property_read_u32_array(node, "ti,qsgmii-main-ports", &main_ports[0], 1);
+		priv->qsgmii_main_ports = PHY_GMII_PORT(main_ports[0]);
+	} else if (of_device_is_compatible(node, "ti,j721e-cpsw9g-phy-gmii-sel") > 0) {
+		of_property_read_u32_array(node, "ti,qsgmii-main-ports", &main_ports[0], 2);
+		priv->qsgmii_main_ports = PHY_GMII_PORT(main_ports[0]);
+		priv->qsgmii_main_ports |= PHY_GMII_PORT(main_ports[1] + 4);
+	}
 
 	priv->regmap = syscon_node_to_regmap(node->parent);
 	if (IS_ERR(priv->regmap)) {
