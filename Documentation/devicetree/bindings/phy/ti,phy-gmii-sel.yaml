@@ -53,11 +53,42 @@ properties:
       - ti,am43xx-phy-gmii-sel
       - ti,dm814-phy-gmii-sel
       - ti,am654-phy-gmii-sel
+      - ti,j7200-cpsw5g-phy-gmii-sel
+      - ti,j721e-cpsw9g-phy-gmii-sel
 
   reg:
     description: Address and length of the register set for the device
 
   '#phy-cells': true
+
+  ti,qsgmii-main-ports:
+    $ref: /schemas/types.yaml#/definitions/uint32-array
+    description: |
+      Required only for QSGMII mode. Array to select the port for
+      QSGMII main mode. Rest of the ports are selected as QSGMII_SUB
+      ports automatically. For J7200 CPSW5G with the compatible:
+      ti,j7200-cpsw5g-phy-gmii-sel, ti,qsgmii-main-ports is an
+      array of only one element, which is the port number ranging
+      from 1 to 4. For J721E CPSW9G with the compatible:
+      ti,j721e-cpsw9g-phy-gmii-sel, ti,qsgmii-main-ports is an
+      array of two elements, which corresponds to two pairs of
+      4 ports each. The first element and second element of the
+      array both range from 1 to 4 each. However, for the second
+      element, the values 1 to 4 map to the ports 5 to 8. Thus,
+      it is possible to specify which port among the two different
+      sets of 4 ports is the QSGMII main port. For example:
+      ti,qsgmii-main-ports = <2>, <1>;
+      would mean that of the 8 CPSW9G ports, ports 2 and 5 are the
+      main ports for the two sets of QSGMII interfaces formend by
+      ports 1-4 and ports 5-8. Both elements need to be filled
+      if the property is being used. For example, if the first set of
+      4 ports are configured for RGMII and the second set of 4 ports
+      are configured for QSGMII with port 7 being the main port, then:
+      ti,qsgmii-main-ports = <1>, <3>;
+      is the correct value for this configuration. It does not matter
+      what the first element's value is, but a valid value must be
+      filled even if any of the first 4 ports are not being used in
+      QSGMII mode.
 
 allOf:
   - if:
@@ -73,6 +104,38 @@ allOf:
         '#phy-cells':
           const: 1
           description: CPSW port number (starting from 1)
+  - if:
+      properties:
+        compatible:
+          contains:
+            enum:
+              - ti,j7200-cpsw5g-phy-gmii-sel
+    then:
+      properties:
+        '#phy-cells':
+          const: 1
+          description: CPSW port number (starting from 1)
+        ti,qsgmii-main-ports:
+          maxItems: 1
+          items:
+            minimum: 1
+            maximum: 4
+  - if:
+      properties:
+        compatible:
+          contains:
+            enum:
+              - ti,j721e-cpsw9g-phy-gmii-sel
+    then:
+      properties:
+        '#phy-cells':
+          const: 1
+          description: CPSW port number (starting from 1)
+        ti,qsgmii-main-ports:
+          maxItems: 2
+          items:
+            minimum: 1
+            maximum: 4
   - if:
       properties:
         compatible:
@@ -97,7 +160,7 @@ additionalProperties: false
 
 examples:
   - |
-    phy_gmii_sel: phy-gmii-sel@650 {
+    phy_gmii_sel: phy@650 {
         compatible = "ti,am3352-phy-gmii-sel";
         reg = <0x650 0x4>;
         #phy-cells = <2>;

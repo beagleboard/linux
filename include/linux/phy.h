@@ -93,22 +93,26 @@ extern const int phy_10gbit_features_array[1];
  * @PHY_INTERFACE_MODE_TBI: Ten Bit Interface
  * @PHY_INTERFACE_MODE_REVMII: Reverse Media Independent Interface
  * @PHY_INTERFACE_MODE_RMII: Reduced Media Independent Interface
+ * @PHY_INTERFACE_MODE_REVRMII: Reduced Media Independent Interface in PHY role
  * @PHY_INTERFACE_MODE_RGMII: Reduced gigabit media-independent interface
  * @PHY_INTERFACE_MODE_RGMII_ID: RGMII with Internal RX+TX delay
  * @PHY_INTERFACE_MODE_RGMII_RXID: RGMII with Internal RX delay
  * @PHY_INTERFACE_MODE_RGMII_TXID: RGMII with Internal RX delay
  * @PHY_INTERFACE_MODE_RTBI: Reduced TBI
- * @PHY_INTERFACE_MODE_SMII: ??? MII
+ * @PHY_INTERFACE_MODE_SMII: Serial MII
  * @PHY_INTERFACE_MODE_XGMII: 10 gigabit media-independent interface
  * @PHY_INTERFACE_MODE_XLGMII:40 gigabit media-independent interface
  * @PHY_INTERFACE_MODE_MOCA: Multimedia over Coax
  * @PHY_INTERFACE_MODE_QSGMII: Quad SGMII
  * @PHY_INTERFACE_MODE_TRGMII: Turbo RGMII
+ * @PHY_INTERFACE_MODE_100BASEX: 100 BaseX
  * @PHY_INTERFACE_MODE_1000BASEX: 1000 BaseX
  * @PHY_INTERFACE_MODE_2500BASEX: 2500 BaseX
+ * @PHY_INTERFACE_MODE_5GBASER: 5G BaseR
  * @PHY_INTERFACE_MODE_RXAUI: Reduced XAUI
  * @PHY_INTERFACE_MODE_XAUI: 10 Gigabit Attachment Unit Interface
  * @PHY_INTERFACE_MODE_10GBASER: 10G BaseR
+ * @PHY_INTERFACE_MODE_25GBASER: 25G BaseR
  * @PHY_INTERFACE_MODE_USXGMII:  Universal Serial 10GE MII
  * @PHY_INTERFACE_MODE_10GKR: 10GBASE-KR - with Clause 73 AN
  * @PHY_INTERFACE_MODE_MAX: Book keeping
@@ -124,6 +128,7 @@ typedef enum {
 	PHY_INTERFACE_MODE_TBI,
 	PHY_INTERFACE_MODE_REVMII,
 	PHY_INTERFACE_MODE_RMII,
+	PHY_INTERFACE_MODE_REVRMII,
 	PHY_INTERFACE_MODE_RGMII,
 	PHY_INTERFACE_MODE_RGMII_ID,
 	PHY_INTERFACE_MODE_RGMII_RXID,
@@ -135,17 +140,54 @@ typedef enum {
 	PHY_INTERFACE_MODE_MOCA,
 	PHY_INTERFACE_MODE_QSGMII,
 	PHY_INTERFACE_MODE_TRGMII,
+	PHY_INTERFACE_MODE_100BASEX,
 	PHY_INTERFACE_MODE_1000BASEX,
 	PHY_INTERFACE_MODE_2500BASEX,
+	PHY_INTERFACE_MODE_5GBASER,
 	PHY_INTERFACE_MODE_RXAUI,
 	PHY_INTERFACE_MODE_XAUI,
 	/* 10GBASE-R, XFI, SFI - single lane 10G Serdes */
 	PHY_INTERFACE_MODE_10GBASER,
+	PHY_INTERFACE_MODE_25GBASER,
 	PHY_INTERFACE_MODE_USXGMII,
 	/* 10GBASE-KR - with Clause 73 AN */
 	PHY_INTERFACE_MODE_10GKR,
 	PHY_INTERFACE_MODE_MAX,
 } phy_interface_t;
+
+/* PHY interface mode bitmap handling */
+#define DECLARE_PHY_INTERFACE_MASK(name) \
+	DECLARE_BITMAP(name, PHY_INTERFACE_MODE_MAX)
+
+static inline void phy_interface_zero(unsigned long *intf)
+{
+	bitmap_zero(intf, PHY_INTERFACE_MODE_MAX);
+}
+
+static inline bool phy_interface_empty(const unsigned long *intf)
+{
+	return bitmap_empty(intf, PHY_INTERFACE_MODE_MAX);
+}
+
+static inline void phy_interface_and(unsigned long *dst, const unsigned long *a,
+				     const unsigned long *b)
+{
+	bitmap_and(dst, a, b, PHY_INTERFACE_MODE_MAX);
+}
+
+static inline void phy_interface_or(unsigned long *dst, const unsigned long *a,
+				    const unsigned long *b)
+{
+	bitmap_or(dst, a, b, PHY_INTERFACE_MODE_MAX);
+}
+
+static inline void phy_interface_set_rgmii(unsigned long *intf)
+{
+	__set_bit(PHY_INTERFACE_MODE_RGMII, intf);
+	__set_bit(PHY_INTERFACE_MODE_RGMII_ID, intf);
+	__set_bit(PHY_INTERFACE_MODE_RGMII_RXID, intf);
+	__set_bit(PHY_INTERFACE_MODE_RGMII_TXID, intf);
+}
 
 /*
  * phy_supported_speeds - return all speeds currently supported by a PHY device
@@ -181,6 +223,8 @@ static inline const char *phy_modes(phy_interface_t interface)
 		return "rev-mii";
 	case PHY_INTERFACE_MODE_RMII:
 		return "rmii";
+	case PHY_INTERFACE_MODE_REVRMII:
+		return "rev-rmii";
 	case PHY_INTERFACE_MODE_RGMII:
 		return "rgmii";
 	case PHY_INTERFACE_MODE_RGMII_ID:
@@ -207,16 +251,22 @@ static inline const char *phy_modes(phy_interface_t interface)
 		return "1000base-x";
 	case PHY_INTERFACE_MODE_2500BASEX:
 		return "2500base-x";
+	case PHY_INTERFACE_MODE_5GBASER:
+		return "5gbase-r";
 	case PHY_INTERFACE_MODE_RXAUI:
 		return "rxaui";
 	case PHY_INTERFACE_MODE_XAUI:
 		return "xaui";
 	case PHY_INTERFACE_MODE_10GBASER:
 		return "10gbase-r";
+	case PHY_INTERFACE_MODE_25GBASER:
+		return "25gbase-r";
 	case PHY_INTERFACE_MODE_USXGMII:
 		return "usxgmii";
 	case PHY_INTERFACE_MODE_10GKR:
 		return "10gbase-kr";
+	case PHY_INTERFACE_MODE_100BASEX:
+		return "100base-x";
 	default:
 		return "unknown";
 	}
@@ -1350,10 +1400,42 @@ struct phy_device *phy_device_create(struct mii_bus *bus, int addr, u32 phy_id,
 				     bool is_c45,
 				     struct phy_c45_device_ids *c45_ids);
 #if IS_ENABLED(CONFIG_PHYLIB)
+int fwnode_get_phy_id(struct fwnode_handle *fwnode, u32 *phy_id);
+struct mdio_device *fwnode_mdio_find_device(struct fwnode_handle *fwnode);
+struct phy_device *fwnode_phy_find_device(struct fwnode_handle *phy_fwnode);
+struct phy_device *device_phy_find_device(struct device *dev);
+struct fwnode_handle *fwnode_get_phy_node(struct fwnode_handle *fwnode);
 struct phy_device *get_phy_device(struct mii_bus *bus, int addr, bool is_c45);
 int phy_device_register(struct phy_device *phy);
 void phy_device_free(struct phy_device *phydev);
 #else
+static inline int fwnode_get_phy_id(struct fwnode_handle *fwnode, u32 *phy_id)
+{
+	return 0;
+}
+static inline
+struct mdio_device *fwnode_mdio_find_device(struct fwnode_handle *fwnode)
+{
+	return 0;
+}
+
+static inline
+struct phy_device *fwnode_phy_find_device(struct fwnode_handle *phy_fwnode)
+{
+	return NULL;
+}
+
+static inline struct phy_device *device_phy_find_device(struct device *dev)
+{
+	return NULL;
+}
+
+static inline
+struct fwnode_handle *fwnode_get_phy_node(struct fwnode_handle *fwnode)
+{
+	return NULL;
+}
+
 static inline
 struct phy_device *get_phy_device(struct mii_bus *bus, int addr, bool is_c45)
 {

@@ -57,6 +57,8 @@ properties:
       - const: ti,am654-cpsw-nuss
       - const: ti,j721e-cpsw-nuss
       - const: ti,am642-cpsw-nuss
+      - const: ti,j7200-cpswxg-nuss
+      - const: ti,j721e-cpswxg-nuss
 
   reg:
     maxItems: 1
@@ -107,43 +109,121 @@ properties:
         const: 1
       '#size-cells':
         const: 0
+    allOf:
+      - if:
+          properties:
+            compatible:
+              contains:
+                enum:
+                  - ti,am654-cpsw-nuss
+                  - ti,j721e-cpsw-nuss
+                  - ti,am642-cpsw-nuss
+        then:
+          patternProperties:
+            port@[1-2]:
+              type: object
+              description: CPSWxG NUSS external ports
 
-    patternProperties:
-      port@[1-2]:
-        type: object
-        description: CPSWxG NUSS external ports
+              $ref: ethernet-controller.yaml#
 
-        $ref: ethernet-controller.yaml#
+              properties:
+                reg:
+                  minimum: 1
+                  maximum: 2
+                  description: CPSW port number
 
-        properties:
-          reg:
-            minimum: 1
-            maximum: 2
-            description: CPSW port number
+              required:
+                - reg
+      - if:
+          properties:
+            compatible:
+              contains:
+                enum:
+                  - ti,j7200-cpswxg-nuss
+        then:
+          patternProperties:
+            port@[1-4]:
+              type: object
+              description: CPSWxG NUSS external ports
 
-          phys:
-            maxItems: 1
-            description: phandle on phy-gmii-sel PHY
+              $ref: ethernet-controller.yaml#
 
-          label:
-            description: label associated with this port
+              properties:
+                reg:
+                  minimum: 1
+                  maximum: 4
+                  description: CPSW port number
 
-          ti,mac-only:
-            $ref: /schemas/types.yaml#definitions/flag
-            description:
-              Specifies the port works in mac-only mode.
+              required:
+                - reg
+      - if:
+          properties:
+            compatible:
+              contains:
+                enum:
+                  - ti,j721e-cpswxg-nuss
+        then:
+          patternProperties:
+            port@[1-8]:
+              type: object
+              description: CPSWxG NUSS external ports
 
-          ti,syscon-efuse:
-            $ref: /schemas/types.yaml#definitions/phandle-array
-            description:
-              Phandle to the system control device node which provides access
-              to efuse IO range with MAC addresses
+              $ref: ethernet-controller.yaml#
 
-        required:
-          - reg
-          - phys
+              properties:
+                reg:
+                  minimum: 1
+                  maximum: 8
+                  description: CPSW port number
 
-    additionalProperties: false
+              required:
+                - reg
+      - if:
+          properties:
+            compatible:
+              contains:
+                enum:
+                  - ti,am654-cpsw-nuss
+                  - ti,j721e-cpsw-nuss
+                  - ti,am642-cpsw-nuss
+                  - ti,j7200-cpswxg-nuss
+                  - ti,j721e-cpswxg-nuss
+        then:
+          patternProperties:
+            port@[*]:
+              type: object
+              description: CPSWxG NUSS external ports
+
+              $ref: ethernet-controller.yaml#
+
+              properties:
+                phys:
+                  maxItems: 1
+                  description: phandle on phy-gmii-sel PHY
+
+                label:
+                  description: label associated with this port
+
+                ti,mac-only:
+                  $ref: /schemas/types.yaml#/definitions/flag
+                  description:
+                    Specifies the port works in mac-only mode.
+
+                ti,syscon-efuse:
+                  $ref: /schemas/types.yaml#/definitions/phandle-array
+                  items:
+                    - items:
+                        - description: Phandle to the system control device node which
+                            provides access to efuse
+                        - description: offset to efuse registers???
+                  description:
+                    Phandle to the system control device node which provides access
+                    to efuse IO range with MAC addresses
+
+              required:
+                - phys
+
+  additionalProperties: false
 
 patternProperties:
   "^mdio@[0-9a-f]+$":

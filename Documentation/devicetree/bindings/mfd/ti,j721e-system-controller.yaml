@@ -50,6 +50,11 @@ patternProperties:
       specified in
       Documentation/devicetree/bindings/mux/reg-mux.txt
 
+  "phy@[0-9a-f]+$":
+    type: object
+    description:
+      This is the register to set phy mode through phy-gmii-sel driver.
+
 required:
   - compatible
   - reg

@@ -5,6 +5,7 @@
  *
  * Copyright (C) 2015 Russell King
  */
+#include <linux/acpi.h>
 #include <linux/ethtool.h>
 #include <linux/export.h>
 #include <linux/gpio/consumer.h>
@@ -32,6 +33,7 @@
 enum {
 	PHYLINK_DISABLE_STOPPED,
 	PHYLINK_DISABLE_LINK,
+	PHYLINK_DISABLE_MAC_WOL,
 };
 
 /**
@@ -152,6 +154,259 @@ static const char *phylink_an_mode_str(unsigned int mode)
 
 	return mode < ARRAY_SIZE(modestr) ? modestr[mode] : "unknown";
 }
+
+static void phylink_caps_to_linkmodes(unsigned long *linkmodes,
+				      unsigned long caps)
+{
+	if (caps & MAC_SYM_PAUSE)
+		__set_bit(ETHTOOL_LINK_MODE_Pause_BIT, linkmodes);
+
+	if (caps & MAC_ASYM_PAUSE)
+		__set_bit(ETHTOOL_LINK_MODE_Asym_Pause_BIT, linkmodes);
+
+	if (caps & MAC_10HD)
+		__set_bit(ETHTOOL_LINK_MODE_10baseT_Half_BIT, linkmodes);
+
+	if (caps & MAC_10FD)
+		__set_bit(ETHTOOL_LINK_MODE_10baseT_Full_BIT, linkmodes);
+
+	if (caps & MAC_100HD) {
+		__set_bit(ETHTOOL_LINK_MODE_100baseT_Half_BIT, linkmodes);
+		__set_bit(ETHTOOL_LINK_MODE_100baseFX_Half_BIT, linkmodes);
+	}
+
+	if (caps & MAC_100FD) {
+		__set_bit(ETHTOOL_LINK_MODE_100baseT_Full_BIT, linkmodes);
+		__set_bit(ETHTOOL_LINK_MODE_100baseT1_Full_BIT, linkmodes);
+		__set_bit(ETHTOOL_LINK_MODE_100baseFX_Full_BIT, linkmodes);
+	}
+
+	if (caps & MAC_1000HD)
+		__set_bit(ETHTOOL_LINK_MODE_1000baseT_Half_BIT, linkmodes);
+
+	if (caps & MAC_1000FD) {
+		__set_bit(ETHTOOL_LINK_MODE_1000baseT_Full_BIT, linkmodes);
+		__set_bit(ETHTOOL_LINK_MODE_1000baseKX_Full_BIT, linkmodes);
+		__set_bit(ETHTOOL_LINK_MODE_1000baseX_Full_BIT, linkmodes);
+		__set_bit(ETHTOOL_LINK_MODE_1000baseT1_Full_BIT, linkmodes);
+	}
+
+	if (caps & MAC_2500FD) {
+		__set_bit(ETHTOOL_LINK_MODE_2500baseT_Full_BIT, linkmodes);
+		__set_bit(ETHTOOL_LINK_MODE_2500baseX_Full_BIT, linkmodes);
+	}
+
+	if (caps & MAC_5000FD)
+		__set_bit(ETHTOOL_LINK_MODE_5000baseT_Full_BIT, linkmodes);
+
+	if (caps & MAC_10000FD) {
+		__set_bit(ETHTOOL_LINK_MODE_10000baseT_Full_BIT, linkmodes);
+		__set_bit(ETHTOOL_LINK_MODE_10000baseKX4_Full_BIT, linkmodes);
+		__set_bit(ETHTOOL_LINK_MODE_10000baseKR_Full_BIT, linkmodes);
+		__set_bit(ETHTOOL_LINK_MODE_10000baseR_FEC_BIT, linkmodes);
+		__set_bit(ETHTOOL_LINK_MODE_10000baseCR_Full_BIT, linkmodes);
+		__set_bit(ETHTOOL_LINK_MODE_10000baseSR_Full_BIT, linkmodes);
+		__set_bit(ETHTOOL_LINK_MODE_10000baseLR_Full_BIT, linkmodes);
+		__set_bit(ETHTOOL_LINK_MODE_10000baseLRM_Full_BIT, linkmodes);
+		__set_bit(ETHTOOL_LINK_MODE_10000baseER_Full_BIT, linkmodes);
+	}
+
+	if (caps & MAC_25000FD) {
+		__set_bit(ETHTOOL_LINK_MODE_25000baseCR_Full_BIT, linkmodes);
+		__set_bit(ETHTOOL_LINK_MODE_25000baseKR_Full_BIT, linkmodes);
+		__set_bit(ETHTOOL_LINK_MODE_25000baseSR_Full_BIT, linkmodes);
+	}
+
+	if (caps & MAC_40000FD) {
+		__set_bit(ETHTOOL_LINK_MODE_40000baseKR4_Full_BIT, linkmodes);
+		__set_bit(ETHTOOL_LINK_MODE_40000baseCR4_Full_BIT, linkmodes);
+		__set_bit(ETHTOOL_LINK_MODE_40000baseSR4_Full_BIT, linkmodes);
+		__set_bit(ETHTOOL_LINK_MODE_40000baseLR4_Full_BIT, linkmodes);
+	}
+
+	if (caps & MAC_50000FD) {
+		__set_bit(ETHTOOL_LINK_MODE_50000baseCR2_Full_BIT, linkmodes);
+		__set_bit(ETHTOOL_LINK_MODE_50000baseKR2_Full_BIT, linkmodes);
+		__set_bit(ETHTOOL_LINK_MODE_50000baseSR2_Full_BIT, linkmodes);
+		__set_bit(ETHTOOL_LINK_MODE_50000baseKR_Full_BIT, linkmodes);
+		__set_bit(ETHTOOL_LINK_MODE_50000baseSR_Full_BIT, linkmodes);
+		__set_bit(ETHTOOL_LINK_MODE_50000baseCR_Full_BIT, linkmodes);
+		__set_bit(ETHTOOL_LINK_MODE_50000baseLR_ER_FR_Full_BIT,
+			  linkmodes);
+		__set_bit(ETHTOOL_LINK_MODE_50000baseDR_Full_BIT, linkmodes);
+	}
+
+	if (caps & MAC_56000FD) {
+		__set_bit(ETHTOOL_LINK_MODE_56000baseKR4_Full_BIT, linkmodes);
+		__set_bit(ETHTOOL_LINK_MODE_56000baseCR4_Full_BIT, linkmodes);
+		__set_bit(ETHTOOL_LINK_MODE_56000baseSR4_Full_BIT, linkmodes);
+		__set_bit(ETHTOOL_LINK_MODE_56000baseLR4_Full_BIT, linkmodes);
+	}
+
+	if (caps & MAC_100000FD) {
+		__set_bit(ETHTOOL_LINK_MODE_100000baseKR4_Full_BIT, linkmodes);
+		__set_bit(ETHTOOL_LINK_MODE_100000baseSR4_Full_BIT, linkmodes);
+		__set_bit(ETHTOOL_LINK_MODE_100000baseCR4_Full_BIT, linkmodes);
+		__set_bit(ETHTOOL_LINK_MODE_100000baseLR4_ER4_Full_BIT,
+			  linkmodes);
+		__set_bit(ETHTOOL_LINK_MODE_100000baseKR2_Full_BIT, linkmodes);
+		__set_bit(ETHTOOL_LINK_MODE_100000baseSR2_Full_BIT, linkmodes);
+		__set_bit(ETHTOOL_LINK_MODE_100000baseCR2_Full_BIT, linkmodes);
+		__set_bit(ETHTOOL_LINK_MODE_100000baseLR2_ER2_FR2_Full_BIT,
+			  linkmodes);
+		__set_bit(ETHTOOL_LINK_MODE_100000baseDR2_Full_BIT, linkmodes);
+		__set_bit(ETHTOOL_LINK_MODE_100000baseKR_Full_BIT, linkmodes);
+		__set_bit(ETHTOOL_LINK_MODE_100000baseSR_Full_BIT, linkmodes);
+		__set_bit(ETHTOOL_LINK_MODE_100000baseLR_ER_FR_Full_BIT,
+			  linkmodes);
+		__set_bit(ETHTOOL_LINK_MODE_100000baseCR_Full_BIT, linkmodes);
+		__set_bit(ETHTOOL_LINK_MODE_100000baseDR_Full_BIT, linkmodes);
+	}
+
+	if (caps & MAC_200000FD) {
+		__set_bit(ETHTOOL_LINK_MODE_200000baseKR4_Full_BIT, linkmodes);
+		__set_bit(ETHTOOL_LINK_MODE_200000baseSR4_Full_BIT, linkmodes);
+		__set_bit(ETHTOOL_LINK_MODE_200000baseLR4_ER4_FR4_Full_BIT,
+			  linkmodes);
+		__set_bit(ETHTOOL_LINK_MODE_200000baseDR4_Full_BIT, linkmodes);
+		__set_bit(ETHTOOL_LINK_MODE_200000baseCR4_Full_BIT, linkmodes);
+		__set_bit(ETHTOOL_LINK_MODE_200000baseKR2_Full_BIT, linkmodes);
+		__set_bit(ETHTOOL_LINK_MODE_200000baseSR2_Full_BIT, linkmodes);
+		__set_bit(ETHTOOL_LINK_MODE_200000baseLR2_ER2_FR2_Full_BIT,
+			  linkmodes);
+		__set_bit(ETHTOOL_LINK_MODE_200000baseDR2_Full_BIT, linkmodes);
+		__set_bit(ETHTOOL_LINK_MODE_200000baseCR2_Full_BIT, linkmodes);
+	}
+
+	if (caps & MAC_400000FD) {
+		__set_bit(ETHTOOL_LINK_MODE_400000baseKR8_Full_BIT, linkmodes);
+		__set_bit(ETHTOOL_LINK_MODE_400000baseSR8_Full_BIT, linkmodes);
+		__set_bit(ETHTOOL_LINK_MODE_400000baseLR8_ER8_FR8_Full_BIT,
+			  linkmodes);
+		__set_bit(ETHTOOL_LINK_MODE_400000baseDR8_Full_BIT, linkmodes);
+		__set_bit(ETHTOOL_LINK_MODE_400000baseCR8_Full_BIT, linkmodes);
+		__set_bit(ETHTOOL_LINK_MODE_400000baseKR4_Full_BIT, linkmodes);
+		__set_bit(ETHTOOL_LINK_MODE_400000baseSR4_Full_BIT, linkmodes);
+		__set_bit(ETHTOOL_LINK_MODE_400000baseLR4_ER4_FR4_Full_BIT,
+			  linkmodes);
+		__set_bit(ETHTOOL_LINK_MODE_400000baseDR4_Full_BIT, linkmodes);
+		__set_bit(ETHTOOL_LINK_MODE_400000baseCR4_Full_BIT, linkmodes);
+	}
+}
+
+/**
+ * phylink_get_linkmodes() - get acceptable link modes
+ * @linkmodes: ethtool linkmode mask (must be already initialised)
+ * @interface: phy interface mode defined by &typedef phy_interface_t
+ * @mac_capabilities: bitmask of MAC capabilities
+ *
+ * Set all possible pause, speed and duplex linkmodes in @linkmodes that
+ * are supported by the @interface mode and @mac_capabilities. @linkmodes
+ * must have been initialised previously.
+ */
+void phylink_get_linkmodes(unsigned long *linkmodes, phy_interface_t interface,
+			   unsigned long mac_capabilities)
+{
+	unsigned long caps = MAC_SYM_PAUSE | MAC_ASYM_PAUSE;
+
+	switch (interface) {
+	case PHY_INTERFACE_MODE_USXGMII:
+		caps |= MAC_10000FD | MAC_5000FD | MAC_2500FD;
+		fallthrough;
+
+	case PHY_INTERFACE_MODE_RGMII_TXID:
+	case PHY_INTERFACE_MODE_RGMII_RXID:
+	case PHY_INTERFACE_MODE_RGMII_ID:
+	case PHY_INTERFACE_MODE_RGMII:
+	case PHY_INTERFACE_MODE_QSGMII:
+	case PHY_INTERFACE_MODE_SGMII:
+	case PHY_INTERFACE_MODE_GMII:
+		caps |= MAC_1000HD | MAC_1000FD;
+		fallthrough;
+
+	case PHY_INTERFACE_MODE_REVRMII:
+	case PHY_INTERFACE_MODE_RMII:
+	case PHY_INTERFACE_MODE_SMII:
+	case PHY_INTERFACE_MODE_REVMII:
+	case PHY_INTERFACE_MODE_MII:
+		caps |= MAC_10HD | MAC_10FD;
+		fallthrough;
+
+	case PHY_INTERFACE_MODE_100BASEX:
+		caps |= MAC_100HD | MAC_100FD;
+		break;
+
+	case PHY_INTERFACE_MODE_TBI:
+	case PHY_INTERFACE_MODE_MOCA:
+	case PHY_INTERFACE_MODE_RTBI:
+	case PHY_INTERFACE_MODE_1000BASEX:
+		caps |= MAC_1000HD;
+		fallthrough;
+	case PHY_INTERFACE_MODE_TRGMII:
+		caps |= MAC_1000FD;
+		break;
+
+	case PHY_INTERFACE_MODE_2500BASEX:
+		caps |= MAC_2500FD;
+		break;
+
+	case PHY_INTERFACE_MODE_5GBASER:
+		caps |= MAC_5000FD;
+		break;
+
+	case PHY_INTERFACE_MODE_XGMII:
+	case PHY_INTERFACE_MODE_RXAUI:
+	case PHY_INTERFACE_MODE_XAUI:
+	case PHY_INTERFACE_MODE_10GBASER:
+	case PHY_INTERFACE_MODE_10GKR:
+		caps |= MAC_10000FD;
+		break;
+
+	case PHY_INTERFACE_MODE_25GBASER:
+		caps |= MAC_25000FD;
+		break;
+
+	case PHY_INTERFACE_MODE_XLGMII:
+		caps |= MAC_40000FD;
+		break;
+
+	case PHY_INTERFACE_MODE_INTERNAL:
+		caps |= ~0;
+		break;
+
+	case PHY_INTERFACE_MODE_NA:
+	case PHY_INTERFACE_MODE_MAX:
+		break;
+	}
+
+	phylink_caps_to_linkmodes(linkmodes, caps & mac_capabilities);
+}
+EXPORT_SYMBOL_GPL(phylink_get_linkmodes);
+
+/**
+ * phylink_generic_validate() - generic validate() callback implementation
+ * @config: a pointer to a &struct phylink_config.
+ * @supported: ethtool bitmask for supported link modes.
+ * @state: a pointer to a &struct phylink_link_state.
+ *
+ * Generic implementation of the validate() callback that MAC drivers can
+ * use when they pass the range of supported interfaces and MAC capabilities.
+ * This makes use of phylink_get_linkmodes().
+ */
+void phylink_generic_validate(struct phylink_config *config,
+			      unsigned long *supported,
+			      struct phylink_link_state *state)
+{
+	__ETHTOOL_DECLARE_LINK_MODE_MASK(mask) = { 0, };
+
+	phylink_set_port_modes(mask);
+	phylink_set(mask, Autoneg);
+	phylink_get_linkmodes(mask, state->interface, config->mac_capabilities);
+
+	linkmode_and(supported, supported, mask);
+	linkmode_and(state->advertising, state->advertising, mask);
+}
+EXPORT_SYMBOL_GPL(phylink_generic_validate);
 
 static int phylink_validate(struct phylink *pl, unsigned long *supported,
 			    struct phylink_link_state *state)
@@ -769,6 +1024,12 @@ static void phylink_run_resolve_and_disable(struct phylink *pl, int bit)
 	}
 }
 
+static void phylink_enable_and_run_resolve(struct phylink *pl, int bit)
+{
+	clear_bit(bit, &pl->phylink_disable_state);
+	phylink_run_resolve(pl);
+}
+
 static void phylink_fixed_poll(struct timer_list *t)
 {
 	struct phylink *pl = container_of(t, struct phylink, link_poll);
@@ -1027,7 +1288,8 @@ static int phylink_bringup_phy(struct phylink *pl, struct phy_device *phy,
 	mutex_unlock(&phy->lock);
 
 	phylink_dbg(pl,
-		    "phy: setting supported %*pb advertising %*pb\n",
+		    "phy: %s setting supported %*pb advertising %*pb\n",
+		    phy_modes(interface),
 		    __ETHTOOL_LINK_MODE_MASK_NBITS, pl->supported,
 		    __ETHTOOL_LINK_MODE_MASK_NBITS, phy->advertising);
 
@@ -1103,7 +1365,26 @@ EXPORT_SYMBOL_GPL(phylink_connect_phy);
 int phylink_of_phy_connect(struct phylink *pl, struct device_node *dn,
 			   u32 flags)
 {
-	struct device_node *phy_node;
+	return phylink_fwnode_phy_connect(pl, of_fwnode_handle(dn), flags);
+}
+EXPORT_SYMBOL_GPL(phylink_of_phy_connect);
+
+/**
+ * phylink_fwnode_phy_connect() - connect the PHY specified in the fwnode.
+ * @pl: a pointer to a &struct phylink returned from phylink_create()
+ * @fwnode: a pointer to a &struct fwnode_handle.
+ * @flags: PHY-specific flags to communicate to the PHY device driver
+ *
+ * Connect the phy specified @fwnode to the phylink instance specified
+ * by @pl.
+ *
+ * Returns 0 on success or a negative errno.
+ */
+int phylink_fwnode_phy_connect(struct phylink *pl,
+			       struct fwnode_handle *fwnode,
+			       u32 flags)
+{
+	struct fwnode_handle *phy_fwnode;
 	struct phy_device *phy_dev;
 	int ret;
 
@@ -1113,28 +1394,31 @@ int phylink_of_phy_connect(struct phylink *pl, struct device_node *dn,
 	     phy_interface_mode_is_8023z(pl->link_interface)))
 		return 0;
 
-	phy_node = of_parse_phandle(dn, "phy-handle", 0);
-	if (!phy_node)
-		phy_node = of_parse_phandle(dn, "phy", 0);
-	if (!phy_node)
-		phy_node = of_parse_phandle(dn, "phy-device", 0);
-
-	if (!phy_node) {
+	phy_fwnode = fwnode_get_phy_node(fwnode);
+	if (IS_ERR(phy_fwnode)) {
 		if (pl->cfg_link_an_mode == MLO_AN_PHY)
 			return -ENODEV;
 		return 0;
 	}
 
-	phy_dev = of_phy_find_device(phy_node);
+	phy_dev = fwnode_phy_find_device(phy_fwnode);
 	/* We're done with the phy_node handle */
-	of_node_put(phy_node);
+	fwnode_handle_put(phy_fwnode);
 	if (!phy_dev)
 		return -ENODEV;
 
+	/* Use PHY device/driver interface */
+	if (pl->link_interface == PHY_INTERFACE_MODE_NA) {
+		pl->link_interface = phy_dev->interface;
+		pl->link_config.interface = pl->link_interface;
+	}
+
 	ret = phy_attach_direct(pl->netdev, phy_dev, flags,
 				pl->link_interface);
-	if (ret)
+	if (ret) {
+		phy_device_free(phy_dev);
 		return ret;
+	}
 
 	ret = phylink_bringup_phy(pl, phy_dev, pl->link_config.interface);
 	if (ret)
@@ -1142,7 +1426,7 @@ int phylink_of_phy_connect(struct phylink *pl, struct device_node *dn,
 
 	return ret;
 }
-EXPORT_SYMBOL_GPL(phylink_of_phy_connect);
+EXPORT_SYMBOL_GPL(phylink_fwnode_phy_connect);
 
 /**
  * phylink_disconnect_phy() - disconnect any PHY attached to the phylink
@@ -1229,8 +1513,7 @@ void phylink_start(struct phylink *pl)
 	 */
 	phylink_mac_initial_config(pl, true);
 
-	clear_bit(PHYLINK_DISABLE_STOPPED, &pl->phylink_disable_state);
-	phylink_run_resolve(pl);
+	phylink_enable_and_run_resolve(pl, PHYLINK_DISABLE_STOPPED);
 
 	if (pl->cfg_link_an_mode == MLO_AN_FIXED && pl->link_gpio) {
 		int irq = gpiod_to_irq(pl->link_gpio);
@@ -1275,6 +1558,9 @@ EXPORT_SYMBOL_GPL(phylink_start);
  * network device driver's &struct net_device_ops ndo_stop() method.  The
  * network device's carrier state should not be changed prior to calling this
  * function.
+ *
+ * This will synchronously bring down the link if the link is not already
+ * down (in other words, it will trigger a mac_link_down() method call.)
  */
 void phylink_stop(struct phylink *pl)
 {
@@ -1293,6 +1579,83 @@ void phylink_stop(struct phylink *pl)
 	phylink_run_resolve_and_disable(pl, PHYLINK_DISABLE_STOPPED);
 }
 EXPORT_SYMBOL_GPL(phylink_stop);
+
+/**
+ * phylink_suspend() - handle a network device suspend event
+ * @pl: a pointer to a &struct phylink returned from phylink_create()
+ * @mac_wol: true if the MAC needs to receive packets for Wake-on-Lan
+ *
+ * Handle a network device suspend event. There are several cases:
+ * - If Wake-on-Lan is not active, we can bring down the link between
+ *   the MAC and PHY by calling phylink_stop().
+ * - If Wake-on-Lan is active, and being handled only by the PHY, we
+ *   can also bring down the link between the MAC and PHY.
+ * - If Wake-on-Lan is active, but being handled by the MAC, the MAC
+ *   still needs to receive packets, so we can not bring the link down.
+ */
+void phylink_suspend(struct phylink *pl, bool mac_wol)
+{
+	ASSERT_RTNL();
+
+	if (mac_wol && (!pl->netdev || pl->netdev->wol_enabled)) {
+		/* Wake-on-Lan enabled, MAC handling */
+		mutex_lock(&pl->state_mutex);
+
+		/* Stop the resolver bringing the link up */
+		__set_bit(PHYLINK_DISABLE_MAC_WOL, &pl->phylink_disable_state);
+
+		/* Disable the carrier, to prevent transmit timeouts,
+		 * but one would hope all packets have been sent. This
+		 * also means phylink_resolve() will do nothing.
+		 */
+		netif_carrier_off(pl->netdev);
+
+		/* We do not call mac_link_down() here as we want the
+		 * link to remain up to receive the WoL packets.
+		 */
+		mutex_unlock(&pl->state_mutex);
+	} else {
+		phylink_stop(pl);
+	}
+}
+EXPORT_SYMBOL_GPL(phylink_suspend);
+
+/**
+ * phylink_resume() - handle a network device resume event
+ * @pl: a pointer to a &struct phylink returned from phylink_create()
+ *
+ * Undo the effects of phylink_suspend(), returning the link to an
+ * operational state.
+ */
+void phylink_resume(struct phylink *pl)
+{
+	ASSERT_RTNL();
+
+	if (test_bit(PHYLINK_DISABLE_MAC_WOL, &pl->phylink_disable_state)) {
+		/* Wake-on-Lan enabled, MAC handling */
+
+		/* Call mac_link_down() so we keep the overall state balanced.
+		 * Do this under the state_mutex lock for consistency. This
+		 * will cause a "Link Down" message to be printed during
+		 * resume, which is harmless - the true link state will be
+		 * printed when we run a resolve.
+		 */
+		mutex_lock(&pl->state_mutex);
+		phylink_link_down(pl);
+		mutex_unlock(&pl->state_mutex);
+
+		/* Re-apply the link parameters so that all the settings get
+		 * restored to the MAC.
+		 */
+		phylink_mac_initial_config(pl, true);
+
+		/* Re-enable and re-resolve the link parameters */
+		phylink_enable_and_run_resolve(pl, PHYLINK_DISABLE_MAC_WOL);
+	} else {
+		phylink_start(pl);
+	}
+}
+EXPORT_SYMBOL_GPL(phylink_resume);
 
 /**
  * phylink_ethtool_get_wol() - get the wake on lan parameters for the PHY
@@ -2215,8 +2578,7 @@ static void phylink_sfp_link_up(void *upstream)
 
 	ASSERT_RTNL();
 
-	clear_bit(PHYLINK_DISABLE_LINK, &pl->phylink_disable_state);
-	phylink_run_resolve(pl);
+	phylink_enable_and_run_resolve(pl, PHYLINK_DISABLE_LINK);
 }
 
 /* The Broadcom BCM84881 in the Methode DM7052 is unable to provide a SGMII
