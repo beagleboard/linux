@@ -636,6 +636,38 @@ static int tps6598x_remove(struct i2c_client *client)
 	return 0;
 }
 
+static int tps6589x_suspend(struct device *dev)
+{
+	struct tps6598x *tps = dev->driver_data;
+	struct i2c_client *client = to_i2c_client(dev);
+
+	if (client->irq) {
+		disable_irq(client->irq);
+	} else {
+		/* Flush any delayed pending polling work */
+		flush_delayed_work(&tps->wq_poll);
+	}
+	return 0;
+}
+
+static int tps6589x_resume(struct device *dev)
+{
+	struct tps6598x *tps = dev->driver_data;
+	struct i2c_client *client = to_i2c_client(dev);
+
+	if (client->irq) {
+		enable_irq(client->irq);
+	} else {
+	/* Re-queue work in the polling work queue */
+		queue_delayed_work(system_power_efficient_wq, &tps->wq_poll,
+				   msecs_to_jiffies(POLL_INTERVAL));
+	}
+	return 0;
+}
+
+static SIMPLE_DEV_PM_OPS(tps6589x_dev_pm_ops,
+			 tps6589x_suspend, tps6589x_resume);
+
 static const struct of_device_id tps6598x_of_match[] = {
 	{ .compatible = "ti,tps6598x", },
 	{}
@@ -652,6 +684,7 @@ static struct i2c_driver tps6598x_i2c_driver = {
 	.driver = {
 		.name = "tps6598x",
 		.of_match_table = tps6598x_of_match,
+		.pm = &tps6589x_dev_pm_ops,
 	},
 	.probe_new = tps6598x_probe,
 	.remove = tps6598x_remove,
