@@ -46,4 +46,6 @@ source "drivers/staging/media/ipu3/Kconfig"
 
 source "drivers/staging/media/rkisp1/Kconfig"
 
+source "drivers/staging/media/wave5/Kconfig"
+
 endif
