@@ -80,5 +80,12 @@
 #define WAVE5_SEC_AXI_ID            0x0
 #define WAVE5_PRI_AXI_ID            0x0
 
+#define WAVE5_PROC_AXI_AXPROT       0x0
+#define WAVE5_PROC_AXI_AXCACHE      0x0
+#define WAVE5_PROC_AXI_EXT_ADDR     0x0
+#define WAVE5_SEC_AXI_AXPROT        0x0
+#define WAVE5_SEC_AXI_AXCACHE       0x0
+#define WAVE5_SEC_AXI_EXT_ADDR      0x0
+
 #endif  /* _VPU_CONFIG_H_ */
 

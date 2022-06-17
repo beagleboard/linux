@@ -218,6 +218,7 @@ enum QUERY_OPT {
 #define W5_ADDR_SEC_AXI                         (W5_REG_BASE + 0x0124)
 #define W5_SEC_AXI_SIZE                         (W5_REG_BASE + 0x0128)
 #define W5_HW_OPTION                            (W5_REG_BASE + 0x012C)
+#define W5_SEC_AXI_PARAM                        (W5_REG_BASE + 0x0180)
 
 /************************************************************************/
 /* CREATE_INSTANCE - COMMON                                             */
@@ -227,6 +228,7 @@ enum QUERY_OPT {
 #define W5_CMD_DEC_BS_START_ADDR                (W5_REG_BASE + 0x011C)
 #define W5_CMD_DEC_BS_SIZE                      (W5_REG_BASE + 0x0120)
 #define W5_CMD_BS_PARAM                         (W5_REG_BASE + 0x0124)
+#define W5_CMD_EXT_ADDR                         (W5_REG_BASE + 0x0138)
 #define W5_CMD_NUM_CQ_DEPTH_M1                  (W5_REG_BASE + 0x013C)
 #define W5_CMD_ERR_CONCEAL                      (W5_REG_BASE + 0x0140)
 
@@ -440,6 +442,9 @@ enum QUERY_OPT {
 #define W5_BACKBONE_BUS_CTRL_VCPU           (W5_BACKBONE_BASE_VCPU + 0x010)
 #define W5_BACKBONE_BUS_STATUS_VCPU         (W5_BACKBONE_BASE_VCPU + 0x014)
 #define W5_BACKBONE_PROG_AXI_ID             (W5_BACKBONE_BASE_VCPU + 0x00C)
+
+#define W5_BACKBONE_PROC_EXT_ADDR           (W5_BACKBONE_BASE_VCPU + 0x0C0)
+#define W5_BACKBONE_AXI_PARAM               (W5_BACKBONE_BASE_VCPU + 0x0E0)
 
 #define W5_BACKBONE_BASE_VCORE0             0x8E00
 #define W5_BACKBONE_BUS_CTRL_VCORE0         (W5_BACKBONE_BASE_VCORE0 + 0x010)

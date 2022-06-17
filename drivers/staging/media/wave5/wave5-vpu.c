@@ -8,6 +8,7 @@
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/clk.h>
+#include <linux/of_address.h>
 #include <linux/io.h>
 #include <linux/firmware.h>
 #include <linux/interrupt.h>
@@ -165,8 +166,10 @@ static int wave5_vpu_probe(struct platform_device *pdev)
 {
 	int ret;
 	struct vpu_device *dev;
+	struct device_node *np;
 	const struct wave5_match_data *match_data;
 	struct resource *res;
+	struct resource sram;
 
 	match_data = device_get_match_data(&pdev->dev);
 	if (!match_data) {
@@ -207,6 +210,23 @@ static int wave5_vpu_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "failed to enable clocks: %d\n", ret);
 		return ret;
 	}
+
+	np = of_parse_phandle(pdev->dev.of_node, "sram", 0);
+	if (!np) {
+		dev_err(&pdev->dev, "sram node is not found.\n");
+		return -ENODEV;
+	}
+
+	ret = of_address_to_resource(np, 0, &sram);
+	if (ret) {
+		dev_err(&pdev->dev, "sram resource not available.\n");
+		goto err_put_node;
+	}
+	dev->sram_buf.daddr = sram.start;
+	dev->sram_buf.size = resource_size(&sram);
+
+	dev_err(&pdev->dev, "sram daddr: 0x%llx, size: 0x%lx\n",
+		dev->sram_buf.daddr, dev->sram_buf.size);
 
 	dev->product_code = wave5_vdi_readl(dev, VPU_PRODUCT_CODE_REGISTER);
 	ret = wave5_vdi_init(&pdev->dev);
@@ -292,6 +312,8 @@ err_vdi_release:
 	wave5_vdi_release(&pdev->dev);
 err_clk_dis:
 	clk_bulk_disable_unprepare(dev->num_clks, dev->clks);
+err_put_node:
+	of_node_put(np);
 
 	return ret;
 }
@@ -307,6 +329,7 @@ static int wave5_vpu_remove(struct platform_device *pdev)
 	v4l2_device_unregister(&dev->v4l2_dev);
 	kfifo_free(&dev->irq_status);
 	wave5_vdi_release(&pdev->dev);
+	ida_destroy(&dev->inst_ida);
 
 	return 0;
 }

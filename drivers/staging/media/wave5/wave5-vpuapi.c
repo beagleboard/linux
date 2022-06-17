@@ -836,7 +836,6 @@ int wave5_vpu_enc_register_frame_buffer(struct vpu_instance *inst, int num, unsi
 		inst->frame_buf[i].stride = stride;
 		inst->frame_buf[i].height = height;
 		inst->frame_buf[i].map_type = COMPRESSED_FRAME_MAP;
-		inst->frame_buf[i].cbcr_interleave = true;
 		inst->frame_buf[i].endian = VDI_128BIT_LITTLE_ENDIAN;
 		inst->frame_buf[i].buf_y_size = size_luma;
 		inst->frame_buf[i].buf_cb = inst->frame_buf[i].buf_y + size_luma;
