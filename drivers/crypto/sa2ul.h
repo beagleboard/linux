@@ -17,6 +17,7 @@
 #include <linux/hw_random.h>
 #include <crypto/aes.h>
 
+#define SA_ENGINE_STATUS		0x0008
 #define SA_ENGINE_ENABLE_CONTROL	0x1000
 
 struct sa_tfm_ctx;
