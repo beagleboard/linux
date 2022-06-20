@@ -1507,6 +1507,50 @@ static const struct net_device_ops am65_cpsw_nuss_netdev_ops = {
 	.ndo_get_devlink_port   = am65_cpsw_ndo_get_devlink_port,
 };
 
+static void am65_cpsw_disable_phy(struct phy *phy)
+{
+	phy_power_off(phy);
+	phy_exit(phy);
+}
+
+static int am65_cpsw_enable_phy(struct phy *phy)
+{
+	int ret;
+
+	ret = phy_init(phy);
+	if (ret < 0)
+		return ret;
+
+	ret = phy_power_on(phy);
+	if (ret < 0) {
+		phy_exit(phy);
+		return ret;
+	}
+
+	return 0;
+}
+
+static int am65_cpsw_init_phy(struct device *dev, struct device_node *port_np)
+{
+	const char *name = "serdes-phy";
+	struct phy *phy;
+	int ret;
+
+	phy = devm_of_phy_get(dev, port_np, name);
+	if (PTR_ERR(phy) == -ENODEV)
+		return 0;
+
+	ret =  am65_cpsw_enable_phy(phy);
+	if (ret < 0)
+		goto err_phy;
+
+	return 0;
+
+err_phy:
+	devm_phy_put(dev, phy);
+	return ret;
+}
+
 static void am65_cpsw_nuss_mac_config(struct phylink_config *config, unsigned int mode,
 				      const struct phylink_link_state *state)
 {
@@ -1529,6 +1573,9 @@ static void am65_cpsw_nuss_mac_link_down(struct phylink_config *config, unsigned
 	struct am65_cpsw_common *common = port->common;
 	struct net_device *ndev = port->ndev;
 	int tmo;
+
+	/* disable phy */
+	am65_cpsw_disable_phy(port->slave.ifphy);
 
 	/* disable forwarding */
 	cpsw_ale_control_set(common->ale, port->port_id, ALE_PORT_STATE, ALE_PORT_STATE_DISABLE);
@@ -1574,6 +1621,9 @@ static void am65_cpsw_nuss_mac_link_up(struct phylink_config *config, struct phy
 		mac_control |= CPSW_SL_CTL_TX_FLOW_EN;
 
 	cpsw_sl_ctl_set(port->slave.mac_sl, mac_control);
+
+	/* enable phy */
+	am65_cpsw_enable_phy(port->slave.ifphy);
 
 	/* enable forwarding */
 	cpsw_ale_control_set(common->ale, port->port_id, ALE_PORT_STATE, ALE_PORT_STATE_FORWARD);
@@ -1982,6 +2032,11 @@ static int am65_cpsw_nuss_init_slave_ports(struct am65_cpsw_common *common)
 				port_np, ret);
 			return ret;
 		}
+
+		/* Initialize the phy for the port */
+		ret = am65_cpsw_init_phy(dev, port_np);
+		if (ret)
+			return ret;
 
 		port->slave.mac_only =
 				of_property_read_bool(port_np, "ti,mac-only");
