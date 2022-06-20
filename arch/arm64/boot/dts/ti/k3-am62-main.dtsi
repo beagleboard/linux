@@ -190,6 +190,7 @@
 			reg = <0x00 0x40910000 0x00 0x7d>;
 			interrupts = <GIC_SPI 129 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&k3_clks 70 0>;
+			status = "disabled";
 		};
 	};
 
