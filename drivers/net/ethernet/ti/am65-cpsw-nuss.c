@@ -1598,6 +1598,8 @@ static void am65_cpsw_nuss_mac_config(struct phylink_config *config, unsigned in
 							  phylink_config);
 	struct am65_cpsw_port *port = container_of(slave, struct am65_cpsw_port, slave);
 	struct am65_cpsw_common *common = port->common;
+	struct fwnode_handle *fwnode;
+	bool fixed_link = false;
 
 	if (common->pdata.extra_modes & BIT(state->interface))
 		writel(AM65_CPSW_SGMII_CONTROL_MR_AN_ENABLE,
