@@ -1577,6 +1577,20 @@ static void am65_cpsw_nuss_mac_control(struct am65_cpsw_port *port, phy_interfac
 	cpsw_sl_ctl_set(port->slave.mac_sl, mac_control);
 }
 
+static void am65_cpsw_nuss_mac_enable_link(struct am65_cpsw_port *port, int speed, int duplex)
+{
+	struct am65_cpsw_common *common = port->common;
+	struct net_device *ndev = port->ndev;
+	/* enable phy */
+	am65_cpsw_enable_phy(port->slave.ifphy);
+
+	/* enable forwarding */
+	cpsw_ale_control_set(common->ale, port->port_id, ALE_PORT_STATE, ALE_PORT_STATE_FORWARD);
+
+	am65_cpsw_qos_link_up(ndev, speed, duplex);
+	netif_tx_wake_all_queues(ndev);
+}
+
 static void am65_cpsw_nuss_mac_config(struct phylink_config *config, unsigned int mode,
 				      const struct phylink_link_state *state)
 {
@@ -1588,6 +1602,44 @@ static void am65_cpsw_nuss_mac_config(struct phylink_config *config, unsigned in
 	if (common->pdata.extra_modes & BIT(state->interface))
 		writel(AM65_CPSW_SGMII_CONTROL_MR_AN_ENABLE,
 		       port->sgmii_base + AM65_CPSW_SGMII_CONTROL_REG);
+
+	/* Detecting fixed-link */
+	fwnode = of_node_to_fwnode(port->slave.phy_node);
+	if (fwnode)
+		fixed_link = !!fwnode_get_named_child_node(fwnode, "fixed-link");
+
+	if (fixed_link) {
+		/* In fixed-link mode, mac_link_up is not invoked.
+		 * Therefore, the relevant mac_link_up operations
+		 * have to be moved to mac_config.
+		 */
+		am65_cpsw_nuss_mac_control(port, state->interface, state->speed,
+					   state->duplex, state->pause & MLO_PAUSE_TX,
+					   state->pause & MLO_PAUSE_RX);
+
+		if (state->speed == SPEED_1000)
+			mr_adv_ability |= MAC2MAC_MR_ADV_ABILITY_1G;
+		if (state->speed == SPEED_100)
+			mr_adv_ability |= MAC2MAC_MR_ADV_ABILITY_100M;
+		if (state->duplex)
+			mr_adv_ability |= MAC2MAC_MR_ADV_ABILITY_FULLDUPLEX;
+
+		if (state->interface == PHY_INTERFACE_MODE_SGMII &&
+		    (common->pdata.extra_modes & BIT(state->interface))) {
+			writel(mr_adv_ability,
+			       port->sgmii_base + AM65_CPSW_SGMII_MR_ADV_ABILITY_REG);
+			writel((AM65_CPSW_SGMII_CONTROL_MASTER_MODE |
+			       AM65_CPSW_SGMII_CONTROL_MR_AN_ENABLE),
+			       port->sgmii_base + AM65_CPSW_SGMII_CONTROL_REG);
+		}
+
+		am65_cpsw_nuss_mac_enable_link(port, state->speed, state->duplex);
+	} else {
+		if (state->interface == PHY_INTERFACE_MODE_SGMII &&
+		    (common->pdata.extra_modes & BIT(state->interface)))
+			writel(MAC2PHY_MR_ADV_ABILITY,
+			       port->sgmii_base + AM65_CPSW_SGMII_MR_ADV_ABILITY_REG);
+	}
 }
 
 static void am65_cpsw_nuss_mac_link_down(struct phylink_config *config, unsigned int mode,
@@ -1625,19 +1677,10 @@ static void am65_cpsw_nuss_mac_link_up(struct phylink_config *config, struct phy
 	struct am65_cpsw_slave_data *slave = container_of(config, struct am65_cpsw_slave_data,
 							  phylink_config);
 	struct am65_cpsw_port *port = container_of(slave, struct am65_cpsw_port, slave);
-	struct am65_cpsw_common *common = port->common;
-	struct net_device *ndev = port->ndev;
 
 	am65_cpsw_nuss_mac_control(port, interface, speed, duplex, tx_pause, rx_pause);
 
-	/* enable phy */
-	am65_cpsw_enable_phy(port->slave.ifphy);
-
-	/* enable forwarding */
-	cpsw_ale_control_set(common->ale, port->port_id, ALE_PORT_STATE, ALE_PORT_STATE_FORWARD);
-
-	am65_cpsw_qos_link_up(ndev, speed, duplex);
-	netif_tx_wake_all_queues(ndev);
+	am65_cpsw_nuss_mac_enable_link(port, speed, duplex);
 }
 
 static const struct phylink_mac_ops am65_cpsw_phylink_mac_ops = {
