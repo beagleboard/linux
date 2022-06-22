@@ -1106,8 +1106,10 @@ static int vxe_s_fmt(struct file *file, void *priv, struct v4l2_format *f)
 			return -EINVAL;
 		}
 		if (V4L2_TYPE_IS_OUTPUT(f->type)) {
-			ctx->sh_params.width_in_mbs_minus1 = (queue->width / MB_SIZE) - 1;
-			ctx->sh_params.height_in_maps_units_minus1 = (queue->height / MB_SIZE) - 1;
+			ctx->sh_params.width_in_mbs_minus1 = ((queue->width +
+				(MB_SIZE - 1))/MB_SIZE)-1;
+			ctx->sh_params.height_in_maps_units_minus1 = ((queue->height +
+					(MB_SIZE - 1))/MB_SIZE) - 1;
 			pr_debug("h264_sequence_header_params: width_in_mbs_minus1=%d\n",
 				 ctx->sh_params.width_in_mbs_minus1);
 			pr_debug("h264_sequence_header_params: height_in_maps_units_minus1=%d\n",
@@ -1171,9 +1173,13 @@ static int vxe_s_fmt(struct file *file, void *priv, struct v4l2_format *f)
 	/* Crop parameters */
 	ctx->crop_params.clip = FALSE;
 	ctx->crop_params.left_crop_offset = 0;
-	ctx->crop_params.right_crop_offset = 0;
+	ctx->crop_params.right_crop_offset = (((ctx->sh_params.width_in_mbs_minus1 + 1)*MB_SIZE) -
+			ctx->vparams.source_width)/2;
 	ctx->crop_params.top_crop_offset = 0;
-	ctx->crop_params.bottom_crop_offset = 0;
+	ctx->crop_params.bottom_crop_offset = (((ctx->sh_params.height_in_maps_units_minus1 + 1)
+				*MB_SIZE) - ctx->vparams.source_frame_height)/2;
+	if (ctx->crop_params.right_crop_offset | ctx->crop_params.bottom_crop_offset)
+		ctx->crop_params.clip = TRUE;
 
 	pr_debug("s_fmt_flags=%#08x\n", ctx->s_fmt_flags);
 	if ((ctx->s_fmt_flags & S_FMT_FLAG_OUT_RECV) &&
