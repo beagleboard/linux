@@ -1685,6 +1685,18 @@ fallback:
 #include <bfd.h>
 #include <dis-asm.h>
 
+static int fprintf_styled(void *, enum disassembler_style, const char* fmt, ...)
+{
+  va_list args;
+  int r;
+
+  va_start(args, fmt);
+  r = vprintf(fmt, args);
+  va_end(args);
+
+  return r;
+}
+
 static int symbol__disassemble_bpf(struct symbol *sym,
 				   struct annotate_args *args)
 {
@@ -1727,7 +1739,8 @@ static int symbol__disassemble_bpf(struct symbol *sym,
 		goto out;
 	}
 	init_disassemble_info(&info, s,
-			      (fprintf_ftype) fprintf);
+			      (fprintf_ftype) fprintf,
+                  fprintf_styled);
 
 	info.arch = bfd_get_arch(bfdf);
 	info.mach = bfd_get_mach(bfdf);
