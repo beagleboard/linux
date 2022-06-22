@@ -26,6 +26,22 @@ void icssg_mii_update_ipg(struct regmap *mii_rt, int mii, u32 ipg)
 	}
 }
 
+void icssg_mii_update_mtu(struct regmap *mii_rt, int mii, int mtu)
+{
+	mtu += (ETH_HLEN + ETH_FCS_LEN);
+	if (mii == ICSS_MII0) {
+		regmap_update_bits(mii_rt,
+				   PRUSS_MII_RT_RX_FRMS0,
+				   PRUSS_MII_RT_RX_FRMS_MAX_FRM_MASK,
+				   (mtu - 1) << PRUSS_MII_RT_RX_FRMS_MAX_FRM_SHIFT);
+	} else {
+		regmap_update_bits(mii_rt,
+				   PRUSS_MII_RT_RX_FRMS1,
+				   PRUSS_MII_RT_RX_FRMS_MAX_FRM_MASK,
+				   (mtu - 1) << PRUSS_MII_RT_RX_FRMS_MAX_FRM_SHIFT);
+	}
+}
+
 void icssg_update_rgmii_cfg(struct regmap *miig_rt, struct prueth_emac *emac)
 {
 	u32 gig_en_mask, gig_val = 0, full_duplex_mask, full_duplex_val = 0;
