@@ -2210,6 +2210,9 @@ am65_cpsw_nuss_init_port_ndev(struct am65_cpsw_common *common, u32 port_idx)
 
 	if (phy_interface_mode_is_rgmii(port->slave.phy_if)) {
 		phy_interface_set_rgmii(port->slave.phylink_config.supported_interfaces);
+	} else if (port->slave.phy_if == PHY_INTERFACE_MODE_RMII) {
+		__set_bit(PHY_INTERFACE_MODE_RMII,
+			  port->slave.phylink_config.supported_interfaces);
 	} else if (common->pdata.extra_modes & BIT(port->slave.phy_if)) {
 		if (port->slave.phy_if == PHY_INTERFACE_MODE_QSGMII)
 			__set_bit(PHY_INTERFACE_MODE_QSGMII,
