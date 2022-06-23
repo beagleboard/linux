@@ -1208,9 +1208,10 @@ static int ti_sn_bridge_probe(struct i2c_client *client,
 	}
 
 	/* TODO: setting to 4 MIPI lanes always for now */
-	dsi->lanes = 4;
+	dsi->lanes = 2;
 	dsi->format = MIPI_DSI_FMT_RGB888;
 	dsi->mode_flags = MIPI_DSI_MODE_VIDEO;
+	dsi->mode_flags |= MIPI_DSI_MODE_EOT_PACKET | MIPI_DSI_MODE_VIDEO_SYNC_PULSE;
 
 	/* check if continuous dsi clock is required or not */
 	pm_runtime_get_sync(pdata->dev);
