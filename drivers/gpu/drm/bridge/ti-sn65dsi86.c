@@ -667,6 +667,15 @@ static void ti_sn_bridge_enable(struct drm_bridge *bridge)
 	int ret = -EINVAL;
 	int max_dp_lanes;
 
+	/*
+	 * Disable ASSR Display Authentication, since its supported only in eDP
+	 * and not spupperted in DP
+	 */
+	regmap_write(pdata->regmap, 0xFF, 0x7);
+	regmap_write(pdata->regmap, 0x16, 0x1);
+	regmap_write(pdata->regmap, 0xFF, 0x0);
+	regmap_update_bits(pdata->regmap, 0x5A, BIT(0), 0);
+
 	max_dp_lanes = ti_sn_get_max_lanes(pdata);
 	pdata->dp_lanes = min(pdata->dp_lanes, max_dp_lanes);
 
@@ -681,15 +690,6 @@ static void ti_sn_bridge_enable(struct drm_bridge *bridge)
 
 	/* set dsi clk frequency value */
 	ti_sn_bridge_set_dsi_rate(pdata);
-
-	/**
-	 * The SN65DSI86 only supports ASSR Display Authentication method and
-	 * this method is enabled by default. An eDP panel must support this
-	 * authentication method. We need to enable this method in the eDP panel
-	 * at DisplayPort address 0x0010A prior to link training.
-	 */
-	drm_dp_dpcd_writeb(&pdata->aux, DP_EDP_CONFIGURATION_SET,
-			   DP_ALTERNATE_SCRAMBLER_RESET_ENABLE);
 
 	/* Set the DP output format (18 bpp or 24 bpp) */
 	val = (ti_sn_bridge_get_bpp(pdata) == 18) ? BPP_18_RGB : 0;
