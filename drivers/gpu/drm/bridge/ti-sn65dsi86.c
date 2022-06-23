@@ -192,7 +192,7 @@ static int __maybe_unused ti_sn_bridge_resume(struct device *dev)
 		return ret;
 	}
 
-	gpiod_set_value(pdata->enable_gpio, 1);
+	gpiod_set_value_cansleep(pdata->enable_gpio, 1);
 
 	return ret;
 }
@@ -202,7 +202,7 @@ static int __maybe_unused ti_sn_bridge_suspend(struct device *dev)
 	struct ti_sn_bridge *pdata = dev_get_drvdata(dev);
 	int ret;
 
-	gpiod_set_value(pdata->enable_gpio, 0);
+	gpiod_set_value_cansleep(pdata->enable_gpio, 0);
 
 	ret = regulator_bulk_disable(SN_REGULATOR_SUPPLY_NUM, pdata->supplies);
 	if (ret)
