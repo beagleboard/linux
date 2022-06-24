@@ -7,6 +7,20 @@
  * https://www.ti.com/lit/ds/symlink/adc128s052.pdf
  * https://www.ti.com/lit/ds/symlink/adc122s021.pdf
  * https://www.ti.com/lit/ds/symlink/adc124s021.pdf
+ *
+ * The adcxx4s communicates with a host processor via an SPI/Microwire Bus
+ * interface. This driver supports the whole family of devices with name
+ * ADC<bb><c>S<sss>, where
+ * bb is the resolution in number of bits (8, 10, 12)
+ * c is the number of channels (1, 2, 4, 8)
+ * sss is the maximum conversion speed (021 for 200 kSPS, 051 for 500 kSPS
+ * and 101 for 1 MSPS)
+ *
+ * Complete datasheets are available at TI's website here:
+ *   https://www.ti.com/lit/gpn/adc<bb><c>s<sss>.pdf
+ *
+ * Handling of 8, 10 and 12 bits converters are the same, the
+ * unavailable bits are 0 in LSB :)
  */
 
 #include <linux/acpi.h>
@@ -197,6 +211,12 @@ static const struct of_device_id adc128_of_match[] = {
 	{ .compatible = "ti,adc122s021", .data = (void*)1L, },
 	{ .compatible = "ti,adc122s051", .data = (void*)1L, },
 	{ .compatible = "ti,adc122s101", .data = (void*)1L, },
+	{ .compatible = "ti,adc102s021", .data = (void*)1L, },
+	{ .compatible = "ti,adc102s051", .data = (void*)1L, },
+	{ .compatible = "ti,adc102s101", .data = (void*)1L, },
+	{ .compatible = "ti,adc082s021", .data = (void*)1L, },
+	{ .compatible = "ti,adc082s051", .data = (void*)1L, },
+	{ .compatible = "ti,adc082s101", .data = (void*)1L, },
 	{ .compatible = "ti,adc124s021", .data = (void*)2L, },
 	{ .compatible = "ti,adc124s051", .data = (void*)2L, },
 	{ .compatible = "ti,adc124s101", .data = (void*)2L, },
@@ -209,6 +229,12 @@ static const struct spi_device_id adc128_id[] = {
 	{ "adc122s021",	1 },
 	{ "adc122s051",	1 },
 	{ "adc122s101",	1 },
+	{ "adc102s021",	1 },
+	{ "adc102s051",	1 },
+	{ "adc102s101",	1 },
+	{ "adc082s021",	1 },
+	{ "adc082s051",	1 },
+	{ "adc082s101",	1 },
 	{ "adc124s021", 2 },
 	{ "adc124s051", 2 },
 	{ "adc124s101", 2 },
