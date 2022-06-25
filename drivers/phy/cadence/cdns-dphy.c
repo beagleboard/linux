@@ -21,6 +21,7 @@
 
 #define REG_WAKEUP_TIME_NS		800
 #define DPHY_PLL_RATE_HZ		108000000
+#define POLL_TIMEOUT_US			1000
 
 /* DPHY registers */
 #define DPHY_PMA_CMN(reg)		(reg)
@@ -89,6 +90,18 @@
 #define DPHY_LANES_MIN			1
 #define DPHY_LANES_MAX			4
 
+#define DPHY_TX_J721E_WIZ_PLL_CTRL	0xF04
+#define DPHY_TX_J721E_WIZ_STATUS	0xF08
+#define DPHY_TX_J721E_WIZ_RST_CTRL	0xF0C
+#define DPHY_TX_J721E_WIZ_PSM_FREQ	0xF10
+
+#define DPHY_TX_J721E_WIZ_IPDIV		GENMASK(4, 0)
+#define DPHY_TX_J721E_WIZ_OPDIV		GENMASK(13, 8)
+#define DPHY_TX_J721E_WIZ_FBDIV		GENMASK(25, 16)
+#define DPHY_TX_J721E_WIZ_LANE_RSTB	BIT(31)
+#define DPHY_TX_WIZ_PLL_LOCK		BIT(31)
+#define DPHY_TX_WIZ_O_CMN_READY		BIT(31)
+
 struct cdns_dphy_cfg {
 	u8 pll_ipdiv;
 	u8 pll_opdiv;
@@ -139,13 +152,13 @@ struct cdns_dphy_driver_data {
 	const struct cdns_dphy_ops *rx;
 };
 
-struct cdns_dphy_rx_band {
+struct cdns_dphy_band {
 	unsigned int min_rate;
 	unsigned int max_rate;
 };
 
 /* Order of bands is important since the index is the band number. */
-struct cdns_dphy_rx_band bands[] = {
+struct cdns_dphy_band rx_bands[] = {
 	{80, 100}, {100, 120}, {120, 160}, {160, 200}, {200, 240},
 	{240, 280}, {280, 320}, {320, 360}, {360, 400}, {400, 480},
 	{480, 560}, {560, 640}, {640, 720}, {720, 800}, {800, 880},
@@ -153,7 +166,17 @@ struct cdns_dphy_rx_band bands[] = {
 	{1750, 2000}, {2000, 2250}, {2250, 2500}
 };
 
-int num_bands = ARRAY_SIZE(bands);
+int num_rx_bands = ARRAY_SIZE(rx_bands);
+
+struct cdns_dphy_band tx_bands[] = {
+	{80, 100}, {100, 120}, {120, 160}, {160, 200}, {200, 240},
+	{240, 320}, {320, 390}, {390, 450}, {450, 510}, {510, 560},
+	{560, 640}, {640, 690}, {690, 770}, {770, 870}, {870, 950},
+	{950, 1000}, {1000, 1200}, {1200, 1400}, {1400, 1600}, {1600, 1800},
+	{1800, 2000}, {2000, 2200}, {2200, 2500}
+};
+
+int num_tx_bands = ARRAY_SIZE(tx_bands);
 
 static int cdns_dsi_get_dphy_pll_cfg(struct cdns_dphy *dphy,
 				     struct cdns_dphy_cfg *cfg,
@@ -284,11 +307,32 @@ static int cdns_dphy_tx_config_from_opts(struct phy *phy,
 	return 0;
 }
 
+static int cdns_dphy_tx_get_band_ctrl(unsigned long hs_clk_rate)
+{
+	unsigned int rate;
+	int i;
+
+	rate = hs_clk_rate / 1000000UL;
+
+	if (rate < tx_bands[0].min_rate || rate >= tx_bands[num_tx_bands - 1].max_rate)
+		return -EOPNOTSUPP;
+
+	for (i = 0; i < num_tx_bands; i++) {
+		if (rate >= tx_bands[i].min_rate && rate < tx_bands[i].max_rate)
+			return i;
+	}
+
+	/* Unreachable. */
+	WARN(1, "Reached unreachable code.");
+	return -EINVAL;
+}
+
 static int cdns_dphy_tx_configure(struct cdns_dphy *dphy,
 				  union phy_configure_opts *opts)
 {
 	struct cdns_dphy_cfg cfg = { 0 };
-	int ret;
+	int ret, band_ctrl;
+	unsigned int reg;
 
 	ret = cdns_dphy_tx_config_from_opts(dphy->phy, &opts->mipi_dphy, &cfg);
 	if (ret)
@@ -316,6 +360,14 @@ static int cdns_dphy_tx_configure(struct cdns_dphy *dphy,
 	 * clk.
 	 */
 	cdns_dphy_set_pll_cfg(dphy, &cfg);
+
+	band_ctrl = cdns_dphy_tx_get_band_ctrl(opts->mipi_dphy.hs_clk_rate);
+	if (band_ctrl < 0)
+		return band_ctrl;
+
+	reg = FIELD_PREP(DPHY_BAND_CFG_LEFT_BAND, band_ctrl) |
+	      FIELD_PREP(DPHY_BAND_CFG_RIGHT_BAND, band_ctrl);
+	writel(reg, dphy->regs + DPHY_BAND_CFG);
 
 	return 0;
 }
@@ -354,6 +406,41 @@ static int cdns_dphy_tx_power_off(struct cdns_dphy *dphy)
 	return 0;
 }
 
+static unsigned long cdns_dphy_j721e_get_wakeup_time_ns(struct cdns_dphy *dphy)
+{
+	return 1000000;
+}
+
+static void cdns_dphy_j721e_set_pll_cfg(struct cdns_dphy *dphy,
+					const struct cdns_dphy_cfg *cfg)
+{
+	u32 status;
+
+	writel(DPHY_CMN_PWM_HIGH(6) | DPHY_CMN_PWM_LOW(0x101) |
+	       DPHY_CMN_PWM_DIV(0x8),
+	       dphy->regs + DPHY_CMN_PWM);
+
+	writel((FIELD_PREP(DPHY_TX_J721E_WIZ_IPDIV, cfg->pll_ipdiv) |
+		FIELD_PREP(DPHY_TX_J721E_WIZ_OPDIV, cfg->pll_opdiv) |
+		FIELD_PREP(DPHY_TX_J721E_WIZ_FBDIV, cfg->pll_fbdiv)),
+		dphy->regs + DPHY_TX_J721E_WIZ_PLL_CTRL);
+
+	writel(DPHY_TX_J721E_WIZ_LANE_RSTB,
+	       dphy->regs + DPHY_TX_J721E_WIZ_RST_CTRL);
+
+	readl_poll_timeout(dphy->regs + DPHY_TX_J721E_WIZ_PLL_CTRL, status,
+			   (status & DPHY_TX_WIZ_PLL_LOCK), 0, POLL_TIMEOUT_US);
+
+	readl_poll_timeout(dphy->regs + DPHY_TX_J721E_WIZ_STATUS, status,
+			   (status & DPHY_TX_WIZ_O_CMN_READY), 0,
+			   POLL_TIMEOUT_US);
+}
+
+static void cdns_dphy_j721e_set_psm_div(struct cdns_dphy *dphy, u8 div)
+{
+	writel(div, dphy->regs + DPHY_TX_J721E_WIZ_PSM_FREQ);
+}
+
 static const struct cdns_dphy_ops tx_ref_dphy_ops = {
 	.power_on = cdns_dphy_tx_power_on,
 	.power_off = cdns_dphy_tx_power_off,
@@ -362,6 +449,16 @@ static const struct cdns_dphy_ops tx_ref_dphy_ops = {
 	.get_wakeup_time_ns = cdns_dphy_ref_get_wakeup_time_ns,
 	.set_pll_cfg = cdns_dphy_ref_set_pll_cfg,
 	.set_psm_div = cdns_dphy_ref_set_psm_div,
+};
+
+static const struct cdns_dphy_ops tx_j721e_dphy_ops = {
+	.power_on = cdns_dphy_tx_power_on,
+	.power_off = cdns_dphy_tx_power_off,
+	.validate = cdns_dphy_tx_validate,
+	.configure = cdns_dphy_tx_configure,
+	.get_wakeup_time_ns = cdns_dphy_j721e_get_wakeup_time_ns,
+	.set_pll_cfg = cdns_dphy_j721e_set_pll_cfg,
+	.set_psm_div = cdns_dphy_j721e_set_psm_div,
 };
 
 static int cdns_dphy_rx_power_on(struct cdns_dphy *dphy)
@@ -391,11 +488,11 @@ static int cdns_dphy_rx_get_band_ctrl(unsigned long hs_clk_rate)
 	/* Since CSI-2 clock is DDR, the bit rate is twice the clock rate. */
 	rate *= 2;
 
-	if (rate < bands[0].min_rate || rate >= bands[num_bands - 1].max_rate)
+	if (rate < rx_bands[0].min_rate || rate >= rx_bands[num_rx_bands - 1].max_rate)
 		return -EOPNOTSUPP;
 
-	for (i = 0; i < num_bands; i++) {
-		if (rate >= bands[i].min_rate && rate < bands[i].max_rate)
+	for (i = 0; i < num_rx_bands; i++) {
+		if (rate >= rx_bands[i].min_rate && rate < rx_bands[i].max_rate)
 			return i;
 	}
 
@@ -529,6 +626,11 @@ static const struct cdns_dphy_ops rx_ref_dphy_ops = {
  */
 static const struct cdns_dphy_driver_data ref_dphy_ops = {
 	.tx = &tx_ref_dphy_ops,
+	.rx = &rx_ref_dphy_ops,
+};
+
+static const struct cdns_dphy_driver_data j721e_dphy_ops = {
+	.tx = &tx_j721e_dphy_ops,
 	.rx = &rx_ref_dphy_ops,
 };
 
@@ -679,7 +781,7 @@ static int cdns_dphy_remove(struct platform_device *pdev)
 
 static const struct of_device_id cdns_dphy_of_match[] = {
 	{ .compatible = "cdns,dphy", .data = &ref_dphy_ops },
-	{ .compatible = "ti,j721e-dphy", .data = &ref_dphy_ops },
+	{ .compatible = "ti,j721e-dphy", .data = &j721e_dphy_ops },
 	{ /* sentinel */ },
 };
 MODULE_DEVICE_TABLE(of, cdns_dphy_of_match);

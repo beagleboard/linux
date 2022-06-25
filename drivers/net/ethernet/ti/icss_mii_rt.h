@@ -144,6 +144,7 @@ struct regmap;
 struct prueth_emac;
 
 void icssg_mii_update_ipg(struct regmap *mii_rt, int mii, u32 ipg);
+void icssg_mii_update_mtu(struct regmap *mii_rt, int mii, int mtu);
 void icssg_update_rgmii_cfg(struct regmap *miig_rt, struct prueth_emac *emac);
 u32 icssg_rgmii_cfg_get_bitfield(struct regmap *miig_rt, u32 mask, u32 shift);
 u32 icssg_rgmii_get_speed(struct regmap *miig_rt, int mii);

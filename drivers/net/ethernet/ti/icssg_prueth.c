@@ -35,8 +35,12 @@
 #define PRUETH_MODULE_VERSION "0.1"
 #define PRUETH_MODULE_DESCRIPTION "PRUSS ICSSG Ethernet driver"
 
+/* MAX MTU set to match MII_G_RT_RX_STAT_MAX_SIZE_PRU0/1,
+ * MII_G_RT_TX_STAT_MAX_SIZE_PORT0/1 defaults
+ */
+#define PRUETH_MAX_MTU		(2000 - ETH_HLEN - ETH_FCS_LEN)
 #define PRUETH_MIN_PKT_SIZE	(VLAN_ETH_ZLEN)
-#define PRUETH_MAX_PKT_SIZE	(VLAN_ETH_FRAME_LEN + ETH_FCS_LEN)
+#define PRUETH_MAX_PKT_SIZE	(PRUETH_MAX_MTU + ETH_HLEN + ETH_FCS_LEN)
 
 /* Netif debug messages possible */
 #define PRUETH_EMAC_DEBUG	(NETIF_MSG_DRV | \
@@ -1755,6 +1759,8 @@ skip_mgm_irq:
 	if (ret)
 		goto free_rx_mgmt_ts_irq;
 
+	icssg_mii_update_mtu(prueth->mii_rt, slice, ndev->max_mtu);
+
 	if (!emac->is_sr1 && !prueth->emacs_initialized) {
 		ret = icss_iep_init(emac->iep, &prueth_iep_clockops,
 				    emac, IEP_DEFAULT_CYCLE_TIME_NS);
@@ -2316,6 +2322,8 @@ skip_irq:
 	}
 	ether_addr_copy(emac->mac_addr, ndev->dev_addr);
 
+	ndev->min_mtu = PRUETH_MIN_PKT_SIZE;
+	ndev->max_mtu = PRUETH_MAX_MTU;
 	ndev->netdev_ops = &emac_netdev_ops;
 	ndev->ethtool_ops = &icssg_ethtool_ops;
 	ndev->hw_features = NETIF_F_SG;
