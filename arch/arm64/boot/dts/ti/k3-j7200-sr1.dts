@@ -1,0 +1,58 @@
+// SPDX-License-Identifier: GPL-2.0
+/**
+ * Device Tree Overlay for J7200 SR1.0
+ *
+ * Copyright (C) 2022 Texas Instruments Incorporated - https://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/soc/ti,sci_pm_domain.h>
+
+&serdes_wiz0 {
+	compatible = "ti,j721e-wiz-10g";
+	power-domains = <&k3_pds 292 TI_SCI_PD_EXCLUSIVE>;
+	clocks = <&k3_clks 292 11>, <&k3_clks 292 85>, <&serdes_refclk>;
+	clock-names = "fck", "core_ref_clk", "ext_ref_clk";
+	num-lanes = <4>;
+	#reset-cells = <1>;
+	/delete-property/ #clock-cells;
+
+	wiz0_pll0_refclk: pll0-refclk {
+		clocks = <&k3_clks 292 85>, <&serdes_refclk>;
+		clock-output-names = "wiz0_pll0_refclk";
+		#clock-cells = <0>;
+		assigned-clocks = <&wiz0_pll0_refclk>;
+		assigned-clock-parents = <&k3_clks 292 85>;
+	};
+
+	wiz0_pll1_refclk: pll1-refclk {
+		clocks = <&k3_clks 292 85>, <&serdes_refclk>;
+		clock-output-names = "wiz0_pll1_refclk";
+		#clock-cells = <0>;
+		assigned-clocks = <&wiz0_pll1_refclk>;
+		assigned-clock-parents = <&k3_clks 292 85>;
+	};
+
+	wiz0_refclk_dig: refclk-dig {
+		clocks = <&k3_clks 292 85>, <&serdes_refclk>;
+		clock-output-names = "wiz0_refclk_dig";
+		#clock-cells = <0>;
+		assigned-clocks = <&wiz0_refclk_dig>;
+		assigned-clock-parents = <&k3_clks 292 85>;
+	};
+
+	wiz0_cmn_refclk_dig_div: cmn-refclk-dig-div {
+		clocks = <&wiz0_refclk_dig>;
+		#clock-cells = <0>;
+	};
+};
+
+&serdes0 {
+	compatible = "ti,j721e-serdes-10g";
+	clocks = <&wiz0_pll0_refclk>;
+	clock-names = "refclk";
+	/delete-property/ assigned-clocks;
+	/delete-property/ assigned-clock-parents;
+};
