@@ -114,6 +114,11 @@ static struct psil_ep j721s2_src_ep_map[] = {
 	PSIL_PDMA_XY_PKT(0x4707),
 	PSIL_PDMA_XY_PKT(0x4708),
 	PSIL_PDMA_XY_PKT(0x4709),
+	/* MAIN SA2UL */
+	PSIL_SA2UL(0x4a40, 0),
+	PSIL_SA2UL(0x4a41, 0),
+	PSIL_SA2UL(0x4a42, 0),
+	PSIL_SA2UL(0x4a43, 0),
 	/* CPSW0 */
 	PSIL_ETHERNET(0x7000),
 	/* MCU_PDMA0 (MCU_PDMA_MISC_G0) - SPI0 */
@@ -164,6 +169,9 @@ static struct psil_ep j721s2_dst_ep_map[] = {
 	PSIL_ETHERNET(0xc645),
 	PSIL_ETHERNET(0xc646),
 	PSIL_ETHERNET(0xc647),
+	/* MAIN SA2UL */
+	PSIL_SA2UL(0xca40, 1),
+	PSIL_SA2UL(0xca41, 1),
 	/* SA2UL */
 	PSIL_SA2UL(0xf500, 1),
 	PSIL_SA2UL(0xf501, 1),
