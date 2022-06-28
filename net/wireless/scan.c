@@ -418,16 +418,13 @@ cfg80211_add_nontrans_list(struct cfg80211_bss *trans_bss,
 	}
 	ssid_len = ssid[1];
 	ssid = ssid + 2;
+	rcu_read_unlock();
 
 	/* check if nontrans_bss is in the list */
 	list_for_each_entry(bss, &trans_bss->nontrans_list, nontrans_list) {
-		if (is_bss(bss, nontrans_bss->bssid, ssid, ssid_len)) {
-			rcu_read_unlock();
+		if (is_bss(bss, nontrans_bss->bssid, ssid, ssid_len))
 			return 0;
-		}
 	}
-
-	rcu_read_unlock();
 
 	/* add to the list */
 	list_add_tail(&nontrans_bss->nontrans_list, &trans_bss->nontrans_list);
@@ -702,12 +699,8 @@ static bool cfg80211_find_ssid_match(struct cfg80211_colocated_ap *ap,
 
 	for (i = 0; i < request->n_ssids; i++) {
 		/* wildcard ssid in the scan request */
-		if (!request->ssids[i].ssid_len) {
-			if (ap->multi_bss && !ap->transmitted_bssid)
-				continue;
-
+		if (!request->ssids[i].ssid_len)
 			return true;
-		}
 
 		if (ap->ssid_len &&
 		    ap->ssid_len == request->ssids[i].ssid_len) {
@@ -832,9 +825,6 @@ static int cfg80211_scan_6ghz(struct cfg80211_registered_device *rdev)
 
 		if (request->n_ssids > 0 &&
 		    !cfg80211_find_ssid_match(ap, request))
-			continue;
-
-		if (!request->n_ssids && ap->multi_bss && !ap->transmitted_bssid)
 			continue;
 
 		cfg80211_scan_req_add_chan(request, chan, true);
@@ -1756,14 +1746,14 @@ cfg80211_bss_update(struct cfg80211_registered_device *rdev,
 			 * be grouped with this beacon for updates ...
 			 */
 			if (!cfg80211_combine_bsses(rdev, new)) {
-				bss_ref_put(rdev, new);
+				kfree(new);
 				goto drop;
 			}
 		}
 
 		if (rdev->bss_entries >= bss_entries_limit &&
 		    !cfg80211_bss_expire_oldest(rdev)) {
-			bss_ref_put(rdev, new);
+			kfree(new);
 			goto drop;
 		}
 
@@ -1968,13 +1958,11 @@ cfg80211_inform_single_bss_data(struct wiphy *wiphy,
 		/* this is a nontransmitting bss, we need to add it to
 		 * transmitting bss' list if it is not there
 		 */
-		spin_lock_bh(&rdev->bss_lock);
 		if (cfg80211_add_nontrans_list(non_tx_data->tx_bss,
 					       &res->pub)) {
 			if (__cfg80211_unlink_bss(rdev, res))
 				rdev->bss_generation++;
 		}
-		spin_unlock_bh(&rdev->bss_lock);
 	}
 
 	trace_cfg80211_return_bss(&res->pub);
@@ -2363,16 +2351,14 @@ cfg80211_inform_single_bss_frame_data(struct wiphy *wiphy,
 		return NULL;
 
 	if (ext) {
-		const struct ieee80211_s1g_bcn_compat_ie *compat;
-		const struct element *elem;
+		struct ieee80211_s1g_bcn_compat_ie *compat;
+		u8 *ie;
 
-		elem = cfg80211_find_elem(WLAN_EID_S1G_BCN_COMPAT,
-					  variable, ielen);
-		if (!elem)
+		ie = (void *)cfg80211_find_ie(WLAN_EID_S1G_BCN_COMPAT,
+					      variable, ielen);
+		if (!ie)
 			return NULL;
-		if (elem->datalen < sizeof(*compat))
-			return NULL;
-		compat = (void *)elem->data;
+		compat = (void *)(ie + 2);
 		bssid = ext->u.s1g_beacon.sa;
 		capability = le16_to_cpu(compat->compat_info);
 		beacon_int = le16_to_cpu(compat->beacon_int);
