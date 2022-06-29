@@ -341,6 +341,7 @@ static int tipc_sk_create(struct net *net, struct socket *sock,
 	sock->state = state;
 	sock_init_data(sock, sk);
 	if (tipc_sk_insert(tsk)) {
+		sk_free(sk);
 		pr_warn("Socket create failed; port number exhausted\n");
 		return -EINVAL;
 	}
