@@ -193,13 +193,13 @@ static int adc128_remove(struct spi_device *spi)
 }
 
 static const struct of_device_id adc128_of_match[] = {
-	{ .compatible = "ti,adc128s052", },
-	{ .compatible = "ti,adc122s021", },
-	{ .compatible = "ti,adc122s051", },
-	{ .compatible = "ti,adc122s101", },
-	{ .compatible = "ti,adc124s021", },
-	{ .compatible = "ti,adc124s051", },
-	{ .compatible = "ti,adc124s101", },
+	{ .compatible = "ti,adc128s052", .data = 0},
+	{ .compatible = "ti,adc122s021", .data = 1},
+	{ .compatible = "ti,adc122s051", .data = 1},
+	{ .compatible = "ti,adc122s101", .data = 1},
+	{ .compatible = "ti,adc124s021", .data = 2},
+	{ .compatible = "ti,adc124s051", .data = 2},
+	{ .compatible = "ti,adc124s101", .data = 2},
 	{ /* sentinel */ },
 };
 MODULE_DEVICE_TABLE(of, adc128_of_match);
