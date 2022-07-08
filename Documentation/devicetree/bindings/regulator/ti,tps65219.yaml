@@ -20,6 +20,17 @@ properties:
   reg:
     maxItems: 1
 
+  interrupts:
+    description: Short-circuit, over-current, under-voltage for regulators, PB interrupts.
+    maxItems: 1
+
+  interrupt-controller: true
+
+  '#interrupt-cells':
+    description: Specifies the PIN numbers and Flags, as defined in
+      include/dt-bindings/interrupt-controller/irq.h
+    const: 2
+
 patternProperties:
   "^buck[1-3]-supply$":
     description: Input supply phandle of one regulator.
@@ -66,12 +77,17 @@ patternProperties:
 required:
   - compatible
   - reg
+  - interrupts
+  - interrupts
+  - interrupt-controller
+  - '#interrupt-cells'
   - regulators
 
 additionalProperties: false
 
 examples:
   - |
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
     i2c {
         #address-cells = <1>;
         #size-cells = <0>;
@@ -86,6 +102,13 @@ examples:
             ldo2-supply = <&buck2_reg>;
             ldo3-supply = <&vcc_3v3_sys>;
             ldo4-supply = <&vcc_3v3_sys>;
+
+            pinctrl-0 = <&pmic_irq_pins_default>;
+
+            interrupt-parent = <&gic500>;
+            interrupts = <GIC_SPI 224 IRQ_TYPE_LEVEL_HIGH>;
+            interrupt-controller;
+            #interrupt-cells = <2>;
 
             regulators {
                 buck1_reg: buck1 {
