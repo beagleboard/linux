@@ -116,6 +116,10 @@ static void pmic_do_poweroff(void)
 
 static const struct mfd_cell tps65219_cells[] = {
 	{ .name = "tps65219-regulator", },
+	{
+		.name = "tps65219-pwrbutton",
+		.of_compatible = "ti,tps65219-pwrbutton"
+	},
 };
 
 static const struct regmap_range tps65219_volatile_ranges[] = {
