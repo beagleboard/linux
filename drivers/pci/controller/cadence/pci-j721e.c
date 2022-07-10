@@ -539,8 +539,17 @@ static int j721e_pcie_probe(struct platform_device *pdev)
 	pcie->user_cfg_base = base;
 
 	ret = of_property_read_u32(node, "num-lanes", &num_lanes);
-	if (ret || num_lanes > data->max_lanes)
+	if (ret) {
+		dev_warn(dev, "no num-lanes defined, defaulting to 1\n");
 		num_lanes = 1;
+	}
+
+	if (num_lanes > data->max_lanes) {
+		dev_warn(dev, "defined num-lanes %d is greater than the "
+			      "allowed maximum of %d, defaulting to 1\n",
+			      num_lanes, data->max_lanes);
+		num_lanes = 1;
+	}
 	pcie->num_lanes = num_lanes;
 
 	if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(48)))
