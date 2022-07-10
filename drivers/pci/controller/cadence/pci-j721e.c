@@ -62,7 +62,7 @@ enum eoi_reg {
 };
 
 #define J721E_MODE_RC			BIT(7)
-#define LANE_COUNT_MASK			BIT(8)
+#define LANE_COUNT_MASK			GENMASK(9, 8)
 #define LANE_COUNT(n)			((n) << 8)
 
 #define GENERATION_SEL_MASK		GENMASK(1, 0)
