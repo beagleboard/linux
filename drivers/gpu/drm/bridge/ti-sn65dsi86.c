@@ -1172,6 +1172,12 @@ static int ti_sn_bridge_probe(struct i2c_client *client,
 	if (ret)
 		return ret;
 
+	host = of_find_mipi_dsi_host_by_node(pdata->host_node);
+	if (!host) {
+		DRM_ERROR("failed to find dsi host\n");
+		return -EPROBE_DEFER;
+	}
+
 	pm_runtime_enable(pdata->dev);
 
 	ret = ti_sn_setup_gpio_controller(pdata);
@@ -1195,12 +1201,6 @@ static int ti_sn_bridge_probe(struct i2c_client *client,
 	/*
 	 * Attach to DSI host.
 	 */
-	host = of_find_mipi_dsi_host_by_node(pdata->host_node);
-	if (!host) {
-		DRM_ERROR("failed to find dsi host\n");
-		return -ENODEV;
-	}
-
 	dsi = mipi_dsi_device_register_full(host, &info);
 	if (IS_ERR(dsi)) {
 		DRM_ERROR("failed to create dsi device\n");
