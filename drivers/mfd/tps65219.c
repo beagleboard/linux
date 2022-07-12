@@ -293,6 +293,7 @@ static int tps65219_probe(struct i2c_client *client,
 	struct tps65219 *tps;
 	int ret;
 	unsigned int chipid;
+	bool pm_off;
 
 	tps = devm_kzalloc(&client->dev, sizeof(*tps), GFP_KERNEL);
 	if (!tps)
@@ -338,15 +339,20 @@ static int tps65219_probe(struct i2c_client *client,
 		return -ENODEV;
 	}
 
+	pm_off = of_device_is_system_power_controller(client->dev.of_node);
+	if (!pm_off)
+		return ret;
+
 	/* If a pm_power_off function has already been added, leave it alone */
-	if (pm_power_off) {
-		dev_info(tps->dev,
-			 "%s: pm_power_off function already registered\n",
+	if (pm_power_off && pm_off) {
+		dev_warn(tps->dev,
+			 "%s: pm_power_off function already registered - OVERRIDE!\n",
 			 __func__);
-	} else {
-		tps65219_i2c_client = client;
-		pm_power_off = &pmic_do_poweroff;
 	}
+
+	tps65219_i2c_client = client;
+	pm_power_off = &pmic_do_poweroff;
+
 	return ret;
 }
 
