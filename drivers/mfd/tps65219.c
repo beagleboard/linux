@@ -339,6 +339,15 @@ static int tps65219_probe(struct i2c_client *client,
 		return -ENODEV;
 	}
 
+	/* Configure PB mode (default is EN) */
+	ret =  regmap_update_bits(tps->regmap, TPS65219_REG_MFP_2_CONFIG,
+				  TPS65219_MFP_2_EN_PB_VSENSE_MASK,
+				  MFP_2_PB << MFP_2_EN_PB_VSENSE_SHIFT);
+
+	/* Clear the Mask bits to enable the IRQ */
+	ret =  regmap_clear_bits(tps->regmap, TPS65219_REG_MASK_CONFIG,
+				  0x80);
+
 	pm_off = of_device_is_system_power_controller(client->dev.of_node);
 	if (!pm_off)
 		return ret;
