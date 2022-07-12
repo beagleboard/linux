@@ -224,7 +224,11 @@ static int pruss_probe(struct platform_device *pdev)
 		p->mem[0].name = "pruss";
 		p->mem[0].addr = regs_prussio->start;
 		p->mem[0].size = resource_size(regs_prussio);
+#ifdef CONFIG_ARCH_K3
+		p->mem[0].memtype = UIO_MEM_IOVA;
+#else
 		p->mem[0].memtype = UIO_MEM_PHYS;
+#endif
 
 		/* note: some userspace code uses hardcoded mem indices... */
 #ifdef CONFIG_ARCH_DAVINCI_DA850
@@ -241,6 +245,11 @@ static int pruss_probe(struct platform_device *pdev)
 		p->mem[1].name = "ddr";
 		p->mem[1].addr = gdev->ddr_paddr;
 		p->mem[1].size = extram_pool_sz;
+#ifdef CONFIG_ARCH_K3
+		p->mem[1].memtype = UIO_MEM_IOVA;
+#else
+		p->mem[1].memtype = UIO_MEM_PHYS;
+#endif
 		p->mem[1].memtype = UIO_MEM_PHYS;
 #endif
 
