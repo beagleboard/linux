@@ -123,6 +123,7 @@
  * @dp_lanes:     Count of dp_lanes we're using.
  * @ln_assign:    Value to program to the LN_ASSIGN register.
  * @ln_polrs:     Value for the 4-bit LN_POLRS field of SN_ENH_FRAME_REG.
+ * @plugged:      Panel is plugged.
  *
  * @gchip:        If we expose our GPIOs, this is used.
  * @gchip_output: A cache of whether we've set GPIOs to output.  This
@@ -150,6 +151,7 @@ struct ti_sn_bridge {
 	int				dp_lanes;
 	u8				ln_assign;
 	u8				ln_polrs;
+	bool				plugged;
 
 #if defined(CONFIG_OF_GPIO)
 	struct gpio_chip		gchip;
@@ -286,12 +288,12 @@ static struct drm_connector_helper_funcs ti_sn_bridge_connector_helper_funcs = {
 static enum drm_connector_status
 ti_sn_bridge_connector_detect(struct drm_connector *connector, bool force)
 {
-	/**
-	 * TODO: Currently if drm_panel is present, then always
-	 * return the status as connected. Need to add support to detect
-	 * device state for hot pluggable scenarios.
-	 */
-	return connector_status_connected;
+	struct ti_sn_bridge *pdata = connector_to_ti_sn_bridge(connector);
+
+	if (pdata->plugged)
+		return connector_status_connected;
+	else
+		return connector_status_disconnected;
 }
 
 static const struct drm_connector_funcs ti_sn_bridge_connector_funcs = {
@@ -326,6 +328,7 @@ static int ti_sn_bridge_attach(struct drm_bridge *bridge,
 			       enum drm_bridge_attach_flags flags)
 {
 	int ret;
+	u8 link_status[DP_LINK_STATUS_SIZE];
 	struct ti_sn_bridge *pdata = bridge_to_ti_sn_bridge(bridge);
 
 	if (flags & DRM_BRIDGE_ATTACH_NO_CONNECTOR) {
@@ -345,9 +348,13 @@ static int ti_sn_bridge_attach(struct drm_bridge *bridge,
 				 &ti_sn_bridge_connector_helper_funcs);
 	drm_connector_attach_encoder(&pdata->connector, bridge->encoder);
 
-	return 0;
+	ret = drm_dp_dpcd_read_link_status(&pdata->aux, link_status);
+	if (ret < 0)
+		pdata->plugged = false;
+	else
+		pdata->plugged = true;
 
-	return ret;
+	return 0;
 }
 
 static void ti_sn_bridge_disable(struct drm_bridge *bridge)
@@ -806,6 +813,14 @@ static ssize_t ti_sn_aux_transfer(struct drm_dp_aux *aux,
 		return -EINVAL;
 	}
 
+	ret = pm_runtime_get_sync(pdata->dev);
+	if (ret < 0) {
+		dev_err(pdata->dev, "pm_runtime_get_sync failed\n");
+		return ret;
+	}
+	regmap_update_bits(pdata->regmap, SN_HPD_DISABLE_REG, HPD_DISABLE,
+			   HPD_DISABLE);
+
 	regmap_write(pdata->regmap, SN_AUX_ADDR_19_16_REG,
 		     (msg->address >> 16) & 0xF);
 	regmap_write(pdata->regmap, SN_AUX_ADDR_15_8_REG,
@@ -832,31 +847,38 @@ static ssize_t ti_sn_aux_transfer(struct drm_dp_aux *aux,
 				       !(val & AUX_CMD_SEND), 200,
 				       50 * 1000);
 	if (ret)
-		return ret;
+		goto put_pm_runtime;
 
 	ret = regmap_read(pdata->regmap, SN_AUX_CMD_STATUS_REG, &val);
 	if (ret)
-		return ret;
-	else if ((val & AUX_IRQ_STATUS_NAT_I2C_FAIL)
-		 || (val & AUX_IRQ_STATUS_AUX_RPLY_TOUT)
-		 || (val & AUX_IRQ_STATUS_AUX_SHORT))
-		return -ENXIO;
+		goto put_pm_runtime;
+	else if ((val & AUX_IRQ_STATUS_NAT_I2C_FAIL)  ||
+		 (val & AUX_IRQ_STATUS_AUX_RPLY_TOUT) ||
+		 (val & AUX_IRQ_STATUS_AUX_SHORT)) {
+		ret = -ENXIO;
+		goto put_pm_runtime;
+	}
 
-	if (request == DP_AUX_NATIVE_WRITE || request == DP_AUX_I2C_WRITE)
-		return msg->size;
+	if (request == DP_AUX_NATIVE_WRITE || request == DP_AUX_I2C_WRITE) {
+		ret = msg->size;
+		goto put_pm_runtime;
+	}
 
 	for (i = 0; i < msg->size; i++) {
 		unsigned int val;
 		ret = regmap_read(pdata->regmap, SN_AUX_RDATA_REG(i),
 				  &val);
 		if (ret)
-			return ret;
+			goto put_pm_runtime;
 
 		WARN_ON(val & ~0xFF);
 		buf[i] = (u8)(val & 0xFF);
 	}
 
-	return msg->size;
+	ret =  msg->size;
+put_pm_runtime:
+	pm_runtime_get_sync(pdata->dev);
+	return ret;
 }
 
 static int ti_sn_bridge_parse_dsi_host(struct ti_sn_bridge *pdata)
@@ -1172,6 +1194,12 @@ static int ti_sn_bridge_probe(struct i2c_client *client,
 	if (ret)
 		return ret;
 
+	host = of_find_mipi_dsi_host_by_node(pdata->host_node);
+	if (!host) {
+		DRM_ERROR("failed to find dsi host\n");
+		return -EPROBE_DEFER;
+	}
+
 	pm_runtime_enable(pdata->dev);
 
 	ret = ti_sn_setup_gpio_controller(pdata);
@@ -1195,12 +1223,6 @@ static int ti_sn_bridge_probe(struct i2c_client *client,
 	/*
 	 * Attach to DSI host.
 	 */
-	host = of_find_mipi_dsi_host_by_node(pdata->host_node);
-	if (!host) {
-		DRM_ERROR("failed to find dsi host\n");
-		return -ENODEV;
-	}
-
 	dsi = mipi_dsi_device_register_full(host, &info);
 	if (IS_ERR(dsi)) {
 		DRM_ERROR("failed to create dsi device\n");
