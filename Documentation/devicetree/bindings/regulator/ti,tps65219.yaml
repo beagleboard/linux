@@ -36,6 +36,11 @@ properties:
       include/dt-bindings/interrupt-controller/irq.h
     const: 1
 
+  power-button:
+    type: boolean
+    description: Optional property that sets the EN/PB/VSENSE pin to be a
+      power-button.
+
 patternProperties:
   "^buck[1-3]-supply$":
     description: Input supply phandle of one regulator.
