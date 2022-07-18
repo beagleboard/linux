@@ -597,7 +597,7 @@
 	};
 
 	dss: dss@30200000 {
-		compatible = "ti,am65x-dss";
+		compatible = "ti,am625-dss";
 
 		reg = <0x00 0x30200000 0x00 0x1000>, /* common */
 		      <0x00 0x30201000 0x00 0x1000>, /* common1 */
