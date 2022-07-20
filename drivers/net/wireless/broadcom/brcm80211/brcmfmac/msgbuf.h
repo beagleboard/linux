@@ -39,5 +39,6 @@ static inline int brcmf_proto_msgbuf_attach(struct brcmf_pub *drvr)
 }
 static inline void brcmf_proto_msgbuf_detach(struct brcmf_pub *drvr) {}
 #endif
+int brcmf_msgbuf_tx_mbdata(struct brcmf_pub *drvr, u32 mbdata);
 
 #endif /* BRCMFMAC_MSGBUF_H */
