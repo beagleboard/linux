@@ -354,7 +354,7 @@
 			reg = <0x00 0xf00 0x00 0x100>;
 			#address-cells = <1>;
 			#size-cells = <0>;
-			clocks = <&k3_clks 19 0>;
+			clocks = <&k3_clks 19 33>;
 			clock-names = "fck";
 			bus_freq = <1000000>;
 		};

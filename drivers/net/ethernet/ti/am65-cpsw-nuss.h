@@ -201,8 +201,24 @@ int am65_cpsw_nuss_update_tx_chns(struct am65_cpsw_common *common, int num_tx);
 
 bool am65_cpsw_port_dev_check(const struct net_device *dev);
 
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 int am65_cpsw_nuss_register_port_debugfs(struct am65_cpsw_port *port);
 int am65_cpsw_nuss_register_debugfs(struct am65_cpsw_common *common);
 void am65_cpsw_nuss_unregister_debugfs(struct am65_cpsw_common *common);
+#else
+static inline int am65_cpsw_nuss_register_port_debugfs(struct am65_cpsw_port *port)
+{
+	return 0;
+}
+
+static inline int am65_cpsw_nuss_register_debugfs(struct am65_cpsw_common *common)
+{
+	return 0;
+}
+
+static inline void am65_cpsw_nuss_unregister_debugfs(struct am65_cpsw_common *common)
+{
+}
+#endif
 
 #endif /* AM65_CPSW_NUSS_H_ */
