@@ -1,0 +1,28 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (C) 2022 BeagleBoard.org - https://beagleboard.org/
+ *
+ * https://elinux.org/Beagleboard:BeagleBone_cape_interface_spec#PWM
+ */
+
+/dts-v1/;
+/plugin/;
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+ */
+&{/chosen} {
+	overlays {
+		BONE-PWM2.kernel = __TIMESTAMP__;
+	};
+};
+
+&main_ehrpwm0 {
+	// location: /dev/bone/pwm/2
+	pinctrl-names = "default";
+	pinctrl-0 = <
+		     &P8_19_pwm_pin /* PWM A */
+		     &P8_13_pwm_pin /* PWM B */
+		    >;
+	status = "okay";
+};
