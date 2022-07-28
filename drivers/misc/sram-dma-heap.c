@@ -140,7 +140,7 @@ static void *dma_heap_vmap(struct dma_buf *dmabuf)
 	return buffer->vaddr;
 }
 
-const struct dma_buf_ops sram_dma_heap_buf_ops = {
+static const struct dma_buf_ops sram_dma_heap_buf_ops = {
 	.attach = dma_heap_attach,
 	.detach = dma_heap_detatch,
 	.map_dma_buf = dma_heap_map_dma_buf,
