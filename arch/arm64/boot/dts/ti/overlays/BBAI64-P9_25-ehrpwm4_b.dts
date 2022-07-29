@@ -1,0 +1,20 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (C) 2022 BeagleBoard.org - https://beagleboard.org/
+ */
+
+/dts-v1/;
+/plugin/;
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+ */
+&{/chosen} {
+	overlays {
+		BBAI64-P9_25-ehrpwm4_b.kernel = __TIMESTAMP__;
+	};
+};
+
+&main_ehrpwm4 {
+	status = "okay";
+};
