@@ -821,6 +821,16 @@
 	status = "disabled";
 };
 
+&mcu_rti0 {
+	/* MCU RTI0 is used by M4F firmware */
+	status = "reserved";
+};
+
+&wkup_rti0 {
+	/* WKUP RTI0 is used by DM firmware */
+	status = "reserved";
+};
+
 &epwm0 {
 	status = "disabled";
 };
