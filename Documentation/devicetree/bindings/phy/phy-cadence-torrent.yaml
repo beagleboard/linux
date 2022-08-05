@@ -21,6 +21,7 @@ properties:
     enum:
       - cdns,torrent-phy
       - ti,j721e-serdes-10g
+      - ti,j7200-serdes-10g
 
   '#address-cells':
     const: 1
@@ -33,7 +34,7 @@ properties:
 
   clocks:
     minItems: 1
-    maxItems: 2
+    maxItems: 3
     description:
       PHY reference clock for 1 item. Must contain an entry in clock-names.
       Optional Parent to enable output reference clock.
@@ -42,6 +43,7 @@ properties:
     minItems: 1
     items:
       - const: refclk
+      - const: refclk1
       - const: phy_en_refclk
 
   assigned-clocks:
