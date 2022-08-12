@@ -1647,6 +1647,7 @@ pte_t *__get_locked_pte(struct mm_struct *mm, unsigned long addr,
 		return NULL;
 	return pte_alloc_map_lock(mm, pmd, addr, ptl);
 }
+EXPORT_SYMBOL_GPL(zap_page_range);
 
 static int validate_page_before_insert(struct page *page)
 {
