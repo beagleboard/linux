@@ -451,6 +451,7 @@ struct files_struct *get_files_struct(struct task_struct *task)
 
 	return files;
 }
+EXPORT_SYMBOL_GPL(get_files_struct);
 
 void put_files_struct(struct files_struct *files)
 {
@@ -463,6 +464,7 @@ void put_files_struct(struct files_struct *files)
 		kmem_cache_free(files_cachep, files);
 	}
 }
+EXPORT_SYMBOL_GPL(put_files_struct);
 
 void reset_files_struct(struct files_struct *files)
 {
@@ -576,6 +578,7 @@ out:
 	spin_unlock(&files->file_lock);
 	return error;
 }
+EXPORT_SYMBOL_GPL(__alloc_fd);
 
 static int alloc_fd(unsigned start, unsigned flags)
 {
@@ -654,6 +657,7 @@ void __fd_install(struct files_struct *files, unsigned int fd,
 	rcu_assign_pointer(fdt->fd[fd], file);
 	rcu_read_unlock_sched();
 }
+EXPORT_SYMBOL_GPL(__fd_install);
 
 /*
  * This consumes the "file" refcount, so callers should treat it
@@ -809,6 +813,8 @@ out_unlock:
 	*res = NULL;
 	return -ENOENT;
 }
+
+EXPORT_SYMBOL_GPL(__close_fd_get_file);
 
 void do_close_on_exec(struct files_struct *files)
 {
