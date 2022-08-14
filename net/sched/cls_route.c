@@ -427,6 +427,9 @@ static int route4_set_parms(struct net *net, struct tcf_proto *tp,
 			goto errout;
 	}
 
+	if (!nhandle)
+		return -EINVAL;
+
 	h1 = to_hash(nhandle);
 	b = rtnl_dereference(head->table[h1]);
 	if (!b) {
@@ -485,6 +488,9 @@ static int route4_change(struct net *net, struct sk_buff *in_skb,
 	unsigned int h, th;
 	int err;
 	bool new = true;
+
+	if (!handle)
+		return -EINVAL;
 
 	if (opt == NULL)
 		return handle ? -EINVAL : 0;
