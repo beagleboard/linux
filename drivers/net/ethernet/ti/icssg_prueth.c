@@ -9,6 +9,7 @@
 #include <linux/bitops.h>
 #include <linux/clk.h>
 #include <linux/etherdevice.h>
+#include <linux/delay.h>
 #include <linux/dma-mapping.h>
 #include <linux/genalloc.h>
 #include <linux/if_vlan.h>
@@ -1825,6 +1826,9 @@ skip_mgm_irq:
 		icssg_set_pvid(emac->prueth, emac->port_vlan, emac->port_id);
 		emac_set_port_state(emac, ICSSG_EMAC_PORT_VLAN_AWARE_ENABLE);
 	}
+
+	queue_work(system_long_wq, &emac->stats_work.work);
+
 	return 0;
 
 reset_tx_chan:
@@ -1928,6 +1932,11 @@ static int emac_ndo_stop(struct net_device *ndev)
 		icss_iep_exit(emac->iep);
 
 	cancel_work_sync(&emac->rx_mode_work);
+
+	/* Destroying the queued work in ndo_stop() */
+
+	cancel_delayed_work_sync(&emac->stats_work);
+
 	/* stop PRUs */
 	prueth_emac_stop(emac);
 
@@ -2244,6 +2253,9 @@ static int prueth_netdev_init(struct prueth *prueth,
 		goto free_ndev;
 	}
 	INIT_WORK(&emac->rx_mode_work, emac_ndo_set_rx_mode_work);
+
+	emac_ethtool_stats_init(emac);
+	INIT_DELAYED_WORK(&emac->stats_work, emac_stats_work_handler);
 
 	ret = pruss_request_mem_region(prueth->pruss,
 				       port == PRUETH_PORT_MII0 ?

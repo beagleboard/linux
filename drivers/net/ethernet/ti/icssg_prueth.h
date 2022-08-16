@@ -190,6 +190,8 @@ struct prueth_emac {
 
 	struct prueth_qos qos;
 	struct work_struct ts_work;
+	struct delayed_work stats_work;
+	u64 *stats;
 };
 
 /**
@@ -352,4 +354,6 @@ void icssg_set_pvid(struct prueth *prueth, u8 vid, u8 port);
 	container_of(pnapi, struct prueth_tx_chn, napi_tx)
 
 u64 prueth_iep_gettime(void *clockops_data, struct ptp_system_timestamp *sts);
+void emac_stats_work_handler(struct work_struct *work);
+void emac_ethtool_stats_init(struct prueth_emac *emac);
 #endif /* __NET_TI_ICSSG_PRUETH_H */
