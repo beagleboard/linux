@@ -249,8 +249,8 @@ int iwl_pnvm_load(struct iwl_trans *trans,
 		if (strlen(trans->cfg->fw_name_pre) < sizeof(pnvm_name))
 			pnvm_name[strlen(trans->cfg->fw_name_pre) - 1] = '.';
 
-		ret = firmware_request_nowarn(&pnvm, pnvm_name, trans->dev);
-		if (ret) {
+		//ret = firmware_request_nowarn(&pnvm, pnvm_name, trans->dev);
+		//if (ret) {
 			IWL_DEBUG_FW(trans, "PNVM file %s not found %d\n",
 				     pnvm_name, ret);
 			/*
@@ -259,11 +259,11 @@ int iwl_pnvm_load(struct iwl_trans *trans,
 			 * trying again over and over.
 			 */
 			trans->pnvm_loaded = true;
-		} else {
-			iwl_pnvm_parse(trans, pnvm->data, pnvm->size);
+		//} else {
+		//	iwl_pnvm_parse(trans, pnvm->data, pnvm->size);
 
-			release_firmware(pnvm);
-		}
+		//	release_firmware(pnvm);
+		//}
 	} else {
 		/* if we already loaded, we need to set it again */
 		ret = iwl_trans_set_pnvm(trans, NULL, 0);
