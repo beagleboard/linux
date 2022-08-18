@@ -85,6 +85,11 @@
 	status = "disabled";
 };
 
+&wkup_rti0 {
+	/* WKUP RTI0 is used by DM firmware */
+	status = "reserved";
+};
+
 &cbass_mcu {
 	status = "disabled";
 };
@@ -269,6 +274,26 @@
 };
 
 &main_spi2 {
+	status = "disabled";
+};
+
+&main_rti0 {
+	status = "disabled";
+};
+
+&main_rti1 {
+	status = "disabled";
+};
+
+&main_rti2 {
+	status = "disabled";
+};
+
+&main_rti3 {
+	status = "disabled";
+};
+
+&main_rti15 {
 	status = "disabled";
 };
 
