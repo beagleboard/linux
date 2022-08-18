@@ -1656,9 +1656,6 @@ static struct neigh_table *neigh_find_table(int family)
 	case AF_INET6:
 		tbl = neigh_tables[NEIGH_ND_TABLE];
 		break;
-	case AF_DECnet:
-		tbl = neigh_tables[NEIGH_DN_TABLE];
-		break;
 	}
 
 	return tbl;

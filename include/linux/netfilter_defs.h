@@ -4,7 +4,6 @@
 
 #include <uapi/linux/netfilter.h>
 
-/* Largest hook number + 1, see uapi/linux/netfilter_decnet.h */
-#define NF_MAX_HOOKS 8
+#define NF_MAX_HOOKS	NF_INET_NUMHOOKS
 
 #endif
