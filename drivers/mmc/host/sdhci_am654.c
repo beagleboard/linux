@@ -84,7 +84,7 @@
 #define DRIVER_STRENGTH_40_OHM	0x4
 
 #define CLOCK_TOO_SLOW_HZ	50000000
-#define SDHCI_AM654_AUTOSUSPEND_DELAY	100
+#define SDHCI_AM654_AUTOSUSPEND_DELAY	-1
 
 /* Command Queue Host Controller Interface Base address */
 #define SDHCI_AM654_CQE_BASE_ADDR 0x200
