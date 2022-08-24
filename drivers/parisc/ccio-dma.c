@@ -1569,6 +1569,7 @@ static int __init ccio_probe(struct parisc_device *dev)
 	ioc->ioc_regs = ioremap_nocache(dev->hpa.start, 4096);
 	ccio_ioc_init(ioc);
 	if (ccio_init_resources(ioc)) {
+		iounmap(ioc->ioc_regs);
 		kfree(ioc);
 		return -ENOMEM;
 	}
