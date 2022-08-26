@@ -5,5 +5,5 @@
  * Copyright (C) 2019 - 2021 Texas Instruments Incorporated - http://www.ti.com/
  */
 
-#include "k3-j721e-rtos-memory-map.dtsi"
+#include "k3-j721e-rtos-memory-map-old.dtsi"
 
