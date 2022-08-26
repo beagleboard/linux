@@ -101,7 +101,7 @@
 	};
 
 	vcc_5v0: regulator-1 {
-		/* Output of LM34936 */
+		/* Output of TPS630702 */
 		compatible = "regulator-fixed";
 		regulator-name = "vcc_5v0";
 		regulator-min-microvolt = <5000000>;
