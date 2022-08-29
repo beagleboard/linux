@@ -25,6 +25,7 @@
  * @dev:	Struct device pointer.
  * @ti_sci_id:	TI-SCI device identifier
  * @type:	Specifies the trigger type supported by this Interrupt Router
+ * @mapping:	Pointer to out_irq <-> hwirq mapping table
  */
 struct ti_sci_intr_irq_domain {
 	const struct ti_sci_handle *sci;
@@ -32,6 +33,7 @@ struct ti_sci_intr_irq_domain {
 	struct device *dev;
 	u32 ti_sci_id;
 	u32 type;
+	u32 *mapping;
 };
 
 static struct irq_chip ti_sci_intr_irq_chip = {
@@ -100,6 +102,25 @@ static int ti_sci_intr_xlate_irq(struct ti_sci_intr_irq_domain *intr, u32 irq)
 }
 
 /**
+ * ti_sci_intr_free_irq - Free the irq entry in the out_irq <-> hwirq
+ *			  mapping table
+ * @intr:	IRQ domain corresponding to Interrupt Router
+ * @out_irq:	Out irq number
+ */
+static void ti_sci_intr_free_irq(struct ti_sci_intr_irq_domain *intr,
+				 u16 out_irq)
+{
+	u16 start = intr->out_irqs->desc->start;
+	u16 num = intr->out_irqs->desc->num;
+	u16 start_sec = intr->out_irqs->desc->start_sec;
+
+	if (out_irq < start + num)
+		intr->mapping[out_irq - start] = UINT_MAX;
+	else
+		intr->mapping[out_irq - start_sec + num] = UINT_MAX;
+}
+
+/**
  * ti_sci_intr_irq_domain_free() - Free the specified IRQs from the domain.
  * @domain:	Domain to which the irqs belong
  * @virq:	Linux virtual IRQ to be freed.
@@ -118,9 +139,30 @@ static void ti_sci_intr_irq_domain_free(struct irq_domain *domain,
 	intr->sci->ops.rm_irq_ops.free_irq(intr->sci,
 					   intr->ti_sci_id, data->hwirq,
 					   intr->ti_sci_id, out_irq);
+	ti_sci_intr_free_irq(intr, out_irq);
 	ti_sci_release_resource(intr->out_irqs, out_irq);
 	irq_domain_free_irqs_parent(domain, virq, 1);
 	irq_domain_reset_irq_data(data);
+}
+
+/**
+ * ti_sci_intr_add_irq - Add the irq entry in the out_irq <-> hwirq
+ *			 mapping table
+ * @intr:	IRQ domain corresponding to Interrupt Router
+ * @hwirq:	Input irq number
+ * @out_irq:	Out irq number
+ */
+static void ti_sci_intr_add_irq(struct ti_sci_intr_irq_domain *intr, u32 hwirq,
+				u16 out_irq)
+{
+	u16 start = intr->out_irqs->desc->start;
+	u16 num = intr->out_irqs->desc->num;
+	u16 start_sec = intr->out_irqs->desc->start_sec;
+
+	if (out_irq < start + num)
+		intr->mapping[out_irq - start] = hwirq;
+	else
+		intr->mapping[out_irq - start_sec + num] = hwirq;
 }
 
 /**
@@ -173,6 +215,9 @@ static int ti_sci_intr_alloc_parent_irq(struct irq_domain *domain,
 	if (err)
 		goto err_msg;
 
+	/* Adding out_irq <-> hwirq to mapping */
+	ti_sci_intr_add_irq(intr, hwirq, out_irq);
+
 	return out_irq;
 
 err_msg:
@@ -221,6 +266,28 @@ static const struct irq_domain_ops ti_sci_intr_irq_domain_ops = {
 	.translate	= ti_sci_intr_irq_domain_translate,
 };
 
+/**
+ * ti_sci_intr_initialize_mapping - Initialize the out_irq <-> hwirq mapping table
+ * @intr:	IRQ domain corresponding to Interrupt Router
+ */
+static int ti_sci_intr_initialize_mapping(struct ti_sci_intr_irq_domain *intr)
+{
+	int i;
+	int mapping_len = intr->out_irqs->desc->num +
+			  intr->out_irqs->desc->num_sec;
+
+	intr->mapping = devm_kzalloc(intr->dev, mapping_len * sizeof(u32),
+				     GFP_KERNEL);
+	if (!intr->mapping)
+		return -ENOMEM;
+
+	/* Set all the elements in the array to max value of u32 */
+	for (i = 0; i < mapping_len; i++)
+		intr->mapping[i] = UINT_MAX;
+
+	return 0;
+}
+
 static int ti_sci_intr_irq_domain_probe(struct platform_device *pdev)
 {
 	struct irq_domain *parent_domain, *domain;
@@ -246,6 +313,8 @@ static int ti_sci_intr_irq_domain_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	intr->dev = dev;
+	platform_set_drvdata(pdev, intr);
+
 	ret = of_property_read_u32(dev_of_node(dev), "ti,intr-trigger-type",
 				   &intr->type);
 	if (ret) {
@@ -273,6 +342,10 @@ static int ti_sci_intr_irq_domain_probe(struct platform_device *pdev)
 		return PTR_ERR(intr->out_irqs);
 	}
 
+	ret = ti_sci_intr_initialize_mapping(intr);
+	if (ret)
+		return ret;
+
 	domain = irq_domain_add_hierarchy(parent_domain, 0, 0, dev_of_node(dev),
 					  &ti_sci_intr_irq_domain_ops, intr);
 	if (!domain) {
@@ -285,6 +358,44 @@ static int ti_sci_intr_irq_domain_probe(struct platform_device *pdev)
 	return 0;
 }
 
+static int ti_sci_intr_restore_irqs(struct ti_sci_intr_irq_domain *intr)
+{
+	const struct ti_sci_rm_irq_ops *iops = &intr->sci->ops.rm_irq_ops;
+	u16 start = intr->out_irqs->desc->start;
+	u16 num = intr->out_irqs->desc->num;
+	u16 start_sec = intr->out_irqs->desc->start_sec;
+	u16 num_sec = intr->out_irqs->desc->num_sec;
+	int i, err = 0;
+
+	for (i = 0; i < num + num_sec; i++) {
+		if (intr->mapping[i] == UINT_MAX)
+			continue;
+		if (i < num)
+			err = iops->set_irq(intr->sci,
+					    intr->ti_sci_id, intr->mapping[i],
+					    intr->ti_sci_id, i + start);
+		else
+			err = iops->set_irq(intr->sci,
+					    intr->ti_sci_id, intr->mapping[i],
+					    intr->ti_sci_id, i + start_sec);
+		if (err)
+			return err;
+	}
+
+	return 0;
+}
+
+static int __maybe_unused ti_sci_intr_resume(struct device *dev)
+{
+	struct ti_sci_intr_irq_domain *intr = dev_get_drvdata(dev);
+
+	return ti_sci_intr_restore_irqs(intr);
+}
+
+static const struct dev_pm_ops ti_sci_intr_dev_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(NULL, ti_sci_intr_resume)
+};
+
 static const struct of_device_id ti_sci_intr_irq_domain_of_match[] = {
 	{ .compatible = "ti,sci-intr", },
 	{ /* sentinel */ },
@@ -295,6 +406,7 @@ static struct platform_driver ti_sci_intr_irq_domain_driver = {
 	.probe = ti_sci_intr_irq_domain_probe,
 	.driver = {
 		.name = "ti-sci-intr",
+		.pm = &ti_sci_intr_dev_pm_ops,
 		.of_match_table = ti_sci_intr_irq_domain_of_match,
 	},
 };
