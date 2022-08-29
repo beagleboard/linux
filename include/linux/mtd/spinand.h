@@ -298,6 +298,7 @@ struct spinand_devid {
 /**
  * struct manufacurer_ops - SPI NAND manufacturer specific operations
  * @init: initialize a SPI NAND device
+ * @change_mode: switch the SPI NAND flash to a specific SPI protocol
  * @cleanup: cleanup a SPI NAND device
  *
  * Each SPI NAND manufacturer driver should implement this interface so that
@@ -305,6 +306,8 @@ struct spinand_devid {
  */
 struct spinand_manufacturer_ops {
 	int (*init)(struct spinand_device *spinand);
+	int (*change_mode)(struct spinand_device *spinand,
+			   const enum spinand_protocol protocol);
 	void (*cleanup)(struct spinand_device *spinand);
 };
 
