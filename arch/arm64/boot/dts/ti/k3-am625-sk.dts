@@ -34,7 +34,6 @@
 		regulator-min-microvolt = <1800000>;
 		regulator-max-microvolt = <1800000>;
 		enable-active-high;
-		regulator-always-on;
 		vin-supply = <&wlan_lten>;
 		gpios = <&main_gpio0 71 GPIO_ACTIVE_HIGH>;
 		pinctrl-names = "default";
