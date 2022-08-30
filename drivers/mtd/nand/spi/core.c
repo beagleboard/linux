@@ -22,9 +22,11 @@
 
 static int spinand_read_reg_op(struct spinand_device *spinand, u8 reg, u8 *val)
 {
-	struct spi_mem_op op = SPINAND_GET_FEATURE_OP(reg,
-						      spinand->scratchbuf);
 	int ret;
+	struct spi_mem_op op = spinand->ctrl_ops->ops.get_feature;
+
+	op.data.buf.out = spinand->scratchbuf;
+	memset(&op.addr.val, reg, op.addr.nbytes);
 
 	ret = spi_mem_exec_op(spinand->spimem, &op);
 	if (ret)
@@ -36,10 +38,12 @@ static int spinand_read_reg_op(struct spinand_device *spinand, u8 reg, u8 *val)
 
 static int spinand_write_reg_op(struct spinand_device *spinand, u8 reg, u8 val)
 {
-	struct spi_mem_op op = SPINAND_SET_FEATURE_OP(reg,
-						      spinand->scratchbuf);
+	struct spi_mem_op op = spinand->ctrl_ops->ops.set_feature;
 
-	*spinand->scratchbuf = val;
+	op.data.buf.out = spinand->scratchbuf;
+	memset(&op.addr.val, reg, op.addr.nbytes);
+	memset(spinand->scratchbuf, val, op.data.nbytes);
+
 	return spi_mem_exec_op(spinand->spimem, &op);
 }
 
@@ -138,19 +142,11 @@ int spinand_select_target(struct spinand_device *spinand, unsigned int target)
 	return 0;
 }
 
-static int spinand_init_cfg_cache(struct spinand_device *spinand)
+static int spinand_read_cfg(struct spinand_device *spinand)
 {
 	struct nand_device *nand = spinand_to_nand(spinand);
-	struct device *dev = &spinand->spimem->spi->dev;
 	unsigned int target;
 	int ret;
-
-	spinand->cfg_cache = devm_kcalloc(dev,
-					  nand->memorg.ntargets,
-					  sizeof(*spinand->cfg_cache),
-					  GFP_KERNEL);
-	if (!spinand->cfg_cache)
-		return -ENOMEM;
 
 	for (target = 0; target < nand->memorg.ntargets; target++) {
 		ret = spinand_select_target(spinand, target);
@@ -170,6 +166,21 @@ static int spinand_init_cfg_cache(struct spinand_device *spinand)
 	return 0;
 }
 
+static int spinand_init_cfg_cache(struct spinand_device *spinand)
+{
+	struct nand_device *nand = spinand_to_nand(spinand);
+	struct device *dev = &spinand->spimem->spi->dev;
+
+	spinand->cfg_cache = devm_kcalloc(dev,
+					  nand->memorg.ntargets,
+					  sizeof(*spinand->cfg_cache),
+					  GFP_KERNEL);
+	if (!spinand->cfg_cache)
+		return -ENOMEM;
+
+	return 0;
+}
+
 static int spinand_init_quad_enable(struct spinand_device *spinand)
 {
 	bool enable = false;
@@ -177,9 +188,9 @@ static int spinand_init_quad_enable(struct spinand_device *spinand)
 	if (!(spinand->flags & SPINAND_HAS_QE_BIT))
 		return 0;
 
-	if (spinand->op_templates.read_cache->data.buswidth == 4 ||
-	    spinand->op_templates.write_cache->data.buswidth == 4 ||
-	    spinand->op_templates.update_cache->data.buswidth == 4)
+	if (spinand->data_ops.read_cache->data.buswidth == 4 ||
+	    spinand->data_ops.write_cache->data.buswidth == 4 ||
+	    spinand->data_ops.update_cache->data.buswidth == 4)
 		enable = true;
 
 	return spinand_upd_cfg(spinand, CFG_QUAD_ENABLE,
@@ -193,9 +204,9 @@ static int spinand_ecc_enable(struct spinand_device *spinand,
 			       enable ? CFG_ECC_ENABLE : 0);
 }
 
-static int spinand_write_enable_op(struct spinand_device *spinand)
+int spinand_write_enable_op(struct spinand_device *spinand)
 {
-	struct spi_mem_op op = SPINAND_WR_EN_DIS_OP(true);
+	struct spi_mem_op op = spinand->ctrl_ops->ops.write_enable;
 
 	return spi_mem_exec_op(spinand->spimem, &op);
 }
@@ -205,7 +216,9 @@ static int spinand_load_page_op(struct spinand_device *spinand,
 {
 	struct nand_device *nand = spinand_to_nand(spinand);
 	unsigned int row = nanddev_pos_to_row(nand, &req->pos);
-	struct spi_mem_op op = SPINAND_PAGE_READ_OP(row);
+	struct spi_mem_op op = spinand->ctrl_ops->ops.page_read;
+
+	op.addr.val = row;
 
 	return spi_mem_exec_op(spinand->spimem, &op);
 }
@@ -326,7 +339,9 @@ static int spinand_program_op(struct spinand_device *spinand,
 {
 	struct nand_device *nand = spinand_to_nand(spinand);
 	unsigned int row = nanddev_pos_to_row(nand, &req->pos);
-	struct spi_mem_op op = SPINAND_PROG_EXEC_OP(row);
+	struct spi_mem_op op = spinand->ctrl_ops->ops.program_execute;
+
+	op.addr.val = row;
 
 	return spi_mem_exec_op(spinand->spimem, &op);
 }
@@ -336,25 +351,35 @@ static int spinand_erase_op(struct spinand_device *spinand,
 {
 	struct nand_device *nand = spinand_to_nand(spinand);
 	unsigned int row = nanddev_pos_to_row(nand, pos);
-	struct spi_mem_op op = SPINAND_BLK_ERASE_OP(row);
+	struct spi_mem_op op = spinand->ctrl_ops->ops.block_erase;
+
+	op.addr.val = row;
 
 	return spi_mem_exec_op(spinand->spimem, &op);
 }
 
-static int spinand_wait(struct spinand_device *spinand, u8 *s)
+static int spinand_wait(struct spinand_device *spinand,
+			unsigned long initial_delay_us,
+			unsigned long poll_delay_us,
+			u8 *s)
 {
-	unsigned long timeo =  jiffies + msecs_to_jiffies(400);
+	struct spi_mem_op op = spinand->ctrl_ops->ops.get_feature;
 	u8 status;
 	int ret;
 
-	do {
-		ret = spinand_read_status(spinand, &status);
-		if (ret)
-			return ret;
+	op.data.buf.out = spinand->scratchbuf;
+	memset(&op.addr.val, REG_STATUS, op.addr.nbytes);
 
-		if (!(status & STATUS_BUSY))
-			goto out;
-	} while (time_before(jiffies, timeo));
+	ret = spi_mem_poll_status(spinand->spimem, &op, STATUS_BUSY, 0,
+				  initial_delay_us,
+				  poll_delay_us,
+				  SPINAND_WAITRDY_TIMEOUT_MS);
+	if (ret)
+		return ret;
+
+	status = *spinand->scratchbuf;
+	if (!(status & STATUS_BUSY))
+		goto out;
 
 	/*
 	 * Extra read, just in case the STATUS_READY bit has changed
@@ -387,14 +412,17 @@ static int spinand_read_id_op(struct spinand_device *spinand, u8 naddr,
 
 static int spinand_reset_op(struct spinand_device *spinand)
 {
-	struct spi_mem_op op = SPINAND_RESET_OP;
+	struct spi_mem_op op = spinand->ctrl_ops->ops.reset;
 	int ret;
 
 	ret = spi_mem_exec_op(spinand->spimem, &op);
 	if (ret)
 		return ret;
 
-	return spinand_wait(spinand, NULL);
+	return spinand_wait(spinand,
+			    SPINAND_RESET_INITIAL_DELAY_US,
+			    SPINAND_RESET_POLL_DELAY_US,
+			    NULL);
 }
 
 static int spinand_lock_block(struct spinand_device *spinand, u8 lock)
@@ -442,7 +470,10 @@ static int spinand_read_page(struct spinand_device *spinand,
 	if (ret)
 		return ret;
 
-	ret = spinand_wait(spinand, &status);
+	ret = spinand_wait(spinand,
+			   SPINAND_READ_INITIAL_DELAY_US,
+			   SPINAND_READ_POLL_DELAY_US,
+			   &status);
 	if (ret < 0)
 		return ret;
 
@@ -474,7 +505,10 @@ static int spinand_write_page(struct spinand_device *spinand,
 	if (ret)
 		return ret;
 
-	ret = spinand_wait(spinand, &status);
+	ret = spinand_wait(spinand,
+			   SPINAND_WRITE_INITIAL_DELAY_US,
+			   SPINAND_WRITE_POLL_DELAY_US,
+			   &status);
 	if (!ret && (status & STATUS_PROG_FAILED))
 		ret = -EIO;
 
@@ -659,7 +693,11 @@ static int spinand_erase(struct nand_device *nand, const struct nand_pos *pos)
 	if (ret)
 		return ret;
 
-	ret = spinand_wait(spinand, &status);
+	ret = spinand_wait(spinand,
+			   SPINAND_ERASE_INITIAL_DELAY_US,
+			   SPINAND_ERASE_POLL_DELAY_US,
+			   &status);
+
 	if (!ret && (status & STATUS_ERASE_FAILED))
 		ret = -EIO;
 
@@ -707,7 +745,7 @@ static int spinand_create_dirmap(struct spinand_device *spinand,
 	/* The plane number is passed in MSB just above the column address */
 	info.offset = plane << fls(nand->memorg.pagesize);
 
-	info.op_tmpl = *spinand->op_templates.update_cache;
+	info.op_tmpl = *spinand->data_ops.update_cache;
 	desc = devm_spi_mem_dirmap_create(&spinand->spimem->spi->dev,
 					  spinand->spimem, &info);
 	if (IS_ERR(desc))
@@ -715,7 +753,7 @@ static int spinand_create_dirmap(struct spinand_device *spinand,
 
 	spinand->dirmaps[plane].wdesc = desc;
 
-	info.op_tmpl = *spinand->op_templates.read_cache;
+	info.op_tmpl = *spinand->data_ops.read_cache;
 	desc = devm_spi_mem_dirmap_create(&spinand->spimem->spi->dev,
 					  spinand->spimem, &info);
 	if (IS_ERR(desc))
@@ -761,6 +799,16 @@ static const struct spinand_manufacturer *spinand_manufacturers[] = {
 	&toshiba_spinand_manufacturer,
 	&winbond_spinand_manufacturer,
 };
+
+static const struct spinand_ctrl_ops spinand_default_ctrl_ops =
+			SPINAND_CTRL_OPS(SPINAND_1S_1S_1S,
+					 SPINAND_RESET_OP,
+					 SPINAND_GET_FEATURE_OP(0, NULL),
+					 SPINAND_SET_FEATURE_OP(0, NULL),
+					 SPINAND_WR_EN_DIS_OP(true),
+					 SPINAND_BLK_ERASE_OP(0),
+					 SPINAND_PAGE_READ_OP(0),
+					 SPINAND_PROG_EXEC_OP(0));
 
 static int spinand_manufacturer_match(struct spinand_device *spinand,
 				      enum spinand_readid_method rdid_method)
@@ -834,8 +882,8 @@ static void spinand_manufacturer_cleanup(struct spinand_device *spinand)
 }
 
 static const struct spi_mem_op *
-spinand_select_op_variant(struct spinand_device *spinand,
-			  const struct spinand_op_variants *variants)
+spinand_select_data_op_variant(struct spinand_device *spinand,
+			       const struct spinand_op_variants *variants)
 {
 	struct nand_device *nand = spinand_to_nand(spinand);
 	unsigned int i;
@@ -865,6 +913,117 @@ spinand_select_op_variant(struct spinand_device *spinand,
 	}
 
 	return NULL;
+}
+
+static const struct spinand_ctrl_ops *
+spinand_select_ctrl_ops_variant(struct spinand_device *spinand,
+				const struct spinand_ctrl_ops_variants *variants,
+				const enum spinand_protocol protocol)
+{
+	unsigned int i;
+
+	for (i = 0; i < variants->nvariants; i++) {
+		const struct spinand_ctrl_ops *ctrl_ops =
+			&variants->ctrl_ops_list[i];
+
+		if (ctrl_ops->protocol != protocol)
+			continue;
+
+		if (!spi_mem_supports_op(spinand->spimem,
+					 &ctrl_ops->ops.reset) ||
+		    !spi_mem_supports_op(spinand->spimem,
+					 &ctrl_ops->ops.get_feature) ||
+		    !spi_mem_supports_op(spinand->spimem,
+					 &ctrl_ops->ops.set_feature) ||
+		    !spi_mem_supports_op(spinand->spimem,
+					 &ctrl_ops->ops.write_enable) ||
+		    !spi_mem_supports_op(spinand->spimem,
+					 &ctrl_ops->ops.block_erase) ||
+		    !spi_mem_supports_op(spinand->spimem,
+					 &ctrl_ops->ops.page_read) ||
+		    !spi_mem_supports_op(spinand->spimem,
+					 &ctrl_ops->ops.program_execute))
+			continue;
+
+		return ctrl_ops;
+	}
+
+	return NULL;
+}
+
+static bool spinand_op_is_octal_dtr(const struct spi_mem_op *op)
+{
+	return  op->cmd.buswidth == 8 && op->cmd.dtr &&
+		op->addr.buswidth == 8 && op->addr.dtr &&
+		op->data.buswidth == 8 && op->data.dtr;
+}
+
+static int spinand_init_octal_dtr_enable(struct spinand_device *spinand)
+{
+	struct device *dev = &spinand->spimem->spi->dev;
+	const struct spinand_ctrl_ops *octal_dtr_ctrl_ops;
+	int ret;
+
+	if (!(spinand->flags & SPINAND_HAS_OCTAL_DTR_BIT))
+		return 0;
+
+	if (!(spinand_op_is_octal_dtr(spinand->data_ops.read_cache) &&
+	      spinand_op_is_octal_dtr(spinand->data_ops.write_cache) &&
+	      spinand_op_is_octal_dtr(spinand->data_ops.update_cache)))
+		return 0;
+
+	octal_dtr_ctrl_ops = spinand_select_ctrl_ops_variant(spinand,
+					spinand->desc_entry->ctrl_ops_variants,
+					SPINAND_8D_8D_8D);
+
+	if (!octal_dtr_ctrl_ops)
+		return 0;
+
+	if (!spinand->manufacturer->ops->change_mode) {
+		dev_dbg(dev,
+			"Missing ->change_mode(), unable to switch mode\n");
+		return -EINVAL;
+	}
+
+	ret = spinand->manufacturer->ops->change_mode(spinand,
+						      SPINAND_8D_8D_8D);
+	if (ret) {
+		dev_err(dev,
+			"Failed to enable Octal DTR SPI mode (err = %d)\n",
+			ret);
+		return ret;
+	}
+
+	spinand->protocol = SPINAND_8D_8D_8D;
+	spinand->ctrl_ops = octal_dtr_ctrl_ops;
+
+	dev_dbg(dev,
+		"%s SPI NAND switched to Octal DTR SPI (8D-8D-8D) mode\n",
+		spinand->manufacturer->name);
+	return 0;
+}
+
+static int spinand_init_octal_dtr_disable(struct spinand_device *spinand)
+{
+	struct device *dev = &spinand->spimem->spi->dev;
+	int ret;
+
+	if (!spinand->manufacturer->ops->change_mode)
+		return -EINVAL;
+
+	ret = spinand->manufacturer->ops->change_mode(spinand,
+						      SPINAND_1S_1S_1S);
+
+	if (ret) {
+		dev_err(dev,
+			"Failed to disable Octal DTR SPI mode (err = %d)\n",
+			ret);
+		return ret;
+	}
+
+	spinand->protocol = SPINAND_1S_1S_1S;
+	spinand->ctrl_ops = &spinand_default_ctrl_ops;
+	return 0;
 }
 
 /**
@@ -907,24 +1066,25 @@ int spinand_match_and_init(struct spinand_device *spinand,
 		spinand->flags = table[i].flags;
 		spinand->id.len = 1 + table[i].devid.len;
 		spinand->select_target = table[i].select_target;
+		spinand->desc_entry = &table[i];
 
-		op = spinand_select_op_variant(spinand,
-					       info->op_variants.read_cache);
+		op = spinand_select_data_op_variant(spinand,
+					info->data_ops_variants.read_cache);
 		if (!op)
 			return -ENOTSUPP;
 
-		spinand->op_templates.read_cache = op;
+		spinand->data_ops.read_cache = op;
 
-		op = spinand_select_op_variant(spinand,
-					       info->op_variants.write_cache);
+		op = spinand_select_data_op_variant(spinand,
+					info->data_ops_variants.write_cache);
 		if (!op)
 			return -ENOTSUPP;
 
-		spinand->op_templates.write_cache = op;
+		spinand->data_ops.write_cache = op;
 
-		op = spinand_select_op_variant(spinand,
-					       info->op_variants.update_cache);
-		spinand->op_templates.update_cache = op;
+		op = spinand_select_data_op_variant(spinand,
+					info->data_ops_variants.update_cache);
+		spinand->data_ops.update_cache = op;
 
 		return 0;
 	}
@@ -989,12 +1149,88 @@ static const struct mtd_ooblayout_ops spinand_noecc_ooblayout = {
 	.free = spinand_noecc_ooblayout_free,
 };
 
+static int spinand_init_flash(struct spinand_device *spinand)
+{
+	struct device *dev = &spinand->spimem->spi->dev;
+	struct nand_device *nand = spinand_to_nand(spinand);
+	int ret, i;
+
+	ret = spinand_read_cfg(spinand);
+	if (ret)
+		return ret;
+
+	ret = spinand_init_quad_enable(spinand);
+	if (ret)
+		return ret;
+
+	ret = spinand_upd_cfg(spinand, CFG_OTP_ENABLE, 0);
+	if (ret)
+		return ret;
+
+	ret = spinand_manufacturer_init(spinand);
+	if (ret) {
+		dev_err(dev,
+		"Failed to initialize the SPI NAND chip (err = %d)\n",
+		ret);
+		return ret;
+	}
+
+	/* After power up, all blocks are locked, so unlock them here. */
+	for (i = 0; i < nand->memorg.ntargets; i++) {
+		ret = spinand_select_target(spinand, i);
+		if (ret)
+			break;
+
+		ret = spinand_lock_block(spinand, BL_ALL_UNLOCKED);
+		if (ret)
+			break;
+	}
+
+	ret = spinand_init_octal_dtr_enable(spinand);
+	if (ret)
+		return ret;
+
+	if (ret)
+		spinand_manufacturer_cleanup(spinand);
+
+	return ret;
+}
+
+static void spinand_mtd_resume(struct mtd_info *mtd)
+{
+	struct spinand_device *spinand = mtd_to_spinand(mtd);
+	int ret;
+
+	spinand->protocol = SPINAND_1S_1S_1S;
+	spinand->ctrl_ops = &spinand_default_ctrl_ops;
+
+	ret = spinand_reset_op(spinand);
+	if (ret)
+		return;
+
+	ret = spinand_init_flash(spinand);
+	if (ret)
+		return;
+
+	spinand_ecc_enable(spinand, false);
+}
+
+static int spinand_mtd_suspend(struct mtd_info *mtd)
+{
+	struct spinand_device *spinand = mtd_to_spinand(mtd);
+
+	if (spinand->ctrl_ops->protocol == SPINAND_8D_8D_8D)
+		return spinand_init_octal_dtr_disable(spinand);
+
+	return 0;
+}
+
 static int spinand_init(struct spinand_device *spinand)
 {
 	struct device *dev = &spinand->spimem->spi->dev;
 	struct mtd_info *mtd = spinand_to_mtd(spinand);
 	struct nand_device *nand = mtd_to_nanddev(mtd);
-	int ret, i;
+	int ret;
 
 	/*
 	 * We need a scratch buffer because the spi_mem interface requires that
@@ -1003,6 +1239,9 @@ static int spinand_init(struct spinand_device *spinand)
 	spinand->scratchbuf = kzalloc(SPINAND_MAX_ID_LEN, GFP_KERNEL);
 	if (!spinand->scratchbuf)
 		return -ENOMEM;
+
+	spinand->protocol = SPINAND_1S_1S_1S;
+	spinand->ctrl_ops = &spinand_default_ctrl_ops;
 
 	ret = spinand_detect(spinand);
 	if (ret)
@@ -1027,21 +1266,9 @@ static int spinand_init(struct spinand_device *spinand)
 	if (ret)
 		goto err_free_bufs;
 
-	ret = spinand_init_quad_enable(spinand);
+	ret = spinand_init_flash(spinand);
 	if (ret)
 		goto err_free_bufs;
-
-	ret = spinand_upd_cfg(spinand, CFG_OTP_ENABLE, 0);
-	if (ret)
-		goto err_free_bufs;
-
-	ret = spinand_manufacturer_init(spinand);
-	if (ret) {
-		dev_err(dev,
-			"Failed to initialize the SPI NAND chip (err = %d)\n",
-			ret);
-		goto err_free_bufs;
-	}
 
 	ret = spinand_create_dirmaps(spinand);
 	if (ret) {
@@ -1049,17 +1276,6 @@ static int spinand_init(struct spinand_device *spinand)
 			"Failed to create direct mappings for read/write operations (err = %d)\n",
 			ret);
 		goto err_manuf_cleanup;
-	}
-
-	/* After power up, all blocks are locked, so unlock them here. */
-	for (i = 0; i < nand->memorg.ntargets; i++) {
-		ret = spinand_select_target(spinand, i);
-		if (ret)
-			goto err_manuf_cleanup;
-
-		ret = spinand_lock_block(spinand, BL_ALL_UNLOCKED);
-		if (ret)
-			goto err_manuf_cleanup;
 	}
 
 	ret = nanddev_init(nand, &spinand_ops, THIS_MODULE);
@@ -1077,6 +1293,8 @@ static int spinand_init(struct spinand_device *spinand)
 	mtd->_block_isreserved = spinand_mtd_block_isreserved;
 	mtd->_erase = spinand_mtd_erase;
 	mtd->_max_bad_blocks = nanddev_mtd_max_bad_blocks;
+	mtd->_resume = spinand_mtd_resume;
+	mtd->_suspend = spinand_mtd_suspend;
 
 	if (spinand->eccinfo.ooblayout)
 		mtd_set_ooblayout(mtd, spinand->eccinfo.ooblayout);
