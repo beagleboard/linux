@@ -4,9 +4,15 @@
  */
 
 #include "am57xx-beagle-x15-common.dtsi"
+#include "am57xx-cmem.dtsi"
 
 / {
 	model = "TI AM5728 BeagleBoard-X15 rev C";
+
+	chosen {
+		base_dtb = "am57xx-beagle-x15-revc.dts";
+		base_dtb_timestamp = __TIMESTAMP__;
+	};
 };
 
 &tpd12s015 {
