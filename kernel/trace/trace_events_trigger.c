@@ -1224,7 +1224,7 @@ stacktrace_trigger(struct event_trigger_data *data, void *rec,
 
 	if (file) {
 		local_save_flags(flags);
-		__trace_stack(file->tr, flags, STACK_SKIP, preempt_count());
+		__trace_stack(file->tr, STACK_SKIP, preempt_count());
 	} else
 		trace_dump_stack(STACK_SKIP);
 }
