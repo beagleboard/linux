@@ -1,0 +1,112 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright (C) 2012 Texas Instruments Incorporated - https://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+ */
+&{/chosen} {
+	overlays {
+		BB-ADC-00A0.kernel = __TIMESTAMP__;
+	};
+};
+
+&tscadc {
+	status = "okay";
+	adc {
+		// Configure one or more (up to 8) steps for the adc to execute:
+
+
+		// For each step, the channel to sample.
+		//	range: 0 .. 7
+		ti,adc-channels = <0 1 2 3 4 5 6 7>;
+		//
+		// BeagleBone Black (and most other variants):
+		//	ch 0	P9.39
+		//	ch 1	P9.40
+		//	ch 2	P9.37
+		//	ch 3	P9.38
+		//	ch 4	P9.33
+		//	ch 5	P9.36
+		//	ch 6	P9.35
+		//	ch 7	measures 0.5 * VDD_3V3B with 2.4 kΩ source impedance
+		//
+		// PocketBeagle:
+		//	ch 0	P1.19
+		//	ch 1	P1.21
+		//	ch 2	P1.23
+		//	ch 3	P1.25
+		//	ch 4	P1.27
+		//	ch 5	P2.35 via 10k/10k voltage divider
+		//	ch 6	P1.02 via 10k/10k voltage divider
+		//	ch 7	P2.36 via pmic mux
+		//
+		// The divider used on PocketBeagle channels 5 and 6 makes the effective voltage V_eff and
+		// source impedance Z_eff seen by the adc on these channels depend on the voltage V_src and
+		// impedance Z_src of the source connected to the corresponding pin as follows:
+		//
+		//	V_eff = V_src / (2 + Z_src / (10 kΩ))
+		//	Z_eff = 5 kΩ * (1 + Z_src / (Z_src + 20 kΩ))
+		//		≈ 5 kΩ + Z_src / 4    for small values of Z_src (up to 2 kΩ or so)
+
+
+		// For each step, number of adc clock cycles to wait between setting up muxes and sampling.
+		//	range: 0 .. 262143
+		//	optional, default is 152 (XXX but why?!)
+		ti,chan-step-opendelay = <152 152 152 152 152 152 152 152>;
+		//`
+		// XXX is there any purpose to set this nonzero other than to fine-tune the sample rate?
+
+
+		// For each step, how many times it should sample to average.
+		//	range: 1 .. 16, must be power of two (i.e. 1, 2, 4, 8, or 16)
+		//	optional, default is 16
+		ti,chan-step-avg = <16 16 16 16 16 16 16 16>;
+		//
+		// If you're using periodic sampling (using the iio block device rather than sysfs) then
+		// you should consider setting this to 1 and if desired reduce the samplerate in userspace
+		// instead since averaging isn't a particularly good low-pass filter.
+		//
+		// If you're using sysfs to occasionally read a value, then the default value of 16 will
+		// still get you the most accurate readings.
+
+
+		// For each step, number of adc clock cycles to sample minus two.
+		//	range: 0 .. 255   (resulting in sampling time of 2 .. 257 cycles)
+		//	optional, default is 0
+		ti,chan-step-sampledelay = <0 0 0 0 0 0 0 0>;
+		//
+		// If this is set too low, accuracy will deteriorate when the thing you're measuring has a
+		// high source impedance.  The maximum source impedance recommended (by erratum 1.0.32) is:
+		//	(2 + sampledelay) * 2.873 kΩ - 0.2 kΩ
+		// which means that the default should be fine for source impedance up to 5.5 kΩ.
+		//
+		// (This seems to ensure the sampling time is at least 21 times the RC constant, based on
+		// the 5.5 pF nominal capacitance specified in the datasheet.)
+
+
+		// After sampling, conversion time is 13 adc clock cycles.
+		//
+		// The adc clock frequency is 3 MHz, therefore the total time per step in microseconds is:
+		//	( opendelay + avg * ( 2 + sampledelay + 13 ) ) / 3
+		//
+		// If all steps use the same timings then the sample rate will be:
+		//	3 MHz / ( opendelay + avg * ( 2 + sampledelay + 13 ) ) / number_of_steps
+		//
+		// The highest samplerate obtainable (avg=1, opendelay=0, sampledelay=0) is therefore:
+		//	200 kHz / number_of_steps
+		//	= 25 kHz    when using all 8 steps.
+		//
+		// Using avg=16 reduces that to:
+		//	12.5 kHz / number_of_steps
+		//	= 1.5625 kHz    when using all 8 steps.
+		//
+		// Using the default values (avg=16, opendelay=152, sampledelay=0) reduces that to:
+		//	7.653 kHz / number_of_steps
+		//	= 0.9566 kHz    when using all 8 steps.
+	};
+};
