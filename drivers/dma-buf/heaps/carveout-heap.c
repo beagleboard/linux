@@ -2,8 +2,8 @@
 /*
  * Carveout DMA-Heap userspace exporter
  *
- * Copyright (C) 2019 Texas Instruments Incorporated - http://www.ti.com/
- *	Andrew F. Davis <afd@ti.com>
+ * Copyright (C) 2019-2022 Texas Instruments Incorporated - https://www.ti.com/
+ *	Andrew Davis <afd@ti.com>
  */
 
 #include <linux/dma-mapping.h>
@@ -13,6 +13,7 @@
 #include <linux/mm.h>
 #include <linux/scatterlist.h>
 #include <linux/slab.h>
+#include <linux/highmem.h>
 #include <linux/dma-buf.h>
 #include <linux/dma-heap.h>
 
@@ -93,11 +94,14 @@ static void dma_heap_detatch(struct dma_buf *dmabuf,
 static struct sg_table *dma_heap_map_dma_buf(struct dma_buf_attachment *attachment,
 					     enum dma_data_direction direction)
 {
+	struct carveout_dma_heap_buffer *buffer = attachment->dmabuf->priv;
 	struct dma_heap_attachment *a = attachment->priv;
 	struct sg_table *table = a->table;
 
+	unsigned long attrs = buffer->cached ? 0 : DMA_ATTR_SKIP_CPU_SYNC;
+
 	if (!dma_map_sg_attrs(attachment->dev, table->sgl, table->nents,
-			      direction, DMA_ATTR_SKIP_CPU_SYNC))
+			      direction, attrs))
 		return ERR_PTR(-ENOMEM);
 
 	return table;
@@ -107,8 +111,11 @@ static void dma_heap_unmap_dma_buf(struct dma_buf_attachment *attachment,
 				   struct sg_table *table,
 				   enum dma_data_direction direction)
 {
+	struct carveout_dma_heap_buffer *buffer = attachment->dmabuf->priv;
+	unsigned long attrs = buffer->cached ? 0 : DMA_ATTR_SKIP_CPU_SYNC;
+
 	dma_unmap_sg_attrs(attachment->dev, table->sgl, table->nents,
-			   direction, DMA_ATTR_SKIP_CPU_SYNC);
+			   direction, attrs);
 }
 
 static void dma_heap_dma_buf_release(struct dma_buf *dmabuf)
@@ -122,6 +129,54 @@ static void dma_heap_dma_buf_release(struct dma_buf *dmabuf)
 
 	gen_pool_free(buffer->pool, buffer->paddr, buffer->len);
 	kfree(buffer);
+}
+
+static int dma_heap_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
+					     enum dma_data_direction direction)
+{
+	struct carveout_dma_heap_buffer *buffer = dmabuf->priv;
+	struct dma_heap_attachment *a;
+
+	if (!buffer->cached)
+		return 0;
+
+	mutex_lock(&buffer->vmap_lock);
+	if (buffer->vmap_cnt)
+		invalidate_kernel_vmap_range(buffer->vaddr, buffer->len);
+	mutex_unlock(&buffer->vmap_lock);
+
+	mutex_lock(&buffer->attachments_lock);
+	list_for_each_entry(a, &buffer->attachments, list) {
+		dma_sync_sg_for_cpu(a->dev, a->table->sgl, a->table->nents,
+				    direction);
+	}
+	mutex_unlock(&buffer->attachments_lock);
+
+	return 0;
+}
+
+static int dma_heap_dma_buf_end_cpu_access(struct dma_buf *dmabuf,
+					   enum dma_data_direction direction)
+{
+	struct carveout_dma_heap_buffer *buffer = dmabuf->priv;
+	struct dma_heap_attachment *a;
+
+	if (!buffer->cached)
+		return 0;
+
+	mutex_lock(&buffer->vmap_lock);
+	if (buffer->vmap_cnt)
+		flush_kernel_vmap_range(buffer->vaddr, buffer->len);
+	mutex_unlock(&buffer->vmap_lock);
+
+	mutex_lock(&buffer->attachments_lock);
+	list_for_each_entry(a, &buffer->attachments, list) {
+		dma_sync_sg_for_device(a->dev, a->table->sgl, a->table->nents,
+				       direction);
+	}
+	mutex_unlock(&buffer->attachments_lock);
+
+	return 0;
 }
 
 static int dma_heap_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
@@ -187,6 +242,8 @@ static const struct dma_buf_ops carveout_dma_heap_buf_ops = {
 	.map_dma_buf = dma_heap_map_dma_buf,
 	.unmap_dma_buf = dma_heap_unmap_dma_buf,
 	.release = dma_heap_dma_buf_release,
+	.begin_cpu_access = dma_heap_dma_buf_begin_cpu_access,
+	.end_cpu_access = dma_heap_dma_buf_end_cpu_access,
 	.mmap = dma_heap_mmap,
 	.vmap = dma_heap_vmap,
 	.vunmap = dma_heap_vunmap,
