@@ -105,6 +105,16 @@ config TI_PRUSS
 	  processors on various TI SoCs. It's safe to say N here if you're
 	  not interested in the PRU or if you are unsure.
 
+config TI_PAT
+	tristate "TI PAT DMA-BUF exporter"
+	depends on ARCH_K3 || COMPILE_TEST
+	select REGMAP
+	help
+	  Driver for TI Page-based Address Translator (PAT). This driver
+	  provides the an API allowing the remapping of a non-contiguous
+	  DMA-BUF into a contiguous one that is sutable for devices needing
+	  contiguous memory.
+
 endif # SOC_TI
 
 config TI_SCI_INTA_MSI_DOMAIN
