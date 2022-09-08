@@ -928,6 +928,7 @@ static int vxe_s_fmt(struct file *file, void *priv, struct v4l2_format *f)
 	struct vxe_enc_q_data *queue;
 	int i, ret = 0;
 	unsigned int level_h264;
+	static int base_pipe;
 
 	ret = vxe_try_fmt(file, priv, f);
 	if (ret)
@@ -1200,8 +1201,8 @@ static int vxe_s_fmt(struct file *file, void *priv, struct v4l2_format *f)
 	if ((ctx->s_fmt_flags & S_FMT_FLAG_OUT_RECV) &&
 	    (ctx->s_fmt_flags & S_FMT_FLAG_CAP_RECV)) {
 		pr_debug("Calling topaz_stream_create()\n");
-		topaz_stream_create(ctx, &ctx->vparams, 0, 2, &ctx->rc,
-				    &ctx->topaz_str_context);
+		topaz_stream_create(ctx, &ctx->vparams, ((base_pipe++ % 2) ? 0 : 1), 2,
+				&ctx->rc, &ctx->topaz_str_context);
 
 		topaz_h264_prepare_sequence_header(ctx->topaz_str_context,
 						   ctx->sh_params.width_in_mbs_minus1 + 1,
