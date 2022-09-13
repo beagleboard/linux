@@ -137,6 +137,31 @@
 		vin-supply = <&vcc_3v3_sys>;
 		gpio = <&exp1 3 GPIO_ACTIVE_HIGH>;
 	};
+
+	com8_ls_en: regulator-1 {
+		compatible = "regulator-fixed";
+		regulator-name = "com8_ls_en";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-always-on;
+		regulator-boot-on;
+		pinctrl-0 = <&main_com8_ls_en_pins_default>;
+		pinctrl-names = "default";
+		gpio = <&main_gpio0 62 GPIO_ACTIVE_LOW>;
+	};
+
+	wlan_en: regulator-2 {
+		/* output of SN74AVC4T245RSVR */
+		compatible = "regulator-fixed";
+		regulator-name = "wlan_en";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		enable-active-high;
+		pinctrl-0 = <&main_wlan_en_pins_default>;
+		pinctrl-names = "default";
+		vin-supply = <&com8_ls_en>;
+		gpio = <&main_gpio0 48 GPIO_ACTIVE_HIGH>;
+	};
 };
 
 &main_pmx0 {
@@ -237,6 +262,56 @@
 			AM64X_IOPAD(0x0270, PIN_INPUT, 0) /* (D18) ECAP0_IN_APWM_OUT */
 		>;
 	};
+	main_wlan_en_pins_default: main-wlan-en-pins-default {
+		pinctrl-single,pins = <
+			AM64X_IOPAD(0x00c4, PIN_OUTPUT_PULLUP, 7) /* (V8) GPIO0_48 */
+		>;
+	};
+
+	main_com8_ls_en_pins_default: main-com8-ls-en-pins-default {
+		pinctrl-single,pins = <
+			AM64X_IOPAD(0x00fc, PIN_OUTPUT, 7) /* (U7) PRG1_PRU0_GPO17.GPIO0_62 */
+		>;
+	};
+
+	main_wlan_pins_default: main-wlan-pins-default {
+		pinctrl-single,pins = <
+			AM64X_IOPAD(0x00bc, PIN_INPUT, 7) /* (U8) GPIO0_46 */
+		>;
+	};
+
+	main_bten_default: main-bten-default {
+		pinctrl-single,pins = <
+			AM64X_IOPAD(0x00c8, PIN_OUTPUT, 7) /* (P17) GPIO0_49 */
+		>;
+	};
+
+	main_btuart_rts_sel_default: main-btuart-rts-sel-default {
+		pinctrl-single,pins = <
+			AM64X_IOPAD(0x100, PIN_OUTPUT, 7) /* (V7) GPIO0_63 */
+		>;
+	};
+
+	main_uart4_default: main-uart4-default {
+		pinctrl-single,pins = <
+			AM64X_IOPAD(0x250, PIN_INPUT, 1)	/* (A17) UART4_RXD */
+			AM64X_IOPAD(0x254, PIN_OUTPUT, 1)	/* (B17) UART4_TXD */
+			AM64X_IOPAD(0x64, PIN_INPUT, 2)		/* (R16) UART4_CTS */
+			AM64X_IOPAD(0x7c, PIN_OUTPUT, 2)	/* (R17) UART4_RTS */
+		>;
+	};
+};
+
+&main_gpio0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_btuart_rts_sel_default>;
+
+	gpio0-63 {
+		gpio-hog;
+		gpios = <63 GPIO_ACTIVE_HIGH>;
+		output-high;
+		line-name = "btuart_rts_sel";
+	};
 };
 
 &mcu_uart0 {
@@ -266,7 +341,14 @@
 };
 
 &main_uart4 {
-	status = "disabled";
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_uart4_default &main_bten_default>;
+	status = "okay";
+
+	bluetooth {
+		compatible = "ti,wl1835-st";
+		enable-gpios = <&main_gpio0 49 GPIO_ACTIVE_HIGH>;
+	};
 };
 
 &main_uart5 {
@@ -317,6 +399,26 @@
 /* mcu_gpio0 is reserved for mcu firmware usage */
 &mcu_gpio0 {
 	status = "reserved";
+};
+
+&sdhci0 {
+	vmmc-supply = <&wlan_en>;
+	bus-width = <4>;
+	non-removable;
+	cap-power-off-card;
+	keep-power-in-suspend;
+	ti,driver-strength-ohm = <50>;
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+	wlcore: wlcore@2 {
+		compatible = "ti,wl1837";
+		reg = <2>;
+		pinctrl-0 = <&main_wlan_pins_default>;
+		pinctrl-names = "default";
+		interrupt-parent = <&main_gpio0>;
+		interrupts = <46 IRQ_TYPE_EDGE_FALLING>;
+	};
 };
 
 &sdhci1 {
