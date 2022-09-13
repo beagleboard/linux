@@ -1325,6 +1325,16 @@ int dispc_vp_set_clk_rate(struct dispc_device *dispc, u32 hw_videoport,
 	int r;
 	unsigned long new_rate;
 
+	/*
+	 * For AM625 OLDI video ports, the requested pixel clock needs to take into account the
+	 * serial clock required for the serialization of DPI signals into LVDS signals. The
+	 * incoming pixel clock on the OLDI video port gets divided by 7 whenever OLDI enable bit
+	 * gets set.
+	 */
+	if (dispc->feat->vp_bus_type[hw_videoport] == DISPC_VP_OLDI &&
+	    dispc->feat->subrev == DISPC_AM625)
+		rate *= 7;
+
 	r = clk_set_rate(dispc->vp_clk[hw_videoport], rate);
 	if (r) {
 		dev_err(dispc->dev, "vp%d: failed to set clk rate to %lu\n",
