@@ -60,6 +60,11 @@
 			reg = <0x4130 0x4>;
 			#clock-cells = <1>;
 		};
+
+		dss_oldi_io_ctrl: dss-oldi-io-ctrl@8600 {
+			compatible = "syscon";
+			reg = <0x8600 0x200>;
+		};
 	};
 
 	dmss: bus@48000000 {
@@ -613,6 +618,7 @@
 			    "ovr1", "ovr2",
 			    "vp1", "vp2";
 
+		ti,am65x-oldi-io-ctrl = <&dss_oldi_io_ctrl>;
 		power-domains = <&k3_pds 186 TI_SCI_PD_EXCLUSIVE>;
 
 		clocks = <&k3_clks 186 6>,
