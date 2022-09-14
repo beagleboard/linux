@@ -328,6 +328,56 @@
 			ti,cpts-periodic-outputs = <6>;
 			ti,cpts-ext-ts-inputs = <8>;
 		};
+
+		navss_pat0: pat@31010000 {
+			compatible = "ti,j721e-pat";
+			reg = <0x00 0x31010000 0x00 0x00000100>,
+			      <0x00 0x36400000 0x00 0x00040000>;
+			reg-names = "mmrs",
+				    "table";
+			ti,pat-window-base = <0x48 0x00000000>;
+			ti,pat-window-size = <0x00 0x40000000>;
+		};
+
+		navss_pat1: pat@31011000 {
+			compatible = "ti,j721e-pat";
+			reg = <0x00 0x31011000 0x00 0x00000100>,
+			      <0x00 0x36440000 0x00 0x00040000>;
+			reg-names = "mmrs",
+				    "table";
+			ti,pat-window-base = <0x48 0x40000000>;
+			ti,pat-window-size = <0x00 0x40000000>;
+		};
+
+		navss_pat2: pat@31012000 {
+			compatible = "ti,j721e-pat";
+			reg = <0x00 0x31012000 0x00 0x00000100>,
+			      <0x00 0x36480000 0x00 0x00040000>;
+			reg-names = "mmrs",
+				    "table";
+			ti,pat-window-base = <0x48 0x80000000>;
+			ti,pat-window-size = <0x00 0x40000000>;
+		};
+
+		navss_pat3: pat@31013000 {
+			compatible = "ti,j721e-pat";
+			reg = <0x00 0x31013000 0x00 0x00000100>,
+			      <0x00 0x364C0000 0x00 0x00008000>;
+			reg-names = "mmrs",
+				    "table";
+			ti,pat-window-base = <0x49 0x00000000>;
+			ti,pat-window-size = <0x00 0x80000000>;
+		};
+
+		navss_pat4: pat@31014000 {
+			compatible = "ti,j721e-pat";
+			reg = <0x00 0x31014000 0x00 0x00000100>,
+			      <0x00 0x36500000 0x00 0x00008000>;
+			reg-names = "mmrs",
+				    "table";
+			ti,pat-window-base = <0x49 0x80000000>;
+			ti,pat-window-size = <0x00 0x80000000>;
+		};
 	};
 
 	cpsw0: ethernet@c000000 {

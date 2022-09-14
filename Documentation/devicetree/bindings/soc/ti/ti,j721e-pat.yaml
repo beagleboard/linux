@@ -1,0 +1,60 @@
+# SPDX-License-Identifier: GPL-2.0-only OR BSD-2-Clause
+# Copyright (C) 2020 Texas Instruments Incorporated - https://www.ti.com/
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/misc/ti,j721e-pat.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Texas Instruments Page-based Address Translator (PAT) bindings
+
+description: |
+  A Page-based Address Translator (PAT) device performs address translation
+  using tables stored in an internal SRAM. Each PAT supports a set number of
+  pages, each occupying a programmable 4KB, 16KB, 64KB, or 1MB of addresses
+  in a window for which an incoming transaction will be translated.
+
+maintainers:
+  - Andrew Davis <afd@ti.com>
+
+properties:
+  compatible:
+    const: ti,j721e-pat
+
+  reg:
+    items:
+      - description: Memory mapped registers region
+      - description: Location of the table of translation pages
+
+  reg-names:
+    items:
+      - const: mmrs
+      - const: table
+
+  ti,pat-window-base:
+    maxItems: 1
+    description: Base address of window translated by this PAT
+
+  ti,pat-window-size
+    maxItems: 1
+    description: Size of window translated by this PAT
+
+required:
+  - compatible
+  - reg
+  - reg-names
+  - ti,pat-window-base
+  - ti,pat-window-size
+
+additionalProperties: false
+
+examples:
+  - |
+    pat@31010000 {
+     compatible = "ti,j721e-pat";
+     reg = <0x00 0x31010000 0x00 0x00000100>,
+           <0x00 0x36400000 0x00 0x00040000>;
+     reg-names = "mmrs",
+                 "table";
+     ti,pat-window-base = <0x48 0x00000000>;
+     ti,pat-window-size = <0x00 0x40000000>;
+   };
