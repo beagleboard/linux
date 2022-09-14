@@ -35,11 +35,11 @@
 			#size-cells = <0>;
 			reg = <0>;
 
-			deser@38 {
+			deser@3d {
 				compatible = "ti,ds90ub960-q1";
 
 				reg-names = "main", "ser0", "ser1", "ser2", "ser3";
-				reg       = <0x38>, <0x44>, <0x45>, <0x46>, <0x47>;
+				reg       = <0x3d>, <0x44>, <0x45>, <0x46>, <0x47>;
 
 				clocks = <&clk_fusion_25M_fixed>;
 
@@ -68,11 +68,11 @@
 				};
 			};
 
-			deser@30 {
+			deser@36 {
 				compatible = "ti,ds90ub960-q1";
 
 				reg-names = "main", "ser0", "ser1", "ser2", "ser3";
-				reg       = <0x30>, <0x54>, <0x55>, <0x56>, <0x57>;
+				reg       = <0x36>, <0x54>, <0x55>, <0x56>, <0x57>;
 
 				clocks = <&clk_fusion_25M_fixed>;
 
