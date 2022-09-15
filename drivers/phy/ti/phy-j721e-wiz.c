@@ -80,14 +80,20 @@ static const struct reg_field phy_reset_n = REG_FIELD(WIZ_SERDES_RST, 31, 31);
 static const struct reg_field phy_en_refclk = REG_FIELD(WIZ_SERDES_RST, 30, 30);
 static const struct reg_field pll1_refclk_mux_sel =
 					REG_FIELD(WIZ_SERDES_RST, 29, 29);
+static const struct reg_field pll1_refclk_mux_sel_2 =
+					REG_FIELD(WIZ_SERDES_RST, 22, 23);
 static const struct reg_field pll0_refclk_mux_sel =
 					REG_FIELD(WIZ_SERDES_RST, 28, 28);
+static const struct reg_field pll0_refclk_mux_sel_2 =
+					REG_FIELD(WIZ_SERDES_RST, 28, 29);
 static const struct reg_field refclk_dig_sel_16g =
 					REG_FIELD(WIZ_SERDES_RST, 24, 25);
 static const struct reg_field refclk_dig_sel_10g =
 					REG_FIELD(WIZ_SERDES_RST, 24, 24);
 static const struct reg_field pma_cmn_refclk_int_mode =
 					REG_FIELD(WIZ_SERDES_TOP_CTRL, 28, 29);
+static const struct reg_field pma_cmn_refclk1_int_mode =
+					REG_FIELD(WIZ_SERDES_TOP_CTRL, 20, 21);
 static const struct reg_field pma_cmn_refclk_mode =
 					REG_FIELD(WIZ_SERDES_TOP_CTRL, 30, 31);
 static const struct reg_field pma_cmn_refclk_dig_div =
@@ -314,6 +320,7 @@ enum wiz_type {
 	J721E_WIZ_10G,	/* Also for J7200 SR1.0 */
 	AM64_WIZ_10G,
 	J7200_WIZ_10G,	/* J7200 SR2.0 */
+	J784S4_WIZ_10G,
 };
 
 struct wiz_data {
@@ -989,6 +996,7 @@ static void wiz_clock_cleanup(struct wiz *wiz, struct device_node *node)
 	switch (wiz->type) {
 	case AM64_WIZ_10G:
 	case J7200_WIZ_10G:
+	case J784S4_WIZ_10G:
 		of_clk_del_provider(dev->of_node);
 		return;
 	default:
@@ -1120,6 +1128,7 @@ static int wiz_clock_init(struct wiz *wiz, struct device_node *node)
 	switch (wiz->type) {
 	case AM64_WIZ_10G:
 	case J7200_WIZ_10G:
+	case J784S4_WIZ_10G:
 		ret = wiz_clock_register(wiz);
 		if (ret)
 			dev_err(dev, "Failed to register wiz clocks\n");
@@ -1297,6 +1306,16 @@ static struct wiz_data j7200_pg2_10g_data = {
 	.clk_div_sel_num = WIZ_DIV_NUM_CLOCKS_10G,
 };
 
+static struct wiz_data j784s4_10g_data = {
+	.type = J784S4_WIZ_10G,
+	.pll0_refclk_mux_sel = &pll0_refclk_mux_sel_2,
+	.pll1_refclk_mux_sel = &pll1_refclk_mux_sel_2,
+	.refclk_dig_sel = &refclk_dig_sel_16g,
+	.pma_cmn_refclk1_int_mode = &pma_cmn_refclk1_int_mode,
+	.clk_mux_sel = clk_mux_sel_10g_2_refclk,
+	.clk_div_sel_num = WIZ_DIV_NUM_CLOCKS_10G,
+};
+
 static const struct of_device_id wiz_id_table[] = {
 	{
 		.compatible = "ti,j721e-wiz-16g", .data = &j721e_16g_data,
@@ -1309,6 +1328,9 @@ static const struct of_device_id wiz_id_table[] = {
 	},
 	{
 		.compatible = "ti,j7200-wiz-10g", .data = &j7200_pg2_10g_data,
+	},
+	{
+		.compatible = "ti,j784s4-wiz-10g", .data = &j784s4_10g_data,
 	},
 	{}
 };
