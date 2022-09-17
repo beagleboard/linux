@@ -134,7 +134,7 @@ struct cdns_dphy_ops {
 };
 
 struct cdns_dphy_soc_data {
-	bool has_cmn_reset;
+	bool has_hw_cmn_rstb;
 };
 
 struct cdns_dphy {
@@ -537,17 +537,12 @@ static int cdns_dphy_rx_wait_lane_ready(struct cdns_dphy *dphy, int lanes)
 }
 
 static struct cdns_dphy_soc_data j721e_soc_data = {
-	.has_cmn_reset = true,
+	.has_hw_cmn_rstb = true,
 };
 
 static const struct soc_device_attribute cdns_dphy_socinfo[] = {
 	{
 		.family = "J721E",
-		.revision = "SR2.0",
-		.data = &j721e_soc_data,
-	},
-	{
-		.family = "AM62X",
 		.revision = "SR1.0",
 		.data = &j721e_soc_data,
 	},
@@ -565,7 +560,7 @@ static int cdns_dphy_rx_configure(struct cdns_dphy *dphy,
 	soc = soc_device_match(cdns_dphy_socinfo);
 	if (soc && soc->data) {
 		soc_data = soc->data;
-		if (soc_data->has_cmn_reset) {
+		if (!soc_data->has_hw_cmn_rstb) {
 			reg = DPHY_LANE_RESET_CMN_EN;
 			writel(reg, dphy->regs + DPHY_LANE);
 		}

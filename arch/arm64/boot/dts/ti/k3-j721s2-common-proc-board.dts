@@ -254,6 +254,14 @@
 			J721S2_IOPAD(0x0b8, PIN_INPUT, 3) /* (AA24) MCASP1_ACLKX.DP0_HPD */
 		>;
 	};
+
+	main_i2c5_pins_default: main-i2c5-pins-default {
+		pinctrl-single,pins = <
+			J721S2_IOPAD(0x01c, PIN_INPUT, 8) /* (Y24) MCAN15_TX.I2C5_SCL */
+			J721S2_IOPAD(0x018, PIN_INPUT, 8) /* (W23) MCAN14_RX.I2C5_SDA */
+
+		>;
+	};
 };
 
 &wkup_pmx0 {
@@ -428,7 +436,16 @@
 };
 
 &main_i2c5 {
-	status = "disabled";
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_i2c5_pins_default>;
+	clock-frequency = <400000>;
+
+	exp5: gpio@20 {
+		compatible = "ti,tca6408";
+		reg = <0x20>;
+		gpio-controller;
+		#gpio-cells = <2>;
+	};
 };
 
 &main_i2c6 {
@@ -724,5 +741,45 @@
 };
 
 &main_cpsw {
+	status = "disabled";
+};
+
+&csi0_port0 {
+	status = "disabled";
+};
+
+&csi0_port1 {
+	status = "disabled";
+};
+
+&csi0_port2 {
+	status = "disabled";
+};
+
+&csi0_port3 {
+	status = "disabled";
+};
+
+&csi0_port4 {
+	status = "disabled";
+};
+
+&csi1_port0 {
+	status = "disabled";
+};
+
+&csi1_port1 {
+	status = "disabled";
+};
+
+&csi1_port2 {
+	status = "disabled";
+};
+
+&csi1_port3 {
+	status = "disabled";
+};
+
+&csi1_port4 {
 	status = "disabled";
 };
