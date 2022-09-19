@@ -91,12 +91,17 @@ properties:
       port@0:
         type: object
         description:
-          The DSS OLDI output port node form video port 1
+          The DSS OLDI output port node form video port 1 (OLDI TX 0).
 
       port@1:
         type: object
         description:
           The DSS DPI output port node from video port 2
+
+      port@2:
+        $ref: /schemas/graph.yaml#/properties/port
+        description:
+          The DSS OLDI output port node form video port 1 (OLDI TX 1).
 
     required:
       - "#address-cells"
@@ -117,6 +122,17 @@ properties:
     description:
       Input memory (from main memory to dispc) bandwidth limit in
       bytes per second
+
+if:
+  properties:
+    compatible:
+      contains:
+        const: ti,am65x-dss
+then:
+  properties:
+    ports:
+      properties:
+        port@2: false
 
 required:
   - compatible

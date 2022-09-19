@@ -25,6 +25,7 @@
 #include <drm/drm_fb_cma_helper.h>
 #include <drm/drm_gem_cma_helper.h>
 #include <drm/drm_panel.h>
+#include <drm/drm_of.h>
 
 #include "tidss_crtc.h"
 #include "tidss_dispc.h"
@@ -347,6 +348,8 @@ struct dispc_device {
 	bool is_enabled;
 
 	struct dss_vp_data vp_data[TIDSS_MAX_PORTS];
+
+	enum dss_oldi_modes oldi_mode;
 
 	u32 *fourccs;
 	u32 num_fourccs;
@@ -911,21 +914,52 @@ int dispc_vp_bus_check(struct dispc_device *dispc, u32 hw_videoport,
 
 static void dispc_oldi_tx_power(struct dispc_device *dispc, bool power)
 {
-	u32 val = power ? 0 : OLDI_PWRDN_TX;
+	u32 val;
 
 	if (WARN_ON(!dispc->oldi_io_ctrl))
 		return;
 
-	regmap_update_bits(dispc->oldi_io_ctrl, OLDI_DAT0_IO_CTRL,
-			   OLDI_PWRDN_TX, val);
-	regmap_update_bits(dispc->oldi_io_ctrl, OLDI_DAT1_IO_CTRL,
-			   OLDI_PWRDN_TX, val);
-	regmap_update_bits(dispc->oldi_io_ctrl, OLDI_DAT2_IO_CTRL,
-			   OLDI_PWRDN_TX, val);
-	regmap_update_bits(dispc->oldi_io_ctrl, OLDI_DAT3_IO_CTRL,
-			   OLDI_PWRDN_TX, val);
-	regmap_update_bits(dispc->oldi_io_ctrl, OLDI_CLK_IO_CTRL,
-			   OLDI_PWRDN_TX, val);
+	if (dispc->feat->subrev == DISPC_AM65X) {
+		val = power ? 0 : OLDI_PWRDN_TX;
+
+		regmap_update_bits(dispc->oldi_io_ctrl, OLDI_DAT0_IO_CTRL,
+				   OLDI_PWRDN_TX, val);
+		regmap_update_bits(dispc->oldi_io_ctrl, OLDI_DAT1_IO_CTRL,
+				   OLDI_PWRDN_TX, val);
+		regmap_update_bits(dispc->oldi_io_ctrl, OLDI_DAT2_IO_CTRL,
+				   OLDI_PWRDN_TX, val);
+		regmap_update_bits(dispc->oldi_io_ctrl, OLDI_DAT3_IO_CTRL,
+				   OLDI_PWRDN_TX, val);
+		regmap_update_bits(dispc->oldi_io_ctrl, OLDI_CLK_IO_CTRL,
+				   OLDI_PWRDN_TX, val);
+
+	} else if (dispc->feat->subrev == DISPC_AM625) {
+		if (power) {
+			switch (dispc->oldi_mode) {
+			case OLDI_SINGLE_LINK_SINGLE_MODE:
+				/* Power down OLDI TX 1 */
+				val = OLDI1_PWRDN_TX;
+				break;
+
+			case OLDI_SINGLE_LINK_DUPLICATE_MODE:
+			case OLDI_DUAL_LINK:
+				/* No Power down */
+				val = 0;
+				break;
+
+			default:
+				/* Power down both the OLDI TXes */
+				val = OLDI0_PWRDN_TX | OLDI1_PWRDN_TX;
+				break;
+			}
+		} else {
+			/* Power down both the OLDI TXes */
+			val = OLDI0_PWRDN_TX | OLDI1_PWRDN_TX;
+		}
+
+		regmap_update_bits(dispc->oldi_io_ctrl, OLDI_PD_CTRL,
+				   OLDI0_PWRDN_TX | OLDI1_PWRDN_TX, val);
+	}
 }
 
 static void dispc_set_num_datalines(struct dispc_device *dispc,
@@ -962,8 +996,8 @@ static void dispc_enable_oldi(struct dispc_device *dispc, u32 hw_videoport,
 	int count = 0;
 
 	/*
-	 * For the moment DUALMODESYNC, MASTERSLAVE, MODE, and SRC
-	 * bits of DISPC_VP_DSS_OLDI_CFG are set statically to 0.
+	 * For the moment MASTERSLAVE, and SRC bits of DISPC_VP_DSS_OLDI_CFG are
+	 * set statically to 0.
 	 */
 
 	if (fmt->data_width == 24)
@@ -979,6 +1013,30 @@ static void dispc_enable_oldi(struct dispc_device *dispc, u32 hw_videoport,
 	oldi_cfg |= BIT(12); /* SOFTRST */
 
 	oldi_cfg |= BIT(0); /* ENABLE */
+
+	switch (dispc->oldi_mode) {
+	case OLDI_MODE_OFF:
+		oldi_cfg &= ~BIT(0); /* DISABLE */
+		break;
+
+	case OLDI_SINGLE_LINK_SINGLE_MODE:
+		/* All configuration is done for this mode.  */
+		break;
+
+	case OLDI_SINGLE_LINK_DUPLICATE_MODE:
+		oldi_cfg |= BIT(5); /* DUPLICATE MODE */
+		break;
+
+	case OLDI_DUAL_LINK:
+		oldi_cfg |= BIT(11); /* DUALMODESYNC */
+		oldi_cfg |= BIT(3); /* data-mapping field also indicates dual-link mode */
+		break;
+
+	default:
+		dev_warn(dispc->dev, "%s: Incorrect oldi mode. Returning.\n",
+			 __func__);
+		return;
+	}
 
 	dispc_vp_write(dispc, hw_videoport, DISPC_VP_DSS_OLDI_CFG, oldi_cfg);
 
@@ -1266,6 +1324,16 @@ int dispc_vp_set_clk_rate(struct dispc_device *dispc, u32 hw_videoport,
 {
 	int r;
 	unsigned long new_rate;
+
+	/*
+	 * For AM625 OLDI video ports, the requested pixel clock needs to take into account the
+	 * serial clock required for the serialization of DPI signals into LVDS signals. The
+	 * incoming pixel clock on the OLDI video port gets divided by 7 whenever OLDI enable bit
+	 * gets set.
+	 */
+	if (dispc->feat->vp_bus_type[hw_videoport] == DISPC_VP_OLDI &&
+	    dispc->feat->subrev == DISPC_AM625)
+		rate *= 7;
 
 	r = clk_set_rate(dispc->vp_clk[hw_videoport], rate);
 	if (r) {
@@ -2725,6 +2793,60 @@ static void dispc_softreset(struct dispc_device *dispc)
 		dev_warn(dispc->dev, "failed to reset dispc\n");
 }
 
+static void dispc_get_oldi_mode(struct dispc_device *dispc)
+{
+	int pixel_order;
+	struct device_node *dss_ports, *oldi0_port, *oldi1_port;
+
+	dss_ports = of_get_next_child(dispc->dev->of_node, NULL);
+	oldi0_port = of_graph_get_port_by_id(dss_ports, 0);
+	oldi1_port = of_graph_get_port_by_id(dss_ports, 2);
+
+	if (!oldi0_port && !oldi1_port) {
+		dispc->oldi_mode = OLDI_MODE_OFF;
+	} else if ((oldi0_port && !oldi1_port) ||
+		   (!oldi0_port && oldi1_port)) {
+		dispc->oldi_mode = OLDI_SINGLE_LINK_SINGLE_MODE;
+	} else {
+		/*
+		 * OLDI Ports found for both the OLDI TXes. The DSS is
+		 * to be configured in either Dual Link or Cloning Mode.
+		 */
+		pixel_order = drm_of_lvds_get_dual_link_pixel_order(oldi0_port,
+								    oldi1_port);
+		switch (pixel_order) {
+		case -EINVAL:
+			/*
+			 * The dual link properties were not found in at least
+			 * one of the sink nodes. Since the ports are present in
+			 * the DT, we can safely assume the required configuration
+			 * is Duplicate Modes.
+			 */
+			dispc->oldi_mode = OLDI_SINGLE_LINK_DUPLICATE_MODE;
+			break;
+
+		case DRM_LVDS_DUAL_LINK_EVEN_ODD_PIXELS:
+		case DRM_LVDS_DUAL_LINK_ODD_EVEN_PIXELS:
+			/*
+			 * Note that the OLDI TX 0 transmits the odd set of pixels
+			 * while the OLDI TX 1 transmits the even set. This is a
+			 * fixed configuration in the IP integration and is not
+			 * changeable. These properties have been used to merely
+			 * identify if a Dual Link configuration is required.
+			 * Swapping this property in the panel port DT nodes will
+			 * not make any difference and will result in a don't
+			 * care condition.
+			 */
+			dispc->oldi_mode = OLDI_DUAL_LINK;
+			break;
+
+		default:
+			dispc->oldi_mode = OLDI_MODE_OFF;
+			break;
+		}
+	}
+}
+
 int dispc_init(struct tidss_device *tidss)
 {
 	struct device *dev = tidss->dev;
@@ -2819,10 +2941,19 @@ int dispc_init(struct tidss_device *tidss)
 		dispc->vp_data[i].gamma_table = gamma_table;
 	}
 
-	if (feat->subrev == DISPC_AM65X) {
-		r = dispc_init_am65x_oldi_io_ctrl(dev, dispc);
-		if (r)
-			return r;
+	/*
+	 * K2G and J721E DSS do not support these properties.
+	 * Furthermore, the default mode for the OLDI TXes is OFF.
+	 */
+	dispc->oldi_mode = OLDI_MODE_OFF;
+
+	if (feat->subrev == DISPC_AM65X || feat->subrev == DISPC_AM625) {
+		dispc_get_oldi_mode(dispc);
+		if (dispc->oldi_mode) {
+			r = dispc_init_am65x_oldi_io_ctrl(dev, dispc);
+			if (r)
+				return r;
+		}
 	}
 
 	dispc->fclk = devm_clk_get(dev, "fck");

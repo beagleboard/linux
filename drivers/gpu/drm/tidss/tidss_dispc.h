@@ -64,6 +64,13 @@ enum dispc_dss_subrevision {
 	DISPC_AM625,
 };
 
+enum dss_oldi_modes {
+	OLDI_MODE_OFF,				/* OLDI turned off / tied off in IP. */
+	OLDI_SINGLE_LINK_SINGLE_MODE,		/* Single Output over OLDI 0. */
+	OLDI_SINGLE_LINK_DUPLICATE_MODE,	/* Duplicate Output over OLDI 0 and 1. */
+	OLDI_DUAL_LINK,				/* Combined Output over OLDI 0 and 1. */
+};
+
 struct dispc_features {
 	int min_pclk_khz;
 	int max_pclk_khz[DISPC_VP_MAX_BUS_TYPE];

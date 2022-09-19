@@ -238,6 +238,12 @@ enum dispc_common_regs {
 #define OLDI_DAT3_IO_CTRL			0x0C
 #define OLDI_CLK_IO_CTRL			0x10
 
+/* Only for AM625 OLDI TX */
+#define OLDI_PD_CTRL				0x100
+#define OLDI_LB_CTRL				0x104
+
 #define OLDI_PWRDN_TX				BIT(8)
+#define OLDI0_PWRDN_TX				BIT(0)
+#define OLDI1_PWRDN_TX				BIT(1)
 
 #endif /* __TIDSS_DISPC_REGS_H */
