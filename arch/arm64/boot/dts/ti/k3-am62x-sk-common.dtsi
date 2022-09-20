@@ -724,6 +724,11 @@
 		ti,mbox-rx = <0 0 0>;
 		ti,mbox-tx = <1 0 0>;
 	};
+
+	mbox_r5_0: mbox-r5-0 {
+		ti,mbox-rx = <2 0 0>;
+		ti,mbox-tx = <3 0 0>;
+	};
 };
 
 &ospi0 {
@@ -735,6 +740,12 @@
 	mboxes = <&mailbox0_cluster0 &mbox_m4_0>;
 	memory-region = <&mcu_m4fss_dma_memory_region>,
 			<&mcu_m4fss_memory_region>;
+};
+
+&wkup_r5fss0_core0 {
+	mboxes = <&mailbox0_cluster0 &mbox_r5_0>;
+	memory-region = <&wkup_r5fss0_core0_dma_memory_region>,
+			<&wkup_r5fss0_core0_memory_region>;
 };
 
 &main_mcan0 {
