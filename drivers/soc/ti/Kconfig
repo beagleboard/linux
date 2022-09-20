@@ -108,6 +108,7 @@ config TI_PRUSS
 config TI_PAT
 	tristate "TI PAT DMA-BUF exporter"
 	depends on ARCH_K3 || COMPILE_TEST
+	depends on ARCH_DMA_ADDR_T_64BIT
 	select REGMAP
 	help
 	  Driver for TI Page-based Address Translator (PAT). This driver
