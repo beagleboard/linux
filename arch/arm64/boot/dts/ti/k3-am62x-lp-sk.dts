@@ -117,6 +117,19 @@
 
 };
 
+/*
+ * All SoC variants with the AMC package have no PRU.
+ * Attempting to access the PRU on these devices will
+ * result in a crash at kernel bootup.
+ *
+ * For now, we do not have any code that can figure out
+ * the absence of the PRU by reading any SoC registers,
+ * so for now disable the PRU here in the board DTS file.
+ */
+&pruss {
+	status = "disabled";
+};
+
 &sdhci2 {
 	status = "disabled";
 };
