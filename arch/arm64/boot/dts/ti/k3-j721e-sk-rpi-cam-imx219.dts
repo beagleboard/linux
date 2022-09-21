@@ -47,9 +47,6 @@
 };
 
 &main_gpio0 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&main_csi_mux_sel2_pins_default>;
-
 	csi-mux-hog {
 		/* CSI_MUX_SEL_2 */
 		gpio-hog;
@@ -68,6 +65,9 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 		reg = <0x70>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&main_csi_mux_sel2_pins_default>;
 
 		i2c-alias-pool = /bits/ 16 <0x10 0x11>;
 

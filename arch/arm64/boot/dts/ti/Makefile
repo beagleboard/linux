@@ -29,6 +29,7 @@ dtb-$(CONFIG_ARCH_K3) += k3-j721e-quad-port-eth-exp.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-j721e-sk.dtb
 dtb-$(CONFIG_ARCH_K3) += k3-j721e-sk-csi2-ov5640.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-j721e-sk-rpi-cam-imx219.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-j7200-mcspi-loopback.dtbo
 
 dtb-$(CONFIG_ARCH_K3) += k3-j7200-common-proc-board.dtb
 dtb-$(CONFIG_ARCH_K3) += k3-j7200-common-proc-board-sr1.dtbo

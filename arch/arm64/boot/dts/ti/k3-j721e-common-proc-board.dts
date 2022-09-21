@@ -1075,3 +1075,19 @@
 &csi0_port4 {
 	status = "disabled";
 };
+
+&main_spi4 {
+	status = "disabled";
+};
+
+&mcu_spi0 {
+	status = "disabled";
+};
+
+&mcu_spi1 {
+	status = "disabled";
+};
+
+&mcu_spi2 {
+	status = "disabled";
+};
