@@ -34,7 +34,7 @@ properties:
     maxItems: 1
     description: Base address of window translated by this PAT
 
-  ti,pat-window-size
+  ti,pat-window-size:
     maxItems: 1
     description: Size of window translated by this PAT
 
