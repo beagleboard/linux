@@ -24,17 +24,16 @@
 		regulator-max-microvolt = <3300000>;
 		regulator-always-on;
 		vin-supply = <&vcc_3v3_sys>;
-		gpios = <&exp2 11 GPIO_ACTIVE_LOW>;
+		gpios = <&exp2 9 GPIO_ACTIVE_LOW>;
 	};
 
 	wlan_en: regulator-6 {
 		/* OUTPUT of SN74AVC2T244DQMR */
 		compatible = "regulator-fixed";
 		regulator-name = "wlan_en";
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <1800000>;
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
 		enable-active-high;
-		regulator-always-on;
 		vin-supply = <&wlan_lten>;
 		gpios = <&main_gpio0 71 GPIO_ACTIVE_HIGH>;
 		pinctrl-names = "default";
