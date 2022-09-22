@@ -517,14 +517,19 @@ static void vxd_return_resource(void *ctx_handle, enum vxd_cb_type type,
 		/*
 		 * There has been FW error, so we need to reload the firmware.
 		 */
+#ifdef ERROR_RECOVERY_SIMULATION
 		vxd_error_recovery(ctx);
+#endif
 
+		if (ctx->dev->emergency)
+			ctx->eos = TRUE;
 		/*
 		 * Just send zero size buffer to v4l2 application,
 		 * informing the error condition.
 		 */
 		if (v4l2_m2m_num_dst_bufs_ready(ctx->fh.m2m_ctx) > 0) {
 			vb = v4l2_m2m_dst_buf_remove(ctx->fh.m2m_ctx);
+			vb->flags |= V4L2_BUF_FLAG_LAST;
 
 			q_data = get_q_data(ctx, V4L2_BUF_TYPE_VIDEO_CAPTURE);
 			if (!q_data)
