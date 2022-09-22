@@ -274,7 +274,7 @@ static struct sg_table *ti_pat_dma_buf_map(struct dma_buf_attachment *attachment
 		}
 
 		/* And program PAT area for this set of pages */
-		page_id = (buffer->offset - pat->window_base) / pat->page_size;
+		page_id = (size_t)(buffer->offset - pat->window_base) / pat->page_size;
 		for_each_sg(buffer->sgt->sgl, s, buffer->sgt->nents, i) {
 			if (s->offset) {
 				dev_err(pat->dev, "Cannot use offset buffers\n");
@@ -323,7 +323,7 @@ static void ti_pat_dma_buf_unmap(struct dma_buf_attachment *attachment,
 	/* Last mapping we unmap from parent */
 	if (!buffer->map_count) {
 		/* Disable PAT pages for this area */
-		size_t page_start = (buffer->offset - pat->window_base) / pat->page_size;
+		size_t page_start = (size_t)(buffer->offset - pat->window_base) / pat->page_size;
 		size_t page_end = page_start + (buffer->size / pat->page_size);
 
 		for (; page_start < page_end; page_start++)
@@ -588,7 +588,7 @@ static int ti_pat_probe(struct platform_device *pdev)
 	/* 256 pages per 4KB of table space */
 	size = resource_size(res);
 	if (size != (pat->page_count << 4))
-		dev_warn(pat->dev, "TABLE region size (%llu) does not match reported page count\n", size);
+		dev_warn(pat->dev, "TABLE region size (%pa) does not match reported page count\n", &size);
 
 	table_map = devm_regmap_init_mmio(pat->dev, base, &ti_pat_regmap_config);
 	if (IS_ERR(table_map)) {

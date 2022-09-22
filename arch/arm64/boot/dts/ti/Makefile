@@ -40,6 +40,8 @@ dtb-$(CONFIG_ARCH_K3) += k3-j721s2-gesi-exp-board.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-j721s2-cpb-csi2-ov5640.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-j721s2-fpdlink-cpb-fusion.dtbo
 
+dtb-$(CONFIG_ARCH_K3) += k3-j784s4-evm.dtb
+
 dtb-$(CONFIG_ARCH_K3) += k3-am642-evm.dtb
 dtb-$(CONFIG_ARCH_K3) += k3-am642-evm-icssg1-dualemac.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-am642-evm-icssg1-dualemac-mii.dtbo
