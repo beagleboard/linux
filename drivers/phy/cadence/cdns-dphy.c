@@ -553,17 +553,16 @@ static int cdns_dphy_rx_configure(struct cdns_dphy *dphy,
 				  union phy_configure_opts *opts)
 {
 	const struct soc_device_attribute *soc;
-	const struct cdns_dphy_soc_data *soc_data;
+	const struct cdns_dphy_soc_data *soc_data = NULL;
 	unsigned int reg;
 	int band_ctrl, ret;
 
 	soc = soc_device_match(cdns_dphy_socinfo);
-	if (soc && soc->data) {
+	if (soc && soc->data)
 		soc_data = soc->data;
-		if (!soc_data->has_hw_cmn_rstb) {
-			reg = DPHY_LANE_RESET_CMN_EN;
-			writel(reg, dphy->regs + DPHY_LANE);
-		}
+	if (!soc || (soc_data && !soc_data->has_hw_cmn_rstb)) {
+		reg = DPHY_LANE_RESET_CMN_EN;
+		writel(reg, dphy->regs + DPHY_LANE);
 	}
 
 	band_ctrl = cdns_dphy_rx_get_band_ctrl(opts->mipi_dphy.hs_clk_rate);
