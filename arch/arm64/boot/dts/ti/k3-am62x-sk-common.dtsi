@@ -44,21 +44,9 @@
 		#size-cells = <2>;
 		ranges;
 
-		secure_tfa_ddr: tfa@9e780000 {
-			reg = <0x00 0x9e780000 0x00 0x80000>;
-			alignment = <0x1000>;
-			no-map;
-		};
-
-		secure_ddr: optee@9e800000 {
-			reg = <0x00 0x9e800000 0x00 0x01800000>; /* for OP-TEE */
-			alignment = <0x1000>;
-			no-map;
-		};
-
-		wkup_r5fss0_core0_dma_memory_region: r5f-dma-memory@9db00000 {
+		rtos_ipc_memory_region: ipc-memories@9c800000 {
 			compatible = "shared-dma-pool";
-			reg = <0x00 0x9db00000 0x00 0xc00000>;
+			reg = <0x00 0x9c800000 0x00 0x00300000>;
 			no-map;
 		};
 
@@ -70,13 +58,37 @@
 
 		mcu_m4fss_memory_region: m4f-memory@9cc00000 {
 			compatible = "shared-dma-pool";
-			reg = <0x00 0x9cc00000 0x00 0xf00000>;
+			reg = <0x00 0x9cc00000 0x00 0xd00000>;
 			no-map;
 		};
 
-		lpm_ctx_ddr: lpm-memory@a1000000 {
-			reg = <0x00 0xa1000000 0x00 0x40000>;
+		wkup_r5fss0_core0_dma_memory_region: r5f-dma-memory@9d900000 {
+			compatible = "shared-dma-pool";
+			reg = <0x00 0x9d900000 0x00 0x00100000>;
+			no-map;
+		};
+
+		wkup_r5fss0_core0_memory_region: r5f-memory@9da00000 {
+			compatible = "shared-dma-pool";
+			reg = <0x00 0x9da00000 0x00 0x00d00000>;
+			no-map;
+		};
+
+		lpm_ctx_ddr: lpm-memory@9e700000 {
+			reg = <0x00 0x9e700000 0x00 0x80000>;
 			alignment = <0x1000>;
+		};
+
+		secure_tfa_ddr: tfa@9e780000 {
+			reg = <0x00 0x9e780000 0x00 0x80000>;
+			alignment = <0x1000>;
+			no-map;
+		};
+
+		secure_ddr: optee@9e800000 {
+			reg = <0x00 0x9e800000 0x00 0x01800000>; /* for OP-TEE */
+			alignment = <0x1000>;
+			no-map;
 		};
 	};
 
@@ -724,6 +736,11 @@
 		ti,mbox-rx = <0 0 0>;
 		ti,mbox-tx = <1 0 0>;
 	};
+
+	mbox_r5_0: mbox-r5-0 {
+		ti,mbox-rx = <2 0 0>;
+		ti,mbox-tx = <3 0 0>;
+	};
 };
 
 &ospi0 {
@@ -735,6 +752,12 @@
 	mboxes = <&mailbox0_cluster0 &mbox_m4_0>;
 	memory-region = <&mcu_m4fss_dma_memory_region>,
 			<&mcu_m4fss_memory_region>;
+};
+
+&wkup_r5fss0_core0 {
+	mboxes = <&mailbox0_cluster0 &mbox_r5_0>;
+	memory-region = <&wkup_r5fss0_core0_dma_memory_region>,
+			<&wkup_r5fss0_core0_memory_region>;
 };
 
 &main_mcan0 {
