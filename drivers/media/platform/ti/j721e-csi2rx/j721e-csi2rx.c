@@ -272,6 +272,18 @@ static const struct ti_csi2rx_fmt *find_format_by_pix(u32 pixelformat)
 	return NULL;
 }
 
+static const struct ti_csi2rx_fmt *find_format_by_code(u32 code)
+{
+	unsigned int i;
+
+	for (i = 0; i < num_formats; i++) {
+		if (formats[i].code == code)
+			return &formats[i];
+	}
+
+	return NULL;
+}
+
 static void ti_csi2rx_fill_fmt(const struct ti_csi2rx_fmt *csi_fmt,
 			       struct v4l2_format *v4l2_fmt)
 {
@@ -995,6 +1007,42 @@ static inline struct ti_csi2rx_dev *to_csi2rx_dev(struct v4l2_subdev *sd)
 	return container_of(sd, struct ti_csi2rx_dev, subdev);
 }
 
+static int ti_csi2rx_sd_set_fmt(struct v4l2_subdev *sd,
+				struct v4l2_subdev_state *state,
+				struct v4l2_subdev_format *format)
+{
+	struct v4l2_mbus_framefmt *fmt;
+	int ret = 0;
+
+	/* No transcoding, don't allow setting source fmt */
+	if (format->pad >= TI_CSI2RX_PAD_FIRST_SOURCE)
+		return v4l2_subdev_get_fmt(sd, state, format);
+
+	if (!find_format_by_code(format->format.code))
+		format->format.code = formats[0].code;
+
+	v4l2_subdev_lock_state(state);
+
+	fmt = v4l2_state_get_stream_format(state, format->pad, format->stream);
+	if (!fmt) {
+		ret = -EINVAL;
+		goto out;
+	}
+	*fmt = format->format;
+
+	fmt = v4l2_state_get_opposite_stream_format(state, format->pad,
+						    format->stream);
+	if (!fmt) {
+		ret = -EINVAL;
+		goto out;
+	}
+	*fmt = format->format;
+
+out:
+	v4l2_subdev_unlock_state(state);
+	return 0;
+}
+
 static int _ti_csi2rx_sd_set_routing(struct v4l2_subdev *sd,
 				    struct v4l2_subdev_state *state,
 				    struct v4l2_subdev_krouting *routing)
@@ -1091,6 +1139,8 @@ static const struct v4l2_subdev_video_ops ti_csi2rx_subdev_video_ops = {
 static const struct v4l2_subdev_pad_ops ti_csi2rx_subdev_pad_ops = {
 	.init_cfg = ti_csi2rx_sd_init_cfg,
 	.set_routing = ti_csi2rx_sd_set_routing,
+	.get_fmt = v4l2_subdev_get_fmt,
+	.set_fmt = ti_csi2rx_sd_set_fmt,
 };
 
 static const struct v4l2_subdev_ops ti_csi2rx_subdev_ops = {

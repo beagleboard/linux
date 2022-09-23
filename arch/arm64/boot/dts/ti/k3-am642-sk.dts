@@ -231,6 +231,21 @@
 			gpios = <&exp2 7 GPIO_ACTIVE_HIGH>;
 		};
 	};
+
+	leds {
+		compatible = "gpio-leds";
+		pinctrl-names = "default";
+		pinctrl-0 = <&usr_led_pins_default>;
+
+		led-0 {
+			label = "am64-sk:green:heartbeat";
+			gpios = <&main_gpio0 60 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "heartbeat";
+			function = LED_FUNCTION_HEARTBEAT;
+			default-state = "off";
+		};
+	};
+
 };
 
 &main_pmx0 {
@@ -369,6 +384,13 @@
 			AM64X_IOPAD(0x7c, PIN_OUTPUT, 2)	/* (R17) UART4_RTS */
 		>;
 	};
+
+	usr_led_pins_default: usr-led-pins-default {
+		pinctrl-single,pins = <
+			AM64X_IOPAD(0x0F4, PIN_OUTPUT, 7) /* (Y9) PRG1_PRU0_GPO15.GPIO0_60 */
+		>;
+	};
+
 };
 
 &main_gpio0 {
