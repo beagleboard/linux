@@ -74,11 +74,13 @@ struct k3_r5_mem {
  *   Split mode      : AM65x, J721E, J7200 and AM64x SoCs
  *   LockStep mode   : AM65x, J721E and J7200 SoCs
  *   Single-CPU mode : AM64x SoCs only
+ *   None            : AM62x SoCs only
  */
 enum cluster_mode {
 	CLUSTER_MODE_SPLIT = 0,
 	CLUSTER_MODE_LOCKSTEP,
 	CLUSTER_MODE_SINGLECPU,
+	CLUSTER_MODE_NONE,
 };
 
 /**
@@ -86,11 +88,13 @@ enum cluster_mode {
  * @tcm_is_double: flag to denote the larger unified TCMs in certain modes
  * @tcm_ecc_autoinit: flag to denote the auto-initialization of TCMs for ECC
  * @single_cpu_mode: flag to denote if SoC/IP supports Single-CPU mode
+ * @is_single_core: flag to denote if SoC/IP has only single core R5
  */
 struct k3_r5_soc_data {
 	bool tcm_is_double;
 	bool tcm_ecc_autoinit;
 	bool single_cpu_mode;
+	bool is_single_core;
 };
 
 /**
@@ -867,7 +871,8 @@ static int k3_r5_rproc_configure(struct k3_r5_rproc *kproc)
 
 	core0 = list_first_entry(&cluster->cores, struct k3_r5_core, elem);
 	if (cluster->mode == CLUSTER_MODE_LOCKSTEP ||
-	    cluster->mode == CLUSTER_MODE_SINGLECPU) {
+	    cluster->mode == CLUSTER_MODE_SINGLECPU ||
+		cluster->mode == CLUSTER_MODE_NONE) {
 		core = core0;
 	} else {
 		core = kproc->core;
@@ -882,7 +887,7 @@ static int k3_r5_rproc_configure(struct k3_r5_rproc *kproc)
 		boot_vec, cfg, ctrl, stat);
 
 	/* check if only Single-CPU mode is supported on applicable SoCs */
-	if (cluster->soc_data->single_cpu_mode) {
+	if (cluster->soc_data->single_cpu_mode || cluster->soc_data->is_single_core) {
 		single_cpu =
 			!!(stat & PROC_BOOT_STATUS_FLAG_R5_SINGLECORE_ONLY);
 		if (single_cpu && cluster->mode == CLUSTER_MODE_SPLIT) {
@@ -1103,6 +1108,7 @@ static void k3_r5_adjust_tcm_sizes(struct k3_r5_rproc *kproc)
 
 	if (cluster->mode == CLUSTER_MODE_LOCKSTEP ||
 	    cluster->mode == CLUSTER_MODE_SINGLECPU ||
+		cluster->mode == CLUSTER_MODE_NONE ||
 	    !cluster->soc_data->tcm_is_double)
 		return;
 
@@ -1176,7 +1182,9 @@ static int k3_r5_rproc_configure_mode(struct k3_r5_rproc *kproc)
 	atcm_enable = cfg & PROC_BOOT_CFG_FLAG_R5_ATCM_EN ?  1 : 0;
 	btcm_enable = cfg & PROC_BOOT_CFG_FLAG_R5_BTCM_EN ?  1 : 0;
 	loczrama = cfg & PROC_BOOT_CFG_FLAG_R5_TCM_RSTBASE ?  1 : 0;
-	if (cluster->soc_data->single_cpu_mode) {
+	if (cluster->soc_data->is_single_core) {
+		mode = CLUSTER_MODE_NONE;
+	} else if (cluster->soc_data->single_cpu_mode) {
 		mode = cfg & PROC_BOOT_CFG_FLAG_R5_SINGLE_CORE ?
 				CLUSTER_MODE_SINGLECPU : CLUSTER_MODE_SPLIT;
 	} else {
@@ -1293,6 +1301,7 @@ init_rmem:
 
 		/* create only one rproc in lockstep mode or single-cpu mode */
 		if (cluster->mode == CLUSTER_MODE_LOCKSTEP ||
+			cluster->mode == CLUSTER_MODE_NONE     ||
 		    cluster->mode == CLUSTER_MODE_SINGLECPU)
 			break;
 	}
@@ -1708,17 +1717,23 @@ static int k3_r5_probe(struct platform_device *pdev)
 	 * default to most common efuse configurations - Split-mode on AM64x
 	 * and LockStep-mode on all others
 	 */
-	cluster->mode = data->single_cpu_mode ?
-				CLUSTER_MODE_SPLIT : CLUSTER_MODE_LOCKSTEP;
+	if (!data->is_single_core)
+		cluster->mode = data->single_cpu_mode ?
+						CLUSTER_MODE_SPLIT : CLUSTER_MODE_LOCKSTEP;
+	else
+		cluster->mode = CLUSTER_MODE_NONE;
+
 	cluster->soc_data = data;
 	INIT_LIST_HEAD(&cluster->cores);
 
-	ret = of_property_read_u32(np, "ti,cluster-mode", &cluster->mode);
-	if (ret < 0 && ret != -EINVAL) {
-		dev_err(dev, "invalid format for ti,cluster-mode, ret = %d\n",
-			ret);
-		return ret;
+	if (!data->is_single_core) {
+		ret = of_property_read_u32(np, "ti,cluster-mode", &cluster->mode);
+		if (ret < 0 && ret != -EINVAL) {
+			dev_err(dev, "invalid format for ti,cluster-mode, ret = %d\n", ret);
+			return ret;
+		}
 	}
+
 	/*
 	 * Translate SoC-specific dts value of 1 or 2 into appropriate
 	 * driver-specific mode. Valid values are dictated by YAML binding
@@ -1727,8 +1742,14 @@ static int k3_r5_probe(struct platform_device *pdev)
 		cluster->mode = CLUSTER_MODE_SINGLECPU;
 
 	num_cores = of_get_available_child_count(np);
-	if (num_cores != 2) {
-		dev_err(dev, "MCU cluster requires both R5F cores to be enabled, num_cores = %d\n",
+	if (num_cores != 2 && !data->is_single_core) {
+		dev_err(dev, "MCU cluster requires both R5F cores to be enabled but num_cores is set to = %d\n",
+			num_cores);
+		return -ENODEV;
+	}
+
+	if (num_cores != 1 && data->is_single_core) {
+		dev_err(dev, "SoC supports only single core R5 but num_cores is set to %d\n",
 			num_cores);
 		return -ENODEV;
 	}
@@ -1770,18 +1791,28 @@ static const struct k3_r5_soc_data am65_j721e_soc_data = {
 	.tcm_is_double = false,
 	.tcm_ecc_autoinit = false,
 	.single_cpu_mode = false,
+	.is_single_core = false,
 };
 
 static const struct k3_r5_soc_data j7200_j721s2_soc_data = {
 	.tcm_is_double = true,
 	.tcm_ecc_autoinit = true,
 	.single_cpu_mode = false,
+	.is_single_core = false,
 };
 
 static const struct k3_r5_soc_data am64_soc_data = {
 	.tcm_is_double = true,
 	.tcm_ecc_autoinit = true,
 	.single_cpu_mode = true,
+	.is_single_core = false,
+};
+
+static const struct k3_r5_soc_data am62_soc_data = {
+	.tcm_is_double = false,
+	.tcm_ecc_autoinit = true,
+	.single_cpu_mode = false,
+	.is_single_core = true,
 };
 
 static const struct of_device_id k3_r5_of_match[] = {
@@ -1789,6 +1820,7 @@ static const struct of_device_id k3_r5_of_match[] = {
 	{ .compatible = "ti,j721e-r5fss", .data = &am65_j721e_soc_data, },
 	{ .compatible = "ti,j7200-r5fss", .data = &j7200_j721s2_soc_data, },
 	{ .compatible = "ti,am64-r5fss",  .data = &am64_soc_data, },
+	{ .compatible = "ti,am62-r5fss",  .data = &am62_soc_data, },
 	{ .compatible = "ti,j721s2-r5fss",  .data = &j7200_j721s2_soc_data, },
 	{ /* sentinel */ },
 };
