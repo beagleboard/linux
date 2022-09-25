@@ -776,3 +776,27 @@
 	memory-region = <&c71_3_dma_memory_region>,
 			<&c71_3_memory_region>;
 };
+
+&dphy_rx0 {
+	status = "okay";
+};
+
+&dphy_rx1 {
+	status = "okay";
+};
+
+&cdns_csi2rx0 {
+	status = "okay";
+};
+
+&cdns_csi2rx1 {
+	status = "okay";
+};
+
+&ti_csi2rx0 {
+	status = "okay";
+};
+
+&ti_csi2rx1 {
+	status = "okay";
+};
