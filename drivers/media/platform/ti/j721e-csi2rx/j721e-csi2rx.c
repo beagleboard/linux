@@ -1040,7 +1040,7 @@ static int ti_csi2rx_sd_set_fmt(struct v4l2_subdev *sd,
 
 out:
 	v4l2_subdev_unlock_state(state);
-	return 0;
+	return ret;
 }
 
 static int _ti_csi2rx_sd_set_routing(struct v4l2_subdev *sd,
