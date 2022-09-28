@@ -55,6 +55,12 @@ patternProperties:
     description:
       This is the register to set phy mode through phy-gmii-sel driver.
 
+  "^clock-controller@[0-9a-f]+$":
+    type: object
+    $ref: /schemas/clock/ti,am654-ehrpwm-tbclk.yaml#
+    description:
+      Clock provider for TI EHRPWM nodes.
+
 required:
   - compatible
   - reg
@@ -76,6 +82,12 @@ examples:
         serdes_ln_ctrl: serdes-ln-ctrl@4080 {
             compatible = "mmio-mux";
             reg = <0x00004080 0x50>;
+        };
+
+        clock-controller@4140 {
+            compatible = "ti,am654-ehrpwm-tbclk", "syscon";
+            reg = <0x4140 0x18>;
+            #clock-cells = <1>;
         };
     };
 ...
