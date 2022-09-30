@@ -193,6 +193,11 @@ static struct psil_ep j784s4_src_ep_map[] = {
 	PSIL_CSI2RX(0x497f),
 	/* MAIN_CPSW9G */
 	PSIL_ETHERNET(0x4a00),
+	/* MAIN-SA2UL */
+	PSIL_SA2UL(0x4a40, 0),
+	PSIL_SA2UL(0x4a41, 0),
+	PSIL_SA2UL(0x4a42, 0),
+	PSIL_SA2UL(0x4a43, 0),
 	/* MCU_CPSW0 */
 	PSIL_ETHERNET(0x7000),
 	/* MCU_PDMA0 (MCU_PDMA_MISC_G0) - SPI0 */
@@ -252,6 +257,9 @@ static struct psil_ep j784s4_dst_ep_map[] = {
 	PSIL_ETHERNET(0xca05),
 	PSIL_ETHERNET(0xca06),
 	PSIL_ETHERNET(0xca07),
+	/* MAIN-SA2UL */
+	PSIL_SA2UL(0xca40, 1),
+	PSIL_SA2UL(0xca41, 1),
 	/* SA2UL */
 	PSIL_SA2UL(0xf500, 1),
 	PSIL_SA2UL(0xf501, 1),
