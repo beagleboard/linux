@@ -55,6 +55,7 @@ properties:
       - ti,am654-phy-gmii-sel
       - ti,j7200-cpsw5g-phy-gmii-sel
       - ti,j721e-cpsw9g-phy-gmii-sel
+      - ti,j784s4-cpsw9g-phy-gmii-sel
 
   reg:
     description: Address and length of the register set for the device
@@ -70,7 +71,9 @@ properties:
       ti,j7200-cpsw5g-phy-gmii-sel, ti,qsgmii-main-ports is an
       array of only one element, which is the port number ranging
       from 1 to 4. For J721E CPSW9G with the compatible:
-      ti,j721e-cpsw9g-phy-gmii-sel, ti,qsgmii-main-ports is an
+      ti,j721e-cpsw9g-phy-gmii-sel, and
+      For J784S4 CPSW9G with the compatible:
+      ti,j784s4-cpsw9g-phy-gmii-sel, ti,qsgmii-main-ports is an
       array of two elements, which corresponds to two pairs of
       4 ports each. The first element and second element of the
       array both range from 1 to 4 each. However, for the second
@@ -126,6 +129,7 @@ allOf:
           contains:
             enum:
               - ti,j721e-cpsw9g-phy-gmii-sel
+              - ti,j784s4-cpsw9g-phy-gmii-sel
     then:
       properties:
         '#phy-cells':
