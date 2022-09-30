@@ -342,6 +342,10 @@
 	no-1-8-v;
 };
 
+&serdes_refclk {
+	clock-frequency = <100000000>;
+};
+
 &main_gpio0 {
 	status = "okay";
 };
