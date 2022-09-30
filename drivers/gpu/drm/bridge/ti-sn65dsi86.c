@@ -877,7 +877,7 @@ static ssize_t ti_sn_aux_transfer(struct drm_dp_aux *aux,
 
 	ret =  msg->size;
 put_pm_runtime:
-	pm_runtime_get_sync(pdata->dev);
+	pm_runtime_put_sync(pdata->dev);
 	return ret;
 }
 
