@@ -80,7 +80,6 @@
 			compatible = "ti,am654-phy-gmii-sel";
 			reg = <0x4040 0x4>;
 			#phy-cells = <1>;
-			status = "disabled";
 		};
 	};
 
@@ -301,7 +300,6 @@
 			clocks = <&k3_clks 63 0>;
 			clock-names = "fck";
 			bus_freq = <1000000>;
-			status = "disabled";
 		};
 
 		cpts@3d000 {
@@ -313,7 +311,6 @@
 			interrupt-names = "cpts";
 			ti,cpts-ext-ts-inputs = <4>;
 			ti,cpts-periodic-outputs = <2>;
-			status = "disabled";
 		};
 	};
 
