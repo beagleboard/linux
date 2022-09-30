@@ -59,6 +59,7 @@ properties:
       - const: ti,am642-cpsw-nuss
       - const: ti,j7200-cpswxg-nuss
       - const: ti,j721e-cpswxg-nuss
+      - const: ti,j784s4-cpswxg-nuss
 
   reg:
     maxItems: 1
@@ -162,6 +163,7 @@ properties:
               contains:
                 enum:
                   - ti,j721e-cpswxg-nuss
+                  - ti,j784s4-cpswxg-nuss
         then:
           patternProperties:
             port@[1-8]:
@@ -188,6 +190,7 @@ properties:
                   - ti,am642-cpsw-nuss
                   - ti,j7200-cpswxg-nuss
                   - ti,j721e-cpswxg-nuss
+                  - ti,j784s4-cpswxg-nuss
         then:
           patternProperties:
             port@[*]:
