@@ -5,6 +5,9 @@
  * Copyright (C) 2022 Texas Instruments Incorporated - https://www.ti.com/
  */
 
+#include <dt-bindings/mux/mux.h>
+#include <dt-bindings/mux/ti-serdes.h>
+
 &cbass_main {
 	msmc_ram: sram@70000000 {
 		compatible = "mmio-sram";
@@ -23,6 +26,25 @@
 
 		l3cache-sram@200000 {
 			reg = <0x200000 0x200000>;
+		};
+	};
+
+	scm_conf: system-controller@104000 {
+		compatible = "ti,j721e-system-controller", "syscon", "simple-mfd";
+		reg = <0x00 0x00104000 0x00 0x18000>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges = <0x00 0x00 0x00104000 0x18000>;
+
+		serdes_ln_ctrl: mux-controller0 {
+			compatible = "mmio-mux";
+			#mux-control-cells = <1>;
+			mux-reg-masks = <0x80 0x3>, <0x84 0x3>, /* SERDES0 lane0/1 select */
+					<0x88 0x3>, <0x8c 0x3>, /* SERDES0 lane2/3 select */
+					<0x90 0x3>, <0x94 0x3>, /* SERDES1 lane0/1 select */
+					<0x98 0x3>, <0x9c 0x3>, /* SERDES1 lane2/3 select */
+					<0xa0 0x3>, <0xa4 0x3>, /* SERDES2 lane0/1 select */
+					<0xa8 0x3>, <0xac 0x3>; /* SERDES2 lane2/3 select */
 		};
 	};
 
