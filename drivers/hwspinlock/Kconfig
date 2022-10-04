@@ -65,4 +65,18 @@ config HSEM_U8500
 
 	  If unsure, say N.
 
+config HWSPINLOCK_LIGHT
+	tristate "Light Hardware Spinlock device"
+	depends on HWSPINLOCK
+	help
+	  Say y here to support the Light Hardware Spinlock device.
+
+	  If unsure, say N.
+
+config HWSPINLOCK_LIGHT_TEST
+	tristate "Light Hardware Spinlock test device"
+	depends on HWSPINLOCK_LIGHT
+	help
+	  light hwspinlock test module
+
 endif # HWSPINLOCK

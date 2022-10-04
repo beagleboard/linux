@@ -54,6 +54,7 @@
 
 #include <asm/processor.h>
 #include <asm/ioctl.h>
+#include <asm/sbi.h>
 #include <linux/uaccess.h>
 
 #include "coalesced_mmio.h"
@@ -3824,6 +3825,14 @@ static long kvm_vm_ioctl(struct file *filp,
 		r = kvm_ioeventfd(kvm, &data);
 		break;
 	}
+	case KVM_SIGNAL_MSI: {
+#ifdef CONFIG_SOC_INT_SRC7
+		writel(1, kvm->arch.frontend_intr_reg);
+#else
+		writel(1, kvm->arch.frontend_intr_reg + 0x10);
+#endif
+		break;
+	}
 #ifdef CONFIG_HAVE_KVM_MSI
 	case KVM_SIGNAL_MSI: {
 		struct kvm_msi msi;
@@ -3988,10 +3997,87 @@ static long kvm_vm_compat_ioctl(struct file *filp,
 }
 #endif
 
+static void kvm_chardev_vma_open(struct vm_area_struct *vma)
+{
+	/* nothing ... */
+}
+
+static void kvm_chardev_vma_close(struct vm_area_struct *vma)
+{
+	/* nothing ... */
+}
+
+static const struct vm_operations_struct kvm_chardev_vma_ops = {
+	.open   = kvm_chardev_vma_open,
+	.close  = kvm_chardev_vma_close,
+};
+
+unsigned long
+kvm_vm_get_unmapped_area(struct file *filp, unsigned long addr,
+		unsigned long len, unsigned long pgoff, unsigned long flags)
+{
+	struct mm_struct *mm = current->mm;
+	struct vm_area_struct *vma, *prev;
+	struct vm_unmapped_area_info info;
+	const unsigned long mmap_end = TASK_SIZE;
+
+	if (len > mmap_end - mmap_min_addr)
+		return -ENOMEM;
+
+	if (flags & MAP_FIXED)
+		return addr;
+
+	if (addr) {
+		addr = PAGE_ALIGN(addr);
+		vma = find_vma_prev(mm, addr, &prev);
+		if (mmap_end - len >= addr && addr >= mmap_min_addr &&
+		    (!vma || addr + len <= vm_start_gap(vma)) &&
+		    (!prev || addr >= vm_end_gap(prev)))
+			return addr;
+	}
+
+	info.flags = 0;
+	info.length = len;
+	info.low_limit = max(PAGE_SIZE, mmap_min_addr);
+	info.high_limit = mmap_end;
+	info.align_mask = 0x200000 - 1;
+	info.align_offset = 0;
+	addr = vm_unmapped_area(&info);
+	return addr;
+}
+
+static int kvm_vm_mmap(struct file *filp, struct vm_area_struct *vma)
+{
+	size_t size = vma->vm_end - vma->vm_start;
+	phys_addr_t offset = (phys_addr_t)vma->vm_pgoff << PAGE_SHIFT;
+
+	/* Does it even fit in phys_addr_t? */
+	if (offset >> PAGE_SHIFT != vma->vm_pgoff)
+		return -EINVAL;
+
+	/* It's illegal to wrap around the end of the physical address space. */
+	if (offset + (phys_addr_t)size - 1 < offset)
+		return -EINVAL;
+
+	vma->vm_ops = &kvm_chardev_vma_ops;
+
+	if (remap_pfn_range(vma,
+			     vma->vm_start,
+			     vma->vm_pgoff,
+			     size,
+			     vma->vm_page_prot)) {
+		return -EAGAIN;
+	}
+
+	return 0;
+}
+
 static struct file_operations kvm_vm_fops = {
 	.release        = kvm_vm_release,
 	.unlocked_ioctl = kvm_vm_ioctl,
 	.llseek		= noop_llseek,
+	.mmap           = kvm_vm_mmap,
+	.get_unmapped_area = kvm_vm_get_unmapped_area,
 	KVM_COMPAT(kvm_vm_compat_ioctl),
 };
 

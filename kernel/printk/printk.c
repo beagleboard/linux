@@ -54,6 +54,9 @@
 #include <trace/events/initcall.h>
 #define CREATE_TRACE_POINTS
 #include <trace/events/printk.h>
+#undef CREATE_TRACE_POINTS
+#include <trace/hooks/printk.h>
+#include <trace/hooks/logbuf.h>
 
 #include "printk_ringbuffer.h"
 #include "console_cmdline.h"
@@ -459,12 +462,14 @@ char *log_buf_addr_get(void)
 {
 	return log_buf;
 }
+EXPORT_SYMBOL_GPL(log_buf_addr_get);
 
 /* Return log buffer size */
 u32 log_buf_len_get(void)
 {
 	return log_buf_len;
 }
+EXPORT_SYMBOL_GPL(log_buf_len_get);
 
 /*
  * Define how much of the log buffer we could take at maximum. The value
@@ -535,6 +540,8 @@ static int log_store(u32 caller_id, int facility, int level,
 		prb_commit(&e);
 	else
 		prb_final_commit(&e);
+
+	trace_android_vh_logbuf(prb, &r);
 
 	return (text_len + trunc_msg_len);
 }
@@ -1953,6 +1960,8 @@ static size_t log_output(int facility, int level, enum log_flags lflags,
 			} else {
 				prb_commit(&e);
 			}
+
+			trace_android_vh_logbuf_pr_cont(&r, text_len);
 			return text_len;
 		}
 	}
@@ -2326,6 +2335,12 @@ void resume_console(void)
  */
 static int console_cpu_notify(unsigned int cpu)
 {
+	int flag = 0;
+
+	trace_android_vh_printk_hotplug(&flag);
+	if (flag)
+		return 0;
+
 	if (!cpuhp_tasks_frozen) {
 		/* If trylock fails, someone else is doing the printing */
 		if (console_trylock())
@@ -3108,6 +3123,7 @@ int printk_deferred(const char *fmt, ...)
 
 	return r;
 }
+EXPORT_SYMBOL_GPL(printk_deferred);
 
 /*
  * printk rate limiting, lifted from the networking subsystem.

@@ -448,6 +448,21 @@ config MISC_RTSX
 	tristate
 	default MISC_RTSX_PCI || MISC_RTSX_USB
 
+config UID_SYS_STATS
+	bool "Per-UID statistics"
+	depends on PROFILING && TASK_XACCT && TASK_IO_ACCOUNTING
+	help
+	  Per UID based cpu time statistics exported to /proc/uid_cputime
+	  Per UID based io statistics exported to /proc/uid_io
+	  Per UID based procstat control in /proc/uid_procstat
+
+config UID_SYS_STATS_DEBUG
+	bool "Per-TASK statistics"
+	depends on UID_SYS_STATS
+	default n
+	help
+	  Per TASK based io statistics exported to /proc/uid_io
+
 config PVPANIC
 	tristate "pvpanic device support"
 	depends on HAS_IOMEM && (ACPI || OF)
@@ -465,6 +480,12 @@ config HISI_HIKEY_USB
 	  found on HiKey 960/970 boards, which is necessary to support
 	  switching between the dual-role USB-C port and the USB-A host ports
 	  using only one USB controller.
+
+config LIGHT_DSMART_CARD
+	tristate "Thead Light DCD SMART CARD driver following ISO7816 protocol"
+	default n
+	help
+	The DCD SMART CARD IP driver which follwing the ISO7816 Protocl on THEAD Light SoCs
 
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"

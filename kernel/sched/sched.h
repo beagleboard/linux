@@ -65,6 +65,8 @@
 #include <linux/syscalls.h>
 #include <linux/task_work.h>
 #include <linux/tsacct_kern.h>
+#include <linux/android_vendor.h>
+#include <linux/android_kabi.h>
 
 #include <asm/tlb.h>
 #include <asm-generic/vmlinux.lds.h>
@@ -431,8 +433,16 @@ struct task_group {
 	struct uclamp_se	uclamp_req[UCLAMP_CNT];
 	/* Effective clamp values used for a task group */
 	struct uclamp_se	uclamp[UCLAMP_CNT];
+	/* Latency-sensitive flag used for a task group */
+	unsigned int		latency_sensitive;
+
+	ANDROID_VENDOR_DATA_ARRAY(1, 4);
 #endif
 
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
+	ANDROID_KABI_RESERVE(3);
+	ANDROID_KABI_RESERVE(4);
 };
 
 #ifdef CONFIG_FAIR_GROUP_SCHED
@@ -605,6 +615,8 @@ struct cfs_rq {
 	int			throttle_count;
 	struct list_head	throttled_list;
 #endif /* CONFIG_CFS_BANDWIDTH */
+
+	ANDROID_VENDOR_DATA_ARRAY(1, 16);
 #endif /* CONFIG_FAIR_GROUP_SCHED */
 };
 
@@ -831,6 +843,13 @@ struct root_domain {
 	 * CPUs of the rd. Protected by RCU.
 	 */
 	struct perf_domain __rcu *pd;
+
+	ANDROID_VENDOR_DATA_ARRAY(1, 4);
+
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
+	ANDROID_KABI_RESERVE(3);
+	ANDROID_KABI_RESERVE(4);
 };
 
 extern void init_defrootdomain(void);
@@ -842,6 +861,7 @@ extern void sched_put_rd(struct root_domain *rd);
 #ifdef HAVE_RT_PUSH_IPI
 extern void rto_push_irq_work_func(struct irq_work *work);
 #endif
+extern struct task_struct *pick_highest_pushable_task(struct rq *rq, int cpu);
 #endif /* CONFIG_SMP */
 
 #ifdef CONFIG_UCLAMP_TASK
@@ -1048,10 +1068,23 @@ struct rq {
 	unsigned int		ttwu_local;
 #endif
 
+#ifdef CONFIG_HOTPLUG_CPU
+	struct cpu_stop_work	drain;
+	struct cpu_stop_done	drain_done;
+#endif
+
 #ifdef CONFIG_CPU_IDLE
 	/* Must be inspected within a rcu lock section */
 	struct cpuidle_state	*idle_state;
 #endif
+
+	ANDROID_VENDOR_DATA_ARRAY(1, 96);
+	ANDROID_OEM_DATA_ARRAY(1, 16);
+
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
+	ANDROID_KABI_RESERVE(3);
+	ANDROID_KABI_RESERVE(4);
 };
 
 #ifdef CONFIG_FAIR_GROUP_SCHED
@@ -1374,8 +1407,6 @@ enum numa_faults_stats {
 };
 extern void sched_setnuma(struct task_struct *p, int node);
 extern int migrate_task_to(struct task_struct *p, int cpu);
-extern int migrate_swap(struct task_struct *p, struct task_struct *t,
-			int cpu, int scpu);
 extern void init_numa_balancing(unsigned long clone_flags, struct task_struct *p);
 #else
 static inline void
@@ -1386,6 +1417,8 @@ init_numa_balancing(unsigned long clone_flags, struct task_struct *p)
 
 #ifdef CONFIG_SMP
 
+extern int migrate_swap(struct task_struct *p, struct task_struct *t,
+			int cpu, int scpu);
 static inline void
 queue_balance_callback(struct rq *rq,
 		       struct callback_head *head,
@@ -1652,6 +1685,8 @@ static __always_inline bool static_branch_##name(struct static_key *key) \
 #undef SCHED_FEAT
 
 extern struct static_key sched_feat_keys[__SCHED_FEAT_NR];
+extern const char * const sched_feat_names[__SCHED_FEAT_NR];
+
 #define sched_feat(x) (static_branch_##x(&sched_feat_keys[__SCHED_FEAT_##x]))
 
 #else /* !CONFIG_JUMP_LABEL */
@@ -1725,6 +1760,7 @@ static inline int task_on_rq_migrating(struct task_struct *p)
 #define WF_FORK			0x02		/* Child wakeup after fork */
 #define WF_MIGRATED		0x04		/* Internal use, task got migrated */
 #define WF_ON_CPU		0x08		/* Wakee is on_cpu */
+#define WF_ANDROID_VENDOR	0x1000		/* Vendor specific for Android */
 
 /*
  * To aid in avoiding the subversion of "niceness" due to uneven distribution
@@ -1777,6 +1813,8 @@ extern const u32		sched_prio_to_wmult[40];
 #else
 #define ENQUEUE_MIGRATED	0x00
 #endif
+
+#define ENQUEUE_WAKEUP_SYNC	0x80
 
 #define RETRY_TASK		((void *)-1UL)
 
@@ -1901,6 +1939,7 @@ extern void trigger_load_balance(struct rq *rq);
 
 extern void set_cpus_allowed_common(struct task_struct *p, const struct cpumask *new_mask);
 
+extern unsigned long __read_mostly max_load_balance_interval;
 #endif
 
 #ifdef CONFIG_CPU_IDLE
@@ -2456,6 +2495,11 @@ out:
 	return clamp(util, min_util, max_util);
 }
 
+static inline bool uclamp_boosted(struct task_struct *p)
+{
+	return uclamp_eff_value(p, UCLAMP_MIN) > 0;
+}
+
 /*
  * When uclamp is compiled in, the aggregation at rq level is 'turned off'
  * by default in the fast path and only gets turned on once userspace performs
@@ -2476,11 +2520,35 @@ unsigned long uclamp_rq_util_with(struct rq *rq, unsigned long util,
 	return util;
 }
 
+static inline bool uclamp_boosted(struct task_struct *p)
+{
+	return false;
+}
+
 static inline bool uclamp_is_used(void)
 {
 	return false;
 }
 #endif /* CONFIG_UCLAMP_TASK */
+
+#ifdef CONFIG_UCLAMP_TASK_GROUP
+static inline bool uclamp_latency_sensitive(struct task_struct *p)
+{
+	struct cgroup_subsys_state *css = task_css(p, cpu_cgrp_id);
+	struct task_group *tg;
+
+	if (!css)
+		return false;
+	tg = container_of(css, struct task_group, css);
+
+	return tg->latency_sensitive;
+}
+#else
+static inline bool uclamp_latency_sensitive(struct task_struct *p)
+{
+	return false;
+}
+#endif /* CONFIG_UCLAMP_TASK_GROUP */
 
 #ifdef arch_scale_freq_capacity
 # ifndef arch_scale_freq_invariant
@@ -2644,3 +2712,15 @@ static inline bool is_per_cpu_kthread(struct task_struct *p)
 
 void swake_up_all_locked(struct swait_queue_head *q);
 void __prepare_to_swait(struct swait_queue_head *q, struct swait_queue *wait);
+
+/*
+ * task_may_not_preempt - check whether a task may not be preemptible soon
+ */
+#ifdef CONFIG_RT_SOFTINT_OPTIMIZATION
+extern bool task_may_not_preempt(struct task_struct *task, int cpu);
+#else
+static inline bool task_may_not_preempt(struct task_struct *task, int cpu)
+{
+	return false;
+}
+#endif /* CONFIG_RT_SOFTINT_OPTIMIZATION */

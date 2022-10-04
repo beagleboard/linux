@@ -400,6 +400,7 @@ source "drivers/pinctrl/zte/Kconfig"
 source "drivers/pinctrl/meson/Kconfig"
 source "drivers/pinctrl/cirrus/Kconfig"
 source "drivers/pinctrl/visconti/Kconfig"
+source "drivers/pinctrl/thead/Kconfig"
 
 config PINCTRL_XWAY
 	bool

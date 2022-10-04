@@ -108,7 +108,7 @@ static inline void of_node_init(struct device_node *node)
 #if defined(CONFIG_OF_KOBJ)
 	kobject_init(&node->kobj, &of_node_ktype);
 #endif
-	node->fwnode.ops = &of_fwnode_ops;
+	fwnode_init(&node->fwnode, &of_fwnode_ops);
 }
 
 #if defined(CONFIG_OF_KOBJ)
@@ -927,6 +927,11 @@ static inline int of_alias_get_alias_list(const struct of_device_id *matches,
 }
 
 static inline int of_machine_is_compatible(const char *compat)
+{
+	return 0;
+}
+
+static inline int of_add_property(struct device_node *np, struct property *prop)
 {
 	return 0;
 }

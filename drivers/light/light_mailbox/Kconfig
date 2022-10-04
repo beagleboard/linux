@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+
+config LIGHT_MAILBOX
+        tristate "light_mailbox backend driver"
+        select VIRTIO
+        select VHOST_RING
+	depends on MAILBOX
+        default y
+        help
+          This driver provides support for light virtio_mailbox backend.

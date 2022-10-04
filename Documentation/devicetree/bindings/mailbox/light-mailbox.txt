@@ -1,0 +1,68 @@
+T-head LIGHT mailbox controller
+--------------------------------------------------------------------
+
+The T-head LIGHT mailbox controller enables two cores within the SoC to
+communicate and coordinate by passing messages (e.g. data, status
+and control) through the mailbox chan. It also provides the ability
+for one core to signal the other processor using interrupts.
+
+LIGHT mailbox Device Node:
+=============================
+
+Required properties:
+-------------------
+- compatible :	Should be "thead,light-mbox".
+- reg :		Should contain the registers location and length
+- interrupts :	Interrupt number. The interrupt specifier format depends
+		on the interrupt controller parent.
+- icu_cpu_id :  Shoule be the ICU CPU ID defined in SOC.
+- #mbox-cells:  Must be 2.
+			  <&phandle type channel>
+			    phandle	: Label name of controller
+			    channel	: Channel number
+			    type	: Channel type
+
+		This LIGHT mailbox support 4 channels and 2 types.
+		channel supported:
+			support 4 channels: 0,1,2,3
+			Client should not request the chan ID the same as "icu_cpu_id".
+
+		types supported:
+			0 - TX & RX channel share the same channel with 7 info registers to
+			    share data, and with IRQ support.
+			1 - TX & RX doorbell channel. Without own info registers and no ACK support.
+
+Optional properties:
+-------------------
+- clocks :	phandle to the input clock.
+
+Examples:
+--------
+mbox_910t: mbox@ffffc38000 {
+       compatible = "thead,light-mbox";
+       reg = <0xff 0xffc38000 0x0 0x4000>,
+             <0xff 0xffc44000 0x0 0x1000>,
+             <0xff 0xffc4c000 0x0 0x1000>,
+             <0xff 0xffc54000 0x0 0x1000>;
+       reg-names = "local_base", "remote_icu0", "remote_icu1", "remote_icu2";
+       interrupt-parent = <&intc>;
+       interrupts = <28>;
+       clocks = <&dummy_clock_apb>;
+       clock-names = "ipg";
+       icu_cpu_id = <0>;
+       #mbox-cells = <2>;
+};
+
+mbox_910t_client1: mbox_910t_client1 {
+       compatible = "thead,light-mbox-client";
+       mbox-names = "902";
+       mboxes = <&mbox_910t 1 0>;
+};
+
+
+mbox_910t_client2: mbox_910t_client2 {
+        compatible = "thead,light-mbox-client";
+        mbox-names = "906";
+        mboxes = <&mbox_910t 2 0>;
+};
+

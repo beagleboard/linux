@@ -198,6 +198,7 @@ TRACE_EVENT(sched_migrate_task,
 		__field(	int,	prio			)
 		__field(	int,	orig_cpu		)
 		__field(	int,	dest_cpu		)
+		__field(	int,	running			)
 	),
 
 	TP_fast_assign(
@@ -206,11 +207,13 @@ TRACE_EVENT(sched_migrate_task,
 		__entry->prio		= p->prio; /* XXX SCHED_DEADLINE */
 		__entry->orig_cpu	= task_cpu(p);
 		__entry->dest_cpu	= dest_cpu;
+		__entry->running	= (p->state == TASK_RUNNING);
 	),
 
-	TP_printk("comm=%s pid=%d prio=%d orig_cpu=%d dest_cpu=%d",
+	TP_printk("comm=%s pid=%d prio=%d orig_cpu=%d dest_cpu=%d running=%d",
 		  __entry->comm, __entry->pid, __entry->prio,
-		  __entry->orig_cpu, __entry->dest_cpu)
+		  __entry->orig_cpu, __entry->dest_cpu,
+		  __entry->running)
 );
 
 DECLARE_EVENT_CLASS(sched_process_template,
@@ -401,6 +404,30 @@ DEFINE_EVENT_SCHEDSTAT(sched_stat_template, sched_stat_iowait,
 DEFINE_EVENT_SCHEDSTAT(sched_stat_template, sched_stat_blocked,
 	     TP_PROTO(struct task_struct *tsk, u64 delay),
 	     TP_ARGS(tsk, delay));
+
+/*
+ * Tracepoint for recording the cause of uninterruptible sleep.
+ */
+TRACE_EVENT(sched_blocked_reason,
+
+	TP_PROTO(struct task_struct *tsk),
+
+	TP_ARGS(tsk),
+
+	TP_STRUCT__entry(
+		__field( pid_t,	pid	)
+		__field( void*, caller	)
+		__field( bool, io_wait	)
+	),
+
+	TP_fast_assign(
+		__entry->pid	= tsk->pid;
+		__entry->caller = (void *)get_wchan(tsk);
+		__entry->io_wait = tsk->in_iowait;
+	),
+
+	TP_printk("pid=%d iowait=%d caller=%pS", __entry->pid, __entry->io_wait, __entry->caller)
+);
 
 /*
  * Tracepoint for accounting runtime (time the task is executing

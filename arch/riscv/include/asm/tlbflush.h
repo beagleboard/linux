@@ -13,13 +13,21 @@
 #ifdef CONFIG_MMU
 static inline void local_flush_tlb_all(void)
 {
+#ifdef CONFIG_NO_SFENCE_VMA
+	csr_write(CSR_SMCIR, 1 << 26);
+#else
 	__asm__ __volatile__ ("sfence.vma" : : : "memory");
+#endif
 }
 
 /* Flush one page from local TLB */
 static inline void local_flush_tlb_page(unsigned long addr)
 {
+#ifdef CONFIG_NO_SFENCE_VMA
+	csr_write(CSR_SMCIR, 1 << 26);
+#else
 	__asm__ __volatile__ ("sfence.vma %0" : : "r" (addr) : "memory");
+#endif
 }
 #else /* CONFIG_MMU */
 #define local_flush_tlb_all()			do { } while (0)
@@ -50,7 +58,18 @@ static inline void flush_tlb_range(struct vm_area_struct *vma,
 static inline void flush_tlb_kernel_range(unsigned long start,
 	unsigned long end)
 {
-	flush_tlb_all();
+#ifdef CONFIG_NO_SFENCE_VMA
+	csr_write(CSR_SMCIR, 1 << 26);
+#else
+	start &= PAGE_MASK;
+	end   += PAGE_SIZE - 1;
+	end   &= PAGE_MASK;
+
+	while (start < end) {
+		__asm__ __volatile__ ("sfence.vma %0" : : "r" (start) : "memory");
+		start += PAGE_SIZE;
+	}
+#endif
 }
 
 #endif /* _ASM_RISCV_TLBFLUSH_H */

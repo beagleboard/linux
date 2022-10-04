@@ -67,6 +67,45 @@ void asm_offsets(void)
 	OFFSET(TASK_THREAD_F31, task_struct, thread.fstate.f[31]);
 	OFFSET(TASK_THREAD_FCSR, task_struct, thread.fstate.fcsr);
 
+	OFFSET(TASK_THREAD_V0,  task_struct, thread.vstate.v[0]);
+	OFFSET(TASK_THREAD_V1,  task_struct, thread.vstate.v[1]);
+	OFFSET(TASK_THREAD_V2,  task_struct, thread.vstate.v[2]);
+	OFFSET(TASK_THREAD_V3,  task_struct, thread.vstate.v[3]);
+	OFFSET(TASK_THREAD_V4,  task_struct, thread.vstate.v[4]);
+	OFFSET(TASK_THREAD_V5,  task_struct, thread.vstate.v[5]);
+	OFFSET(TASK_THREAD_V6,  task_struct, thread.vstate.v[6]);
+	OFFSET(TASK_THREAD_V7,  task_struct, thread.vstate.v[7]);
+	OFFSET(TASK_THREAD_V8,  task_struct, thread.vstate.v[8]);
+	OFFSET(TASK_THREAD_V9,  task_struct, thread.vstate.v[9]);
+	OFFSET(TASK_THREAD_V10, task_struct, thread.vstate.v[10]);
+	OFFSET(TASK_THREAD_V11, task_struct, thread.vstate.v[11]);
+	OFFSET(TASK_THREAD_V12, task_struct, thread.vstate.v[12]);
+	OFFSET(TASK_THREAD_V13, task_struct, thread.vstate.v[13]);
+	OFFSET(TASK_THREAD_V14, task_struct, thread.vstate.v[14]);
+	OFFSET(TASK_THREAD_V15, task_struct, thread.vstate.v[15]);
+	OFFSET(TASK_THREAD_V16, task_struct, thread.vstate.v[16]);
+	OFFSET(TASK_THREAD_V17, task_struct, thread.vstate.v[17]);
+	OFFSET(TASK_THREAD_V18, task_struct, thread.vstate.v[18]);
+	OFFSET(TASK_THREAD_V19, task_struct, thread.vstate.v[19]);
+	OFFSET(TASK_THREAD_V20, task_struct, thread.vstate.v[20]);
+	OFFSET(TASK_THREAD_V21, task_struct, thread.vstate.v[21]);
+	OFFSET(TASK_THREAD_V22, task_struct, thread.vstate.v[22]);
+	OFFSET(TASK_THREAD_V23, task_struct, thread.vstate.v[23]);
+	OFFSET(TASK_THREAD_V24, task_struct, thread.vstate.v[24]);
+	OFFSET(TASK_THREAD_V25, task_struct, thread.vstate.v[25]);
+	OFFSET(TASK_THREAD_V26, task_struct, thread.vstate.v[26]);
+	OFFSET(TASK_THREAD_V27, task_struct, thread.vstate.v[27]);
+	OFFSET(TASK_THREAD_V28, task_struct, thread.vstate.v[28]);
+	OFFSET(TASK_THREAD_V29, task_struct, thread.vstate.v[29]);
+	OFFSET(TASK_THREAD_V30, task_struct, thread.vstate.v[30]);
+	OFFSET(TASK_THREAD_V31, task_struct, thread.vstate.v[31]);
+	OFFSET(TASK_THREAD_VSTART, task_struct, thread.vstate.vstart);
+	OFFSET(TASK_THREAD_VXSAT, task_struct, thread.vstate.vxsat);
+	OFFSET(TASK_THREAD_VXRM, task_struct, thread.vstate.vxrm);
+	OFFSET(TASK_THREAD_VL, task_struct, thread.vstate.vl);
+	OFFSET(TASK_THREAD_VTYPE, task_struct, thread.vstate.vtype);
+	DEFINE(RISCV_VECTOR_VLENB, sizeof(__uint128_t));
+
 	DEFINE(PT_SIZE, sizeof(struct pt_regs));
 	OFFSET(PT_EPC, pt_regs, epc);
 	OFFSET(PT_RA, pt_regs, ra);
@@ -168,6 +207,7 @@ void asm_offsets(void)
 		- offsetof(struct task_struct, thread.ra)
 	);
 
+	/* Float Point */
 	DEFINE(TASK_THREAD_F0_F0,
 		  offsetof(struct task_struct, thread.fstate.f[0])
 		- offsetof(struct task_struct, thread.fstate.f[0])
@@ -299,6 +339,156 @@ void asm_offsets(void)
 	DEFINE(TASK_THREAD_FCSR_F0,
 		  offsetof(struct task_struct, thread.fstate.fcsr)
 		- offsetof(struct task_struct, thread.fstate.f[0])
+	);
+
+	/* Vector */
+	DEFINE(TASK_THREAD_V0_V0,
+		  offsetof(struct task_struct, thread.vstate.v[0])
+		- offsetof(struct task_struct, thread.vstate.v[0])
+	);
+	DEFINE(TASK_THREAD_V1_V0,
+		  offsetof(struct task_struct, thread.vstate.v[1])
+		- offsetof(struct task_struct, thread.vstate.v[0])
+	);
+	DEFINE(TASK_THREAD_V2_V0,
+		  offsetof(struct task_struct, thread.vstate.v[2])
+		- offsetof(struct task_struct, thread.vstate.v[0])
+	);
+	DEFINE(TASK_THREAD_V3_V0,
+		  offsetof(struct task_struct, thread.vstate.v[3])
+		- offsetof(struct task_struct, thread.vstate.v[0])
+	);
+	DEFINE(TASK_THREAD_V4_V0,
+		  offsetof(struct task_struct, thread.vstate.v[4])
+		- offsetof(struct task_struct, thread.vstate.v[0])
+	);
+	DEFINE(TASK_THREAD_V5_V0,
+		  offsetof(struct task_struct, thread.vstate.v[5])
+		- offsetof(struct task_struct, thread.vstate.v[0])
+	);
+	DEFINE(TASK_THREAD_V6_V0,
+		  offsetof(struct task_struct, thread.vstate.v[6])
+		- offsetof(struct task_struct, thread.vstate.v[0])
+	);
+	DEFINE(TASK_THREAD_V7_V0,
+		  offsetof(struct task_struct, thread.vstate.v[7])
+		- offsetof(struct task_struct, thread.vstate.v[0])
+	);
+	DEFINE(TASK_THREAD_V8_V0,
+		  offsetof(struct task_struct, thread.vstate.v[8])
+		- offsetof(struct task_struct, thread.vstate.v[0])
+	);
+	DEFINE(TASK_THREAD_V9_V0,
+		  offsetof(struct task_struct, thread.vstate.v[9])
+		- offsetof(struct task_struct, thread.vstate.v[0])
+	);
+	DEFINE(TASK_THREAD_V10_V0,
+		  offsetof(struct task_struct, thread.vstate.v[10])
+		- offsetof(struct task_struct, thread.vstate.v[0])
+	);
+	DEFINE(TASK_THREAD_V11_V0,
+		  offsetof(struct task_struct, thread.vstate.v[11])
+		- offsetof(struct task_struct, thread.vstate.v[0])
+	);
+	DEFINE(TASK_THREAD_V12_V0,
+		  offsetof(struct task_struct, thread.vstate.v[12])
+		- offsetof(struct task_struct, thread.vstate.v[0])
+	);
+	DEFINE(TASK_THREAD_V13_V0,
+		  offsetof(struct task_struct, thread.vstate.v[13])
+		- offsetof(struct task_struct, thread.vstate.v[0])
+	);
+	DEFINE(TASK_THREAD_V14_V0,
+		  offsetof(struct task_struct, thread.vstate.v[14])
+		- offsetof(struct task_struct, thread.vstate.v[0])
+	);
+	DEFINE(TASK_THREAD_V15_V0,
+		  offsetof(struct task_struct, thread.vstate.v[15])
+		- offsetof(struct task_struct, thread.vstate.v[0])
+	);
+	DEFINE(TASK_THREAD_V16_V0,
+		  offsetof(struct task_struct, thread.vstate.v[16])
+		- offsetof(struct task_struct, thread.vstate.v[0])
+	);
+	DEFINE(TASK_THREAD_V17_V0,
+		  offsetof(struct task_struct, thread.vstate.v[17])
+		- offsetof(struct task_struct, thread.vstate.v[0])
+	);
+	DEFINE(TASK_THREAD_V18_V0,
+		  offsetof(struct task_struct, thread.vstate.v[18])
+		- offsetof(struct task_struct, thread.vstate.v[0])
+	);
+	DEFINE(TASK_THREAD_V19_V0,
+		  offsetof(struct task_struct, thread.vstate.v[19])
+		- offsetof(struct task_struct, thread.vstate.v[0])
+	);
+	DEFINE(TASK_THREAD_V20_V0,
+		  offsetof(struct task_struct, thread.vstate.v[20])
+		- offsetof(struct task_struct, thread.vstate.v[0])
+	);
+	DEFINE(TASK_THREAD_V21_V0,
+		  offsetof(struct task_struct, thread.vstate.v[21])
+		- offsetof(struct task_struct, thread.vstate.v[0])
+	);
+	DEFINE(TASK_THREAD_V22_V0,
+		  offsetof(struct task_struct, thread.vstate.v[22])
+		- offsetof(struct task_struct, thread.vstate.v[0])
+	);
+	DEFINE(TASK_THREAD_V23_V0,
+		  offsetof(struct task_struct, thread.vstate.v[23])
+		- offsetof(struct task_struct, thread.vstate.v[0])
+	);
+	DEFINE(TASK_THREAD_V24_V0,
+		  offsetof(struct task_struct, thread.vstate.v[24])
+		- offsetof(struct task_struct, thread.vstate.v[0])
+	);
+	DEFINE(TASK_THREAD_V25_V0,
+		  offsetof(struct task_struct, thread.vstate.v[25])
+		- offsetof(struct task_struct, thread.vstate.v[0])
+	);
+	DEFINE(TASK_THREAD_V26_V0,
+		  offsetof(struct task_struct, thread.vstate.v[26])
+		- offsetof(struct task_struct, thread.vstate.v[0])
+	);
+	DEFINE(TASK_THREAD_V27_V0,
+		  offsetof(struct task_struct, thread.vstate.v[27])
+		- offsetof(struct task_struct, thread.vstate.v[0])
+	);
+	DEFINE(TASK_THREAD_V28_V0,
+		  offsetof(struct task_struct, thread.vstate.v[28])
+		- offsetof(struct task_struct, thread.vstate.v[0])
+	);
+	DEFINE(TASK_THREAD_V29_V0,
+		  offsetof(struct task_struct, thread.vstate.v[29])
+		- offsetof(struct task_struct, thread.vstate.v[0])
+	);
+	DEFINE(TASK_THREAD_V30_V0,
+		  offsetof(struct task_struct, thread.vstate.v[30])
+		- offsetof(struct task_struct, thread.vstate.v[0])
+	);
+	DEFINE(TASK_THREAD_V31_V0,
+		  offsetof(struct task_struct, thread.vstate.v[31])
+		- offsetof(struct task_struct, thread.vstate.v[0])
+	);
+	DEFINE(TASK_THREAD_VSTART_V0,
+		  offsetof(struct task_struct, thread.vstate.vstart)
+		- offsetof(struct task_struct, thread.vstate.v[0])
+	);
+	DEFINE(TASK_THREAD_VXSAT_V0,
+		  offsetof(struct task_struct, thread.vstate.vxsat)
+		- offsetof(struct task_struct, thread.vstate.v[0])
+	);
+	DEFINE(TASK_THREAD_VXRM_V0,
+		  offsetof(struct task_struct, thread.vstate.vxrm)
+		- offsetof(struct task_struct, thread.vstate.v[0])
+	);
+	DEFINE(TASK_THREAD_VL_V0,
+		  offsetof(struct task_struct, thread.vstate.vl)
+		- offsetof(struct task_struct, thread.vstate.v[0])
+	);
+	DEFINE(TASK_THREAD_VTYPE_V0,
+		  offsetof(struct task_struct, thread.vstate.vtype)
+		- offsetof(struct task_struct, thread.vstate.v[0])
 	);
 
 	/*

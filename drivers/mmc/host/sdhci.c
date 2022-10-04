@@ -33,6 +33,8 @@
 #include <linux/mmc/sdio.h>
 #include <linux/mmc/slot-gpio.h>
 
+#include <trace/hooks/mmc_core.h>
+
 #include "sdhci.h"
 
 #define DRIVER_NAME "sdhci"
@@ -772,19 +774,7 @@ static void sdhci_adma_table_pre(struct sdhci_host *host,
 			len -= offset;
 		}
 
-		/*
-		 * The block layer forces a minimum segment size of PAGE_SIZE,
-		 * so 'len' can be too big here if PAGE_SIZE >= 64KiB. Write
-		 * multiple descriptors, noting that the ADMA table is sized
-		 * for 4KiB chunks anyway, so it will be big enough.
-		 */
-		while (len > host->max_adma) {
-			int n = 32 * 1024; /* 32KiB*/
-
-			__sdhci_adma_write_desc(host, &desc, addr, n, ADMA2_TRAN_VALID);
-			addr += n;
-			len -= n;
-		}
+		BUG_ON(len > 65536);
 
 		/* tran, valid */
 		if (len)
@@ -2418,6 +2408,7 @@ static int sdhci_get_cd(struct mmc_host *mmc)
 {
 	struct sdhci_host *host = mmc_priv(mmc);
 	int gpio_cd = mmc_gpio_get_cd(mmc);
+	bool allow = true;
 
 	if (host->flags & SDHCI_DEVICE_DEAD)
 		return 0;
@@ -2425,6 +2416,10 @@ static int sdhci_get_cd(struct mmc_host *mmc)
 	/* If nonremovable, assume that the card is always present. */
 	if (!mmc_card_is_removable(host->mmc))
 		return 1;
+
+	trace_android_vh_sdhci_get_cd(host, &allow);
+	if (!allow)
+		return 0;
 
 	/*
 	 * Try slot gpio detect, if defined it take precedence
@@ -3220,7 +3215,7 @@ static void sdhci_cmd_irq(struct sdhci_host *host, u32 intmask, u32 *intmask_p)
 			return;
 		pr_err("%s: Got command interrupt 0x%08x even though no command operation was in progress.\n",
 		       mmc_hostname(host->mmc), (unsigned)intmask);
-		sdhci_dumpregs(host);
+		//sdhci_dumpregs(host);
 		return;
 	}
 
@@ -3350,7 +3345,7 @@ static void sdhci_data_irq(struct sdhci_host *host, u32 intmask)
 
 		pr_err("%s: Got data interrupt 0x%08x even though no data operation was in progress.\n",
 		       mmc_hostname(host->mmc), (unsigned)intmask);
-		sdhci_dumpregs(host);
+		//sdhci_dumpregs(host);
 
 		return;
 	}
@@ -3960,7 +3955,6 @@ struct sdhci_host *sdhci_alloc_host(struct device *dev,
 	 * descriptor for each segment, plus 1 for a nop end descriptor.
 	 */
 	host->adma_table_cnt = SDHCI_MAX_SEGS * 2 + 1;
-	host->max_adma = 65536;
 
 	return host;
 }
@@ -4624,12 +4618,10 @@ int sdhci_setup_host(struct sdhci_host *host)
 	 * be larger than 64 KiB though.
 	 */
 	if (host->flags & SDHCI_USE_ADMA) {
-		if (host->quirks & SDHCI_QUIRK_BROKEN_ADMA_ZEROLEN_DESC) {
-			host->max_adma = 65532; /* 32-bit alignment */
+		if (host->quirks & SDHCI_QUIRK_BROKEN_ADMA_ZEROLEN_DESC)
 			mmc->max_seg_size = 65535;
-		} else {
+		else
 			mmc->max_seg_size = 65536;
-		}
 	} else {
 		mmc->max_seg_size = mmc->max_req_size;
 	}
@@ -4762,7 +4754,6 @@ unirq:
 	free_irq(host->irq, host);
 unwq:
 	destroy_workqueue(host->complete_wq);
-
 	return ret;
 }
 EXPORT_SYMBOL_GPL(__sdhci_add_host);

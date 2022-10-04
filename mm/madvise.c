@@ -136,7 +136,7 @@ static long madvise_behavior(struct vm_area_struct *vma,
 	pgoff = vma->vm_pgoff + ((start - vma->vm_start) >> PAGE_SHIFT);
 	*prev = vma_merge(mm, *prev, start, end, new_flags, vma->anon_vma,
 			  vma->vm_file, pgoff, vma_policy(vma),
-			  vma->vm_userfaultfd_ctx);
+			  vma->vm_userfaultfd_ctx, vma_get_anon_name(vma));
 	if (*prev) {
 		vma = *prev;
 		goto success;
@@ -168,7 +168,9 @@ success:
 	/*
 	 * vm_flags is protected by the mmap_lock held in write mode.
 	 */
-	vma->vm_flags = new_flags;
+	vm_write_begin(vma);
+	WRITE_ONCE(vma->vm_flags, new_flags);
+	vm_write_end(vma);
 
 out_convert_errno:
 	/*
@@ -489,9 +491,11 @@ static void madvise_cold_page_range(struct mmu_gather *tlb,
 		.tlb = tlb,
 	};
 
+	vm_write_begin(vma);
 	tlb_start_vma(tlb, vma);
 	walk_page_range(vma->vm_mm, addr, end, &cold_walk_ops, &walk_private);
 	tlb_end_vma(tlb, vma);
+	vm_write_end(vma);
 }
 
 static long madvise_cold(struct vm_area_struct *vma,
@@ -522,9 +526,11 @@ static void madvise_pageout_page_range(struct mmu_gather *tlb,
 		.tlb = tlb,
 	};
 
+	vm_write_begin(vma);
 	tlb_start_vma(tlb, vma);
 	walk_page_range(vma->vm_mm, addr, end, &cold_walk_ops, &walk_private);
 	tlb_end_vma(tlb, vma);
+	vm_write_end(vma);
 }
 
 static inline bool can_do_pageout(struct vm_area_struct *vma)
@@ -727,10 +733,12 @@ static int madvise_free_single_vma(struct vm_area_struct *vma,
 	update_hiwater_rss(mm);
 
 	mmu_notifier_invalidate_range_start(&range);
+	vm_write_begin(vma);
 	tlb_start_vma(&tlb, vma);
 	walk_page_range(vma->vm_mm, range.start, range.end,
 			&madvise_free_walk_ops, &tlb);
 	tlb_end_vma(&tlb, vma);
+	vm_write_end(vma);
 	mmu_notifier_invalidate_range_end(&range);
 	tlb_finish_mmu(&tlb, range.start, range.end);
 
@@ -988,6 +996,7 @@ process_madvise_behavior_valid(int behavior)
 	switch (behavior) {
 	case MADV_COLD:
 	case MADV_PAGEOUT:
+	case MADV_WILLNEED:
 		return true;
 	default:
 		return false;

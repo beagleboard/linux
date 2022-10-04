@@ -26,6 +26,11 @@ config RISCV
 	select ARCH_HAS_SET_DIRECT_MAP
 	select ARCH_HAS_SET_MEMORY
 	select ARCH_HAS_STRICT_KERNEL_RWX if MMU
+	select ARCH_HAS_DMA_PREP_COHERENT
+	select ARCH_HAS_SYNC_DMA_FOR_CPU
+	select ARCH_HAS_SYNC_DMA_FOR_DEVICE
+	select ARCH_HAS_DMA_WRITE_COMBINE
+	select ARCH_HAS_DMA_MMAP_PGPROT
 	select ARCH_OPTIONAL_KERNEL_RWX if ARCH_HAS_STRICT_KERNEL_RWX
 	select ARCH_OPTIONAL_KERNEL_RWX_DEFAULT
 	select ARCH_WANT_DEFAULT_TOPDOWN_MMAP_LAYOUT if MMU
@@ -34,7 +39,11 @@ config RISCV
 	select CLONE_BACKWARDS
 	select CLINT_TIMER if !MMU
 	select COMMON_CLK
+	select CPU_PM if (SUSPEND || CPU_IDLE)
+	select COMPAT_BINFMT_ELF if BINFMT_ELF && COMPAT
 	select EDAC_SUPPORT
+	select DMA_DIRECT_REMAP
+	select GENERIC_ALLOCATOR
 	select GENERIC_ARCH_TOPOLOGY if SMP
 	select GENERIC_ATOMIC64 if !64BIT
 	select GENERIC_CLOCKEVENTS
@@ -58,6 +67,7 @@ config RISCV
 	select HAVE_ARCH_KGDB
 	select HAVE_ARCH_KGDB_QXFER_PKT
 	select HAVE_ARCH_MMAP_RND_BITS if MMU
+	select HAVE_ARCH_MMAP_RND_COMPAT_BITS if COMPAT
 	select HAVE_ARCH_SECCOMP_FILTER
 	select HAVE_ARCH_TRACEHOOK
 	select HAVE_ASM_MODVERSIONS
@@ -67,11 +77,17 @@ config RISCV
 	select HAVE_EBPF_JIT if MMU
 	select HAVE_FUTEX_CMPXCHG if FUTEX
 	select HAVE_GCC_PLUGINS
+	select HAVE_FUNCTION_ERROR_INJECTION
+	select HAVE_EFFICIENT_UNALIGNED_ACCESS
 	select HAVE_GENERIC_VDSO if MMU && 64BIT
+	select HAVE_KPROBES
+	select HAVE_KPROBES_ON_FTRACE
+	select HAVE_KRETPROBES
 	select HAVE_PCI
 	select HAVE_PERF_EVENTS
 	select HAVE_PERF_REGS
 	select HAVE_PERF_USER_STACK_DUMP
+	select HAVE_REGS_AND_STACK_ACCESS_API
 	select HAVE_STACKPROTECTOR
 	select HAVE_SYSCALL_TRACEPOINTS
 	select IRQ_DOMAIN
@@ -93,10 +109,16 @@ config ARCH_MMAP_RND_BITS_MIN
 	default 18 if 64BIT
 	default 8
 
+config ARCH_MMAP_RND_COMPAT_BITS_MIN
+	default 8
+
 # max bits determined by the following formula:
 #  VA_BITS - PAGE_SHIFT - 3
 config ARCH_MMAP_RND_BITS_MAX
 	default 24 if 64BIT # SV39 based
+	default 17
+
+config ARCH_MMAP_RND_COMPAT_BITS_MAX
 	default 17
 
 # set if we run in machine mode, cleared if we run in supervisor mode
@@ -144,6 +166,20 @@ config KASAN_SHADOW_OFFSET
 	default 0xdfffffc800000000 if 64BIT
 	default 0xffffffff if 32BIT
 
+config FORCE_MAX_ZONEORDER
+        int "Maximum zone order"
+        default 13
+	help
+	  The kernel memory allocator divides physically contiguous memory
+	  blocks into "zones", where each zone is a power of two number of
+	  pages.  This option selects the largest power of two that the kernel
+	  keeps in the memory allocator.  If you need to allocate very large
+	  blocks of physically contiguous memory, then you may need to
+	  increase this value.
+
+	  This config option is actually maximum order plus one. For example,
+	  a value of 13 means that the largest free memory block is 2^12 pages.
+
 config ARCH_FLATMEM_ENABLE
 	def_bool y
 
@@ -160,6 +196,9 @@ config ARCH_WANT_GENERAL_HUGETLB
 	def_bool y
 
 config ARCH_SUPPORTS_DEBUG_PAGEALLOC
+	def_bool y
+
+config ARCH_SUPPORTS_UPROBES
 	def_bool y
 
 config SYS_SUPPORTS_HUGETLBFS
@@ -229,7 +268,7 @@ config ARCH_RV64I
 	select HAVE_FTRACE_MCOUNT_RECORD
 	select HAVE_FUNCTION_GRAPH_TRACER
 	select HAVE_FUNCTION_TRACER
-	select SWIOTLB if MMU
+	select SWIOTLB if RISCV_SWIOTLB
 
 endchoice
 
@@ -318,12 +357,22 @@ config RISCV_ISA_C
 
 	   If you don't know what to do here, say Y.
 
+config NO_SFENCE_VMA
+	bool "Replace sfence.vma with CSR_SMCIR operation"
+	depends on !SMP
+	default y
+
+config RISCV_SWIOTLB
+	bool "Enable SWIOTLB"
+	depends on MMU
+	default y
+
 menu "supported PMU type"
 	depends on PERF_EVENTS
 
 config RISCV_BASE_PMU
 	bool "Base Performance Monitoring Unit"
-	def_bool y
+	def_bool n
 	help
 	  A base PMU that serves as a reference implementation and has limited
 	  feature of perf.  It can run on any RISC-V machines so serves as the
@@ -340,6 +389,42 @@ config FPU
 
 	  If you don't know what to do here, say Y.
 
+config VECTOR
+	bool "VECTOR support"
+	default n
+
+choice VECTOR_VERSION
+	prompt "Vector Version"
+	depends on VECTOR
+	default VECTOR_1_0
+
+config VECTOR_1_0
+	bool "VECTOR 1.0 support"
+	help
+	  Say N here if you want to disable all vector 1.0 related procedure
+	  in the kernel.
+
+	  If you don't know what to do here, say Y.
+
+config VECTOR_0_7
+	bool "VECTOR 0.7 support"
+	help
+	  Say N here if you want to disable all vector 0.7 related procedure
+	  in the kernel.
+
+	  If you don't know what to do here, say Y.
+
+endchoice
+
+config VECTOR_EMU
+	bool "VECTOR e64 emulate for c906 v1"
+	depends on VECTOR
+	default n
+
+config THEAD_ISA
+	bool "T-HEAD extension ISA in AFLAGS with -march=_xtheadc"
+	default n
+
 endmenu
 
 menu "Kernel features"
@@ -353,6 +438,48 @@ config RISCV_SBI_V01
 	help
 	  This config allows kernel to use SBI v0.1 APIs. This will be
 	  deprecated in future once legacy M-mode software are no longer in use.
+
+config KEXEC
+	bool "Kexec system call"
+	select KEXEC_CORE
+	select HOTPLUG_CPU if SMP
+	depends on MMU
+	default y
+	help
+	  kexec is a system call that implements the ability to shutdown your
+	  current kernel, and to start another kernel. It is like a reboot
+	  but it is independent of the system firmware. And like a reboot
+	  you can start any kernel with it, not just Linux.
+
+	  The name comes from the similarity to the exec system call.
+
+config CRASH_DUMP
+	bool "Build kdump crash kernel"
+	default y
+	help
+	  Generate crash dump after being started by kexec. This should
+	  be normally only set in special crash dump kernels which are
+	  loaded in the main kernel with kexec-tools into a specially
+	  reserved region and then later executed after a crash by
+	  kdump/kexec.
+
+	  For more details see Documentation/admin-guide/kdump/kdump.rst
+
+config COMPAT
+	bool "Kernel support for 32-bit U-mode"
+	depends on 64BIT && MMU
+	help
+	  This option enables support for a 32-bit U-mode running under a 64-bit
+	  kernel at S-mode. riscv32-specific components such as system calls,
+	  the user helper functions (vdso), signal rt_frame functions and the
+	  ptrace interface are handled appropriately by the kernel.
+
+	  If you want to execute 32-bit userspace applications, say Y.
+
+config SYSVIPC_COMPAT
+	def_bool y
+	depends on COMPAT && SYSVIPC
+
 endmenu
 
 menu "Boot options"
@@ -431,8 +558,14 @@ config BUILTIN_DTB
 
 menu "Power management options"
 
+source "drivers/cpuidle/Kconfig"
+source "drivers/cpufreq/Kconfig"
 source "kernel/power/Kconfig"
+
+config ARCH_SUSPEND_POSSIBLE
+	def_bool y
 
 endmenu
 
+source "arch/riscv/kvm/Kconfig"
 source "drivers/firmware/Kconfig"

@@ -248,6 +248,8 @@ static int dw_i2c_plat_probe(struct platform_device *pdev)
 
 	if (has_acpi_companion(&pdev->dev))
 		i2c_dw_acpi_configure(&pdev->dev);
+	else
+		i2c_dw_dt_configure(&pdev->dev);
 
 	ret = i2c_dw_validate_speed(dev);
 	if (ret)
@@ -267,6 +269,9 @@ static int dw_i2c_plat_probe(struct platform_device *pdev)
 	}
 
 	dev->clk = devm_clk_get(&pdev->dev, NULL);
+	if (IS_ERR(dev->clk) && PTR_ERR(dev->clk) == -EPROBE_DEFER)
+		return -EPROBE_DEFER;
+
 	if (!i2c_dw_prepare_clk(dev, true)) {
 		u64 clk_khz;
 

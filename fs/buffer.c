@@ -173,7 +173,7 @@ void end_buffer_write_sync(struct buffer_head *bh, int uptodate)
 	unlock_buffer(bh);
 	put_bh(bh);
 }
-EXPORT_SYMBOL(end_buffer_write_sync);
+EXPORT_SYMBOL_NS(end_buffer_write_sync, ANDROID_GKI_VFS_EXPORT_ONLY);
 
 /*
  * Various filesystems appear to want __find_get_block to be non-blocking.
@@ -419,7 +419,7 @@ void mark_buffer_async_write(struct buffer_head *bh)
 {
 	mark_buffer_async_write_endio(bh, end_buffer_async_write);
 }
-EXPORT_SYMBOL(mark_buffer_async_write);
+EXPORT_SYMBOL_NS(mark_buffer_async_write, ANDROID_GKI_VFS_EXPORT_ONLY);
 
 
 /*
@@ -523,7 +523,7 @@ repeat:
 
 void emergency_thaw_bdev(struct super_block *sb)
 {
-	while (sb->s_bdev && !thaw_bdev(sb->s_bdev, sb))
+	while (sb->s_bdev && !thaw_bdev(sb->s_bdev))
 		printk(KERN_WARNING "Emergency Thaw on %pg\n", sb->s_bdev);
 }
 
@@ -674,7 +674,7 @@ int __set_page_dirty_buffers(struct page *page)
 
 	return newly_dirty;
 }
-EXPORT_SYMBOL(__set_page_dirty_buffers);
+EXPORT_SYMBOL_NS(__set_page_dirty_buffers, ANDROID_GKI_VFS_EXPORT_ONLY);
 
 /*
  * Write out and wait upon a list of buffers.
@@ -1141,7 +1141,7 @@ void mark_buffer_dirty(struct buffer_head *bh)
 			__mark_inode_dirty(mapping->host, I_DIRTY_PAGES);
 	}
 }
-EXPORT_SYMBOL(mark_buffer_dirty);
+EXPORT_SYMBOL_NS(mark_buffer_dirty, ANDROID_GKI_VFS_EXPORT_ONLY);
 
 void mark_buffer_write_io_error(struct buffer_head *bh)
 {
@@ -1159,7 +1159,7 @@ void mark_buffer_write_io_error(struct buffer_head *bh)
 		errseq_set(&sb->s_wb_err, -EIO);
 	rcu_read_unlock();
 }
-EXPORT_SYMBOL(mark_buffer_write_io_error);
+EXPORT_SYMBOL_NS(mark_buffer_write_io_error, ANDROID_GKI_VFS_EXPORT_ONLY);
 
 /*
  * Decrement a buffer_head's reference count.  If all buffers against a page
@@ -1176,7 +1176,7 @@ void __brelse(struct buffer_head * buf)
 	}
 	WARN(1, KERN_ERR "VFS: brelse: Trying to free free buffer\n");
 }
-EXPORT_SYMBOL(__brelse);
+EXPORT_SYMBOL_NS(__brelse, ANDROID_GKI_VFS_EXPORT_ONLY);
 
 /*
  * bforget() is like brelse(), except it discards any
@@ -1195,7 +1195,7 @@ void __bforget(struct buffer_head *bh)
 	}
 	__brelse(bh);
 }
-EXPORT_SYMBOL(__bforget);
+EXPORT_SYMBOL_NS(__bforget, ANDROID_GKI_VFS_EXPORT_ONLY);
 
 static struct buffer_head *__bread_slow(struct buffer_head *bh)
 {
@@ -1264,6 +1264,15 @@ static void bh_lru_install(struct buffer_head *bh)
 	int i;
 
 	check_irqs_on();
+	/*
+	 * the refcount of buffer_head in bh_lru prevents dropping the
+	 * attached page(i.e., try_to_free_buffers) so it could cause
+	 * failing page migration.
+	 * Skip putting upcoming bh into bh_lru until migration is done.
+	 */
+	if (lru_cache_disabled())
+		return;
+
 	bh_lru_lock();
 
 	b = this_cpu_ptr(&bh_lrus);
@@ -1367,7 +1376,7 @@ void __breadahead(struct block_device *bdev, sector_t block, unsigned size)
 		brelse(bh);
 	}
 }
-EXPORT_SYMBOL(__breadahead);
+EXPORT_SYMBOL_NS(__breadahead, ANDROID_GKI_VFS_EXPORT_ONLY);
 
 void __breadahead_gfp(struct block_device *bdev, sector_t block, unsigned size,
 		      gfp_t gfp)
@@ -1402,8 +1411,17 @@ __bread_gfp(struct block_device *bdev, sector_t block,
 		bh = __bread_slow(bh);
 	return bh;
 }
-EXPORT_SYMBOL(__bread_gfp);
+EXPORT_SYMBOL_NS(__bread_gfp, ANDROID_GKI_VFS_EXPORT_ONLY);
 
+static void __invalidate_bh_lrus(struct bh_lru *b)
+{
+	int i;
+
+	for (i = 0; i < BH_LRU_SIZE; i++) {
+		brelse(b->bhs[i]);
+		b->bhs[i] = NULL;
+	}
+}
 /*
  * invalidate_bh_lrus() is called rarely - but not only at unmount.
  * This doesn't race because it runs in each cpu either in irq
@@ -1412,16 +1430,12 @@ EXPORT_SYMBOL(__bread_gfp);
 static void invalidate_bh_lru(void *arg)
 {
 	struct bh_lru *b = &get_cpu_var(bh_lrus);
-	int i;
 
-	for (i = 0; i < BH_LRU_SIZE; i++) {
-		brelse(b->bhs[i]);
-		b->bhs[i] = NULL;
-	}
+	__invalidate_bh_lrus(b);
 	put_cpu_var(bh_lrus);
 }
 
-static bool has_bh_in_lru(int cpu, void *dummy)
+bool has_bh_in_lru(int cpu, void *dummy)
 {
 	struct bh_lru *b = per_cpu_ptr(&bh_lrus, cpu);
 	int i;
@@ -1439,6 +1453,20 @@ void invalidate_bh_lrus(void)
 	on_each_cpu_cond(has_bh_in_lru, invalidate_bh_lru, NULL, 1);
 }
 EXPORT_SYMBOL_GPL(invalidate_bh_lrus);
+
+/*
+ * It's called from workqueue context so we need a bh_lru_lock to close
+ * the race with preemption/irq.
+ */
+void invalidate_bh_lrus_cpu(void)
+{
+	struct bh_lru *b;
+
+	bh_lru_lock();
+	b = this_cpu_ptr(&bh_lrus);
+	__invalidate_bh_lrus(b);
+	bh_lru_unlock();
+}
 
 void set_bh_page(struct buffer_head *bh,
 		struct page *page, unsigned long offset)
@@ -1545,7 +1573,7 @@ void block_invalidatepage(struct page *page, unsigned int offset,
 out:
 	return;
 }
-EXPORT_SYMBOL(block_invalidatepage);
+EXPORT_SYMBOL_NS(block_invalidatepage, ANDROID_GKI_VFS_EXPORT_ONLY);
 
 
 /*
@@ -1581,7 +1609,7 @@ void create_empty_buffers(struct page *page,
 	attach_page_private(page, head);
 	spin_unlock(&page->mapping->private_lock);
 }
-EXPORT_SYMBOL(create_empty_buffers);
+EXPORT_SYMBOL_NS(create_empty_buffers, ANDROID_GKI_VFS_EXPORT_ONLY);
 
 /**
  * clean_bdev_aliases: clean a range of buffers in block device
@@ -1655,7 +1683,7 @@ unlock_page:
 			break;
 	}
 }
-EXPORT_SYMBOL(clean_bdev_aliases);
+EXPORT_SYMBOL_NS(clean_bdev_aliases, ANDROID_GKI_VFS_EXPORT_ONLY);
 
 /*
  * Size is a power-of-two in the range 512..PAGE_SIZE,
@@ -1913,7 +1941,7 @@ void page_zero_new_buffers(struct page *page, unsigned from, unsigned to)
 		bh = bh->b_this_page;
 	} while (bh != head);
 }
-EXPORT_SYMBOL(page_zero_new_buffers);
+EXPORT_SYMBOL_NS(page_zero_new_buffers, ANDROID_GKI_VFS_EXPORT_ONLY);
 
 static void
 iomap_to_bh(struct inode *inode, sector_t block, struct buffer_head *bh,
@@ -2247,7 +2275,7 @@ int block_is_partially_uptodate(struct page *page, unsigned long from,
 
 	return ret;
 }
-EXPORT_SYMBOL(block_is_partially_uptodate);
+EXPORT_SYMBOL_NS(block_is_partially_uptodate, ANDROID_GKI_VFS_EXPORT_ONLY);
 
 /*
  * Generic "read page" function for block devices that have the normal
@@ -3114,7 +3142,7 @@ void ll_rw_block(int op, int op_flags,  int nr, struct buffer_head *bhs[])
 		unlock_buffer(bh);
 	}
 }
-EXPORT_SYMBOL(ll_rw_block);
+EXPORT_SYMBOL_NS(ll_rw_block, ANDROID_GKI_VFS_EXPORT_ONLY);
 
 void write_dirty_buffer(struct buffer_head *bh, int op_flags)
 {
@@ -3167,7 +3195,7 @@ int sync_dirty_buffer(struct buffer_head *bh)
 {
 	return __sync_dirty_buffer(bh, REQ_SYNC);
 }
-EXPORT_SYMBOL(sync_dirty_buffer);
+EXPORT_SYMBOL_NS(sync_dirty_buffer, ANDROID_GKI_VFS_EXPORT_ONLY);
 
 /*
  * try_to_free_buffers() checks if all the buffers on this particular page

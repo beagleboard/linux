@@ -228,8 +228,6 @@ static blk_status_t virtio_queue_rq(struct blk_mq_hw_ctx *hctx,
 	bool unmap = false;
 	u32 type;
 
-	BUG_ON(req->nr_phys_segments + 2 > vblk->sg_elems);
-
 	switch (req_op(req)) {
 	case REQ_OP_READ:
 	case REQ_OP_WRITE:
@@ -252,6 +250,10 @@ static blk_status_t virtio_queue_rq(struct blk_mq_hw_ctx *hctx,
 		WARN_ON_ONCE(1);
 		return BLK_STS_IOERR;
 	}
+
+	BUG_ON(type != VIRTIO_BLK_T_DISCARD &&
+	       type != VIRTIO_BLK_T_WRITE_ZEROES &&
+	       (req->nr_phys_segments + 2 > vblk->sg_elems));
 
 	vbr->out_hdr.type = cpu_to_virtio32(vblk->vdev, type);
 	vbr->out_hdr.sector = type ?
@@ -831,7 +833,7 @@ static int virtblk_probe(struct virtio_device *vdev)
 			dev_err(&vdev->dev,
 				"virtio_blk: invalid block size: 0x%x\n",
 				blk_size);
-			goto out_free_tags;
+			goto out_cleanup_disk;
 		}
 
 		blk_queue_logical_block_size(q, blk_size);
@@ -902,6 +904,8 @@ static int virtblk_probe(struct virtio_device *vdev)
 	device_add_disk(&vdev->dev, vblk->disk, virtblk_attr_groups);
 	return 0;
 
+out_cleanup_disk:
+	blk_cleanup_queue(vblk->disk->queue);
 out_free_tags:
 	blk_mq_free_tag_set(&vblk->tag_set);
 out_put_disk:

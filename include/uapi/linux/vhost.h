@@ -105,6 +105,9 @@
  * device.  This can be used to stop the ring (e.g. for migration). */
 #define VHOST_NET_SET_BACKEND _IOW(VHOST_VIRTIO, 0x30, struct vhost_vring_file)
 
+/* VHOST_BLK specific defines */
+#define VHOST_BLK_SET_BACKEND _IOW(VHOST_VIRTIO, 0x35, struct vhost_vring_file)
+
 /* VHOST_SCSI specific defines */
 
 #define VHOST_SCSI_SET_ENDPOINT _IOW(VHOST_VIRTIO, 0x40, struct vhost_scsi_target)
@@ -150,4 +153,6 @@
 /* Get the valid iova range */
 #define VHOST_VDPA_GET_IOVA_RANGE	_IOR(VHOST_VIRTIO, 0x78, \
 					     struct vhost_vdpa_iova_range)
+/* VHOST_VDMABUF specific defines */
+#define VHOST_VDMABUF_SET_RUNNING       _IOW(VHOST_VIRTIO, 0x79, int)
 #endif

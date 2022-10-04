@@ -44,6 +44,7 @@ void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 	struct task_struct *task)
 {
 	unsigned int cpu;
+	unsigned long asid;
 
 	if (unlikely(prev == next))
 		return;
@@ -59,9 +60,47 @@ void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 	cpumask_set_cpu(cpu, mm_cpumask(next));
 
 #ifdef CONFIG_MMU
-	csr_write(CSR_SATP, virt_to_pfn(next->pgd) | SATP_MODE);
-	local_flush_tlb_all();
+	check_and_switch_context(next, cpu);
+	asid = (next->context.asid.counter & SATP_ASID_MASK)
+		<< SATP_ASID_SHIFT;
+
+	csr_write(sptbr, virt_to_pfn(next->pgd) | SATP_MODE | asid);
 #endif
 
 	flush_icache_deferred(next);
 }
+
+static DEFINE_PER_CPU(atomic64_t, active_asids);
+static DEFINE_PER_CPU(u64, reserved_asids);
+
+struct asid_info asid_info;
+
+void check_and_switch_context(struct mm_struct *mm, unsigned int cpu)
+{
+	asid_check_context(&asid_info, &mm->context.asid, cpu, mm);
+}
+
+static void asid_flush_cpu_ctxt(void)
+{
+	local_flush_tlb_all();
+}
+
+static int asids_init(void)
+{
+	BUG_ON(((1 << SATP_ASID_BITS) - 1) <= num_possible_cpus());
+
+	if (asid_allocator_init(&asid_info, SATP_ASID_BITS, 1,
+				asid_flush_cpu_ctxt))
+		panic("Unable to initialize ASID allocator for %lu ASIDs\n",
+		      NUM_ASIDS(&asid_info));
+
+	asid_info.active = &active_asids;
+	asid_info.reserved = &reserved_asids;
+
+	pr_info("ASID allocator initialised with %lu entries\n",
+		NUM_CTXT_ASIDS(&asid_info));
+
+	local_flush_tlb_all();
+	return 0;
+}
+early_initcall(asids_init);

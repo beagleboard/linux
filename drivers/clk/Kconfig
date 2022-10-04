@@ -384,5 +384,6 @@ source "drivers/clk/ti/Kconfig"
 source "drivers/clk/uniphier/Kconfig"
 source "drivers/clk/x86/Kconfig"
 source "drivers/clk/zynqmp/Kconfig"
+source "drivers/clk/thead/Kconfig"
 
 endif

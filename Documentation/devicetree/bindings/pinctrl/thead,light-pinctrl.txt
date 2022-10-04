@@ -1,0 +1,41 @@
+* Thead Light PAD mux controller
+
+Please refer to pinctrl-bindings.txt in this directory for details of the
+common pinctrl bindings used by client devices, including the meaning of the
+phrase "pin configuration node".
+
+Thead light pin configuration node is a node of a group of pins which can be
+used for a specific device or function. This node represents both mux_mode and
+config of the pins in that group. The 'mux_mode' selects the function mode,
+and the 'config' configures various pad settings such as pull-up, open drain,
+drive strength, etc.
+
+Required properties for padmux controller:
+- compatible: "thead,light-<soc>-pinctrl"
+- reg: the padmux config/mux_mode registers base address.
+- thead,pins: each entry consists of 3 integers and represents:
+	      <pin_id mux_mode config>
+  pin_id macro can be found in include/dt-bindings/pinctrl/light-pinctrl.h.
+  config is the pad setting value like pull-up on this pin.
+
+
+Examples:
+#include <dt-bindings/pinctrl/light-pinctrl.h>
+
+/* Pin Controller Node */
+padmux0: pinctrl@ffef01c000 {
+	compatible = "thead,light-mpw-pinctrl";
+	reg = <0xff 0xef01c000 0x0 0x4000>;
+
+	light-mpw-evb {
+		/* Pin Configuration Node:
+		 * Format: <pin_id  mux_mode  config>
+		 */
+		pinctrl_uart0: uart0grp {
+			thead,pins = <
+				UART0_RXD	0x0	0x72
+				UART0_TXD	0x0	0x72
+			>;
+		};
+	};
+};

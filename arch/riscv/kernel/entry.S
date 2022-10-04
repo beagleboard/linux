@@ -70,7 +70,7 @@ _save_context:
 	 * Disable the FPU to detect illegal usage of floating point in kernel
 	 * space.
 	 */
-	li t0, SR_SUM | SR_FS
+	li t0, SR_SUM | SR_FS | SR_VS
 
 	REG_L s0, TASK_TI_USER_SP(tp)
 	csrrc s1, CSR_STATUS, t0
@@ -132,13 +132,29 @@ skip_context_tracking:
 	beqz t0, 1f
 #ifdef CONFIG_TRACE_IRQFLAGS
 	call __trace_hardirqs_on
+
+	REG_L s1, PT_STATUS(sp)
 #endif
 	csrs CSR_STATUS, SR_IE
 
 1:
+#ifdef CONFIG_TRACE_IRQFLAGS
+	REG_L a0, PT_A0(sp)
+	REG_L a1, PT_A1(sp)
+	REG_L a2, PT_A2(sp)
+	REG_L a3, PT_A3(sp)
+	REG_L a4, PT_A4(sp)
+	REG_L a5, PT_A5(sp)
+	REG_L a6, PT_A6(sp)
+	REG_L a7, PT_A7(sp)
+#endif
 	la ra, ret_from_exception
 	/* Handle syscalls */
 	li t0, EXC_SYSCALL
+
+#ifdef CONFIG_TRACE_IRQFLAGS
+	REG_L s4, PT_CAUSE(sp)
+#endif
 	beq s4, t0, handle_syscall
 
 	/* Handle other exceptions */
@@ -181,6 +197,9 @@ handle_syscall:
 	 * Advance SEPC to avoid executing the original
 	 * scall instruction on sret
 	 */
+#ifdef CONFIG_TRACE_IRQFLAGS
+	REG_L s2, PT_EPC(sp)
+#endif
 	addi s2, s2, 0x4
 	REG_S s2, PT_EPC(sp)
 	/* Trace syscalls, but only if requested by the user. */
@@ -195,13 +214,27 @@ check_syscall_nr:
 	 * Syscall number held in a7.
 	 * If syscall number is above allowed value, redirect to ni_syscall.
 	 */
-	bgeu a7, t0, 1f
+	bgeu a7, t0, 3f
+#ifdef CONFIG_COMPAT
+	REG_L s0, PT_STATUS(sp)
+	srli s0, s0, SR_UXL_SHIFT
+	andi s0, s0, (SR_UXL >> SR_UXL_SHIFT)
+	li t0, (SR_UXL_32 >> SR_UXL_SHIFT)
+	sub t0, s0, t0
+	bnez t0, 1f
+
+	/* Call compat_syscall */
+	la s0, compat_sys_call_table
+	j 2f
+1:
+#endif
 	/* Call syscall */
 	la s0, sys_call_table
+2:
 	slli t0, a7, RISCV_LGPTR
 	add s0, s0, t0
 	REG_L s0, 0(s0)
-1:
+3:
 	jalr s0
 
 ret_from_syscall:

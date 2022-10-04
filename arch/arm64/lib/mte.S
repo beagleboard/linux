@@ -4,7 +4,7 @@
  */
 #include <linux/linkage.h>
 
-#include <asm/alternative.h>
+#include <asm/asm-uaccess.h>
 #include <asm/assembler.h>
 #include <asm/mte.h>
 #include <asm/page.h>
@@ -35,6 +35,32 @@ SYM_FUNC_START(mte_clear_page_tags)
 	b.ne	1b
 	ret
 SYM_FUNC_END(mte_clear_page_tags)
+
+/*
+ * Zero the page and tags at the same time
+ *
+ * Parameters:
+ *	x0 - address to the beginning of the page
+ */
+SYM_FUNC_START(mte_zero_clear_page_tags)
+	and	x0, x0, #(1 << MTE_TAG_SHIFT) - 1	// clear the tag
+	mrs	x1, dczid_el0
+	tbnz	x1, #4, 2f	// Branch if DC GZVA is prohibited
+	and	w1, w1, #0xf
+	mov	x2, #4
+	lsl	x1, x2, x1
+
+1:	dc	gzva, x0
+	add	x0, x0, x1
+	tst	x0, #(PAGE_SIZE - 1)
+	b.ne	1b
+	ret
+
+2:	stz2g	x0, [x0], #(MTE_GRANULE_SIZE * 2)
+	tst	x0, #(PAGE_SIZE - 1)
+	b.ne	2b
+	ret
+SYM_FUNC_END(mte_zero_clear_page_tags)
 
 /*
  * Copy the tags from the source page to the destination one

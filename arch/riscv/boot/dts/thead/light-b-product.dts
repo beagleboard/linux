@@ -1,0 +1,2210 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * Copyright (C) 2021 Alibaba Group Holding Limited.
+ */
+
+/dts-v1/;
+
+#include "light.dtsi"
+#include <dt-bindings/input/linux-event-codes.h>
+#include <dt-bindings/gpio/gpio.h>
+#include "light-vi-devices.dtsi"
+/ {
+	model = "T-HEAD Light val board";
+	compatible = "thead,light-val", "thead,light";
+
+	memory@0 {
+		device_type = "memory";
+		reg = <0x0 0x00000000 0x0 0x80000000>;
+	};
+
+	chosen {
+		bootargs = "console=ttyS0,115200 crashkernel=256M-:128M earlycon clk_ignore_unused sram=0xffe0000000,0x180000";
+		linux,initrd-start = <0x0 0x2000000>;
+		linux,initrd-end = <0x0 0x14600000>;
+		stdout-path = "serial0:115200n8";
+	};
+
+	leds {
+		compatible = "gpio-leds";
+		status = "disabled";
+		led0 {
+			label = "SYS_STATUS";
+			gpios = <&gpio1_porta 15 0>;	/* GPIO_ACTIVE_HIGH: 0 */
+			default-state = "off";
+		};
+	};
+
+	display-subsystem {
+		status = "okay";
+	};
+
+	lcd0_backlight: pwm-backlight@0 {
+		compatible = "pwm-backlight";
+		pwms = <&pwm 0 5000000>;
+		brightness-levels = <0 4 8 16 32 64 128 255>;
+		default-brightness-level = <7>;
+	};
+
+	light_iopmp: iopmp {
+		compatible = "thead,light-iopmp";
+
+		/* config#1: multiple valid regions */
+		iopmp_emmc: IOPMP_EMMC {
+			regions = <0x000000 0x100000>,
+				  <0x100000 0x200000>;
+			attr = <0xFFFFFFFF>;
+			dummy_slave= <0x800000>;
+		};
+
+		/* config#2: iopmp bypass */
+		iopmp_sdio0: IOPMP_SDIO0 {
+			bypass_en;
+		};
+
+		/* config#3: iopmp default region set */
+		iopmp_sdio1: IOPMP_SDIO1 {
+			attr = <0xFFFFFFFF>;
+			is_default_region;
+		};
+
+		iopmp_usb0: IOPMP_USB0 {
+			attr = <0xFFFFFFFF>;
+			is_default_region;
+		};
+
+		iopmp_ao: IOPMP_AO {
+			is_default_region;
+		};
+
+		iopmp_aud: IOPMP_AUD {
+			is_default_region;
+		};
+
+		iopmp_chip_dbg: IOPMP_CHIP_DBG {
+			is_default_region;
+		};
+
+		iopmp_eip120i: IOPMP_EIP120I {
+			is_default_region;
+		};
+
+		iopmp_eip120ii: IOPMP_EIP120II {
+			is_default_region;
+		};
+
+		iopmp_eip120iii: IOPMP_EIP120III {
+			is_default_region;
+		};
+
+		iopmp_isp0: IOPMP_ISP0 {
+			is_default_region;
+		};
+
+		iopmp_isp1: IOPMP_ISP1 {
+			is_default_region;
+		};
+
+		iopmp_dw200: IOPMP_DW200 {
+			is_default_region;
+		};
+
+		iopmp_vipre: IOPMP_VIPRE {
+			is_default_region;
+		};
+
+		iopmp_venc: IOPMP_VENC {
+			is_default_region;
+		};
+
+		iopmp_vdec: IOPMP_VDEC {
+			is_default_region;
+		};
+
+		iopmp_g2d: IOPMP_G2D {
+			is_default_region;
+		};
+
+		iopmp_fce: IOPMP_FCE {
+			is_default_region;
+		};
+
+		iopmp_npu: IOPMP_NPU {
+			is_default_region;
+		};
+
+		iopmp0_dpu: IOPMP0_DPU {
+			bypass_en;
+		};
+
+		iopmp1_dpu: IOPMP1_DPU {
+			bypass_en;
+		};
+
+		iopmp_gpu: IOPMP_GPU {
+			is_default_region;
+		};
+
+		iopmp_gmac1: IOPMP_GMAC1 {
+			is_default_region;
+		};
+
+		iopmp_gmac2: IOPMP_GMAC2 {
+			is_default_region;
+		};
+
+		iopmp_dmac: IOPMP_DMAC {
+			is_default_region;
+		};
+
+		iopmp_tee_dmac: IOPMP_TEE_DMAC {
+			is_default_region;
+		};
+
+		iopmp_dsp0: IOPMP_DSP0 {
+			is_default_region;
+		};
+
+		iopmp_dsp1: IOPMP_DSP1 {
+			is_default_region;
+		};
+	};
+
+	mbox_910t_client1: mbox_910t_client1 {
+		compatible = "thead,light-mbox-client";
+		mbox-names = "902";
+		mboxes = <&mbox_910t 1 0>;
+		status = "disabled";
+	};
+
+
+	mbox_910t_client2: mbox_910t_client2 {
+		compatible = "thead,light-mbox-client";
+		mbox-names = "906";
+		mboxes = <&mbox_910t 2 0>;
+		status = "disabled";
+	};
+
+	lightsound: lightsound@1 {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "Light-Sound-Card";
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		status = "disabled";
+	};
+
+	dummy_codec: dummy_codec {
+		#sound-dai-cells = <1>;
+		compatible = "linux,bt-sco";
+		status = "okay";
+	};
+
+	reg_vref_1v8: regulator-adc-verf {
+			compatible = "regulator-fixed";
+			regulator-name = "vref-1v8";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+	status = "okay";
+	};
+
+        reg_tp_pwr_en: regulator-pwr-en {
+                compatible = "regulator-fixed";
+                regulator-name = "PWR_EN";
+                regulator-min-microvolt = <2800000>;
+                regulator-max-microvolt = <2800000>;
+                gpio = <&gpio1_porta 12 1>;
+                enable-active-high;
+                regulator-always-on;
+        };
+
+	wcn_wifi: wireless-wlan {
+		compatible = "wlan-platdata";
+		clock-names = "clk_wifi";
+		ref-clock-frequency = <24000000>;
+		keep_wifi_power_on;
+		pinctrl-names = "default";
+		wifi_chip_type = "rtl8723ds";
+		WIFI,poweren_gpio = <&gpio2_porta 29 0>;
+		WIFI,reset_n = <&gpio2_porta 22 0>;
+		status = "okay";
+	};
+
+	wcn_bt: wireless-bluetooth {
+		compatible = "bluetooth-platdata";
+		pinctrl-names = "default", "rts_gpio";
+		BT,power_gpio    = <&gpio2_porta 29 0>;
+		status = "okay";
+	};
+
+	gpio-keys {
+		compatible = "gpio-keys";
+		pinctrl-0 = <&pinctrl_volume>;
+		pinctrl-names = "default";
+		key-volumedown {
+			label = "Volume Down Key";
+			linux,code = <KEY_VOLUMEDOWN>;
+			debounce-interval = <1>;
+			gpios = <&ao_gpio_porta 11 0x1>;
+		};
+		key-volumeup {
+			label = "Volume Up Key";
+			linux,code = <KEY_VOLUMEUP>;
+			debounce-interval = <1>;
+			gpios = <&ao_gpio_porta 10 0x1>;
+		};
+	};
+
+	aon {
+		compatible = "thead,light-aon";
+		mbox-names = "aon";
+		mboxes = <&mbox_910t 1 0>;
+		status = "okay";
+
+		pd: light-aon-pd {
+			compatible = "thead,light-aon-pd";
+			#power-domain-cells = <1>;
+		};
+
+		soc_aud_3v3_en_reg: soc_aud_3v3_en {
+			compatible = "regulator-fixed";
+			regulator-name = "soc_aud_3v3_en";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			gpio = <&ao_gpio_porta 7 1>;
+			enable-active-high;
+			regulator-always-on;
+		};
+
+		soc_aud_1v8_en_reg: soc_aud_1v8_en {
+			compatible = "regulator-fixed";
+			regulator-name = "soc_aud_1v8_en";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			gpio = <&ao_gpio_porta 8 1>;
+			enable-active-high;
+			regulator-always-on;
+		};
+
+		soc_vdd_3v3_en_reg: soc_vdd_3v3_en {
+			compatible = "regulator-fixed";
+			regulator-name = "soc_vdd_3v3_en";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			gpio = <&gpio0_porta 30 1>;
+			enable-active-high;
+			regulator-always-on;
+		};
+
+		soc_lcd0_bias_en_reg: soc_lcd0_bias_en {
+			compatible = "regulator-fixed";
+			regulator-name = "soc_lcd0_bias_en";
+			regulator-min-microvolt = <5700000>;
+			regulator-max-microvolt = <5700000>;
+			gpio = <&gpio1_porta 10 1>;
+			enable-active-high;
+		};
+
+		soc_vdd5v_se_en_reg: soc_vdd5v_se_en {
+			compatible = "regulator-fixed";
+			regulator-name = "soc_vdd5v_se_en";
+			regulator-min-microvolt = <5000000>;
+			regulator-max-microvolt = <5000000>;
+			gpio = <&gpio2_porta 14 1>;
+			enable-active-high;
+			regulator-always-on;
+		};
+
+		soc_wcn33_en_reg: soc_wcn33_en {
+			compatible = "regulator-fixed";
+			regulator-name = "soc_wcn33_en";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			gpio = <&gpio2_porta 29 1>;
+			enable-active-high;
+			regulator-always-on;
+		};
+
+		soc_vbus_en_reg: soc_vbus_en {
+			compatible = "regulator-fixed";
+			regulator-name = "soc_vbus_en";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			gpio = <&gpio2_porta 28 1>;
+			enable-active-high;
+			regulator-always-on;
+		};
+
+        	soc_dovdd18_scan_reg: soc_dovdd18_scan {
+			compatible = "regulator-fixed";
+			regulator-name = "soc_dovdd18_scan";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			gpio = <&gpio2_porta 31 1>;
+			enable-active-high;
+		};
+
+        	soc_dvdd12_scan_reg: soc_dvdd12_scan {
+			compatible = "regulator-fixed";
+			regulator-name = "soc_dvdd12_scan";
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <1200000>;
+			gpio = <&gpio3_porta 0 1>;
+			enable-active-high;
+		};
+
+        	soc_avdd28_scan_en_reg: soc_avdd28_scan_en {
+			compatible = "regulator-fixed";
+			regulator-name = "soc_avdd28_scan_en";
+			regulator-min-microvolt = <2800000>;
+			regulator-max-microvolt = <2800000>;
+			gpio = <&gpio2_porta 30 1>;
+			enable-active-high;
+		};
+
+        	soc_avdd28_rgb_reg: soc_avdd28_rgb {
+			compatible = "regulator-fixed";
+			regulator-name = "soc_avdd28_rgb";
+			regulator-min-microvolt = <2800000>;
+			regulator-max-microvolt = <2800000>;
+			gpio = <&gpio1_porta 15 1>;
+			enable-active-high;
+		};
+
+        	soc_dovdd18_rgb_reg: soc_dovdd18_rgb {
+			compatible = "regulator-fixed";
+			regulator-name = "soc_dovdd18_rgb";
+			regulator-min-microvolt = <2800000>;
+			regulator-max-microvolt = <2800000>;
+			gpio = <&gpio1_porta 13 1>;
+			enable-active-high;
+		};
+
+        	soc_dvdd12_rgb_reg: soc_dvdd12_rgb {
+			compatible = "regulator-fixed";
+			regulator-name = "soc_dvdd12_rgb";
+			regulator-min-microvolt = <2800000>;
+			regulator-max-microvolt = <2800000>;
+			gpio = <&gpio1_porta 14 1>;
+			enable-active-high;
+		};
+
+        	soc_avdd25_ir_reg: soc_avdd25_ir {
+			compatible = "regulator-fixed";
+			regulator-name = "soc_avdd25_ir";
+			regulator-min-microvolt = <2500000>;
+			regulator-max-microvolt = <2500000>;
+			gpio = <&gpio0_porta 28 1>;
+			enable-active-high;
+		};
+
+        	soc_dovdd18_ir_reg: soc_dovdd18_ir {
+			compatible = "regulator-fixed";
+			regulator-name = "soc_dovdd18_ir";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			gpio = <&gpio0_porta 27 1>;
+			enable-active-high;
+		};
+
+        	soc_dvdd12_ir_reg: soc_dvdd12_ir {
+			compatible = "regulator-fixed";
+			regulator-name = "soc_dvdd12_ir";
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <1200000>;
+			gpio = <&gpio0_porta 29 1>;
+			enable-active-high;
+		};
+
+		aon_reg_ricoh: light-ricoh-reg {
+			compatible = "thead,light-ricoh-pmic";
+			status = "okay";
+
+			dvdd_cpu_reg: appcpu_dvdd {
+				regulator-name = "appcpu_dvdd";
+				regulator-min-microvolt = <600000>;
+				regulator-max-microvolt = <1500000>;
+				regulator-boot-on;
+				regulator-always-on;
+			};
+
+			dvddm_cpu_reg: appcpu_dvddm {
+				regulator-name = "appcpu_dvddm";
+				regulator-min-microvolt = <600000>;
+				regulator-max-microvolt = <1500000>;
+				regulator-boot-on;
+				regulator-always-on;
+			};
+			soc_dvdd18_aon_reg: soc_dvdd18_aon {
+				regulator-name = "soc_dvdd18_aon";
+				regulator-boot-on;
+				regulator-always-on;
+			};
+
+			soc_avdd33_usb3_reg: soc_avdd33_usb3 {
+				regulator-name = "soc_avdd33_usb3";
+				regulator-boot-on;
+				regulator-always-on;
+			};
+
+			soc_dvdd08_aon_reg: soc_dvdd08_aon {
+				regulator-name = "soc_dvdd08_aon";
+				regulator-boot-on;
+				regulator-always-on;
+			};
+
+			soc_dvdd08_ddr_reg: soc_dvdd08_ddr {
+				regulator-name = "soc_dvdd08_ddr";
+				regulator-boot-on;
+				regulator-always-on;
+			};
+
+			soc_vdd_ddr_1v8_reg: soc_vdd_ddr_1v8 {
+				regulator-name = "soc_vdd_ddr_1v8";
+				regulator-boot-on;
+				regulator-always-on;
+			};
+
+			soc_vdd_ddr_1v1_reg: soc_vdd_ddr_1v1 {
+				regulator-name = "soc_vdd_ddr_1v1";
+				regulator-boot-on;
+				regulator-always-on;
+			};
+
+			soc_vdd_ddr_0v6_reg: soc_vdd_ddr_0v6 {
+				regulator-name = "soc_vdd_ddr_0v6";
+				regulator-boot-on;
+				regulator-always-on;
+			};
+
+			soc_dvdd18_ap_reg: soc_dvdd18_ap {
+				regulator-name = "soc_dvdd18_ap";
+				regulator-boot-on;
+				regulator-always-on;
+			};
+
+			soc_dvdd08_ap_reg: soc_dvdd08_ap {
+				regulator-name = "soc_dvdd08_ap";
+				regulator-boot-on;
+				regulator-always-on;
+			};
+
+			soc_avdd08_mipi_hdmi_reg: soc_avdd08_mipi_hdmi {
+				regulator-name = "soc_avdd08_mipi_hdmi";
+				regulator-boot-on;
+				regulator-always-on;
+			};
+
+			soc_avdd18_mipi_hdmi_reg: soc_avdd18_mipi_hdmi {
+				regulator-name = "soc_avdd18_mipi_hdmi";
+				regulator-boot-on;
+				regulator-always-on;
+			};
+
+			soc_vdd33_emmc_reg: soc_vdd33_emmc {
+				regulator-name = "soc_vdd33_emmc";
+				regulator-boot-on;
+				regulator-always-on;
+			};
+
+			soc_vdd18_emmc_reg: soc_vdd18_emmc {
+				regulator-name = "soc_vdd18_emmc";
+				regulator-boot-on;
+				regulator-always-on;
+			};
+
+			soc_vdd18_lcd0_en_reg: soc_lcd0_en {
+				regulator-name = "soc_lcd0_en";
+			};
+			soc_vext_1v8_reg: soc_vext_1v8 {
+				regulator-name = "soc_vext_1v8";
+				regulator-boot-on;
+				regulator-always-on;
+			};
+		};
+
+		c910_cpufreq {
+			compatible = "thead,light-mpw-cpufreq";
+			status = "okay";
+		};
+
+		test: light-aon-test {
+			compatible = "thead,light-aon-test";
+		};
+	};
+
+};
+
+&resmem {
+	#address-cells = <2>;
+	#size-cells = <2>;
+	ranges;
+
+	tee_mem: memory@1a000000 {
+		reg = <0x0 0x1a000000 0 0x4000000>;
+		no-map;
+	};
+
+	dsp0_mem: memory@20000000 {             /**0x2000_0000~0x2040_0000 4M**/
+		reg = <0x0 0x20000000 0x0 0x00280000   /* DSP FW code&data section 2.5M*/ 
+               0x0 0x20280000 0x0 0x00001000   /* DSP communication area 4K*/ 
+               0x0 0x20281000 0x0 0x00007000  /* Panic/log page 28K */
+               0x0 0x20288000 0x0 0x00178000>;  /* DSP shared memory 1.5M-32K*/
+		no-map;
+	};
+    dsp1_mem: memory@20400000 {             /**0x2040_0000~0x2080_0000 4M**/
+        reg = <0x0 0x20400000 0x0 0x00280000  /* DSP FW code&data section */ 
+               0x0 0x20680000 0x0 0x00001000 /* DSP communication area */
+               0x0 0x20681000 0x0 0x00007000    /* Panic/log page*/ 
+               0x0 0x20688000 0x0 0x00178000>;  /* DSP shared memory */
+        no-map;
+    };
+	facelib_mem: memory@33000000 {
+		reg = <0x0 0x33000000 0 0x02000000>;
+		no-map;
+	};
+	vi_mem: framebuffer@70000000 {
+		reg = <0x0 0x70000000 0x0 0x02C00000	/* vi_mem_pool_region[0]  44 MB (default) */
+		       0x0 0x72C00000 0x0 0x01D00000	/* vi_mem_pool_region[1]  29 MB */
+		       0x0 0x74900000 0x0 0x01E00000>;	/* vi_mem_pool_region[2]  30 MB */
+		no-map;
+	};
+};
+
+&adc {
+	vref-supply = <&reg_vref_1v8>;
+	status = "okay";
+};
+
+&i2c0 {
+	clock-frequency = <100000>;
+	status = "okay";
+
+       touch@5d {
+               #gpio-cells = <2>;
+               compatible = "goodix,gt911";
+               reg = <0x5d>;
+               interrupt-parent = <&gpio1_porta>;
+               interrupts = <8 0>;
+               irq-gpios = <&gpio1_porta 8 0>;
+               reset-gpios = <&gpio1_porta 7 0>;
+               AVDD28-supply = <&reg_tp_pwr_en>;
+               touchscreen-size-x = <720>;
+               touchscreen-size-y = <1280>;
+       };
+
+};
+
+&audio_i2c0 {
+        clock-frequency = <100000>;
+        status = "okay";
+
+       es8156_audio_codec: es8156@8 {
+               #sound-dai-cells = <0>;
+               compatible = "everest,es8156";
+               reg = <0x08>;
+       };
+
+        es7210_audio_codec: es7210@40 {
+                #sound-dai-cells = <0>;
+                compatible = "MicArray_0";
+                reg = <0x40>;
+        };
+
+	audio_aw87519_pa@58 {
+		compatible = "awinic,aw87519_pa";
+		reg = <0x58>;
+		reset-gpio = <&ao_gpio4_porta 9 0x1>;
+		status = "okay";
+	};
+};
+
+&i2c1 {
+        clock-frequency = <100000>;
+        status = "okay";
+};
+
+&spi0 {
+	num-cs = <1>;
+	cs-gpios = <&gpio2_porta 15 0>; // GPIO_ACTIVE_HIGH: 0
+	rx-sample-delay-ns = <10>;
+	status = "disabled";
+
+	spi_norflash@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "winbond,w25q64jwm", "jedec,spi-nor";
+		reg = <0>;
+		spi-max-frequency = <50000000>;
+		w25q,fast-read;
+	};
+
+	spidev@1 {
+		compatible = "spidev";
+		#address-cells = <0x1>;
+		#size-cells = <0x1>;
+		reg = <0x1>;
+		spi-max-frequency = <50000000>;
+	};
+};
+
+&uart0 {
+	clock-frequency = <100000000>;
+};
+
+&qspi0 {
+	num-cs = <1>;
+	cs-gpios = <&gpio2_porta 3 0>;
+	rx-sample-dly = <4>;
+	status = "disabled";
+
+	spi-flash@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "spi-nand";
+		spi-max-frequency = <100000000>;
+		spi-tx-bus-width = <4>;
+		spi-rx-bus-width = <4>;
+		reg = <0>;
+
+		partition@0 {
+			label = "ubi1";
+			reg = <0x00000000 0x08000000>;
+		};
+	};
+};
+
+&qspi1 {
+	compatible = "snps,dw-apb-ssi";
+	num-cs = <1>;
+	cs-gpios = <&gpio0_porta 1 0>;
+	status = "okay";
+
+	spidev@0 {
+		compatible = "spidev";
+		#address-cells = <0x1>;
+		#size-cells = <0x1>;
+		reg = <0x0>;
+		spi-max-frequency = <50000000>;
+	};
+};
+
+&gmac0 {
+	phy-mode = "rgmii-id";
+	rx-clk-delay = <0x00>; /* for RGMII */
+	tx-clk-delay = <0x00>; /* for RGMII */
+	phy-handle = <&phy_88E1111_0>;
+	status = "okay";
+
+	mdio0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "snps,dwmac-mdio";
+
+		phy_88E1111_0: ethernet-phy@0 {
+			reg = <0x1>;
+		};
+
+		phy_88E1111_1: ethernet-phy@1 {
+			reg = <0x2>;
+		};
+	};
+};
+
+&gmac1 {
+	phy-mode = "rgmii-id";
+	rx-clk-delay = <0x00>; /* for RGMII */
+	tx-clk-delay = <0x00>; /* for RGMII */
+	phy-handle = <&phy_88E1111_1>;
+	status = "disabled";
+};
+
+&emmc {
+	max-frequency = <198000000>;
+	non-removable;
+	mmc-hs400-1_8v;
+	io_fixed_1v8;
+	is_emmc;
+	no-sdio;
+	no-sd;
+	pull_up;
+	bus-width = <8>;
+	status = "okay";
+};
+
+&sdhci0 {
+	max-frequency = <198000000>;
+	bus-width = <4>;
+	pull_up;
+	wprtn_ignore;
+	status = "okay";
+};
+
+&sdhci1 {
+	max-frequency = <100000000>;
+	bus-width = <4>;
+	pull_up;
+	no-sd;
+	no-mmc;
+	non-removable;
+	io_fixed_1v8;
+	wprtn_ignore;
+	cap-sd-highspeed;
+	keep-power-in-suspend;
+	wakeup-source;
+	status = "okay";
+};
+
+&padctrl0_apsys { /* right-pinctrl */
+	light-evb-padctrl0 {
+			/*
+			 * Pin Configuration Node:
+			 * Format: <pin_id mux_node config>
+			 */
+			pinctrl_uart0: uart0grp {
+				thead,pins = <
+					FM_UART0_TXD	0x0	0x72
+					FM_UART0_RXD	0x0	0x72
+				>;
+			};
+
+			pinctrl_spi0: spi0grp {
+				thead,pins = <
+					FM_SPI_CSN	0x3	0x20a
+					FM_SPI_SCLK	0x0	0x20a
+					FM_SPI_MISO	0x0	0x23a
+					FM_SPI_MOSI	0x0	0x23a
+				>;
+			};
+
+			pinctrl_qspi0: qspi0grp {
+				thead,pins = <
+					FM_QSPI0_SCLK    0x0    0x20f
+					FM_QSPI0_CSN0    0x3    0x20f
+					FM_QSPI0_CSN1    0x0    0x20f
+					FM_QSPI0_D0_MOSI 0x0    0x23f
+					FM_QSPI0_D1_MISO 0x0    0x23f
+					FM_QSPI0_D2_WP   0x0    0x23f
+					FM_QSPI0_D3_HOLD 0x0    0x23f
+				>;
+			};
+
+			pinctrl_audio_i2s0: i2s0grp {
+				thead,pins = <
+					FM_QSPI0_SCLK    0x2    0x208
+					FM_QSPI0_CSN0    0x2    0x238
+					FM_QSPI0_CSN1    0x2    0x208
+					FM_QSPI0_D0_MOSI 0x2    0x238
+					FM_QSPI0_D1_MISO 0x2    0x238
+					FM_QSPI0_D2_WP   0x2    0x238
+					FM_QSPI0_D3_HOLD 0x2    0x238
+				>;
+			};
+
+			pinctrl_pwm: pwmgrp {
+				thead,pins = <
+					FM_GPIO3_2	0x1	0x208	/* pwm0 */
+				>;
+			};
+		};
+};
+
+&padctrl1_apsys { /* left-pinctrl */
+	light-evb-padctrl1 {
+			/*
+			 * Pin Configuration Node:
+			 * Format: <pin_id mux_node config>
+			 */
+			pinctrl_uart3: uart3grp {
+				thead,pins = <
+					FM_UART3_TXD	0x0	0x72
+					FM_UART3_RXD	0x0	0x72
+				>;
+			};
+
+			pinctrl_uart4: uart4grp {
+				thead,pins = <
+					FM_UART4_TXD	0x0	0x72
+					FM_UART4_RXD	0x0	0x72
+					FM_UART4_CTSN	0x0	0x72
+					FM_UART4_RTSN	0x0	0x72
+				>;
+			};
+
+			pinctrl_qspi1: qspi1grp {
+				thead,pins = <
+					FM_QSPI1_SCLK    0x0    0x20a
+					FM_QSPI1_CSN0    0x3    0x20a
+					FM_QSPI1_D0_MOSI 0x0    0x23a
+					FM_QSPI1_D1_MISO 0x0    0x23a
+					FM_QSPI1_D2_WP   0x0    0x23a
+					FM_QSPI1_D3_HOLD 0x0    0x23a
+				>;
+			};
+
+
+			pinctrl_iso7816: iso7816grp {
+				thead,pins = <
+					FM_QSPI1_SCLK		0x1	0x208
+					FM_QSPI1_D0_MOSI	0x1	0x238
+					FM_QSPI1_D1_MISO	0x1	0x238
+					FM_QSPI1_D2_WP		0x1	0x238
+					FM_QSPI1_D3_HOLD	0x1	0x238
+				>;
+			};
+
+		};
+};
+
+&padctrl_aosys {
+	light-aon-padctrl {
+			/*
+			 * Pin Configuration Node:
+			 * Format: <pin_id mux_node config>
+			 */
+
+			pinctrl_audiopa1: audiopa1_grp {
+				thead,pins = <
+					FM_AUDIO_PA1	0x3	0x72
+				>;
+			};
+
+			pinctrl_audiopa2: audiopa2_grp {
+				thead,pins = <
+					FM_AUDIO_PA2	0x0	0x72
+				>;
+			};
+
+			pinctrl_volume: volume_grp {
+				thead,pins = <
+					FM_AOGPIO_11  0x0     0x208
+					FM_AOGPIO_10  0x3     0x208
+				>;
+			};
+	};
+};
+
+&i2c0 {
+	status = "okay";
+};
+
+&i2c1 {
+	status = "okay";
+};
+
+&i2c2 {
+	status = "okay";
+};
+
+&i2c3 {
+	status = "okay";
+};
+
+&i2c4 {
+	status = "okay";
+};
+
+&isp0 {
+	status = "okay";
+};
+
+&isp1 {
+	status = "okay";
+};
+
+&isp_ry0 {
+	status = "okay";
+};
+
+&dewarp {
+	status = "okay";
+};
+
+&dec400_isp0 {
+	status = "okay";
+};
+
+&dec400_isp1 {
+	status = "okay";
+};
+
+&dec400_isp2 {
+	status = "okay";
+};
+
+&bm_visys {
+	status = "okay";
+};
+
+&bm_csi0 {
+	status = "okay";
+};
+
+&bm_csi1 {
+	status = "okay";
+};
+
+&bm_csi2 {
+	status = "okay";
+};
+
+&vi_pre {
+	//vi_pre_irq_en = <1>;
+	status = "okay";
+};
+
+&xtensa_dsp {
+	status = "okay";
+};
+
+&xtensa_dsp0 {
+	status = "okay";
+    memory-region = <&dsp0_mem>;
+};
+
+&xtensa_dsp1 {
+	status = "okay";
+    memory-region = <&dsp1_mem>;
+};
+
+&vvcam_flash_led0{
+    flash_led_name = "aw36413_aw36515";
+       floodlight_i2c_bus = /bits/ 8 <2>;
+       floodlight_en_pin = <&gpio1_porta 25 0>;
+       //projection_i2c_bus = /bits/ 8 <2>;
+       flash_led_touch_pin = <&gpio1_porta 27 0>; //flash led touch pin
+       status = "okay";
+};
+
+
+&vvcam_sensor0 {
+	sensor_name = "SC2310";
+	sensor_regulators = "DOVDD18_RGB", "DVDD12_RGB", "AVDD28_RGB";
+	sensor_regulator_timing_us = <70 50 20>;
+	sensor_rst = <&gpio1_porta 16 0>;
+	sensor_pdn_delay_us = <1000>; //powerdown pin / shutdown pin actived till I2C ready
+	DOVDD18_RGB-supply = <&soc_dovdd18_rgb_reg>;
+	DVDD12_RGB-supply = <&soc_dvdd12_rgb_reg>;
+	AVDD28_RGB-supply = <&soc_avdd28_rgb_reg>;
+    i2c_reg_width = /bits/ 8 <2>;
+    i2c_data_width = /bits/ 8 <1>;
+    i2c_addr = /bits/ 8 <0x30>;
+	i2c_bus = /bits/ 8 <3>;
+	status = "okay";
+};
+
+/*
+&vvcam_sensor0 {
+	sensor_name = "IMX334";
+	sensor_regulators = "DOVDD18_RGB", "DVDD12_RGB", "AVDD28_RGB";
+	sensor_regulator_timing_us = <70 50 20>;
+	sensor_rst = <&gpio1_porta 16 0>;
+	sensor_pdn_delay_us = <1000>; //powerdown pin / shutdown pin actived till I2C ready
+	DOVDD18_RGB-supply = <&soc_dovdd18_rgb_reg>;
+	DVDD12_RGB-supply = <&soc_dvdd12_rgb_reg>;
+	AVDD28_RGB-supply = <&soc_avdd28_rgb_reg>;
+    i2c_reg_width = /bits/ 8 <2>;
+    i2c_data_width = /bits/ 8 <1>;
+    i2c_addr = /bits/ 8 <0x1a>;
+	i2c_bus = /bits/ 8 <3>;
+	status = "okay";
+};
+*/
+
+
+&vvcam_sensor1 {
+	sensor_name = "OV5693";
+	i2c_bus = /bits/ 8 <3>;
+	i2c_reg_width = /bits/ 8 <1>;
+	i2c_data_width = /bits/ 8 <1>;
+	status = "disabled";
+};
+
+&vvcam_sensor2 {
+	sensor_name = "GC5035";
+	sensor_regulators = "DOVDD18_SCAN", "DVDD12_SCAN", "AVDD28_SCAN";
+	sensor_regulator_timing_us = <100 50 0>;
+	sensor_pdn = <&gpio1_porta 30 0>; //powerdown pin / shutdown pin 
+	sensor_rst = <&gpio1_porta 29 0>;
+	sensor_pdn_delay_us = <1000>; //powerdown pin / shutdown pin actived till I2C ready
+	DOVDD18_SCAN-supply = <&soc_dovdd18_scan_reg>;
+	DVDD12_SCAN-supply = <&soc_dvdd12_scan_reg>;
+	AVDD28_SCAN-supply = <&soc_avdd28_scan_en_reg>;
+	i2c_addr = /bits/ 8 <0x37>;
+	i2c_bus = /bits/ 8 <4>;
+	i2c_reg_width = /bits/ 8 <1>;
+	i2c_data_width = /bits/ 8 <1>;
+	status = "okay";
+};
+
+&vvcam_sensor3 {
+	sensor_name = "SC2310";
+	sensor_regulators = "DOVDD18_SCAN", "DVDD12_SCAN", "AVDD28_SCAN";
+	sensor_regulator_timing_us = <70 50 20>;
+	//sensor_pdn = <&gpio1_porta 30 0>; //powerdown pin / shutdown pin 
+	//sensor_rst = <&gpio1_porta 29 0>;
+	DOVDD18_SCAN-supply = <&soc_dovdd18_scan_reg>;
+	DVDD12_SCAN-supply = <&soc_dvdd12_scan_reg>;
+	AVDD28_SCAN-supply = <&soc_avdd28_scan_en_reg>;
+	i2c_bus = /bits/ 8 <4>;
+	status = "okay";
+};
+
+&vvcam_sensor4 {
+    sensor_name = "SC132GS";
+    sensor_regulators = "DOVDD18_IR", "DVDD12_IR", "AVDD25_IR";
+	sensor_regulator_timing_us = <70 50 20>;
+    i2c_addr = /bits/ 8 <0x31>;
+    sensor_rst = <&gpio1_porta 24 0>;
+	sensor_pdn_delay_us = <1000>; //powerdown pin / shutdown pin actived till I2C ready
+    DOVDD18_IR-supply = <&soc_dovdd18_ir_reg>;
+    DVDD12_IR-supply = <&soc_dvdd12_ir_reg>;
+    AVDD25_IR-supply = <&soc_avdd25_ir_reg>;
+    i2c_reg_width = /bits/ 8 <2>;
+    i2c_data_width = /bits/ 8 <1>;
+    i2c_bus = /bits/ 8 <2>;
+    status = "okay";
+};
+
+&vvcam_sensor5 {
+    sensor_name = "OV12870";
+    sensor_regulators = "DOVDD18_RGB", "DVDD12_RGB", "AVDD28_RGB";
+    sensor_regulator_timing_us = <100 50 0>;
+    //sensor_rst = <&gpio1_porta 16 0>;
+    sensor_pdn_delay_us = <60>; //powerdown pin / shutdown pin actived till I2C ready
+    DOVDD18_RGB-supply = <&soc_dovdd18_rgb_reg>;
+    DVDD12_RGB-supply = <&soc_dvdd12_rgb_reg>;
+    AVDD28_RGB-supply = <&soc_avdd28_rgb_reg>;
+    i2c_addr = /bits/ 8 <0x10>;
+    i2c_reg_width = /bits/ 8 <2>;
+    i2c_data_width = /bits/ 8 <1>;
+    i2c_bus = /bits/ 8 <3>;
+    status = "okay";
+};
+
+&video0{
+	vi_mem_pool_region = <2>;	// vi_mem: framebuffer, region[2]
+	pipline0 {
+		sensor0 {
+			subdev_name = "vivcam";
+			idx = <2>; //<2>=vivcam2 : gc5035
+			csi_idx = <1>; //<1>=CSI2X2_B
+			path_type = "SENSOR_1080P_RAW10_LINER"; //SENSOR_VGA_RAW10_LINER//
+		};
+		sensor1 {
+			subdev_name = "vivcam";
+			idx = <3>; //<3>=vivcam3 : sc2310
+			csi_idx = <1>; //<1>=CSI2X2_B
+			path_type = "SENSOR_1080P_RAW12_LINER";
+		};
+		isp {
+			subdev_name = "isp";
+			idx = <0>;
+			path_type = "ISP_MI_PATH_MP";
+			output {
+				max_width = <1920>;
+				max_height = <1088>;
+				bit_per_pixel = <12>;
+				frame_count = <3>;
+			};
+		};
+	};
+	pipline1 {
+		sensor0 {
+			subdev_name = "vivcam";
+			idx = <2>; //<2>=vivcam2 : gc5035
+			csi_idx = <1>; //<1>=CSI2X2_B
+			path_type = "SENSOR_1080P_RAW10_LINER"; //SENSOR_VGA_RAW10_LINER//
+		};
+		sensor1 {
+			subdev_name = "vivcam";
+			idx = <3>; //<3>=vivcam3 : sc2310
+			csi_idx = <1>; //<1>=CSI2X2_B
+			path_type = "SENSOR_1080P_RAW12_LINER";
+		};
+		isp {
+			subdev_name = "isp";
+			idx = <0>;
+			path_type = "ISP_MI_PATH_SP";
+			output {
+				max_width = <1920>;
+				max_height = <1088>;
+				bit_per_pixel = <12>;
+				frame_count = <3>;
+			};
+		};
+	};
+	pipline2 {
+		sensor0 {
+			subdev_name = "vivcam";
+			idx = <2>; //<2>=vivcam2 : gc5035
+			csi_idx = <1>; //<1>=CSI2X2_B
+			path_type = "SENSOR_1080P_RAW10_LINER"; //SENSOR_VGA_RAW10_LINER//
+		};
+		sensor1 {
+			subdev_name = "vivcam";
+			idx = <3>; //<3>=vivcam3 : sc2310
+			csi_idx = <1>; //<1>=CSI2X2_B
+			path_type = "SENSOR_1080P_RAW12_LINER";
+		};
+		isp {
+			subdev_name = "isp";
+			idx = <0>;
+			path_type = "ISP_MI_PATH_SP2_BP";
+			output {
+				max_width = <1920>;
+				max_height = <1088>;
+				bit_per_pixel = <12>;
+				frame_count = <3>;
+			};
+		};
+	};
+};
+
+
+&video1{
+	vi_mem_pool_region = <2>;	// vi_mem: framebuffer, region[2]
+	pipline0 {
+		sensor0 {
+			subdev_name = "vivcam";
+			idx = <2>; //<2>=vivcam2 : gc5035
+			csi_idx = <1>; //<1>=CSI2X2_B
+			path_type = "SENSOR_1080P_RAW10_LINER";
+		};
+		sensor1 {
+			subdev_name = "vivcam";
+			idx = <3>; //<3>=vivcam3 : sc2310
+			csi_idx = <1>; //<1>=CSI2X2_B
+			path_type = "SENSOR_1080P_RAW12_LINER";
+		};
+		isp {
+			subdev_name = "isp";
+			idx = <0>;
+			path_type = "ISP_MI_PATH_MP";
+			output {
+				max_width = <1920>;
+				max_height = <1088>;
+				bit_per_pixel = <12>;
+				frame_count = <3>;
+			};
+		};
+		dw {
+			subdev_name = "dw";
+			idx = <0>;
+			path_type = "DW_DWE_VSE0";
+			dw_dst_depth = <2>;
+		};
+	};
+	pipline1 {
+		sensor0 {
+			subdev_name = "vivcam";
+			idx = <2>; //<2>=vivcam2 : gc5035
+			csi_idx = <1>; //<1>=CSI2X2_B
+			path_type = "SENSOR_1080P_RAW10_LINER";
+		};
+		sensor1 {
+			subdev_name = "vivcam";
+			idx = <3>; //<3>=vivcam3 : sc2310
+			csi_idx = <1>; //<1>=CSI2X2_B
+			path_type = "SENSOR_1080P_RAW12_LINER";
+		};
+		isp {
+			subdev_name = "isp";
+			idx = <0>;
+			path_type = "ISP_MI_PATH_MP";
+			output {
+				max_width = <1920>;
+				max_height = <1088>;
+				bit_per_pixel = <12>;
+				frame_count = <3>;
+			};
+		};
+		dw {
+			subdev_name = "dw";
+			idx = <0>;
+			path_type = "DW_DWE_VSE1";
+			dw_dst_depth = <2>;
+		};
+	};
+	pipline2 {
+		sensor0 {
+			subdev_name = "vivcam";
+			idx = <2>; //<2>=vivcam2 : gc5035
+			csi_idx = <1>; //<1>=CSI2X2_B
+			path_type = "SENSOR_1080P_RAW10_LINER";
+		};
+		sensor1 {
+			subdev_name = "vivcam";
+			idx = <3>; //<3>=vivcam3 : sc2310
+			csi_idx = <1>; //<1>=CSI2X2_B
+			path_type = "SENSOR_1080P_RAW12_LINER";
+		};
+		isp {
+			subdev_name = "isp";
+			idx = <0>;
+			path_type = "ISP_MI_PATH_MP";
+			output {
+				max_width = <1920>;
+				max_height = <1088>;
+				bit_per_pixel = <12>;
+				frame_count = <3>;
+			};
+		};
+		dw {
+			subdev_name = "dw";
+			idx = <0>;
+			path_type = "DW_DWE_VSE2";
+			dw_dst_depth = <2>;
+		};
+	};
+};
+
+&video2{
+    vi_mem_pool_region = <0>;	// vi_mem: framebuffer, region[0]
+	pipline0 {
+		sensor0 {
+			subdev_name = "vivcam";
+			idx = <0>; //sc2310
+			csi_idx = <0>; //<0>=CSI2
+			path_type = "SENSOR_1080P_RAW12_LINER";
+		};
+		isp {
+			subdev_name = "isp";
+			idx = <1>;
+			path_type = "ISP_MI_PATH_MP";
+			output {
+				max_width = <1920>;
+				max_height = <1088>;
+				bit_per_pixel = <12>;
+				frame_count = <3>;
+			};
+		};
+	};
+	pipline1 {
+		sensor0 {
+			subdev_name = "vivcam";
+			idx = <0>; //sc2310
+			csi_idx = <0>; //<0>=CSI2
+			path_type = "SENSOR_1080P_RAW12_LINER";
+		};
+		isp {
+			subdev_name = "isp";
+			idx = <1>;
+			path_type = "ISP_MI_PATH_SP";
+			output {
+				max_width = <1920>;
+				max_height = <1088>;
+				bit_per_pixel = <12>;
+				frame_count = <3>;
+			};
+		};
+	};
+	pipline2 {
+		sensor0 {
+			subdev_name = "vivcam";
+			idx = <0>; //sc2310
+			csi_idx = <0>; //<0>=CSI2
+			path_type = "SENSOR_1080P_RAW12_LINER";
+		};
+		isp {
+			subdev_name = "isp";
+			idx = <1>;
+			path_type = "ISP_MI_PATH_SP2_BP";
+			output {
+				max_width = <1920>;
+				max_height = <1088>;
+				bit_per_pixel = <12>;
+				frame_count = <3>;
+			};
+		};
+	};
+};
+
+&video3{
+    vi_mem_pool_region = <0>;	// vi_mem: framebuffer, region[0]
+	pipline0 {
+		sensor0 {
+			subdev_name = "vivcam";
+			idx = <0>; //sc2310
+			csi_idx = <0>; //<0>=CSI2
+			path_type = "SENSOR_1080P_RAW12_LINER";
+		};
+		isp {
+			subdev_name = "isp";
+			idx = <1>;
+			path_type = "ISP_MI_PATH_MP";
+			output {
+				max_width = <1920>;
+				max_height = <1088>;
+				bit_per_pixel = <12>;
+				frame_count = <3>;
+			};
+		};
+		dw {
+			subdev_name = "dw";
+			idx = <0>;
+			path_type = "DW_DWE_VSE0";
+			dw_dst_depth = <2>;
+		};
+	};
+	pipline1 {
+		sensor0 {
+			subdev_name = "vivcam";
+			idx = <0>; //sc2310
+			csi_idx = <0>; //<0>=CSI2
+			path_type = "SENSOR_1080P_RAW12_LINER";
+		};
+		isp {
+			subdev_name = "isp";
+			idx = <1>;
+			path_type = "ISP_MI_PATH_MP";
+			output {
+				max_width = <1920>;
+				max_height = <1088>;
+				bit_per_pixel = <12>;
+				frame_count = <3>;
+			};
+		};
+		dw {
+			subdev_name = "dw";
+			idx = <0>;
+			path_type = "DW_DWE_VSE1";
+			dw_dst_depth = <2>;
+		};
+	};
+	pipline2 {
+		sensor0 {
+			subdev_name = "vivcam";
+			idx = <0>; //sc2310
+			csi_idx = <0>; //<0>=CSI2
+			path_type = "SENSOR_1080P_RAW12_LINER";
+		};
+		isp {
+			subdev_name = "isp";
+			idx = <1>;
+			path_type = "ISP_MI_PATH_MP";
+			output {
+				max_width = <1920>;
+				max_height = <1088>;
+				bit_per_pixel = <12>;
+				frame_count = <3>;
+			};
+		};
+		dw {
+			subdev_name = "dw";
+			idx = <0>;
+			path_type = "DW_DWE_VSE2";
+			dw_dst_depth = <2>;
+		};
+	};
+};
+
+&video4{
+    vi_mem_pool_region = <0>;	// vi_mem: framebuffer, region[0]
+	pipline0 {
+		sensor0 {
+			subdev_name = "vivcam";
+			idx = <0>; //sc2310
+			csi_idx = <0>; //<0>=CSI2
+			path_type = "SENSOR_1080P_RAW12_LINER";
+		};
+		isp {
+			subdev_name = "isp";
+			idx = <1>;
+			path_type = "ISP_MI_PATH_PP";
+			output {
+				max_width = <1920>;
+				max_height = <1088>;
+				bit_per_pixel = <12>;
+				frame_count = <3>;
+			};
+		};
+		dsp {
+			subdev_name = "dsp";
+			idx = <0>;
+			path_type = "DSP_PATH_ISP_RY";
+			output {
+				max_width = <1920>;
+				max_height = <1088>;
+				bit_per_pixel = <12>;
+				frame_count = <3>;
+			};
+		};
+		ry {
+			subdev_name = "ry";
+			idx = <0>;
+			path_type = "ISP_RY_MI_PATH_MP";
+			output {
+				max_width = <1920>;
+				max_height = <1088>;
+				bit_per_pixel = <12>;
+				frame_count = <3>;
+			};
+		};
+	};
+	pipline1 {
+		sensor0 {
+			subdev_name = "vivcam";
+			idx = <0>; //sc2310
+			csi_idx = <0>; //<0>=CSI2
+			path_type = "SENSOR_1080P_RAW12_LINER";
+		};
+		isp {
+			subdev_name = "isp";
+			idx = <1>;
+			path_type = "ISP_MI_PATH_PP";
+			output {
+				max_width = <1920>;
+				max_height = <1088>;
+				bit_per_pixel = <12>;
+				frame_count = <3>;
+			};
+		};
+		dsp {
+			subdev_name = "dsp";
+			idx = <0>;
+			path_type = "DSP_PATH_ISP_RY";
+			output {
+				max_width = <1920>;
+				max_height = <1088>;
+				bit_per_pixel = <12>;
+				frame_count = <3>;
+			};
+		};
+		ry {
+			subdev_name = "ry";
+			idx = <0>;
+			path_type = "ISP_RY_MI_PATH_SP";
+			output {
+				max_width = <1920>;
+				max_height = <1088>;
+				bit_per_pixel = <12>;
+				frame_count = <3>;
+			};
+		};
+	};
+	pipline2 {
+		sensor0 {
+			subdev_name = "vivcam";
+			idx = <0>; //sc2310
+			csi_idx = <0>; //<0>=CSI2
+			path_type = "SENSOR_1080P_RAW12_LINER";
+		};
+		isp {
+			subdev_name = "isp";
+			idx = <1>;
+			path_type = "ISP_MI_PATH_PP";
+			output {
+				max_width = <1920>;
+				max_height = <1088>;
+				bit_per_pixel = <12>;
+				frame_count = <3>;
+			};
+		};
+		dsp {
+			subdev_name = "dsp";
+			idx = <0>;
+			path_type = "DSP_PATH_ISP_RY";
+			output {
+				max_width = <1920>;
+				max_height = <1088>;
+				bit_per_pixel = <12>;
+				frame_count = <3>;
+			};
+		};
+		ry {
+			subdev_name = "ry";
+			idx = <0>;
+			path_type = "ISP_RY_MI_PATH_SP2_BP";
+			output {
+				max_width = <1920>;
+				max_height = <1088>;
+				bit_per_pixel = <12>;
+				frame_count = <3>;
+			};
+		};
+	};
+};
+
+&video5{
+	vi_mem_pool_region = <0>;	// vi_mem: framebuffer, region[0]
+	pipline0 {
+		sensor0 {
+			subdev_name = "vivcam";
+			idx = <0>; //sc2310
+			csi_idx = <0>; //<0>=CSI2
+			path_type = "SENSOR_1080P_RAW12_LINER";
+		};
+		isp {
+			subdev_name = "isp";
+			idx = <1>;
+			path_type = "ISP_MI_PATH_PP";
+			output {
+				max_width = <1920>;
+				max_height = <1088>;
+				bit_per_pixel = <12>;
+				frame_count = <3>;
+			};
+		};
+		dsp {
+			subdev_name = "dsp";
+			idx = <0>;
+			path_type = "DSP_PATH_ISP_RY";
+			output {
+				max_width = <1920>;
+				max_height = <1088>;
+				bit_per_pixel = <12>;
+				frame_count = <3>;
+			};
+		};
+		ry {
+			subdev_name = "ry";
+			idx = <0>;
+			path_type = "ISP_RY_MI_PATH_MP";
+			output {
+				max_width = <1920>;
+				max_height = <1088>;
+				bit_per_pixel = <12>;
+				frame_count = <3>;
+			};
+		};
+		dw {
+			subdev_name = "dw";
+			idx = <0>;
+			path_type = "DW_DWE_VSE0";
+			dw_dst_depth = <2>;
+		};
+	};
+	pipline1 {
+		sensor0 {
+			subdev_name = "vivcam";
+			idx = <0>; //sc2310
+			csi_idx = <0>; //<0>=CSI2
+			path_type = "SENSOR_1080P_RAW12_LINER";
+		};
+		isp {
+			subdev_name = "isp";
+			idx = <1>;
+			path_type = "ISP_MI_PATH_PP";
+			output {
+				max_width = <1920>;
+				max_height = <1088>;
+				bit_per_pixel = <12>;
+				frame_count = <3>;
+			};
+		};
+		dsp {
+			subdev_name = "dsp";
+			idx = <0>;
+			path_type = "DSP_PATH_ISP_RY";
+			output {
+				max_width = <1920>;
+				max_height = <1088>;
+				bit_per_pixel = <12>;
+				frame_count = <3>;
+			};
+		};
+		ry {
+			subdev_name = "ry";
+			idx = <0>;
+			path_type = "ISP_RY_MI_PATH_MP";
+			output {
+				max_width = <1920>;
+				max_height = <1088>;
+				bit_per_pixel = <12>;
+				frame_count = <3>;
+			};
+		};
+		dw {
+			subdev_name = "dw";
+			idx = <0>;
+			path_type = "DW_DWE_VSE1";
+			dw_dst_depth = <2>;
+		};
+	};
+	pipline2 {
+		sensor0 {
+			subdev_name = "vivcam";
+			idx = <0>; //sc2310
+			csi_idx = <0>; //<0>=CSI2
+			path_type = "SENSOR_1080P_RAW12_LINER";
+		};
+		isp {
+			subdev_name = "isp";
+			idx = <1>;
+			path_type = "ISP_MI_PATH_PP";
+			output {
+				max_width = <1920>;
+				max_height = <1088>;
+				bit_per_pixel = <12>;
+				frame_count = <3>;
+			};
+		};
+		dsp {
+			subdev_name = "dsp";
+			idx = <0>;
+			path_type = "DSP_PATH_ISP_RY";
+			output {
+				max_width = <1920>;
+				max_height = <1088>;
+				bit_per_pixel = <12>;
+				frame_count = <3>;
+			};
+		};
+		ry {
+			subdev_name = "ry";
+			idx = <0>;
+			path_type = "ISP_RY_MI_PATH_MP";
+			output {
+				max_width = <1920>;
+				max_height = <1088>;
+				bit_per_pixel = <12>;
+				frame_count = <3>;
+			};
+		};
+		dw {
+			subdev_name = "dw";
+			idx = <0>;
+			path_type = "DW_DWE_VSE2";
+			dw_dst_depth = <2>;
+		};
+	};
+};
+
+&video6{
+	vi_mem_pool_region = <1>;	// vi_mem: framebuffer, region[1]
+	pipline0 {
+		sensor0 {
+			subdev_name = "vivcam";
+			idx = <4>; //sc132gs
+			csi_idx = <2>; //<2>=CSI2X2_A
+			flash_led_idx = <0>;
+			path_type = "SENSOR_1080P_RAW10_LINER";
+		};
+		dsp{
+			output {
+				max_width = <1080>;
+				max_height = <1280>;
+				bit_per_pixel = <16>;
+				frame_count = <3>;
+			};
+		};
+	};
+	pipline1 {
+		sensor0 {
+			subdev_name = "vivcam";
+			idx = <4>; //sc132gs
+			csi_idx = <2>; //<2>=CSI2X2_A
+			flash_led_idx = <0>;
+			path_type = "SENSOR_1080P_RAW10_LINER";
+		};
+		dsp{
+			output {
+				max_width = <1080>;
+				max_height = <1280>;
+				bit_per_pixel = <16>;
+				frame_count = <3>;
+			};
+		};
+	};
+
+};
+
+&video7{
+	pipline0 {
+		sensor0 {
+			subdev_name = "vivcam";
+			idx = <2>; //<2>=vivcam2 : gc5035
+			csi_idx = <1>; //<1>=CSI2X2_B
+			path_type = "SENSOR_1080P_RAW10_LINER"; //SENSOR_VGA_RAW10_LINER//
+		};
+		sensor1 {
+			subdev_name = "vivcam";
+			idx = <3>; //<3>=vivcam3 : sc2310
+			csi_idx = <1>; //<1>=CSI2X2_B
+			path_type = "SENSOR_1080P_RAW12_LINER";
+		};
+		isp {
+			subdev_name = "isp";
+			idx = <0>;
+			path_type = "ISP_MI_PATH_PP";
+			output {
+				max_width = <1920>;
+				max_height = <1088>;
+				bit_per_pixel = <12>;
+				frame_count = <3>;
+			};
+		};
+		dsp {
+			subdev_name = "dsp";
+			idx = <1>;
+			path_type = "DSP_PATH_ISP_RY";
+			output {
+				max_width = <1920>;
+				max_height = <1088>;
+				bit_per_pixel = <12>;
+				frame_count = <3>;
+			};
+		};
+		ry {
+			subdev_name = "ry";
+			idx = <0>;
+			path_type = "ISP_RY_MI_PATH_MP";
+			output {
+				max_width = <1920>;
+				max_height = <1088>;
+				bit_per_pixel = <12>;
+				frame_count = <3>;
+			};
+		};
+		dw {
+			subdev_name = "dw";
+			idx = <0>;
+			path_type = "DW_DWE_VSE0";
+			dw_dst_depth = <2>;
+		};
+	};
+	pipline1 {
+		sensor0 {
+			subdev_name = "vivcam";
+			idx = <2>; //<2>=vivcam2 : gc5035
+			csi_idx = <1>; //<1>=CSI2X2_B
+			path_type = "SENSOR_1080P_RAW10_LINER"; //SENSOR_VGA_RAW10_LINER//
+		};
+		sensor1 {
+			subdev_name = "vivcam";
+			idx = <3>; //<3>=vivcam3 : sc2310
+			csi_idx = <1>; //<1>=CSI2X2_B
+			path_type = "SENSOR_1080P_RAW12_LINER";
+		};
+		isp {
+			subdev_name = "isp";
+			idx = <0>;
+			path_type = "ISP_MI_PATH_PP";
+			output {
+				max_width = <1920>;
+				max_height = <1088>;
+				bit_per_pixel = <12>;
+				frame_count = <3>;
+			};
+		};
+		dsp {
+			subdev_name = "dsp";
+			idx = <1>;
+			path_type = "DSP_PATH_ISP_RY";
+			output {
+				max_width = <1920>;
+				max_height = <1088>;
+				bit_per_pixel = <12>;
+				frame_count = <3>;
+			};
+		};
+		ry {
+			subdev_name = "ry";
+			idx = <0>;
+			path_type = "ISP_RY_MI_PATH_MP";
+			output {
+				max_width = <1920>;
+				max_height = <1088>;
+				bit_per_pixel = <12>;
+				frame_count = <3>;
+			};
+		};
+		dw {
+			subdev_name = "dw";
+			idx = <0>;
+			path_type = "DW_DWE_VSE1";
+			dw_dst_depth = <2>;
+		};
+	};
+	pipline2 {
+		sensor0 {
+			subdev_name = "vivcam";
+			idx = <2>; //<2>=vivcam2 : gc5035
+			csi_idx = <1>; //<1>=CSI2X2_B
+			path_type = "SENSOR_1080P_RAW10_LINER"; //SENSOR_VGA_RAW10_LINER//
+		};
+		sensor1 {
+			subdev_name = "vivcam";
+			idx = <3>; //<3>=vivcam3 : sc2310
+			csi_idx = <1>; //<1>=CSI2X2_B
+			path_type = "SENSOR_1080P_RAW12_LINER";
+		};
+		isp {
+			subdev_name = "isp";
+			idx = <0>;
+			path_type = "ISP_MI_PATH_PP";
+			output {
+				max_width = <1920>;
+				max_height = <1088>;
+				bit_per_pixel = <12>;
+				frame_count = <3>;
+			};
+		};
+		dsp {
+			subdev_name = "dsp";
+			idx = <1>;
+			path_type = "DSP_PATH_ISP_RY";
+			output {
+				max_width = <1920>;
+				max_height = <1088>;
+				bit_per_pixel = <12>;
+				frame_count = <3>;
+			};
+		};
+		ry {
+			subdev_name = "ry";
+			idx = <0>;
+			path_type = "ISP_RY_MI_PATH_MP";
+			output {
+				max_width = <1920>;
+				max_height = <1088>;
+				bit_per_pixel = <12>;
+				frame_count = <3>;
+			};
+		};
+		dw {
+			subdev_name = "dw";
+			idx = <0>;
+			path_type = "DW_DWE_VSE2";
+			dw_dst_depth = <2>;
+		};
+	};
+};
+
+
+&video8{
+	vi_mem_pool_region = <1>;	// vi_mem: framebuffer, region[1]
+    pipline0 {
+		sensor0 {
+			subdev_name = "vivcam";
+			idx = <2>; //<2>=vivcam2 : gc5035
+			csi_idx = <1>; //<1>=CSI2X2_B
+			path_type = "SENSOR_1080P_RAW10_LINER"; //SENSOR_VGA_RAW10_LINER//
+		};
+		sensor1 {
+			subdev_name = "vivcam";
+			idx = <3>; //<3>=vivcam3 : sc2310
+			csi_idx = <1>; //<1>=CSI2X2_B
+			path_type = "SENSOR_1080P_RAW12_LINER";
+		};
+		dsp {
+			subdev_name = "dsp";
+			idx = <0>;
+			path_type = "DSP_PATH_VIPRE_DDR";
+			output {
+				max_width = <1920>;
+				max_height = <1088>;
+				bit_per_pixel = <12>;
+				frame_count = <3>;
+			};
+		};
+	};
+};
+
+&video9{
+	pipline0 {
+		sensor0 {
+			subdev_name = "vivcam";
+			idx = <4>; //sc132gs
+			csi_idx = <2>; //<2>=CSI2X2_A
+			path_type = "SENSOR_1080P_RAW10_LINER";
+		};
+		dsp{
+			output {
+				max_width = <1080>;
+				max_height = <1280>;
+				bit_per_pixel = <16>;
+				frame_count = <3>;
+			};
+		};
+	};
+};
+
+
+&video10{
+	pipline0 {
+		sensor0 {
+			subdev_name = "vivcam";
+			idx = <2>; //<2>=vivcam2 : gc5035
+			csi_idx = <1>; //<1>=CSI2X2_B
+			path_type = "SENSOR_1080P_RAW10_LINER"; //SENSOR_VGA_RAW10_LINER//
+		};
+		sensor1 {
+			subdev_name = "vivcam";
+			idx = <3>; //<3>=vivcam3 : sc2310
+			csi_idx = <1>; //<1>=CSI2X2_B
+			path_type = "SENSOR_1080P_RAW12_LINER";
+		};
+	};
+};
+
+&video11{
+	pipline0 { 
+		pipline_id = <0>;
+		status = "okay";
+		sensor0 {
+			subdev_name = "vivcam";
+			idx = <4>; //sc132gs
+			csi_idx = <2>; //<2>=CSI2X2_A
+			flash_led_idx = <0>;
+			path_type = "SENSOR_1080P_RAW10_LINER";
+		};
+		isp {
+			subdev_name = "isp";
+			idx = <0>;
+			path_type = "ISP_MI_PATH_MP";
+			output {
+				max_width = <1920>;
+				max_height = <1088>;
+				bit_per_pixel = <12>;
+				frame_count = <3>;
+			};
+		};
+	};
+};
+
+&video12{ 
+	pipline0 { // CSI2
+		sensor0 {
+			subdev_name = "vivcam";
+			idx = <0>; //sc2310
+			csi_idx = <0>; //<0>=CSI2
+			path_type = "SENSOR_1080P_RAW12_LINER";
+			skip_init = <1>;
+		};
+	};
+};
+
+&trng {
+	status = "disabled";
+};
+
+&eip_28 {
+	status = "okay";
+};
+
+&vdec {
+	status = "okay";
+};
+
+&venc {
+	status = "okay";
+};
+
+&isp_venc_shake {
+	status = "okay";
+};
+
+&vidmem {
+	status = "okay";
+    memory-region = <&vi_mem>;
+};
+
+&gpu {
+	status = "okay";
+};
+
+&npu {
+	vha_clk_rate = <1000000000>;
+	status = "okay";
+};
+
+&fce {
+	memory-region = <&facelib_mem>;
+	status = "okay";
+};
+
+&dpu_enc0 {
+	status = "okay";
+
+	ports {
+		/* output */
+		port@1 {
+			reg = <1>;
+
+			enc0_out: endpoint {
+				remote-endpoint = <&dsi0_in>;
+			};
+		};
+	};
+};
+
+&dpu_enc1 {
+        ports {
+                /delete-node/ port@0;
+        };
+};
+
+&dpu {
+        status = "okay";
+};
+
+&dsi0 {
+        status = "okay";
+};
+
+&dhost_0 {
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+
+			dsi0_in: endpoint {
+				remote-endpoint = <&enc0_out>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+
+			dsi0_out: endpoint {
+				remote-endpoint = <&panel0_in>;
+			};
+		};
+	};
+
+	panel0@0 {
+		compatible = "txd,dy800qwxpab";
+		reg = <0>;
+		backlight = <&lcd0_backlight>;
+		reset-gpio = <&gpio1_porta 5 1>; /* active low */
+		vdd1v8-supply = <&soc_vdd18_lcd0_en_reg>;
+		vspn5v7-supply = <&soc_lcd0_bias_en_reg>;
+
+		port {
+			panel0_in: endpoint {
+				remote-endpoint = <&dsi0_out>;
+			};
+		};
+	};
+};
+
+&disp1_out {
+	remote-endpoint = <&hdmi_tx_in>;
+};
+
+&hdmi_tx {
+	status = "okay";
+
+	port@0 {
+		/* input */
+		hdmi_tx_in: endpoint {
+			remote-endpoint = <&disp1_out>;
+		};
+	};
+};
+
+&lightsound {
+        status = "okay";
+        simple-audio-card,dai-link@0 {          /* I2S - AUDIO SYS CODEC 8156*/
+                reg = <0>;
+                format = "i2s";
+                cpu {
+                        sound-dai = <&i2s1 0>;
+                };
+                codec {
+                        sound-dai = <&es8156_audio_codec>;
+                };
+        };
+        simple-audio-card,dai-link@1 {          /* I2S - AUDIO SYS CODEC 7210*/
+                reg = <1>;
+                format = "i2s";
+                cpu {
+                        sound-dai = <&i2s3 0>;
+                };
+                codec {
+                        sound-dai = <&es7210_audio_codec>;
+                };
+        };
+        simple-audio-card,dai-link@2 {          /* I2S - HDMI */
+                reg = <2>;
+                format = "i2s";
+                cpu {
+                        sound-dai = <&light_i2s 1>;
+                };
+                codec {
+                        sound-dai = <&dummy_codec 2>;
+                };
+        };
+};
+
+&light_i2s {
+        status = "okay";
+};
+
+&i2s0 {
+        status = "okay";
+};
+
+&i2s1 {
+        status = "okay";
+};
+
+&i2s3 {
+        status = "okay";
+};
+
+&cpus {
+	c910_0: cpu@0 {
+		operating-points = <
+			/* kHz    uV */
+			300000	600000
+			800000	700000
+			1500000	800000
+		>;
+		light,dvddm-operating-points = <
+			/* kHz   uV */
+			300000	800000
+			800000	800000
+			1500000	800000
+		>;
+	};
+	c910_1: cpu@1 {
+		operating-points = <
+			/* kHz    uV */
+			300000	600000
+			800000	700000
+			1500000	800000
+		>;
+		light,dvddm-operating-points = <
+			/* kHz   uV */
+			300000	800000
+			800000	800000
+			1500000	800000
+		>;
+	};
+	c910_2: cpu@2 {
+
+		operating-points = <
+			/* kHz    uV */
+			300000	600000
+			800000	700000
+			1500000	800000
+		>;
+		light,dvddm-operating-points = <
+			/* kHz   uV */
+			300000	800000
+			800000	800000
+			1500000	800000
+		>;
+	};
+	c910_3: cpu@3 {
+
+		operating-points = <
+			/* kHz    uV */
+			300000	600000
+			800000	700000
+			1500000	800000
+		>;
+		light,dvddm-operating-points = <
+			/* kHz   uV */
+			300000	800000
+			800000	800000
+			1500000	800000
+		>;
+	};
+};

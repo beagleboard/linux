@@ -1,0 +1,40 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * Copyright (C) 2022 Alibaba Group Holding Limited.
+ */
+
+/dts-v1/;
+
+#include "light-a-val-dpi0.dts"
+
+/ {
+	dpi_panel1: dpi-panel@1 {
+		compatible = "light,dummy-panel";
+
+		port {
+			dpi1_in: endpoint {
+				remote-endpoint = <&enc1_out>;
+			};
+		};
+	};
+};
+
+&dpu_enc1 {
+	compatible = "verisilicon,dpi-encoder";
+	status = "okay";
+
+	ports {
+		/* output */
+		port@1 {
+			reg = <1>;
+
+			enc1_out: endpoint {
+				remote-endpoint = <&dpi1_in>;
+			};
+		};
+	};
+};
+
+&dpu {
+	status = "okay";
+};

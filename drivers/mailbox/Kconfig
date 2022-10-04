@@ -153,6 +153,14 @@ config MAILBOX_TEST
 	  Test client to help with testing new Controller driver
 	  implementations.
 
+config VIRTIO_MAILBOX_TEST
+	tristate "Virtio Mailbox Test Client"
+	depends on OF
+	depends on HAS_IOMEM
+	help
+	  Virtio est client to help with testing new Controller driver
+	  implementations.
+
 config QCOM_APCS_IPC
 	tristate "Qualcomm APCS IPC driver"
 	depends on ARCH_QCOM || COMPILE_TEST
@@ -253,5 +261,19 @@ config QCOM_IPCC
 	  sending interrupts to the clients. On the other hand, the driver also
 	  acts as an interrupt controller for receiving interrupts from clients.
 	  Say Y here if you want to build this driver.
+
+config THEAD_LIGHT_MBOX
+	bool "Thead light Mailbox"
+	depends on SOC_THEAD || COMPILE_TEST
+	default y
+	help
+	  Mailbox implementation for Thead light SoCs.
+
+config VIRTIO_MAILBOX
+	tristate "Virtio mailbox driver"
+	depends on VIRTIO
+	default y
+	help
+	  This is the virtual mailbox driver for virtio.
 
 endif

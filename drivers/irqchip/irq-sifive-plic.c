@@ -64,6 +64,7 @@ struct plic_priv {
 	struct cpumask lmask;
 	struct irq_domain *irqdomain;
 	void __iomem *regs;
+	unsigned int nr_irqs;
 };
 
 struct plic_handler {
@@ -150,7 +151,7 @@ static int plic_set_affinity(struct irq_data *d,
 	if (cpu >= nr_cpu_ids)
 		return -EINVAL;
 
-	plic_irq_toggle(&priv->lmask, d, 0);
+	plic_irq_toggle(cpu_online_mask, d, 0);
 	plic_irq_toggle(cpumask_of(cpu), d, !irqd_irq_masked(d));
 
 	irq_data_update_effective_affinity(d, cpumask_of(cpu));
@@ -259,8 +260,12 @@ static void plic_set_threshold(struct plic_handler *handler, u32 threshold)
 
 static int plic_dying_cpu(unsigned int cpu)
 {
+	struct plic_handler *handler = this_cpu_ptr(&plic_handlers);
+
 	if (plic_parent_irq)
 		disable_percpu_irq(plic_parent_irq);
+
+	handler->present = false;
 
 	return 0;
 }
@@ -268,6 +273,12 @@ static int plic_dying_cpu(unsigned int cpu)
 static int plic_starting_cpu(unsigned int cpu)
 {
 	struct plic_handler *handler = this_cpu_ptr(&plic_handlers);
+	irq_hw_number_t hwirq;
+
+	handler->present = true;
+
+	for (hwirq = 1; hwirq <= handler->priv->nr_irqs; hwirq++)
+		plic_toggle(handler, hwirq, 0);
 
 	if (plic_parent_irq)
 		enable_percpu_irq(plic_parent_irq,
@@ -283,7 +294,6 @@ static int __init plic_init(struct device_node *node,
 		struct device_node *parent)
 {
 	int error = 0, nr_contexts, nr_handlers = 0, i;
-	u32 nr_irqs;
 	struct plic_priv *priv;
 	struct plic_handler *handler;
 
@@ -298,8 +308,8 @@ static int __init plic_init(struct device_node *node,
 	}
 
 	error = -EINVAL;
-	of_property_read_u32(node, "riscv,ndev", &nr_irqs);
-	if (WARN_ON(!nr_irqs))
+	of_property_read_u32(node, "riscv,ndev", &priv->nr_irqs);
+	if (WARN_ON(!priv->nr_irqs))
 		goto out_iounmap;
 
 	nr_contexts = of_irq_count(node);
@@ -307,14 +317,13 @@ static int __init plic_init(struct device_node *node,
 		goto out_iounmap;
 
 	error = -ENOMEM;
-	priv->irqdomain = irq_domain_add_linear(node, nr_irqs + 1,
+	priv->irqdomain = irq_domain_add_linear(node, priv->nr_irqs + 1,
 			&plic_irqdomain_ops, priv);
 	if (WARN_ON(!priv->irqdomain))
 		goto out_iounmap;
 
 	for (i = 0; i < nr_contexts; i++) {
 		struct of_phandle_args parent;
-		irq_hw_number_t hwirq;
 		int cpu, hartid;
 
 		if (of_irq_parse_one(node, i, &parent)) {
@@ -362,7 +371,8 @@ static int __init plic_init(struct device_node *node,
 		}
 
 		cpumask_set_cpu(cpu, &priv->lmask);
-		handler->present = true;
+		if (cpu == smp_processor_id())
+			handler->present = true;
 		handler->hart_base =
 			priv->regs + CONTEXT_BASE + i * CONTEXT_PER_HART;
 		raw_spin_lock_init(&handler->enable_lock);
@@ -370,8 +380,6 @@ static int __init plic_init(struct device_node *node,
 			priv->regs + ENABLE_BASE + i * ENABLE_PER_HART;
 		handler->priv = priv;
 done:
-		for (hwirq = 1; hwirq <= nr_irqs; hwirq++)
-			plic_toggle(handler, hwirq, 0);
 		nr_handlers++;
 	}
 

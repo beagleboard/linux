@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: GPL-2.0-only
+config PINCTRL_LIGHT
+	bool "T-head light pinctrl driver"
+	depends on SOC_THEAD
+	select GENERIC_PINCTRL_GROUPS
+	select GENERIC_PINMUX_FUNCTIONS
+	select GENERIC_PINCONF
+	default y
+	help
+	  Say Y here to enable the T-head light pinctrl driver

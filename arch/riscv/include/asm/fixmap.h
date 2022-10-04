@@ -43,7 +43,7 @@ enum fixed_addresses {
 	__end_of_fixed_addresses
 };
 
-#define FIXMAP_PAGE_IO		PAGE_KERNEL
+#define FIXMAP_PAGE_IO		__pgprot(_PAGE_IOREMAP)
 
 #define __early_set_fixmap	__set_fixmap
 

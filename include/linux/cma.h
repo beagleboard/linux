@@ -22,6 +22,15 @@
 
 struct cma;
 
+struct cma_alloc_info {
+	unsigned long nr_migrated;
+	unsigned long nr_reclaimed;
+	unsigned long nr_mapped;
+	unsigned int nr_isolate_fail;
+	unsigned int nr_migrate_fail;
+	unsigned int nr_test_fail;
+};
+
 extern unsigned long totalcma_pages;
 extern phys_addr_t cma_get_base(const struct cma *cma);
 extern unsigned long cma_get_size(const struct cma *cma);
@@ -45,7 +54,7 @@ extern int cma_init_reserved_mem(phys_addr_t base, phys_addr_t size,
 					const char *name,
 					struct cma **res_cma);
 extern struct page *cma_alloc(struct cma *cma, size_t count, unsigned int align,
-			      bool no_warn);
+			      gfp_t gfp_mask);
 extern bool cma_release(struct cma *cma, const struct page *pages, unsigned int count);
 
 extern int cma_for_each_area(int (*it)(struct cma *cma, void *data), void *data);

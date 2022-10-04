@@ -116,6 +116,10 @@ const void *of_get_mac_address(struct device_node *np)
 	if (addr)
 		return addr;
 
+	addr = of_get_mac_addr(np, "nvmem-mac-address");
+	if (addr)
+		return addr;
+
 	return of_get_mac_addr_nvmem(np);
 }
 EXPORT_SYMBOL(of_get_mac_address);

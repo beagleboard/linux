@@ -13,6 +13,7 @@
 #include <linux/perf_event.h>
 #include <linux/signal.h>
 #include <linux/uaccess.h>
+#include <linux/kprobes.h>
 
 #include <asm/ptrace.h>
 #include <asm/tlbflush.h>
@@ -202,6 +203,9 @@ asmlinkage void do_page_fault(struct pt_regs *regs)
 	tsk = current;
 	mm = tsk->mm;
 
+	if (kprobe_page_fault(regs, cause))
+		return;
+
 	/*
 	 * Fault-in kernel-space virtual memory on-demand.
 	 * The 'reference' page table is init_mm.pgd.
@@ -217,7 +221,7 @@ asmlinkage void do_page_fault(struct pt_regs *regs)
 	}
 
 	/* Enable interrupts if they were enabled in the parent context. */
-	if (likely(regs->status & SR_PIE))
+	if (likely(regs->status & SR_PIE) || user_mode(regs))
 		local_irq_enable();
 
 	/*
@@ -225,6 +229,7 @@ asmlinkage void do_page_fault(struct pt_regs *regs)
 	 * in an atomic region, then we must not take the fault.
 	 */
 	if (unlikely(faulthandler_disabled() || !mm)) {
+		tsk->thread.bad_cause = cause;
 		no_context(regs, addr);
 		return;
 	}
@@ -242,16 +247,19 @@ retry:
 	mmap_read_lock(mm);
 	vma = find_vma(mm, addr);
 	if (unlikely(!vma)) {
+		tsk->thread.bad_cause = cause;
 		bad_area(regs, mm, code, addr);
 		return;
 	}
 	if (likely(vma->vm_start <= addr))
 		goto good_area;
 	if (unlikely(!(vma->vm_flags & VM_GROWSDOWN))) {
+		tsk->thread.bad_cause = cause;
 		bad_area(regs, mm, code, addr);
 		return;
 	}
 	if (unlikely(expand_stack(vma, addr))) {
+		tsk->thread.bad_cause = cause;
 		bad_area(regs, mm, code, addr);
 		return;
 	}
@@ -264,6 +272,7 @@ good_area:
 	code = SEGV_ACCERR;
 
 	if (unlikely(access_error(cause, vma))) {
+		tsk->thread.bad_cause = cause;
 		bad_area(regs, mm, code, addr);
 		return;
 	}
@@ -297,6 +306,7 @@ good_area:
 	mmap_read_unlock(mm);
 
 	if (unlikely(fault & VM_FAULT_ERROR)) {
+		tsk->thread.bad_cause = cause;
 		mm_fault_error(regs, addr, fault);
 		return;
 	}

@@ -72,3 +72,4 @@ obj-y				+= mediatek/
 obj-$(CONFIG_PINCTRL_ZX)	+= zte/
 obj-y				+= cirrus/
 obj-$(CONFIG_PINCTRL_VISCONTI)	+= visconti/
+obj-y				+= thead/

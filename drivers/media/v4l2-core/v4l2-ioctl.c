@@ -28,6 +28,8 @@
 #include <media/v4l2-mem2mem.h>
 
 #include <trace/events/v4l2.h>
+#include <trace/hooks/v4l2core.h>
+
 
 /* Zero out the end of the struct pointed to by p.  Everything after, but
  * not including, the specified field is cleared. */
@@ -75,6 +77,15 @@ static const struct std_descr standards[] = {
 	{ V4L2_STD_SECAM_LC,	"SECAM-Lc"  },
 	{ 0,			"Unknown"   }
 };
+
+static void clear_reserved(struct v4l2_format *p)
+{
+	int ret = 0;
+
+	trace_android_vh_clear_reserved_fmt_fields(p, &ret);
+	if (!ret)
+		CLEAR_AFTER_FIELD(p, fmt.pix_mp.xfer_func);
+}
 
 /* video4linux standard ID conversion to standard name
  */
@@ -1470,6 +1481,9 @@ static void v4l_fill_fmtdesc(struct v4l2_fmtdesc *fmt)
 		case V4L2_PIX_FMT_MT21C:	descr = "Mediatek Compressed Format"; break;
 		case V4L2_PIX_FMT_SUNXI_TILED_NV12: descr = "Sunxi Tiled NV12 Format"; break;
 		default:
+			trace_android_vh_fill_ext_fmtdesc(fmt, &descr);
+			if (descr)
+				break;
 			if (fmt->description[0])
 				return;
 			WARN(1, "Unknown pixelformat 0x%08x\n", fmt->pixelformat);
@@ -1691,7 +1705,7 @@ static int v4l_s_fmt(const struct v4l2_ioctl_ops *ops,
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
 		if (unlikely(!ops->vidioc_s_fmt_vid_cap_mplane))
 			break;
-		CLEAR_AFTER_FIELD(p, fmt.pix_mp.xfer_func);
+		clear_reserved(p);
 		for (i = 0; i < p->fmt.pix_mp.num_planes; i++)
 			CLEAR_AFTER_FIELD(&p->fmt.pix_mp.plane_fmt[i],
 					  bytesperline);
@@ -1722,7 +1736,7 @@ static int v4l_s_fmt(const struct v4l2_ioctl_ops *ops,
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
 		if (unlikely(!ops->vidioc_s_fmt_vid_out_mplane))
 			break;
-		CLEAR_AFTER_FIELD(p, fmt.pix_mp.xfer_func);
+		clear_reserved(p);
 		for (i = 0; i < p->fmt.pix_mp.num_planes; i++)
 			CLEAR_AFTER_FIELD(&p->fmt.pix_mp.plane_fmt[i],
 					  bytesperline);
@@ -1793,7 +1807,7 @@ static int v4l_try_fmt(const struct v4l2_ioctl_ops *ops,
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
 		if (unlikely(!ops->vidioc_try_fmt_vid_cap_mplane))
 			break;
-		CLEAR_AFTER_FIELD(p, fmt.pix_mp.xfer_func);
+		clear_reserved(p);
 		for (i = 0; i < p->fmt.pix_mp.num_planes; i++)
 			CLEAR_AFTER_FIELD(&p->fmt.pix_mp.plane_fmt[i],
 					  bytesperline);
@@ -1824,7 +1838,7 @@ static int v4l_try_fmt(const struct v4l2_ioctl_ops *ops,
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
 		if (unlikely(!ops->vidioc_try_fmt_vid_out_mplane))
 			break;
-		CLEAR_AFTER_FIELD(p, fmt.pix_mp.xfer_func);
+		clear_reserved(p);
 		for (i = 0; i < p->fmt.pix_mp.num_planes; i++)
 			CLEAR_AFTER_FIELD(&p->fmt.pix_mp.plane_fmt[i],
 					  bytesperline);
@@ -3190,6 +3204,7 @@ static int video_get_user(void __user *arg, void *parg, unsigned int cmd,
 			if (flags & INFO_FL_CLEAR_MASK)
 				n = (flags & INFO_FL_CLEAR_MASK) >> 16;
 			*always_copy = flags & INFO_FL_ALWAYS_COPY;
+			trace_android_vh_clear_mask_adjust(v4l2_ioctls[_IOC_NR(cmd)].ioctl, &n);
 		}
 
 		if (copy_from_user(parg, (void __user *)arg, n))

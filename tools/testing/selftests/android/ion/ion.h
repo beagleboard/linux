@@ -26,6 +26,8 @@
  *				 carveout heap, allocations are physically
  *				 contiguous
  * @ION_HEAP_TYPE_DMA:		 memory allocated via DMA API
+ * @ION_HEAP_TYPE_UNMAPPED:	 memory not intended to be mapped into the
+ *				 linux address space unless for debug cases
  * @ION_NUM_HEAPS:		 helper for iterating over heaps, a bit mask
  *				 is used to identify the heaps, so only 32
  *				 total heap types are supported
@@ -36,6 +38,7 @@ enum ion_heap_type {
 	ION_HEAP_TYPE_CARVEOUT,
 	ION_HEAP_TYPE_CHUNK,
 	ION_HEAP_TYPE_DMA,
+	ION_HEAP_TYPE_UNMAPPED,
 	ION_HEAP_TYPE_CUSTOM, /*
 			       * must be last so device specific heaps always
 			       * are at the end of this enum

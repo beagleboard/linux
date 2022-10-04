@@ -1,0 +1,34 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * Copyright (C) 2021 Alibaba Group Holding Limited.
+ */
+
+#include "light-fm-emu.dts"
+
+/ {
+	model = "T-HEAD Light FM EMU DSP FPGA board";
+	compatible = "thead,light-fm-emu-dsp", "thead,light";
+
+	chosen {
+		linux,initrd-end = <0x0 0x1B000000>;
+	};
+};
+
+&resmem {
+	dsp_mem: memory@70000000 {
+		reg = <0x0 0x70000000 0 0x40000000>;
+		no-map;
+	};
+};
+
+&xtensa_dsp {
+	status = "okay";
+};
+
+&xtensa_dsp0 {
+	status = "okay";
+};
+
+&xtensa_dsp1 {
+	status = "disabled";
+};

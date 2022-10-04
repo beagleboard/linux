@@ -1668,12 +1668,21 @@ vm_fault_t filemap_fault(struct vm_fault *vmf)
 }
 EXPORT_SYMBOL(filemap_fault);
 
-void filemap_map_pages(struct vm_fault *vmf,
+vm_fault_t filemap_map_pages(struct vm_fault *vmf,
 		pgoff_t start_pgoff, pgoff_t end_pgoff)
 {
 	BUG();
+	return 0;
 }
 EXPORT_SYMBOL(filemap_map_pages);
+
+#ifdef CONFIG_SPECULATIVE_PAGE_FAULT
+bool filemap_allow_speculation(void)
+{
+	BUG();
+	return false;
+}
+#endif
 
 int __access_remote_vm(struct task_struct *tsk, struct mm_struct *mm,
 		unsigned long addr, void *buf, int len, unsigned int gup_flags)

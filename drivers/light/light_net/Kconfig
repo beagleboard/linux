@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+
+config LIGHT_NET
+        tristate "light_net backend driver"
+        select NET
+        select VIRTIO
+        select VHOST_RING
+	depends on KVM
+        default y
+        help
+          This driver provides support for light virtio_net backend.

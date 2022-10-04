@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+config SND_SOC_THEAD_LIGHT
+        tristate "Light audio i2s Driver Support"
+	select SND_SOC_GENERIC_DMAENGINE_PCM
+	default n
+        help
+          Say Y or M if you want to add support for codecs attached to the
+          SND_SOCTHEAD_LIGHT interface
+
+config SND_SOC_AW87519
+	tristate "SoC Audio for awinic AW87519 Smart K PA"
+	select SND_SOC_GENERIC_DMAENGINE_PCM
+	depends on I2C
+	help
+	  This option enables support for AW87519 Smart K PA.

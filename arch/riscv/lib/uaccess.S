@@ -14,6 +14,7 @@
 
 ENTRY(__asm_copy_to_user)
 ENTRY(__asm_copy_from_user)
+ENTRY(__asm_copy_in_user)
 
 	/* Enable access to user memory */
 	li t6, SR_SUM
@@ -65,8 +66,10 @@ ENTRY(__asm_copy_from_user)
 	j 3b
 ENDPROC(__asm_copy_to_user)
 ENDPROC(__asm_copy_from_user)
+ENDPROC(__asm_copy_in_user)
 EXPORT_SYMBOL(__asm_copy_to_user)
 EXPORT_SYMBOL(__asm_copy_from_user)
+EXPORT_SYMBOL(__asm_copy_in_user)
 
 
 ENTRY(__clear_user)

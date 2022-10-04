@@ -11,6 +11,7 @@
 #include <linux/list.h>
 #include <linux/mutex.h>
 #include <linux/videodev2.h>
+#include <linux/android_kabi.h>
 #include <media/media-request.h>
 
 /*
@@ -56,6 +57,8 @@ struct video_device;
  * @p_hevc_sps:			Pointer to an HEVC sequence parameter set structure.
  * @p_hevc_pps:			Pointer to an HEVC picture parameter set structure.
  * @p_hevc_slice_params:	Pointer to an HEVC slice parameters structure.
+ * @p_hdr10_cll:		Pointer to an HDR10 Content Light Level structure.
+ * @p_hdr10_mastering:		Pointer to an HDR10 Mastering Display structure.
  * @p_area:			Pointer to an area.
  * @p:				Pointer to a compound value.
  * @p_const:			Pointer to a constant compound value.
@@ -80,9 +83,14 @@ union v4l2_ctrl_ptr {
 	struct v4l2_ctrl_hevc_sps *p_hevc_sps;
 	struct v4l2_ctrl_hevc_pps *p_hevc_pps;
 	struct v4l2_ctrl_hevc_slice_params *p_hevc_slice_params;
+	struct v4l2_ctrl_hdr10_cll_info *p_hdr10_cll;
+	struct v4l2_ctrl_hdr10_mastering_display *p_hdr10_mastering;
 	struct v4l2_area *p_area;
 	void *p;
 	const void *p_const;
+
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
 };
 
 /**
@@ -115,6 +123,8 @@ struct v4l2_ctrl_ops {
 	int (*g_volatile_ctrl)(struct v4l2_ctrl *ctrl);
 	int (*try_ctrl)(struct v4l2_ctrl *ctrl);
 	int (*s_ctrl)(struct v4l2_ctrl *ctrl);
+
+	ANDROID_KABI_RESERVE(1);
 };
 
 /**
@@ -136,6 +146,8 @@ struct v4l2_ctrl_type_ops {
 	void (*log)(const struct v4l2_ctrl *ctrl);
 	int (*validate)(const struct v4l2_ctrl *ctrl, u32 idx,
 			union v4l2_ctrl_ptr ptr);
+
+	ANDROID_KABI_RESERVE(1);
 };
 
 /**
@@ -286,6 +298,8 @@ struct v4l2_ctrl {
 	union v4l2_ctrl_ptr p_def;
 	union v4l2_ctrl_ptr p_new;
 	union v4l2_ctrl_ptr p_cur;
+
+	ANDROID_KABI_RESERVE(1);
 };
 
 /**
@@ -325,6 +339,8 @@ struct v4l2_ctrl_ref {
 	bool req_done;
 	bool valid_p_req;
 	union v4l2_ctrl_ptr p_req;
+
+	ANDROID_KABI_RESERVE(1);
 };
 
 /**
@@ -375,6 +391,8 @@ struct v4l2_ctrl_handler {
 	struct list_head requests;
 	struct list_head requests_queued;
 	struct media_request_object req_obj;
+
+	ANDROID_KABI_RESERVE(1);
 };
 
 /**
@@ -426,6 +444,8 @@ struct v4l2_ctrl_config {
 	const char * const *qmenu;
 	const s64 *qmenu_int;
 	unsigned int is_private:1;
+
+	ANDROID_KABI_RESERVE(1);
 };
 
 /**

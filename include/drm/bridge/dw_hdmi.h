@@ -165,6 +165,11 @@ struct dw_hdmi *dw_hdmi_bind(struct platform_device *pdev,
 
 void dw_hdmi_resume(struct dw_hdmi *hdmi);
 
+#ifdef CONFIG_PM
+int dw_hdmi_runtime_suspend(struct dw_hdmi *hdmi);
+int dw_hdmi_runtime_resume(struct dw_hdmi *hdmi);
+#endif
+
 void dw_hdmi_setup_rx_sense(struct dw_hdmi *hdmi, bool hpd, bool rx_sense);
 
 int dw_hdmi_set_plugged_cb(struct dw_hdmi *hdmi, hdmi_codec_plugged_cb fn,

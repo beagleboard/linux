@@ -2,6 +2,8 @@
 #ifndef __USBAUDIO_CARD_H
 #define __USBAUDIO_CARD_H
 
+#include <linux/android_kabi.h>
+
 #define MAX_NR_RATES	1024
 #define MAX_PACKS	6		/* per URB */
 #define MAX_PACKS_HS	(MAX_PACKS * 8)	/* in high speed mode */
@@ -112,6 +114,11 @@ struct snd_usb_endpoint {
 
 	spinlock_t lock;
 	struct list_head list;
+
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
+	ANDROID_KABI_RESERVE(3);
+	ANDROID_KABI_RESERVE(4);
 };
 
 struct media_ctl;
@@ -171,6 +178,8 @@ struct snd_usb_substream {
 
 	bool trigger_tstamp_pending_update; /* trigger timestamp being updated from initial estimate */
 	struct media_ctl *media_ctl;
+
+	ANDROID_KABI_RESERVE(1);
 };
 
 struct snd_usb_stream {
@@ -181,5 +190,26 @@ struct snd_usb_stream {
 	struct snd_usb_substream substream[2];
 	struct list_head list;
 };
+
+struct snd_usb_substream *find_snd_usb_substream(unsigned int card_num,
+	unsigned int pcm_idx, unsigned int direction, struct snd_usb_audio
+	**uchip, void (*disconnect_cb)(struct snd_usb_audio *chip));
+
+int snd_vendor_set_ops(struct snd_usb_audio_vendor_ops *vendor_ops);
+struct snd_usb_audio_vendor_ops *snd_vendor_get_ops(void);
+int snd_vendor_set_interface(struct usb_device *udev,
+			     struct usb_host_interface *alts,
+			     int iface, int alt);
+int snd_vendor_set_rate(struct usb_interface *intf, int iface, int rate,
+			int alt);
+int snd_vendor_set_pcm_buf(struct usb_device *udev, int iface);
+int snd_vendor_set_pcm_intf(struct usb_interface *intf, int iface, int alt,
+			    int direction);
+int snd_vendor_set_pcm_connection(struct usb_device *udev,
+				  enum snd_vendor_pcm_open_close onoff,
+				  int direction);
+int snd_vendor_set_pcm_binterval(struct audioformat *fp,
+				 struct audioformat *found,
+				 int *cur_attr, int *attr);
 
 #endif /* __USBAUDIO_CARD_H */

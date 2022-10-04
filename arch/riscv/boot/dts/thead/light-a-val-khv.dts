@@ -1,0 +1,21 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * Copyright (C) 2021 Alibaba Group Holding Limited.
+ */
+
+#include "light-a-val.dts"
+
+&resmem {
+        #address-cells = <2>;
+        #size-cells = <2>;
+        ranges;
+
+	/* 512M for guest memory */
+	guestmem: memory@50000000 {
+		reg = <0x0 0x50000000 0x0 0x20000000>;
+	};
+};
+
+&khvhost {
+	memory-region = <&guestmem>;
+};

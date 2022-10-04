@@ -1554,9 +1554,6 @@ static struct xfrm_state *xfrm_state_clone(struct xfrm_state *orig,
 	x->km.seq = orig->km.seq;
 	x->replay = orig->replay;
 	x->preplay = orig->preplay;
-	x->mapping_maxage = orig->mapping_maxage;
-	x->new_mapping = 0;
-	x->new_mapping_sport = 0;
 
 	return x;
 
@@ -2218,7 +2215,7 @@ int km_query(struct xfrm_state *x, struct xfrm_tmpl *t, struct xfrm_policy *pol)
 }
 EXPORT_SYMBOL(km_query);
 
-static int __km_new_mapping(struct xfrm_state *x, xfrm_address_t *ipaddr, __be16 sport)
+int km_new_mapping(struct xfrm_state *x, xfrm_address_t *ipaddr, __be16 sport)
 {
 	int err = -EINVAL;
 	struct xfrm_mgr *km;
@@ -2232,24 +2229,6 @@ static int __km_new_mapping(struct xfrm_state *x, xfrm_address_t *ipaddr, __be16
 	}
 	rcu_read_unlock();
 	return err;
-}
-
-int km_new_mapping(struct xfrm_state *x, xfrm_address_t *ipaddr, __be16 sport)
-{
-	int ret = 0;
-
-	if (x->mapping_maxage) {
-		if ((jiffies / HZ - x->new_mapping) > x->mapping_maxage ||
-		    x->new_mapping_sport != sport) {
-			x->new_mapping_sport = sport;
-			x->new_mapping = jiffies / HZ;
-			ret = __km_new_mapping(x, ipaddr, sport);
-		}
-	} else {
-		ret = __km_new_mapping(x, ipaddr, sport);
-	}
-
-	return ret;
 }
 EXPORT_SYMBOL(km_new_mapping);
 
@@ -2406,19 +2385,22 @@ int xfrm_user_policy(struct sock *sk, int optname, sockptr_t optval, int optlen)
 	if (IS_ERR(data))
 		return PTR_ERR(data);
 
-	if (in_compat_syscall()) {
-		struct xfrm_translator *xtr = xfrm_get_translator();
+	/* Use the 64-bit / untranslated format on Android, even for compat */
+	if (!IS_ENABLED(CONFIG_ANDROID) || IS_ENABLED(CONFIG_XFRM_USER_COMPAT)) {
+		if (in_compat_syscall()) {
+			struct xfrm_translator *xtr = xfrm_get_translator();
 
-		if (!xtr) {
-			kfree(data);
-			return -EOPNOTSUPP;
-		}
+			if (!xtr) {
+				kfree(data);
+				return -EOPNOTSUPP;
+			}
 
-		err = xtr->xlate_user_policy_sockptr(&data, optlen);
-		xfrm_put_translator(xtr);
-		if (err) {
-			kfree(data);
-			return err;
+			err = xtr->xlate_user_policy_sockptr(&data, optlen);
+			xfrm_put_translator(xtr);
+			if (err) {
+				kfree(data);
+				return err;
+			}
 		}
 	}
 

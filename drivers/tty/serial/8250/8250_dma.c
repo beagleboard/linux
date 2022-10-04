@@ -179,65 +179,67 @@ int serial8250_request_dma(struct uart_8250_port *p)
 	dma->rxchan = dma_request_slave_channel_compat(mask,
 						       dma->fn, dma->rx_param,
 						       p->port.dev, "rx");
-	if (!dma->rxchan)
-		return -ENODEV;
+	if (!dma->rxchan) {
+		dev_dbg_once(p->port.dev,
+			     "DMA rx channel request failed, operating without rx DMA\n");
+	} else {
 
-	/* 8250 rx dma requires dmaengine driver to support pause/terminate */
-	ret = dma_get_slave_caps(dma->rxchan, &caps);
-	if (ret)
-		goto release_rx;
-	if (!caps.cmd_pause || !caps.cmd_terminate ||
-	    caps.residue_granularity == DMA_RESIDUE_GRANULARITY_DESCRIPTOR) {
-		ret = -EINVAL;
-		goto release_rx;
+		/* 8250 rx dma requires dmaengine driver to support pause/terminate */
+		ret = dma_get_slave_caps(dma->rxchan, &caps);
+		if (ret)
+			goto release_rx;
+		if (!caps.cmd_pause || !caps.cmd_terminate ||
+		    caps.residue_granularity == DMA_RESIDUE_GRANULARITY_DESCRIPTOR) {
+			ret = -EINVAL;
+			goto release_rx;
+		}
+
+		dmaengine_slave_config(dma->rxchan, &dma->rxconf);
+
+		/* RX buffer */
+		if (!dma->rx_size)
+			dma->rx_size = PAGE_SIZE;
+
+		dma->rx_buf = dma_alloc_coherent(dma->rxchan->device->dev, dma->rx_size,
+						&dma->rx_addr, GFP_KERNEL);
+		if (!dma->rx_buf) {
+			ret = -ENOMEM;
+			goto release_rx;
+		}
 	}
-
-	dmaengine_slave_config(dma->rxchan, &dma->rxconf);
 
 	/* Get a channel for TX */
 	dma->txchan = dma_request_slave_channel_compat(mask,
 						       dma->fn, dma->tx_param,
 						       p->port.dev, "tx");
 	if (!dma->txchan) {
-		ret = -ENODEV;
-		goto release_rx;
+		dev_dbg_once(p->port.dev,
+			     "DMA tx channel request failed, operating without tx DMA\n");
+	} else {
+
+		/* 8250 tx dma requires dmaengine driver to support terminate */
+		ret = dma_get_slave_caps(dma->txchan, &caps);
+		if (ret)
+			goto err;
+		if (!caps.cmd_terminate) {
+			ret = -EINVAL;
+			goto err;
+		}
+
+		dmaengine_slave_config(dma->txchan, &dma->txconf);
+
+		/* TX buffer */
+		dma->tx_addr = dma_map_single(dma->txchan->device->dev,
+						p->port.state->xmit.buf,
+						UART_XMIT_SIZE,
+						DMA_TO_DEVICE);
+		if (dma_mapping_error(dma->txchan->device->dev, dma->tx_addr)) {
+			dma_free_coherent(dma->rxchan->device->dev, dma->rx_size,
+					  dma->rx_buf, dma->rx_addr);
+			ret = -ENOMEM;
+			goto err;
+		}
 	}
-
-	/* 8250 tx dma requires dmaengine driver to support terminate */
-	ret = dma_get_slave_caps(dma->txchan, &caps);
-	if (ret)
-		goto err;
-	if (!caps.cmd_terminate) {
-		ret = -EINVAL;
-		goto err;
-	}
-
-	dmaengine_slave_config(dma->txchan, &dma->txconf);
-
-	/* RX buffer */
-	if (!dma->rx_size)
-		dma->rx_size = PAGE_SIZE;
-
-	dma->rx_buf = dma_alloc_coherent(dma->rxchan->device->dev, dma->rx_size,
-					&dma->rx_addr, GFP_KERNEL);
-	if (!dma->rx_buf) {
-		ret = -ENOMEM;
-		goto err;
-	}
-
-	/* TX buffer */
-	dma->tx_addr = dma_map_single(dma->txchan->device->dev,
-					p->port.state->xmit.buf,
-					UART_XMIT_SIZE,
-					DMA_TO_DEVICE);
-	if (dma_mapping_error(dma->txchan->device->dev, dma->tx_addr)) {
-		dma_free_coherent(dma->rxchan->device->dev, dma->rx_size,
-				  dma->rx_buf, dma->rx_addr);
-		ret = -ENOMEM;
-		goto err;
-	}
-
-	dev_dbg_ratelimited(p->port.dev, "got both dma channels\n");
 
 	return 0;
 err:
@@ -255,21 +257,23 @@ void serial8250_release_dma(struct uart_8250_port *p)
 	if (!dma)
 		return;
 
-	/* Release RX resources */
-	dmaengine_terminate_sync(dma->rxchan);
-	dma_free_coherent(dma->rxchan->device->dev, dma->rx_size, dma->rx_buf,
-			  dma->rx_addr);
-	dma_release_channel(dma->rxchan);
-	dma->rxchan = NULL;
+	if (dma->rxchan) {
+		/* Release RX resources */
+		dmaengine_terminate_sync(dma->rxchan);
+		dma_free_coherent(dma->rxchan->device->dev, dma->rx_size, dma->rx_buf,
+				  dma->rx_addr);
+		dma_release_channel(dma->rxchan);
+		dma->rxchan = NULL;
+	}
 
-	/* Release TX resources */
-	dmaengine_terminate_sync(dma->txchan);
-	dma_unmap_single(dma->txchan->device->dev, dma->tx_addr,
-			 UART_XMIT_SIZE, DMA_TO_DEVICE);
-	dma_release_channel(dma->txchan);
-	dma->txchan = NULL;
-	dma->tx_running = 0;
-
-	dev_dbg_ratelimited(p->port.dev, "dma channels released\n");
+	if (dma->txchan) {
+		/* Release TX resources */
+		dmaengine_terminate_sync(dma->txchan);
+		dma_unmap_single(dma->txchan->device->dev, dma->tx_addr,
+				 UART_XMIT_SIZE, DMA_TO_DEVICE);
+		dma_release_channel(dma->txchan);
+		dma->txchan = NULL;
+		dma->tx_running = 0;
+	}
 }
 EXPORT_SYMBOL_GPL(serial8250_release_dma);

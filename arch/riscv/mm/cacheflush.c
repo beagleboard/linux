@@ -4,10 +4,9 @@
  */
 
 #include <asm/cacheflush.h>
+#include <asm/sbi.h>
 
 #ifdef CONFIG_SMP
-
-#include <asm/sbi.h>
 
 static void ipi_remote_fence_i(void *info)
 {
@@ -89,3 +88,43 @@ void flush_icache_pte(pte_t pte)
 		flush_icache_all();
 }
 #endif /* CONFIG_MMU */
+
+static bool thead_dma_init_flag = false;
+
+#define sync_is()	asm volatile (".long 0x01b0000b")
+void dma_wbinv_range(unsigned long start, unsigned long end)
+{
+	register unsigned long i asm("a0") = start & ~(L1_CACHE_BYTES - 1);
+
+	if (!thead_dma_init_flag)
+		return;
+
+	for (; i < end; i += L1_CACHE_BYTES)
+		asm volatile (".long 0x02b5000b"); /* dcache.cipa a0 */
+
+	sync_is();
+}
+
+void dma_wb_range(unsigned long start, unsigned long end)
+{
+	register unsigned long i asm("a0") = start & ~(L1_CACHE_BYTES - 1);
+
+	if (!thead_dma_init_flag)
+		return;
+
+	for (; i < end; i += L1_CACHE_BYTES)
+		asm volatile (".long 0x0295000b"); /* dcache.cpa a0 */
+
+	sync_is();
+}
+
+#define THEAD_VENDOR_ID       0x5b7
+
+static int __init thead_dma_init(void)
+{
+	if (sbi_get_mvendorid() == THEAD_VENDOR_ID)
+		thead_dma_init_flag = true;
+
+	return 0;
+}
+arch_initcall(thead_dma_init);

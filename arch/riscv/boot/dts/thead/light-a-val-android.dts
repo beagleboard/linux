@@ -1,0 +1,111 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * Copyright (C) 2021 Alibaba Group Holding Limited.
+ */
+
+/dts-v1/;
+
+#include "light-a-val-dsi0.dts"
+
+&dpu_enc1 {
+        ports {
+                /delete-node/ port@0;
+        };
+};
+
+&disp1_out {
+	remote-endpoint = <&hdmi_tx_in>;
+};
+&sdhci1 {
+	status = "okay";
+};
+
+&wcn_bt {
+	status = "okay";
+};
+
+&wcn_wifi {
+	status = "okay";
+};
+
+&lightsound {
+	status = "okay";
+	
+	simple-audio-card,widgets =
+		"Microphone", "Mic Jack",
+		"Speaker", "Speaker",
+		"Headphone", "Headphone Jack";
+	simple-audio-card,routing =
+		"Headphone Jack", "HP_L",
+		"Headphone Jack", "HP_R",
+		"Speaker", "SPK_LP",
+		"Speaker", "SPK_LN",
+		"Speaker", "SPK_RP",
+		"Speaker", "SPK_RN",
+		"Mic Jack","MICB",
+		"LINPUT1", "Mic Jack",
+		"LINPUT3", "Mic Jack";
+
+	simple-audio-card,dai-link@0 {          /* I2S - CODEC */
+		reg = <0>;
+		format = "i2s";
+		cpu {
+			sound-dai = <&light_i2s 0>;
+		};
+		codec {
+			sound-dai = <&codec>;
+		};
+	};
+	simple-audio-card,dai-link@1 {          /* I2S - HDMI */
+                reg = <1>;
+                format = "i2s";
+                cpu {
+                        sound-dai = <&light_i2s 1>;
+                };
+                codec {
+                        sound-dai = <&dummy_codec 2>;
+                };
+    };
+};
+
+&light_i2s {
+        status = "okay";
+};
+
+&hdmi_tx {
+	status = "okay";
+
+	port@0 {
+		/* input */
+		hdmi_tx_in: endpoint {
+			remote-endpoint = <&disp1_out>;
+		};
+	};
+};
+
+/ {
+       firmware {
+               android {
+                       compatible = "android,firmware";
+                       boot_devices = "soc/ffe7080000.sdhci";
+                       fstab {
+                               compatible = "android,fstab";
+                               system {
+                                       compatible = "android,system";
+                                       dev = "/dev/block/platform/soc/ffe7080000.sdhci/by-name/system";
+                                       type = "ext4";
+                                       mnt_flags = "ro,barrier=1";
+                                       fsmgr_flags = "wait";
+                               };
+                               vendor {
+                                       compatible = "android,vendor";
+                                       dev = "/dev/block/platform/soc/ffe7080000.sdhci/by-name/vendor";
+                                       type = "ext4";
+                                       mnt_flags = "ro,barrier=1";
+                                       fsmgr_flags = "wait";
+                               };
+                       };
+               };
+       };
+};
+

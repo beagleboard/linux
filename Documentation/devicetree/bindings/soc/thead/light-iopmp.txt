@@ -1,0 +1,38 @@
+* Thead light family IOPMP
+
+Light family includes support SoC level IOPMP to limit master
+access permission. It supports multiple valid iopmp regions configuration,
+iopmp bypass, and only set default iopmp region.
+
+Required Properties:
+  - compatible: should be one of the following.
+      * thead,light-iopmp - for light iopmp.
+
+Example:
+
+#include <include/dt-bindings/soc/thead,light-iopmp.h>
+
+iopmp {
+	compatible = "thead,light-iopmp";
+
+	/* config#1: multiple valid regions */
+	iopmp_emmc: IOPMP_EMMC {
+		regions = <0x0 0x100000>,
+			  <0x100000 0x200000>;
+		attr = <0xFFFFFFFF>;
+		dummy_slave= <0x800000>;
+	};
+
+	/* config#2: iopmp bypass */
+	iopmp_sdio0: IOPMP_SDIO0 {
+		bypass_en;
+	};
+
+	/* config#3: iopmp default region set */
+	iopmp_sdio1: IOPMP_SDIO1 {
+		attr = <0xFFFFFFFF>;
+		is_default_region;
+	};
+
+	...
+};

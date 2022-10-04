@@ -75,8 +75,8 @@ void notrace __cpu_suspend_exit(void)
 	 */
 	spectre_v4_enable_mitigation(NULL);
 
-	/* Restore additional MTE-specific configuration */
-	mte_suspend_exit();
+	/* Restore additional feature-specific configuration */
+	ptrauth_suspend_exit();
 }
 
 /*
@@ -91,6 +91,9 @@ int cpu_suspend(unsigned long arg, int (*fn)(unsigned long))
 	int ret = 0;
 	unsigned long flags;
 	struct sleep_stack_data state;
+
+	/* Report any MTE async fault before going to suspend */
+	mte_suspend_enter();
 
 	/*
 	 * From this point debug exceptions are disabled to prevent

@@ -11,17 +11,36 @@ menuconfig ION
 	  If you're not using Android its probably safe to
 	  say N here.
 
-config ION_SYSTEM_HEAP
-	bool "Ion system heap"
-	depends on ION
-	help
-	  Choose this option to enable the Ion system heap. The system heap
-	  is backed by pages from the buddy allocator. If in doubt, say Y.
+source "drivers/staging/android/ion/heaps/Kconfig"
 
-config ION_CMA_HEAP
-	bool "Ion CMA heap support"
-	depends on ION && DMA_CMA
+config ION_UNMAPPED_HEAP
+	bool "ION unmapped heap support"
+	depends on ION && (ARM || ARM64)
 	help
-	  Choose this option to enable CMA heaps with Ion. This heap is backed
-	  by the Contiguous Memory Allocator (CMA). If your system has these
-	  regions, you should say Y here.
+	  Choose this option to enable UNMAPPED heaps with Ion. This heap is
+	  backed in specific memory pools, carveout from the Linux memory.
+	  Unless you know your system has these regions, you should say N here.
+
+config ION_DUMMY_UNMAPPED_HEAP
+	bool "ION dummy driver define an ION unmapped heap"
+	depends on ION_UNMAPPED_HEAP
+	help
+	  Dummy ION driver will create a unmapped heap from physical
+	  location provided through CONFIG_ION_DUMMY_UNMAPPED_BASE and
+	  CONFIG_ION_DUMMY_UNMAPPED_SIZE.
+
+config ION_DUMMY_UNMAPPED_BASE
+	hex "Physical base address of the ION unmapped heap"
+	depends on ION_DUMMY_UNMAPPED_HEAP
+	default 0
+	help
+	  Allows one the statically define an unmapped heap from the
+	  ION dummy driver to exercice unamped heaps buffer managment.
+
+config ION_DUMMY_UNMAPPED_SIZE
+	hex "Physical byte size of the ION unmapped heap"
+	depends on ION_DUMMY_UNMAPPED_HEAP
+	default 0
+	help
+	  Allows one the statically define an unmapped heap from the
+	  ION dummy driver to exercice unamped heaps buffer managment.

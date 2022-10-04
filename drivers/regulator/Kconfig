@@ -155,6 +155,15 @@ config REGULATOR_ARIZONA_MICSUPP
 	  and Wolfson Microelectronic Arizona codecs
 	  devices.
 
+config REGULATOR_ARM_SCMI
+	tristate "SCMI based regulator driver"
+	depends on ARM_SCMI_PROTOCOL && OF
+	help
+	  This adds the regulator driver support for ARM platforms using SCMI
+	  protocol for device voltage management.
+	  This driver uses SCMI Message Protocol driver to interact with the
+	  firmware providing the device Voltage functionality.
+
 config REGULATOR_AS3711
 	tristate "AS3711 PMIC"
 	depends on MFD_AS3711
@@ -844,6 +853,7 @@ config REGULATOR_QCOM_RPM
 config REGULATOR_QCOM_RPMH
 	tristate "Qualcomm Technologies, Inc. RPMh regulator driver"
 	depends on QCOM_RPMH || COMPILE_TEST
+	depends on QCOM_COMMAND_DB || !QCOM_COMMAND_DB
 	help
 	  This driver supports control of PMIC regulators via the RPMh hardware
 	  block found on Qualcomm Technologies Inc. SoCs.  RPMh regulator
@@ -1278,6 +1288,14 @@ config REGULATOR_QCOM_LABIBB
 	  based PMIC implementations. LAB can be used as positive
 	  boost regulator and IBB can be used as a negative boost regulator
 	  for LCD display panel.
+
+config REGULATOR_LIGHT_AON
+	tristate "Thead Light Aon regulator"
+	depends on LIGHT_AON
+	default y
+	help
+	  This driver provides support for the thead light virtal regulators that
+	  inmplemented on Light Aon system.
 
 endif
 

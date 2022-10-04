@@ -34,6 +34,19 @@ ufshcd_prepare_req_desc_hdr_crypto(struct ufshcd_lrb *lrbp, u32 *dword_0,
 	}
 }
 
+static inline void ufshcd_crypto_clear_prdt(struct ufs_hba *hba,
+					    struct ufshcd_lrb *lrbp)
+{
+	if (!(hba->quirks & UFSHCD_QUIRK_KEYS_IN_PRDT))
+		return;
+
+	if (!lrbp->cmd->request->crypt_ctx)
+		return;
+
+	memzero_explicit(lrbp->ucd_prdt_ptr,
+			 hba->sg_entry_size * scsi_sg_count(lrbp->cmd));
+}
+
 bool ufshcd_crypto_enable(struct ufs_hba *hba);
 
 int ufshcd_hba_init_crypto_capabilities(struct ufs_hba *hba);
@@ -43,8 +56,6 @@ void ufshcd_init_crypto(struct ufs_hba *hba);
 void ufshcd_crypto_setup_rq_keyslot_manager(struct ufs_hba *hba,
 					    struct request_queue *q);
 
-void ufshcd_crypto_destroy_keyslot_manager(struct ufs_hba *hba);
-
 #else /* CONFIG_SCSI_UFS_CRYPTO */
 
 static inline void ufshcd_prepare_lrbp_crypto(struct request *rq,
@@ -53,6 +64,9 @@ static inline void ufshcd_prepare_lrbp_crypto(struct request *rq,
 static inline void
 ufshcd_prepare_req_desc_hdr_crypto(struct ufshcd_lrb *lrbp, u32 *dword_0,
 				   u32 *dword_1, u32 *dword_3) { }
+
+static inline void ufshcd_crypto_clear_prdt(struct ufs_hba *hba,
+					    struct ufshcd_lrb *lrbp) { }
 
 static inline bool ufshcd_crypto_enable(struct ufs_hba *hba)
 {
@@ -68,9 +82,6 @@ static inline void ufshcd_init_crypto(struct ufs_hba *hba) { }
 
 static inline void ufshcd_crypto_setup_rq_keyslot_manager(struct ufs_hba *hba,
 						struct request_queue *q) { }
-
-static inline void ufshcd_crypto_destroy_keyslot_manager(struct ufs_hba *hba)
-{ }
 
 #endif /* CONFIG_SCSI_UFS_CRYPTO */
 

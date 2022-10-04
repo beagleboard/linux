@@ -1,0 +1,49 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * Copyright (C) 2021 Alibaba Group Holding Limited.
+ */
+
+#include "light-a-val.dts"
+
+/ {
+	model = "T-HEAD Light FM Audio VAL board";
+	compatible = "thead,light-val-audio", "thead,light";
+};
+
+&lightsound {
+	status = "okay";
+
+        simple-audio-card,dai-link@0 {          /* I2S - AUDIO SYS CODEC 8156*/
+                reg = <0>;
+                format = "i2s";
+                cpu {
+                        sound-dai = <&i2s0 0>;
+                };
+                codec {
+                        sound-dai = <&es8156_audio_codec>;
+                };
+        };
+
+        simple-audio-card,dai-link@1 {          /* I2S - AUDIO SYS CODEC 7210*/
+                reg = <1>;
+                format = "i2s";
+                cpu {
+                        sound-dai = <&i2s3 0>;
+                };
+                codec {
+                        sound-dai = <&es7210_audio_codec>;
+                };
+        };
+};
+
+&light_i2s {
+	status = "okay";
+};
+
+&i2s0 {
+        status = "okay";
+};
+
+&i2s3 {
+        status = "okay";
+};

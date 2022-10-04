@@ -1,0 +1,19 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * Copyright (C) 2021 Alibaba Group Holding Limited.
+ */
+
+#include "light-fm-emu.dts"
+
+/ {
+	model = "T-HEAD Light FM EMP Audio FPGA board";
+	compatible = "thead,light-fm-emu-audio", "thead,light";
+};
+
+&lightsound {
+	status = "okay";
+};
+
+&light_i2s {
+	status = "okay";
+};

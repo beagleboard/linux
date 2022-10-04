@@ -1,0 +1,28 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * Copyright (C) 2021 Alibaba Group Holding Limited.
+ */
+
+#include "light-a-val.dts"
+
+/ {
+	model = "T-HEAD Light FM NPU&FCE on VAL board";
+	compatible = "thead,light-val-npu-fce", "thead,light";
+
+};
+
+&facelib_mem {
+	reg = <0x0 0xd0000000 0 0x20000000>;
+	no-map;
+};
+
+&npu {
+	vha_clk_rate = <1000000000>;
+	status = "okay";
+};
+
+&fce {
+	memory-region = <&facelib_mem>;
+	status = "okay";
+};
+

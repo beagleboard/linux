@@ -53,9 +53,14 @@
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/ipi.h>
+#undef CREATE_TRACE_POINTS
+#include <trace/hooks/debug.h>
 
 DEFINE_PER_CPU_READ_MOSTLY(int, cpu_number);
 EXPORT_PER_CPU_SYMBOL(cpu_number);
+EXPORT_TRACEPOINT_SYMBOL_GPL(ipi_raise);
+EXPORT_TRACEPOINT_SYMBOL_GPL(ipi_entry);
+EXPORT_TRACEPOINT_SYMBOL_GPL(ipi_exit);
 
 /*
  * as from 2.5, kernels no longer have an init_tasks structure
@@ -350,7 +355,7 @@ void __cpu_die(unsigned int cpu)
 		pr_crit("CPU%u: cpu didn't die\n", cpu);
 		return;
 	}
-	pr_notice("CPU%u: shutdown\n", cpu);
+	pr_debug("CPU%u: shutdown\n", cpu);
 
 	/*
 	 * Now that the dying CPU is beyond the point of no return w.r.t.
@@ -433,8 +438,10 @@ static void __init hyp_mode_check(void)
 			   "CPU: CPUs started in inconsistent modes");
 	else
 		pr_info("CPU: All CPU(s) started at EL1\n");
-	if (IS_ENABLED(CONFIG_KVM))
+	if (IS_ENABLED(CONFIG_KVM) && !is_kernel_in_hyp_mode()) {
 		kvm_compute_layout();
+		kvm_apply_hyp_relocations();
+	}
 }
 
 void __init smp_cpus_done(unsigned int max_cpus)
@@ -461,6 +468,8 @@ void __init smp_prepare_boot_cpu(void)
 	/* Conditionally switch to GIC PMR for interrupt masking */
 	if (system_uses_irq_prio_masking())
 		init_gic_priority_masking();
+
+	kasan_init_hw_tags();
 }
 
 static u64 __init of_get_cpu_mpidr(struct device_node *dn)
@@ -902,6 +911,7 @@ static void do_handle_IPI(int ipinr)
 		break;
 
 	case IPI_CPU_STOP:
+		trace_android_vh_ipi_stop_rcuidle(get_irq_regs());
 		local_cpu_stop();
 		break;
 
@@ -994,6 +1004,10 @@ void __init set_smp_ipi_range(int ipi_base, int n)
 
 		ipi_desc[i] = irq_to_desc(ipi_base + i);
 		irq_set_status_flags(ipi_base + i, IRQ_HIDDEN);
+
+		/* The recheduling IPI is special... */
+		if (i == IPI_RESCHEDULE)
+			__irq_modify_status(ipi_base + i, 0, IRQ_RAW, ~0);
 	}
 
 	ipi_irq_base = ipi_base;
@@ -1129,3 +1143,15 @@ bool cpus_are_stuck_in_kernel(void)
 
 	return !!cpus_stuck_in_kernel || smp_spin_tables;
 }
+
+int nr_ipi_get(void)
+{
+	return nr_ipi;
+}
+EXPORT_SYMBOL_GPL(nr_ipi_get);
+
+struct irq_desc **ipi_desc_get(void)
+{
+	return ipi_desc;
+}
+EXPORT_SYMBOL_GPL(ipi_desc_get);

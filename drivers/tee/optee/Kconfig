@@ -2,7 +2,7 @@
 # OP-TEE Trusted Execution Environment Configuration
 config OPTEE
 	tristate "OP-TEE"
-	depends on HAVE_ARM_SMCCC
+	depends on HAVE_ARM_SMCCC || RISCV_SBI
 	depends on MMU
 	help
 	  This implements the OP-TEE Trusted Execution Environment (TEE)
@@ -15,3 +15,10 @@ config OPTEE_SHM_NUM_PRIV_PAGES
 	help
 	  This sets the number of private shared memory pages to be
 	  used by OP-TEE TEE driver.
+
+config OPTEE_BENCHMARK
+	bool "OP-TEE Benchmark (EXPERIMENTAL)"
+	depends on OPTEE
+	help
+	  This enables benchmarking feature in the OP-TEE Trusted
+	  Execution Environment (TEE) driver.

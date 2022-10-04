@@ -667,9 +667,8 @@ int __handle_domain_irq(struct irq_domain *domain, unsigned int hwirq,
 {
 	struct pt_regs *old_regs = set_irq_regs(regs);
 	unsigned int irq = hwirq;
+	struct irq_desc *desc;
 	int ret = 0;
-
-	irq_enter();
 
 #ifdef CONFIG_IRQ_DOMAIN
 	if (lookup)
@@ -680,14 +679,22 @@ int __handle_domain_irq(struct irq_domain *domain, unsigned int hwirq,
 	 * Some hardware gives randomly wrong interrupts.  Rather
 	 * than crashing, do something sensible.
 	 */
-	if (unlikely(!irq || irq >= nr_irqs)) {
+	if (unlikely(!irq || irq >= nr_irqs || !(desc = irq_to_desc(irq)))) {
 		ack_bad_irq(irq);
 		ret = -EINVAL;
-	} else {
-		generic_handle_irq(irq);
+		goto out;
 	}
 
-	irq_exit();
+	if (IS_ENABLED(CONFIG_ARCH_WANTS_IRQ_RAW) &&
+	    unlikely(irq_settings_is_raw(desc))) {
+		generic_handle_irq_desc(desc);
+	} else {
+		irq_enter();
+		generic_handle_irq_desc(desc);
+		irq_exit();
+	}
+
+out:
 	set_irq_regs(old_regs);
 	return ret;
 }
@@ -969,6 +976,7 @@ unsigned int kstat_irqs_cpu(unsigned int irq, int cpu)
 	return desc && desc->kstat_irqs ?
 			*per_cpu_ptr(desc->kstat_irqs, cpu) : 0;
 }
+EXPORT_SYMBOL_GPL(kstat_irqs_cpu);
 
 static bool irq_is_nmi(struct irq_desc *desc)
 {
@@ -1019,3 +1027,4 @@ unsigned int kstat_irqs_usr(unsigned int irq)
 	rcu_read_unlock();
 	return sum;
 }
+EXPORT_SYMBOL_GPL(kstat_irqs_usr);

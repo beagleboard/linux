@@ -3901,6 +3901,134 @@ static const struct panel_desc arm_rtsm = {
 	.bus_format = MEDIA_BUS_FMT_RGB888_1X24,
 };
 
+static const struct drm_display_mode light_dummy_panel_modes[] = {
+	{
+		.clock = 594000,
+
+		.hdisplay = 3840,
+		.hsync_start = 3840 + 176,
+		.hsync_end = 3840 + 176 + 88,
+		.htotal = 3840 + 176 + 88 + 296,
+
+		.vdisplay = 2160,
+		.vsync_start = 2160 + 8,
+		.vsync_end = 2160 + 8 + 10,
+		.vtotal = 2160 + 8 + 10 + 72,
+
+		.type  = DRM_MODE_TYPE_PREFERRED,
+		.flags = DRM_MODE_FLAG_NVSYNC | DRM_MODE_FLAG_NHSYNC,
+	}, {
+		.clock = 297000,
+
+		.hdisplay = 3840,
+		.hsync_start = 3840 + 176,
+		.hsync_end = 3840 + 176 + 88,
+		.htotal = 3840 + 176 + 88 + 296,
+
+		.vdisplay = 2160,
+		.vsync_start = 2160 + 8,
+		.vsync_end = 2160 + 8 + 10,
+		.vtotal = 2160 + 8 + 10 + 72,
+
+		.flags = DRM_MODE_FLAG_NVSYNC | DRM_MODE_FLAG_NHSYNC,
+	}, {
+		.clock = 148500,
+
+		.hdisplay = 1920,
+		.hsync_start = 1920 + 88,
+		.hsync_end = 1920 + 88 + 44,
+		.htotal = 1920 + 88 + 44 + 148,
+
+		.vdisplay = 1080,
+		.vsync_start = 1080 + 4,
+		.vsync_end = 1080 + 4 + 5,
+		.vtotal = 1080 + 4 + 5 + 36,
+
+		.flags = DRM_MODE_FLAG_NVSYNC | DRM_MODE_FLAG_NHSYNC,
+	}, {
+		.clock = 74250,
+
+		.hdisplay = 1920,
+		.hsync_start = 1920 + 88,
+		.hsync_end = 1920 + 88 + 44,
+		.htotal = 1920 + 88 + 44 + 148,
+
+		.vdisplay = 1080,
+		.vsync_start = 1080 + 4,
+		.vsync_end = 1080 + 4 + 5,
+		.vtotal = 1080 + 4 + 5 + 36,
+
+		.flags = DRM_MODE_FLAG_NVSYNC | DRM_MODE_FLAG_NHSYNC,
+	}, {
+		.clock = 74250,
+
+		.hdisplay = 1280,
+		.hsync_start = 1280 + 110,
+		.hsync_end = 1280 + 110 + 40,
+		.htotal = 1280 + 110 + 40 + 220,
+
+		.vdisplay = 720,
+		.vsync_start = 720 + 5,
+		.vsync_end = 720 + 5 + 5,
+		.vtotal = 720 + 5 + 5 + 20,
+
+		.flags = DRM_MODE_FLAG_NVSYNC | DRM_MODE_FLAG_NHSYNC,
+	}, {
+		.clock = 74250,
+
+		.hdisplay = 1280,
+		.hsync_start = 1280 + 1760,
+		.hsync_end = 1280 + 1760 + 40,
+		.htotal = 1280 + 1760 + 40 + 220,
+
+		.vdisplay = 720,
+		.vsync_start = 720 + 5,
+		.vsync_end = 720 + 5 + 5,
+		.vtotal = 720 + 5 + 5 + 20,
+
+		.flags = DRM_MODE_FLAG_NVSYNC | DRM_MODE_FLAG_NHSYNC,
+	}, {
+		.clock = 27000,
+
+		.hdisplay = 720,
+		.hsync_start = 720 + 16,
+		.hsync_end = 720 + 16 + 62,
+		.htotal = 720 + 16 + 62 + 60,
+
+		.vdisplay = 480,
+		.vsync_start = 480 + 9,
+		.vsync_end = 480 + 9 + 6,
+		.vtotal = 480 + 9 + 6 + 30,
+
+		.flags = DRM_MODE_FLAG_NVSYNC | DRM_MODE_FLAG_NHSYNC,
+	}, {
+		.clock = 25200,
+
+		.hdisplay = 640,
+		.hsync_start = 640 + 16,
+		.hsync_end = 640 + 16 + 96,
+		.htotal = 640 + 16 + 96 + 48,
+
+		.vdisplay = 480,
+		.vsync_start = 480 + 10,
+		.vsync_end = 480 + 10 + 2,
+		.vtotal = 480 + 10 + 2 + 33,
+
+		.flags = DRM_MODE_FLAG_NVSYNC | DRM_MODE_FLAG_NHSYNC,
+	},
+};
+
+static const struct panel_desc light_dummy_panel = {
+	.modes = light_dummy_panel_modes,
+	.num_modes = ARRAY_SIZE(light_dummy_panel_modes),
+	.bpc = 8,
+	.size = {
+		.width  = 950,
+		.height = 540,
+	},
+	.bus_format = MEDIA_BUS_FMT_RGB888_1X24,
+};
+
 static const struct of_device_id platform_of_match[] = {
 	{
 		.compatible = "ampire,am-1280800n3tzqw-t00h",
@@ -4302,6 +4430,9 @@ static const struct of_device_id platform_of_match[] = {
 		.compatible = "winstar,wf35ltiacd",
 		.data = &winstar_wf35ltiacd,
 	}, {
+		.compatible = "light,dummy-panel",
+		.data = &light_dummy_panel,
+	}, {
 		/* Must be the last entry */
 		.compatible = "panel-dpi",
 		.data = &panel_dpi,
@@ -4552,6 +4683,35 @@ static const struct panel_desc_dsi osd101t2045_53ts = {
 	.lanes = 4,
 };
 
+static const struct drm_display_mode htl_hpk070h275_mode = {
+	.clock = 26000,
+	.hdisplay = 600,
+	.hsync_start = 600 + 80,
+	.hsync_end = 600 + 80 + 2,
+	.htotal = 600 + 80 + 2 + 60,
+	.vdisplay = 1024,
+	.vsync_start = 1024 + 35,
+	.vsync_end = 1024 + 35 + 1,
+	.vtotal = 1024 + 35 + 1 + 25,
+	.flags = DRM_MODE_FLAG_NHSYNC | DRM_MODE_FLAG_NVSYNC,
+};
+
+static const struct panel_desc_dsi hlt_hpk070h275 = {
+	.desc = {
+		.modes = &htl_hpk070h275_mode,
+		.num_modes = 1,
+		.bpc = 8,
+		.size = {
+			.width = 89,
+			.height = 152,
+		},
+		.connector_type = DRM_MODE_CONNECTOR_DSI,
+	},
+	.flags	= MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_VIDEO_BURST,
+	.format	= MIPI_DSI_FMT_RGB888,
+	.lanes	= 4,
+};
+
 static const struct of_device_id dsi_of_match[] = {
 	{
 		.compatible = "auo,b080uan01",
@@ -4574,6 +4734,9 @@ static const struct of_device_id dsi_of_match[] = {
 	}, {
 		.compatible = "osddisplays,osd101t2045-53ts",
 		.data = &osd101t2045_53ts
+	}, {
+		.compatible = "hlt,hpk070h275",
+		.data = &hlt_hpk070h275
 	}, {
 		/* sentinel */
 	}

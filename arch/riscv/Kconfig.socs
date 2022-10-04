@@ -48,4 +48,16 @@ config SOC_KENDRYTE_K210_DTB_BUILTIN
 	  This option should be selected if no bootloader is being used.
 	  If unsure, say Y.
 
+config SOC_THEAD
+	bool "T-HEAD SoCs"
+	select SIFIVE_PLIC
+	help
+	  This enables support for T-HEAD SoC platform hardware.
+
+config SOC_THEAD_LIGHT_EMU
+	bool "T-HEAD Light SoC emulation"
+	depends on SOC_THEAD
+	help
+	  This enables support for T-HEAD Light SoC platform on FPGA emulation.
+
 endmenu

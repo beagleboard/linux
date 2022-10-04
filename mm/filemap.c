@@ -42,10 +42,15 @@
 #include <linux/psi.h>
 #include <linux/ramfs.h>
 #include <linux/page_idle.h>
+#include <asm/pgalloc.h>
+#include <asm/tlbflush.h>
 #include "internal.h"
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/filemap.h>
+
+#undef CREATE_TRACE_POINTS
+#include <trace/hooks/mm.h>
 
 /*
  * FIXME: remove all knowledge of the buffer layer from the core VM
@@ -1193,7 +1198,7 @@ static inline bool trylock_page_bit_common(struct page *page, int bit_nr,
 /* How many times do we accept lock stealing from under a waiter? */
 int sysctl_page_lock_unfairness = 5;
 
-static inline int wait_on_page_bit_common(wait_queue_head_t *q,
+static inline __sched int wait_on_page_bit_common(wait_queue_head_t *q,
 	struct page *page, int bit_nr, int state, enum behavior behavior)
 {
 	int unfairness = sysctl_page_lock_unfairness;
@@ -1332,14 +1337,14 @@ repeat:
 	return wait->flags & WQ_FLAG_WOKEN ? 0 : -EINTR;
 }
 
-void wait_on_page_bit(struct page *page, int bit_nr)
+__sched void wait_on_page_bit(struct page *page, int bit_nr)
 {
 	wait_queue_head_t *q = page_waitqueue(page);
 	wait_on_page_bit_common(q, page, bit_nr, TASK_UNINTERRUPTIBLE, SHARED);
 }
 EXPORT_SYMBOL(wait_on_page_bit);
 
-int wait_on_page_bit_killable(struct page *page, int bit_nr)
+__sched int wait_on_page_bit_killable(struct page *page, int bit_nr)
 {
 	wait_queue_head_t *q = page_waitqueue(page);
 	return wait_on_page_bit_common(q, page, bit_nr, TASK_KILLABLE, SHARED);
@@ -1536,7 +1541,7 @@ EXPORT_SYMBOL_GPL(page_endio);
  * __lock_page - get a lock on the page, assuming we need to sleep to get it
  * @__page: the page to lock
  */
-void __lock_page(struct page *__page)
+__sched void __lock_page(struct page *__page)
 {
 	struct page *page = compound_head(__page);
 	wait_queue_head_t *q = page_waitqueue(page);
@@ -1545,7 +1550,7 @@ void __lock_page(struct page *__page)
 }
 EXPORT_SYMBOL(__lock_page);
 
-int __lock_page_killable(struct page *__page)
+__sched int __lock_page_killable(struct page *__page)
 {
 	struct page *page = compound_head(__page);
 	wait_queue_head_t *q = page_waitqueue(page);
@@ -1554,7 +1559,7 @@ int __lock_page_killable(struct page *__page)
 }
 EXPORT_SYMBOL_GPL(__lock_page_killable);
 
-int __lock_page_async(struct page *page, struct wait_page_queue *wait)
+__sched int __lock_page_async(struct page *page, struct wait_page_queue *wait)
 {
 	return __wait_on_page_locked_async(page, wait, true);
 }
@@ -1570,7 +1575,7 @@ int __lock_page_async(struct page *page, struct wait_page_queue *wait)
  * If neither ALLOW_RETRY nor KILLABLE are set, will always return 1
  * with the page locked and the mmap_lock unperturbed.
  */
-int __lock_page_or_retry(struct page *page, struct mm_struct *mm,
+__sched int __lock_page_or_retry(struct page *page, struct mm_struct *mm,
 			 unsigned int flags)
 {
 	if (fault_flag_allow_retry_first(flags)) {
@@ -1797,6 +1802,9 @@ repeat:
 	page = find_get_entry(mapping, index);
 	if (xa_is_value(page))
 		page = NULL;
+
+	trace_android_vh_pagecache_get_page(mapping, index, fgp_flags,
+					gfp_mask, page);
 	if (!page)
 		goto no_page;
 
@@ -2720,12 +2728,19 @@ vm_fault_t filemap_fault(struct vm_fault *vmf)
 	struct inode *inode = mapping->host;
 	pgoff_t offset = vmf->pgoff;
 	pgoff_t max_off;
-	struct page *page;
+	struct page *page = NULL;
 	vm_fault_t ret = 0;
+	bool retry = false;
 
 	max_off = DIV_ROUND_UP(i_size_read(inode), PAGE_SIZE);
 	if (unlikely(offset >= max_off))
 		return VM_FAULT_SIGBUS;
+
+	trace_android_vh_filemap_fault_get_page(vmf, &page, &retry);
+	if (unlikely(retry))
+		goto out_retry;
+	if (unlikely(page))
+		goto page_ok;
 
 	/*
 	 * Do we have something in the page cache already?
@@ -2782,6 +2797,7 @@ retry_find:
 		goto out_retry;
 	}
 
+page_ok:
 	/*
 	 * Found the page and have a reference on it.
 	 * We must recheck i_size under page lock.
@@ -2827,82 +2843,198 @@ out_retry:
 	 * re-find the vma and come back and find our hopefully still populated
 	 * page.
 	 */
-	if (page)
+	if (page) {
+		trace_android_vh_filemap_fault_cache_page(vmf, page);
 		put_page(page);
+	}
 	if (fpin)
 		fput(fpin);
 	return ret | VM_FAULT_RETRY;
 }
 EXPORT_SYMBOL(filemap_fault);
 
-void filemap_map_pages(struct vm_fault *vmf,
-		pgoff_t start_pgoff, pgoff_t end_pgoff)
+static bool filemap_map_pmd(struct vm_fault *vmf, struct page *page)
 {
-	struct file *file = vmf->vma->vm_file;
+	struct mm_struct *mm = vmf->vma->vm_mm;
+
+	/* Huge page is mapped? No need to proceed. */
+	if (pmd_trans_huge(*vmf->pmd)) {
+		unlock_page(page);
+		put_page(page);
+		return true;
+	}
+
+	if (pmd_none(*vmf->pmd) && PageTransHuge(page)) {
+	    vm_fault_t ret = do_set_pmd(vmf, page);
+	    if (!ret) {
+		    /* The page is mapped successfully, reference consumed. */
+		    unlock_page(page);
+		    return true;
+	    }
+	}
+
+	if (pmd_none(*vmf->pmd)) {
+		if (vmf->flags & FAULT_FLAG_SPECULATIVE) {
+			unlock_page(page);
+			put_page(page);
+			return true;
+		}
+		vmf->ptl = pmd_lock(mm, vmf->pmd);
+		if (likely(pmd_none(*vmf->pmd))) {
+			mm_inc_nr_ptes(mm);
+			pmd_populate(mm, vmf->pmd, vmf->prealloc_pte);
+			vmf->prealloc_pte = NULL;
+		}
+		spin_unlock(vmf->ptl);
+	}
+
+	/* See comment in handle_pte_fault() */
+	if (pmd_devmap_trans_unstable(vmf->pmd)) {
+		unlock_page(page);
+		put_page(page);
+		return true;
+	}
+
+	return false;
+}
+
+static struct page *next_uptodate_page(struct page *page,
+				       struct address_space *mapping,
+				       struct xa_state *xas, pgoff_t end_pgoff)
+{
+	unsigned long max_idx;
+
+	do {
+		if (!page)
+			return NULL;
+		if (xas_retry(xas, page))
+			continue;
+		if (xa_is_value(page))
+			continue;
+		if (PageLocked(page))
+			continue;
+		if (!page_cache_get_speculative(page))
+			continue;
+		/* Has the page moved or been split? */
+		if (unlikely(page != xas_reload(xas)))
+			goto skip;
+		if (!PageUptodate(page) || PageReadahead(page))
+			goto skip;
+		if (PageHWPoison(page))
+			goto skip;
+		if (!trylock_page(page))
+			goto skip;
+		if (page->mapping != mapping)
+			goto unlock;
+		if (!PageUptodate(page))
+			goto unlock;
+		max_idx = DIV_ROUND_UP(i_size_read(mapping->host), PAGE_SIZE);
+		if (xas->xa_index >= max_idx)
+			goto unlock;
+		return page;
+unlock:
+		unlock_page(page);
+skip:
+		put_page(page);
+	} while ((page = xas_next_entry(xas, end_pgoff)) != NULL);
+
+	return NULL;
+}
+
+static inline struct page *first_map_page(struct address_space *mapping,
+					  struct xa_state *xas,
+					  pgoff_t end_pgoff)
+{
+	return next_uptodate_page(xas_find(xas, end_pgoff),
+				  mapping, xas, end_pgoff);
+}
+
+static inline struct page *next_map_page(struct address_space *mapping,
+					 struct xa_state *xas,
+					 pgoff_t end_pgoff)
+{
+	return next_uptodate_page(xas_next_entry(xas, end_pgoff),
+				  mapping, xas, end_pgoff);
+}
+
+#ifdef CONFIG_SPECULATIVE_PAGE_FAULT
+bool filemap_allow_speculation(void)
+{
+	return true;
+}
+EXPORT_SYMBOL_GPL(filemap_allow_speculation);
+#endif
+
+vm_fault_t filemap_map_pages(struct vm_fault *vmf,
+			     pgoff_t start_pgoff, pgoff_t end_pgoff)
+{
+	struct vm_area_struct *vma = vmf->vma;
+	struct file *file = vma->vm_file;
 	struct address_space *mapping = file->f_mapping;
 	pgoff_t last_pgoff = start_pgoff;
-	unsigned long max_idx;
+	unsigned long addr;
 	XA_STATE(xas, &mapping->i_pages, start_pgoff);
 	struct page *head, *page;
 	unsigned int mmap_miss = READ_ONCE(file->f_ra.mmap_miss);
+	vm_fault_t ret = 0;
 
 	rcu_read_lock();
-	xas_for_each(&xas, head, end_pgoff) {
-		if (xas_retry(&xas, head))
-			continue;
-		if (xa_is_value(head))
-			goto next;
+	head = first_map_page(mapping, &xas, end_pgoff);
+	if (!head)
+		goto out;
 
-		/*
-		 * Check for a locked page first, as a speculative
-		 * reference may adversely influence page migration.
-		 */
-		if (PageLocked(head))
-			goto next;
-		if (!page_cache_get_speculative(head))
-			goto next;
+	if (filemap_map_pmd(vmf, head)) {
+		if (pmd_none(*vmf->pmd) &&
+				vmf->flags & FAULT_FLAG_SPECULATIVE) {
+			ret = VM_FAULT_RETRY;
+			goto out;
+		}
 
-		/* Has the page moved or been split? */
-		if (unlikely(head != xas_reload(&xas)))
-			goto skip;
+		ret = VM_FAULT_NOPAGE;
+		goto out;
+	}
+
+	addr = vma->vm_start + ((start_pgoff - vma->vm_pgoff) << PAGE_SHIFT);
+	if (!pte_map_lock_addr(vmf, addr)) {
+		unlock_page(head);
+		put_page(head);
+		ret = VM_FAULT_RETRY;
+		goto out;
+	}
+
+	do {
 		page = find_subpage(head, xas.xa_index);
-
-		if (!PageUptodate(head) ||
-				PageReadahead(page) ||
-				PageHWPoison(page))
-			goto skip;
-		if (!trylock_page(head))
-			goto skip;
-
-		if (head->mapping != mapping || !PageUptodate(head))
-			goto unlock;
-
-		max_idx = DIV_ROUND_UP(i_size_read(mapping->host), PAGE_SIZE);
-		if (xas.xa_index >= max_idx)
+		if (PageHWPoison(page))
 			goto unlock;
 
 		if (mmap_miss > 0)
 			mmap_miss--;
 
-		vmf->address += (xas.xa_index - last_pgoff) << PAGE_SHIFT;
-		if (vmf->pte)
-			vmf->pte += xas.xa_index - last_pgoff;
+		addr += (xas.xa_index - last_pgoff) << PAGE_SHIFT;
+		vmf->pte += xas.xa_index - last_pgoff;
 		last_pgoff = xas.xa_index;
-		if (alloc_set_pte(vmf, page))
+
+		if (!pte_none(*vmf->pte))
 			goto unlock;
+
+		/* We're about to handle the fault */
+		if (vmf->address == addr)
+			ret = VM_FAULT_NOPAGE;
+
+		do_set_pte(vmf, page, addr);
+		/* no need to invalidate: a not-present page won't be cached */
+		update_mmu_cache(vma, addr, vmf->pte);
 		unlock_page(head);
-		goto next;
+		continue;
 unlock:
 		unlock_page(head);
-skip:
 		put_page(head);
-next:
-		/* Huge page is mapped? No need to proceed. */
-		if (pmd_trans_huge(*vmf->pmd))
-			break;
-	}
+	} while ((head = next_map_page(mapping, &xas, end_pgoff)) != NULL);
+	pte_unmap_unlock(vmf->pte, vmf->ptl);
+out:
 	rcu_read_unlock();
 	WRITE_ONCE(file->f_ra.mmap_miss, mmap_miss);
+	return ret;
 }
 EXPORT_SYMBOL(filemap_map_pages);
 
@@ -2936,6 +3068,9 @@ const struct vm_operations_struct generic_file_vm_ops = {
 	.fault		= filemap_fault,
 	.map_pages	= filemap_map_pages,
 	.page_mkwrite	= filemap_page_mkwrite,
+#ifdef CONFIG_SPECULATIVE_PAGE_FAULT
+	.allow_speculation = filemap_allow_speculation,
+#endif
 };
 
 /* This is used for a general mmap of a disk file */

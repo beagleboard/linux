@@ -6,6 +6,9 @@
 #include "ufshcd.h"
 #include "ufshcd-crypto.h"
 
+#undef CREATE_TRACE_POINTS
+#include <trace/hooks/ufshcd.h>
+
 /* Blk-crypto modes supported by UFS crypto */
 static const struct ufs_crypto_alg_entry {
 	enum ufs_crypto_alg ufs_alg;
@@ -120,7 +123,17 @@ bool ufshcd_crypto_enable(struct ufs_hba *hba)
 		return false;
 
 	/* Reset might clear all keys, so reprogram all the keys. */
-	blk_ksm_reprogram_all_keys(&hba->ksm);
+	if (hba->ksm.num_slots) {
+		int err = -EOPNOTSUPP;
+
+		trace_android_rvh_ufs_reprogram_all_keys(hba, &err);
+		if (err == -EOPNOTSUPP)
+			blk_ksm_reprogram_all_keys(&hba->ksm);
+	}
+
+	if (hba->quirks & UFSHCD_QUIRK_BROKEN_CRYPTO_ENABLE)
+		return false;
+
 	return true;
 }
 
@@ -157,6 +170,9 @@ int ufshcd_hba_init_crypto_capabilities(struct ufs_hba *hba)
 	int err = 0;
 	enum blk_crypto_mode_num blk_mode_num;
 
+	if (hba->quirks & UFSHCD_QUIRK_CUSTOM_KEYSLOT_MANAGER)
+		return 0;
+
 	/*
 	 * Don't use crypto if either the hardware doesn't advertise the
 	 * standard crypto capability bit *or* if the vendor specific driver
@@ -179,14 +195,15 @@ int ufshcd_hba_init_crypto_capabilities(struct ufs_hba *hba)
 	}
 
 	/* The actual number of configurations supported is (CFGC+1) */
-	err = blk_ksm_init(&hba->ksm,
-			   hba->crypto_capabilities.config_count + 1);
+	err = devm_blk_ksm_init(hba->dev, &hba->ksm,
+				hba->crypto_capabilities.config_count + 1);
 	if (err)
 		goto out_free_caps;
 
 	hba->ksm.ksm_ll_ops = ufshcd_ksm_ops;
 	/* UFS only supports 8 bytes for any DUN */
 	hba->ksm.max_dun_bytes_supported = 8;
+	hba->ksm.features = BLK_CRYPTO_FEATURE_STANDARD_KEYS;
 	hba->ksm.dev = hba->dev;
 
 	/*
@@ -227,9 +244,9 @@ void ufshcd_init_crypto(struct ufs_hba *hba)
 	if (!(hba->caps & UFSHCD_CAP_CRYPTO))
 		return;
 
-	/* Clear all keyslots - the number of keyslots is (CFGC + 1) */
-	for (slot = 0; slot < hba->crypto_capabilities.config_count + 1; slot++)
-		ufshcd_clear_keyslot(hba, slot);
+	/* Clear all keyslots */
+	for (slot = 0; slot < hba->ksm.num_slots; slot++)
+		hba->ksm.ksm_ll_ops.keyslot_evict(&hba->ksm, NULL, slot);
 }
 
 void ufshcd_crypto_setup_rq_keyslot_manager(struct ufs_hba *hba,
@@ -237,9 +254,4 @@ void ufshcd_crypto_setup_rq_keyslot_manager(struct ufs_hba *hba,
 {
 	if (hba->caps & UFSHCD_CAP_CRYPTO)
 		blk_ksm_register(&hba->ksm, q);
-}
-
-void ufshcd_crypto_destroy_keyslot_manager(struct ufs_hba *hba)
-{
-	blk_ksm_destroy(&hba->ksm);
 }

@@ -1,0 +1,55 @@
+Thead light/ice DWMAC glue layer controller
+
+This file documents platform glue layer for stmmac.
+Please see stmmac.txt for the other unchanged properties.
+
+The device node has following properties.
+
+Required properties:
+- compatible:  should be "thead,light-dwmac" for light glue,
+	       and "thead,ice-dwmac" for ice glue.
+- clocks: Must contain a phandle for each entry in clock-names.
+- clock-names: Should be "stmmaceth" for the host clock.
+	       Should be "gmac_pll_clk" for the MAC TX clock.
+- reg/reg-names: "gmac" is required for controller registers.
+- interrupt-names: Should contain a list of interrupt names corresponding to
+               the interrupts in the interrupts property, if available.
+	       Should be "macirq" for the main MAC IRQ
+
+Optional properties:
+- reg/reg-names: "phy_if_reg"/"txclk_dir_reg"/"clk_mgr_reg" is optional,
+                 which is to control interface mode, txclk direction and clock
+                 setting in soc glue layer.
+- rx-clk-delay : set this property for RGMII rx clk delay setting in MAC.
+- tx-clk-delay : set this property for RGMII tx clk delay setting in MAC.
+
+Example:
+	gmac: ethernet@ffe7070000 {
+		compatible = "thead,light-dwmac";
+		reg = <0xff 0xe7070000 0x0 0x2000
+		       0xff 0xe703001c 0x0 0x4
+		       0xff 0xe7030020 0x0 0x4
+		       0xff 0xe7030000 0x0 0x1c>;
+		reg-names = "gmac", "phy_if_reg", "txclk_dir_reg", "clk_mgr_reg";
+		interrupt-parent = <&intc>;
+		interrupts = <66>;
+		interrupt-names = "macirq";
+		clocks = <&dummy_ahb>, <&dummy_clock_gmac>;
+		clock-names = "stmmaceth", "gmac_pll_clk";
+		snps,pbl = <32>;
+		snps,fixed-burst;
+		phy-mode = "rgmii-id";
+		rx-clk-delay = <0x4000>; /* for RGMII */
+		tx-clk-delay = <0x1f>; /* for RGMII */
+
+		phy-handle = <&phy_88E1111>;
+		mdio0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "snps,dwmac-mdio";
+
+			phy_88E1111: ethernet-phy@0 {
+				reg = <0x1>;
+			};
+		};
+	};

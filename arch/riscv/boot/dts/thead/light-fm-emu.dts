@@ -1,0 +1,511 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * Copyright (C) 2021 Alibaba Group Holding Limited.
+ */
+
+/dts-v1/;
+
+#include "light-emu.dtsi"
+
+/ {
+	model = "T-HEAD Light FM EMU FPGA board";
+	compatible = "thead,light-fm-emu", "thead,light";
+
+	chosen {
+		bootargs = "console=ttyS0,115200 crashkernel=256M-:128M earlycon sram=0xffe0000000,0x180000";
+		linux,initrd-start = <0x0 0x2000000>;
+		linux,initrd-end = <0x0 0x4600000>;
+		stdout-path = "serial0:115200n8";
+	};
+
+	keys {
+		compatible = "gpio-keys";
+
+		key0 {
+			label = "key0";
+			gpios = <&gpio1_porta 7 1>;	/* GPIO_ACTIVE_LOW: 1 */
+			linux,code = <59>;		/* KEY_F1: 59 */
+			status = "okay";
+		};
+	};
+
+	leds {
+		compatible = "gpio-leds";
+
+		led0 {
+			label = "led0";
+			gpios = <&gpio1_porta 8 0>;	/* GPIO_ACTIVE_HIGH: 0 */
+			default-state = "off";
+		};
+	};
+
+	iopmp {
+		compatible = "thead,light-iopmp";
+
+		/* config#1: multiple valid regions */
+		iopmp_emmc: IOPMP_EMMC {
+			regions = <0x000000 0x100000>,
+				  <0x100000 0x200000>;
+			attr = <0xFFFFFFFF>;
+			dummy_slave= <0x800000>;
+		};
+
+		/* config#2: iopmp bypass */
+		iopmp_sdio0: IOPMP_SDIO0 {
+			bypass_en;
+		};
+
+		/* config#3: iopmp default region set */
+		iopmp_sdio1: IOPMP_SDIO1 {
+			attr = <0xFFFFFFFF>;
+			is_default_region;
+		};
+
+		iopmp_usb0: IOPMP_USB0 {
+			attr = <0xFFFFFFFF>;
+			is_default_region;
+		};
+
+		iopmp_ao: IOPMP_AO {
+			is_default_region;
+		};
+
+		iopmp_aud: IOPMP_AUD {
+			is_default_region;
+		};
+
+		iopmp_chip_dbg: IOPMP_CHIP_DBG {
+			is_default_region;
+		};
+
+		iopmp_eip120i: IOPMP_EIP120I {
+			is_default_region;
+		};
+
+		iopmp_eip120ii: IOPMP_EIP120II {
+			is_default_region;
+		};
+
+		iopmp_eip120iii: IOPMP_EIP120III {
+			is_default_region;
+		};
+
+		iopmp_isp0: IOPMP_ISP0 {
+			is_default_region;
+		};
+
+		iopmp_isp1: IOPMP_ISP1 {
+			is_default_region;
+		};
+
+		iopmp_dsp: IOPMP_DSP {
+			is_default_region;
+		};
+
+		iopmp_dw200: IOPMP_DW200 {
+			is_default_region;
+		};
+
+		iopmp_venc: IOPMP_VENC {
+			is_default_region;
+		};
+
+		iopmp_vdec: IOPMP_VDEC {
+			is_default_region;
+		};
+
+		iopmp_g2d: IOPMP_G2D {
+			is_default_region;
+		};
+
+		iopmp_fce: IOPMP_FCE {
+			is_default_region;
+		};
+
+		iopmp_npu: IOPMP_NPU {
+			is_default_region;
+		};
+
+		iopmp0_dpu: IOPMP0_DPU {
+			bypass_en;
+		};
+
+		iopmp1_dpu: IOPMP1_DPU {
+			bypass_en;
+		};
+
+		iopmp_gpu: IOPMP_GPU {
+			is_default_region;
+		};
+
+		iopmp_gmac1: IOPMP_GMAC1 {
+			is_default_region;
+		};
+
+		iopmp_gmac2: IOPMP_GMAC2 {
+			is_default_region;
+		};
+
+		iopmp_dmac: IOPMP_DMAC {
+			is_default_region;
+		};
+
+		iopmp_tee_dmac: IOPMP_TEE_DMAC {
+			is_default_region;
+		};
+	};
+
+	mbox_910t_client1: mbox_910t_client1 {
+		compatible = "thead,light-mbox-client";
+		mbox-names = "902";
+		mboxes = <&mbox_910t 1 0>;
+		status = "disabled";
+	};
+
+
+	mbox_910t_client2: mbox_910t_client2 {
+		compatible = "thead,light-mbox-client";
+		mbox-names = "906";
+		mboxes = <&mbox_910t 2 0>;
+		status = "disabled";
+	};
+
+	lightsound: lightsound@1 {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "Light-Sound-Card";
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		status = "disabled";
+		simple-audio-card,dai-link@0 {          /* I2S - CODEC */
+			reg = <0>;
+			format = "i2s";
+			cpu {
+				sound-dai = <&light_i2s 0>;
+			};
+			codec {
+				sound-dai = <&dummy_codec 2>;
+			};
+		};
+
+		simple-audio-card,dai-link@1 {          /* I2S - HDMI */
+			reg = <1>;
+			format = "i2s";
+			cpu {
+				sound-dai = <&light_i2s 1>;
+			};
+			codec {
+				sound-dai = <&dummy_codec 2>;
+			};
+		};
+	};
+
+	dummy_codec: dummy_codec {
+		#sound-dai-cells = <1>;
+		compatible = "linux,bt-sco";
+		status = "okay";
+	};
+};
+
+&i2c0 {
+	clock-frequency = <100000>;
+	status = "okay";
+
+	eeprom@50 {
+		compatible = "atmel,24c32";
+		reg = <0x50>;
+		pagesize = <32>;
+	};
+};
+
+&spi0 {
+	num-cs = <2>;
+	cs-gpios = <&gpio2_porta 15 0>, // GPIO_ACTIVE_HIGH: 0
+		   <&gpio2_porta 23 0>; // GPIO_ACTIVE_LOW: 1
+	status = "okay";
+
+	spi_norflash@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "winbond,w25q64", "jedec,spi-nor";
+		reg = <0>;
+		spi-max-frequency = <8000000>;
+		w25q,fast-read;
+	};
+
+	spidev@1 {
+		compatible = "spidev";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		reg = <1>;
+		spi-max-frequency = <12500000>;
+	};
+};
+
+&uart0 {
+	clock-frequency = <50000000>;
+};
+
+&qspi0 {
+	num-cs = <2>;
+	cs-gpios = <&gpio2_porta 3 0>, // GPIO_ACTIVE_HIGH: 0
+		   <&gpio2_porta 26 0>;
+	status = "okay";
+
+	spi-flash@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "spi-nand";
+		spi-max-frequency = <10000000>;
+		spi-tx-bus-width = <4>;
+		spi-rx-bus-width = <4>;
+		reg = <0>;
+
+		partition@0 {
+			label = "ubi1";
+			reg = <0x00000000 0x08000000>;
+		};
+	};
+
+	spidev@1 {
+		compatible = "spidev";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		reg = <1>;
+		spi-max-frequency = <6250000>;
+	};
+};
+
+&gmac0 {
+	max-speed = <100>;
+	phy-mode = "mii";
+	phy-handle = <&phy_88E1111_0>;
+	status = "okay";
+
+	mdio0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "snps,dwmac-mdio";
+
+		phy_88E1111_0: ethernet-phy@0 {
+			reg = <0x0 0x0>;
+		};
+	};
+};
+
+&gmac1 {
+	max-speed = <100>;
+	phy-mode = "mii";
+	phy-handle = <&phy_88E1111_1>;
+	status = "disabled";
+
+	mdio0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "snps,dwmac-mdio";
+
+		phy_88E1111_1: ethernet-phy@0 {
+			reg = <0x0 0x0>;
+		};
+	};
+};
+
+&emmc {
+	max-frequency = <50000000>;
+	non-removable;
+	no-sdio;
+	no-sd;
+	bus-width = <8>;
+	status = "okay";
+};
+
+&sdhci0 {
+	max-frequency = <50000000>;
+	no-1-8-v;
+	bus-width = <4>;
+	status = "okay";
+};
+
+&padctrl0_apsys {
+	light-fm-evb {
+			/*
+			 * Pin Configuration Node:
+			 * Format: <pin_id mux_node config>
+			 */
+			pinctrl_uart0: uart0grp {
+				thead,pins = <
+					FM_UART0_TXD	0x0	0x72
+					FM_UART0_RXD	0x0	0x72
+				>;
+			};
+
+			pinctrl_spi0: spi0grp {
+				thead,pins = <
+					FM_SPI_CSN	0x0	0x72
+				>;
+			};
+
+			pinctrl_qspi0: qspi0grp {
+				thead,pins = <
+					FM_QSPI0_CSN0	0x0	0x72
+				>;
+			};
+		};
+};
+
+&padctrl1_apsys {
+	light-fm-evb {
+			/*
+			 * Pin Configuration Node:
+			 * Format: <pin_id mux_node config>
+			 */
+			pinctrl_uart3: uart3grp {
+				thead,pins = <
+					FM_UART3_TXD	0x0	0x72
+					FM_UART3_RXD	0x0	0x72
+				>;
+			};
+
+			pinctrl_uart4: uart4grp {
+				thead,pins = <
+					FM_UART4_TXD	0x0	0x72
+					FM_UART4_RXD	0x0	0x72
+					FM_UART4_CTSN	0x0	0x72
+					FM_UART4_RTSN	0x0	0x72
+				>;
+			};
+		};
+};
+
+&padctrl_aosys {
+	light-fm-evb {
+			/*
+			 * Pin Configuration Node:
+			 * Format: <pin_id mux_node config>
+			 */
+
+			pinctrl_audiopa1: audiopa1_grp {
+				thead,pins = <
+					FM_AUDIO_PA1	0x3	0x72
+				>;
+			};
+
+			pinctrl_audiopa2: audiopa2_grp {
+				thead,pins = <
+					FM_AUDIO_PA2	0x0	0x72
+				>;
+			};
+
+	};
+};
+
+&i2c2 {
+	status = "okay";
+};
+
+&isp0 {
+	status = "okay";
+};
+
+&isp1 {
+	status = "okay";
+};
+
+&isp_ry0 {
+	status = "okay";
+};
+
+&dewarp {
+	status = "okay";
+};
+
+&dec400_isp0 {
+	status = "okay";
+};
+
+&dec400_isp1 {
+	status = "okay";
+};
+
+&dec400_isp2 {
+	status = "okay";
+};
+
+&bm_visys {
+	status = "okay";
+};
+
+&bm_csi0 {
+	status = "okay";
+};
+
+&vi_pre {
+	status = "okay";
+};
+
+&vvcam_sensor0 {
+	sensor_name = "OV5693";
+	status = "okay";
+};
+
+&video{
+	status = "okay";
+	piplane0 {
+				pipline_id = <0>;
+				status = "okay";
+				sensor0 {
+					subdev_name = "vivcam";
+					idx = <0>;
+					csi_idx = <0>;
+					path_type = "SENSOR_VGA_RAW10_LINER";
+				};
+				/*
+				csi0 {
+					subdev_name = "bm_csi";
+					idx = <0>;
+				};
+				*/
+				dma {
+					subdev_name = "vipre";
+					idx = <0>;
+					path_type = "VIPRE_CSI0_ISP0";
+				};
+				isp {
+					subdev_name = "isp";
+					idx = <0>;
+						path_type = "ISP_MI_PATH_PP";
+				};
+				dsp {
+					subdev_name = "dsp";
+					idx = <0>;
+					path_type = "DSP_PATH_ISP_RY";
+				};
+				ry {
+					subdev_name = "ry";
+					idx = <0>;
+					path_type = "ISP_RY_MI_PATH_MP";
+				};
+				dw {
+					subdev_name = "dw";
+					idx = <0>;
+					path_type = "DW_PATH_MEM_DW_SC_MEM";
+				};
+	};
+};
+
+&vdec {
+	status = "okay";
+};
+
+&venc {
+	status = "okay";
+};
+
+&isp_venc_shake {
+	status = "okay";
+};
+
+&vidmem {
+	status = "okay";
+};

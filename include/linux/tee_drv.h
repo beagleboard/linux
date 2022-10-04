@@ -27,7 +27,6 @@
 #define TEE_SHM_USER_MAPPED	BIT(4)  /* Memory mapped in user space */
 #define TEE_SHM_POOL		BIT(5)  /* Memory allocated from pool */
 #define TEE_SHM_KERNEL_MAPPED	BIT(6)  /* Memory mapped in kernel space */
-#define TEE_SHM_PRIV		BIT(7)  /* Memory private to TEE driver */
 
 struct device;
 struct tee_device;
@@ -195,7 +194,7 @@ int tee_session_calc_client_uuid(uuid_t *uuid, u32 connection_method,
  * @offset:	offset of buffer in user space
  * @pages:	locked pages from userspace
  * @num_pages:	number of locked pages
- * @refcount:	reference counter
+ * @dmabuf:	dmabuf used to for exporting to user space
  * @flags:	defined by TEE_SHM_* in tee_drv.h
  * @id:		unique id of a shared memory object on this device
  *
@@ -210,7 +209,7 @@ struct tee_shm {
 	unsigned int offset;
 	struct page **pages;
 	size_t num_pages;
-	refcount_t refcount;
+	struct dma_buf *dmabuf;
 	u32 flags;
 	int id;
 };
@@ -333,7 +332,6 @@ void *tee_get_drvdata(struct tee_device *teedev);
  * @returns a pointer to 'struct tee_shm'
  */
 struct tee_shm *tee_shm_alloc(struct tee_context *ctx, size_t size, u32 flags);
-struct tee_shm *tee_shm_alloc_kernel_buf(struct tee_context *ctx, size_t size);
 
 /**
  * tee_shm_register() - Register shared memory buffer
@@ -346,6 +344,16 @@ struct tee_shm *tee_shm_alloc_kernel_buf(struct tee_context *ctx, size_t size);
  */
 struct tee_shm *tee_shm_register(struct tee_context *ctx, unsigned long addr,
 				 size_t length, u32 flags);
+
+/**
+ * tee_shm_register_fd() - Register shared memory from file descriptor
+ *
+ * @ctx:	Context that allocates the shared memory
+ * @fd:		shared memory file descriptor reference.
+ *
+ * @returns a pointer to 'struct tee_shm'
+ */
+struct tee_shm *tee_shm_register_fd(struct tee_context *ctx, int fd);
 
 /**
  * tee_shm_is_registered() - Check if shared memory object in registered in TEE

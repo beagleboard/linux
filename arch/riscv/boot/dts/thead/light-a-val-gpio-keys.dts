@@ -1,0 +1,15 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * Copyright (C) 2021 Alibaba Group Holding Limited.
+ */
+
+#include "light-a-val.dts"
+
+/ {
+	model = "T-HEAD Light FM GPIO-KEYS VAL board";
+	compatible = "thead,light-val-gpio-keys", "thead,light";
+};
+
+&gpio_keys {
+	status = "okay";
+};

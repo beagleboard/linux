@@ -19,11 +19,13 @@
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
 #include <linux/psci.h>
+#include <linux/pm_domain.h>
 #include <linux/pm_runtime.h>
 #include <linux/slab.h>
 #include <linux/string.h>
 
 #include <asm/cpuidle.h>
+#include <trace/hooks/cpuidle_psci.h>
 
 #include "cpuidle-psci.h"
 #include "dt_idle_states.h"
@@ -52,8 +54,9 @@ static inline int psci_enter_state(int idx, u32 state)
 	return CPU_PM_CPU_IDLE_ENTER_PARAM(psci_cpu_suspend_enter, idx, state);
 }
 
-static int psci_enter_domain_idle_state(struct cpuidle_device *dev,
-					struct cpuidle_driver *drv, int idx)
+static int __psci_enter_domain_idle_state(struct cpuidle_device *dev,
+					  struct cpuidle_driver *drv, int idx,
+					  bool s2idle)
 {
 	struct psci_cpuidle_data *data = this_cpu_ptr(&psci_cpuidle_data);
 	u32 *states = data->psci_states;
@@ -65,8 +68,15 @@ static int psci_enter_domain_idle_state(struct cpuidle_device *dev,
 	if (ret)
 		return -1;
 
+	trace_android_vh_cpuidle_psci_enter(dev, s2idle);
+
 	/* Do runtime PM to manage a hierarchical CPU toplogy. */
-	RCU_NONIDLE(pm_runtime_put_sync_suspend(pd_dev));
+	rcu_irq_enter_irqson();
+	if (s2idle)
+		dev_pm_genpd_suspend(pd_dev);
+	else
+		pm_runtime_put_sync_suspend(pd_dev);
+	rcu_irq_exit_irqson();
 
 	state = psci_get_domain_state();
 	if (!state)
@@ -74,13 +84,33 @@ static int psci_enter_domain_idle_state(struct cpuidle_device *dev,
 
 	ret = psci_cpu_suspend_enter(state) ? -1 : idx;
 
-	RCU_NONIDLE(pm_runtime_get_sync(pd_dev));
+	rcu_irq_enter_irqson();
+	if (s2idle)
+		dev_pm_genpd_resume(pd_dev);
+	else
+		pm_runtime_get_sync(pd_dev);
+	rcu_irq_exit_irqson();
+
+	trace_android_vh_cpuidle_psci_exit(dev, s2idle);
 
 	cpu_pm_exit();
 
 	/* Clear the domain state to start fresh when back from idle. */
 	psci_set_domain_state(0);
 	return ret;
+}
+
+static int psci_enter_domain_idle_state(struct cpuidle_device *dev,
+					struct cpuidle_driver *drv, int idx)
+{
+	return __psci_enter_domain_idle_state(dev, drv, idx, false);
+}
+
+static int psci_enter_s2idle_domain_idle_state(struct cpuidle_device *dev,
+					       struct cpuidle_driver *drv,
+					       int idx)
+{
+	return __psci_enter_domain_idle_state(dev, drv, idx, true);
 }
 
 static int psci_idle_cpuhp_up(unsigned int cpu)
@@ -170,6 +200,7 @@ static int psci_dt_cpu_init_topology(struct cpuidle_driver *drv,
 	 * deeper states.
 	 */
 	drv->states[state_count - 1].enter = psci_enter_domain_idle_state;
+	drv->states[state_count - 1].enter_s2idle = psci_enter_s2idle_domain_idle_state;
 	psci_cpuidle_use_cpuhp = true;
 
 	return 0;

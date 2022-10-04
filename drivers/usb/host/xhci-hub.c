@@ -449,7 +449,12 @@ static int xhci_stop_device(struct xhci_hcd *xhci, int slot_id, int suspend)
 	    cmd->status == COMP_COMMAND_RING_STOPPED) {
 		xhci_warn(xhci, "Timeout while waiting for stop endpoint command\n");
 		ret = -ETIME;
+		goto cmd_cleanup;
 	}
+
+	ret = xhci_vendor_sync_dev_ctx(xhci, slot_id);
+	if (ret)
+		xhci_warn(xhci, "Sync device context failed, ret=%d\n", ret);
 
 cmd_cleanup:
 	xhci_free_command(xhci, cmd);
@@ -1586,7 +1591,8 @@ int xhci_hub_status_data(struct usb_hcd *hcd, char *buf)
 			status = 1;
 	}
 	if (!status && !reset_change) {
-		xhci_dbg(xhci, "%s: stopping port polling.\n", __func__);
+		xhci_dbg(xhci, "%s: stopping usb%d port polling\n",
+			 __func__, hcd->self.busnum);
 		clear_bit(HCD_FLAG_POLL_RH, &hcd->flags);
 	}
 	spin_unlock_irqrestore(&xhci->lock, flags);
@@ -1618,7 +1624,8 @@ int xhci_bus_suspend(struct usb_hcd *hcd)
 		if (bus_state->resuming_ports ||	/* USB2 */
 		    bus_state->port_remote_wakeup) {	/* USB3 */
 			spin_unlock_irqrestore(&xhci->lock, flags);
-			xhci_dbg(xhci, "suspend failed because a port is resuming\n");
+			xhci_dbg(xhci, "usb%d bus suspend to fail because a port is resuming\n",
+				 hcd->self.busnum);
 			return -EBUSY;
 		}
 	}
@@ -1724,6 +1731,7 @@ retry:
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(xhci_bus_suspend);
 
 /*
  * Workaround for missing Cold Attach Status (CAS) if device re-plugged in S3.
@@ -1868,6 +1876,7 @@ int xhci_bus_resume(struct usb_hcd *hcd)
 	spin_unlock_irqrestore(&xhci->lock, flags);
 	return 0;
 }
+EXPORT_SYMBOL_GPL(xhci_bus_resume);
 
 unsigned long xhci_get_resuming_ports(struct usb_hcd *hcd)
 {

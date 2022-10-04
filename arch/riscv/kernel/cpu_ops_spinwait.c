@@ -33,6 +33,8 @@ static int spinwait_cpu_start(unsigned int cpuid, struct task_struct *tidle)
 	 */
 	cpu_update_secondary_bootdata(cpuid, tidle);
 
+	sbi_ecall(0x09000003, 0, cpuid_to_hartid_map(cpuid), 0, 0, 0, 0, 0);
+
 	return 0;
 }
 

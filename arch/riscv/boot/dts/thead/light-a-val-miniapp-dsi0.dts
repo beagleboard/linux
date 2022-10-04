@@ -1,0 +1,126 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * Copyright (C) 2021 Alibaba Group Holding Limited.
+ */
+
+/dts-v1/;
+
+#include "light-a-val.dts"
+
+/ {
+	display-subsystem {
+		status = "okay";
+	};
+};
+
+&dpu_enc0 {
+	status = "okay";
+
+	ports {
+		/* output */
+		port@1 {
+			reg = <1>;
+
+			enc0_out: endpoint {
+				remote-endpoint = <&dsi0_in>;
+			};
+		};
+	};
+};
+
+&dpu {
+        status = "okay";
+};
+
+&dsi0 {
+        status = "okay";
+};
+
+&dhost_0 {
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+
+			dsi0_in: endpoint {
+				remote-endpoint = <&enc0_out>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+
+			dsi0_out: endpoint {
+				remote-endpoint = <&panel0_in>;
+			};
+		};
+	};
+
+	panel0@0 {
+		compatible = "txd,dy800qwxpab";
+		reg = <0>;
+		backlight = <&lcd0_backlight>;
+		reset-gpio = <&gpio1_porta 5 1>; /* active low */
+		vdd1v8-supply = <&lcd0_1v8>;
+		vspn5v7-supply = <&lcd0_5v7>;
+
+		port {
+			panel0_in: endpoint {
+				remote-endpoint = <&dsi0_out>;
+			};
+		};
+	};
+};
+
+&lightsound {
+	status = "okay";
+
+        simple-audio-card,dai-link@0 {          /* I2S - AUDIO SYS CODEC 8156*/
+                reg = <0>;
+                format = "i2s";
+                cpu {
+                        sound-dai = <&i2s0 0>;
+                };
+                codec {
+                        sound-dai = <&es8156_audio_codec>;
+                };
+        };
+
+        simple-audio-card,dai-link@1 {          /* I2S - AUDIO SYS CODEC 7210*/
+                reg = <1>;
+                format = "i2s";
+                cpu {
+                        sound-dai = <&i2s3 0>;
+                };
+                codec {
+                        sound-dai = <&es7210_audio_codec>;
+                };
+        };
+};
+
+
+&light_i2s {
+	status = "okay";
+};
+
+&i2s0 {
+        status = "okay";
+};
+
+&i2s3 {
+        status = "okay";
+};
+
+&sdhci1 {
+	status = "okay";
+};
+
+&wcn_bt {
+	status = "okay";
+};
+
+&wcn_wifi {
+	status = "okay";
+};

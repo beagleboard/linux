@@ -17,6 +17,7 @@
 #include <linux/mempolicy.h>
 #include <linux/syscalls.h>
 #include <linux/sched.h>
+#include <linux/page_pinner.h>
 #include <linux/export.h>
 #include <linux/rmap.h>
 #include <linux/mmzone.h>
@@ -450,7 +451,9 @@ static unsigned long __munlock_pagevec_fill(struct pagevec *pvec,
 void munlock_vma_pages_range(struct vm_area_struct *vma,
 			     unsigned long start, unsigned long end)
 {
-	vma->vm_flags &= VM_LOCKED_CLEAR_MASK;
+	vm_write_begin(vma);
+	WRITE_ONCE(vma->vm_flags, vma->vm_flags & VM_LOCKED_CLEAR_MASK);
+	vm_write_end(vma);
 
 	while (start < end) {
 		struct page *page;
@@ -468,8 +471,15 @@ void munlock_vma_pages_range(struct vm_area_struct *vma,
 		 * has sneaked into the range, we won't oops here: great).
 		 */
 		page = follow_page(vma, start, FOLL_GET | FOLL_DUMP);
-
 		if (page && !IS_ERR(page)) {
+			/*
+			 * munlock_vma_pages_range uses follow_page(FOLL_GET)
+			 * so it need to use put_user_page but the munlock
+			 * path is quite complicated to deal with each put
+			 * sites correctly so just unattribute them to avoid
+			 * false positive at this moment.
+			 */
+			reset_page_pinner(page, compound_order(page));
 			if (PageTransTail(page)) {
 				VM_BUG_ON_PAGE(PageMlocked(page), page);
 				put_page(page); /* follow_page_mask() */
@@ -540,7 +550,7 @@ static int mlock_fixup(struct vm_area_struct *vma, struct vm_area_struct **prev,
 	pgoff = vma->vm_pgoff + ((start - vma->vm_start) >> PAGE_SHIFT);
 	*prev = vma_merge(mm, *prev, start, end, newflags, vma->anon_vma,
 			  vma->vm_file, pgoff, vma_policy(vma),
-			  vma->vm_userfaultfd_ctx);
+			  vma->vm_userfaultfd_ctx, vma_get_anon_name(vma));
 	if (*prev) {
 		vma = *prev;
 		goto success;
@@ -574,10 +584,11 @@ success:
 	 * It's okay if try_to_unmap_one unmaps a page just after we
 	 * set VM_LOCKED, populate_vma_page_range will bring it back.
 	 */
-
-	if (lock)
-		vma->vm_flags = newflags;
-	else
+	if (lock) {
+		vm_write_begin(vma);
+		WRITE_ONCE(vma->vm_flags, newflags);
+		vm_write_end(vma);
+	} else
 		munlock_vma_pages_range(vma, start, end);
 
 out:

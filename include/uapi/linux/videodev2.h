@@ -70,7 +70,7 @@
  * Common stuff for both V4L1 and V4L2
  * Moved from videodev.h
  */
-#define VIDEO_MAX_FRAME               32
+#define VIDEO_MAX_FRAME               64
 #define VIDEO_MAX_PLANES               8
 
 /*
@@ -978,7 +978,9 @@ struct v4l2_requestbuffers {
  *			descriptor associated with this plane
  * @data_offset:	offset in the plane to the start of data; usually 0,
  *			unless there is a header in front of the data
- *
+ * @reserved:		few userspace clients and drivers use reserved fields
+ *			and it is up to them how these fields are used. v4l2
+ *			simply copy reserved fields between them.
  * Multi-planar buffers consist of one or more planes, e.g. an YCbCr buffer
  * with two planes can have one plane for Y, and another for interleaved CbCr
  * components. Each plane can reside in a separate memory buffer, or even in
@@ -993,6 +995,7 @@ struct v4l2_plane {
 		__s32		fd;
 	} m;
 	__u32			data_offset;
+	/* reserved fields used by few userspace clients and drivers */
 	__u32			reserved[11];
 };
 
@@ -1777,6 +1780,16 @@ enum v4l2_ctrl_type {
 	V4L2_CTRL_TYPE_U16	     = 0x0101,
 	V4L2_CTRL_TYPE_U32	     = 0x0102,
 	V4L2_CTRL_TYPE_AREA          = 0x0106,
+
+	V4L2_CTRL_TYPE_HDR10_CLL_INFO		= 0x0110,
+	V4L2_CTRL_TYPE_HDR10_MASTERING_DISPLAY	= 0x0111,
+
+	V4L2_CTRL_TYPE_H264_SPS             = 0x0200,
+	V4L2_CTRL_TYPE_H264_PPS		    = 0x0201,
+	V4L2_CTRL_TYPE_H264_SCALING_MATRIX  = 0x0202,
+	V4L2_CTRL_TYPE_H264_SLICE_PARAMS    = 0x0203,
+	V4L2_CTRL_TYPE_H264_DECODE_PARAMS   = 0x0204,
+	V4L2_CTRL_TYPE_H264_PRED_WEIGHTS    = 0x0205,
 };
 
 /*  Used in the VIDIOC_QUERYCTRL ioctl for querying controls */

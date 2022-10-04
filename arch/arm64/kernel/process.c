@@ -44,6 +44,7 @@
 #include <linux/percpu.h>
 #include <linux/thread_info.h>
 #include <linux/prctl.h>
+#include <trace/hooks/fpsimd.h>
 
 #include <asm/alternative.h>
 #include <asm/arch_gicv3.h>
@@ -69,8 +70,6 @@ EXPORT_SYMBOL(__stack_chk_guard);
  */
 void (*pm_power_off)(void);
 EXPORT_SYMBOL_GPL(pm_power_off);
-
-void (*arm_pm_restart)(enum reboot_mode reboot_mode, const char *cmd);
 
 static void noinstr __cpu_do_idle(void)
 {
@@ -199,10 +198,7 @@ void machine_restart(char *cmd)
 		efi_reboot(reboot_mode, NULL);
 
 	/* Now call the architecture specific reboot code. */
-	if (arm_pm_restart)
-		arm_pm_restart(reboot_mode, cmd);
-	else
-		do_kernel_restart(cmd);
+	do_kernel_restart(cmd);
 
 	/*
 	 * Whoops - the architecture was unable to reboot.
@@ -309,6 +305,7 @@ void show_regs(struct pt_regs * regs)
 	__show_regs(regs);
 	dump_backtrace(regs, NULL, KERN_DEFAULT);
 }
+EXPORT_SYMBOL_GPL(show_regs);
 
 static void tls_thread_flush(void)
 {
@@ -339,7 +336,6 @@ void flush_thread(void)
 	tls_thread_flush();
 	flush_ptrace_hw_breakpoint(current);
 	flush_tagged_addr_state();
-	flush_mte_state();
 }
 
 void release_thread(struct task_struct *dead_task)
@@ -422,16 +418,15 @@ int copy_thread(unsigned long clone_flags, unsigned long stack_start,
 		if (clone_flags & CLONE_SETTLS)
 			p->thread.uw.tp_value = tls;
 	} else {
+		/*
+		 * A kthread has no context to ERET to, so ensure any buggy
+		 * ERET is treated as an illegal exception return.
+		 *
+		 * When a user task is created from a kthread, childregs will
+		 * be initialized by start_thread() or start_compat_thread().
+		 */
 		memset(childregs, 0, sizeof(struct pt_regs));
-		childregs->pstate = PSR_MODE_EL1h;
-		if (IS_ENABLED(CONFIG_ARM64_UAO) &&
-		    cpus_have_const_cap(ARM64_HAS_UAO))
-			childregs->pstate |= PSR_UAO_BIT;
-
-		spectre_v4_enable_task_mitigation(p);
-
-		if (system_uses_irq_prio_masking())
-			childregs->pmr_save = GIC_PRIO_IRQON;
+		childregs->pstate = PSR_MODE_EL1h | PSR_IL_BIT;
 
 		p->thread.cpu_context.x19 = stack_start;
 		p->thread.cpu_context.x20 = stk_sz;
@@ -534,6 +529,24 @@ static void erratum_1418040_new_exec(void)
 }
 
 /*
+ * __switch_to() checks current->thread.sctlr_user as an optimisation. Therefore
+ * this function must be called with preemption disabled and the update to
+ * sctlr_user must be made in the same preemption disabled block so that
+ * __switch_to() does not see the variable update before the SCTLR_EL1 one.
+ */
+void update_sctlr_el1(u64 sctlr)
+{
+	/*
+	 * EnIA must not be cleared while in the kernel as this is necessary for
+	 * in-kernel PAC. It will be cleared on kernel exit if needed.
+	 */
+	sysreg_clear_set(sctlr_el1, SCTLR_USER_MASK & ~SCTLR_ELx_ENIA, sctlr);
+
+	/* ISB required for the kernel uaccess routines when setting TCF0. */
+	isb();
+}
+
+/*
  * Thread switching.
  */
 __notrace_funcgraph struct task_struct *__switch_to(struct task_struct *prev,
@@ -549,6 +562,7 @@ __notrace_funcgraph struct task_struct *__switch_to(struct task_struct *prev,
 	uao_thread_switch(next);
 	ssbs_thread_switch(next);
 	erratum_1418040_thread_switch(next);
+	ptrauth_thread_switch_user(next);
 
 	/*
 	 * Complete any pending TLB or cache maintenance on this CPU in case
@@ -564,6 +578,11 @@ __notrace_funcgraph struct task_struct *__switch_to(struct task_struct *prev,
 	 * registers.
 	 */
 	mte_thread_switch(next);
+	/* avoid expensive SCTLR_EL1 accesses if no change */
+	if (prev->thread.sctlr_user != next->thread.sctlr_user)
+		update_sctlr_el1(next->thread.sctlr_user);
+
+	trace_android_vh_is_fpsimd_save(prev, next);
 
 	/* the actual thread switch */
 	last = cpu_switch_to(prev, next);
@@ -598,6 +617,7 @@ out:
 	put_task_stack(p);
 	return ret;
 }
+EXPORT_SYMBOL_GPL(get_wchan);
 
 unsigned long arch_align_stack(unsigned long sp)
 {
@@ -611,9 +631,27 @@ unsigned long arch_align_stack(unsigned long sp)
  */
 void arch_setup_new_exec(void)
 {
-	current->mm->context.flags = is_compat_task() ? MMCF_AARCH32 : 0;
+	unsigned long mmflags = 0;
 
-	ptrauth_thread_init_user(current);
+	if (is_compat_task()) {
+		mmflags = MMCF_AARCH32;
+
+		/*
+		 * Restrict the CPU affinity mask for a 32-bit task so that
+		 * it contains only 32-bit-capable CPUs.
+		 *
+		 * From the perspective of the task, this looks similar to
+		 * what would happen if the 64-bit-only CPUs were hot-unplugged
+		 * at the point of execve(), although we try a bit harder to
+		 * honour the cpuset hierarchy.
+		 */
+		if (static_branch_unlikely(&arm64_mismatched_32bit_el0))
+			force_compatible_cpus_allowed_ptr(current);
+	}
+
+	current->mm->context.flags = mmflags;
+	ptrauth_thread_init_user();
+	mte_thread_init_user();
 	erratum_1418040_new_exec();
 
 	if (task_spec_ssb_noexec(current)) {

@@ -827,6 +827,11 @@ struct kvm_ppc_resize_hpt {
 #define KVM_GET_MSR_INDEX_LIST    _IOWR(KVMIO, 0x02, struct kvm_msr_list)
 
 #define KVM_S390_ENABLE_SIE       _IO(KVMIO,   0x06)
+
+#define KVM_RISCV_MEM_ADDR_SET	_IO(KVMIO,   0xf0)
+#define KVM_RISCV_MEM_ADDR_GET	_IO(KVMIO,   0xf1)
+#define KVM_RISCV_MEM_SIZE	_IO(KVMIO,   0xf2)
+
 /*
  * Check if a kvm extension is available.  Argument is extension number,
  * return is 1 (yes) or 0 (no, sorry).

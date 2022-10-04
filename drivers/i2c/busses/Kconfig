@@ -577,6 +577,11 @@ config I2C_DESIGNWARE_PCI
 	  This driver can also be built as a module.  If so, the module
 	  will be called i2c-designware-pci.
 
+config I2C_DESIGNWARE_ICE
+	bool "Synopsys DesignWare for ICE"
+	depends on OF
+	default n
+
 config I2C_DIGICOLOR
 	tristate "Conexant Digicolor I2C driver"
 	depends on ARCH_DIGICOLOR || COMPILE_TEST

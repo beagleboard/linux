@@ -1,0 +1,15 @@
+= Thead Light PWM Controller =
+
+This binding is intended to represent PWM which is found in Thead SoCs
+
+Required properties:
+- compatible:	should be
+		"thead,pwm-light": for light fullmask
+- reg:		physical base address and length of the controller's registers
+
+Examples:
+
+	pwm: pwm@ffec01c000 {
+		compatible = "thead,pwm-light";
+		reg = <0xff 0xec01c000 0x0 0x4000>;
+	};

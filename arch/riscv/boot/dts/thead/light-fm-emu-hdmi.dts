@@ -1,0 +1,26 @@
+#include "light-fm-emu.dts"
+
+/ {
+	display-subsystem {
+		status = "okay";
+	};
+};
+
+&disp1_out {
+	remote-endpoint = <&hdmi_tx_in>;
+};
+
+&dpu {
+	status = "okay";
+};
+
+&hdmi_tx {
+	status = "okay";
+
+	port@0 {
+		/* input */
+		hdmi_tx_in: endpoint {
+			remote-endpoint = <&disp1_out>;
+		};
+	};
+};

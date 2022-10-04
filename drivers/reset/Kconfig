@@ -97,7 +97,8 @@ config RESET_LPC18XX
 	  This enables the reset controller driver for NXP LPC18xx/43xx SoCs.
 
 config RESET_MESON
-	bool "Meson Reset Driver" if COMPILE_TEST
+	tristate "Meson Reset Driver"
+	depends on ARCH_MESON || COMPILE_TEST
 	default ARCH_MESON
 	help
 	  This enables the reset driver for Amlogic Meson SoCs.
@@ -246,6 +247,12 @@ config RESET_ZYNQ
 	default ARCH_ZYNQ
 	help
 	  This enables the reset controller driver for Xilinx Zynq SoCs.
+
+config RESET_LIGHT
+	bool "thead-light Reset Driver" if COMPILE_TEST
+	default y
+	help
+	  This enables the reset controller driver for thead-light SoCs.
 
 source "drivers/reset/sti/Kconfig"
 source "drivers/reset/hisilicon/Kconfig"

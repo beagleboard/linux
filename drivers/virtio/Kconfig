@@ -121,6 +121,16 @@ config VIRTIO_MMIO
 
  	 If unsure, say N.
 
+config VIRTIO_KHV_MMIO
+	tristate "Platform bus driver for khv memory mapped virtio devices"
+	depends on HAS_IOMEM && HAS_DMA
+	select VIRTIO
+	help
+	 This drivers provides support for khv memory mapped virtio
+	 platform device driver.
+
+ 	 If unsure, say N.
+
 config VIRTIO_MMIO_CMDLINE_DEVICES
 	bool "Memory mapped virtio devices parameter parsing"
 	depends on VIRTIO_MMIO
@@ -133,10 +143,29 @@ config VIRTIO_MMIO_CMDLINE_DEVICES
 	 If unsure, say 'N'.
 
 config VIRTIO_DMA_SHARED_BUFFER
-	tristate
+	tristate "Virtio DMA shared buffer support"
 	depends on DMA_SHARED_BUFFER
 	help
 	 This option adds a flavor of dma buffers that are backed by
 	 virtio resources.
+
+config VIRTIO_LIGHT
+	tristate "Virtio light bus driver for virtio_light devices"
+	depends on HAS_IOMEM
+	select VIRTIO
+	default y
+	help
+	 This drivers provides support for memory mapped virtio
+	 platform device driver of light platform.
+
+	 If unsure, say N.
+
+config VIRTIO_VDMABUF
+	bool "Enables Vdmabuf driver in guest os"
+	default y
+	depends on VIRTIO
+	help
+	 This driver provides a way to share the dmabufs created in
+	 the Guest with the Host.
 
 endif # VIRTIO_MENU

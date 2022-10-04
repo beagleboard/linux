@@ -18,6 +18,10 @@
 #include <linux/percpu.h>
 #include <linux/refcount.h>
 #include <linux/slab.h>
+#include <linux/syscore_ops.h>
+#include <linux/wakeup_reason.h>
+#include <trace/hooks/gic_v3.h>
+
 
 #include <linux/irqchip.h>
 #include <linux/irqchip/arm-gic-common.h>
@@ -28,6 +32,8 @@
 #include <asm/exception.h>
 #include <asm/smp_plat.h>
 #include <asm/virt.h>
+
+#include <trace/hooks/gic.h>
 
 #include "irq-gic-common.h"
 
@@ -42,20 +48,6 @@ struct redist_region {
 	void __iomem		*redist_base;
 	phys_addr_t		phys_base;
 	bool			single_redist;
-};
-
-struct gic_chip_data {
-	struct fwnode_handle	*fwnode;
-	void __iomem		*dist_base;
-	struct redist_region	*redist_regions;
-	struct rdists		rdists;
-	struct irq_domain	*domain;
-	u64			redist_stride;
-	u32			nr_redist_regions;
-	u64			flags;
-	bool			has_rss;
-	unsigned int		ppi_nr;
-	struct partition_desc	**ppi_descs;
 };
 
 static struct gic_chip_data gic_data __read_mostly;
@@ -725,6 +717,7 @@ static asmlinkage void __exception_irq_entry gic_handle_irq(struct pt_regs *regs
 
 	if (handle_domain_irq(gic_data.domain, irqnr, regs)) {
 		WARN_ONCE(true, "Unexpected interrupt received!\n");
+		log_abnormal_wakeup_reason("unexpected HW IRQ %u", irqnr);
 		gic_deactivate_unhandled(irqnr);
 	}
 }
@@ -1271,6 +1264,7 @@ static int gic_set_affinity(struct irq_data *d, const struct cpumask *mask_val,
 	reg = gic_dist_base(d) + offset + (index * 8);
 	val = gic_mpidr_to_affinity(cpu_logical_map(cpu));
 
+	trace_android_rvh_gic_v3_set_affinity(d, mask_val, &val, force, gic_dist_base(d));
 	gic_write_irouter(val, reg);
 
 	/*
@@ -1324,6 +1318,28 @@ static void gic_cpu_pm_init(void)
 #else
 static inline void gic_cpu_pm_init(void) { }
 #endif /* CONFIG_CPU_PM */
+
+#ifdef CONFIG_PM
+void gic_resume(void)
+{
+	trace_android_vh_gic_resume(&gic_data);
+}
+EXPORT_SYMBOL_GPL(gic_resume);
+
+static struct syscore_ops gic_syscore_ops = {
+	.resume = gic_resume,
+};
+
+static void gic_syscore_init(void)
+{
+	register_syscore_ops(&gic_syscore_ops);
+}
+
+#else
+static inline void gic_syscore_init(void) { }
+void gic_resume(void) { }
+#endif
+
 
 static struct irq_chip gic_chip = {
 	.name			= "GICv3",
@@ -1787,6 +1803,7 @@ static int __init gic_init_bases(void __iomem *dist_base,
 	gic_cpu_init();
 	gic_smp_init();
 	gic_cpu_pm_init();
+	gic_syscore_init();
 
 	if (gic_dist_supports_lpis()) {
 		its_init(handle, &gic_data.rdists, gic_data.domain);

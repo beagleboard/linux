@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: GPL-2.0-only
+config LIGHT_AON
+	bool "Thead Light Aon Protocol driver"
+	depends on THEAD_LIGHT_MBOX
+	default y
+	help
+	  Thead light Aon is a low-level system function which runs a dedicated
+	  thead riscv E902 core to provide power, clock and resource management.
+
+	  This driver manages the IPC interface between host cpu liks thead
+	  and the Aon firmware running on thead riscv E902 core.
+
+config LIGHT_AON_PD
+	bool "Thead Light Aon Power Domain driver"
+	depends on LIGHT_AON
+	select PM_GENERIC_DOMAINS if PM
+	help
+	  The Aon power domain virtual driver.

@@ -583,7 +583,8 @@ static struct dwapb_platform_data *dwapb_gpio_get_pdata(struct device *dev)
 		}
 
 		if (fwnode_property_read_u32(fwnode, "ngpios", &pp->ngpio) &&
-		    fwnode_property_read_u32(fwnode, "snps,nr-gpios", &pp->ngpio)) {
+		    fwnode_property_read_u32(fwnode, "snps,nr-gpios", &pp->ngpio) &&
+		    fwnode_property_read_u32(fwnode, "nr-gpios-snps", &pp->ngpio)) {
 			dev_info(dev,
 				 "failed to get number of gpios for port%d\n",
 				 i);

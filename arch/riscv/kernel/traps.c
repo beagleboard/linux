@@ -12,9 +12,11 @@
 #include <linux/signal.h>
 #include <linux/kdebug.h>
 #include <linux/uaccess.h>
+#include <linux/kprobes.h>
 #include <linux/mm.h>
 #include <linux/module.h>
 #include <linux/irq.h>
+#include <linux/kexec.h>
 
 #include <asm/processor.h>
 #include <asm/ptrace.h>
@@ -43,6 +45,9 @@ void die(struct pt_regs *regs, const char *str)
 
 	ret = notify_die(DIE_OOPS, str, regs, 0, regs->cause, SIGSEGV);
 
+	if (regs && kexec_should_crash(current))
+		crash_kexec(regs);
+
 	bust_spinlocks(0);
 	add_taint(TAINT_DIE, LOCKDEP_NOW_UNRELIABLE);
 	spin_unlock_irq(&die_lock);
@@ -56,9 +61,18 @@ void die(struct pt_regs *regs, const char *str)
 		do_exit(SIGSEGV);
 }
 
+#ifdef CONFIG_VECTOR_EMU
+extern bool decode_exec_insn(struct pt_regs *regs, uint64_t insn);
+#endif
 void do_trap(struct pt_regs *regs, int signo, int code, unsigned long addr)
 {
 	struct task_struct *tsk = current;
+
+#ifdef CONFIG_VECTOR_EMU
+	if (signo == SIGILL)
+		if (decode_exec_insn(regs, regs->badaddr))
+			return;
+#endif
 
 	if (show_unhandled_signals && unhandled_signal(tsk, signo)
 	    && printk_ratelimit()) {
@@ -75,6 +89,8 @@ void do_trap(struct pt_regs *regs, int signo, int code, unsigned long addr)
 static void do_trap_error(struct pt_regs *regs, int signo, int code,
 	unsigned long addr, const char *str)
 {
+	current->thread.bad_cause = regs->cause;
+
 	if (user_mode(regs)) {
 		do_trap(regs, signo, code, addr);
 	} else {
@@ -145,6 +161,22 @@ static inline unsigned long get_break_insn_length(unsigned long pc)
 
 asmlinkage __visible void do_trap_break(struct pt_regs *regs)
 {
+#ifdef CONFIG_KPROBES
+	if (kprobe_single_step_handler(regs))
+		return;
+
+	if (kprobe_breakpoint_handler(regs))
+		return;
+#endif
+#ifdef CONFIG_UPROBES
+	if (uprobe_single_step_handler(regs))
+		return;
+
+	if (uprobe_breakpoint_handler(regs))
+		return;
+#endif
+	current->thread.bad_cause = regs->cause;
+
 	if (user_mode(regs))
 		force_sig_fault(SIGTRAP, TRAP_BRKPT, (void __user *)regs->epc);
 #ifdef CONFIG_KGDB

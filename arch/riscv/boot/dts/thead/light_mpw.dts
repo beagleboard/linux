@@ -1,0 +1,259 @@
+/dts-v1/;
+/ {
+	model = "T-HEAD c910 light mpw";
+	compatible = "thead,c910_light_mpw";
+	#address-cells = <2>;
+	#size-cells = <2>;
+
+	memory@0 {
+		device_type = "memory";
+		reg = <0x0 0x00200000 0x0 0xf0000000>;
+	};
+
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		timebase-frequency = <0x2dc6c0>;
+		cpu@0 {
+			device_type = "cpu";
+			reg = <0>;
+			status = "okay";
+			compatible = "riscv";
+			riscv,isa = "rv64imafdcvsu";
+			mmu-type = "riscv,sv39";
+			cpu-freq = "1.5Ghz";
+			cpu-icache = "64KB";
+			cpu-dcache = "64KB";
+			cpu-l2cache = "2MB";
+			cpu-tlb = "1024 4-ways";
+			cpu-cacheline = "64Bytes";
+			cpu-vector = "0.7.1";
+			cpu0_intc: interrupt-controller {
+				#interrupt-cells = <1>;
+				compatible = "riscv,cpu-intc";
+				interrupt-controller;
+			};
+		};
+		cpu@1 {
+			device_type = "cpu";
+			reg = <1>;
+			status = "okay";
+			compatible = "riscv";
+			riscv,isa = "rv64imafdcvsu";
+			mmu-type = "riscv,sv39";
+			cpu-freq = "1.5Ghz";
+			cpu-icache = "64KB";
+			cpu-dcache = "64KB";
+			cpu-l2cache = "2MB";
+			cpu-tlb = "1024 4-ways";
+			cpu-cacheline = "64Bytes";
+			cpu-vector = "0.7.1";
+			cpu1_intc: interrupt-controller {
+				#interrupt-cells = <1>;
+				compatible = "riscv,cpu-intc";
+				interrupt-controller;
+			};
+		};
+		cpu@2 {
+			device_type = "cpu";
+			reg = <2>;
+			status = "okay";
+			compatible = "riscv";
+			riscv,isa = "rv64imafdcvsu";
+			mmu-type = "riscv,sv39";
+			cpu-freq = "1.5Ghz";
+			cpu-icache = "64KB";
+			cpu-dcache = "64KB";
+			cpu-l2cache = "2MB";
+			cpu-tlb = "1024 4-ways";
+			cpu-cacheline = "64Bytes";
+			cpu-vector = "0.7.1";
+			cpu2_intc: interrupt-controller {
+				#interrupt-cells = <1>;
+				compatible = "riscv,cpu-intc";
+				interrupt-controller;
+			};
+		};
+		cpu@3 {
+			device_type = "cpu";
+			reg = <3>;
+			status = "okay";
+			compatible = "riscv";
+			riscv,isa = "rv64imafdcvsu";
+			mmu-type = "riscv,sv39";
+			cpu-freq = "1.5Ghz";
+			cpu-icache = "64KB";
+			cpu-dcache = "64KB";
+			cpu-l2cache = "2MB";
+			cpu-tlb = "1024 4-ways";
+			cpu-cacheline = "64Bytes";
+			cpu-vector = "0.7.1";
+			cpu3_intc: interrupt-controller {
+				#interrupt-cells = <1>;
+				compatible = "riscv,cpu-intc";
+				interrupt-controller;
+			};
+		};
+	};
+
+	soc {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		compatible = "simple-bus";
+		ranges;
+
+		reset: reset-sample {
+			compatible = "thead,reset-sample";
+			plic-delegate = <0xff 0xd81ffffc>;
+			using-csr-reset;
+			csr-copy = <
+				0x7c0 0x7c1 0x7c2 0x7c3 0x7c5 0x7cc
+				0x3b0 0x3b1 0x3b2 0x3b3
+				0x3b4 0x3b5 0x3b6 0x3b7
+				0x3a0
+				>;
+		};
+
+		clint0: clint@ffdc000000 {
+			compatible = "riscv,clint0";
+			interrupts-extended = <
+				&cpu0_intc  3 &cpu0_intc  7
+				&cpu1_intc  3 &cpu1_intc  7
+				&cpu2_intc  3 &cpu2_intc  7
+				&cpu3_intc  3 &cpu3_intc  7
+				>;
+			reg = <0xff 0xdc000000 0x0 0x04000000>;
+			clint,has-no-64bit-mmio;
+		};
+
+		intc: interrupt-controller@ffd8000000 {
+			#interrupt-cells = <1>;
+			compatible = "riscv,plic0";
+			interrupt-controller;
+			interrupts-extended = <
+				&cpu0_intc  0xffffffff &cpu0_intc  9
+				&cpu1_intc  0xffffffff &cpu1_intc  9
+				&cpu2_intc  0xffffffff &cpu2_intc  9
+				&cpu3_intc  0xffffffff &cpu3_intc  9
+				>;
+			reg = <0xff 0xd8000000 0x0 0x08000000>;
+			reg-names = "control";
+			riscv,max-priority = <7>;
+			riscv,ndev = <80>;
+		};
+
+                clocks {
+			compatible = "simple-bus";
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			dummy_apb: apb-clock {
+				compatible = "fixed-clock";
+				clock-frequency = <62500000>;
+				clock-output-names = "dummy_apb";
+				#clock-cells = <0>;
+			};
+
+			dummy_clock_sdhci: sdhci-clock {
+				compatible = "fixed-clock";
+				reg = <4>;	/* Not address, just for index */
+				clock-frequency = <198000000>;
+				clock-output-names = "dummy_clock_sdhci";
+				#clock-cells = <0>;
+			};
+
+			dummy_clock_gmac: gmac-clock {
+				compatible = "fixed-clock";
+				clock-frequency = <1000000000>;
+				clock-output-names = "dummy_clock_gmac";
+				#clock-cells = <0>;
+			};
+		};
+
+		serial@ffe7014000 {
+			compatible = "snps,dw-apb-uart";
+			reg = <0xff 0xe7014000 0x0 0x4000>;
+			interrupt-parent = <&intc>;
+			interrupts = <36>;
+			clocks = <&dummy_apb>;
+			clock-names = "baudclk";
+			reg-shift = <2>;
+			reg-io-width = <4>;
+		};
+
+		stmmac_axi_setup: stmmac-axi-config {
+			snps,wr_osr_lmt = <3>;
+			snps,rd_osr_lmt = <3>;
+			snps,blen = <16 8 4 0 0 0 0>;
+		};
+
+		gmac: ethernet@ffe7070000 {
+			compatible = "snps,dwmac";
+			reg = <0xff 0xe7070000 0x0 0x2000>;
+			interrupt-parent = <&intc>;
+			interrupts = <66>;
+			interrupt-names = "macirq";
+			clocks = <&dummy_clock_gmac>;
+			clock-names = "stmmaceth";
+			snps,pbl = <32>;
+			snps,fixed-burst;
+			snps,axi-config = <&stmmac_axi_setup>;
+
+			phy-mode = "rgmii-txid";
+			phy-handle = <&phy_88E1111>;
+			mdio0 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				compatible = "snps,dwmac-mdio";
+
+				phy_88E1111: ethernet-phy@0 {
+					reg = <0x1>;
+				};
+			};
+		};
+
+		emmc: sdhci@ffe7080000 {
+			compatible = "snps,dwcmshc-sdhci-light-mpw";
+			reg = <0xff 0xe7080000 0x0 0x10000
+			       0xff 0xEF014060 0x0 0x4>;
+			interrupt-parent = <&intc>;
+			interrupts = <62>;
+			interrupt-names = "sdhciirq";
+			clocks = <&dummy_clock_sdhci>;
+			clock-names = "core";
+			max-frequency = <198000000>;
+			non-removable;
+			is_emmc;
+			no-sdio;
+			no-sd;
+			no-1-8-v;
+			bus-width = <8>;
+			status = "okay";
+		};
+
+		sdcard: sd@ffe7090000 {
+			compatible = "snps,dwcmshc-sdhci-light-mpw";
+			reg = <0xff 0xe7090000 0x0 0x10000
+                   	       0xff 0xEF014064 0x0 0x4>;
+			interrupt-parent = <&intc>;
+			interrupts = <64>;
+			interrupt-names = "sdhci0irq";
+			clocks = <&dummy_clock_sdhci>;
+			clock-names = "core";
+			max-frequency = <198000000>;
+			bus-width = <4>;
+			status = "okay";
+		};
+
+		pmu: pmu {
+			interrupt-parent = <&cpu0_intc>;
+			interrupts = <17>;
+			compatible = "riscv,c910_pmu";
+		};
+	};
+
+	chosen {
+		bootargs = "console=ttyS0,115200 root=PARTUUID=80a5a8e9-c744-491a-93c1-4f4194fd690b rootfstype=ext4 rdinit=/sbin/init rootwait rw earlyprintk clk_ignore_unused loglevel=7 eth=00:a0:a0:a0:a0:a1";
+		stdout-path = "/soc/serial@ffe7014000:115200";
+	};
+};

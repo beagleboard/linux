@@ -37,6 +37,8 @@ static void noinstr enter_from_kernel_mode(struct pt_regs *regs)
 	lockdep_hardirqs_off(CALLER_ADDR0);
 	rcu_irq_enter_check_tick();
 	trace_hardirqs_off_finish();
+
+	mte_check_tfsr_entry();
 }
 
 /*
@@ -46,6 +48,8 @@ static void noinstr enter_from_kernel_mode(struct pt_regs *regs)
 static void noinstr exit_to_kernel_mode(struct pt_regs *regs)
 {
 	lockdep_assert_irqs_disabled();
+
+	mte_check_tfsr_exit();
 
 	if (interrupts_enabled(regs)) {
 		if (regs->exit_rcu) {
@@ -115,7 +119,6 @@ static void noinstr el1_abort(struct pt_regs *regs, unsigned long esr)
 
 	enter_from_kernel_mode(regs);
 	local_daif_inherit(regs);
-	far = untagged_addr(far);
 	do_mem_abort(far, esr, regs);
 	local_daif_mask();
 	exit_to_kernel_mode(regs);
@@ -236,6 +239,8 @@ asmlinkage void noinstr enter_from_user_mode(void)
 
 asmlinkage void noinstr exit_to_user_mode(void)
 {
+	mte_check_tfsr_exit();
+
 	trace_hardirqs_on_prepare();
 	lockdep_hardirqs_on_prepare(CALLER_ADDR0);
 	user_enter_irqoff();
@@ -248,7 +253,6 @@ static void noinstr el0_da(struct pt_regs *regs, unsigned long esr)
 
 	enter_from_user_mode();
 	local_daif_restore(DAIF_PROCCTX);
-	far = untagged_addr(far);
 	do_mem_abort(far, esr, regs);
 }
 

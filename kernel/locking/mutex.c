@@ -36,6 +36,8 @@
 # include "mutex.h"
 #endif
 
+#include <trace/hooks/dtask.h>
+
 void
 __mutex_init(struct mutex *lock, const char *name, struct lock_class_key *key)
 {
@@ -208,9 +210,12 @@ static void
 __mutex_add_waiter(struct mutex *lock, struct mutex_waiter *waiter,
 		   struct list_head *list)
 {
+	bool already_on_list = false;
 	debug_mutex_add_waiter(lock, waiter, current);
 
-	list_add_tail(&waiter->list, list);
+	trace_android_vh_alter_mutex_list_add(lock, waiter, list, &already_on_list);
+	if (!already_on_list)
+		list_add_tail(&waiter->list, list);
 	if (__mutex_waiter_is_first(lock, waiter))
 		__mutex_set_flag(lock, MUTEX_FLAG_WAITERS);
 }
@@ -1014,6 +1019,7 @@ __mutex_lock_common(struct mutex *lock, long state, unsigned int subclass,
 
 	waiter.task = current;
 
+	trace_android_vh_mutex_wait_start(lock);
 	set_current_state(state);
 	for (;;) {
 		bool first;
@@ -1065,6 +1071,7 @@ __mutex_lock_common(struct mutex *lock, long state, unsigned int subclass,
 	spin_lock(&lock->wait_lock);
 acquired:
 	__set_current_state(TASK_RUNNING);
+	trace_android_vh_mutex_wait_finish(lock);
 
 	if (ww_ctx) {
 		/*
@@ -1093,6 +1100,7 @@ skip_wait:
 
 err:
 	__set_current_state(TASK_RUNNING);
+	trace_android_vh_mutex_wait_finish(lock);
 	__mutex_remove_waiter(lock, &waiter);
 err_early_kill:
 	spin_unlock(&lock->wait_lock);
@@ -1281,9 +1289,11 @@ static noinline void __sched __mutex_unlock_slowpath(struct mutex *lock, unsigne
 	if (owner & MUTEX_FLAG_HANDOFF)
 		__mutex_handoff(lock, next);
 
+	trace_android_vh_mutex_unlock_slowpath(lock);
 	spin_unlock(&lock->wait_lock);
 
 	wake_up_q(&wake_q);
+	trace_android_vh_mutex_unlock_slowpath_end(lock, next);
 }
 
 #ifndef CONFIG_DEBUG_LOCK_ALLOC

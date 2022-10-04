@@ -37,6 +37,7 @@
 
 #include "core.h"
 #include "card.h"
+#include "crypto.h"
 #include "bus.h"
 #include "host.h"
 #include "sdio_bus.h"
@@ -916,6 +917,7 @@ void mmc_set_clock(struct mmc_host *host, unsigned int hz)
 	host->ios.clock = hz;
 	mmc_set_ios(host);
 }
+EXPORT_SYMBOL_GPL(mmc_set_clock);
 
 int mmc_execute_tuning(struct mmc_card *card)
 {
@@ -995,7 +997,10 @@ void mmc_set_initial_state(struct mmc_host *host)
 		host->ops->hs400_enhanced_strobe(host, &host->ios);
 
 	mmc_set_ios(host);
+
+	mmc_crypto_set_initial_state(host);
 }
+EXPORT_SYMBOL_GPL(mmc_set_initial_state);
 
 /**
  * mmc_vdd_to_ocrbitnum - Convert a voltage to the OCR bit number
@@ -1259,6 +1264,7 @@ void mmc_set_timing(struct mmc_host *host, unsigned int timing)
 	host->ios.timing = timing;
 	mmc_set_ios(host);
 }
+EXPORT_SYMBOL_GPL(mmc_set_timing);
 
 /*
  * Select appropriate driver type for host.

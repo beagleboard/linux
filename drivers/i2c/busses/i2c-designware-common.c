@@ -24,8 +24,11 @@
 #include <linux/regmap.h>
 #include <linux/swab.h>
 #include <linux/types.h>
+#include <linux/of.h>
 
 #include "i2c-designware-core.h"
+
+#define I2C_DW_SDA_HOLD_DEFAULT	3
 
 static char *abort_sources[] = {
 	[ABRT_7B_ADDR_NOACK] =
@@ -307,6 +310,31 @@ static u32 i2c_dw_acpi_round_bus_speed(struct device *device)
 #else	/* CONFIG_ACPI */
 
 static inline u32 i2c_dw_acpi_round_bus_speed(struct device *device) { return 0; }
+
+int i2c_dw_dt_configure(struct device *device)
+{
+	struct dw_i2c_dev *dev = dev_get_drvdata(device);
+	struct device_node *node = device->of_node;
+
+	/*
+	 * Try to get SDA hold time and *CNT values from an ACPI method for
+	 * selected speed modes.
+	 */
+	if (node) {
+		of_property_read_u16(node, "ss_hcnt", &dev->ss_hcnt);
+		of_property_read_u16(node, "ss_lcnt", &dev->ss_lcnt);
+		of_property_read_u16(node, "fp_hcnt", &dev->fp_hcnt);
+		of_property_read_u16(node, "fp_lcnt", &dev->fp_lcnt);
+		of_property_read_u16(node, "hs_hcnt", &dev->hs_hcnt);
+		of_property_read_u16(node, "hs_lcnt", &dev->hs_lcnt);
+		of_property_read_u16(node, "fs_hcnt", &dev->fs_hcnt);
+		of_property_read_u16(node, "fs_lcnt", &dev->fs_lcnt);
+		dev->sda_hold_time = I2C_DW_SDA_HOLD_DEFAULT;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(i2c_dw_dt_configure);
 
 #endif	/* CONFIG_ACPI */
 

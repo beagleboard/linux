@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# Light backend drivers
+#
+
+menu "Light backend drivers"
+
+source "drivers/light/light_mailbox/Kconfig"
+source "drivers/light/light_blk/Kconfig"
+source "drivers/light/light_net/Kconfig"
+endmenu

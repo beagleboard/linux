@@ -29,6 +29,7 @@
  * @list: for use by the udc class driver
  * @vbus: for udcs who care about vbus status, this value is real vbus status;
  * for udcs who do not care about vbus status, this value is always true
+ * @started: the UDC's started state. True if the UDC had started.
  *
  * This represents the internal data structure which is used by the UDC-class
  * to hold information about udc driver and gadget together.
@@ -39,6 +40,7 @@ struct usb_udc {
 	struct device			dev;
 	struct list_head		list;
 	bool				vbus;
+	bool				started;
 };
 
 static struct class *udc_class;
@@ -87,7 +89,7 @@ EXPORT_SYMBOL_GPL(usb_ep_set_maxpacket_limit);
  * configurable, with more generic names like "ep-a".  (remember that for
  * USB, "in" means "towards the USB host".)
  *
- * This routine must be called in process context.
+ * This routine may be called in an atomic (interrupt) context.
  *
  * returns zero, or a negative error code.
  */
@@ -132,7 +134,7 @@ EXPORT_SYMBOL_GPL(usb_ep_enable);
  * gadget drivers must call usb_ep_enable() again before queueing
  * requests to the endpoint.
  *
- * This routine must be called in process context.
+ * This routine may be called in an atomic (interrupt) context.
  *
  * returns zero, or a negative error code.
  */
@@ -1004,6 +1006,25 @@ int usb_gadget_ep_match_desc(struct usb_gadget *gadget,
 }
 EXPORT_SYMBOL_GPL(usb_gadget_ep_match_desc);
 
+/**
+ * usb_gadget_check_config - checks if the UDC can support the binded
+ *	configuration
+ * @gadget: controller to check the USB configuration
+ *
+ * Ensure that a UDC is able to support the requested resources by a
+ * configuration, and that there are no resource limitations, such as
+ * internal memory allocated to all requested endpoints.
+ *
+ * Returns zero on success, else a negative errno.
+ */
+int usb_gadget_check_config(struct usb_gadget *gadget)
+{
+	if (gadget->ops->check_config)
+		return gadget->ops->check_config(gadget);
+	return 0;
+}
+EXPORT_SYMBOL_GPL(usb_gadget_check_config);
+
 /* ------------------------------------------------------------------------- */
 
 static void usb_gadget_state_work(struct work_struct *work)
@@ -1085,7 +1106,18 @@ EXPORT_SYMBOL_GPL(usb_gadget_udc_reset);
  */
 static inline int usb_gadget_udc_start(struct usb_udc *udc)
 {
-	return udc->gadget->ops->udc_start(udc->gadget, udc->driver);
+	int ret;
+
+	if (udc->started) {
+		dev_err(&udc->dev, "UDC had already started\n");
+		return -EBUSY;
+	}
+
+	ret = udc->gadget->ops->udc_start(udc->gadget, udc->driver);
+	if (!ret)
+		udc->started = true;
+
+	return ret;
 }
 
 /**
@@ -1101,7 +1133,13 @@ static inline int usb_gadget_udc_start(struct usb_udc *udc)
  */
 static inline void usb_gadget_udc_stop(struct usb_udc *udc)
 {
+	if (!udc->started) {
+		dev_err(&udc->dev, "UDC had already stopped\n");
+		return;
+	}
+
 	udc->gadget->ops->udc_stop(udc->gadget);
+	udc->started = false;
 }
 
 /**
@@ -1117,12 +1155,65 @@ static inline void usb_gadget_udc_stop(struct usb_udc *udc)
 static inline void usb_gadget_udc_set_speed(struct usb_udc *udc,
 					    enum usb_device_speed speed)
 {
-	if (udc->gadget->ops->udc_set_speed) {
-		enum usb_device_speed s;
+	struct usb_gadget *gadget = udc->gadget;
+	enum usb_device_speed s;
 
-		s = min(speed, udc->gadget->max_speed);
-		udc->gadget->ops->udc_set_speed(udc->gadget, s);
-	}
+	if (speed == USB_SPEED_UNKNOWN)
+		s = gadget->max_speed;
+	else
+		s = min(speed, gadget->max_speed);
+
+	if (s == USB_SPEED_SUPER_PLUS && gadget->ops->udc_set_ssp_rate)
+		gadget->ops->udc_set_ssp_rate(gadget, gadget->max_ssp_rate);
+	else if (gadget->ops->udc_set_speed)
+		gadget->ops->udc_set_speed(gadget, s);
+}
+
+/**
+ * usb_gadget_enable_async_callbacks - tell usb device controller to enable asynchronous callbacks
+ * @udc: The UDC which should enable async callbacks
+ *
+ * This routine is used when binding gadget drivers.  It undoes the effect
+ * of usb_gadget_disable_async_callbacks(); the UDC driver should enable IRQs
+ * (if necessary) and resume issuing callbacks.
+ *
+ * This routine will always be called in process context.
+ */
+static inline void usb_gadget_enable_async_callbacks(struct usb_udc *udc)
+{
+	struct usb_gadget *gadget = udc->gadget;
+
+	if (gadget->ops->udc_async_callbacks)
+		gadget->ops->udc_async_callbacks(gadget, true);
+}
+
+/**
+ * usb_gadget_disable_async_callbacks - tell usb device controller to disable asynchronous callbacks
+ * @udc: The UDC which should disable async callbacks
+ *
+ * This routine is used when unbinding gadget drivers.  It prevents a race:
+ * The UDC driver doesn't know when the gadget driver's ->unbind callback
+ * runs, so unless it is told to disable asynchronous callbacks, it might
+ * issue a callback (such as ->disconnect) after the unbind has completed.
+ *
+ * After this function runs, the UDC driver must suppress all ->suspend,
+ * ->resume, ->disconnect, ->reset, and ->setup callbacks to the gadget driver
+ * until async callbacks are again enabled.  A simple-minded but effective
+ * way to accomplish this is to tell the UDC hardware not to generate any
+ * more IRQs.
+ *
+ * Request completion callbacks must still be issued.  However, it's okay
+ * to defer them until the request is cancelled, since the pull-up will be
+ * turned off during the time period when async callbacks are disabled.
+ *
+ * This routine will always be called in process context.
+ */
+static inline void usb_gadget_disable_async_callbacks(struct usb_udc *udc)
+{
+	struct usb_gadget *gadget = udc->gadget;
+
+	if (gadget->ops->udc_async_callbacks)
+		gadget->ops->udc_async_callbacks(gadget, false);
 }
 
 /**
@@ -1224,6 +1315,8 @@ int usb_add_gadget(struct usb_gadget *gadget)
 
 	udc->gadget = gadget;
 	gadget->udc = udc;
+
+	udc->started = false;
 
 	mutex_lock(&udc_lock);
 	list_add_tail(&udc->list, &udc_list);
@@ -1337,6 +1430,7 @@ static void usb_gadget_remove_driver(struct usb_udc *udc)
 	kobject_uevent(&udc->dev.kobj, KOBJ_CHANGE);
 
 	usb_gadget_disconnect(udc->gadget);
+	usb_gadget_disable_async_callbacks(udc);
 	if (udc->gadget->irq)
 		synchronize_irq(udc->gadget->irq);
 	udc->driver->unbind(udc->gadget);
@@ -1416,6 +1510,7 @@ static int udc_bind_to_driver(struct usb_udc *udc, struct usb_gadget_driver *dri
 		driver->unbind(udc->gadget);
 		goto err1;
 	}
+	usb_gadget_enable_async_callbacks(udc);
 	usb_udc_connect_control(udc);
 
 	kobject_uevent(&udc->dev.kobj, KOBJ_CHANGE);

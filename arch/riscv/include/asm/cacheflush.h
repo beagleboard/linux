@@ -42,6 +42,9 @@ void flush_icache_mm(struct mm_struct *mm, bool local);
 
 #endif /* CONFIG_SMP */
 
+void dma_wbinv_range(unsigned long start, unsigned long end);
+void dma_wb_range(unsigned long start, unsigned long end);
+
 /*
  * Bits in sys_riscv_flush_icache()'s flags argument.
  */

@@ -34,6 +34,7 @@
 #include <linux/compat.h>
 
 #include "internal.h"
+#include <trace/hooks/syscall_check.h>
 
 int do_truncate(struct dentry *dentry, loff_t length, unsigned int time_attrs,
 	struct file *filp)
@@ -800,6 +801,7 @@ static int do_dentry_open(struct file *f,
 		error = -ENODEV;
 		goto cleanup_all;
 	}
+	trace_android_vh_check_file_open(f);
 
 	error = security_file_open(f);
 	if (error)
@@ -843,8 +845,17 @@ static int do_dentry_open(struct file *f,
 	 * XXX: Huge page cache doesn't support writing yet. Drop all page
 	 * cache for this file before processing writes.
 	 */
-	if ((f->f_mode & FMODE_WRITE) && filemap_nr_thps(inode->i_mapping))
-		truncate_pagecache(inode, 0);
+	if (f->f_mode & FMODE_WRITE) {
+		/*
+		 * Paired with smp_mb() in collapse_file() to ensure nr_thps
+		 * is up to date and the update to i_writecount by
+		 * get_write_access() is visible. Ensures subsequent insertion
+		 * of THPs into the page cache will fail.
+		 */
+		smp_mb();
+		if (filemap_nr_thps(inode->i_mapping))
+			truncate_pagecache(inode, 0);
+	}
 
 	return 0;
 
@@ -1147,7 +1158,27 @@ struct file *filp_open(const char *filename, int flags, umode_t mode)
 	}
 	return file;
 }
-EXPORT_SYMBOL(filp_open);
+EXPORT_SYMBOL_NS(filp_open, ANDROID_GKI_VFS_EXPORT_ONLY);
+
+/* ANDROID: Allow drivers to open only block files from kernel mode */
+struct file *filp_open_block(const char *filename, int flags, umode_t mode)
+{
+	struct file *file;
+
+	file = filp_open(filename, flags, mode);
+	if (IS_ERR(file))
+		goto err_out;
+
+	/* Drivers should only be allowed to open block devices */
+	if (!S_ISBLK(file->f_mapping->host->i_mode)) {
+		filp_close(file, NULL);
+		file = ERR_PTR(-ENOTBLK);
+	}
+
+err_out:
+	return file;
+}
+EXPORT_SYMBOL_GPL(filp_open_block);
 
 struct file *file_open_root(struct dentry *dentry, struct vfsmount *mnt,
 			    const char *filename, int flags, umode_t mode)
@@ -1359,7 +1390,7 @@ int generic_file_open(struct inode * inode, struct file * filp)
 	return 0;
 }
 
-EXPORT_SYMBOL(generic_file_open);
+EXPORT_SYMBOL_NS(generic_file_open, ANDROID_GKI_VFS_EXPORT_ONLY);
 
 /*
  * This is used by subsystems that don't want seekable

@@ -10,6 +10,7 @@
 #include "sched.h"
 
 DEFINE_PER_CPU(struct update_util_data __rcu *, cpufreq_update_util_data);
+EXPORT_PER_CPU_SYMBOL_GPL(cpufreq_update_util_data);
 
 /**
  * cpufreq_add_update_util_hook - Populate the CPU's update_util_data pointer.
@@ -75,3 +76,4 @@ bool cpufreq_this_cpu_can_update(struct cpufreq_policy *policy)
 		(policy->dvfs_possible_from_any_cpu &&
 		 rcu_dereference_sched(*this_cpu_ptr(&cpufreq_update_util_data)));
 }
+EXPORT_SYMBOL_GPL(cpufreq_this_cpu_can_update);

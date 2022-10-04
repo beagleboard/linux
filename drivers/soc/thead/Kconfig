@@ -1,0 +1,21 @@
+# SPDX-License-Identifier: GPL-2.0-only
+if SOC_THEAD || COMPILE_TEST
+
+menu "Thead SoC drivers"
+
+config LIGHT_IOPMP
+	tristate "Thead light iopmp support"
+	default y
+	help
+	  This driver supports Light IOPMP built-in for security system.
+
+config LIGHT_SUSPEND
+	bool "Thead light system suspend support"
+	depends on PM
+	default n
+	help
+	 This driver supports system suspend low power feature in Light FM platform
+
+endmenu
+
+endif

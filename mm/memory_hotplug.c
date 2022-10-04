@@ -596,8 +596,7 @@ void generic_online_page(struct page *page, unsigned int order)
 	 * so we should map it first. This is better than introducing a special
 	 * case in page freeing fast path.
 	 */
-	if (debug_pagealloc_enabled_static())
-		kernel_map_pages(page, 1 << order, 1);
+	debug_pagealloc_map_pages(page, 1 << order);
 	__free_pages_core(page, order);
 	totalram_pages_add(1UL << order);
 #ifdef CONFIG_HIGHMEM
@@ -1131,6 +1130,43 @@ int add_memory(int nid, u64 start, u64 size, mhp_t mhp_flags)
 }
 EXPORT_SYMBOL_GPL(add_memory);
 
+int add_memory_subsection(int nid, u64 start, u64 size)
+{
+	struct mhp_params params = { .pgprot = PAGE_KERNEL };
+	struct resource *res;
+	int ret;
+
+	if (!IS_ALIGNED(start, SUBSECTION_SIZE) ||
+	    !IS_ALIGNED(size, SUBSECTION_SIZE)) {
+		pr_err("%s: start 0x%llx size 0x%llx not aligned to subsection size\n",
+			   __func__, start, size);
+		return -EINVAL;
+	}
+
+	res = register_memory_resource(start, size, "System RAM");
+	if (IS_ERR(res))
+		return PTR_ERR(res);
+
+	mem_hotplug_begin();
+
+	nid = memory_add_physaddr_to_nid(start);
+
+	if (IS_ENABLED(CONFIG_ARCH_KEEP_MEMBLOCK))
+		memblock_add_node(start, size, nid);
+
+	ret = arch_add_memory(nid, start, size, &params);
+	if (ret) {
+		if (IS_ENABLED(CONFIG_ARCH_KEEP_MEMBLOCK))
+			memblock_remove(start, size);
+		pr_err("%s failed to add subsection start 0x%llx size 0x%llx\n",
+			   __func__, start, size);
+	}
+	mem_hotplug_done();
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(add_memory_subsection);
+
 /*
  * Add special, driver-managed memory to the system as system RAM. Such
  * memory is not exposed via the raw firmware-provided memmap as system
@@ -1279,6 +1315,8 @@ do_migrate_range(unsigned long start_pfn, unsigned long end_pfn)
 	struct page *page, *head;
 	int ret = 0;
 	LIST_HEAD(source);
+	static DEFINE_RATELIMIT_STATE(migrate_rs, DEFAULT_RATELIMIT_INTERVAL,
+				      DEFAULT_RATELIMIT_BURST);
 
 	for (pfn = start_pfn; pfn < end_pfn; pfn++) {
 		if (!pfn_valid(pfn))
@@ -1325,8 +1363,10 @@ do_migrate_range(unsigned long start_pfn, unsigned long end_pfn)
 						    page_is_file_lru(page));
 
 		} else {
-			pr_warn("failed to isolate pfn %lx\n", pfn);
-			dump_page(page, "isolation failed");
+			if (__ratelimit(&migrate_rs)) {
+				pr_warn("failed to isolate pfn %lx\n", pfn);
+				dump_page(page, "isolation failed");
+			}
 		}
 		put_page(page);
 	}
@@ -1355,9 +1395,11 @@ do_migrate_range(unsigned long start_pfn, unsigned long end_pfn)
 			(unsigned long)&mtc, MIGRATE_SYNC, MR_MEMORY_HOTPLUG);
 		if (ret) {
 			list_for_each_entry(page, &source, lru) {
-				pr_warn("migrating pfn %lx failed ret:%d ",
-				       page_to_pfn(page), ret);
-				dump_page(page, "migration failure");
+				if (__ratelimit(&migrate_rs)) {
+					pr_warn("migrating pfn %lx failed ret:%d\n",
+						page_to_pfn(page), ret);
+					dump_page(page, "migration failure");
+				}
 			}
 			putback_movable_pages(&source);
 		}
@@ -1492,14 +1534,17 @@ int __ref offline_pages(unsigned long start_pfn, unsigned long nr_pages)
 	}
 	node = zone_to_nid(zone);
 
+	lru_cache_disable();
 	/* set above range as isolated */
 	ret = start_isolate_page_range(start_pfn, end_pfn,
 				       MIGRATE_MOVABLE,
-				       MEMORY_OFFLINE | REPORT_FAILURE);
+				       MEMORY_OFFLINE | REPORT_FAILURE, NULL);
 	if (ret) {
 		reason = "failure to isolate range";
-		goto failed_removal;
+		goto failed_removal_lru_cache_disabled;
 	}
+
+	drain_all_pages(zone);
 
 	arg.start_pfn = start_pfn;
 	arg.nr_pages = nr_pages;
@@ -1522,7 +1567,6 @@ int __ref offline_pages(unsigned long start_pfn, unsigned long nr_pages)
 			}
 
 			cond_resched();
-			lru_add_drain_all();
 
 			ret = scan_movable_pages(pfn, end_pfn, &pfn);
 			if (!ret) {
@@ -1551,18 +1595,17 @@ int __ref offline_pages(unsigned long start_pfn, unsigned long nr_pages)
 		}
 
 		/*
-		 * per-cpu pages are drained in start_isolate_page_range, but if
-		 * there are still pages that are not free, make sure that we
-		 * drain again, because when we isolated range we might
-		 * have raced with another thread that was adding pages to pcp
-		 * list.
+		 * per-cpu pages are drained after start_isolate_page_range, but
+		 * if there are still pages that are not free, make sure that we
+		 * drain again, because when we isolated range we might have
+		 * raced with another thread that was adding pages to pcp list.
 		 *
 		 * Forward progress should be still guaranteed because
 		 * pages on the pcp list can only belong to MOVABLE_ZONE
 		 * because has_unmovable_pages explicitly checks for
 		 * PageBuddy on freed pages on other zones.
 		 */
-		ret = test_pages_isolated(start_pfn, end_pfn, MEMORY_OFFLINE);
+		ret = test_pages_isolated(start_pfn, end_pfn, MEMORY_OFFLINE, NULL);
 		if (ret)
 			drain_all_pages(zone);
 	} while (ret);
@@ -1580,6 +1623,7 @@ int __ref offline_pages(unsigned long start_pfn, unsigned long nr_pages)
 	zone->nr_isolate_pageblock -= nr_pages / pageblock_nr_pages;
 	spin_unlock_irqrestore(&zone->lock, flags);
 
+	lru_cache_enable();
 	/* removal success */
 	adjust_managed_page_count(pfn_to_page(start_pfn), -nr_pages);
 	zone->present_pages -= nr_pages;
@@ -1612,6 +1656,8 @@ int __ref offline_pages(unsigned long start_pfn, unsigned long nr_pages)
 failed_removal_isolated:
 	undo_isolate_page_range(start_pfn, end_pfn, MIGRATE_MOVABLE);
 	memory_notify(MEM_CANCEL_OFFLINE, &arg);
+failed_removal_lru_cache_disabled:
+	lru_cache_enable();
 failed_removal:
 	pr_debug("memory offlining [mem %#010llx-%#010llx] failed due to %s\n",
 		 (unsigned long long) start_pfn << PAGE_SHIFT,
@@ -1787,6 +1833,29 @@ int remove_memory(int nid, u64 start, u64 size)
 	return rc;
 }
 EXPORT_SYMBOL_GPL(remove_memory);
+
+int remove_memory_subsection(int nid, u64 start, u64 size)
+{
+	if (!IS_ALIGNED(start, SUBSECTION_SIZE) ||
+	    !IS_ALIGNED(size, SUBSECTION_SIZE)) {
+		pr_err("%s: start 0x%llx size 0x%llx not aligned to subsection size\n",
+			   __func__, start, size);
+		return -EINVAL;
+	}
+
+	mem_hotplug_begin();
+	arch_remove_memory(nid, start, size, NULL);
+
+	if (IS_ENABLED(CONFIG_ARCH_KEEP_MEMBLOCK))
+		memblock_remove(start, size);
+
+	release_mem_region_adjustable(start, size);
+
+	mem_hotplug_done();
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(remove_memory_subsection);
 
 /*
  * Try to offline and remove a memory block. Might take a long time to

@@ -233,6 +233,12 @@ config SPI_DAVINCI
 	help
 	  SPI master controller for DaVinci/DA8x/OMAP-L/AM1x SPI modules.
 
+config SPI_DW_QUAD
+	tristate "DesignWare QSPI controller core support"
+    default n
+	help
+	  general driver for QSPI controller core from  DesignWare
+
 config SPI_DESIGNWARE
 	tristate "DesignWare SPI controller core support"
 	imply SPI_MEM

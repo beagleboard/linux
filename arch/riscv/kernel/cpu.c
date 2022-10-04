@@ -27,11 +27,6 @@ int riscv_of_processor_hartid(struct device_node *node)
 		return -ENODEV;
 	}
 
-	if (!of_device_is_available(node)) {
-		pr_info("CPU with hartid=%d is not available\n", hart);
-		return -ENODEV;
-	}
-
 	if (of_property_read_string(node, "riscv,isa", &isa)) {
 		pr_warn("CPU with hartid=%d has no \"riscv,isa\" property\n", hart);
 		return -ENODEV;
@@ -107,6 +102,7 @@ static int c_show(struct seq_file *m, void *v)
 	unsigned long cpu_id = (unsigned long)v - 1;
 	struct device_node *node = of_get_cpu_node(cpu_id, NULL);
 	const char *compat, *isa, *mmu;
+	const char  *freq, *icache, *dcache, *l2cache, *tlb, *cacheline, *vecver;
 
 	seq_printf(m, "processor\t: %lu\n", cpu_id);
 	seq_printf(m, "hart\t\t: %lu\n", cpuid_to_hartid_map(cpu_id));
@@ -117,6 +113,28 @@ static int c_show(struct seq_file *m, void *v)
 	if (!of_property_read_string(node, "compatible", &compat)
 	    && strcmp(compat, "riscv"))
 		seq_printf(m, "uarch\t\t: %s\n", compat);
+
+	if (!of_property_read_string(node, "cpu-freq", &freq))
+		seq_printf(m, "cpu-freq\t: %s\n", freq);
+
+	if (!of_property_read_string(node, "cpu-icache", &icache))
+		seq_printf(m, "cpu-icache\t: %s\n", icache);
+
+	if (!of_property_read_string(node, "cpu-dcache", &dcache))
+		seq_printf(m, "cpu-dcache\t: %s\n", dcache);
+
+	if (!of_property_read_string(node, "cpu-l2cache", &l2cache))
+		seq_printf(m, "cpu-l2cache\t: %s\n", l2cache);
+
+	if (!of_property_read_string(node, "cpu-tlb", &tlb))
+		seq_printf(m, "cpu-tlb\t\t: %s\n", tlb);
+
+	if (!of_property_read_string(node, "cpu-cacheline", &cacheline))
+		seq_printf(m, "cpu-cacheline\t: %s\n", cacheline);
+
+	if (!of_property_read_string(node, "cpu-vector", &vecver))
+		seq_printf(m, "cpu-vector\t: %s\n", vecver);
+
 	seq_puts(m, "\n");
 	of_node_put(node);
 

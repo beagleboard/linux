@@ -10,17 +10,11 @@ ifneq ($(CONFIG_TRACING),)
 	dwc3-y				+= trace.o
 endif
 
-ifneq ($(filter y,$(CONFIG_USB_DWC3_HOST) $(CONFIG_USB_DWC3_DUAL_ROLE)),)
 	dwc3-y				+= host.o
-endif
 
-ifneq ($(filter y,$(CONFIG_USB_DWC3_GADGET) $(CONFIG_USB_DWC3_DUAL_ROLE)),)
 	dwc3-y				+= gadget.o ep0.o
-endif
 
-ifneq ($(CONFIG_USB_DWC3_DUAL_ROLE),)
 	dwc3-y				+= drd.o
-endif
 
 ifneq ($(CONFIG_USB_DWC3_ULPI),)
 	dwc3-y				+= ulpi.o
@@ -51,3 +45,5 @@ obj-$(CONFIG_USB_DWC3_MESON_G12A)	+= dwc3-meson-g12a.o
 obj-$(CONFIG_USB_DWC3_OF_SIMPLE)	+= dwc3-of-simple.o
 obj-$(CONFIG_USB_DWC3_ST)		+= dwc3-st.o
 obj-$(CONFIG_USB_DWC3_QCOM)		+= dwc3-qcom.o
+obj-$(CONFIG_USB_DWC3_IMX8MP)		+= dwc3-imx8mp.o
+obj-$(CONFIG_USB_DWC3_THEAD)		+= dwc3-thead.o

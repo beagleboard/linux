@@ -34,6 +34,13 @@ config CPU_FREQ_STAT
 
 	  If in doubt, say N.
 
+config CPU_FREQ_TIMES
+       bool "CPU frequency time-in-state statistics"
+       help
+         Export CPU time-in-state information through procfs.
+
+         If in doubt, say N.
+
 choice
 	prompt "Default CPUFreq governor"
 	default CPU_FREQ_DEFAULT_GOV_USERSPACE if ARM_SA1100_CPUFREQ || ARM_SA1110_CPUFREQ
@@ -226,6 +233,15 @@ config CPUFREQ_DT_PLATDEV
 
 	  If in doubt, say N.
 
+config CPUFREQ_DUMMY
+	tristate "Dummy CPU frequency driver"
+	help
+	  This option adds a generic dummy CPUfreq driver, which sets a fake
+	  2-frequency table when initializing each policy and otherwise does
+	  nothing.
+
+	  If in doubt, say N
+
 if X86
 source "drivers/cpufreq/Kconfig.x86"
 endif
@@ -330,6 +346,15 @@ config QORIQ_CPUFREQ
 	select CLK_QORIQ
 	help
 	  This adds the CPUFreq driver support for Freescale QorIQ SoCs
+	  which are capable of changing the CPU's frequency dynamically.
+
+config RISV_THEAD_LIGHT_CPUFREQ
+	tristate "CPU frequency scaling driver for Thead light SoCs"
+	depends on OF && COMMON_CLK
+	select CLK_LIGHT
+	select PM_OPP
+	help
+	  This adds the CPUFreq driver support for Thead light SoCs
 	  which are capable of changing the CPU's frequency dynamically.
 
 endif

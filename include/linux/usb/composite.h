@@ -525,6 +525,8 @@ extern struct usb_string *usb_gstrings_attach(struct usb_composite_dev *cdev,
 extern int usb_string_ids_n(struct usb_composite_dev *c, unsigned n);
 
 extern void composite_disconnect(struct usb_gadget *gadget);
+extern void composite_reset(struct usb_gadget *gadget);
+
 extern int composite_setup(struct usb_gadget *gadget,
 		const struct usb_ctrlrequest *ctrl);
 extern void composite_suspend(struct usb_gadget *gadget);
@@ -590,6 +592,7 @@ struct usb_function_instance {
 	struct config_group group;
 	struct list_head cfs_list;
 	struct usb_function_driver *fd;
+	struct usb_function *f;
 	int (*set_inst_name)(struct usb_function_instance *inst,
 			      const char *name);
 	void (*free_func_inst)(struct usb_function_instance *inst);

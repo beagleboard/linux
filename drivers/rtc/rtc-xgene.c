@@ -31,6 +31,11 @@
 #define RTC_RSTAT		0x14
 #define RTC_EOI			0x18
 #define RTC_VER			0x1C
+#define RTC_CPSR		0x20
+
+#define COUNTER_PRESCALER_VALUE	0x8000
+
+#define RTC_PSCLR_EN		BIT(4)
 
 struct xgene_rtc_dev {
 	struct rtc_device *rtc;
@@ -173,6 +178,12 @@ static int xgene_rtc_probe(struct platform_device *pdev)
 
 	/* Turn on the clock and the crystal */
 	writel(RTC_CCR_EN, pdata->csr_base + RTC_CCR);
+
+	/* the input clock in light platform is 32K but not 1HZ, so we need to prescale the clock, 32K / COUNTER_PRESCALER_VALUE = 1HZ */
+	writel(COUNTER_PRESCALER_VALUE, pdata->csr_base + RTC_CPSR);
+
+	/* Allows user to control the usage of RTC Prescaler feature */
+	writel(readl(pdata->csr_base + RTC_CCR) | RTC_PSCLR_EN, pdata->csr_base + RTC_CCR);
 
 	ret = device_init_wakeup(&pdev->dev, 1);
 	if (ret) {

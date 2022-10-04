@@ -1,0 +1,13 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * Copyright (C) 2021 Alibaba Group Holding Limited.
+ */
+
+/dts-v1/;
+
+#include "light-a-val.dts"
+
+
+&xtensa_dsp1 {
+	status = "okay";
+};

@@ -96,6 +96,7 @@
 #include <linux/kasan.h>
 #include <linux/scs.h>
 #include <linux/io_uring.h>
+#include <linux/cpufreq_times.h>
 
 #include <asm/pgalloc.h>
 #include <linux/uaccess.h>
@@ -108,6 +109,8 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/task.h>
 
+#undef CREATE_TRACE_POINTS
+#include <trace/hooks/sched.h>
 /*
  * Minimum number of threads to boot the kernel
  */
@@ -117,6 +120,8 @@
  * Maximum number of threads
  */
 #define MAX_THREADS FUTEX_TID_MASK
+
+EXPORT_TRACEPOINT_SYMBOL_GPL(task_newtask);
 
 /*
  * Protected counters by write_lock_irq(&tasklist_lock)
@@ -138,6 +143,7 @@ static const char * const resident_page_types[] = {
 DEFINE_PER_CPU(unsigned long, process_counts) = 0;
 
 __cacheline_aligned DEFINE_RWLOCK(tasklist_lock);  /* outer */
+EXPORT_SYMBOL_GPL(tasklist_lock);
 
 #ifdef CONFIG_PROVE_RCU
 int lockdep_tasklist_lock_is_held(void)
@@ -225,8 +231,8 @@ static unsigned long *alloc_thread_stack_node(struct task_struct *tsk, int node)
 		if (!s)
 			continue;
 
-		/* Clear the KASAN shadow of the stack. */
-		kasan_unpoison_shadow(s->addr, THREAD_SIZE);
+		/* Mark stack accessible for KASAN. */
+		kasan_unpoison_range(s->addr, THREAD_SIZE);
 
 		/* Clear stale pointers from reused stack. */
 		memset(s->addr, 0, THREAD_SIZE);
@@ -363,7 +369,7 @@ struct vm_area_struct *vm_area_dup(struct vm_area_struct *orig)
 		 * will be reinitialized.
 		 */
 		*new = data_race(*orig);
-		INIT_LIST_HEAD(&new->anon_vma_chain);
+		INIT_VMA(new);
 		new->vm_next = new->vm_prev = NULL;
 	}
 	return new;
@@ -437,12 +443,15 @@ void put_task_stack(struct task_struct *tsk)
 	if (refcount_dec_and_test(&tsk->stack_refcount))
 		release_task_stack(tsk);
 }
+EXPORT_SYMBOL_GPL(put_task_stack);
 #endif
 
 void free_task(struct task_struct *tsk)
 {
+	cpufreq_task_times_exit(tsk);
 	scs_release(tsk);
 
+	trace_android_vh_free_task(tsk);
 #ifndef CONFIG_THREAD_INFO_IN_TASK
 	/*
 	 * The task is finally done with both the stack and thread_info,
@@ -469,7 +478,7 @@ EXPORT_SYMBOL(free_task);
 static __latent_entropy int dup_mmap(struct mm_struct *mm,
 					struct mm_struct *oldmm)
 {
-	struct vm_area_struct *mpnt, *tmp, *prev, **pprev;
+	struct vm_area_struct *mpnt, *tmp, *prev, **pprev, *last = NULL;
 	struct rb_node **rb_link, *rb_parent;
 	int retval;
 	unsigned long charge;
@@ -589,8 +598,18 @@ static __latent_entropy int dup_mmap(struct mm_struct *mm,
 		rb_parent = &tmp->vm_rb;
 
 		mm->map_count++;
-		if (!(tmp->vm_flags & VM_WIPEONFORK))
+		if (!(tmp->vm_flags & VM_WIPEONFORK)) {
+			if (IS_ENABLED(CONFIG_SPECULATIVE_PAGE_FAULT)) {
+				/*
+				 * Mark this VMA as changing to prevent the
+				 * speculative page fault hanlder to process
+				 * it until the TLB are flushed below.
+				 */
+				last = mpnt;
+				vm_write_begin(mpnt);
+			}
 			retval = copy_page_range(tmp, mpnt);
+		}
 
 		if (tmp->vm_ops && tmp->vm_ops->open)
 			tmp->vm_ops->open(tmp);
@@ -603,6 +622,22 @@ static __latent_entropy int dup_mmap(struct mm_struct *mm,
 out:
 	mmap_write_unlock(mm);
 	flush_tlb_mm(oldmm);
+
+	if (IS_ENABLED(CONFIG_SPECULATIVE_PAGE_FAULT)) {
+		/*
+		 * Since the TLB has been flush, we can safely unmark the
+		 * copied VMAs and allows the speculative page fault handler to
+		 * process them again.
+		 * Walk back the VMA list from the last marked VMA.
+		 */
+		for (; last; last = last->vm_prev) {
+			if (last->vm_flags & VM_DONTCOPY)
+				continue;
+			if (!(last->vm_flags & VM_WIPEONFORK))
+				vm_write_end(last);
+		}
+	}
+
 	mmap_write_unlock(oldmm);
 	dup_userfaultfd_complete(&uf);
 fail_uprobe_end:
@@ -943,6 +978,11 @@ static struct task_struct *dup_task_struct(struct task_struct *orig, int node)
 #ifdef CONFIG_MEMCG
 	tsk->active_memcg = NULL;
 #endif
+
+	android_init_vendor_data(tsk, 1);
+	android_init_oem_data(tsk, 1);
+
+	trace_android_vh_dup_task_struct(tsk, orig);
 	return tsk;
 
 free_stack:
@@ -1012,6 +1052,9 @@ static struct mm_struct *mm_init(struct mm_struct *mm, struct task_struct *p,
 	mm->mmap = NULL;
 	mm->mm_rb = RB_ROOT;
 	mm->vmacache_seqnum = 0;
+#ifdef CONFIG_SPECULATIVE_PAGE_FAULT
+	rwlock_init(&mm->mm_rb_lock);
+#endif
 	atomic_set(&mm->mm_users, 1);
 	atomic_set(&mm->mm_count, 1);
 	seqcount_init(&mm->write_protect_seq);
@@ -1031,7 +1074,8 @@ static struct mm_struct *mm_init(struct mm_struct *mm, struct task_struct *p,
 	mm_init_owner(mm, p);
 	mm_init_pasid(mm);
 	RCU_INIT_POINTER(mm->exe_file, NULL);
-	mmu_notifier_subscriptions_init(mm);
+	if (!mmu_notifier_subscriptions_init(mm))
+		goto fail_nopgd;
 	init_tlb_flush_pending(mm);
 #if defined(CONFIG_TRANSPARENT_HUGEPAGE) && !USE_SPLIT_PMD_PTLOCKS
 	mm->pmd_huge_pte = NULL;
@@ -1949,6 +1993,8 @@ static __latent_entropy struct task_struct *copy_process(
 	if (!p)
 		goto fork_out;
 
+	cpufreq_task_times_init(p);
+
 	/*
 	 * This _must_ happen before we call free_task(), i.e. before we jump
 	 * to any of the bad_fork_* labels. This is to avoid freeing
@@ -2204,6 +2250,17 @@ static __latent_entropy struct task_struct *copy_process(
 		goto bad_fork_put_pidfd;
 
 	/*
+	 * Now that the cgroups are pinned, re-clone the parent cgroup and put
+	 * the new task on the correct runqueue. All this *before* the task
+	 * becomes visible.
+	 *
+	 * This isn't part of ->can_fork() because while the re-cloning is
+	 * cgroup specific, it unconditionally needs to place the task on a
+	 * runqueue.
+	 */
+	sched_cgroup_fork(p, args);
+
+	/*
 	 * From this point on we must avoid any synchronous user-space
 	 * communication until we take the tasklist-lock. In particular, we do
 	 * not want user-space to be able to predict the process start-time by
@@ -2310,7 +2367,7 @@ static __latent_entropy struct task_struct *copy_process(
 		fd_install(pidfd, pidfile);
 
 	proc_fork_connector(p);
-	sched_post_fork(p, args);
+	sched_post_fork(p);
 	cgroup_post_fork(p, args);
 	perf_event_fork(p);
 
@@ -2468,6 +2525,8 @@ pid_t kernel_clone(struct kernel_clone_args *args)
 
 	if (IS_ERR(p))
 		return PTR_ERR(p);
+
+	cpufreq_task_times_alloc(p);
 
 	/*
 	 * Do this prior waking up the new thread - the thread pointer

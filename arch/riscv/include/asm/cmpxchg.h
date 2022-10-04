@@ -16,6 +16,7 @@
 	__typeof__(ptr) __ptr = (ptr);					\
 	__typeof__(new) __new = (new);					\
 	__typeof__(*(ptr)) __ret;					\
+	smp_mb();							\
 	switch (size) {							\
 	case 4:								\
 		__asm__ __volatile__ (					\
@@ -34,6 +35,7 @@
 	default:							\
 		BUILD_BUG();						\
 	}								\
+	smp_mb();							\
 	__ret;								\
 })
 
@@ -49,6 +51,7 @@
 	__typeof__(ptr) __ptr = (ptr);					\
 	__typeof__(new) __new = (new);					\
 	__typeof__(*(ptr)) __ret;					\
+	smp_mb();							\
 	switch (size) {							\
 	case 4:								\
 		__asm__ __volatile__ (					\
@@ -69,6 +72,7 @@
 	default:							\
 		BUILD_BUG();						\
 	}								\
+	smp_mb();							\
 	__ret;								\
 })
 
@@ -84,6 +88,7 @@
 	__typeof__(ptr) __ptr = (ptr);					\
 	__typeof__(new) __new = (new);					\
 	__typeof__(*(ptr)) __ret;					\
+	smp_mb();							\
 	switch (size) {							\
 	case 4:								\
 		__asm__ __volatile__ (					\
@@ -104,6 +109,7 @@
 	default:							\
 		BUILD_BUG();						\
 	}								\
+	smp_mb();							\
 	__ret;								\
 })
 
@@ -119,6 +125,7 @@
 	__typeof__(ptr) __ptr = (ptr);					\
 	__typeof__(new) __new = (new);					\
 	__typeof__(*(ptr)) __ret;					\
+	smp_mb();							\
 	switch (size) {							\
 	case 4:								\
 		__asm__ __volatile__ (					\
@@ -137,6 +144,7 @@
 	default:							\
 		BUILD_BUG();						\
 	}								\
+	smp_mb();							\
 	__ret;								\
 })
 
@@ -170,6 +178,7 @@
 	__typeof__(*(ptr)) __new = (new);				\
 	__typeof__(*(ptr)) __ret;					\
 	register unsigned int __rc;					\
+	smp_mb();							\
 	switch (size) {							\
 	case 4:								\
 		__asm__ __volatile__ (					\
@@ -196,6 +205,7 @@
 	default:							\
 		BUILD_BUG();						\
 	}								\
+	smp_mb();							\
 	__ret;								\
 })
 
@@ -214,6 +224,7 @@
 	__typeof__(*(ptr)) __new = (new);				\
 	__typeof__(*(ptr)) __ret;					\
 	register unsigned int __rc;					\
+	smp_mb();							\
 	switch (size) {							\
 	case 4:								\
 		__asm__ __volatile__ (					\
@@ -242,6 +253,7 @@
 	default:							\
 		BUILD_BUG();						\
 	}								\
+	smp_mb();							\
 	__ret;								\
 })
 
@@ -260,6 +272,7 @@
 	__typeof__(*(ptr)) __new = (new);				\
 	__typeof__(*(ptr)) __ret;					\
 	register unsigned int __rc;					\
+	smp_mb();							\
 	switch (size) {							\
 	case 4:								\
 		__asm__ __volatile__ (					\
@@ -288,6 +301,7 @@
 	default:							\
 		BUILD_BUG();						\
 	}								\
+	smp_mb();							\
 	__ret;								\
 })
 
@@ -306,6 +320,7 @@
 	__typeof__(*(ptr)) __new = (new);				\
 	__typeof__(*(ptr)) __ret;					\
 	register unsigned int __rc;					\
+	smp_mb();							\
 	switch (size) {							\
 	case 4:								\
 		__asm__ __volatile__ (					\
@@ -334,6 +349,7 @@
 	default:							\
 		BUILD_BUG();						\
 	}								\
+	smp_mb();							\
 	__ret;								\
 })
 

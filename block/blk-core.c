@@ -18,7 +18,6 @@
 #include <linux/bio.h>
 #include <linux/blkdev.h>
 #include <linux/blk-mq.h>
-#include <linux/blk-pm.h>
 #include <linux/highmem.h>
 #include <linux/mm.h>
 #include <linux/pagemap.h>
@@ -59,6 +58,13 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(block_rq_remap);
 EXPORT_TRACEPOINT_SYMBOL_GPL(block_bio_complete);
 EXPORT_TRACEPOINT_SYMBOL_GPL(block_split);
 EXPORT_TRACEPOINT_SYMBOL_GPL(block_unplug);
+EXPORT_TRACEPOINT_SYMBOL_GPL(block_bio_queue);
+EXPORT_TRACEPOINT_SYMBOL_GPL(block_getrq);
+EXPORT_TRACEPOINT_SYMBOL_GPL(block_rq_insert);
+EXPORT_TRACEPOINT_SYMBOL_GPL(block_rq_issue);
+EXPORT_TRACEPOINT_SYMBOL_GPL(block_rq_merge);
+EXPORT_TRACEPOINT_SYMBOL_GPL(block_rq_requeue);
+EXPORT_TRACEPOINT_SYMBOL_GPL(block_rq_complete);
 
 DEFINE_IDA(blk_queue_ida);
 
@@ -440,8 +446,7 @@ int blk_queue_enter(struct request_queue *q, blk_mq_req_flags_t flags)
 			 * responsible for ensuring that that counter is
 			 * globally visible before the queue is unfrozen.
 			 */
-			if ((pm && queue_rpm_status(q) != RPM_SUSPENDED) ||
-			    !blk_queue_pm_only(q)) {
+			if (pm || !blk_queue_pm_only(q)) {
 				success = true;
 			} else {
 				percpu_ref_put(&q->q_usage_counter);
@@ -466,7 +471,8 @@ int blk_queue_enter(struct request_queue *q, blk_mq_req_flags_t flags)
 
 		wait_event(q->mq_freeze_wq,
 			   (!q->mq_freeze_depth &&
-			    blk_pm_resume_queue(pm, q)) ||
+			    (pm || (blk_pm_request_resume(q),
+				    !blk_queue_pm_only(q)))) ||
 			   blk_queue_dying(q));
 		if (blk_queue_dying(q))
 			return -ENODEV;

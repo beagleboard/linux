@@ -1,0 +1,46 @@
+# SPDX-License-Identifier: GPL-2.0
+dtb-$(CONFIG_SOC_THEAD) += ice.dtb
+dtb-$(CONFIG_SOC_THEAD) += light-fm-emu.dtb light_mpw.dtb
+dtb-$(CONFIG_SOC_THEAD) += light-fm-emu-npu-fce.dtb
+dtb-$(CONFIG_SOC_THEAD) += light-fm-emu-gpu.dtb
+dtb-$(CONFIG_SOC_THEAD) += light-fm-emu-dsp.dtb
+dtb-$(CONFIG_SOC_THEAD) += light-fm-emu-audio.dtb
+dtb-$(CONFIG_SOC_THEAD) += light-fm-emu-hdmi.dtb
+dtb-$(CONFIG_SOC_THEAD) += light-fm-emu-dsi0-hdmi.dtb
+dtb-$(CONFIG_SOC_THEAD) += light-a-val.dtb light-a-val-sv.dtb
+dtb-$(CONFIG_SOC_THEAD) += light-a-val-ddr2G.dtb light-a-val-ddr1G.dtb
+dtb-$(CONFIG_SOC_THEAD) += light-a-val-npu-fce.dtb
+dtb-$(CONFIG_SOC_THEAD) += light-a-val-iso7816.dtb
+dtb-$(CONFIG_SOC_THEAD) += light-a-val-nand.dtb
+dtb-$(CONFIG_SOC_THEAD) += light-a-val-audio.dtb
+dtb-$(CONFIG_SOC_THEAD) += light-a-val-dsi0.dtb light-a-val-dsi1.dtb light-a-val-hdmi.dtb light-a-val-dsi0-dsi1.dtb light-a-val-dsi0-hdmi.dtb light-a-val-dpi0.dtb light-a-val-dpi0-dpi1.dtb
+dtb-$(CONFIG_SOC_THEAD) += light-a-val-wcn.dtb
+dtb-$(CONFIG_SOC_THEAD) += light-a-val-gpio-keys.dtb
+dtb-$(CONFIG_SOC_THEAD) += light-a-val-khv.dtb
+dtb-$(CONFIG_SOC_THEAD) += light-a-val-sec.dtb
+dtb-$(CONFIG_SOC_THEAD) += light-a-val-miniapp-hdmi.dtb
+dtb-$(CONFIG_SOC_THEAD) += light-a-product.dtb
+dtb-$(CONFIG_SOC_THEAD) += light-b-product.dtb
+dtb-$(CONFIG_SOC_THEAD) += light-b-product-ddr1G.dtb
+dtb-$(CONFIG_SOC_THEAD) += light-b-product-miniapp-hdmi.dtb
+dtb-$(CONFIG_SOC_THEAD) += light-a-val-full.dtb
+dtb-$(CONFIG_SOC_THEAD) += light-ant-evt.dtb
+dtb-$(CONFIG_SOC_THEAD) += light-ant-discrete.dtb
+
+# // temporary dtb for power gate
+dtb-$(CONFIG_SOC_THEAD) += light-a-val-powergate.dtb light-a-val-sv-powergate.dtb
+dtb-$(CONFIG_SOC_THEAD) += light-a-val-ddr2G-powergate.dtb light-a-val-ddr1G-powergate.dtb
+dtb-$(CONFIG_SOC_THEAD) += light-a-val-npu-fce-powergate.dtb
+dtb-$(CONFIG_SOC_THEAD) += light-a-val-iso7816-powergate.dtb
+dtb-$(CONFIG_SOC_THEAD) += light-a-val-nand-powergate.dtb
+dtb-$(CONFIG_SOC_THEAD) += light-a-val-audio-powergate.dtb
+dtb-$(CONFIG_SOC_THEAD) += light-a-val-dsi0-powergate.dtb light-a-val-dsi1-powergate.dtb light-a-val-hdmi-powergate.dtb light-a-val-dsi0-dsi1-powergate.dtb light-a-val-dsi0-hdmi-powergate.dtb light-a-val-dpi0-powergate.dtb light-a-val-dpi0-dpi1-powergate.dtb
+dtb-$(CONFIG_SOC_THEAD) += light-a-val-wcn-powergate.dtb
+dtb-$(CONFIG_SOC_THEAD) += light-a-val-khv-powergate.dtb
+dtb-$(CONFIG_SOC_THEAD) += light-a-val-sec-powergate.dtb
+dtb-$(CONFIG_SOC_THEAD) += light-a-val-miniapp-hdmi-powergate.dtb
+dtb-$(CONFIG_SOC_THEAD) += light-a-product-powergate.dtb
+dtb-$(CONFIG_SOC_THEAD) += light-b-product-powergate.dtb
+dtb-$(CONFIG_SOC_THEAD) += light-b-product-ddr1G-powergate.dtb
+dtb-$(CONFIG_SOC_THEAD) += light-a-val-full-powergate.dtb
+dtb-$(CONFIG_SOC_THEAD) += light-a-val-android.dtb

@@ -255,8 +255,7 @@ static struct kvm_vcpu *vgic_target_oracle(struct vgic_irq *irq)
  * Return negative if "a" sorts before "b", 0 to preserve order, and positive
  * to sort "b" before "a".
  */
-static int vgic_irq_cmp(void *priv, const struct list_head *a,
-			const struct list_head *b)
+static int vgic_irq_cmp(void *priv, struct list_head *a, struct list_head *b)
 {
 	struct vgic_irq *irqa = container_of(a, struct vgic_irq, ap_list);
 	struct vgic_irq *irqb = container_of(b, struct vgic_irq, ap_list);
@@ -916,6 +915,9 @@ void kvm_vgic_flush_hwstate(struct kvm_vcpu *vcpu)
 
 	if (can_access_vgic_from_kernel())
 		vgic_restore_state(vcpu);
+
+	if (vgic_supports_direct_msis(vcpu->kvm))
+		vgic_v4_commit(vcpu);
 }
 
 void kvm_vgic_load(struct kvm_vcpu *vcpu)

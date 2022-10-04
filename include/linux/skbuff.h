@@ -40,6 +40,8 @@
 #if IS_ENABLED(CONFIG_NF_CONNTRACK)
 #include <linux/netfilter/nf_conntrack_common.h>
 #endif
+#include <linux/android_kabi.h>
+#include <linux/android_vendor.h>
 
 /* The interface for checksum offload between the stack and networking drivers
  * is as follows...
@@ -531,6 +533,8 @@ struct skb_shared_info {
 	 * remains valid until skb destructor */
 	void *		destructor_arg;
 
+	ANDROID_OEM_DATA_ARRAY(1, 3);
+
 	/* must be last field, see pskb_expand_head() */
 	skb_frag_t	frags[MAX_SKB_FRAGS];
 };
@@ -907,6 +911,9 @@ struct sk_buff {
 	/* private: */
 	__u32			headers_end[0];
 	/* public: */
+
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
 
 	/* These elements must be at the end, see alloc_skb() for details.  */
 	sk_buff_data_t		tail;
@@ -1636,6 +1643,22 @@ static inline int skb_unclone(struct sk_buff *skb, gfp_t pri)
 	if (skb_cloned(skb))
 		return pskb_expand_head(skb, 0, 0, pri);
 
+	return 0;
+}
+
+/* This variant of skb_unclone() makes sure skb->truesize is not changed */
+static inline int skb_unclone_keeptruesize(struct sk_buff *skb, gfp_t pri)
+{
+	might_sleep_if(gfpflags_allow_blocking(pri));
+
+	if (skb_cloned(skb)) {
+		unsigned int save = skb->truesize;
+		int res;
+
+		res = pskb_expand_head(skb, 0, 0, pri);
+		skb->truesize = save;
+		return res;
+	}
 	return 0;
 }
 

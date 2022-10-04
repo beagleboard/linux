@@ -264,7 +264,7 @@ static int apply_r_riscv_align_rela(struct module *me, u32 *location,
 	pr_err(
 	  "%s: The unexpected relocation type 'R_RISCV_ALIGN' from PC = %p\n",
 	  me->name, location);
-	return -EINVAL;
+	return 0; /* Do not return -EINVAL when relocation type is R_RISCV_ALIGN */
 }
 
 static int apply_r_riscv_add32_rela(struct module *me, u32 *location,

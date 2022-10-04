@@ -84,6 +84,16 @@ config NVMEM_LPC18XX_OTP
 	  To compile this driver as a module, choose M here: the module
 	  will be called nvmem_lpc18xx_otp.
 
+config NVMEM_THEAD_LIGHT_EFUSE
+	tristate "Thead Light efuse Support"
+	depends on SOC_THEAD || COMPILE_TEST
+	depends on HAS_IOMEM
+	help
+	Say Y here to include support for Thead efuse found on found on
+	Light fullmask devices
+	To compile this driver as a module, choose M here: the module
+	will be called nvmem-light-efuse.
+
 config NVMEM_MXS_OCOTP
 	tristate "Freescale MXS On-Chip OTP Memory Support"
 	depends on ARCH_MXS || COMPILE_TEST

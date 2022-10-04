@@ -12,17 +12,18 @@
 
 #include <linux/mm.h>
 #include <linux/sched.h>
+#include <asm/tlbflush.h>
+#include <asm/cacheflush.h>
+#include <asm/asid.h>
+
+#define ASID_MASK		((1 << SATP_ASID_BITS) - 1)
+#define cpu_asid(mm)		(atomic64_read(&mm->context.asid) & ASID_MASK)
+
+#define init_new_context(tsk,mm)	({ atomic64_set(&(mm)->context.asid, 0); 0; })
 
 static inline void enter_lazy_tlb(struct mm_struct *mm,
 	struct task_struct *task)
 {
-}
-
-/* Initialize context-related info for a new mm_struct */
-static inline int init_new_context(struct task_struct *task,
-	struct mm_struct *mm)
-{
-	return 0;
 }
 
 static inline void destroy_context(struct mm_struct *mm)
@@ -31,6 +32,8 @@ static inline void destroy_context(struct mm_struct *mm)
 
 void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 	struct task_struct *task);
+
+void check_and_switch_context(struct mm_struct *mm, unsigned int cpu);
 
 static inline void activate_mm(struct mm_struct *prev,
 			       struct mm_struct *next)

@@ -77,6 +77,15 @@ union __riscv_fp_state {
 	struct __riscv_q_ext_state q;
 };
 
+struct __riscv_v_state {
+	__uint128_t v[32];
+	unsigned long vstart;
+	unsigned long vxsat;
+	unsigned long vxrm;
+	unsigned long vl;
+	unsigned long vtype;
+};
+
 #endif /* __ASSEMBLY__ */
 
 #endif /* _UAPI_ASM_RISCV_PTRACE_H */

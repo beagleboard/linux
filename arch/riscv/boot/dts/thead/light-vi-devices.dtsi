@@ -1,0 +1,942 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * Copyright (C) 2021-2022 Alibaba Group Holding Limited.
+ */
+
+&video0{
+	status = "okay";
+	pipline0 {
+		pipline_id = <0>;
+		status = "okay";
+		sensor0 {
+			subdev_name = "vivcam";
+			idx = <0xff>; // invalid
+			csi_idx = <0xff>;
+			path_type = "SENSOR_VGA_RAW10_LINER";
+		};
+		sensor1 {
+			subdev_name = "vivcam";
+			idx = <0xff>; // invalid
+			csi_idx = <0xff>;
+			path_type = "SENSOR_VGA_RAW10_LINER";
+		};
+		dma {
+			subdev_name = "vipre";
+			idx = <0>;
+			path_type = "VIPRE_CSI1_ISP0";
+		};
+		isp {
+			subdev_name = "isp";
+			idx = <0>;
+			path_type = "ISP_MI_PATH_MP";
+		};
+	};
+	pipline1 {
+		pipline_id = <1>;
+		status = "okay";
+		sensor0 {
+			subdev_name = "vivcam";
+			idx = <0xff>; // invalid
+			csi_idx = <0xff>;
+			path_type = "SENSOR_VGA_RAW10_LINER";
+		};
+		sensor1 {
+			subdev_name = "vivcam";
+			idx = <0xff>; // invalid
+			csi_idx = <0xff>;
+			path_type = "SENSOR_VGA_RAW10_LINER";
+		};
+		dma {
+			subdev_name = "vipre";
+			idx = <0>;
+			path_type = "VIPRE_CSI1_ISP0";
+		};
+		isp {
+			subdev_name = "isp";
+			idx = <0>;
+			path_type = "ISP_MI_PATH_SP";
+		};
+	};
+	pipline2 {
+		pipline_id = <2>;
+		status = "okay";
+		sensor0 {
+			subdev_name = "vivcam";
+			idx = <0xff>; // invalid
+			csi_idx = <0xff>;
+			path_type = "SENSOR_VGA_RAW10_LINER";
+		};
+		sensor1 {
+			subdev_name = "vivcam";
+			idx = <0xff>; // invalid
+			csi_idx = <0xff>;
+			path_type = "SENSOR_VGA_RAW10_LINER";
+		};
+		dma {
+			subdev_name = "vipre";
+			idx = <0>;
+			path_type = "VIPRE_CSI1_ISP0";
+		};
+		isp {
+			subdev_name = "isp";
+			idx = <0>;
+			path_type = "ISP_MI_PATH_SP2_BP";
+		};
+	};
+};
+
+&video1{
+	status = "okay";
+	pipline0 { // VSE0
+		pipline_id = <0>;
+		status = "okay";
+		sensor0 {
+			subdev_name = "vivcam";
+			idx = <0xff>; // invalid
+			csi_idx = <0xff>;
+			path_type = "SENSOR_VGA_RAW10_LINER";
+		};
+		sensor1 {
+			subdev_name = "vivcam";
+			idx = <0xff>; // invalid
+			csi_idx = <0xff>;
+			path_type = "SENSOR_VGA_RAW10_LINER";
+		};
+		dma {
+			subdev_name = "vipre";
+			idx = <0>;
+			path_type = "VIPRE_CSI1_ISP0";
+		};
+		isp {
+			subdev_name = "isp";
+			idx = <0>;
+			path_type = "ISP_MI_PATH_MP";
+		};
+		dw {
+			subdev_name = "dw";
+			idx = <0>;
+			path_type = "DW_DWE_VSE0";
+		};
+	};
+	pipline1 { // VSE1
+		pipline_id = <1>;
+		status = "okay";
+		sensor0 {
+			subdev_name = "vivcam";
+			idx = <0xff>; // invalid
+			csi_idx = <0xff>;
+			path_type = "SENSOR_VGA_RAW10_LINER";
+		};
+		sensor1 {
+			subdev_name = "vivcam";
+			idx = <0xff>; // invalid
+			csi_idx = <0xff>;
+			path_type = "SENSOR_VGA_RAW10_LINER";
+		};
+		dma {
+			subdev_name = "vipre";
+			idx = <0>;
+			path_type = "VIPRE_CSI1_ISP0";
+		};
+		isp {
+			subdev_name = "isp";
+			idx = <0>;
+			path_type = "ISP_MI_PATH_MP";
+		};
+		dw {
+			subdev_name = "dw";
+			idx = <0>;
+			path_type = "DW_DWE_VSE1";
+		};
+	};
+	pipline2 { // VSE2
+		pipline_id = <2>;
+		status = "okay";
+		sensor0 {
+			subdev_name = "vivcam";
+			idx = <0xff>; // invalid
+			csi_idx = <0xff>;
+			path_type = "SENSOR_VGA_RAW10_LINER";
+		};
+		sensor1 {
+			subdev_name = "vivcam";
+			idx = <0xff>; // invalid
+			csi_idx = <0xff>;
+			path_type = "SENSOR_VGA_RAW10_LINER";
+		};
+		dma {
+			subdev_name = "vipre";
+			idx = <0>;
+			path_type = "VIPRE_CSI1_ISP0";
+		};
+		isp {
+			subdev_name = "isp";
+			idx = <0>;
+			path_type = "ISP_MI_PATH_MP";
+		};
+		dw {
+			subdev_name = "dw";
+			idx = <0>;
+			path_type = "DW_DWE_VSE2";
+		};
+	};
+};
+
+&video2 {
+	status = "okay";
+	pipline0 {
+		pipline_id = <0>;
+		status = "okay";
+		sensor0 {
+			subdev_name = "vivcam";
+			idx = <0xff>; // invalid
+			csi_idx = <0xff>;
+			path_type = "SENSOR_VGA_RAW10_LINER";
+		};
+		sensor1 {
+			subdev_name = "vivcam";
+			idx = <0xff>; // invalid
+			csi_idx = <0xff>;
+			path_type = "SENSOR_VGA_RAW10_LINER";
+		};
+		dma {
+			subdev_name = "vipre";
+			idx = <0>;
+			path_type = "VIPRE_CSI0_ISP1";
+		};
+		isp {
+			subdev_name = "isp";
+			idx = <1>;
+			path_type = "ISP_MI_PATH_MP";
+		};
+	};
+	pipline1 {
+		pipline_id = <1>;
+		status = "okay";
+		sensor0 {
+			subdev_name = "vivcam";
+			idx = <0xff>; // invalid
+			csi_idx = <0xff>;
+			path_type = "SENSOR_VGA_RAW10_LINER";
+		};
+		sensor1 {
+			subdev_name = "vivcam";
+			idx = <0xff>; // invalid
+			csi_idx = <0xff>;
+			path_type = "SENSOR_VGA_RAW10_LINER";
+		};
+		dma {
+			subdev_name = "vipre";
+			idx = <0>;
+			path_type = "VIPRE_CSI0_ISP1";
+		};
+		isp {
+			subdev_name = "isp";
+			idx = <1>;
+			path_type = "ISP_MI_PATH_SP";
+		};
+	};
+	pipline2 {
+		pipline_id = <2>;
+		status = "okay";
+		sensor0 {
+			subdev_name = "vivcam";
+			idx = <0xff>; // invalid
+			csi_idx = <0xff>;
+			path_type = "SENSOR_VGA_RAW10_LINER";
+
+		};
+		sensor1 {
+			subdev_name = "vivcam";
+			idx = <0xff>; // invalid
+			csi_idx = <0xff>;
+			path_type = "SENSOR_VGA_RAW10_LINER";
+		};
+		dma {
+			subdev_name = "vipre";
+			idx = <0>;
+			path_type = "VIPRE_CSI0_ISP1";
+		};
+		isp {
+			subdev_name = "isp";
+			idx = <1>;
+			path_type = "ISP_MI_PATH_SP2_BP";
+		};
+	};
+};
+
+&video3 {
+	status = "okay";
+		pipline0 {
+		pipline_id = <0>;
+		status = "okay";
+		sensor0 {
+			subdev_name = "vivcam";
+			idx = <0xff>; // invalid
+			csi_idx = <0xff>;
+			path_type = "SENSOR_VGA_RAW10_LINER";
+		};
+		sensor1 {
+			subdev_name = "vivcam";
+			idx = <0xff>; // invalid
+			csi_idx = <0xff>;
+			path_type = "SENSOR_VGA_RAW10_LINER";
+		};
+		dma {
+			subdev_name = "vipre";
+			idx = <0>;
+			path_type = "VIPRE_CSI0_ISP1";
+		};
+		isp {
+			subdev_name = "isp";
+			idx = <1>;
+			path_type = "ISP_MI_PATH_MP";
+		};
+		dw {
+			subdev_name = "dw";
+			idx = <0>;
+			path_type = "DW_DWE_VSE0";
+		};
+	};
+	pipline1 {
+		pipline_id = <1>;
+		status = "okay";
+		sensor0 {
+			subdev_name = "vivcam";
+			idx = <0xff>; // invalid
+			csi_idx = <0xff>;
+			path_type = "SENSOR_VGA_RAW10_LINER";
+
+		};
+		sensor1 {
+			subdev_name = "vivcam";
+			idx = <0xff>; // invalid
+			csi_idx = <0xff>;
+			path_type = "SENSOR_VGA_RAW10_LINER";
+		};
+		dma {
+			subdev_name = "vipre";
+			idx = <0>;
+			path_type = "VIPRE_CSI0_ISP1";
+		};
+		isp {
+			subdev_name = "isp";
+			idx = <1>;
+			path_type = "ISP_MI_PATH_MP";
+		};
+		dw {
+			subdev_name = "dw";
+			idx = <0>;
+			path_type = "DW_DWE_VSE1";
+		};
+	};
+	pipline2 {
+		pipline_id = <2>;
+		status = "okay";
+		sensor0 {
+			subdev_name = "vivcam";
+			idx = <0xff>; // invalid
+			csi_idx = <0xff>;
+			path_type = "SENSOR_VGA_RAW10_LINER";
+		};
+		sensor1 {
+			subdev_name = "vivcam";
+			idx = <0xff>; // invalid
+			csi_idx = <0xff>;
+			path_type = "SENSOR_VGA_RAW10_LINER";
+		};
+		dma {
+			subdev_name = "vipre";
+			idx = <0>;
+			path_type = "VIPRE_CSI0_ISP1";
+		};
+		isp {
+			subdev_name = "isp";
+			idx = <1>;
+			path_type = "ISP_MI_PATH_MP";
+		};
+		dw {
+			subdev_name = "dw";
+			idx = <0>;
+			path_type = "DW_DWE_VSE2";
+		};
+	};
+};
+
+&video4 {
+	status = "okay";
+	pipline0 {
+		pipline_id = <0>;
+		status = "okay";
+		sensor0 {
+			subdev_name = "vivcam";
+			idx = <0xff>; // invalid
+			csi_idx = <0xff>;
+			path_type = "SENSOR_VGA_RAW10_LINER";
+		};
+		sensor1 {
+			subdev_name = "vivcam";
+			idx = <0xff>; // invalid
+			csi_idx = <0xff>;
+			path_type = "SENSOR_VGA_RAW10_LINER";
+
+		};
+		dma {
+			subdev_name = "vipre";
+			idx = <0>;
+			path_type = "VIPRE_CSI0_ISP1";
+		};
+		isp {
+			subdev_name = "isp";
+			idx = <1>;
+			path_type = "ISP_MI_PATH_PP";
+		};
+		dsp {
+			subdev_name = "dsp";
+			idx = <0>;
+			path_type = "DSP_PATH_ISP_RY";
+		};
+		ry {
+			subdev_name = "ry";
+			idx = <0>;
+			path_type = "ISP_RY_MI_PATH_MP";
+		};
+	};
+	pipline1 {
+		pipline_id = <1>;
+		status = "okay";
+		sensor0 {
+			subdev_name = "vivcam";
+			idx = <0xff>; // invalid
+			csi_idx = <0xff>;
+			path_type = "SENSOR_VGA_RAW10_LINER";
+		};
+		sensor1 {
+			subdev_name = "vivcam";
+			idx = <0xff>; // invalid
+			csi_idx = <0xff>;
+			path_type = "SENSOR_VGA_RAW10_LINER";
+		};
+		dma {
+			subdev_name = "vipre";
+			idx = <0>;
+			path_type = "VIPRE_CSI0_ISP1";
+		};
+		isp {
+			subdev_name = "isp";
+			idx = <1>;
+			path_type = "ISP_MI_PATH_PP";
+		};
+		dsp {
+			subdev_name = "dsp";
+			idx = <0>;
+			path_type = "DSP_PATH_ISP_RY";
+		};
+		ry {
+			subdev_name = "ry";
+			idx = <0>;
+			path_type = "ISP_RY_MI_PATH_SP";
+		};
+	};
+	pipline2 {
+		pipline_id = <2>;
+		status = "okay";
+		sensor0 {
+			subdev_name = "vivcam";
+			idx = <0xff>; // invalid
+			csi_idx = <0xff>;
+			path_type = "SENSOR_VGA_RAW10_LINER";
+		};
+		sensor1 {
+			subdev_name = "vivcam";
+			idx = <0xff>; // invalid
+			csi_idx = <0xff>;
+			path_type = "SENSOR_VGA_RAW10_LINER";
+		};
+		dma {
+			subdev_name = "vipre";
+			idx = <0>;
+			path_type = "VIPRE_CSI0_ISP1";
+		};
+		isp {
+			subdev_name = "isp";
+			idx = <1>;
+			path_type = "ISP_MI_PATH_PP";
+		};
+		dsp {
+			subdev_name = "dsp";
+			idx = <0>;
+			path_type = "DSP_PATH_ISP_RY";
+		};
+		ry {
+			subdev_name = "ry";
+			idx = <0>;
+			path_type = "ISP_RY_MI_PATH_SP2_BP";
+		};
+	};
+};
+
+&video5 {
+	status = "okay";
+	pipline0 {
+		pipline_id = <0>;
+		status = "okay";
+		sensor0 {
+			subdev_name = "vivcam";
+			idx = <0xff>; // invalid
+			csi_idx = <0xff>;
+			path_type = "SENSOR_VGA_RAW10_LINER";
+		};
+		sensor1 {
+			subdev_name = "vivcam";
+			idx = <0xff>; // invalid
+			csi_idx = <0xff>;
+			path_type = "SENSOR_VGA_RAW10_LINER";
+
+		};
+		dma {
+			subdev_name = "vipre";
+			idx = <0>;
+			path_type = "VIPRE_CSI0_ISP1";
+		};
+		isp {
+			subdev_name = "isp";
+			idx = <1>;
+			path_type = "ISP_MI_PATH_PP";
+		};
+		dsp {
+			subdev_name = "dsp";
+			idx = <0>;
+			path_type = "DSP_PATH_ISP_RY";
+		};
+		ry {
+			subdev_name = "ry";
+			idx = <0>;
+			path_type = "ISP_RY_MI_PATH_MP";
+		};
+		dw {
+			subdev_name = "dw";
+			idx = <0>;
+			path_type = "DW_DWE_VSE0";
+		};
+	};
+	pipline1 {
+		pipline_id = <1>;
+		status = "okay";
+		sensor0 {
+			subdev_name = "vivcam";
+			idx = <0xff>; // invalid
+			csi_idx = <0xff>;
+			path_type = "SENSOR_VGA_RAW10_LINER";
+		};
+		sensor1 {
+			subdev_name = "vivcam";
+			idx = <0xff>; // invalid
+			csi_idx = <0xff>;
+			path_type = "SENSOR_VGA_RAW10_LINER";
+		};
+		dma {
+			subdev_name = "vipre";
+			idx = <0>;
+			path_type = "VIPRE_CSI0_ISP1";
+		};
+		isp {
+			subdev_name = "isp";
+			idx = <1>;
+			path_type = "ISP_MI_PATH_PP";
+		};
+		dsp {
+			subdev_name = "dsp";
+			idx = <0>;
+			path_type = "DSP_PATH_ISP_RY";
+		};
+		ry {
+			subdev_name = "ry";
+			idx = <0>;
+			path_type = "ISP_RY_MI_PATH_MP";
+		};
+		dw {
+			subdev_name = "dw";
+			idx = <0>;
+			path_type = "DW_DWE_VSE1";
+		};
+	};
+	pipline2 {
+		pipline_id = <2>;
+		status = "okay";
+		sensor0 {
+			subdev_name = "vivcam";
+			idx = <0xff>; // invalid
+			csi_idx = <0xff>;
+			path_type = "SENSOR_VGA_RAW10_LINER";
+		};
+		sensor1 {
+			subdev_name = "vivcam";
+			idx = <0xff>; // invalid
+			csi_idx = <0xff>;
+			path_type = "SENSOR_VGA_RAW10_LINER";
+		};
+		dma {
+			subdev_name = "vipre";
+			idx = <0>;
+			path_type = "VIPRE_CSI0_ISP1";
+		};
+		isp {
+			subdev_name = "isp";
+			idx = <1>;
+			path_type = "ISP_MI_PATH_PP";
+		};
+		dsp {
+			subdev_name = "dsp";
+			idx = <0>;
+			path_type = "DSP_PATH_ISP_RY";
+		};
+		ry {
+			subdev_name = "ry";
+			idx = <0>;
+			path_type = "ISP_RY_MI_PATH_MP";
+		};
+		dw {
+			subdev_name = "dw";
+			idx = <0>;
+			path_type = "DW_DWE_VSE2";
+		};
+	};
+};
+
+
+&video6 {
+	status = "okay";
+	pipline0 {
+		pipline_id = <0>;
+		status = "okay";
+		sensor0 {
+			subdev_name = "vivcam";
+			idx = <0xff>; // invalid
+			csi_idx = <0xff>;
+			path_type = "SENSOR_VGA_RAW10_LINER";
+		};
+		sensor1 {
+			subdev_name = "vivcam";
+			idx = <0xff>; // invalid
+			csi_idx = <0xff>;
+			path_type = "SENSOR_VGA_RAW10_LINER";
+		};
+		dma {
+			subdev_name = "vipre";
+			idx = <0>;
+			path_type = "VIPRE_CSI2_DDR";
+		};
+		dsp {
+			subdev_name = "dsp";
+			idx = <1>;
+			path_type = "DSP_PATH_VIPRE_ODD";
+		};
+	};
+	pipline1 {
+		pipline_id = <1>;
+		status = "okay";
+		sensor0 {
+			subdev_name = "vivcam";
+			idx = <0xff>; // invalid
+			csi_idx = <0xff>;
+			path_type = "SENSOR_VGA_RAW10_LINER";
+		};
+		sensor1 {
+			subdev_name = "vivcam";
+			idx = <0xff>; // invalid
+			csi_idx = <0xff>;
+			path_type = "SENSOR_VGA_RAW10_LINER";
+		};
+		dma {
+			subdev_name = "vipre";
+			idx = <0>;
+			path_type = "VIPRE_CSI2_DDR";
+		};
+		dsp {
+			subdev_name = "dsp";
+			idx = <1>;
+			path_type = "DSP_PATH_VIPRE_EVEN";
+		};
+	};
+};
+
+
+&video7{
+	status = "okay";
+	pipline0 {
+		pipline_id = <0>;
+		status = "okay";
+		sensor0 {
+			subdev_name = "vivcam";
+			idx = <0xff>; // invalid
+			csi_idx = <0xff>;
+			path_type = "SENSOR_VGA_RAW10_LINER";
+		};
+		sensor1 {
+			subdev_name = "vivcam";
+			idx = <0xff>; // invalid
+			csi_idx = <0xff>;
+			path_type = "SENSOR_VGA_RAW10_LINER";
+		};
+		dma {
+			subdev_name = "vipre";
+			idx = <0>;
+			path_type = "VIPRE_CSI1_ISP0";
+		};
+		isp {
+			subdev_name = "isp";
+			idx = <0>;
+			path_type = "ISP_MI_PATH_PP";
+		};
+		dsp {
+			subdev_name = "dsp";
+			idx = <1>;
+			path_type = "DSP_PATH_ISP_RY";
+		};
+		ry {
+			subdev_name = "ry";
+			idx = <0>;
+			path_type = "ISP_RY_MI_PATH_MP";
+		};
+		dw {
+			subdev_name = "dw";
+			idx = <0>;
+			path_type = "DW_DWE_VSE0";
+		};
+
+	};
+	pipline1 {
+		pipline_id = <1>;
+		status = "okay";
+		sensor0 {
+			subdev_name = "vivcam";
+			idx = <0xff>; // invalid
+			csi_idx = <0xff>;
+			path_type = "SENSOR_VGA_RAW10_LINER";
+		};
+		sensor1 {
+			subdev_name = "vivcam";
+			idx = <0xff>; // invalid
+			csi_idx = <0xff>;
+			path_type = "SENSOR_VGA_RAW10_LINER";
+		};
+		dma {
+			subdev_name = "vipre";
+			idx = <0>;
+			path_type = "VIPRE_CSI1_ISP0";
+		};
+		isp {
+			subdev_name = "isp";
+			idx = <0>;
+			path_type = "ISP_MI_PATH_PP";
+		};
+		dsp {
+			subdev_name = "dsp";
+			idx = <1>;
+			path_type = "DSP_PATH_ISP_RY";
+		};
+		ry {
+			subdev_name = "ry";
+			idx = <0>;
+			path_type = "ISP_RY_MI_PATH_MP";
+		};
+		dw {
+			subdev_name = "dw";
+			idx = <0>;
+			path_type = "DW_DWE_VSE1";
+		};
+	};
+	pipline2 {
+		pipline_id = <2>;
+		status = "okay";
+		sensor0 {
+			subdev_name = "vivcam";
+			idx = <0xff>; // invalid
+			csi_idx = <0xff>;
+			path_type = "SENSOR_VGA_RAW10_LINER";
+		};
+		sensor1 {
+			subdev_name = "vivcam";
+			idx = <0xff>; // invalid
+			csi_idx = <0xff>;
+			path_type = "SENSOR_VGA_RAW10_LINER";
+		};
+		dma {
+			subdev_name = "vipre";
+			idx = <0>;
+			path_type = "VIPRE_CSI1_ISP0";
+		};
+		isp {
+			subdev_name = "isp";
+			idx = <0>;
+			path_type = "ISP_MI_PATH_PP";
+		};
+		dsp {
+			subdev_name = "dsp";
+			idx = <1>;
+			path_type = "DSP_PATH_ISP_RY";
+		};
+		ry {
+			subdev_name = "ry";
+			idx = <0>;
+			path_type = "ISP_RY_MI_PATH_MP";
+		};
+		dw {
+			subdev_name = "dw";
+			idx = <0>;
+			path_type = "DW_DWE_VSE2";
+		};
+	};
+};
+
+
+&video8{
+	status = "okay";
+	pipline0 {
+		pipline_id = <0>;
+		status = "okay";
+		sensor0 {
+			subdev_name = "vivcam";
+			idx = <0xff>; // invalid
+			csi_idx = <0xff>;
+			path_type = "SENSOR_VGA_RAW10_LINER";
+		};
+		sensor1 {
+			subdev_name = "vivcam";
+			idx = <0xff>; // invalid
+			csi_idx = <0xff>;
+			path_type = "SENSOR_VGA_RAW10_LINER";
+		};
+		dma {
+			subdev_name = "vipre";
+			idx = <0>;
+			path_type = "VIPRE_CSI1_DDR";
+		};
+		dsp {
+			subdev_name = "dsp";
+			idx = <0>;
+			path_type = "DSP_PATH_VIPRE_DDR";
+		};
+	};
+};
+
+
+&video9 { //IR debug
+	status = "okay";
+	pipline0 {
+		pipline_id = <0>;
+		status = "okay";
+		sensor0 {
+			subdev_name = "vivcam";
+			idx = <0xff>; // invalid
+			csi_idx = <0xff>;
+			path_type = "SENSOR_VGA_RAW10_LINER";
+
+		};
+		sensor1 {
+			subdev_name = "vivcam";
+			idx = <0xff>; // invalid
+			csi_idx = <0xff>;
+			path_type = "SENSOR_VGA_RAW10_LINER";
+
+		};
+		dma {
+			subdev_name = "vipre";
+			idx = <0>;
+			path_type = "VIPRE_CSI2_DDR";
+		};
+		dsp {
+			subdev_name = "dsp";
+			idx = <1>;
+			path_type = "DSP_PATH_VIPRE_DDR";
+		};
+	};
+};
+
+
+&video10{ // TUNING TOOL
+	status = "okay";
+	pipline0 { // CSI2X2_B
+		status = "okay";
+		sensor0 {
+			subdev_name = "vivcam";
+			idx = <0xff>; // invalid
+			csi_idx = <0xff>;
+			path_type = "SENSOR_VGA_RAW10_LINER";
+			skip_init = <1>;
+		};
+		sensor1 {
+			subdev_name = "vivcam";
+			idx = <0xff>; // invalid
+			csi_idx = <0xff>;
+			path_type = "SENSOR_VGA_RAW10_LINER";
+			skip_init = <1>;
+		};
+		dma {
+			subdev_name = "vipre";
+			idx = <0>;
+			path_type = "VIPRE_CSI1_ISP0";
+		};
+	};
+};
+
+
+&video11{
+	status = "okay";
+	pipline0 {
+		pipline_id = <0>;
+		status = "okay";
+		sensor0 {
+			subdev_name = "vivcam";
+			idx = <0xff>; // invalid
+			csi_idx = <0xff>;
+			path_type = "SENSOR_VGA_RAW10_LINER";
+		};
+		sensor1 {
+			subdev_name = "vivcam";
+			idx = <0xff>; // invalid
+			csi_idx = <0xff>;
+			path_type = "SENSOR_VGA_RAW10_LINER";
+		};
+		dma {
+			subdev_name = "vipre";
+			idx = <0>;
+			path_type = "VIPRE_CSI2_ISP0";
+		};
+		isp {
+			subdev_name = "isp";
+			idx = <0>;
+			path_type = "ISP_MI_PATH_MP";
+		};
+	};
+};
+
+
+&video12{ // TUNING TOOL
+	status = "okay";
+	pipline0 { // CSI2
+		status = "okay";
+		sensor0 {
+			subdev_name = "vivcam";
+			idx = <0xff>; // invalid
+			csi_idx = <0xff>;
+			path_type = "SENSOR_VGA_RAW10_LINER";
+			skip_init = <1>;
+		};
+		sensor1 {
+			subdev_name = "vivcam";
+			idx = <0xff>; // invalid
+			csi_idx = <0xff>;
+			path_type = "SENSOR_VGA_RAW10_LINER";
+			skip_init = <1>;
+		};
+		dma {
+			subdev_name = "vipre";
+			idx = <0>;
+			path_type = "VIPRE_CSI0_ISP0";
+		};
+	};
+};
+
+

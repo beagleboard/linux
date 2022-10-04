@@ -1,0 +1,1550 @@
+[
+   {
+	    "BriefDescription": "ddr-pmu event execution time, unit us",
+	    "MetricName": "light_pmu_exec_time",
+	    "MetricExpr": "light_ddr0@pmu_exec_time@"
+   },
+   {
+	    "BriefDescription": "bytes of ALL masters read from ddr",
+	    "MetricName": "light_ddr_read.all",
+	    "MetricExpr": "light_ddr0@rd_byte_cnt@"
+   },
+   {
+	    "BriefDescription": "bytes of ALL masters write to ddr",
+	    "MetricName": "light_ddr_write.all",
+	    "MetricExpr": "light_ddr0@wr_byte_cnt@"
+   },
+   {
+	    "BriefDescription": "bytes of DMA read from ddr",
+	    "MetricName": "light_ddr_read.dma",
+	    "MetricExpr": "light_ddr0@axid_rd_bytes\\,inst_id\\=0\\,axi_id\\=0x140\\,axi_mask\\=0xffc0@"
+   },
+   {
+	    "BriefDescription": "bytes of DMA write to ddr",
+	    "MetricName": "light_ddr_write.dma",
+	    "MetricExpr": "light_ddr0@axid_wr_bytes\\,inst_id\\=0\\,axi_id\\=0x140\\,axi_mask\\=0xffc0@"
+   },
+   {
+	    "BriefDescription": "bytes of AON read from ddr",
+	    "MetricName": "light_ddr_read.aon",
+	    "MetricExpr": "light_ddr0@axid_rd_bytes\\,inst_id\\=0\\,axi_id\\=0x180\\,axi_mask\\=0xffc0@"
+   },
+   {
+	    "BriefDescription": "bytes of AON write to ddr",
+	    "MetricName": "light_ddr_write.aon",
+	    "MetricExpr": "light_ddr0@axid_wr_bytes\\,inst_id\\=0\\,axi_id\\=0x180\\,axi_mask\\=0xffc0@"
+   },
+   {
+	    "BriefDescription": "bytes of AUDIO read from ddr",
+	    "MetricName": "light_ddr_read.audio",
+	    "MetricExpr": "light_ddr0@axid_rd_bytes\\,inst_id\\=0\\,axi_id\\=0x200\\,axi_mask\\=0xff00@"
+   },
+   {
+	    "BriefDescription": "bytes of AUDIO write to ddr",
+	    "MetricName": "light_ddr_write.audio",
+	    "MetricExpr": "light_ddr0@axid_wr_bytes\\,inst_id\\=0\\,axi_id\\=0x200\\,axi_mask\\=0xff00@"
+   },
+   {
+	    "BriefDescription": "bytes of C910 read from ddr",
+	    "MetricName": "light_ddr_read.c910",
+	    "MetricExpr": "light_ddr0@axid_rd_bytes\\,inst_id\\=0\\,axi_id\\=0x0\\,axi_mask\\=0xff00@"
+   },
+   {
+	    "BriefDescription": "bytes of C910 write to ddr",
+	    "MetricName": "light_ddr_write.c910",
+	    "MetricExpr": "light_ddr0@axid_wr_bytes\\,inst_id\\=0\\,axi_id\\=0x0\\,axi_mask\\=0xff00@"
+   },
+   {
+	    "BriefDescription": "bytes of ISP0 read from ddr",
+	    "MetricName": "light_ddr_read.isp0",
+	    "MetricExpr": "light_ddr0@axid_rd_bytes\\,inst_id\\=1\\,axi_id\\=0x0\\,axi_mask\\=0xfe00@"
+   },
+   {
+	    "BriefDescription": "bytes of ISP0 write to ddr",
+	    "MetricName": "light_ddr_write.isp0",
+	    "MetricExpr": "light_ddr0@axid_wr_bytes\\,inst_id\\=1\\,axi_id\\=0x0\\,axi_mask\\=0xfe00@"
+   },
+   {
+	    "BriefDescription": "bytes of ISP0 MP/IR_w/3DNR_r read from ddr",
+	    "MetricName": "light_ddr_read.isp0_3dnr",
+	    "MetricExpr": "light_ddr0@axid_rd_bytes\\,inst_id\\=1\\,axi_id\\=0x0\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "bytes of ISP0 MP/IR_w/3DNR_r write to ddr",
+	    "MetricName": "light_ddr_write.isp0_mp_ir",
+	    "MetricExpr": "light_ddr0@axid_wr_bytes\\,inst_id\\=1\\,axi_id\\=0x0\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "bytes of ISP0 SP1/PP_w/MCM/FE_r read from ddr",
+	    "MetricName": "light_ddr_read.isp0_mcm_fe",
+	    "MetricExpr": "light_ddr0@axid_rd_bytes\\,inst_id\\=1\\,axi_id\\=0x8\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "bytes of ISP0 SP1/PP_w/MCM/FE_r write to ddr",
+	    "MetricName": "light_ddr_write.isp0_sp1_pp",
+	    "MetricExpr": "light_ddr0@axid_wr_bytes\\,inst_id\\=1\\,axi_id\\=0x8\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "bytes of ISP0 3DNR/SP2_w/HDR_r read from ddr",
+	    "MetricName": "light_ddr_read.isp0_hdr",
+	    "MetricExpr": "light_ddr0@axid_rd_bytes\\,inst_id\\=1\\,axi_id\\=0x10\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "bytes of ISP0 3DNR/SP2_w/HDR_r write to ddr",
+	    "MetricName": "light_ddr_write.isp0_3dnr_sp2",
+	    "MetricExpr": "light_ddr0@axid_wr_bytes\\,inst_id\\=1\\,axi_id\\=0x10\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "bytes of ISP0 MCM_w write to ddr",
+	    "MetricName": "light_ddr_write.isp0_mcm",
+	    "MetricExpr": "light_ddr0@axid_wr_bytes\\,inst_id\\=1\\,axi_id\\=0x18\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "bytes of ISP0 HDR_w write to ddr",
+	    "MetricName": "light_ddr_write.isp0_hdr",
+	    "MetricExpr": "light_ddr0@axid_wr_bytes\\,inst_id\\=1\\,axi_id\\=0x20\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "bytes of ISP1 read from ddr",
+	    "MetricName": "light_ddr_read.isp1",
+	    "MetricExpr": "light_ddr0@axid_rd_bytes\\,inst_id\\=1\\,axi_id\\=0x200\\,axi_mask\\=0xfe00@"
+   },
+   {
+	    "BriefDescription": "bytes of ISP1 write to ddr",
+	    "MetricName": "light_ddr_write.isp1",
+	    "MetricExpr": "light_ddr0@axid_wr_bytes\\,inst_id\\=1\\,axi_id\\=0x200\\,axi_mask\\=0xfe00@"
+   },
+   {
+	    "BriefDescription": "bytes of ISP1 MP/IR_w/3DNR_r read from ddr",
+	    "MetricName": "light_ddr_read.isp1_3dnr",
+	    "MetricExpr": "light_ddr0@axid_rd_bytes\\,inst_id\\=1\\,axi_id\\=0x200\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "bytes of ISP1 MP/IR_w/3DNR_r write to ddr",
+	    "MetricName": "light_ddr_write.isp1_mp_ir",
+	    "MetricExpr": "light_ddr0@axid_wr_bytes\\,inst_id\\=1\\,axi_id\\=0x200\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "bytes of ISP1 SP1/PP_w/MCM/FE_r read from ddr",
+	    "MetricName": "light_ddr_read.isp1_mcm_fe",
+	    "MetricExpr": "light_ddr0@axid_rd_bytes\\,inst_id\\=1\\,axi_id\\=0x208\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "bytes of ISP1 SP1/PP_w/MCM/FE_r write to ddr",
+	    "MetricName": "light_ddr_write.isp1_sp1_pp",
+	    "MetricExpr": "light_ddr0@axid_wr_bytes\\,inst_id\\=1\\,axi_id\\=0x208\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "bytes of ISP1 3DNR/SP2_w/HDR_r read from ddr",
+	    "MetricName": "light_ddr_read.isp1_hdr",
+	    "MetricExpr": "light_ddr0@axid_rd_bytes\\,inst_id\\=1\\,axi_id\\=0x210\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "bytes of ISP1 3DNR/SP2_w/HDR_r write to ddr",
+	    "MetricName": "light_ddr_write.isp1_3dnr_sp2",
+	    "MetricExpr": "light_ddr0@axid_wr_bytes\\,inst_id\\=1\\,axi_id\\=0x210\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "bytes of ISP1 MCM_w write to ddr",
+	    "MetricName": "light_ddr_write.isp1_mcm",
+	    "MetricExpr": "light_ddr0@axid_wr_bytes\\,inst_id\\=1\\,axi_id\\=0x218\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "bytes of ISP1 HDR_w write to ddr",
+	    "MetricName": "light_ddr_write.isp1_hdr",
+	    "MetricExpr": "light_ddr0@axid_wr_bytes\\,inst_id\\=1\\,axi_id\\=0x220\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "bytes of DW200_PostISP read from ddr",
+	    "MetricName": "light_ddr_read.dw200_postisp",
+	    "MetricExpr": "light_ddr0@axid_rd_bytes\\,inst_id\\=1\\,axi_id\\=0x400\\,axi_mask\\=0xfe00@"
+   },
+   {
+	    "BriefDescription": "bytes of DW200_PostISP write to ddr",
+	    "MetricName": "light_ddr_write.dw200_postisp",
+	    "MetricExpr": "light_ddr0@axid_wr_bytes\\,inst_id\\=1\\,axi_id\\=0x400\\,axi_mask\\=0xfe00@"
+   },
+   {
+	    "BriefDescription": "bytes of DW200 DWE_W/FE_R read from ddr",
+	    "MetricName": "light_ddr_read.dw200_fe",
+	    "MetricExpr": "light_ddr0@axid_rd_bytes\\,inst_id\\=1\\,axi_id\\=0x400\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "bytes of DWE_W/FE_R write to ddr",
+	    "MetricName": "light_ddr_write.dwe",
+	    "MetricExpr": "light_ddr0@axid_wr_bytes\\,inst_id\\=1\\,axi_id\\=0x400\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "bytes of SCALER0_w write to ddr",
+	    "MetricName": "light_ddr_write.scaler0",
+	    "MetricExpr": "light_ddr0@axid_wr_bytes\\,inst_id\\=1\\,axi_id\\=0x408\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "bytes of SCALER1/SCALER2 read from ddr",
+	    "MetricName": "light_ddr_read.scaler1_2",
+	    "MetricExpr": "light_ddr0@axid_rd_bytes\\,inst_id\\=1\\,axi_id\\=0x410\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "bytes of SCALER1/SCALER2 write to ddr",
+	    "MetricName": "light_ddr_write.scaler1_2",
+	    "MetricExpr": "light_ddr0@axid_wr_bytes\\,inst_id\\=1\\,axi_id\\=0x410\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "bytes of PostISP MP-w write to ddr",
+	    "MetricName": "light_ddr_write.postisp_mp",
+	    "MetricExpr": "light_ddr0@axid_wr_bytes\\,inst_id\\=1\\,axi_id\\=0x418\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "bytes of PostISP SP1_w PP/FE_r read from ddr",
+	    "MetricName": "light_ddr_read.postisp_pp_fe",
+	    "MetricExpr": "light_ddr0@axid_rd_bytes\\,inst_id\\=1\\,axi_id\\=0x420\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "bytes of PostISP SP1_w PP/FE_r write to ddr",
+	    "MetricName": "light_ddr_write.postisp_sp1",
+	    "MetricExpr": "light_ddr0@axid_wr_bytes\\,inst_id\\=1\\,axi_id\\=0x420\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "bytes of PostISP SP2-2 read from ddr",
+	    "MetricName": "light_ddr_read.postisp_sp2",
+	    "MetricExpr": "light_ddr0@axid_rd_bytes\\,inst_id\\=1\\,axi_id\\=0x428\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "bytes of PostISP SP2-2 write to ddr",
+	    "MetricName": "light_ddr_write.postisp_sp2",
+	    "MetricExpr": "light_ddr0@axid_wr_bytes\\,inst_id\\=1\\,axi_id\\=0x428\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "bytes of VI_Pre read from ddr",
+	    "MetricName": "light_ddr_read.vipre",
+	    "MetricExpr": "light_ddr0@axid_rd_bytes\\,inst_id\\=1\\,axi_id\\=0x600\\,axi_mask\\=0xfe00@"
+   },
+   {
+	    "BriefDescription": "bytes of VI_Pre write to ddr",
+	    "MetricName": "light_ddr_write.vipre",
+	    "MetricExpr": "light_ddr0@axid_wr_bytes\\,inst_id\\=1\\,axi_id\\=0x600\\,axi_mask\\=0xfe00@"
+   },
+   {
+	    "BriefDescription": "bytes of VO read from ddr",
+	    "MetricName": "light_ddr_read.vo",
+	    "MetricExpr": "light_ddr0@axid_rd_bytes\\,inst_id\\=2\\,axi_id\\=0x0\\,axi_mask\\=0xfc00@"
+   },
+   {
+	    "BriefDescription": "bytes of VO write to ddr",
+	    "MetricName": "light_ddr_write.vo",
+	    "MetricExpr": "light_ddr0@axid_wr_bytes\\,inst_id\\=2\\,axi_id\\=0x0\\,axi_mask\\=0xfc00@"
+   },
+   {
+	    "BriefDescription": "bytes of GPU read from ddr",
+	    "MetricName": "light_ddr_read.gpu",
+	    "MetricExpr": "light_ddr0@axid_rd_bytes\\,inst_id\\=2\\,axi_id\\=0x0\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "bytes of GPU write to ddr",
+	    "MetricName": "light_ddr_write.gpu",
+	    "MetricExpr": "light_ddr0@axid_wr_bytes\\,inst_id\\=2\\,axi_id\\=0x0\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "bytes of DPU read from ddr",
+	    "MetricName": "light_ddr_read.dpu",
+	    "MetricExpr": "light_ddr0@axid_rd_bytes\\,inst_id\\=2\\,axi_id\\=0x100\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "bytes of DPU write to ddr",
+	    "MetricName": "light_ddr_write.dpu",
+	    "MetricExpr": "light_ddr0@axid_wr_bytes\\,inst_id\\=2\\,axi_id\\=0x100\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "bytes of DPU1 read from ddr",
+	    "MetricName": "light_ddr_read.dpu1",
+	    "MetricExpr": "light_ddr0@axid_rd_bytes\\,inst_id\\=2\\,axi_id\\=0x200\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "bytes of DPU1 write to ddr",
+	    "MetricName": "light_ddr_write.dpu1",
+	    "MetricExpr": "light_ddr0@axid_wr_bytes\\,inst_id\\=2\\,axi_id\\=0x200\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "bytes of DSP read from ddr",
+	    "MetricName": "light_ddr_read.dsp",
+	    "MetricExpr": "light_ddr0@axid_rd_bytes\\,inst_id\\=2\\,axi_id\\=0x400\\,axi_mask\\=0xfc00@"
+   },
+   {
+	    "BriefDescription": "bytes of DSP write to ddr",
+	    "MetricName": "light_ddr_write.dsp",
+	    "MetricExpr": "light_ddr0@axid_wr_bytes\\,inst_id\\=2\\,axi_id\\=0x400\\,axi_mask\\=0xfc00@"
+   },
+   {
+	    "BriefDescription": "bytes of DSP0 read from ddr",
+	    "MetricName": "light_ddr_read.dsp0",
+	    "MetricExpr": "light_ddr0@axid_rd_bytes\\,inst_id\\=2\\,axi_id\\=0x400\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "bytes of DSP0 write to ddr",
+	    "MetricName": "light_ddr_write.dsp0",
+	    "MetricExpr": "light_ddr0@axid_wr_bytes\\,inst_id\\=2\\,axi_id\\=0x400\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "bytes of DSP0-IDMA read from ddr",
+	    "MetricName": "light_ddr_read.dsp0_idma",
+	    "MetricExpr": "light_ddr0@axid_rd_bytes\\,inst_id\\=2\\,axi_id\\=0x420\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "bytes of DSP0-IDMA write to ddr",
+	    "MetricName": "light_ddr_write.dsp0_idma",
+	    "MetricExpr": "light_ddr0@axid_wr_bytes\\,inst_id\\=2\\,axi_id\\=0x420\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "bytes of DSP1 read from ddr",
+	    "MetricName": "light_ddr_read.dsp1",
+	    "MetricExpr": "light_ddr0@axid_rd_bytes\\,inst_id\\=2\\,axi_id\\=0x440\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "bytes of DSP1 write to ddr",
+	    "MetricName": "light_ddr_write.dsp1",
+	    "MetricExpr": "light_ddr0@axid_wr_bytes\\,inst_id\\=2\\,axi_id\\=0x440\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "bytes of DSP1-IDMA read from ddr",
+	    "MetricName": "light_ddr_read.dsp1_idma",
+	    "MetricExpr": "light_ddr0@axid_rd_bytes\\,inst_id\\=2\\,axi_id\\=0x460\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "bytes of DSP1-IDMA write to ddr",
+	    "MetricName": "light_ddr_write.dsp1_idma",
+	    "MetricExpr": "light_ddr0@axid_wr_bytes\\,inst_id\\=2\\,axi_id\\=0x460\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "bytes of NPU read from ddr",
+	    "MetricName": "light_ddr_read.npu",
+	    "MetricExpr": "light_ddr0@axid_rd_bytes\\,inst_id\\=3\\,axi_id\\=0x0\\,axi_mask\\=0xf800@"
+   },
+   {
+	    "BriefDescription": "bytes of NPU write to ddr",
+	    "MetricName": "light_ddr_write.npu",
+	    "MetricExpr": "light_ddr0@axid_wr_bytes\\,inst_id\\=3\\,axi_id\\=0x0\\,axi_mask\\=0xf800@"
+   },
+   {
+	    "BriefDescription": "bytes of DSP-EXT read from ddr",
+	    "MetricName": "light_ddr_read.dsp_ext",
+	    "MetricExpr": "light_ddr0@axid_rd_bytes\\,inst_id\\=3\\,axi_id\\=0x800\\,axi_mask\\=0xf800@"
+   },
+   {
+	    "BriefDescription": "bytes of DSP-EXT write to ddr",
+	    "MetricName": "light_ddr_write.dsp_ext",
+	    "MetricExpr": "light_ddr0@axid_wr_bytes\\,inst_id\\=3\\,axi_id\\=0x800\\,axi_mask\\=0xf800@"
+   },
+   {
+	    "BriefDescription": "bytes of DSP0-EXT read from ddr",
+	    "MetricName": "light_ddr_read.dsp0_ext",
+	    "MetricExpr": "light_ddr0@axid_rd_bytes\\,inst_id\\=3\\,axi_id\\=0x800\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "bytes of DSP0-EXT write to ddr",
+	    "MetricName": "light_ddr_write.dsp0_ext",
+	    "MetricExpr": "light_ddr0@axid_wr_bytes\\,inst_id\\=3\\,axi_id\\=0x800\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "bytes of DSP0-IDMA-EXT read from ddr",
+	    "MetricName": "light_ddr_read.dsp0_idma_ext",
+	    "MetricExpr": "light_ddr0@axid_rd_bytes\\,inst_id\\=3\\,axi_id\\=0x820\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "bytes of DSP0-IDMA-EXT write to ddr",
+	    "MetricName": "light_ddr_write.dsp0_idma_ext",
+	    "MetricExpr": "light_ddr0@axid_wr_bytes\\,inst_id\\=3\\,axi_id\\=0x820\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "bytes of DSP1-EXT read from ddr",
+	    "MetricName": "light_ddr_read.dsp1_ext",
+	    "MetricExpr": "light_ddr0@axid_rd_bytes\\,inst_id\\=3\\,axi_id\\=0x840\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "bytes of DSP1-EXT write to ddr",
+	    "MetricName": "light_ddr_write.dsp1_ext",
+	    "MetricExpr": "light_ddr0@axid_wr_bytes\\,inst_id\\=3\\,axi_id\\=0x840\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "bytes of DSP1-IDMA-EXT read from ddr",
+	    "MetricName": "light_ddr_read.dsp1_idma_ext",
+	    "MetricExpr": "light_ddr0@axid_rd_bytes\\,inst_id\\=3\\,axi_id\\=0x860\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "bytes of DSP1-IDMA-EXT write to ddr",
+	    "MetricName": "light_ddr_write.dsp1_idma_ext",
+	    "MetricExpr": "light_ddr0@axid_wr_bytes\\,inst_id\\=3\\,axi_id\\=0x860\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "bytes of VENC read from ddr",
+	    "MetricName": "light_ddr_read.venc",
+	    "MetricExpr": "light_ddr0@axid_rd_bytes\\,inst_id\\=4\\,axi_id\\=0x0\\,axi_mask\\=0xfe00@"
+   },
+   {
+	    "BriefDescription": "bytes of VENC write to ddr",
+	    "MetricName": "light_ddr_write.venc",
+	    "MetricExpr": "light_ddr0@axid_wr_bytes\\,inst_id\\=4\\,axi_id\\=0x0\\,axi_mask\\=0xfe00@"
+   },
+   {
+	    "BriefDescription": "bytes of VDEC read from ddr",
+	    "MetricName": "light_ddr_read.vdec",
+	    "MetricExpr": "light_ddr0@axid_rd_bytes\\,inst_id\\=4\\,axi_id\\=0x200\\,axi_mask\\=0xfe00@"
+   },
+   {
+	    "BriefDescription": "bytes of VDEC write to ddr",
+	    "MetricName": "light_ddr_write.vdec",
+	    "MetricExpr": "light_ddr0@axid_wr_bytes\\,inst_id\\=4\\,axi_id\\=0x200\\,axi_mask\\=0xfe00@"
+   },
+   {
+	    "BriefDescription": "bytes of FCE read from ddr",
+	    "MetricName": "light_ddr_read.fce",
+	    "MetricExpr": "light_ddr0@axid_rd_bytes\\,inst_id\\=4\\,axi_id\\=0x400\\,axi_mask\\=0xfe00@"
+   },
+   {
+	    "BriefDescription": "bytes of FCE write to ddr",
+	    "MetricName": "light_ddr_write.fce",
+	    "MetricExpr": "light_ddr0@axid_wr_bytes\\,inst_id\\=4\\,axi_id\\=0x400\\,axi_mask\\=0xfe00@"
+   },
+   {
+	    "BriefDescription": "bytes of G2D read from ddr",
+	    "MetricName": "light_ddr_read.g2d",
+	    "MetricExpr": "light_ddr0@axid_rd_bytes\\,inst_id\\=4\\,axi_id\\=0x600\\,axi_mask\\=0xfe00@"
+   },
+   {
+	    "BriefDescription": "bytes of G2D write to ddr",
+	    "MetricName": "light_ddr_write.g2d",
+	    "MetricExpr": "light_ddr0@axid_wr_bytes\\,inst_id\\=4\\,axi_id\\=0x600\\,axi_mask\\=0xfe00@"
+   },
+   {
+	    "BriefDescription": "bytes of MISC read from ddr",
+	    "MetricName": "light_ddr_read.misc",
+	    "MetricExpr": "light_ddr0@axid_rd_bytes\\,inst_id\\=4\\,axi_id\\=0x800\\,axi_mask\\=0xfe00@"
+   },
+   {
+	    "BriefDescription": "bytes of MISC write to ddr",
+	    "MetricName": "light_ddr_write.misc",
+	    "MetricExpr": "light_ddr0@axid_wr_bytes\\,inst_id\\=4\\,axi_id\\=0x800\\,axi_mask\\=0xfe00@"
+   },
+   {
+	    "BriefDescription": "bytes of USB read from ddr",
+	    "MetricName": "light_ddr_read.usb",
+	    "MetricExpr": "light_ddr0@axid_rd_bytes\\,inst_id\\=4\\,axi_id\\=0x800\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "bytes of USB write to ddr",
+	    "MetricName": "light_ddr_write.usb",
+	    "MetricExpr": "light_ddr0@axid_wr_bytes\\,inst_id\\=4\\,axi_id\\=0x800\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "bytes of GMAC read from ddr",
+	    "MetricName": "light_ddr_read.gmac",
+	    "MetricExpr": "light_ddr0@axid_rd_bytes\\,inst_id\\=4\\,axi_id\\=0x820\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "bytes of GMAC write to ddr",
+	    "MetricName": "light_ddr_write.gmac",
+	    "MetricExpr": "light_ddr0@axid_wr_bytes\\,inst_id\\=4\\,axi_id\\=0x820\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "bytes of EMMC read from ddr",
+	    "MetricName": "light_ddr_read.emmc",
+	    "MetricExpr": "light_ddr0@axid_rd_bytes\\,inst_id\\=4\\,axi_id\\=0x840\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "bytes of EMMC write to ddr",
+	    "MetricName": "light_ddr_write.emmc",
+	    "MetricExpr": "light_ddr0@axid_wr_bytes\\,inst_id\\=4\\,axi_id\\=0x840\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "bytes of SDIO0 read from ddr",
+	    "MetricName": "light_ddr_read.sdio0",
+	    "MetricExpr": "light_ddr0@axid_rd_bytes\\,inst_id\\=4\\,axi_id\\=0x860\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "bytes of SDIO0 write to ddr",
+	    "MetricName": "light_ddr_write.sdio0",
+	    "MetricExpr": "light_ddr0@axid_wr_bytes\\,inst_id\\=4\\,axi_id\\=0x860\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "bytes of SDIO1 read from ddr",
+	    "MetricName": "light_ddr_read.sdio1",
+	    "MetricExpr": "light_ddr0@axid_rd_bytes\\,inst_id\\=4\\,axi_id\\=0x880\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "bytes of SDIO1 write to ddr",
+	    "MetricName": "light_ddr_write.sdio1",
+	    "MetricExpr": "light_ddr0@axid_wr_bytes\\,inst_id\\=4\\,axi_id\\=0x880\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "bytes of TEE read from ddr",
+	    "MetricName": "light_ddr_read.tee",
+	    "MetricExpr": "light_ddr0@axid_rd_bytes\\,inst_id\\=4\\,axi_id\\=0x8a0\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "bytes of TEE write to ddr",
+	    "MetricName": "light_ddr_write.tee",
+	    "MetricExpr": "light_ddr0@axid_wr_bytes\\,inst_id\\=4\\,axi_id\\=0x8a0\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "bytes of EIP120_1 read from ddr",
+	    "MetricName": "light_ddr_read.eip120_1",
+	    "MetricExpr": "light_ddr0@axid_rd_bytes\\,inst_id\\=4\\,axi_id\\=0x8a0\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "bytes of EIP120_1 write to ddr",
+	    "MetricName": "light_ddr_write.eip120_1",
+	    "MetricExpr": "light_ddr0@axid_wr_bytes\\,inst_id\\=4\\,axi_id\\=0x8a0\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "bytes of EIP120_2 read from ddr",
+	    "MetricName": "light_ddr_read.eip120_2",
+	    "MetricExpr": "light_ddr0@axid_rd_bytes\\,inst_id\\=4\\,axi_id\\=0x8a8\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "bytes of EIP120_2 write to ddr",
+	    "MetricName": "light_ddr_write.eip120_2",
+	    "MetricExpr": "light_ddr0@axid_wr_bytes\\,inst_id\\=4\\,axi_id\\=0x8a8\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "bytes of EIP120_3 read from ddr",
+	    "MetricName": "light_ddr_read.eip120_3",
+	    "MetricExpr": "light_ddr0@axid_rd_bytes\\,inst_id\\=4\\,axi_id\\=0x8b0\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "bytes of EIP120_3 write to ddr",
+	    "MetricName": "light_ddr_write.eip120_3",
+	    "MetricExpr": "light_ddr0@axid_wr_bytes\\,inst_id\\=4\\,axi_id\\=0x8b0\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "bytes of TEE DMA read from ddr",
+	    "MetricName": "light_ddr_read.tee_dma",
+	    "MetricExpr": "light_ddr0@axid_rd_bytes\\,inst_id\\=4\\,axi_id\\=0x8b8\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "bytes of TEE DMA write to ddr",
+	    "MetricName": "light_ddr_write.tee_dma",
+	    "MetricExpr": "light_ddr0@axid_wr_bytes\\,inst_id\\=4\\,axi_id\\=0x8b8\\,axi_mask\\=0xfff8@"
+   },
+
+   {
+	    "BriefDescription": "duration of DMA read from ddr",
+	    "MetricName": "light_ddr_duration_rd.dma",
+	    "MetricExpr": "light_ddr0@axid_rd_duration_cnt\\,inst_id\\=0\\,axi_id\\=0x140\\,axi_mask\\=0xffc0@"
+   },
+   {
+	    "BriefDescription": "duration of DMA write to ddr",
+	    "MetricName": "light_ddr_duration_wr.dma",
+	    "MetricExpr": "light_ddr0@axid_wr_duration_cnt\\,inst_id\\=0\\,axi_id\\=0x140\\,axi_mask\\=0xffc0@"
+   },
+   {
+	    "BriefDescription": "duration of AON read from ddr",
+	    "MetricName": "light_ddr_duration_rd.aon",
+	    "MetricExpr": "light_ddr0@axid_rd_duration_cnt\\,inst_id\\=0\\,axi_id\\=0x180\\,axi_mask\\=0xffc0@"
+   },
+   {
+	    "BriefDescription": "duration of AON write to ddr",
+	    "MetricName": "light_ddr_duration_wr.aon",
+	    "MetricExpr": "light_ddr0@axid_wr_duration_cnt\\,inst_id\\=0\\,axi_id\\=0x180\\,axi_mask\\=0xffc0@"
+   },
+   {
+	    "BriefDescription": "duration of AUDIO read from ddr",
+	    "MetricName": "light_ddr_duration_rd.audio",
+	    "MetricExpr": "light_ddr0@axid_rd_duration_cnt\\,inst_id\\=0\\,axi_id\\=0x200\\,axi_mask\\=0xff00@"
+   },
+   {
+	    "BriefDescription": "duration of AUDIO write to ddr",
+	    "MetricName": "light_ddr_duration_wr.audio",
+	    "MetricExpr": "light_ddr0@axid_wr_duration_cnt\\,inst_id\\=0\\,axi_id\\=0x200\\,axi_mask\\=0xff00@"
+   },
+   {
+	    "BriefDescription": "duration of C910 read from ddr",
+	    "MetricName": "light_ddr_duration_rd.c910",
+	    "MetricExpr": "light_ddr0@axid_rd_duration_cnt\\,inst_id\\=0\\,axi_id\\=0x0\\,axi_mask\\=0xff00@"
+   },
+   {
+	    "BriefDescription": "duration of C910 write to ddr",
+	    "MetricName": "light_ddr_duration_wr.c910",
+	    "MetricExpr": "light_ddr0@axid_wr_duration_cnt\\,inst_id\\=0\\,axi_id\\=0x0\\,axi_mask\\=0xff00@"
+   },
+   {
+	    "BriefDescription": "duration of ISP0 read from ddr",
+	    "MetricName": "light_ddr_duration_rd.isp0",
+	    "MetricExpr": "light_ddr0@axid_rd_duration_cnt\\,inst_id\\=1\\,axi_id\\=0x0\\,axi_mask\\=0xfe00@"
+   },
+   {
+	    "BriefDescription": "duration of ISP0 write to ddr",
+	    "MetricName": "light_ddr_duration_wr.isp0",
+	    "MetricExpr": "light_ddr0@axid_wr_duration_cnt\\,inst_id\\=1\\,axi_id\\=0x0\\,axi_mask\\=0xfe00@"
+   },
+   {
+	    "BriefDescription": "duration of ISP0 MP/IR_w/3DNR_r read from ddr",
+	    "MetricName": "light_ddr_duration_rd.isp0_3dnr",
+	    "MetricExpr": "light_ddr0@axid_rd_duration_cnt\\,inst_id\\=1\\,axi_id\\=0x0\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "duration of ISP0 MP/IR_w/3DNR_r write to ddr",
+	    "MetricName": "light_ddr_duration_wr.isp0_mp_ir",
+	    "MetricExpr": "light_ddr0@axid_wr_duration_cnt\\,inst_id\\=1\\,axi_id\\=0x0\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "duration of ISP0 SP1/PP_w/MCM/FE_r read from ddr",
+	    "MetricName": "light_ddr_duration_rd.isp0_mcm_fe",
+	    "MetricExpr": "light_ddr0@axid_rd_duration_cnt\\,inst_id\\=1\\,axi_id\\=0x8\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "duration of ISP0 SP1/PP_w/MCM/FE_r write to ddr",
+	    "MetricName": "light_ddr_duration_wr.isp0_sp1_pp",
+	    "MetricExpr": "light_ddr0@axid_wr_duration_cnt\\,inst_id\\=1\\,axi_id\\=0x8\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "duration of ISP0 3DNR/SP2_w/HDR_r read from ddr",
+	    "MetricName": "light_ddr_duration_rd.isp0_hdr",
+	    "MetricExpr": "light_ddr0@axid_rd_duration_cnt\\,inst_id\\=1\\,axi_id\\=0x10\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "duration of ISP0 3DNR/SP2_w/HDR_r write to ddr",
+	    "MetricName": "light_ddr_duration_wr.isp0_3dnr_sp2",
+	    "MetricExpr": "light_ddr0@axid_wr_duration_cnt\\,inst_id\\=1\\,axi_id\\=0x10\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "duration of ISP0 MCM_w write to ddr",
+	    "MetricName": "light_ddr_duration_wr.isp0_mcm",
+	    "MetricExpr": "light_ddr0@axid_wr_duration_cnt\\,inst_id\\=1\\,axi_id\\=0x18\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "duration of ISP0 HDR_w write to ddr",
+	    "MetricName": "light_ddr_duration_wr.isp0_hdr",
+	    "MetricExpr": "light_ddr0@axid_wr_duration_cnt\\,inst_id\\=1\\,axi_id\\=0x20\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "duration of ISP1 read from ddr",
+	    "MetricName": "light_ddr_duration_rd.isp1",
+	    "MetricExpr": "light_ddr0@axid_rd_duration_cnt\\,inst_id\\=1\\,axi_id\\=0x200\\,axi_mask\\=0xfe00@"
+   },
+   {
+	    "BriefDescription": "duration of ISP1 write to ddr",
+	    "MetricName": "light_ddr_duration_wr.isp1",
+	    "MetricExpr": "light_ddr0@axid_wr_duration_cnt\\,inst_id\\=1\\,axi_id\\=0x200\\,axi_mask\\=0xfe00@"
+   },
+   {
+	    "BriefDescription": "duration of ISP1 MP/IR_w/3DNR_r read from ddr",
+	    "MetricName": "light_ddr_duration_rd.isp1_3dnr",
+	    "MetricExpr": "light_ddr0@axid_rd_duration_cnt\\,inst_id\\=1\\,axi_id\\=0x200\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "duration of ISP1 MP/IR_w/3DNR_r write to ddr",
+	    "MetricName": "light_ddr_duration_wr.isp1_mp_ir",
+	    "MetricExpr": "light_ddr0@axid_wr_duration_cnt\\,inst_id\\=1\\,axi_id\\=0x200\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "duration of ISP1 SP1/PP_w/MCM/FE_r read from ddr",
+	    "MetricName": "light_ddr_duration_rd.isp1_mcm_fe",
+	    "MetricExpr": "light_ddr0@axid_rd_duration_cnt\\,inst_id\\=1\\,axi_id\\=0x208\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "duration of ISP1 SP1/PP_w/MCM/FE_r write to ddr",
+	    "MetricName": "light_ddr_duration_wr.isp1_sp1_pp",
+	    "MetricExpr": "light_ddr0@axid_wr_duration_cnt\\,inst_id\\=1\\,axi_id\\=0x208\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "duration of ISP1 3DNR/SP2_w/HDR_r read from ddr",
+	    "MetricName": "light_ddr_duration_rd.isp1_hdr",
+	    "MetricExpr": "light_ddr0@axid_rd_duration_cnt\\,inst_id\\=1\\,axi_id\\=0x210\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "duration of ISP1 3DNR/SP2_w/HDR_r write to ddr",
+	    "MetricName": "light_ddr_duration_wr.isp1_3dnr_sp2",
+	    "MetricExpr": "light_ddr0@axid_wr_duration_cnt\\,inst_id\\=1\\,axi_id\\=0x210\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "duration of ISP1 MCM_w write to ddr",
+	    "MetricName": "light_ddr_duration_wr.isp1_mcm",
+	    "MetricExpr": "light_ddr0@axid_wr_duration_cnt\\,inst_id\\=1\\,axi_id\\=0x218\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "duration of ISP1 HDR_w write to ddr",
+	    "MetricName": "light_ddr_duration_wr.isp1_hdr",
+	    "MetricExpr": "light_ddr0@axid_wr_duration_cnt\\,inst_id\\=1\\,axi_id\\=0x220\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "duration of DW200_PostISP read from ddr",
+	    "MetricName": "light_ddr_duration_rd.dw200_postisp",
+	    "MetricExpr": "light_ddr0@axid_rd_duration_cnt\\,inst_id\\=1\\,axi_id\\=0x400\\,axi_mask\\=0xfe00@"
+   },
+   {
+	    "BriefDescription": "duration of DW200_PostISP write to ddr",
+	    "MetricName": "light_ddr_duration_wr.dw200_postisp",
+	    "MetricExpr": "light_ddr0@axid_wr_duration_cnt\\,inst_id\\=1\\,axi_id\\=0x400\\,axi_mask\\=0xfe00@"
+   },
+   {
+	    "BriefDescription": "duration of DW200 DWE_W/FE_R read from ddr",
+	    "MetricName": "light_ddr_duration_rd.dw200_fe",
+	    "MetricExpr": "light_ddr0@axid_rd_duration_cnt\\,inst_id\\=1\\,axi_id\\=0x400\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "duration of DWE_W/FE_R write to ddr",
+	    "MetricName": "light_ddr_duration_wr.dwe",
+	    "MetricExpr": "light_ddr0@axid_wr_duration_cnt\\,inst_id\\=1\\,axi_id\\=0x400\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "duration of SCALER0_w write to ddr",
+	    "MetricName": "light_ddr_duration_wr.scaler0",
+	    "MetricExpr": "light_ddr0@axid_wr_duration_cnt\\,inst_id\\=1\\,axi_id\\=0x408\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "duration of SCALER1/SCALER2 read from ddr",
+	    "MetricName": "light_ddr_duration_rd.scaler1_2",
+	    "MetricExpr": "light_ddr0@axid_rd_duration_cnt\\,inst_id\\=1\\,axi_id\\=0x410\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "duration of SCALER1/SCALER2 write to ddr",
+	    "MetricName": "light_ddr_duration_wr.scaler1_2",
+	    "MetricExpr": "light_ddr0@axid_wr_duration_cnt\\,inst_id\\=1\\,axi_id\\=0x410\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "duration of PostISP MP-w write to ddr",
+	    "MetricName": "light_ddr_duration_wr.postisp_mp",
+	    "MetricExpr": "light_ddr0@axid_wr_duration_cnt\\,inst_id\\=1\\,axi_id\\=0x418\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "duration of PostISP SP1_w PP/FE_r read from ddr",
+	    "MetricName": "light_ddr_duration_rd.postisp_pp_fe",
+	    "MetricExpr": "light_ddr0@axid_rd_duration_cnt\\,inst_id\\=1\\,axi_id\\=0x420\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "duration of PostISP SP1_w PP/FE_r write to ddr",
+	    "MetricName": "light_ddr_duration_wr.postisp_sp1",
+	    "MetricExpr": "light_ddr0@axid_wr_duration_cnt\\,inst_id\\=1\\,axi_id\\=0x420\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "duration of PostISP SP2-2 read from ddr",
+	    "MetricName": "light_ddr_duration_rd.postisp_sp2",
+	    "MetricExpr": "light_ddr0@axid_rd_duration_cnt\\,inst_id\\=1\\,axi_id\\=0x428\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "duration of PostISP SP2-2 write to ddr",
+	    "MetricName": "light_ddr_duration_wr.postisp_sp2",
+	    "MetricExpr": "light_ddr0@axid_wr_duration_cnt\\,inst_id\\=1\\,axi_id\\=0x428\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "duration of VI_Pre read from ddr",
+	    "MetricName": "light_ddr_duration_rd.vipre",
+	    "MetricExpr": "light_ddr0@axid_rd_duration_cnt\\,inst_id\\=1\\,axi_id\\=0x600\\,axi_mask\\=0xfe00@"
+   },
+   {
+	    "BriefDescription": "duration of VI_Pre write to ddr",
+	    "MetricName": "light_ddr_duration_wr.vipre",
+	    "MetricExpr": "light_ddr0@axid_wr_duration_cnt\\,inst_id\\=1\\,axi_id\\=0x600\\,axi_mask\\=0xfe00@"
+   },
+   {
+	    "BriefDescription": "duration of VO read from ddr",
+	    "MetricName": "light_ddr_duration_rd.vo",
+	    "MetricExpr": "light_ddr0@axid_rd_duration_cnt\\,inst_id\\=2\\,axi_id\\=0x0\\,axi_mask\\=0xfc00@"
+   },
+   {
+	    "BriefDescription": "duration of VO write to ddr",
+	    "MetricName": "light_ddr_duration_wr.vo",
+	    "MetricExpr": "light_ddr0@axid_wr_duration_cnt\\,inst_id\\=2\\,axi_id\\=0x0\\,axi_mask\\=0xfc00@"
+   },
+   {
+	    "BriefDescription": "duration of GPU read from ddr",
+	    "MetricName": "light_ddr_duration_rd.gpu",
+	    "MetricExpr": "light_ddr0@axid_rd_duration_cnt\\,inst_id\\=2\\,axi_id\\=0x0\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "duration of GPU write to ddr",
+	    "MetricName": "light_ddr_duration_wr.gpu",
+	    "MetricExpr": "light_ddr0@axid_wr_duration_cnt\\,inst_id\\=2\\,axi_id\\=0x0\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "duration of DPU read from ddr",
+	    "MetricName": "light_ddr_duration_rd.dpu",
+	    "MetricExpr": "light_ddr0@axid_rd_duration_cnt\\,inst_id\\=2\\,axi_id\\=0x100\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "duration of DPU write to ddr",
+	    "MetricName": "light_ddr_duration_wr.dpu",
+	    "MetricExpr": "light_ddr0@axid_wr_duration_cnt\\,inst_id\\=2\\,axi_id\\=0x100\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "duration of DPU1 read from ddr",
+	    "MetricName": "light_ddr_duration_rd.dpu1",
+	    "MetricExpr": "light_ddr0@axid_rd_duration_cnt\\,inst_id\\=2\\,axi_id\\=0x200\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "duration of DPU1 write to ddr",
+	    "MetricName": "light_ddr_duration_wr.dpu1",
+	    "MetricExpr": "light_ddr0@axid_wr_duration_cnt\\,inst_id\\=2\\,axi_id\\=0x200\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "duration of DSP read from ddr",
+	    "MetricName": "light_ddr_duration_rd.dsp",
+	    "MetricExpr": "light_ddr0@axid_rd_duration_cnt\\,inst_id\\=2\\,axi_id\\=0x400\\,axi_mask\\=0xfc00@"
+   },
+   {
+	    "BriefDescription": "duration of DSP write to ddr",
+	    "MetricName": "light_ddr_duration_wr.dsp",
+	    "MetricExpr": "light_ddr0@axid_wr_duration_cnt\\,inst_id\\=2\\,axi_id\\=0x400\\,axi_mask\\=0xfc00@"
+   },
+   {
+	    "BriefDescription": "duration of DSP0 read from ddr",
+	    "MetricName": "light_ddr_duration_rd.dsp0",
+	    "MetricExpr": "light_ddr0@axid_rd_duration_cnt\\,inst_id\\=2\\,axi_id\\=0x400\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "duration of DSP0 write to ddr",
+	    "MetricName": "light_ddr_duration_wr.dsp0",
+	    "MetricExpr": "light_ddr0@axid_wr_duration_cnt\\,inst_id\\=2\\,axi_id\\=0x400\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "duration of DSP0-IDMA read from ddr",
+	    "MetricName": "light_ddr_duration_rd.dsp0_idma",
+	    "MetricExpr": "light_ddr0@axid_rd_duration_cnt\\,inst_id\\=2\\,axi_id\\=0x420\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "duration of DSP0-IDMA write to ddr",
+	    "MetricName": "light_ddr_duration_wr.dsp0_idma",
+	    "MetricExpr": "light_ddr0@axid_wr_duration_cnt\\,inst_id\\=2\\,axi_id\\=0x420\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "duration of DSP1 read from ddr",
+	    "MetricName": "light_ddr_duration_rd.dsp1",
+	    "MetricExpr": "light_ddr0@axid_rd_duration_cnt\\,inst_id\\=2\\,axi_id\\=0x440\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "duration of DSP1 write to ddr",
+	    "MetricName": "light_ddr_duration_wr.dsp1",
+	    "MetricExpr": "light_ddr0@axid_wr_duration_cnt\\,inst_id\\=2\\,axi_id\\=0x440\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "duration of DSP1-IDMA read from ddr",
+	    "MetricName": "light_ddr_duration_rd.dsp1_idma",
+	    "MetricExpr": "light_ddr0@axid_rd_duration_cnt\\,inst_id\\=2\\,axi_id\\=0x460\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "duration of DSP1-IDMA write to ddr",
+	    "MetricName": "light_ddr_duration_wr.dsp1_idma",
+	    "MetricExpr": "light_ddr0@axid_wr_duration_cnt\\,inst_id\\=2\\,axi_id\\=0x460\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "duration of NPU read from ddr",
+	    "MetricName": "light_ddr_duration_rd.npu",
+	    "MetricExpr": "light_ddr0@axid_rd_duration_cnt\\,inst_id\\=3\\,axi_id\\=0x0\\,axi_mask\\=0xf800@"
+   },
+   {
+	    "BriefDescription": "duration of NPU write to ddr",
+	    "MetricName": "light_ddr_duration_wr.npu",
+	    "MetricExpr": "light_ddr0@axid_wr_duration_cnt\\,inst_id\\=3\\,axi_id\\=0x0\\,axi_mask\\=0xf800@"
+   },
+   {
+	    "BriefDescription": "duration of DSP-EXT read from ddr",
+	    "MetricName": "light_ddr_duration_rd.dsp_ext",
+	    "MetricExpr": "light_ddr0@axid_rd_duration_cnt\\,inst_id\\=3\\,axi_id\\=0x800\\,axi_mask\\=0xf800@"
+   },
+   {
+	    "BriefDescription": "duration of DSP-EXT write to ddr",
+	    "MetricName": "light_ddr_duration_wr.dsp_ext",
+	    "MetricExpr": "light_ddr0@axid_wr_duration_cnt\\,inst_id\\=3\\,axi_id\\=0x800\\,axi_mask\\=0xf800@"
+   },
+   {
+	    "BriefDescription": "duration of DSP0-EXT read from ddr",
+	    "MetricName": "light_ddr_duration_rd.dsp0_ext",
+	    "MetricExpr": "light_ddr0@axid_rd_duration_cnt\\,inst_id\\=3\\,axi_id\\=0x800\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "duration of DSP0-EXT write to ddr",
+	    "MetricName": "light_ddr_duration_wr.dsp0_ext",
+	    "MetricExpr": "light_ddr0@axid_wr_duration_cnt\\,inst_id\\=3\\,axi_id\\=0x800\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "duration of DSP0-IDMA-EXT read from ddr",
+	    "MetricName": "light_ddr_duration_rd.dsp0_idma_ext",
+	    "MetricExpr": "light_ddr0@axid_rd_duration_cnt\\,inst_id\\=3\\,axi_id\\=0x820\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "duration of DSP0-IDMA-EXT write to ddr",
+	    "MetricName": "light_ddr_duration_wr.dsp0_idma_ext",
+	    "MetricExpr": "light_ddr0@axid_wr_duration_cnt\\,inst_id\\=3\\,axi_id\\=0x820\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "duration of DSP1-EXT read from ddr",
+	    "MetricName": "light_ddr_duration_rd.dsp1_ext",
+	    "MetricExpr": "light_ddr0@axid_rd_duration_cnt\\,inst_id\\=3\\,axi_id\\=0x840\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "duration of DSP1-EXT write to ddr",
+	    "MetricName": "light_ddr_duration_wr.dsp1_ext",
+	    "MetricExpr": "light_ddr0@axid_wr_duration_cnt\\,inst_id\\=3\\,axi_id\\=0x840\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "duration of DSP1-IDMA-EXT read from ddr",
+	    "MetricName": "light_ddr_duration_rd.dsp1_idma_ext",
+	    "MetricExpr": "light_ddr0@axid_rd_duration_cnt\\,inst_id\\=3\\,axi_id\\=0x860\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "duration of DSP1-IDMA-EXT write to ddr",
+	    "MetricName": "light_ddr_duration_wr.dsp1_idma_ext",
+	    "MetricExpr": "light_ddr0@axid_wr_duration_cnt\\,inst_id\\=3\\,axi_id\\=0x860\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "duration of VENC read from ddr",
+	    "MetricName": "light_ddr_duration_rd.venc",
+	    "MetricExpr": "light_ddr0@axid_rd_duration_cnt\\,inst_id\\=4\\,axi_id\\=0x0\\,axi_mask\\=0xfe00@"
+   },
+   {
+	    "BriefDescription": "duration of VENC write to ddr",
+	    "MetricName": "light_ddr_duration_wr.venc",
+	    "MetricExpr": "light_ddr0@axid_wr_duration_cnt\\,inst_id\\=4\\,axi_id\\=0x0\\,axi_mask\\=0xfe00@"
+   },
+   {
+	    "BriefDescription": "duration of VDEC read from ddr",
+	    "MetricName": "light_ddr_duration_rd.vdec",
+	    "MetricExpr": "light_ddr0@axid_rd_duration_cnt\\,inst_id\\=4\\,axi_id\\=0x200\\,axi_mask\\=0xfe00@"
+   },
+   {
+	    "BriefDescription": "duration of VDEC write to ddr",
+	    "MetricName": "light_ddr_duration_wr.vdec",
+	    "MetricExpr": "light_ddr0@axid_wr_duration_cnt\\,inst_id\\=4\\,axi_id\\=0x200\\,axi_mask\\=0xfe00@"
+   },
+   {
+	    "BriefDescription": "duration of FCE read from ddr",
+	    "MetricName": "light_ddr_duration_rd.fce",
+	    "MetricExpr": "light_ddr0@axid_rd_duration_cnt\\,inst_id\\=4\\,axi_id\\=0x400\\,axi_mask\\=0xfe00@"
+   },
+   {
+	    "BriefDescription": "duration of FCE write to ddr",
+	    "MetricName": "light_ddr_duration_wr.fce",
+	    "MetricExpr": "light_ddr0@axid_wr_duration_cnt\\,inst_id\\=4\\,axi_id\\=0x400\\,axi_mask\\=0xfe00@"
+   },
+   {
+	    "BriefDescription": "duration of G2D read from ddr",
+	    "MetricName": "light_ddr_duration_rd.g2d",
+	    "MetricExpr": "light_ddr0@axid_rd_duration_cnt\\,inst_id\\=4\\,axi_id\\=0x600\\,axi_mask\\=0xfe00@"
+   },
+   {
+	    "BriefDescription": "duration of G2D write to ddr",
+	    "MetricName": "light_ddr_duration_wr.g2d",
+	    "MetricExpr": "light_ddr0@axid_wr_duration_cnt\\,inst_id\\=4\\,axi_id\\=0x600\\,axi_mask\\=0xfe00@"
+   },
+   {
+	    "BriefDescription": "duration of MISC read from ddr",
+	    "MetricName": "light_ddr_duration_rd.misc",
+	    "MetricExpr": "light_ddr0@axid_rd_duration_cnt\\,inst_id\\=4\\,axi_id\\=0x800\\,axi_mask\\=0xfe00@"
+   },
+   {
+	    "BriefDescription": "duration of MISC write to ddr",
+	    "MetricName": "light_ddr_duration_wr.misc",
+	    "MetricExpr": "light_ddr0@axid_wr_duration_cnt\\,inst_id\\=4\\,axi_id\\=0x800\\,axi_mask\\=0xfe00@"
+   },
+   {
+	    "BriefDescription": "duration of USB read from ddr",
+	    "MetricName": "light_ddr_duration_rd.usb",
+	    "MetricExpr": "light_ddr0@axid_rd_duration_cnt\\,inst_id\\=4\\,axi_id\\=0x800\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "duration of USB write to ddr",
+	    "MetricName": "light_ddr_duration_wr.usb",
+	    "MetricExpr": "light_ddr0@axid_wr_duration_cnt\\,inst_id\\=4\\,axi_id\\=0x800\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "duration of GMAC read from ddr",
+	    "MetricName": "light_ddr_duration_rd.gmac",
+	    "MetricExpr": "light_ddr0@axid_rd_duration_cnt\\,inst_id\\=4\\,axi_id\\=0x820\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "duration of GMAC write to ddr",
+	    "MetricName": "light_ddr_duration_wr.gmac",
+	    "MetricExpr": "light_ddr0@axid_wr_duration_cnt\\,inst_id\\=4\\,axi_id\\=0x820\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "duration of EMMC read from ddr",
+	    "MetricName": "light_ddr_duration_rd.emmc",
+	    "MetricExpr": "light_ddr0@axid_rd_duration_cnt\\,inst_id\\=4\\,axi_id\\=0x840\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "duration of EMMC write to ddr",
+	    "MetricName": "light_ddr_duration_wr.emmc",
+	    "MetricExpr": "light_ddr0@axid_wr_duration_cnt\\,inst_id\\=4\\,axi_id\\=0x840\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "duration of SDIO0 read from ddr",
+	    "MetricName": "light_ddr_duration_rd.sdio0",
+	    "MetricExpr": "light_ddr0@axid_rd_duration_cnt\\,inst_id\\=4\\,axi_id\\=0x860\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "duration of SDIO0 write to ddr",
+	    "MetricName": "light_ddr_duration_wr.sdio0",
+	    "MetricExpr": "light_ddr0@axid_wr_duration_cnt\\,inst_id\\=4\\,axi_id\\=0x860\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "duration of SDIO1 read from ddr",
+	    "MetricName": "light_ddr_duration_rd.sdio1",
+	    "MetricExpr": "light_ddr0@axid_rd_duration_cnt\\,inst_id\\=4\\,axi_id\\=0x880\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "duration of SDIO1 write to ddr",
+	    "MetricName": "light_ddr_duration_wr.sdio1",
+	    "MetricExpr": "light_ddr0@axid_wr_duration_cnt\\,inst_id\\=4\\,axi_id\\=0x880\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "duration of TEE read from ddr",
+	    "MetricName": "light_ddr_duration_rd.tee",
+	    "MetricExpr": "light_ddr0@axid_rd_duration_cnt\\,inst_id\\=4\\,axi_id\\=0x8a0\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "duration of TEE write to ddr",
+	    "MetricName": "light_ddr_duration_wr.tee",
+	    "MetricExpr": "light_ddr0@axid_wr_duration_cnt\\,inst_id\\=4\\,axi_id\\=0x8a0\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "duration of EIP120_1 read from ddr",
+	    "MetricName": "light_ddr_duration_rd.eip120_1",
+	    "MetricExpr": "light_ddr0@axid_rd_duration_cnt\\,inst_id\\=4\\,axi_id\\=0x8a0\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "duration of EIP120_1 write to ddr",
+	    "MetricName": "light_ddr_duration_wr.eip120_1",
+	    "MetricExpr": "light_ddr0@axid_wr_duration_cnt\\,inst_id\\=4\\,axi_id\\=0x8a0\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "duration of EIP120_2 read from ddr",
+	    "MetricName": "light_ddr_duration_rd.eip120_2",
+	    "MetricExpr": "light_ddr0@axid_rd_duration_cnt\\,inst_id\\=4\\,axi_id\\=0x8a8\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "duration of EIP120_2 write to ddr",
+	    "MetricName": "light_ddr_duration_wr.eip120_2",
+	    "MetricExpr": "light_ddr0@axid_wr_duration_cnt\\,inst_id\\=4\\,axi_id\\=0x8a8\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "duration of EIP120_3 read from ddr",
+	    "MetricName": "light_ddr_duration_rd.eip120_3",
+	    "MetricExpr": "light_ddr0@axid_rd_duration_cnt\\,inst_id\\=4\\,axi_id\\=0x8b0\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "duration of EIP120_3 write to ddr",
+	    "MetricName": "light_ddr_duration_wr.eip120_3",
+	    "MetricExpr": "light_ddr0@axid_wr_duration_cnt\\,inst_id\\=4\\,axi_id\\=0x8b0\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "duration of TEE DMA read from ddr",
+	    "MetricName": "light_ddr_duration_rd.tee_dma",
+	    "MetricExpr": "light_ddr0@axid_rd_duration_cnt\\,inst_id\\=4\\,axi_id\\=0x8b8\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "duration of TEE DMA write to ddr",
+	    "MetricName": "light_ddr_duration_wr.tee_dma",
+	    "MetricExpr": "light_ddr0@axid_wr_duration_cnt\\,inst_id\\=4\\,axi_id\\=0x8b8\\,axi_mask\\=0xfff8@"
+   },
+
+   {
+	    "BriefDescription": "trans_cnt of DMA read from ddr",
+	    "MetricName": "light_ddr_trans_cnt_rd.dma",
+	    "MetricExpr": "light_ddr0@axid_rd_trans_cnt\\,inst_id\\=0\\,axi_id\\=0x140\\,axi_mask\\=0xffc0@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of DMA write to ddr",
+	    "MetricName": "light_ddr_trans_cnt_wr.dma",
+	    "MetricExpr": "light_ddr0@axid_wr_trans_cnt\\,inst_id\\=0\\,axi_id\\=0x140\\,axi_mask\\=0xffc0@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of AON read from ddr",
+	    "MetricName": "light_ddr_trans_cnt_rd.aon",
+	    "MetricExpr": "light_ddr0@axid_rd_trans_cnt\\,inst_id\\=0\\,axi_id\\=0x180\\,axi_mask\\=0xffc0@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of AON write to ddr",
+	    "MetricName": "light_ddr_trans_cnt_wr.aon",
+	    "MetricExpr": "light_ddr0@axid_wr_trans_cnt\\,inst_id\\=0\\,axi_id\\=0x180\\,axi_mask\\=0xffc0@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of AUDIO read from ddr",
+	    "MetricName": "light_ddr_trans_cnt_rd.audio",
+	    "MetricExpr": "light_ddr0@axid_rd_trans_cnt\\,inst_id\\=0\\,axi_id\\=0x200\\,axi_mask\\=0xff00@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of AUDIO write to ddr",
+	    "MetricName": "light_ddr_trans_cnt_wr.audio",
+	    "MetricExpr": "light_ddr0@axid_wr_trans_cnt\\,inst_id\\=0\\,axi_id\\=0x200\\,axi_mask\\=0xff00@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of C910 read from ddr",
+	    "MetricName": "light_ddr_trans_cnt_rd.c910",
+	    "MetricExpr": "light_ddr0@axid_rd_trans_cnt\\,inst_id\\=0\\,axi_id\\=0x0\\,axi_mask\\=0xff00@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of C910 write to ddr",
+	    "MetricName": "light_ddr_trans_cnt_wr.c910",
+	    "MetricExpr": "light_ddr0@axid_wr_trans_cnt\\,inst_id\\=0\\,axi_id\\=0x0\\,axi_mask\\=0xff00@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of ISP0 read from ddr",
+	    "MetricName": "light_ddr_trans_cnt_rd.isp0",
+	    "MetricExpr": "light_ddr0@axid_rd_trans_cnt\\,inst_id\\=1\\,axi_id\\=0x0\\,axi_mask\\=0xfe00@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of ISP0 write to ddr",
+	    "MetricName": "light_ddr_trans_cnt_wr.isp0",
+	    "MetricExpr": "light_ddr0@axid_wr_trans_cnt\\,inst_id\\=1\\,axi_id\\=0x0\\,axi_mask\\=0xfe00@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of ISP0 MP/IR_w/3DNR_r read from ddr",
+	    "MetricName": "light_ddr_trans_cnt_rd.isp0_3dnr",
+	    "MetricExpr": "light_ddr0@axid_rd_trans_cnt\\,inst_id\\=1\\,axi_id\\=0x0\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of ISP0 MP/IR_w/3DNR_r write to ddr",
+	    "MetricName": "light_ddr_trans_cnt_wr.isp0_mp_ir",
+	    "MetricExpr": "light_ddr0@axid_wr_trans_cnt\\,inst_id\\=1\\,axi_id\\=0x0\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of ISP0 SP1/PP_w/MCM/FE_r read from ddr",
+	    "MetricName": "light_ddr_trans_cnt_rd.isp0_mcm_fe",
+	    "MetricExpr": "light_ddr0@axid_rd_trans_cnt\\,inst_id\\=1\\,axi_id\\=0x8\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of ISP0 SP1/PP_w/MCM/FE_r write to ddr",
+	    "MetricName": "light_ddr_trans_cnt_wr.isp0_sp1_pp",
+	    "MetricExpr": "light_ddr0@axid_wr_trans_cnt\\,inst_id\\=1\\,axi_id\\=0x8\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of ISP0 3DNR/SP2_w/HDR_r read from ddr",
+	    "MetricName": "light_ddr_trans_cnt_rd.isp0_hdr",
+	    "MetricExpr": "light_ddr0@axid_rd_trans_cnt\\,inst_id\\=1\\,axi_id\\=0x10\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of ISP0 3DNR/SP2_w/HDR_r write to ddr",
+	    "MetricName": "light_ddr_trans_cnt_wr.isp0_3dnr_sp2",
+	    "MetricExpr": "light_ddr0@axid_wr_trans_cnt\\,inst_id\\=1\\,axi_id\\=0x10\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of ISP0 MCM_w write to ddr",
+	    "MetricName": "light_ddr_trans_cnt_wr.isp0_mcm",
+	    "MetricExpr": "light_ddr0@axid_wr_trans_cnt\\,inst_id\\=1\\,axi_id\\=0x18\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of ISP0 HDR_w write to ddr",
+	    "MetricName": "light_ddr_trans_cnt_wr.isp0_hdr",
+	    "MetricExpr": "light_ddr0@axid_wr_trans_cnt\\,inst_id\\=1\\,axi_id\\=0x20\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of ISP1 read from ddr",
+	    "MetricName": "light_ddr_trans_cnt_rd.isp1",
+	    "MetricExpr": "light_ddr0@axid_rd_trans_cnt\\,inst_id\\=1\\,axi_id\\=0x200\\,axi_mask\\=0xfe00@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of ISP1 write to ddr",
+	    "MetricName": "light_ddr_trans_cnt_wr.isp1",
+	    "MetricExpr": "light_ddr0@axid_wr_trans_cnt\\,inst_id\\=1\\,axi_id\\=0x200\\,axi_mask\\=0xfe00@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of ISP1 MP/IR_w/3DNR_r read from ddr",
+	    "MetricName": "light_ddr_trans_cnt_rd.isp1_3dnr",
+	    "MetricExpr": "light_ddr0@axid_rd_trans_cnt\\,inst_id\\=1\\,axi_id\\=0x200\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of ISP1 MP/IR_w/3DNR_r write to ddr",
+	    "MetricName": "light_ddr_trans_cnt_wr.isp1_mp_ir",
+	    "MetricExpr": "light_ddr0@axid_wr_trans_cnt\\,inst_id\\=1\\,axi_id\\=0x200\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of ISP1 SP1/PP_w/MCM/FE_r read from ddr",
+	    "MetricName": "light_ddr_trans_cnt_rd.isp1_mcm_fe",
+	    "MetricExpr": "light_ddr0@axid_rd_trans_cnt\\,inst_id\\=1\\,axi_id\\=0x208\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of ISP1 SP1/PP_w/MCM/FE_r write to ddr",
+	    "MetricName": "light_ddr_trans_cnt_wr.isp1_sp1_pp",
+	    "MetricExpr": "light_ddr0@axid_wr_trans_cnt\\,inst_id\\=1\\,axi_id\\=0x208\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of ISP1 3DNR/SP2_w/HDR_r read from ddr",
+	    "MetricName": "light_ddr_trans_cnt_rd.isp1_hdr",
+	    "MetricExpr": "light_ddr0@axid_rd_trans_cnt\\,inst_id\\=1\\,axi_id\\=0x210\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of ISP1 3DNR/SP2_w/HDR_r write to ddr",
+	    "MetricName": "light_ddr_trans_cnt_wr.isp1_3dnr_sp2",
+	    "MetricExpr": "light_ddr0@axid_wr_trans_cnt\\,inst_id\\=1\\,axi_id\\=0x210\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of ISP1 MCM_w write to ddr",
+	    "MetricName": "light_ddr_trans_cnt_wr.isp1_mcm",
+	    "MetricExpr": "light_ddr0@axid_wr_trans_cnt\\,inst_id\\=1\\,axi_id\\=0x218\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of ISP1 HDR_w write to ddr",
+	    "MetricName": "light_ddr_trans_cnt_wr.isp1_hdr",
+	    "MetricExpr": "light_ddr0@axid_wr_trans_cnt\\,inst_id\\=1\\,axi_id\\=0x220\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of DW200_PostISP read from ddr",
+	    "MetricName": "light_ddr_trans_cnt_rd.dw200_postisp",
+	    "MetricExpr": "light_ddr0@axid_rd_trans_cnt\\,inst_id\\=1\\,axi_id\\=0x400\\,axi_mask\\=0xfe00@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of DW200_PostISP write to ddr",
+	    "MetricName": "light_ddr_trans_cnt_wr.dw200_postisp",
+	    "MetricExpr": "light_ddr0@axid_wr_trans_cnt\\,inst_id\\=1\\,axi_id\\=0x400\\,axi_mask\\=0xfe00@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of DW200 DWE_W/FE_R read from ddr",
+	    "MetricName": "light_ddr_trans_cnt_rd.dw200_fe",
+	    "MetricExpr": "light_ddr0@axid_rd_trans_cnt\\,inst_id\\=1\\,axi_id\\=0x400\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of DWE_W/FE_R write to ddr",
+	    "MetricName": "light_ddr_trans_cnt_wr.dwe",
+	    "MetricExpr": "light_ddr0@axid_wr_trans_cnt\\,inst_id\\=1\\,axi_id\\=0x400\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of SCALER0_w write to ddr",
+	    "MetricName": "light_ddr_trans_cnt_wr.scaler0",
+	    "MetricExpr": "light_ddr0@axid_wr_trans_cnt\\,inst_id\\=1\\,axi_id\\=0x408\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of SCALER1/SCALER2 read from ddr",
+	    "MetricName": "light_ddr_trans_cnt_rd.scaler1_2",
+	    "MetricExpr": "light_ddr0@axid_rd_trans_cnt\\,inst_id\\=1\\,axi_id\\=0x410\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of SCALER1/SCALER2 write to ddr",
+	    "MetricName": "light_ddr_trans_cnt_wr.scaler1_2",
+	    "MetricExpr": "light_ddr0@axid_wr_trans_cnt\\,inst_id\\=1\\,axi_id\\=0x410\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of PostISP MP-w write to ddr",
+	    "MetricName": "light_ddr_trans_cnt_wr.postisp_mp",
+	    "MetricExpr": "light_ddr0@axid_wr_trans_cnt\\,inst_id\\=1\\,axi_id\\=0x418\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of PostISP SP1_w PP/FE_r read from ddr",
+	    "MetricName": "light_ddr_trans_cnt_rd.postisp_pp_fe",
+	    "MetricExpr": "light_ddr0@axid_rd_trans_cnt\\,inst_id\\=1\\,axi_id\\=0x420\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of PostISP SP1_w PP/FE_r write to ddr",
+	    "MetricName": "light_ddr_trans_cnt_wr.postisp_sp1",
+	    "MetricExpr": "light_ddr0@axid_wr_trans_cnt\\,inst_id\\=1\\,axi_id\\=0x420\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of PostISP SP2-2 read from ddr",
+	    "MetricName": "light_ddr_trans_cnt_rd.postisp_sp2",
+	    "MetricExpr": "light_ddr0@axid_rd_trans_cnt\\,inst_id\\=1\\,axi_id\\=0x428\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of PostISP SP2-2 write to ddr",
+	    "MetricName": "light_ddr_trans_cnt_wr.postisp_sp2",
+	    "MetricExpr": "light_ddr0@axid_wr_trans_cnt\\,inst_id\\=1\\,axi_id\\=0x428\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of VI_Pre read from ddr",
+	    "MetricName": "light_ddr_trans_cnt_rd.vipre",
+	    "MetricExpr": "light_ddr0@axid_rd_trans_cnt\\,inst_id\\=1\\,axi_id\\=0x600\\,axi_mask\\=0xfe00@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of VI_Pre write to ddr",
+	    "MetricName": "light_ddr_trans_cnt_wr.vipre",
+	    "MetricExpr": "light_ddr0@axid_wr_trans_cnt\\,inst_id\\=1\\,axi_id\\=0x600\\,axi_mask\\=0xfe00@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of VO read from ddr",
+	    "MetricName": "light_ddr_trans_cnt_rd.vo",
+	    "MetricExpr": "light_ddr0@axid_rd_trans_cnt\\,inst_id\\=2\\,axi_id\\=0x0\\,axi_mask\\=0xfc00@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of VO write to ddr",
+	    "MetricName": "light_ddr_trans_cnt_wr.vo",
+	    "MetricExpr": "light_ddr0@axid_wr_trans_cnt\\,inst_id\\=2\\,axi_id\\=0x0\\,axi_mask\\=0xfc00@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of GPU read from ddr",
+	    "MetricName": "light_ddr_trans_cnt_rd.gpu",
+	    "MetricExpr": "light_ddr0@axid_rd_trans_cnt\\,inst_id\\=2\\,axi_id\\=0x0\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of GPU write to ddr",
+	    "MetricName": "light_ddr_trans_cnt_wr.gpu",
+	    "MetricExpr": "light_ddr0@axid_wr_trans_cnt\\,inst_id\\=2\\,axi_id\\=0x0\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of DPU read from ddr",
+	    "MetricName": "light_ddr_trans_cnt_rd.dpu",
+	    "MetricExpr": "light_ddr0@axid_rd_trans_cnt\\,inst_id\\=2\\,axi_id\\=0x100\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of DPU write to ddr",
+	    "MetricName": "light_ddr_trans_cnt_wr.dpu",
+	    "MetricExpr": "light_ddr0@axid_wr_trans_cnt\\,inst_id\\=2\\,axi_id\\=0x100\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of DPU1 read from ddr",
+	    "MetricName": "light_ddr_trans_cnt_rd.dpu1",
+	    "MetricExpr": "light_ddr0@axid_rd_trans_cnt\\,inst_id\\=2\\,axi_id\\=0x200\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of DPU1 write to ddr",
+	    "MetricName": "light_ddr_trans_cnt_wr.dpu1",
+	    "MetricExpr": "light_ddr0@axid_wr_trans_cnt\\,inst_id\\=2\\,axi_id\\=0x200\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of DSP read from ddr",
+	    "MetricName": "light_ddr_trans_cnt_rd.dsp",
+	    "MetricExpr": "light_ddr0@axid_rd_trans_cnt\\,inst_id\\=2\\,axi_id\\=0x400\\,axi_mask\\=0xfc00@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of DSP write to ddr",
+	    "MetricName": "light_ddr_trans_cnt_wr.dsp",
+	    "MetricExpr": "light_ddr0@axid_wr_trans_cnt\\,inst_id\\=2\\,axi_id\\=0x400\\,axi_mask\\=0xfc00@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of DSP0 read from ddr",
+	    "MetricName": "light_ddr_trans_cnt_rd.dsp0",
+	    "MetricExpr": "light_ddr0@axid_rd_trans_cnt\\,inst_id\\=2\\,axi_id\\=0x400\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of DSP0 write to ddr",
+	    "MetricName": "light_ddr_trans_cnt_wr.dsp0",
+	    "MetricExpr": "light_ddr0@axid_wr_trans_cnt\\,inst_id\\=2\\,axi_id\\=0x400\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of DSP0-IDMA read from ddr",
+	    "MetricName": "light_ddr_trans_cnt_rd.dsp0_idma",
+	    "MetricExpr": "light_ddr0@axid_rd_trans_cnt\\,inst_id\\=2\\,axi_id\\=0x420\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of DSP0-IDMA write to ddr",
+	    "MetricName": "light_ddr_trans_cnt_wr.dsp0_idma",
+	    "MetricExpr": "light_ddr0@axid_wr_trans_cnt\\,inst_id\\=2\\,axi_id\\=0x420\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of DSP1 read from ddr",
+	    "MetricName": "light_ddr_trans_cnt_rd.dsp1",
+	    "MetricExpr": "light_ddr0@axid_rd_trans_cnt\\,inst_id\\=2\\,axi_id\\=0x440\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of DSP1 write to ddr",
+	    "MetricName": "light_ddr_trans_cnt_wr.dsp1",
+	    "MetricExpr": "light_ddr0@axid_wr_trans_cnt\\,inst_id\\=2\\,axi_id\\=0x440\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of DSP1-IDMA read from ddr",
+	    "MetricName": "light_ddr_trans_cnt_rd.dsp1_idma",
+	    "MetricExpr": "light_ddr0@axid_rd_trans_cnt\\,inst_id\\=2\\,axi_id\\=0x460\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of DSP1-IDMA write to ddr",
+	    "MetricName": "light_ddr_trans_cnt_wr.dsp1_idma",
+	    "MetricExpr": "light_ddr0@axid_wr_trans_cnt\\,inst_id\\=2\\,axi_id\\=0x460\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of NPU read from ddr",
+	    "MetricName": "light_ddr_trans_cnt_rd.npu",
+	    "MetricExpr": "light_ddr0@axid_rd_trans_cnt\\,inst_id\\=3\\,axi_id\\=0x0\\,axi_mask\\=0xf800@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of NPU write to ddr",
+	    "MetricName": "light_ddr_trans_cnt_wr.npu",
+	    "MetricExpr": "light_ddr0@axid_wr_trans_cnt\\,inst_id\\=3\\,axi_id\\=0x0\\,axi_mask\\=0xf800@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of DSP-EXT read from ddr",
+	    "MetricName": "light_ddr_trans_cnt_rd.dsp_ext",
+	    "MetricExpr": "light_ddr0@axid_rd_trans_cnt\\,inst_id\\=3\\,axi_id\\=0x800\\,axi_mask\\=0xf800@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of DSP-EXT write to ddr",
+	    "MetricName": "light_ddr_trans_cnt_wr.dsp_ext",
+	    "MetricExpr": "light_ddr0@axid_wr_trans_cnt\\,inst_id\\=3\\,axi_id\\=0x800\\,axi_mask\\=0xf800@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of DSP0-EXT read from ddr",
+	    "MetricName": "light_ddr_trans_cnt_rd.dsp0_ext",
+	    "MetricExpr": "light_ddr0@axid_rd_trans_cnt\\,inst_id\\=3\\,axi_id\\=0x800\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of DSP0-EXT write to ddr",
+	    "MetricName": "light_ddr_trans_cnt_wr.dsp0_ext",
+	    "MetricExpr": "light_ddr0@axid_wr_trans_cnt\\,inst_id\\=3\\,axi_id\\=0x800\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of DSP0-IDMA-EXT read from ddr",
+	    "MetricName": "light_ddr_trans_cnt_rd.dsp0_idma_ext",
+	    "MetricExpr": "light_ddr0@axid_rd_trans_cnt\\,inst_id\\=3\\,axi_id\\=0x820\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of DSP0-IDMA-EXT write to ddr",
+	    "MetricName": "light_ddr_trans_cnt_wr.dsp0_idma_ext",
+	    "MetricExpr": "light_ddr0@axid_wr_trans_cnt\\,inst_id\\=3\\,axi_id\\=0x820\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of DSP1-EXT read from ddr",
+	    "MetricName": "light_ddr_trans_cnt_rd.dsp1_ext",
+	    "MetricExpr": "light_ddr0@axid_rd_trans_cnt\\,inst_id\\=3\\,axi_id\\=0x840\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of DSP1-EXT write to ddr",
+	    "MetricName": "light_ddr_trans_cnt_wr.dsp1_ext",
+	    "MetricExpr": "light_ddr0@axid_wr_trans_cnt\\,inst_id\\=3\\,axi_id\\=0x840\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of DSP1-IDMA-EXT read from ddr",
+	    "MetricName": "light_ddr_trans_cnt_rd.dsp1_idma_ext",
+	    "MetricExpr": "light_ddr0@axid_rd_trans_cnt\\,inst_id\\=3\\,axi_id\\=0x860\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of DSP1-IDMA-EXT write to ddr",
+	    "MetricName": "light_ddr_trans_cnt_wr.dsp1_idma_ext",
+	    "MetricExpr": "light_ddr0@axid_wr_trans_cnt\\,inst_id\\=3\\,axi_id\\=0x860\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of VENC read from ddr",
+	    "MetricName": "light_ddr_trans_cnt_rd.venc",
+	    "MetricExpr": "light_ddr0@axid_rd_trans_cnt\\,inst_id\\=4\\,axi_id\\=0x0\\,axi_mask\\=0xfe00@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of VENC write to ddr",
+	    "MetricName": "light_ddr_trans_cnt_wr.venc",
+	    "MetricExpr": "light_ddr0@axid_wr_trans_cnt\\,inst_id\\=4\\,axi_id\\=0x0\\,axi_mask\\=0xfe00@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of VDEC read from ddr",
+	    "MetricName": "light_ddr_trans_cnt_rd.vdec",
+	    "MetricExpr": "light_ddr0@axid_rd_trans_cnt\\,inst_id\\=4\\,axi_id\\=0x200\\,axi_mask\\=0xfe00@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of VDEC write to ddr",
+	    "MetricName": "light_ddr_trans_cnt_wr.vdec",
+	    "MetricExpr": "light_ddr0@axid_wr_trans_cnt\\,inst_id\\=4\\,axi_id\\=0x200\\,axi_mask\\=0xfe00@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of FCE read from ddr",
+	    "MetricName": "light_ddr_trans_cnt_rd.fce",
+	    "MetricExpr": "light_ddr0@axid_rd_trans_cnt\\,inst_id\\=4\\,axi_id\\=0x400\\,axi_mask\\=0xfe00@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of FCE write to ddr",
+	    "MetricName": "light_ddr_trans_cnt_wr.fce",
+	    "MetricExpr": "light_ddr0@axid_wr_trans_cnt\\,inst_id\\=4\\,axi_id\\=0x400\\,axi_mask\\=0xfe00@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of G2D read from ddr",
+	    "MetricName": "light_ddr_trans_cnt_rd.g2d",
+	    "MetricExpr": "light_ddr0@axid_rd_trans_cnt\\,inst_id\\=4\\,axi_id\\=0x600\\,axi_mask\\=0xfe00@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of G2D write to ddr",
+	    "MetricName": "light_ddr_trans_cnt_wr.g2d",
+	    "MetricExpr": "light_ddr0@axid_wr_trans_cnt\\,inst_id\\=4\\,axi_id\\=0x600\\,axi_mask\\=0xfe00@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of MISC read from ddr",
+	    "MetricName": "light_ddr_trans_cnt_rd.misc",
+	    "MetricExpr": "light_ddr0@axid_rd_trans_cnt\\,inst_id\\=4\\,axi_id\\=0x800\\,axi_mask\\=0xfe00@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of MISC write to ddr",
+	    "MetricName": "light_ddr_trans_cnt_wr.misc",
+	    "MetricExpr": "light_ddr0@axid_wr_trans_cnt\\,inst_id\\=4\\,axi_id\\=0x800\\,axi_mask\\=0xfe00@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of USB read from ddr",
+	    "MetricName": "light_ddr_trans_cnt_rd.usb",
+	    "MetricExpr": "light_ddr0@axid_rd_trans_cnt\\,inst_id\\=4\\,axi_id\\=0x800\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of USB write to ddr",
+	    "MetricName": "light_ddr_trans_cnt_wr.usb",
+	    "MetricExpr": "light_ddr0@axid_wr_trans_cnt\\,inst_id\\=4\\,axi_id\\=0x800\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of GMAC read from ddr",
+	    "MetricName": "light_ddr_trans_cnt_rd.gmac",
+	    "MetricExpr": "light_ddr0@axid_rd_trans_cnt\\,inst_id\\=4\\,axi_id\\=0x820\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of GMAC write to ddr",
+	    "MetricName": "light_ddr_trans_cnt_wr.gmac",
+	    "MetricExpr": "light_ddr0@axid_wr_trans_cnt\\,inst_id\\=4\\,axi_id\\=0x820\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of EMMC read from ddr",
+	    "MetricName": "light_ddr_trans_cnt_rd.emmc",
+	    "MetricExpr": "light_ddr0@axid_rd_trans_cnt\\,inst_id\\=4\\,axi_id\\=0x840\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of EMMC write to ddr",
+	    "MetricName": "light_ddr_trans_cnt_wr.emmc",
+	    "MetricExpr": "light_ddr0@axid_wr_trans_cnt\\,inst_id\\=4\\,axi_id\\=0x840\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of SDIO0 read from ddr",
+	    "MetricName": "light_ddr_trans_cnt_rd.sdio0",
+	    "MetricExpr": "light_ddr0@axid_rd_trans_cnt\\,inst_id\\=4\\,axi_id\\=0x860\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of SDIO0 write to ddr",
+	    "MetricName": "light_ddr_trans_cnt_wr.sdio0",
+	    "MetricExpr": "light_ddr0@axid_wr_trans_cnt\\,inst_id\\=4\\,axi_id\\=0x860\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of SDIO1 read from ddr",
+	    "MetricName": "light_ddr_trans_cnt_rd.sdio1",
+	    "MetricExpr": "light_ddr0@axid_rd_trans_cnt\\,inst_id\\=4\\,axi_id\\=0x880\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of SDIO1 write to ddr",
+	    "MetricName": "light_ddr_trans_cnt_wr.sdio1",
+	    "MetricExpr": "light_ddr0@axid_wr_trans_cnt\\,inst_id\\=4\\,axi_id\\=0x880\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of TEE read from ddr",
+	    "MetricName": "light_ddr_trans_cnt_rd.tee",
+	    "MetricExpr": "light_ddr0@axid_rd_trans_cnt\\,inst_id\\=4\\,axi_id\\=0x8a0\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of TEE write to ddr",
+	    "MetricName": "light_ddr_trans_cnt_wr.tee",
+	    "MetricExpr": "light_ddr0@axid_wr_trans_cnt\\,inst_id\\=4\\,axi_id\\=0x8a0\\,axi_mask\\=0xffe0@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of EIP120_1 read from ddr",
+	    "MetricName": "light_ddr_trans_cnt_rd.eip120_1",
+	    "MetricExpr": "light_ddr0@axid_rd_trans_cnt\\,inst_id\\=4\\,axi_id\\=0x8a0\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of EIP120_1 write to ddr",
+	    "MetricName": "light_ddr_trans_cnt_wr.eip120_1",
+	    "MetricExpr": "light_ddr0@axid_wr_trans_cnt\\,inst_id\\=4\\,axi_id\\=0x8a0\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of EIP120_2 read from ddr",
+	    "MetricName": "light_ddr_trans_cnt_rd.eip120_2",
+	    "MetricExpr": "light_ddr0@axid_rd_trans_cnt\\,inst_id\\=4\\,axi_id\\=0x8a8\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of EIP120_2 write to ddr",
+	    "MetricName": "light_ddr_trans_cnt_wr.eip120_2",
+	    "MetricExpr": "light_ddr0@axid_wr_trans_cnt\\,inst_id\\=4\\,axi_id\\=0x8a8\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of EIP120_3 read from ddr",
+	    "MetricName": "light_ddr_trans_cnt_rd.eip120_3",
+	    "MetricExpr": "light_ddr0@axid_rd_trans_cnt\\,inst_id\\=4\\,axi_id\\=0x8b0\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of EIP120_3 write to ddr",
+	    "MetricName": "light_ddr_trans_cnt_wr.eip120_3",
+	    "MetricExpr": "light_ddr0@axid_wr_trans_cnt\\,inst_id\\=4\\,axi_id\\=0x8b0\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of TEE DMA read from ddr",
+	    "MetricName": "light_ddr_trans_cnt_rd.tee_dma",
+	    "MetricExpr": "light_ddr0@axid_rd_trans_cnt\\,inst_id\\=4\\,axi_id\\=0x8b8\\,axi_mask\\=0xfff8@"
+   },
+   {
+	    "BriefDescription": "trans_cnt of TEE DMA write to ddr",
+	    "MetricName": "light_ddr_trans_cnt_wr.tee_dma",
+	    "MetricExpr": "light_ddr0@axid_wr_trans_cnt\\,inst_id\\=4\\,axi_id\\=0x8b8\\,axi_mask\\=0xfff8@"
+   }
+
+]

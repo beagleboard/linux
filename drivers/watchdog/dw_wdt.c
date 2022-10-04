@@ -298,6 +298,7 @@ static int dw_wdt_stop(struct watchdog_device *wdd)
 	return 0;
 }
 
+#ifdef CONFIG_DW_WDT_RESTART_ENA
 static int dw_wdt_restart(struct watchdog_device *wdd,
 			  unsigned long action, void *data)
 {
@@ -316,6 +317,7 @@ static int dw_wdt_restart(struct watchdog_device *wdd,
 
 	return 0;
 }
+#endif
 
 static unsigned int dw_wdt_get_timeleft(struct watchdog_device *wdd)
 {
@@ -355,7 +357,9 @@ static const struct watchdog_ops dw_wdt_ops = {
 	.set_timeout	= dw_wdt_set_timeout,
 	.set_pretimeout	= dw_wdt_set_pretimeout,
 	.get_timeleft	= dw_wdt_get_timeleft,
+#ifdef CONFIG_DW_WDT_RESTART_ENA
 	.restart	= dw_wdt_restart,
+#endif
 };
 
 static irqreturn_t dw_wdt_irq(int irq, void *devid)

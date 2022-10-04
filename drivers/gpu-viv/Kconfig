@@ -1,0 +1,7 @@
+menu "Light Vivante GPU support"
+
+config LIGHT_GPU_VIV
+        tristate "Light Vivante GPU support"
+        help
+         Add Vivante GPU driver support for Thead Light platform.
+endmenu

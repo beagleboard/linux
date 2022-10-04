@@ -35,6 +35,7 @@
 #include "head.h"
 
 static DECLARE_COMPLETION(cpu_running);
+static struct cpumask cpu_delay_available_mask = { CPU_BITS_NONE };
 
 void __init smp_prepare_boot_cpu(void)
 {
@@ -87,6 +88,11 @@ void __init setup_smp(void)
 			break;
 		}
 
+		if (!of_device_is_available(dn))
+			pr_info("CPU with hartid=%d is not available\n", hart);
+		else
+			cpumask_set_cpu(cpuid, &cpu_delay_available_mask);
+
 		cpuid_to_hartid_map(cpuid) = hart;
 		cpuid++;
 	}
@@ -117,6 +123,11 @@ int __cpu_up(unsigned int cpu, struct task_struct *tidle)
 {
 	int ret = 0;
 	tidle->thread_info.cpu = cpu;
+
+	if (!cpumask_test_cpu(cpu, &cpu_delay_available_mask)) {
+		cpumask_set_cpu(cpu, &cpu_delay_available_mask);
+		return -EIO;
+	}
 
 	ret = start_secondary_cpu(cpu, tidle);
 	if (!ret) {

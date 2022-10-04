@@ -35,6 +35,7 @@
 #include <asm/fixmap.h>
 #include <asm/kasan.h>
 #include <asm/kernel-pgtable.h>
+#include <asm/kvm_host.h>
 #include <asm/memory.h>
 #include <asm/numa.h>
 #include <asm/sections.h>
@@ -86,6 +87,12 @@ phys_addr_t __ro_after_init arm64_dma_phys_limit;
 #else
 phys_addr_t __ro_after_init arm64_dma_phys_limit = PHYS_MASK + 1;
 #endif
+
+/*
+ * Provide a run-time mean of disabling ZONE_DMA32 if it is enabled via
+ * CONFIG_ZONE_DMA32.
+ */
+static bool disable_dma32 __ro_after_init;
 
 #ifdef CONFIG_KEXEC_CORE
 /*
@@ -232,7 +239,7 @@ static void __init zone_sizes_init(unsigned long min, unsigned long max)
 	max_zone_pfns[ZONE_DMA] = PFN_DOWN(arm64_dma_phys_limit);
 #endif
 #ifdef CONFIG_ZONE_DMA32
-	max_zone_pfns[ZONE_DMA32] = PFN_DOWN(dma32_phys_limit);
+	max_zone_pfns[ZONE_DMA32] = disable_dma32 ? 0 : PFN_DOWN(dma32_phys_limit);
 	if (!arm64_dma_phys_limit)
 		arm64_dma_phys_limit = dma32_phys_limit;
 #endif
@@ -240,6 +247,18 @@ static void __init zone_sizes_init(unsigned long min, unsigned long max)
 
 	free_area_init(max_zone_pfns);
 }
+
+static int __init early_disable_dma32(char *buf)
+{
+	if (!buf)
+		return -EINVAL;
+
+	if (!strcmp(buf, "on"))
+		disable_dma32 = true;
+
+	return 0;
+}
+early_param("disable_dma32", early_disable_dma32);
 
 int pfn_valid(unsigned long pfn)
 {
@@ -401,15 +420,18 @@ void __init arm64_memblock_init(void)
 
 	if (IS_ENABLED(CONFIG_RANDOMIZE_BASE)) {
 		extern u16 memstart_offset_seed;
-		u64 range = linear_region_size -
-			    (memblock_end_of_DRAM() - memblock_start_of_DRAM());
+		u64 mmfr0 = read_cpuid(ID_AA64MMFR0_EL1);
+		int parange = cpuid_feature_extract_unsigned_field(
+					mmfr0, ID_AA64MMFR0_PARANGE_SHIFT);
+		s64 range = linear_region_size -
+			    BIT(id_aa64mmfr0_parange_to_phys_shift(parange));
 
 		/*
 		 * If the size of the linear region exceeds, by a sufficient
-		 * margin, the size of the region that the available physical
-		 * memory spans, randomize the linear region as well.
+		 * margin, the size of the region that the physical memory can
+		 * span, randomize the linear region as well.
 		 */
-		if (memstart_offset_seed > 0 && range >= ARM64_MEMSTART_ALIGN) {
+		if (memstart_offset_seed > 0 && range >= (s64)ARM64_MEMSTART_ALIGN) {
 			range /= ARM64_MEMSTART_ALIGN;
 			memstart_addr -= ARM64_MEMSTART_ALIGN *
 					 ((range * memstart_offset_seed) >> 16);
@@ -461,6 +483,8 @@ void __init bootmem_init(void)
 #endif
 
 	dma_pernuma_cma_reserve();
+
+	kvm_hyp_reserve();
 
 	/*
 	 * sparse_init() tries to allocate memory from memblock, so must be

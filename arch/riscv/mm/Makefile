@@ -13,6 +13,10 @@ obj-y += extable.o
 obj-$(CONFIG_MMU) += fault.o pageattr.o
 obj-y += cacheflush.o
 obj-y += context.o
+obj-y += dma-mapping.o
+obj-y += ioremap.o
+obj-y += asid.o
+obj-y += context.o
 
 ifeq ($(CONFIG_MMU),y)
 obj-$(CONFIG_SMP) += tlbflush.o

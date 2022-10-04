@@ -2,7 +2,7 @@
 # Generic Trusted Execution Environment Configuration
 config TEE
 	tristate "Trusted Execution Environment support"
-	depends on HAVE_ARM_SMCCC || COMPILE_TEST || CPU_SUP_AMD
+	depends on HAVE_ARM_SMCCC || COMPILE_TEST || CPU_SUP_AMD || RISCV_SBI
 	select CRYPTO
 	select CRYPTO_SHA1
 	select DMA_SHARED_BUFFER

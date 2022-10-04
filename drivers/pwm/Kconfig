@@ -516,6 +516,15 @@ config PWM_TEGRA
 	  To compile this driver as a module, choose M here: the module
 	  will be called pwm-tegra.
 
+config PWM_LIGHT
+	tristate "LIGHT PWM support"
+	depends on PWM
+	help
+	  Generic PWM driver for the Thead Light PWM light SoCs.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called pwm-light.
+
 config PWM_TIECAP
 	tristate "ECAP PWM support"
 	depends on ARCH_OMAP2PLUS || ARCH_DAVINCI_DA8XX || ARCH_KEYSTONE || ARCH_K3 || COMPILE_TEST

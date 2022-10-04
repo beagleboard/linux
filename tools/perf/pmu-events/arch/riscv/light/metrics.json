@@ -1,0 +1,713 @@
+[
+   {
+	    "BriefDescription": "ddr total bandwidth, unit MB/s",
+	    "MetricName": "light_ddr_bandwidth",
+	    "MetricExpr": "light_ddr0@total_bw@"
+   },
+   {
+	    "BriefDescription": "ddr bandwidth utilization, unit %",
+	    "MetricName": "light_ddr_usage.all",
+	    "MetricExpr": "100*(light_ddr_read.all+light_ddr_write.all)/light_ddr_bandwidth*1000*1000/light_pmu_exec_time"
+   },
+   {
+	    "BriefDescription": "DMA bandwidth utilization, unit %",
+	    "MetricName": "light_ddr_usage.dma",
+	    "MetricExpr": "100*(light_ddr_read.dma+light_ddr_write.dma)/light_ddr_bandwidth*1000*1000/light_pmu_exec_time"
+   },
+   {
+	    "BriefDescription": "AON bandwidth utilization, unit %",
+	    "MetricName": "light_ddr_usage.aon",
+	    "MetricExpr": "100*(light_ddr_read.aon+light_ddr_write.aon)/light_ddr_bandwidth*1000*1000/light_pmu_exec_time"
+   },
+   {
+	    "BriefDescription": "AUDIO bandwidth utilization, unit %",
+	    "MetricName": "light_ddr_usage.audio",
+	    "MetricExpr": "100*(light_ddr_read.audio+light_ddr_write.audio)/light_ddr_bandwidth*1000*1000/light_pmu_exec_time"
+   },
+   {
+	    "BriefDescription": "C910 bandwidth utilization, unit %",
+	    "MetricName": "light_ddr_usage.c910",
+	    "MetricExpr": "100*(light_ddr_read.c910+light_ddr_write.c910)/light_ddr_bandwidth*1000*1000/light_pmu_exec_time"
+   },
+   {
+	    "BriefDescription": "ISP0 bandwidth utilization, unit %",
+	    "MetricName": "light_ddr_usage.isp0",
+	    "MetricExpr": "100*(light_ddr_read.isp0+light_ddr_write.isp0)/light_ddr_bandwidth*1000*1000/light_pmu_exec_time"
+   },
+   {
+	    "BriefDescription": "ISP1 bandwidth utilization, unit %",
+	    "MetricName": "light_ddr_usage.isp1",
+	    "MetricExpr": "100*(light_ddr_read.isp1+light_ddr_write.isp1)/light_ddr_bandwidth*1000*1000/light_pmu_exec_time"
+   },
+   {
+	    "BriefDescription": "DW200_PostISP bandwidth utilization, unit %",
+	    "MetricName": "light_ddr_usage.dw200_postisp",
+	    "MetricExpr": "100*(light_ddr_read.dw200_postisp+light_ddr_write.dw200_postisp)/light_ddr_bandwidth*1000*1000/light_pmu_exec_time"
+   },
+   {
+	    "BriefDescription": "VIPre bandwidth utilization, unit %",
+	    "MetricName": "light_ddr_usage.vipre",
+	    "MetricExpr": "100*(light_ddr_read.vipre+light_ddr_write.vipre)/light_ddr_bandwidth*1000*1000/light_pmu_exec_time"
+   },
+   {
+	    "BriefDescription": "VO bandwidth utilization, unit %",
+	    "MetricName": "light_ddr_usage.vo",
+	    "MetricExpr": "100*(light_ddr_read.vo+light_ddr_write.vo)/light_ddr_bandwidth*1000*1000/light_pmu_exec_time"
+   },
+   {
+	    "BriefDescription": "GPU bandwidth utilization, unit %",
+	    "MetricName": "light_ddr_usage.gpu",
+	    "MetricExpr": "100*(light_ddr_read.gpu+light_ddr_write.gpu)/light_ddr_bandwidth*1000*1000/light_pmu_exec_time"
+   },
+   {
+	    "BriefDescription": "DPU bandwidth utilization, unit %",
+	    "MetricName": "light_ddr_usage.dpu",
+	    "MetricExpr": "100*(light_ddr_read.dpu+light_ddr_write.dpu)/light_ddr_bandwidth*1000*1000/light_pmu_exec_time"
+   },
+   {
+	    "BriefDescription": "DPU1 bandwidth utilization, unit %",
+	    "MetricName": "light_ddr_usage.dpu1",
+	    "MetricExpr": "100*(light_ddr_read.dpu1+light_ddr_write.dpu1)/light_ddr_bandwidth*1000*1000/light_pmu_exec_time"
+   },
+   {
+	    "BriefDescription": "DSP bandwidth utilization, unit %",
+	    "MetricName": "light_ddr_usage.dsp",
+	    "MetricExpr": "100*(light_ddr_read.dsp+light_ddr_write.dsp)/light_ddr_bandwidth*1000*1000/light_pmu_exec_time"
+   },
+   {
+	    "BriefDescription": "DSP0 bandwidth utilization, unit %",
+	    "MetricName": "light_ddr_usage.dsp0",
+	    "MetricExpr": "100*(light_ddr_read.dsp0+light_ddr_write.dsp0)/light_ddr_bandwidth*1000*1000/light_pmu_exec_time"
+   },
+   {
+	    "BriefDescription": "DSP0-IDMA bandwidth utilization, unit %",
+	    "MetricName": "light_ddr_usage.dsp0_idma",
+	    "MetricExpr": "100*(light_ddr_read.dsp0_idma+light_ddr_write.dsp0_idma)/light_ddr_bandwidth*1000*1000/light_pmu_exec_time"
+   },
+   {
+	    "BriefDescription": "DSP1 bandwidth utilization, unit %",
+	    "MetricName": "light_ddr_usage.dsp1",
+	    "MetricExpr": "100*(light_ddr_read.dsp1+light_ddr_write.dsp1)/light_ddr_bandwidth*1000*1000/light_pmu_exec_time"
+   },
+   {
+	    "BriefDescription": "DSP1-IDMA bandwidth utilization, unit %",
+	    "MetricName": "light_ddr_usage.dsp1_idma",
+	    "MetricExpr": "100*(light_ddr_read.dsp1_idma+light_ddr_write.dsp1_idma)/light_ddr_bandwidth*1000*1000/light_pmu_exec_time"
+   },
+   {
+	    "BriefDescription": "NPU bandwidth utilization, unit %",
+	    "MetricName": "light_ddr_usage.npu",
+	    "MetricExpr": "100*(light_ddr_read.npu+light_ddr_write.npu)/light_ddr_bandwidth*1000*1000/light_pmu_exec_time"
+   },
+   {
+	    "BriefDescription": "DSP-EXT bandwidth utilization, unit %",
+	    "MetricName": "light_ddr_usage.dsp_ext",
+	    "MetricExpr": "100*(light_ddr_read.dsp_ext+light_ddr_write.dsp_ext)/light_ddr_bandwidth*1000*1000/light_pmu_exec_time"
+   },
+   {
+	    "BriefDescription": "DSP0-EXT bandwidth utilization, unit %",
+	    "MetricName": "light_ddr_usage.dsp0_ext",
+	    "MetricExpr": "100*(light_ddr_read.dsp0_ext+light_ddr_write.dsp0_ext)/light_ddr_bandwidth*1000*1000/light_pmu_exec_time"
+   },
+   {
+	    "BriefDescription": "DSP0-IDMA-EXT bandwidth utilization, unit %",
+	    "MetricName": "light_ddr_usage.dsp0_idma_ext",
+	    "MetricExpr": "100*(light_ddr_read.dsp0_idma_ext+light_ddr_write.dsp0_idma_ext)/light_ddr_bandwidth*1000*1000/light_pmu_exec_time"
+   },
+   {
+	    "BriefDescription": "DSP1-EXT bandwidth utilization, unit %",
+	    "MetricName": "light_ddr_usage.dsp1_ext",
+	    "MetricExpr": "100*(light_ddr_read.dsp1_ext+light_ddr_write.dsp1_ext)/light_ddr_bandwidth*1000*1000/light_pmu_exec_time"
+   },
+   {
+	    "BriefDescription": "DSP1-IDMA-EXT bandwidth utilization, unit %",
+	    "MetricName": "light_ddr_usage.dsp1_idma_ext",
+	    "MetricExpr": "100*(light_ddr_read.dsp1_idma_ext+light_ddr_write.dsp1_idma_ext)/light_ddr_bandwidth*1000*1000/light_pmu_exec_time"
+   },
+   {
+	    "BriefDescription": "VENC bandwidth utilization, unit %",
+	    "MetricName": "light_ddr_usage.venc",
+	    "MetricExpr": "100*(light_ddr_read.venc+light_ddr_write.venc)/light_ddr_bandwidth*1000*1000/light_pmu_exec_time"
+   },
+   {
+	    "BriefDescription": "VDEC bandwidth utilization, unit %",
+	    "MetricName": "light_ddr_usage.vdec",
+	    "MetricExpr": "100*(light_ddr_read.vdec+light_ddr_write.vdec)/light_ddr_bandwidth*1000*1000/light_pmu_exec_time"
+   },
+   {
+	    "BriefDescription": "FCE bandwidth utilization, unit %",
+	    "MetricName": "light_ddr_usage.fce",
+	    "MetricExpr": "100*(light_ddr_read.fce+light_ddr_write.fce)/light_ddr_bandwidth*1000*1000/light_pmu_exec_time"
+   },
+   {
+	    "BriefDescription": "G2D bandwidth utilization, unit %",
+	    "MetricName": "light_ddr_usage.g2d",
+	    "MetricExpr": "100*(light_ddr_read.g2d+light_ddr_write.g2d)/light_ddr_bandwidth*1000*1000/light_pmu_exec_time"
+   },
+   {
+	    "BriefDescription": "MISC bandwidth utilization, unit %",
+	    "MetricName": "light_ddr_usage.misc",
+	    "MetricExpr": "100*(light_ddr_read.misc+light_ddr_write.misc)/light_ddr_bandwidth*1000*1000/light_pmu_exec_time"
+   },
+   {
+	    "BriefDescription": "USB bandwidth utilization, unit %",
+	    "MetricName": "light_ddr_usage.usb",
+	    "MetricExpr": "100*(light_ddr_read.usb+light_ddr_write.usb)/light_ddr_bandwidth*1000*1000/light_pmu_exec_time"
+   },
+   {
+	    "BriefDescription": "GMAC bandwidth utilization, unit %",
+	    "MetricName": "light_ddr_usage.gmac",
+	    "MetricExpr": "100*(light_ddr_read.gmac+light_ddr_write.gmac)/light_ddr_bandwidth*1000*1000/light_pmu_exec_time"
+   },
+   {
+	    "BriefDescription": "EMMC bandwidth utilization, unit %",
+	    "MetricName": "light_ddr_usage.emmc",
+	    "MetricExpr": "100*(light_ddr_read.emmc+light_ddr_write.emmc)/light_ddr_bandwidth*1000*1000/light_pmu_exec_time"
+   },
+   {
+	    "BriefDescription": "SDIO0 bandwidth utilization, unit %",
+	    "MetricName": "light_ddr_usage.sdio0",
+	    "MetricExpr": "100*(light_ddr_read.sdio0+light_ddr_write.sdio0)/light_ddr_bandwidth*1000*1000/light_pmu_exec_time"
+   },
+   {
+	    "BriefDescription": "SDIO1 bandwidth utilization, unit %",
+	    "MetricName": "light_ddr_usage.sdio1",
+	    "MetricExpr": "100*(light_ddr_read.sdio1+light_ddr_write.sdio1)/light_ddr_bandwidth*1000*1000/light_pmu_exec_time"
+   },
+   {
+	    "BriefDescription": "TEE bandwidth utilization, unit %",
+	    "MetricName": "light_ddr_usage.tee",
+	    "MetricExpr": "100*(light_ddr_read.tee+light_ddr_write.tee)/light_ddr_bandwidth*1000*1000/light_pmu_exec_time"
+   },
+   {
+	    "BriefDescription": "EIP120_1 bandwidth utilization, unit %",
+	    "MetricName": "light_ddr_usage.eip120_1",
+	    "MetricExpr": "100*(light_ddr_read.eip120_1+light_ddr_write.eip120_1)/light_ddr_bandwidth*1000*1000/light_pmu_exec_time"
+   },
+   {
+	    "BriefDescription": "EIP120_2 bandwidth utilization, unit %",
+	    "MetricName": "light_ddr_usage.eip120_2",
+	    "MetricExpr": "100*(light_ddr_read.eip120_2+light_ddr_write.eip120_2)/light_ddr_bandwidth*1000*1000/light_pmu_exec_time"
+   },
+   {
+	    "BriefDescription": "EIP120_3 bandwidth utilization, unit %",
+	    "MetricName": "light_ddr_usage.eip120_3",
+	    "MetricExpr": "100*(light_ddr_read.eip120_3+light_ddr_write.eip120_3)/light_ddr_bandwidth*1000*1000/light_pmu_exec_time"
+   },
+   {
+	    "BriefDescription": "TEE DMA bandwidth utilization, unit %",
+	    "MetricName": "light_ddr_usage.tee_dma",
+	    "MetricExpr": "100*(light_ddr_read.tee_dma+light_ddr_write.tee_dma)/light_ddr_bandwidth*1000*1000/light_pmu_exec_time"
+   },
+
+   {
+	    "BriefDescription": "latency of DMA read from ddr",
+	    "MetricName": "light_ddr_latency_rd.dma",
+	    "MetricExpr": "light_ddr_duration_rd.dma/light_ddr_trans_cnt_rd.dma"
+   },
+   {
+	    "BriefDescription": "latency of DMA write to ddr",
+	    "MetricName": "light_ddr_latency_wr.dma",
+	    "MetricExpr": "light_ddr_duration_wr.dma/light_ddr_trans_cnt_wr.dma"
+   },
+   {
+	    "BriefDescription": "latency of AON read from ddr",
+	    "MetricName": "light_ddr_latency_rd.aon",
+	    "MetricExpr": "light_ddr_duration_rd.aon/light_ddr_trans_cnt_rd.aon"
+   },
+   {
+	    "BriefDescription": "latency of AON write to ddr",
+	    "MetricName": "light_ddr_latency_wr.aon",
+	    "MetricExpr": "light_ddr_duration_wr.aon/light_ddr_trans_cnt_wr.aon"
+   },
+   {
+	    "BriefDescription": "latency of AUDIO read from ddr",
+	    "MetricName": "light_ddr_latency_rd.audio",
+	    "MetricExpr": "light_ddr_duration_rd.audio/light_ddr_trans_cnt_rd.audio"
+   },
+   {
+	    "BriefDescription": "latency of AUDIO write to ddr",
+	    "MetricName": "light_ddr_latency_wr.audio",
+	    "MetricExpr": "light_ddr_duration_wr.audio/light_ddr_trans_cnt_wr.audio"
+   },
+   {
+	    "BriefDescription": "latency of C910 read from ddr",
+	    "MetricName": "light_ddr_latency_rd.c910",
+	    "MetricExpr": "light_ddr_duration_rd.c910/light_ddr_trans_cnt_rd.c910"
+   },
+   {
+	    "BriefDescription": "latency of C910 write to ddr",
+	    "MetricName": "light_ddr_latency_wr.c910",
+	    "MetricExpr": "light_ddr_duration_wr.c910/light_ddr_trans_cnt_wr.c910"
+   },
+   {
+	    "BriefDescription": "latency of ISP0 read from ddr",
+	    "MetricName": "light_ddr_latency_rd.isp0",
+	    "MetricExpr": "light_ddr_duration_rd.isp0/light_ddr_trans_cnt_rd.isp0"
+   },
+   {
+	    "BriefDescription": "latency of ISP0 write to ddr",
+	    "MetricName": "light_ddr_latency_wr.isp0",
+	    "MetricExpr": "light_ddr_duration_wr.isp0/light_ddr_trans_cnt_wr.isp0"
+   },
+   {
+	    "BriefDescription": "latency of ISP0 MP/IR_w/3DNR_r read from ddr",
+	    "MetricName": "light_ddr_latency_rd.isp0_3dnr",
+	    "MetricExpr": "light_ddr_duration_rd.isp0_3dnr/light_ddr_trans_cnt_rd.isp0_3dnr"
+   },
+   {
+	    "BriefDescription": "latency of ISP0 MP/IR_w/3DNR_r write to ddr",
+	    "MetricName": "light_ddr_latency_wr.isp0_mp_ir",
+	    "MetricExpr": "light_ddr_duration_wr.isp0_mp_ir/light_ddr_trans_cnt_wr.isp0_mp_ir"
+   },
+   {
+	    "BriefDescription": "latency of ISP0 SP1/PP_w/MCM/FE_r read from ddr",
+	    "MetricName": "light_ddr_latency_rd.isp0_mcm_fe",
+	    "MetricExpr": "light_ddr_duration_rd.isp0_mcm_fe/light_ddr_trans_cnt_rd.isp0_mcm_fe"
+   },
+   {
+	    "BriefDescription": "latency of ISP0 SP1/PP_w/MCM/FE_r write to ddr",
+	    "MetricName": "light_ddr_latency_wr.isp0_sp1_pp",
+	    "MetricExpr": "light_ddr_duration_wr.isp0_sp1_pp/light_ddr_trans_cnt_wr.isp0_sp1_pp"
+   },
+   {
+	    "BriefDescription": "latency of ISP0 3DNR/SP2_w/HDR_r read from ddr",
+	    "MetricName": "light_ddr_latency_rd.isp0_hdr",
+	    "MetricExpr": "light_ddr_duration_rd.isp0_hdr/light_ddr_trans_cnt_rd.isp0_hdr"
+   },
+   {
+	    "BriefDescription": "latency of ISP0 3DNR/SP2_w/HDR_r write to ddr",
+	    "MetricName": "light_ddr_latency_wr.isp0_3dnr_sp2",
+	    "MetricExpr": "light_ddr_duration_wr.isp0_3dnr_sp2/light_ddr_trans_cnt_wr.isp0_3dnr_sp2"
+   },
+   {
+	    "BriefDescription": "latency of ISP0 MCM_w write to ddr",
+	    "MetricName": "light_ddr_latency_wr.isp0_mcm",
+	    "MetricExpr": "light_ddr_duration_wr.isp0_mcm/light_ddr_trans_cnt_wr.isp0_mcm"
+   },
+   {
+	    "BriefDescription": "latency of ISP0 HDR_w write to ddr",
+	    "MetricName": "light_ddr_latency_wr.isp0_hdr",
+	    "MetricExpr": "light_ddr_duration_wr.isp0_hdr/light_ddr_trans_cnt_wr.isp0_hdr"
+   },
+   {
+	    "BriefDescription": "latency of ISP1 read from ddr",
+	    "MetricName": "light_ddr_latency_rd.isp1",
+	    "MetricExpr": "light_ddr_duration_rd.isp1/light_ddr_trans_cnt_rd.isp1"
+   },
+   {
+	    "BriefDescription": "latency of ISP1 write to ddr",
+	    "MetricName": "light_ddr_latency_wr.isp1",
+	    "MetricExpr": "light_ddr_duration_wr.isp1/light_ddr_trans_cnt_wr.isp1"
+   },
+   {
+	    "BriefDescription": "latency of ISP1 MP/IR_w/3DNR_r read from ddr",
+	    "MetricName": "light_ddr_latency_rd.isp1_3dnr",
+	    "MetricExpr": "light_ddr_duration_rd.isp1_3dnr/light_ddr_trans_cnt_rd.isp1_3dnr"
+   },
+   {
+	    "BriefDescription": "latency of ISP1 MP/IR_w/3DNR_r write to ddr",
+	    "MetricName": "light_ddr_latency_wr.isp1_mp_ir",
+	    "MetricExpr": "light_ddr_duration_wr.isp1_mp_ir/light_ddr_trans_cnt_wr.isp1_mp_ir"
+   },
+   {
+	    "BriefDescription": "latency of ISP1 SP1/PP_w/MCM/FE_r read from ddr",
+	    "MetricName": "light_ddr_latency_rd.isp1_mcm_fe",
+	    "MetricExpr": "light_ddr_duration_rd.isp1_mcm_fe/light_ddr_trans_cnt_rd.isp1_mcm_fe"
+   },
+   {
+	    "BriefDescription": "latency of ISP1 SP1/PP_w/MCM/FE_r write to ddr",
+	    "MetricName": "light_ddr_latency_wr.isp1_sp1_pp",
+	    "MetricExpr": "light_ddr_duration_wr.isp1_sp1_pp/light_ddr_trans_cnt_wr.isp1_sp1_pp"
+   },
+   {
+	    "BriefDescription": "latency of ISP1 3DNR/SP2_w/HDR_r read from ddr",
+	    "MetricName": "light_ddr_latency_rd.isp1_hdr",
+	    "MetricExpr": "light_ddr_duration_rd.isp1_hdr/light_ddr_trans_cnt_rd.isp1_hdr"
+   },
+   {
+	    "BriefDescription": "latency of ISP1 3DNR/SP2_w/HDR_r write to ddr",
+	    "MetricName": "light_ddr_latency_wr.isp1_3dnr_sp2",
+	    "MetricExpr": "light_ddr_duration_wr.isp1_3dnr_sp2/light_ddr_trans_cnt_wr.isp1_3dnr_sp2"
+   },
+   {
+	    "BriefDescription": "latency of ISP1 MCM_w write to ddr",
+	    "MetricName": "light_ddr_latency_wr.isp1_mcm",
+	    "MetricExpr": "light_ddr_duration_wr.isp1_mcm/light_ddr_trans_cnt_wr.isp1_mcm"
+   },
+   {
+	    "BriefDescription": "latency of ISP1 HDR_w write to ddr",
+	    "MetricName": "light_ddr_latency_wr.isp1_hdr",
+	    "MetricExpr": "light_ddr_duration_wr.isp1_hdr/light_ddr_trans_cnt_wr.isp1_hdr"
+   },
+   {
+	    "BriefDescription": "latency of DW200_PostISP read from ddr",
+	    "MetricName": "light_ddr_latency_rd.dw200_postisp",
+	    "MetricExpr": "light_ddr_duration_rd.dw200_postisp/light_ddr_trans_cnt_rd.dw200_postisp"
+   },
+   {
+	    "BriefDescription": "latency of DW200_PostISP write to ddr",
+	    "MetricName": "light_ddr_latency_wr.dw200_postisp",
+	    "MetricExpr": "light_ddr_duration_wr.dw200_postisp/light_ddr_trans_cnt_wr.dw200_postisp"
+   },
+   {
+	    "BriefDescription": "latency of DW200 DWE_W/FE_R read from ddr",
+	    "MetricName": "light_ddr_latency_rd.dw200_fe",
+	    "MetricExpr": "light_ddr_duration_rd.dw200_fe/light_ddr_trans_cnt_rd.dw200_fe"
+   },
+   {
+	    "BriefDescription": "latency of DWE_W/FE_R write to ddr",
+	    "MetricName": "light_ddr_latency_wr.dwe",
+	    "MetricExpr": "light_ddr_duration_wr.dwe/light_ddr_trans_cnt_wr.dwe"
+   },
+   {
+	    "BriefDescription": "latency of SCALER0_w write to ddr",
+	    "MetricName": "light_ddr_latency_wr.scaler0",
+	    "MetricExpr": "light_ddr_duration_wr.scaler0/light_ddr_trans_cnt_wr.scaler0"
+   },
+   {
+	    "BriefDescription": "latency of SCALER1/SCALER2 read from ddr",
+	    "MetricName": "light_ddr_latency_rd.scaler1_2",
+	    "MetricExpr": "light_ddr_duration_rd.scaler1_2/light_ddr_trans_cnt_rd.scaler1_2"
+   },
+   {
+	    "BriefDescription": "latency of SCALER1/SCALER2 write to ddr",
+	    "MetricName": "light_ddr_latency_wr.scaler1_2",
+	    "MetricExpr": "light_ddr_duration_wr.scaler1_2/light_ddr_trans_cnt_wr.scaler1_2"
+   },
+   {
+	    "BriefDescription": "latency of PostISP MP-w write to ddr",
+	    "MetricName": "light_ddr_latency_wr.postisp_mp",
+	    "MetricExpr": "light_ddr_duration_wr.postisp_mp/light_ddr_trans_cnt_wr.postisp_mp"
+   },
+   {
+	    "BriefDescription": "latency of PostISP SP1_w PP/FE_r read from ddr",
+	    "MetricName": "light_ddr_latency_rd.postisp_pp_fe",
+	    "MetricExpr": "light_ddr_duration_rd.postisp_pp_fe/light_ddr_trans_cnt_rd.postisp_pp_fe"
+   },
+   {
+	    "BriefDescription": "latency of PostISP SP1_w PP/FE_r write to ddr",
+	    "MetricName": "light_ddr_latency_wr.postisp_sp1",
+	    "MetricExpr": "light_ddr_duration_wr.postisp_sp1/light_ddr_trans_cnt_wr.postisp_sp1"
+   },
+   {
+	    "BriefDescription": "latency of PostISP SP2-2 read from ddr",
+	    "MetricName": "light_ddr_latency_rd.postisp_sp2",
+	    "MetricExpr": "light_ddr_duration_rd.postisp_sp2/light_ddr_trans_cnt_rd.postisp_sp2"
+   },
+   {
+	    "BriefDescription": "latency of PostISP SP2-2 write to ddr",
+	    "MetricName": "light_ddr_latency_wr.postisp_sp2",
+	    "MetricExpr": "light_ddr_duration_wr.postisp_sp2/light_ddr_trans_cnt_wr.postisp_sp2"
+   },
+   {
+	    "BriefDescription": "latency of VI_Pre read from ddr",
+	    "MetricName": "light_ddr_latency_rd.vipre",
+	    "MetricExpr": "light_ddr_duration_rd.vipre/light_ddr_trans_cnt_rd.vipre"
+   },
+   {
+	    "BriefDescription": "latency of VI_Pre write to ddr",
+	    "MetricName": "light_ddr_latency_wr.vipre",
+	    "MetricExpr": "light_ddr_duration_wr.vipre/light_ddr_trans_cnt_wr.vipre"
+   },
+   {
+	    "BriefDescription": "latency of VO read from ddr",
+	    "MetricName": "light_ddr_latency_rd.vo",
+	    "MetricExpr": "light_ddr_duration_rd.vo/light_ddr_trans_cnt_rd.vo"
+   },
+   {
+	    "BriefDescription": "latency of VO write to ddr",
+	    "MetricName": "light_ddr_latency_wr.vo",
+	    "MetricExpr": "light_ddr_duration_wr.vo/light_ddr_trans_cnt_wr.vo"
+   },
+   {
+	    "BriefDescription": "latency of GPU read from ddr",
+	    "MetricName": "light_ddr_latency_rd.gpu",
+	    "MetricExpr": "light_ddr_duration_rd.gpu/light_ddr_trans_cnt_rd.gpu"
+   },
+   {
+	    "BriefDescription": "latency of GPU write to ddr",
+	    "MetricName": "light_ddr_latency_wr.gpu",
+	    "MetricExpr": "light_ddr_duration_wr.gpu/light_ddr_trans_cnt_wr.gpu"
+   },
+   {
+	    "BriefDescription": "latency of DPU read from ddr",
+	    "MetricName": "light_ddr_latency_rd.dpu",
+	    "MetricExpr": "light_ddr_duration_rd.dpu/light_ddr_trans_cnt_rd.dpu"
+   },
+   {
+	    "BriefDescription": "latency of DPU write to ddr",
+	    "MetricName": "light_ddr_latency_wr.dpu",
+	    "MetricExpr": "light_ddr_duration_wr.dpu/light_ddr_trans_cnt_wr.dpu"
+   },
+   {
+	    "BriefDescription": "latency of DPU1 read from ddr",
+	    "MetricName": "light_ddr_latency_rd.dpu1",
+	    "MetricExpr": "light_ddr_duration_rd.dpu1/light_ddr_trans_cnt_rd.dpu1"
+   },
+   {
+	    "BriefDescription": "latency of DPU1 write to ddr",
+	    "MetricName": "light_ddr_latency_wr.dpu1",
+	    "MetricExpr": "light_ddr_duration_wr.dpu1/light_ddr_trans_cnt_wr.dpu1"
+   },
+   {
+	    "BriefDescription": "latency of DSP read from ddr",
+	    "MetricName": "light_ddr_latency_rd.dsp",
+	    "MetricExpr": "light_ddr_duration_rd.dsp/light_ddr_trans_cnt_rd.dsp"
+   },
+   {
+	    "BriefDescription": "latency of DSP write to ddr",
+	    "MetricName": "light_ddr_latency_wr.dsp",
+	    "MetricExpr": "light_ddr_duration_wr.dsp/light_ddr_trans_cnt_wr.dsp"
+   },
+   {
+	    "BriefDescription": "latency of DSP0 read from ddr",
+	    "MetricName": "light_ddr_latency_rd.dsp0",
+	    "MetricExpr": "light_ddr_duration_rd.dsp0/light_ddr_trans_cnt_rd.dsp0"
+   },
+   {
+	    "BriefDescription": "latency of DSP0 write to ddr",
+	    "MetricName": "light_ddr_latency_wr.dsp0",
+	    "MetricExpr": "light_ddr_duration_wr.dsp0/light_ddr_trans_cnt_wr.dsp0"
+   },
+   {
+	    "BriefDescription": "latency of DSP0-IDMA read from ddr",
+	    "MetricName": "light_ddr_latency_rd.dsp0_idma",
+	    "MetricExpr": "light_ddr_duration_rd.dsp0_idma/light_ddr_trans_cnt_rd.dsp0_idma"
+   },
+   {
+	    "BriefDescription": "latency of DSP0-IDMA write to ddr",
+	    "MetricName": "light_ddr_latency_wr.dsp0_idma",
+	    "MetricExpr": "light_ddr_duration_wr.dsp0_idma/light_ddr_trans_cnt_wr.dsp0_idma"
+   },
+   {
+	    "BriefDescription": "latency of DSP1 read from ddr",
+	    "MetricName": "light_ddr_latency_rd.dsp1",
+	    "MetricExpr": "light_ddr_duration_rd.dsp1/light_ddr_trans_cnt_rd.dsp1"
+   },
+   {
+	    "BriefDescription": "latency of DSP1 write to ddr",
+	    "MetricName": "light_ddr_latency_wr.dsp1",
+	    "MetricExpr": "light_ddr_duration_wr.dsp1/light_ddr_trans_cnt_wr.dsp1"
+   },
+   {
+	    "BriefDescription": "latency of DSP1-IDMA read from ddr",
+	    "MetricName": "light_ddr_latency_rd.dsp1_idma",
+	    "MetricExpr": "light_ddr_duration_rd.dsp1_idma/light_ddr_trans_cnt_rd.dsp1_idma"
+   },
+   {
+	    "BriefDescription": "latency of DSP1-IDMA write to ddr",
+	    "MetricName": "light_ddr_latency_wr.dsp1_idma",
+	    "MetricExpr": "light_ddr_duration_wr.dsp1_idma/light_ddr_trans_cnt_wr.dsp1_idma"
+   },
+   {
+	    "BriefDescription": "latency of NPU read from ddr",
+	    "MetricName": "light_ddr_latency_rd.npu",
+	    "MetricExpr": "light_ddr_duration_rd.npu/light_ddr_trans_cnt_rd.npu"
+   },
+   {
+	    "BriefDescription": "latency of NPU write to ddr",
+	    "MetricName": "light_ddr_latency_wr.npu",
+	    "MetricExpr": "light_ddr_duration_wr.npu/light_ddr_trans_cnt_wr.npu"
+   },
+   {
+	    "BriefDescription": "latency of DSP-EXT read from ddr",
+	    "MetricName": "light_ddr_latency_rd.dsp_ext",
+	    "MetricExpr": "light_ddr_duration_rd.dsp_ext/light_ddr_trans_cnt_rd.dsp_ext"
+   },
+   {
+	    "BriefDescription": "latency of DSP-EXT write to ddr",
+	    "MetricName": "light_ddr_latency_wr.dsp_ext",
+	    "MetricExpr": "light_ddr_duration_wr.dsp_ext/light_ddr_trans_cnt_wr.dsp_ext"
+   },
+   {
+	    "BriefDescription": "latency of DSP0-EXT read from ddr",
+	    "MetricName": "light_ddr_latency_rd.dsp0_ext",
+	    "MetricExpr": "light_ddr_duration_rd.dsp0_ext/light_ddr_trans_cnt_rd.dsp0_ext"
+   },
+   {
+	    "BriefDescription": "latency of DSP0-EXT write to ddr",
+	    "MetricName": "light_ddr_latency_wr.dsp0_ext",
+	    "MetricExpr": "light_ddr_duration_wr.dsp0_ext/light_ddr_trans_cnt_wr.dsp0_ext"
+   },
+   {
+	    "BriefDescription": "latency of DSP0-IDMA-EXT read from ddr",
+	    "MetricName": "light_ddr_latency_rd.dsp0_idma_ext",
+	    "MetricExpr": "light_ddr_duration_rd.dsp0_idma_ext/light_ddr_trans_cnt_rd.dsp0_idma_ext"
+   },
+   {
+	    "BriefDescription": "latency of DSP0-IDMA-EXT write to ddr",
+	    "MetricName": "light_ddr_latency_wr.dsp0_idma_ext",
+	    "MetricExpr": "light_ddr_duration_wr.dsp0_idma_ext/light_ddr_trans_cnt_wr.dsp0_idma_ext"
+   },
+   {
+	    "BriefDescription": "latency of DSP1-EXT read from ddr",
+	    "MetricName": "light_ddr_latency_rd.dsp1_ext",
+	    "MetricExpr": "light_ddr_duration_rd.dsp1_ext/light_ddr_trans_cnt_rd.dsp1_ext"
+   },
+   {
+	    "BriefDescription": "latency of DSP1-EXT write to ddr",
+	    "MetricName": "light_ddr_latency_wr.dsp1_ext",
+	    "MetricExpr": "light_ddr_duration_wr.dsp1_ext/light_ddr_trans_cnt_wr.dsp1_ext"
+   },
+   {
+	    "BriefDescription": "latency of DSP1-IDMA-EXT read from ddr",
+	    "MetricName": "light_ddr_latency_rd.dsp1_idma_ext",
+	    "MetricExpr": "light_ddr_duration_rd.dsp1_idma_ext/light_ddr_trans_cnt_rd.dsp1_idma_ext"
+   },
+   {
+	    "BriefDescription": "latency of DSP1-IDMA-EXT write to ddr",
+	    "MetricName": "light_ddr_latency_wr.dsp1_idma_ext",
+	    "MetricExpr": "light_ddr_duration_wr.dsp1_idma_ext/light_ddr_trans_cnt_wr.dsp1_idma_ext"
+   },
+   {
+	    "BriefDescription": "latency of VENC read from ddr",
+	    "MetricName": "light_ddr_latency_rd.venc",
+	    "MetricExpr": "light_ddr_duration_rd.venc/light_ddr_trans_cnt_rd.venc"
+   },
+   {
+	    "BriefDescription": "latency of VENC write to ddr",
+	    "MetricName": "light_ddr_latency_wr.venc",
+	    "MetricExpr": "light_ddr_duration_wr.venc/light_ddr_trans_cnt_wr.venc"
+   },
+   {
+	    "BriefDescription": "latency of VDEC read from ddr",
+	    "MetricName": "light_ddr_latency_rd.vdec",
+	    "MetricExpr": "light_ddr_duration_rd.vdec/light_ddr_trans_cnt_rd.vdec"
+   },
+   {
+	    "BriefDescription": "latency of VDEC write to ddr",
+	    "MetricName": "light_ddr_latency_wr.vdec",
+	    "MetricExpr": "light_ddr_duration_wr.vdec/light_ddr_trans_cnt_wr.vdec"
+   },
+   {
+	    "BriefDescription": "latency of FCE read from ddr",
+	    "MetricName": "light_ddr_latency_rd.fce",
+	    "MetricExpr": "light_ddr_duration_rd.fce/light_ddr_trans_cnt_rd.fce"
+   },
+   {
+	    "BriefDescription": "latency of FCE write to ddr",
+	    "MetricName": "light_ddr_latency_wr.fce",
+	    "MetricExpr": "light_ddr_duration_wr.fce/light_ddr_trans_cnt_wr.fce"
+   },
+   {
+	    "BriefDescription": "latency of G2D read from ddr",
+	    "MetricName": "light_ddr_latency_rd.g2d",
+	    "MetricExpr": "light_ddr_duration_rd.g2d/light_ddr_trans_cnt_rd.g2d"
+   },
+   {
+	    "BriefDescription": "latency of G2D write to ddr",
+	    "MetricName": "light_ddr_latency_wr.g2d",
+	    "MetricExpr": "light_ddr_duration_wr.g2d/light_ddr_trans_cnt_wr.g2d"
+   },
+   {
+	    "BriefDescription": "latency of MISC read from ddr",
+	    "MetricName": "light_ddr_latency_rd.misc",
+	    "MetricExpr": "light_ddr_duration_rd.misc/light_ddr_trans_cnt_rd.misc"
+   },
+   {
+	    "BriefDescription": "latency of MISC write to ddr",
+	    "MetricName": "light_ddr_latency_wr.misc",
+	    "MetricExpr": "light_ddr_duration_wr.misc/light_ddr_trans_cnt_wr.misc"
+   },
+   {
+	    "BriefDescription": "latency of USB read from ddr",
+	    "MetricName": "light_ddr_latency_rd.usb",
+	    "MetricExpr": "light_ddr_duration_rd.usb/light_ddr_trans_cnt_rd.usb"
+   },
+   {
+	    "BriefDescription": "latency of USB write to ddr",
+	    "MetricName": "light_ddr_latency_wr.usb",
+	    "MetricExpr": "light_ddr_duration_wr.usb/light_ddr_trans_cnt_wr.usb"
+   },
+   {
+	    "BriefDescription": "latency of GMAC read from ddr",
+	    "MetricName": "light_ddr_latency_rd.gmac",
+	    "MetricExpr": "light_ddr_duration_rd.gmac/light_ddr_trans_cnt_rd.gmac"
+   },
+   {
+	    "BriefDescription": "latency of GMAC write to ddr",
+	    "MetricName": "light_ddr_latency_wr.gmac",
+	    "MetricExpr": "light_ddr_duration_wr.gmac/light_ddr_trans_cnt_wr.gmac"
+   },
+   {
+	    "BriefDescription": "latency of EMMC read from ddr",
+	    "MetricName": "light_ddr_latency_rd.emmc",
+	    "MetricExpr": "light_ddr_duration_rd.emmc/light_ddr_trans_cnt_rd.emmc"
+   },
+   {
+	    "BriefDescription": "latency of EMMC write to ddr",
+	    "MetricName": "light_ddr_latency_wr.emmc",
+	    "MetricExpr": "light_ddr_duration_wr.emmc/light_ddr_trans_cnt_wr.emmc"
+   },
+   {
+	    "BriefDescription": "latency of SDIO0 read from ddr",
+	    "MetricName": "light_ddr_latency_rd.sdio0",
+	    "MetricExpr": "light_ddr_duration_rd.sdio0/light_ddr_trans_cnt_rd.sdio0"
+   },
+   {
+	    "BriefDescription": "latency of SDIO0 write to ddr",
+	    "MetricName": "light_ddr_latency_wr.sdio0",
+	    "MetricExpr": "light_ddr_duration_wr.sdio0/light_ddr_trans_cnt_wr.sdio0"
+   },
+   {
+	    "BriefDescription": "latency of SDIO1 read from ddr",
+	    "MetricName": "light_ddr_latency_rd.sdio1",
+	    "MetricExpr": "light_ddr_duration_rd.sdio1/light_ddr_trans_cnt_rd.sdio1"
+   },
+   {
+	    "BriefDescription": "latency of SDIO1 write to ddr",
+	    "MetricName": "light_ddr_latency_wr.sdio1",
+	    "MetricExpr": "light_ddr_duration_wr.sdio1/light_ddr_trans_cnt_wr.sdio1"
+   },
+   {
+	    "BriefDescription": "latency of TEE read from ddr",
+	    "MetricName": "light_ddr_latency_rd.tee",
+	    "MetricExpr": "light_ddr_duration_rd.tee/light_ddr_trans_cnt_rd.tee"
+   },
+   {
+	    "BriefDescription": "latency of TEE write to ddr",
+	    "MetricName": "light_ddr_latency_wr.tee",
+	    "MetricExpr": "light_ddr_duration_wr.tee/light_ddr_trans_cnt_wr.tee"
+   },
+   {
+	    "BriefDescription": "latency of EIP120_1 read from ddr",
+	    "MetricName": "light_ddr_latency_rd.eip120_1",
+	    "MetricExpr": "light_ddr_duration_rd.eip120_1/light_ddr_trans_cnt_rd.eip120_1"
+   },
+   {
+	    "BriefDescription": "latency of EIP120_1 write to ddr",
+	    "MetricName": "light_ddr_latency_wr.eip120_1",
+	    "MetricExpr": "light_ddr_duration_wr.eip120_1/light_ddr_trans_cnt_wr.eip120_1"
+   },
+   {
+	    "BriefDescription": "latency of EIP120_2 read from ddr",
+	    "MetricName": "light_ddr_latency_rd.eip120_2",
+	    "MetricExpr": "light_ddr_duration_rd.eip120_2/light_ddr_trans_cnt_rd.eip120_2"
+   },
+   {
+	    "BriefDescription": "latency of EIP120_2 write to ddr",
+	    "MetricName": "light_ddr_latency_wr.eip120_2",
+	    "MetricExpr": "light_ddr_duration_wr.eip120_2/light_ddr_trans_cnt_wr.eip120_2"
+   },
+   {
+	    "BriefDescription": "latency of EIP120_3 read from ddr",
+	    "MetricName": "light_ddr_latency_rd.eip120_3",
+	    "MetricExpr": "light_ddr_duration_rd.eip120_3/light_ddr_trans_cnt_rd.eip120_3"
+   },
+   {
+	    "BriefDescription": "latency of EIP120_3 write to ddr",
+	    "MetricName": "light_ddr_latency_wr.eip120_3",
+	    "MetricExpr": "light_ddr_duration_wr.eip120_3/light_ddr_trans_cnt_wr.eip120_3"
+   },
+   {
+	    "BriefDescription": "latency of TEE DMA read from ddr",
+	    "MetricName": "light_ddr_latency_rd.tee_dma",
+	    "MetricExpr": "light_ddr_duration_rd.tee_dma/light_ddr_trans_cnt_rd.tee_dma"
+   },
+   {
+	    "BriefDescription": "latency of TEE DMA write to ddr",
+	    "MetricName": "light_ddr_latency_wr.tee_dma",
+	    "MetricExpr": "light_ddr_duration_wr.tee_dma/light_ddr_trans_cnt_wr.tee_dma"
+   }
+]

@@ -2044,8 +2044,6 @@ int drm_connector_update_edid_property(struct drm_connector *connector,
 	 */
 	if (edid)
 		drm_add_display_info(connector, edid);
-	else
-		drm_reset_display_info(connector);
 
 	drm_update_tile_info(connector, edid);
 

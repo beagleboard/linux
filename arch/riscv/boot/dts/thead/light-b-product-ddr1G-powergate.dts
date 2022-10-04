@@ -1,0 +1,14 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * Copyright (C) 2021 Alibaba Group Holding Limited.
+ */
+
+#include "light-b-product-ddr1G.dts"
+#include "light-powergate.dts"
+
+&soc_vdd18_lcd0_en_reg {
+	/delete-property/regulator-always-on;
+};
+&soc_lcd0_bias_en_reg {
+	/delete-property/regulator-always-on;
+};

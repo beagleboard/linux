@@ -2,6 +2,8 @@
 /*
  * Copyright (C) 2012 Regents of the University of California
  * Copyright (C) 2019 Western Digital Corporation or its affiliates.
+ * Copyright (C) 2020 FORTH-ICS/CARV
+ *  Nick Kossifidis <mick@ics.forth.gr>
  */
 
 #include <linux/init.h>
@@ -11,8 +13,10 @@
 #include <linux/swap.h>
 #include <linux/sizes.h>
 #include <linux/of_fdt.h>
+#include <linux/of_reserved_mem.h>
 #include <linux/libfdt.h>
 #include <linux/set_memory.h>
+#include <linux/crash_dump.h>
 
 #include <asm/fixmap.h>
 #include <asm/tlbflush.h>
@@ -636,31 +640,102 @@ void mark_rodata_ro(void)
 }
 #endif
 
-static void __init resource_init(void)
+#ifdef CONFIG_KEXEC_CORE
+/*
+ * reserve_crashkernel() - reserves memory for crash kernel
+ *
+ * This function reserves memory area given in "crashkernel=" kernel command
+ * line parameter. The memory reserved is used by dump capture kernel when
+ * primary kernel is crashing.
+ */
+static void __init reserve_crashkernel(void)
 {
-	struct memblock_region *region;
+	unsigned long long crash_base = 0;
+	unsigned long long crash_size = 0;
+	unsigned long search_start = memblock_start_of_DRAM();
+	unsigned long search_end = memblock_end_of_DRAM();
 
-	for_each_mem_region(region) {
-		struct resource *res;
+	int ret = 0;
 
-		res = memblock_alloc(sizeof(struct resource), SMP_CACHE_BYTES);
-		if (!res)
-			panic("%s: Failed to allocate %zu bytes\n", __func__,
-			      sizeof(struct resource));
-
-		if (memblock_is_nomap(region)) {
-			res->name = "reserved";
-			res->flags = IORESOURCE_MEM;
-		} else {
-			res->name = "System RAM";
-			res->flags = IORESOURCE_SYSTEM_RAM | IORESOURCE_BUSY;
-		}
-		res->start = __pfn_to_phys(memblock_region_memory_base_pfn(region));
-		res->end = __pfn_to_phys(memblock_region_memory_end_pfn(region)) - 1;
-
-		request_resource(&iomem_resource, res);
+	/*
+	 * Don't reserve a region for a crash kernel on a crash kernel
+	 * since it doesn't make much sense and we have limited memory
+	 * resources.
+	 */
+#ifdef CONFIG_CRASH_DUMP
+	if (is_kdump_kernel()) {
+		pr_info("crashkernel: ignoring reservation request\n");
+		return;
 	}
+#endif
+
+	ret = parse_crashkernel(boot_command_line, memblock_phys_mem_size(),
+				&crash_size, &crash_base);
+	if (ret || !crash_size)
+		return;
+
+	crash_size = PAGE_ALIGN(crash_size);
+
+	if (crash_base == 0) {
+		/*
+		 * Current riscv boot protocol requires 2MB alignment for
+		 * RV64 and 4MB alignment for RV32 (hugepage size)
+		 */
+		crash_base = memblock_find_in_range(search_start, search_end,
+						    crash_size, PMD_SIZE);
+
+		if (crash_base == 0) {
+			pr_warn("crashkernel: couldn't allocate %lldKB\n",
+				crash_size >> 10);
+			return;
+		}
+	} else {
+		/* User specifies base address explicitly. */
+		if (!memblock_is_region_memory(crash_base, crash_size)) {
+			pr_warn("crashkernel: requested region is not memory\n");
+			return;
+		}
+
+		if (memblock_is_region_reserved(crash_base, crash_size)) {
+			pr_warn("crashkernel: requested region is reserved\n");
+			return;
+		}
+
+
+		if (!IS_ALIGNED(crash_base, PMD_SIZE)) {
+			pr_warn("crashkernel: requested region is misaligned\n");
+			return;
+		}
+	}
+	memblock_reserve(crash_base, crash_size);
+
+	pr_info("crashkernel: reserved 0x%016llx - 0x%016llx (%lld MB)\n",
+		crash_base, crash_base + crash_size, crash_size >> 20);
+
+	crashk_res.start = crash_base;
+	crashk_res.end = crash_base + crash_size - 1;
 }
+#endif /* CONFIG_KEXEC_CORE */
+
+#ifdef CONFIG_CRASH_DUMP
+/*
+ * We keep track of the ELF core header of the crashed
+ * kernel with a reserved-memory region with compatible
+ * string "linux,elfcorehdr". Here we register a callback
+ * to populate elfcorehdr_addr/size when this region is
+ * present. Note that this region will be marked as
+ * reserved once we call early_init_fdt_scan_reserved_mem()
+ * later on.
+ */
+static int elfcore_hdr_setup(struct reserved_mem *rmem)
+{
+	elfcorehdr_addr = rmem->base;
+	elfcorehdr_size = rmem->size;
+	return 0;
+}
+
+RESERVEDMEM_OF_DECLARE(elfcorehdr, "linux,elfcorehdr", elfcore_hdr_setup);
+#endif
 
 void __init paging_init(void)
 {
@@ -668,7 +743,9 @@ void __init paging_init(void)
 	sparse_init();
 	setup_zero_page();
 	zone_sizes_init();
-	resource_init();
+#ifdef CONFIG_KEXEC_CORE
+	reserve_crashkernel();
+#endif
 }
 
 #ifdef CONFIG_SPARSEMEM_VMEMMAP

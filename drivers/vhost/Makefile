@@ -17,3 +17,6 @@ obj-$(CONFIG_VHOST)	+= vhost.o
 
 obj-$(CONFIG_VHOST_IOTLB) += vhost_iotlb.o
 vhost_iotlb-y := iotlb.o
+
+obj-$(CONFIG_VHOST_VDMABUF) += vhost_vdmabuf.o
+vhost_vdmabuf-y := vdmabuf.o

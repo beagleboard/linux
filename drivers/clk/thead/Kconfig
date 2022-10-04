@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: GPL-2.0
+
+config THEAD_CLK
+	bool
+	def_bool SOC_THEAD
+
+config CLK_LIGHT_MPW
+	bool "Thead Light MPW Clock Driver"
+	depends on SOC_THEAD
+	default n
+	help
+	    Build the driver for light mpw Clock Driver
+
+config CLK_LIGHT_FM
+	bool "Thead Light Fullmask Clock Driver"
+	depends on SOC_THEAD
+	default n
+	help
+	    Build the driver for light fullmask Clock Driver

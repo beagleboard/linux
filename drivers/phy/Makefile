@@ -28,6 +28,7 @@ obj-y					+= allwinner/	\
 					   samsung/	\
 					   socionext/	\
 					   st/		\
+					   synopsys/	\
 					   tegra/	\
 					   ti/		\
 					   xilinx/

@@ -237,6 +237,7 @@
 #include <linux/cdev.h>
 #include <linux/termios.h>
 #include <linux/seq_file.h>
+#include <linux/android_kabi.h>
 
 struct tty_struct;
 struct tty_driver;
@@ -277,6 +278,10 @@ struct tty_operations {
 	int (*tiocmset)(struct tty_struct *tty,
 			unsigned int set, unsigned int clear);
 	int (*resize)(struct tty_struct *tty, struct winsize *ws);
+
+	/* only for abi preservation */
+	int (*set_termiox)(struct tty_struct *tty, struct termiox *tnew);
+
 	int (*get_icount)(struct tty_struct *tty,
 				struct serial_icounter_struct *icount);
 	int  (*get_serial)(struct tty_struct *tty, struct serial_struct *p);
@@ -288,6 +293,9 @@ struct tty_operations {
 	void (*poll_put_char)(struct tty_driver *driver, int line, char ch);
 #endif
 	int (*proc_show)(struct seq_file *, void *);
+
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
 } __randomize_layout;
 
 struct tty_driver {
@@ -322,6 +330,9 @@ struct tty_driver {
 
 	const struct tty_operations *ops;
 	struct list_head tty_drivers;
+
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
 } __randomize_layout;
 
 extern struct list_head tty_drivers;

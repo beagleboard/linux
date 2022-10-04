@@ -724,6 +724,20 @@ config IMX2_WDT
 	  To compile this driver as a module, choose M here: the
 	  module will be called imx2_wdt.
 
+config ICE_WDT
+	tristate "ICE+ Watchdog"
+	depends on RISCV
+	default y
+	select WATCHDOG_CORE
+	help
+	  This is the driver for the hardware watchdog
+	  on the ice and later processors.
+	  If you have one of these processors and wish to have
+	  watchdog support enabled, say Y, otherwise say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called ice_wdt.
+
 config IMX_SC_WDT
 	tristate "IMX SC Watchdog"
 	depends on HAVE_ARM_SMCCC
@@ -1018,6 +1032,22 @@ config VISCONTI_WATCHDOG
 	help
 	  Say Y here to include support for the watchdog timer in Toshiba
 	  Visconti SoCs.
+
+# RISCV Architecture
+
+config LIGHT_PMIC_WATCHDOG
+	tristate "THEAD Light pmic watchdog"
+	depends on THEAD_LIGHT_MBOX
+	select WATCHDOG_CORE
+	help
+	  This is the driver for the hardware watchdog on Light Board. This watchdog
+	  simply watches your kernel to make sure it doesn't freeze, and if
+	  it does, it reboots your computer after a certain amount of time.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called acquirewdt.
+
+	  Most people will say N.
 
 # X86 (i386 + ia64 + x86_64) Architecture
 

@@ -219,6 +219,17 @@ config DWMAC_INTEL_PLAT
 	  This selects the Intel platform specific glue layer support for
 	  the stmmac device driver. This driver is used for the Intel Keem Bay
 	  SoC.
+
+config DWMAC_LIGHT
+	tristate "Thead Light DWMAC support"
+	depends on OF && (SOC_THEAD || COMPILE_TEST)
+	help
+	  Support for ethernet controller on Thead SOCs.
+
+	  This selects Thead SoC glue layer support for the stmmac
+	  device driver. This driver is used for the Thead ice and light series
+	  SOCs GMAC ethernet controller.
+
 endif
 
 config DWMAC_INTEL

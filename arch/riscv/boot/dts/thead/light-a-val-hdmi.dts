@@ -1,0 +1,58 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * Copyright (C) 2021 Alibaba Group Holding Limited.
+ */
+
+/dts-v1/;
+
+#include "light-a-val.dts"
+
+/ {
+	display-subsystem {
+		status = "okay";
+	};
+};
+
+&dpu_enc1 {
+	ports {
+		/delete-node/ port@0;
+	};
+};
+
+&disp1_out {
+	remote-endpoint = <&hdmi_tx_in>;
+};
+
+&dpu {
+	status = "okay";
+};
+
+&hdmi_tx {
+	status = "okay";
+
+	port@0 {
+		/* input */
+		hdmi_tx_in: endpoint {
+			remote-endpoint = <&disp1_out>;
+		};
+	};
+};
+
+&lightsound {
+	status = "okay";
+
+	simple-audio-card,dai-link@1 {          /* I2S - HDMI */
+		reg = <1>;
+		format = "i2s";
+		cpu {
+			sound-dai = <&light_i2s 1>;
+		};
+		codec {
+			sound-dai = <&dummy_codec 2>;
+		};
+	};
+};
+
+&light_i2s {
+        status = "okay";
+};

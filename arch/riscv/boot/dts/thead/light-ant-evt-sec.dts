@@ -1,0 +1,20 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * Copyright (C) 2021 Alibaba Group Holding Limited.
+ */
+
+/dts-v1/;
+
+#include "light-ant-evt.dts"
+
+
+
+&light_iopmp {
+        status = "disabled";
+};
+
+&qspi1 {
+        status = "disabled";
+};
+
+

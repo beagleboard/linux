@@ -1567,7 +1567,7 @@ static inline void __start_tx(struct uart_port *port)
 {
 	struct uart_8250_port *up = up_to_u8250p(port);
 
-	if (up->dma && !up->dma->tx_dma(up))
+	if (up->dma && up->dma->txchan && !up->dma->tx_dma(up))
 		return;
 
 	if (serial8250_set_THRI(up)) {
@@ -1939,7 +1939,7 @@ int serial8250_handle_irq(struct uart_port *port, unsigned int iir)
 		skip_rx = true;
 
 	if (status & (UART_LSR_DR | UART_LSR_BI) && !skip_rx) {
-		if (!up->dma || handle_rx_dma(up, iir))
+		if ((!up->dma || !up->dma->rxchan) || handle_rx_dma(up, iir))
 			status = serial8250_rx_chars(up, status);
 	}
 	serial8250_modem_status(up);
@@ -2420,6 +2420,13 @@ dont_test_tx_en:
 			dev_warn_ratelimited(port->dev, "%s\n", msg);
 			up->dma = NULL;
 		}
+
+		if (up->dma && !up->dma->rxchan && !up->dma->txchan)
+			up->dma = NULL;
+		if (up->dma && !up->dma->rxchan)
+			up->dma->rx_dma = NULL;
+		if (up->dma && !up->dma->txchan)
+			up->dma->tx_dma = NULL;
 	}
 
 	/*

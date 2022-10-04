@@ -23,6 +23,7 @@
 #include <linux/scatterlist.h>
 #include <linux/vmalloc.h>
 #include <linux/crash_dump.h>
+#include <trace/hooks/iommu.h>
 
 struct iommu_dma_msi_page {
 	struct list_head	list;
@@ -372,6 +373,52 @@ static int iommu_dma_deferred_attach(struct device *dev,
 	return 0;
 }
 
+/*
+ * Should be called prior to using dma-apis
+ */
+int iommu_dma_reserve_iova(struct device *dev, dma_addr_t base,
+			   u64 size)
+{
+	struct iommu_domain *domain;
+	struct iommu_dma_cookie *cookie;
+	struct iova_domain *iovad;
+	unsigned long pfn_lo, pfn_hi;
+
+	domain = iommu_get_domain_for_dev(dev);
+	if (!domain || !domain->iova_cookie)
+		return -EINVAL;
+
+	cookie = domain->iova_cookie;
+	iovad = &cookie->iovad;
+
+	/* iova will be freed automatically by put_iova_domain() */
+	pfn_lo = iova_pfn(iovad, base);
+	pfn_hi = iova_pfn(iovad, base + size - 1);
+	if (!reserve_iova(iovad, pfn_lo, pfn_hi))
+		return -EINVAL;
+
+	return 0;
+}
+EXPORT_SYMBOL(iommu_dma_reserve_iova);
+
+/*
+ * Should be called prior to using dma-apis.
+ */
+int iommu_dma_enable_best_fit_algo(struct device *dev)
+{
+	struct iommu_domain *domain;
+	struct iova_domain *iovad;
+
+	domain = iommu_get_domain_for_dev(dev);
+	if (!domain || !domain->iova_cookie)
+		return -EINVAL;
+
+	iovad = &((struct iommu_dma_cookie *)domain->iova_cookie)->iovad;
+	iovad->best_fit = true;
+	return 0;
+}
+EXPORT_SYMBOL(iommu_dma_enable_best_fit_algo);
+
 /**
  * dma_info_to_prot - Translate DMA API directions and attributes to IOMMU API
  *                    page flags.
@@ -388,6 +435,10 @@ static int dma_info_to_prot(enum dma_data_direction dir, bool coherent,
 
 	if (attrs & DMA_ATTR_PRIVILEGED)
 		prot |= IOMMU_PRIV;
+	if (attrs & DMA_ATTR_SYS_CACHE_ONLY)
+		prot |= IOMMU_SYS_CACHE;
+	if (attrs & DMA_ATTR_SYS_CACHE_ONLY_NWA)
+		prot |= IOMMU_SYS_CACHE_NWA;
 
 	switch (dir) {
 	case DMA_BIDIRECTIONAL:
@@ -438,6 +489,9 @@ static dma_addr_t iommu_dma_alloc_iova(struct iommu_domain *domain,
 		iova = alloc_iova_fast(iovad, iova_len, dma_limit >> shift,
 				       true);
 
+	trace_android_vh_iommu_alloc_iova(dev, (dma_addr_t)iova << shift, size);
+	trace_android_vh_iommu_iovad_alloc_iova(dev, iovad, (dma_addr_t)iova << shift, size);
+
 	return (dma_addr_t)iova << shift;
 }
 
@@ -455,6 +509,9 @@ static void iommu_dma_free_iova(struct iommu_dma_cookie *cookie,
 	else
 		free_iova_fast(iovad, iova_pfn(iovad, iova),
 				size >> iova_shift(iovad));
+
+	trace_android_vh_iommu_free_iova(iova, size);
+	trace_android_vh_iommu_iovad_free_iova(iovad, iova, size);
 }
 
 static void __iommu_dma_unmap(struct device *dev, dma_addr_t dma_addr,

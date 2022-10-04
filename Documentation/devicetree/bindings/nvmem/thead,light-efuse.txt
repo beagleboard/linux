@@ -1,0 +1,17 @@
+= Thead LIGHT-EFUSE device tree bindings =
+
+This binding is intended to represent LIGHT-EFUSE which is found in Thead SoCs
+
+Required properties:
+- compatible:	should be
+		"thead,light-fm-efuse": for light fullmask
+- reg:	should contain registers location and length
+- thead,teesys:	the syscon phandle to read and write tee system registers
+
+Example:
+
+	nvmem_controller: efuse@ffff210000 {
+		compatible = "thead,light-fm-efuse";
+		reg = <0xff 0xff210000 0x0 0x10000>;
+		thead,teesys = <&teesys_syscon>;
+	};

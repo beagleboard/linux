@@ -26,6 +26,8 @@
 #include <linux/tracepoint-defs.h>
 #include <linux/srcu.h>
 #include <linux/static_call_types.h>
+#include <linux/cfi.h>
+#include <linux/android_kabi.h>
 
 #include <linux/percpu.h>
 #include <asm/module.h>
@@ -131,13 +133,17 @@ extern void cleanup_module(void);
 #define module_init(initfn)					\
 	static inline initcall_t __maybe_unused __inittest(void)		\
 	{ return initfn; }					\
-	int init_module(void) __copy(initfn) __attribute__((alias(#initfn)));
+	int init_module(void) __copy(initfn) 			\
+		__attribute__((alias(#initfn)));		\
+	__CFI_ADDRESSABLE(init_module)
 
 /* This is only required if you want to be unloadable. */
 #define module_exit(exitfn)					\
 	static inline exitcall_t __maybe_unused __exittest(void)		\
 	{ return exitfn; }					\
-	void cleanup_module(void) __copy(exitfn) __attribute__((alias(#exitfn)));
+	void cleanup_module(void) __copy(exitfn) 		\
+		__attribute__((alias(#exitfn))); 		\
+	__CFI_ADDRESSABLE(cleanup_module)
 
 #endif
 
@@ -287,7 +293,8 @@ extern typeof(name) __mod_##type##__##name##_device_table		\
  * files require multiple MODULE_FIRMWARE() specifiers */
 #define MODULE_FIRMWARE(_firmware) MODULE_INFO(firmware, _firmware)
 
-#define MODULE_IMPORT_NS(ns) MODULE_INFO(import_ns, #ns)
+#define _MODULE_IMPORT_NS(ns)	MODULE_INFO(import_ns, #ns)
+#define MODULE_IMPORT_NS(ns)	_MODULE_IMPORT_NS(ns)
 
 struct notifier_block;
 
@@ -372,12 +379,17 @@ struct module {
 	struct module_attribute *modinfo_attrs;
 	const char *version;
 	const char *srcversion;
+	const char *scmversion;
 	struct kobject *holders_dir;
 
 	/* Exported symbols */
 	const struct kernel_symbol *syms;
 	const s32 *crcs;
 	unsigned int num_syms;
+
+#ifdef CONFIG_CFI_CLANG
+	cfi_check_fn cfi_check;
+#endif
 
 	/* Kernel parameters. */
 #ifdef CONFIG_SYSFS
@@ -404,10 +416,12 @@ struct module {
 	const s32 *unused_gpl_crcs;
 #endif
 
-#ifdef CONFIG_MODULE_SIG
-	/* Signature was verified. */
+	/*
+	 * Signature was verified. Unconditionally compiled in Android to
+	 * preserve ABI compatibility between kernels without module
+	 * signing enabled and signed modules.
+	 */
 	bool sig_ok;
-#endif
 
 	bool async_probe_requested;
 
@@ -534,6 +548,10 @@ struct module {
 	struct error_injection_entry *ei_funcs;
 	unsigned int num_ei_funcs;
 #endif
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
+	ANDROID_KABI_RESERVE(3);
+	ANDROID_KABI_RESERVE(4);
 } ____cacheline_aligned __randomize_layout;
 #ifndef MODULE_ARCH_INIT
 #define MODULE_ARCH_INIT {}

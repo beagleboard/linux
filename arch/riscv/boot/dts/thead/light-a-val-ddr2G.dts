@@ -1,0 +1,21 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * Copyright (C) 2022 Alibaba Group Holding Limited.
+ */
+
+#include "light-a-val.dts"
+
+/ {
+	model = "T-HEAD Light VAL configuration for 2GB DDR board";
+	compatible = "thead,light-val", "thead,light-val-ddr2G", "thead,light";
+
+	memory@0 {
+		device_type = "memory";
+		reg = <0x0 0x00000000 0x0 0x80000000>;
+	};
+};
+
+&facelib_mem {
+	reg = <0x0 0x33000000 0 0x02000000>;
+	no-map;
+};

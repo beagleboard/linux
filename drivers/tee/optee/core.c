@@ -5,8 +5,8 @@
 
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
+#include <asm/sbi.h>
 #include <linux/arm-smccc.h>
-#include <linux/crash_dump.h>
 #include <linux/errno.h>
 #include <linux/io.h>
 #include <linux/module.h>
@@ -19,6 +19,7 @@
 #include <linux/types.h>
 #include <linux/uaccess.h>
 #include <linux/workqueue.h>
+#include "optee_bench.h"
 #include "optee_private.h"
 #include "optee_smc.h"
 #include "shm_pool.h"
@@ -278,8 +279,7 @@ static void optee_release(struct tee_context *ctx)
 	if (!ctxdata)
 		return;
 
-	shm = tee_shm_alloc(ctx, sizeof(struct optee_msg_arg),
-			    TEE_SHM_MAPPED | TEE_SHM_PRIV);
+	shm = tee_shm_alloc(ctx, sizeof(struct optee_msg_arg), TEE_SHM_MAPPED);
 	if (!IS_ERR(shm)) {
 		arg = tee_shm_get_va(shm, 0);
 		/*
@@ -554,6 +554,34 @@ static void optee_smccc_hvc(unsigned long a0, unsigned long a1,
 	arm_smccc_hvc(a0, a1, a2, a3, a4, a5, a6, a7, res);
 }
 
+#define SBI_EXT_SMC		0x09000000	/* sbi ext id for emulating arm smc call*/
+static void optee_smccc_sbi(unsigned long arg0, unsigned long arg1,
+			    unsigned long arg2, unsigned long arg3,
+			    unsigned long arg4, unsigned long arg5,
+			    unsigned long arg6, unsigned long arg7,
+			    struct arm_smccc_res *res)
+{
+	register uintptr_t a0 asm ("a0") = (uintptr_t)arg0;
+        register uintptr_t a1 asm ("a1") = (uintptr_t)arg1;
+        register uintptr_t a2 asm ("a2") = (uintptr_t)arg2;
+        register uintptr_t a3 asm ("a3") = (uintptr_t)arg3;
+        register uintptr_t a4 asm ("a4") = (uintptr_t)arg4;
+        register uintptr_t a5 asm ("a5") = (uintptr_t)arg5;
+        register uintptr_t a6 asm ("a6") = (uintptr_t)arg6;
+        register uintptr_t a7 asm ("a7") = (uintptr_t)SBI_EXT_SMC;
+        register uintptr_t t0 asm ("t0") = (uintptr_t)arg7;
+
+        asm volatile ("ecall"
+                      : "+r" (a0), "+r" (a1), "+r" (a2), "+r"(a3)
+                      : "r" (a4), "r" (a5), "r" (a6), "r" (a7), "r" (t0)
+                      : "memory");
+
+	res->a0 = a0;
+	res->a1 = a1;
+	res->a2 = a2;
+	res->a3 = a3;
+}
+
 static optee_invoke_fn *get_invoke_func(struct device *dev)
 {
 	const char *method;
@@ -565,28 +593,22 @@ static optee_invoke_fn *get_invoke_func(struct device *dev)
 		return ERR_PTR(-ENXIO);
 	}
 
-	if (!strcmp("hvc", method))
-		return optee_smccc_hvc;
-	else if (!strcmp("smc", method))
-		return optee_smccc_smc;
+	if (IS_ENABLED(CONFIG_HAVE_ARM_SMCCC)) {
+		if (!strcmp("hvc", method))
+			return optee_smccc_hvc;
+		else if (!strcmp("smc", method))
+			return optee_smccc_smc;
+
+	} else if (IS_ENABLED(CONFIG_RISCV_SBI))
+		return optee_smccc_sbi;
 
 	pr_warn("invalid \"method\" property: %s\n", method);
 	return ERR_PTR(-EINVAL);
 }
 
-/* optee_remove - Device Removal Routine
- * @pdev: platform device information struct
- *
- * optee_remove is called by platform subsystem to alert the driver
- * that it should release the device
- */
-
 static int optee_remove(struct platform_device *pdev)
 {
 	struct optee *optee = platform_get_drvdata(pdev);
-
-	/* Unregister OP-TEE specific client devices on TEE bus */
-	optee_unregister_devices();
 
 	teedev_close_context(optee->ctx);
 	/*
@@ -612,19 +634,8 @@ static int optee_remove(struct platform_device *pdev)
 
 	kfree(optee);
 
+	optee_bm_disable();
 	return 0;
-}
-
-/* optee_shutdown - Device Removal Routine
- * @pdev: platform device information struct
- *
- * platform_shutdown is called by the platform subsystem to alert
- * the driver that a shutdown, reboot, or kexec is happening and
- * device must be disabled.
- */
-static void optee_shutdown(struct platform_device *pdev)
-{
-	optee_disable_shm_cache(platform_get_drvdata(pdev));
 }
 
 static int optee_probe(struct platform_device *pdev)
@@ -637,16 +648,6 @@ static int optee_probe(struct platform_device *pdev)
 	struct tee_context *ctx;
 	u32 sec_caps;
 	int rc;
-
-	/*
-	 * The kernel may have crashed at the same time that all available
-	 * secure world threads were suspended and we cannot reschedule the
-	 * suspended threads without access to the crashed kernel's wait_queue.
-	 * Therefore, we cannot reliably initialize the OP-TEE driver in the
-	 * kdump kernel.
-	 */
-	if (is_kdump_kernel())
-		return -ENODEV;
 
 	invoke_fn = get_invoke_func(&pdev->dev);
 	if (IS_ERR(invoke_fn))
@@ -728,15 +729,6 @@ static int optee_probe(struct platform_device *pdev)
 	}
 	optee->ctx = ctx;
 
-	/*
-	 * Ensure that there are no pre-existing shm objects before enabling
-	 * the shm cache so that there's no chance of receiving an invalid
-	 * address during shutdown. This could occur, for example, if we're
-	 * kexec booting from an older kernel that did not properly cleanup the
-	 * shm cache.
-	 */
-	optee_disable_unmapped_shm_cache(optee);
-
 	optee_enable_shm_cache(optee);
 
 	if (optee->sec_caps & OPTEE_SMC_SEC_CAP_DYNAMIC_SHM)
@@ -751,6 +743,7 @@ static int optee_probe(struct platform_device *pdev)
 	}
 
 	pr_info("initialized driver\n");
+	optee_bm_enable();
 	return 0;
 err:
 	if (optee) {
@@ -779,7 +772,6 @@ MODULE_DEVICE_TABLE(of, optee_dt_match);
 static struct platform_driver optee_driver = {
 	.probe  = optee_probe,
 	.remove = optee_remove,
-	.shutdown = optee_shutdown,
 	.driver = {
 		.name = "optee",
 		.of_match_table = optee_dt_match,
@@ -789,7 +781,6 @@ module_platform_driver(optee_driver);
 
 MODULE_AUTHOR("Linaro");
 MODULE_DESCRIPTION("OP-TEE driver");
-MODULE_SUPPORTED_DEVICE("");
 MODULE_VERSION("1.0");
 MODULE_LICENSE("GPL v2");
 MODULE_ALIAS("platform:optee");

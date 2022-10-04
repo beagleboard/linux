@@ -1,0 +1,19 @@
+= Thead light dcd smart card which complies with ISO7816 protocol msic device tree bindings =
+
+This binding is intended to represent LIGHT-ISO7816 DCD SMART CARD which is found in Thead SoCs
+
+Required properties:
+- compatible:	should be
+		"thead,light-fm-efuse": for light fullmask
+- reg:	should contain registers location and length
+- interrupts:	the interrupt number for this device
+- interrupt-parent:	the interrupt controller to manage this device interrupt
+
+Example:
+
+	iso7816: iso7816-card@fff7f30000 {
+		compatible = "thead,light-iso7816-card";
+		reg = <0xff 0xf7f30000 0x0 0x4000>;
+		interrupts = <69>;
+		interrupt-parent = <&intc>;
+	};

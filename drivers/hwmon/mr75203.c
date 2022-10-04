@@ -79,6 +79,7 @@
 #define IP_VM_MODE		BIT(10)
 
 #define IP_CFG			0x01
+#define CFG0_MODE_1		(0)
 #define CFG0_MODE_2		BIT(0)
 #define CFG0_PARALLEL_OUT	0
 #define CFG0_12_BIT		0
@@ -164,10 +165,26 @@ static int pvt_read_temp(struct device *dev, u32 attr, int channel, long *val)
 		 * Convert the register value to
 		 * degrees centigrade temperature
 		 */
+#if 0
 		tmp = nbs * PVT_H_CONST;
 		do_div(tmp, PVT_CAL5_CONST);
 		*val = tmp - PVT_G_CONST - pvt->ip_freq;
+#else
+    /* use Mode1 output conversion(calibrated)
+     * temp = A + B * Eqbs + C * Fclk
+     * where:
+     * Eqbs = (raw_data)/cal5 - 0.5
+     * Fclk = sensor synth clk,unit in MHZ
+     * A=42.74
+     * cal5= 4094
+     * B = 0.22
+     * C = -0.16
+     * *****************************************/
 
+		tmp = nbs*1000;
+		do_div(tmp, 4094);
+		*val = 42740 + 220 * (tmp -500) -160*pvt->ip_freq/100;
+#endif
 		return 0;
 	default:
 		return -EOPNOTSUPP;
@@ -313,7 +330,7 @@ static int pvt_init(struct pvt_device *pvt)
 		if (ret)
 			return ret;
 
-		val = CFG0_MODE_2 | CFG0_PARALLEL_OUT | CFG0_12_BIT |
+		val = CFG0_MODE_1 | CFG0_PARALLEL_OUT | CFG0_12_BIT |
 		      IP_CFG << SDIF_ADDR_SFT | SDIF_WRN_W | SDIF_PROG;
 		ret = regmap_write(t_map, SDIF_W, val);
 		if(ret < 0)
@@ -352,7 +369,7 @@ static int pvt_init(struct pvt_device *pvt)
 		if(ret < 0)
 			return ret;
 
-		ret = regmap_write(p_map, SDIF_DISABLE, BIT(p_num) - 1);
+		ret = regmap_write(p_map, SDIF_DISABLE, 0);
 		if(ret < 0)
 			return ret;
 
@@ -479,6 +496,9 @@ static int pvt_clk_enable(struct device *dev, struct pvt_device *pvt)
 	return devm_add_action_or_reset(dev, pvt_clk_disable, pvt);
 }
 
+#ifdef CONFIG_RESET_LIGHT
+
+#else
 static void pvt_reset_control_assert(void *data)
 {
 	struct pvt_device *pvt = data;
@@ -496,6 +516,7 @@ static int pvt_reset_control_deassert(struct device *dev, struct pvt_device *pvt
 
 	return devm_add_action_or_reset(dev, pvt_reset_control_assert, pvt);
 }
+#endif
 
 static int mr75203_probe(struct platform_device *pdev)
 {
@@ -525,6 +546,9 @@ static int mr75203_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+#ifdef CONFIG_RESET_LIGHT
+
+#else
 	pvt->rst = devm_reset_control_get_exclusive(dev, NULL);
 	if (IS_ERR(pvt->rst))
 		return dev_err_probe(dev, PTR_ERR(pvt->rst),
@@ -534,6 +558,7 @@ static int mr75203_probe(struct platform_device *pdev)
 	if (ret)
 		return dev_err_probe(dev, ret, "cannot deassert reset control\n");
 
+#endif
 	ret = regmap_read(pvt->c_map, PVT_IP_CONFIG, &val);
 	if(ret < 0)
 		return ret;

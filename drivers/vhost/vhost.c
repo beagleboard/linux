@@ -46,6 +46,8 @@ enum {
 	VHOST_MEMORY_F_LOG = 0x1,
 };
 
+extern void kvm_arch_notify_guest(void);
+
 #define vhost_used_event(vq) ((__virtio16 __user *)&vq->avail->ring[vq->num])
 #define vhost_avail_event(vq) ((__virtio16 __user *)&vq->used->ring[vq->num])
 
@@ -2466,6 +2468,12 @@ static bool vhost_notify(struct vhost_dev *dev, struct vhost_virtqueue *vq)
 /* This actually signals the guest, using eventfd. */
 void vhost_signal(struct vhost_dev *dev, struct vhost_virtqueue *vq)
 {
+#if CONFIG_KVM
+	if (vhost_notify(dev, vq))
+		kvm_arch_notify_guest();
+	return;
+#endif
+
 	/* Signal the Guest tell them we used something up. */
 	if (vq->call_ctx.ctx && vhost_notify(dev, vq))
 		eventfd_signal(vq->call_ctx.ctx, 1);

@@ -38,6 +38,7 @@ Currently, these files are in /proc/sys/vm:
 - dirty_writeback_centisecs
 - drop_caches
 - extfrag_threshold
+- extra_free_kbytes
 - highmem_is_dirtyable
 - hugetlb_shm_group
 - laptop_mode
@@ -126,7 +127,8 @@ compaction_proactiveness
 
 This tunable takes a value in the range [0, 100] with a default value of
 20. This tunable determines how aggressively compaction is done in the
-background. Setting it to 0 disables proactive compaction.
+background. On write of non zero value to this tunable will immediately
+trigger the proactive compaction. Setting it to 0 disables proactive compaction.
 
 Note that compaction has a non-trivial system-wide impact as pages
 belonging to different processes are moved around, which could also lead
@@ -306,6 +308,21 @@ OOM killer because some writers (e.g. direct block device writes) can
 only use the low memory and they can fill it up with dirty data without
 any throttling.
 
+
+extra_free_kbytes
+
+This parameter tells the VM to keep extra free memory between the threshold
+where background reclaim (kswapd) kicks in, and the threshold where direct
+reclaim (by allocating processes) kicks in.
+
+This is useful for workloads that require low latency memory allocations
+and have a bounded burstiness in memory allocations, for example a
+realtime application that receives and transmits network traffic
+(causing in-kernel memory allocations) with a maximum total message burst
+size of 200MB may need 200MB of extra free memory to avoid direct reclaim
+related latencies.
+
+==============================================================
 
 hugetlb_shm_group
 =================
@@ -873,12 +890,17 @@ file-backed pages is less than the high watermark in a zone.
 unprivileged_userfaultfd
 ========================
 
-This flag controls whether unprivileged users can use the userfaultfd
-system calls.  Set this to 1 to allow unprivileged users to use the
-userfaultfd system calls, or set this to 0 to restrict userfaultfd to only
-privileged users (with SYS_CAP_PTRACE capability).
+This flag controls the mode in which unprivileged users can use the
+userfaultfd system calls. Set this to 0 to restrict unprivileged users
+to handle page faults in user mode only. In this case, users without
+SYS_CAP_PTRACE must pass UFFD_USER_MODE_ONLY in order for userfaultfd to
+succeed. Prohibiting use of userfaultfd for handling faults from kernel
+mode may make certain vulnerabilities more difficult to exploit.
 
-The default value is 1.
+Set this to 1 to allow unprivileged users to use the userfaultfd system
+calls without any restrictions.
+
+The default value is 0.
 
 
 user_reserve_kbytes

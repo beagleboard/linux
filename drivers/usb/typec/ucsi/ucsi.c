@@ -611,6 +611,7 @@ static void ucsi_unregister_partner(struct ucsi_connector *con)
 
 static void ucsi_partner_change(struct ucsi_connector *con)
 {
+	enum usb_role u_role = USB_ROLE_NONE;
 	int ret;
 
 	if (!con->partner)
@@ -618,11 +619,14 @@ static void ucsi_partner_change(struct ucsi_connector *con)
 
 	switch (UCSI_CONSTAT_PARTNER_TYPE(con->status.flags)) {
 	case UCSI_CONSTAT_PARTNER_TYPE_UFP:
-	case UCSI_CONSTAT_PARTNER_TYPE_CABLE:
 	case UCSI_CONSTAT_PARTNER_TYPE_CABLE_AND_UFP:
+		u_role = USB_ROLE_HOST;
+		fallthrough;
+	case UCSI_CONSTAT_PARTNER_TYPE_CABLE:
 		typec_set_data_role(con->port, TYPEC_HOST);
 		break;
 	case UCSI_CONSTAT_PARTNER_TYPE_DFP:
+		u_role = USB_ROLE_DEVICE;
 		typec_set_data_role(con->port, TYPEC_DEVICE);
 		break;
 	default:
@@ -632,6 +636,15 @@ static void ucsi_partner_change(struct ucsi_connector *con)
 	/* Complete pending data role swap */
 	if (!completion_done(&con->complete))
 		complete(&con->complete);
+
+	/* Only notify USB controller if partner supports USB data */
+	if (!(UCSI_CONSTAT_PARTNER_FLAGS(con->status.flags) & UCSI_CONSTAT_PARTNER_FLAG_USB))
+		u_role = USB_ROLE_NONE;
+
+	ret = usb_role_switch_set_role(con->usb_role_sw, u_role);
+	if (ret)
+		dev_err(con->ucsi->dev, "con:%d: failed to set usb role:%d\n",
+			con->num, u_role);
 
 	/* Can't rely on Partner Flags field. Always checking the alt modes. */
 	ret = ucsi_register_altmodes(con, UCSI_RECIPIENT_SOP);
@@ -651,6 +664,7 @@ static void ucsi_handle_connector_change(struct work_struct *work)
 	struct ucsi_connector_status pre_ack_status;
 	struct ucsi_connector_status post_ack_status;
 	enum typec_role role;
+	enum usb_role u_role = USB_ROLE_NONE;
 	u16 inferred_changes;
 	u16 changed_flags;
 	u64 command;
@@ -776,11 +790,14 @@ static void ucsi_handle_connector_change(struct work_struct *work)
 
 		switch (UCSI_CONSTAT_PARTNER_TYPE(con->status.flags)) {
 		case UCSI_CONSTAT_PARTNER_TYPE_UFP:
-		case UCSI_CONSTAT_PARTNER_TYPE_CABLE:
 		case UCSI_CONSTAT_PARTNER_TYPE_CABLE_AND_UFP:
+			u_role = USB_ROLE_HOST;
+			fallthrough;
+		case UCSI_CONSTAT_PARTNER_TYPE_CABLE:
 			typec_set_data_role(con->port, TYPEC_HOST);
 			break;
 		case UCSI_CONSTAT_PARTNER_TYPE_DFP:
+			u_role = USB_ROLE_DEVICE;
 			typec_set_data_role(con->port, TYPEC_DEVICE);
 			break;
 		default:
@@ -793,6 +810,16 @@ static void ucsi_handle_connector_change(struct work_struct *work)
 			ucsi_unregister_partner(con);
 
 		ucsi_port_psy_changed(con);
+
+		/* Only notify USB controller if partner supports USB data */
+		if (!(UCSI_CONSTAT_PARTNER_FLAGS(con->status.flags) &
+				UCSI_CONSTAT_PARTNER_FLAG_USB))
+			u_role = USB_ROLE_NONE;
+
+		ret = usb_role_switch_set_role(con->usb_role_sw, u_role);
+		if (ret)
+			dev_err(ucsi->dev, "con:%d: failed to set usb role:%d\n",
+				con->num, u_role);
 	}
 
 	if (con->status.change & UCSI_CONSTAT_PARTNER_CHANGE)
@@ -1012,6 +1039,7 @@ static int ucsi_register_port(struct ucsi *ucsi, int index)
 	struct ucsi_connector *con = &ucsi->connector[index];
 	struct typec_capability *cap = &con->typec_cap;
 	enum typec_accessory *accessory = cap->accessory;
+	enum usb_role u_role = USB_ROLE_NONE;
 	u64 command;
 	int ret;
 
@@ -1048,6 +1076,7 @@ static int ucsi_register_port(struct ucsi *ucsi, int index)
 
 	cap->revision = ucsi->cap.typec_version;
 	cap->pd_revision = ucsi->cap.pd_version;
+	cap->svdm_version = SVDM_VER_2_0;
 	cap->prefer_role = TYPEC_NO_PREFERRED_ROLE;
 
 	if (con->cap.op_mode & UCSI_CONCAP_OPMODE_AUDIO_ACCESSORY)
@@ -1090,11 +1119,14 @@ static int ucsi_register_port(struct ucsi *ucsi, int index)
 
 	switch (UCSI_CONSTAT_PARTNER_TYPE(con->status.flags)) {
 	case UCSI_CONSTAT_PARTNER_TYPE_UFP:
-	case UCSI_CONSTAT_PARTNER_TYPE_CABLE:
 	case UCSI_CONSTAT_PARTNER_TYPE_CABLE_AND_UFP:
+		u_role = USB_ROLE_HOST;
+		fallthrough;
+	case UCSI_CONSTAT_PARTNER_TYPE_CABLE:
 		typec_set_data_role(con->port, TYPEC_HOST);
 		break;
 	case UCSI_CONSTAT_PARTNER_TYPE_DFP:
+		u_role = USB_ROLE_DEVICE;
 		typec_set_data_role(con->port, TYPEC_DEVICE);
 		break;
 	default:
@@ -1108,6 +1140,24 @@ static int ucsi_register_port(struct ucsi *ucsi, int index)
 		ucsi_pwr_opmode_change(con);
 		ucsi_register_partner(con);
 		ucsi_port_psy_changed(con);
+	}
+
+	con->usb_role_sw = fwnode_usb_role_switch_get(cap->fwnode);
+	if (IS_ERR(con->usb_role_sw)) {
+		dev_err(ucsi->dev, "con%d: failed to get usb role switch\n",
+			con->num);
+		con->usb_role_sw = NULL;
+	}
+
+	/* Only notify USB controller if partner supports USB data */
+	if (!(UCSI_CONSTAT_PARTNER_FLAGS(con->status.flags) & UCSI_CONSTAT_PARTNER_FLAG_USB))
+		u_role = USB_ROLE_NONE;
+
+	ret = usb_role_switch_set_role(con->usb_role_sw, u_role);
+	if (ret) {
+		dev_err(ucsi->dev, "con:%d: failed to set usb role:%d\n",
+			con->num, u_role);
+		ret = 0;
 	}
 
 	if (con->partner) {

@@ -1,0 +1,10 @@
+#SPDX-License-Identifier: GPL-2.0-only
+
+config PHY_DW_DPHY
+	tristate "Synopsys DesignWare MIPI D-PHY Support"
+	depends on HAS_IOMEM && OF
+	select GENERIC_PHY
+	select GENERIC_PHY_MIPI_DPHY
+	help
+	  Choose this option if you have DesignWare D-PHY in your system.
+	  If M is selected, the module will be called dw-dphy.

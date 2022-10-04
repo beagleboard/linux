@@ -13,6 +13,7 @@
 #include <linux/dm-ioctl.h>
 #include <linux/math64.h>
 #include <linux/ratelimit.h>
+#include <linux/android_kabi.h>
 
 struct dm_dev;
 struct dm_target;
@@ -198,6 +199,9 @@ struct target_type {
 	dm_dax_copy_iter_fn dax_copy_to_iter;
 	dm_dax_zero_page_range_fn dax_zero_page_range;
 
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
+
 	/* For internal device-mapper use. */
 	struct list_head list;
 };
@@ -260,6 +264,12 @@ struct target_type {
  */
 #define DM_TARGET_NOWAIT		0x00000080
 #define dm_target_supports_nowait(type) ((type)->features & DM_TARGET_NOWAIT)
+
+/*
+ * A target supports passing through inline crypto support.
+ */
+#define DM_TARGET_PASSES_CRYPTO		0x00000100
+#define dm_target_passes_crypto(type) ((type)->features & DM_TARGET_PASSES_CRYPTO)
 
 #ifdef CONFIG_BLK_DEV_ZONED
 #define DM_TARGET_MIXED_ZONED_MODEL	0x00000200
@@ -343,6 +353,9 @@ struct dm_target {
 	 * Set if we need to limit the number of in-flight bios when swapping.
 	 */
 	bool limit_swap_bios:1;
+
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
 };
 
 void *dm_per_bio_data(struct bio *bio, size_t data_size);
@@ -550,6 +563,11 @@ void dm_table_run_md_queue_async(struct dm_table *t);
  */
 struct dm_table *dm_swap_table(struct mapped_device *md,
 			       struct dm_table *t);
+
+/*
+ * Table keyslot manager functions
+ */
+void dm_destroy_keyslot_manager(struct blk_keyslot_manager *ksm);
 
 /*
  * A wrapper around vmalloc.

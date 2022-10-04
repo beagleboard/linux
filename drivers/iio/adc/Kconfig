@@ -1226,4 +1226,16 @@ config XILINX_XADC
 	  The driver can also be build as a module. If so, the module will be called
 	  xilinx-xadc.
 
+config LIGHT_ADC
+	tristate "Thead light ADC driver"
+	depends on OF
+	depends on HAS_IOMEM
+	depends on SOC_THEAD
+	default y
+	help
+	  Say yes here to support for Thead light MPW  analog-to-digital converter.
+
+	  This driver can also be built as a module. If so, the module will be
+	  called light_adc.
+
 endmenu
