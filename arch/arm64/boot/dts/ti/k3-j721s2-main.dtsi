@@ -126,7 +126,6 @@
 		dmas = <&main_udmap 0xca40>, <&main_udmap 0x4a40>,
 				<&main_udmap 0x4a41>;
 		dma-names = "tx", "rx1", "rx2";
-		dma-coherent;
 	};
 
 	main_uart0: serial@2800000 {
