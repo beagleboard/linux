@@ -92,6 +92,15 @@
 
 #define BRCMF_VIF_EVENT_TIMEOUT		msecs_to_jiffies(1500)
 
+#define BRCMF_PM_WAIT_MAXRETRY			100
+
+/* cfg80211 wowlan definitions */
+#define WL_WOWLAN_MAX_PATTERNS			8
+#define WL_WOWLAN_MIN_PATTERN_LEN		1
+#define WL_WOWLAN_MAX_PATTERN_LEN		255
+#define WL_WOWLAN_PKT_FILTER_ID_FIRST	201
+#define WL_WOWLAN_PKT_FILTER_ID_LAST	(WL_WOWLAN_PKT_FILTER_ID_FIRST + \
+					WL_WOWLAN_MAX_PATTERNS - 1)
 /**
  * enum brcmf_scan_status - scan engine status
  *
@@ -125,7 +134,8 @@ enum brcmf_profile_fwsup {
 	BRCMF_PROFILE_FWSUP_NONE,
 	BRCMF_PROFILE_FWSUP_PSK,
 	BRCMF_PROFILE_FWSUP_1X,
-	BRCMF_PROFILE_FWSUP_SAE
+	BRCMF_PROFILE_FWSUP_SAE,
+	BRCMF_PROFILE_FWSUP_ROAM
 };
 
 /**
@@ -155,6 +165,7 @@ struct brcmf_cfg80211_profile {
 	enum brcmf_profile_fwsup use_fwsup;
 	u16 use_fwauth;
 	bool is_ft;
+	bool is_okc;
 };
 
 /**
@@ -176,6 +187,28 @@ enum brcmf_vif_status {
 	BRCMF_VIF_STATUS_AP_CREATED,
 	BRCMF_VIF_STATUS_EAP_SUCCESS,
 	BRCMF_VIF_STATUS_ASSOC_SUCCESS,
+};
+
+enum brcmf_cfg80211_pm_state {
+	BRCMF_CFG80211_PM_STATE_RESUMED,
+	BRCMF_CFG80211_PM_STATE_RESUMING,
+	BRCMF_CFG80211_PM_STATE_SUSPENDED,
+	BRCMF_CFG80211_PM_STATE_SUSPENDING,
+};
+
+/**
+ * enum brcmf_mgmt_tx_status - mgmt frame tx status
+ *
+ * @BRCMF_MGMT_TX_ACK: mgmt frame acked
+ * @BRCMF_MGMT_TX_NOACK: mgmt frame not acked
+ * @BRCMF_MGMT_TX_OFF_CHAN_COMPLETED: off-channel complete
+ * @BRCMF_MGMT_TX_SEND_FRAME: mgmt frame tx is in progres
+ */
+enum brcmf_mgmt_tx_status {
+	BRCMF_MGMT_TX_ACK,
+	BRCMF_MGMT_TX_NOACK,
+	BRCMF_MGMT_TX_OFF_CHAN_COMPLETED,
+	BRCMF_MGMT_TX_SEND_FRAME
 };
 
 /**
@@ -221,6 +254,9 @@ struct brcmf_cfg80211_vif {
 	unsigned long sme_state;
 	struct vif_saved_ie saved_ie;
 	struct list_head list;
+	struct completion mgmt_tx;
+	unsigned long mgmt_tx_status;
+	u32 mgmt_tx_id;
 	u16 mgmt_rx_reg;
 	bool mbss;
 	int is_11d;
@@ -259,6 +295,11 @@ struct escan_info {
 	struct brcmf_if *ifp;
 	s32 (*run)(struct brcmf_cfg80211_info *cfg, struct brcmf_if *ifp,
 		   struct cfg80211_scan_request *request);
+};
+
+struct cqm_rssi_info {
+	bool enable;
+	s32 rssi_threshold;
 };
 
 /**
@@ -357,6 +398,7 @@ struct brcmf_cfg80211_info {
 	struct escan_info escan_info;
 	struct timer_list escan_timeout;
 	struct work_struct escan_timeout_work;
+	struct cqm_rssi_info cqm_info;
 	struct list_head vif_list;
 	struct brcmf_cfg80211_vif_event vif_event;
 	struct completion vif_disabled;
@@ -365,6 +407,8 @@ struct brcmf_cfg80211_info {
 	struct brcmf_cfg80211_wowl wowl;
 	struct brcmf_pno_info *pno;
 	u8 ac_priority[MAX_8021D_PRIO];
+	u8 pm_state;
+	u8 num_softap;
 };
 
 /**
@@ -461,5 +505,6 @@ s32 brcmf_notify_escan_complete(struct brcmf_cfg80211_info *cfg,
 void brcmf_set_mpc(struct brcmf_if *ndev, int mpc);
 void brcmf_abort_scanning(struct brcmf_cfg80211_info *cfg);
 void brcmf_cfg80211_free_netdev(struct net_device *ndev);
-
+bool brcmf_is_apmode_operating(struct wiphy *wiphy);
+void brcmf_cfg80211_update_proto_addr_mode(struct wireless_dev *wdev);
 #endif /* BRCMFMAC_CFG80211_H */
