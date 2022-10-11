@@ -192,7 +192,7 @@
 		clock-frequency = <12288000>;
 	};
 
-	sound {
+	codec_audio: sound {
 		compatible = "simple-audio-card";
 		simple-audio-card,name = "AM62x-SKEVM";
 		simple-audio-card,widgets =
@@ -557,6 +557,7 @@
 	};
 
 	sii9022: sii9022@3b {
+		#sound-dai-cells = <0>;
 		compatible = "sil,sii9022";
 		reg = <0x3b>;
 
@@ -565,6 +566,8 @@
 
 		interrupt-parent = <&exp1>;
 		interrupts = <16 IRQ_TYPE_EDGE_FALLING>;
+
+		sil,i2s-data-lanes = < 0 >;
 
 		ports {
 			#address-cells = <1>;
