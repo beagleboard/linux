@@ -234,6 +234,23 @@ static int tidss_dispc_modeset_init(struct tidss_device *tidss)
 			dev_err(tidss->dev, "bridge attach failed: %d\n", ret);
 			return ret;
 		}
+
+		if (dispc_get_subrev(tidss->dispc) == DISPC_AM625) {
+			connector = drm_bridge_connector_init(ddev, enc);
+			if (IS_ERR(connector)) {
+				dev_err(tidss->dev,
+					"failed to initialize bridge connector: %pe\n",
+					connector);
+				return PTR_ERR(connector);
+			}
+
+			ret = drm_connector_attach_encoder(connector, enc);
+			if (ret < 0) {
+				dev_err(tidss->dev,
+					"failed to attach encoder: %d\n", ret);
+				return ret;
+			}
+		}
 	}
 
 	/* create overlay planes of the leftover planes */
