@@ -43,13 +43,13 @@ static int tidss_encoder_atomic_check(struct drm_encoder *encoder,
 	}
 
 	if (!di->bus_formats || di->num_bus_formats == 0)  {
-		dev_err(ddev->dev, "%s: No bus_formats in connected display\n",
+		dev_err(ddev->dev, "%s: No bus_formats in connected display - force RGB888_1X24\n",
 			__func__);
-		return -EINVAL;
+		tcrtc_state->bus_format = MEDIA_BUS_FMT_RGB888_1X24;
+	} else {
+		// XXX any cleaner way to set bus format and flags?
+		tcrtc_state->bus_format = di->bus_formats[0];
 	}
-
-	// XXX any cleaner way to set bus format and flags?
-	tcrtc_state->bus_format = di->bus_formats[0];
 	if (!bus_flags_set)
 		tcrtc_state->bus_flags = di->bus_flags;
 
