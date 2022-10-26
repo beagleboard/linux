@@ -71,6 +71,7 @@ struct j721e_pcie {
 	struct device		*dev;
 	struct clk		*refclk;
 	u32			mode;
+	u32			max_lanes;
 	u32			num_lanes;
 	struct cdns_pcie	*cdns_pcie;
 	void __iomem		*user_cfg_base;
@@ -349,7 +350,7 @@ static int j721e_pcie_set_lane_count(struct j721e_pcie *pcie,
 	u32 val = 0;
 	int ret;
 
-	if (lanes == 4)
+	if (pcie->max_lanes == 4)
 		mask = GENMASK(9, 8);
 
 	val = LANE_COUNT(lanes - 1);
@@ -554,6 +555,7 @@ static int j721e_pcie_probe(struct platform_device *pdev)
 			      num_lanes, data->max_lanes);
 		num_lanes = 1;
 	}
+	pcie->max_lanes = data->max_lanes;
 	pcie->num_lanes = num_lanes;
 
 	if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(48)))
