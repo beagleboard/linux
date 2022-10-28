@@ -463,7 +463,7 @@ void vxe_fill_default_params(struct vxe_enc_ctx *ctx)
 
 unsigned int vxe_get_sizeimage(int w, int h, struct vxe_enc_fmt *fmt, unsigned char plane_id)
 {
-	return (w * h * fmt->size_num[plane_id] / fmt->size_den[plane_id]);
+	return (ALIGN_16(w) * ALIGN_16(h) * fmt->size_num[plane_id] / fmt->size_den[plane_id]);
 }
 
 unsigned int vxe_get_stride(int w, struct vxe_enc_fmt *fmt)
