@@ -139,13 +139,13 @@ struct cdns_dphy_driver_data {
 	const struct cdns_dphy_ops *rx;
 };
 
-struct cdns_dphy_band {
+struct cdns_dphy_rx_band {
 	unsigned int min_rate;
 	unsigned int max_rate;
 };
 
 /* Order of bands is important since the index is the band number. */
-struct cdns_dphy_band rx_bands[] = {
+struct cdns_dphy_rx_band bands[] = {
 	{80, 100}, {100, 120}, {120, 160}, {160, 200}, {200, 240},
 	{240, 280}, {280, 320}, {320, 360}, {360, 400}, {400, 480},
 	{480, 560}, {560, 640}, {640, 720}, {720, 800}, {800, 880},
@@ -153,17 +153,7 @@ struct cdns_dphy_band rx_bands[] = {
 	{1750, 2000}, {2000, 2250}, {2250, 2500}
 };
 
-int num_rx_bands = ARRAY_SIZE(rx_bands);
-
-struct cdns_dphy_band tx_bands[] = {
-	{80, 100}, {100, 120}, {120, 160}, {160, 200}, {200, 240},
-	{240, 320}, {320, 390}, {390, 450}, {450, 510}, {510, 560},
-	{560, 640}, {640, 690}, {690, 770}, {770, 870}, {870, 950},
-	{950, 1000}, {1000, 1200}, {1200, 1400}, {1400, 1600}, {1600, 1800},
-	{1800, 2000}, {2000, 2200}, {2200, 2500}
-};
-
-int num_tx_bands = ARRAY_SIZE(tx_bands);
+int num_bands = ARRAY_SIZE(bands);
 
 static int cdns_dsi_get_dphy_pll_cfg(struct cdns_dphy *dphy,
 				     struct cdns_dphy_cfg *cfg,
@@ -294,32 +284,11 @@ static int cdns_dphy_tx_config_from_opts(struct phy *phy,
 	return 0;
 }
 
-static int cdns_dphy_tx_get_band_ctrl(unsigned long hs_clk_rate)
-{
-	unsigned int rate;
-	int i;
-
-	rate = hs_clk_rate / 1000000UL;
-
-	if (rate < tx_bands[0].min_rate || rate >= tx_bands[num_tx_bands - 1].max_rate)
-		return -EOPNOTSUPP;
-
-	for (i = 0; i < num_tx_bands; i++) {
-		if (rate >= tx_bands[i].min_rate && rate < tx_bands[i].max_rate)
-			return i;
-	}
-
-	/* Unreachable. */
-	WARN(1, "Reached unreachable code.");
-	return -EINVAL;
-}
-
 static int cdns_dphy_tx_configure(struct cdns_dphy *dphy,
 				  union phy_configure_opts *opts)
 {
 	struct cdns_dphy_cfg cfg = { 0 };
-	int ret, band_ctrl;
-	unsigned int reg;
+	int ret;
 
 	ret = cdns_dphy_tx_config_from_opts(dphy->phy, &opts->mipi_dphy, &cfg);
 	if (ret)
@@ -347,14 +316,6 @@ static int cdns_dphy_tx_configure(struct cdns_dphy *dphy,
 	 * clk.
 	 */
 	cdns_dphy_set_pll_cfg(dphy, &cfg);
-
-	band_ctrl = cdns_dphy_tx_get_band_ctrl(opts->mipi_dphy.hs_clk_rate);
-	if (band_ctrl < 0)
-		return band_ctrl;
-
-	reg = FIELD_PREP(DPHY_BAND_CFG_LEFT_BAND, band_ctrl) |
-	      FIELD_PREP(DPHY_BAND_CFG_RIGHT_BAND, band_ctrl);
-	writel(reg, dphy->regs + DPHY_BAND_CFG);
 
 	return 0;
 }
@@ -430,11 +391,11 @@ static int cdns_dphy_rx_get_band_ctrl(unsigned long hs_clk_rate)
 	/* Since CSI-2 clock is DDR, the bit rate is twice the clock rate. */
 	rate *= 2;
 
-	if (rate < rx_bands[0].min_rate || rate >= rx_bands[num_rx_bands - 1].max_rate)
+	if (rate < bands[0].min_rate || rate >= bands[num_bands - 1].max_rate)
 		return -EOPNOTSUPP;
 
-	for (i = 0; i < num_rx_bands; i++) {
-		if (rate >= rx_bands[i].min_rate && rate < rx_bands[i].max_rate)
+	for (i = 0; i < num_bands; i++) {
+		if (rate >= bands[i].min_rate && rate < bands[i].max_rate)
 			return i;
 	}
 
