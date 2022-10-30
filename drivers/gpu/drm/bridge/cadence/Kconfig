@@ -33,13 +33,3 @@ config DRM_CDNS_DSI
 	help
 	  Support Cadence DPI to DSI bridge. This is an internal
 	  bridge and is meant to be directly embedded in a SoC.
-
-if DRM_CDNS_DSI
-
-config DRM_CDNS_DSI_J721E
-	bool "J721E Cadence DPI/DSI wrapper support"
-	default y
-	help
-	  Support J721E Cadence DPI/DSI wrapper. This wrapper adds
-	  support to select which DPI input to use for the bridge.
-endif
