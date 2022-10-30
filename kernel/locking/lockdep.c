@@ -186,7 +186,7 @@ unsigned long max_lock_class_idx;
 struct lock_class lock_classes[MAX_LOCKDEP_KEYS];
 DECLARE_BITMAP(lock_classes_in_use, MAX_LOCKDEP_KEYS);
 
-static inline struct lock_class *hlock_class(struct held_lock *hlock)
+inline struct lock_class *lockdep_hlock_class(struct held_lock *hlock)
 {
 	unsigned int class_idx = hlock->class_idx;
 
@@ -207,6 +207,7 @@ static inline struct lock_class *hlock_class(struct held_lock *hlock)
 	 */
 	return lock_classes + class_idx;
 }
+#define hlock_class(hlock) lockdep_hlock_class(hlock)
 
 #ifdef CONFIG_LOCK_STAT
 static DEFINE_PER_CPU(struct lock_class_stats[MAX_LOCKDEP_KEYS], cpu_lock_stats);
