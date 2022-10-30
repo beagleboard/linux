@@ -21,7 +21,6 @@
 
 #define REG_WAKEUP_TIME_NS		800
 #define DPHY_PLL_RATE_HZ		108000000
-#define POLL_TIMEOUT_US			1000
 
 /* DPHY registers */
 #define DPHY_PMA_CMN(reg)		(reg)
@@ -89,18 +88,6 @@
 
 #define DPHY_LANES_MIN			1
 #define DPHY_LANES_MAX			4
-
-#define DPHY_TX_J721E_WIZ_PLL_CTRL	0xF04
-#define DPHY_TX_J721E_WIZ_STATUS	0xF08
-#define DPHY_TX_J721E_WIZ_RST_CTRL	0xF0C
-#define DPHY_TX_J721E_WIZ_PSM_FREQ	0xF10
-
-#define DPHY_TX_J721E_WIZ_IPDIV		GENMASK(4, 0)
-#define DPHY_TX_J721E_WIZ_OPDIV		GENMASK(13, 8)
-#define DPHY_TX_J721E_WIZ_FBDIV		GENMASK(25, 16)
-#define DPHY_TX_J721E_WIZ_LANE_RSTB	BIT(31)
-#define DPHY_TX_WIZ_PLL_LOCK		BIT(31)
-#define DPHY_TX_WIZ_O_CMN_READY		BIT(31)
 
 struct cdns_dphy_cfg {
 	u8 pll_ipdiv;
@@ -406,41 +393,6 @@ static int cdns_dphy_tx_power_off(struct cdns_dphy *dphy)
 	return 0;
 }
 
-static unsigned long cdns_dphy_j721e_get_wakeup_time_ns(struct cdns_dphy *dphy)
-{
-	return 1000000;
-}
-
-static void cdns_dphy_j721e_set_pll_cfg(struct cdns_dphy *dphy,
-					const struct cdns_dphy_cfg *cfg)
-{
-	u32 status;
-
-	writel(DPHY_CMN_PWM_HIGH(6) | DPHY_CMN_PWM_LOW(0x101) |
-	       DPHY_CMN_PWM_DIV(0x8),
-	       dphy->regs + DPHY_CMN_PWM);
-
-	writel((FIELD_PREP(DPHY_TX_J721E_WIZ_IPDIV, cfg->pll_ipdiv) |
-		FIELD_PREP(DPHY_TX_J721E_WIZ_OPDIV, cfg->pll_opdiv) |
-		FIELD_PREP(DPHY_TX_J721E_WIZ_FBDIV, cfg->pll_fbdiv)),
-		dphy->regs + DPHY_TX_J721E_WIZ_PLL_CTRL);
-
-	writel(DPHY_TX_J721E_WIZ_LANE_RSTB,
-	       dphy->regs + DPHY_TX_J721E_WIZ_RST_CTRL);
-
-	readl_poll_timeout(dphy->regs + DPHY_TX_J721E_WIZ_PLL_CTRL, status,
-			   (status & DPHY_TX_WIZ_PLL_LOCK), 0, POLL_TIMEOUT_US);
-
-	readl_poll_timeout(dphy->regs + DPHY_TX_J721E_WIZ_STATUS, status,
-			   (status & DPHY_TX_WIZ_O_CMN_READY), 0,
-			   POLL_TIMEOUT_US);
-}
-
-static void cdns_dphy_j721e_set_psm_div(struct cdns_dphy *dphy, u8 div)
-{
-	writel(div, dphy->regs + DPHY_TX_J721E_WIZ_PSM_FREQ);
-}
-
 static const struct cdns_dphy_ops tx_ref_dphy_ops = {
 	.power_on = cdns_dphy_tx_power_on,
 	.power_off = cdns_dphy_tx_power_off,
@@ -449,16 +401,6 @@ static const struct cdns_dphy_ops tx_ref_dphy_ops = {
 	.get_wakeup_time_ns = cdns_dphy_ref_get_wakeup_time_ns,
 	.set_pll_cfg = cdns_dphy_ref_set_pll_cfg,
 	.set_psm_div = cdns_dphy_ref_set_psm_div,
-};
-
-static const struct cdns_dphy_ops tx_j721e_dphy_ops = {
-	.power_on = cdns_dphy_tx_power_on,
-	.power_off = cdns_dphy_tx_power_off,
-	.validate = cdns_dphy_tx_validate,
-	.configure = cdns_dphy_tx_configure,
-	.get_wakeup_time_ns = cdns_dphy_j721e_get_wakeup_time_ns,
-	.set_pll_cfg = cdns_dphy_j721e_set_pll_cfg,
-	.set_psm_div = cdns_dphy_j721e_set_psm_div,
 };
 
 static int cdns_dphy_rx_power_on(struct cdns_dphy *dphy)
@@ -623,11 +565,6 @@ static const struct cdns_dphy_driver_data ref_dphy_ops = {
 	.rx = &rx_ref_dphy_ops,
 };
 
-static const struct cdns_dphy_driver_data j721e_dphy_ops = {
-	.tx = &tx_j721e_dphy_ops,
-	.rx = &rx_ref_dphy_ops,
-};
-
 static int cdns_dphy_validate(struct phy *phy, enum phy_mode mode, int submode,
 			      union phy_configure_opts *opts)
 {
@@ -775,7 +712,7 @@ static int cdns_dphy_remove(struct platform_device *pdev)
 
 static const struct of_device_id cdns_dphy_of_match[] = {
 	{ .compatible = "cdns,dphy", .data = &ref_dphy_ops },
-	{ .compatible = "ti,j721e-dphy", .data = &j721e_dphy_ops },
+	{ .compatible = "ti,j721e-dphy", .data = &ref_dphy_ops },
 	{ /* sentinel */ },
 };
 MODULE_DEVICE_TABLE(of, cdns_dphy_of_match);
