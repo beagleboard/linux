@@ -809,7 +809,7 @@ int wave5_vpu_dec_register_framebuffer(struct vpu_instance *inst, struct frame_b
 			fbc_c_tbl_size = calculate_table_size(init_info->chroma_bitdepth,
 							      frame_width / 2, frame_height, 1024);
 		} else {
-			fbc_y_tbl_size = ALIGN(WAVE5_FBC_CHROMA_TABLE_SIZE(table_width,
+			fbc_c_tbl_size = ALIGN(WAVE5_FBC_CHROMA_TABLE_SIZE(table_width,
 									   table_height), 16);
 		}
 
@@ -2389,7 +2389,7 @@ int wave5_vpu_enc_register_framebuffer(struct device *dev, struct vpu_instance *
 
 	if (p_enc_info->product_code == WAVE521C_DUAL_CODE) {
 		// Use 1024 for H264(AVC) and 512 for HEVC
-		fbc_y_tbl_size = calculate_table_size(bit_depth, frame_width, frame_height,
+		fbc_c_tbl_size = calculate_table_size(bit_depth, frame_width, frame_height,
 						      (avc_encoding ? 1024 : 512));
 	} else {
 		fbc_c_tbl_size = WAVE5_FBC_CHROMA_TABLE_SIZE(buf_width, buf_height);
