@@ -3310,9 +3310,8 @@ int wave5_vpu_enc_check_open_param(struct vpu_instance *inst, struct enc_open_pa
 			"Cannot combine AVC encoding with the custom lambda option\n");
 		return -EINVAL;
 	}
-	if (param->intra_refresh_mode < REFRESH_MODE_CTU_ROWS ||
-	    param->intra_refresh_mode > REFRESH_MODE_CTUS) {
-		dev_err(inst->dev->dev, "Invalid intra refresh mode: %d (valid: 1-4)\n",
+	if (param->intra_refresh_mode > REFRESH_MODE_CTUS) {
+		dev_err(inst->dev->dev, "Invalid intra refresh mode: %d (valid: 0-4)\n",
 			param->intra_refresh_mode);
 		return -EINVAL;
 	}

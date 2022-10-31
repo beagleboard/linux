@@ -964,7 +964,7 @@ static void wave5_set_default_enc_openparam(struct enc_open_param *open_param)
 	open_param->line_buf_int_en = true;
 
 	open_param->wave_param.gop_preset_idx = PRESET_IDX_IPP_SINGLE;
-	open_param->wave_param.decoding_refresh_type = DEC_REFRESH_TYPE_NON_IRAP;
+	open_param->wave_param.decoding_refresh_type = DEC_REFRESH_TYPE_CRA;
 	open_param->wave_param.intra_qp = 30;
 	open_param->wave_param.tmvp_enable = 1;
 	open_param->wave_param.max_num_merge = 2;
