@@ -836,6 +836,8 @@ static int cqspi_phy_calibrate(struct cqspi_flash_pdata *f_pdata,
 
 	ret = 0;
 	f_pdata->phy_setting.read_delay = searchpoint.read_delay;
+	f_pdata->phy_setting.rx = searchpoint.rx;
+	f_pdata->phy_setting.tx = searchpoint.tx;
 out:
 	if (ret)
 		f_pdata->use_phy = false;
