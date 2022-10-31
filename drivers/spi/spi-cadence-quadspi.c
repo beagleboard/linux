@@ -2422,27 +2422,41 @@ static int cqspi_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static void cqspi_restore_context(struct cqspi_st *cqspi)
+static void __maybe_unused cqspi_restore_context(struct cqspi_st *cqspi)
 {
 	cqspi_phy_apply_setting(cqspi->f_pdata,
 				    &cqspi->f_pdata->phy_setting);
-	cqspi_delay(cqspi->f_pdata);
 }
 
 static int __maybe_unused cqspi_suspend(struct device *dev)
 {
 	struct cqspi_st *cqspi = dev_get_drvdata(dev);
+	struct spi_master *master = dev_get_drvdata(dev);
+	int ret;
 
+	ret = spi_master_suspend(master);
 	cqspi_controller_enable(cqspi, 0);
-	return 0;
+
+	clk_disable_unprepare(cqspi->clk);
+
+	return ret;
 }
 
 static int __maybe_unused cqspi_resume(struct device *dev)
 {
 	struct cqspi_st *cqspi = dev_get_drvdata(dev);
+	struct spi_master *master = dev_get_drvdata(dev);
 
-	cqspi_controller_enable(cqspi, 1);
-	return 0;
+	clk_prepare_enable(cqspi->clk);
+	cqspi_wait_idle(cqspi);
+	cqspi_controller_init(cqspi);
+
+	cqspi->current_cs = -1;
+	cqspi->sclk = 0;
+
+	cqspi_restore_context(cqspi);
+
+	return spi_master_resume(master);
 }
 
 static SIMPLE_DEV_PM_OPS(cqspi__dev_pm_ops, cqspi_suspend, cqspi_resume);
