@@ -1159,7 +1159,7 @@ int wave5_vdi_clear_memory(struct vpu_device *vpu_dev, struct vpu_buf *vb);
 int wave5_vdi_allocate_dma_memory(struct vpu_device *vpu_dev, struct vpu_buf *vb);
 int wave5_vdi_write_memory(struct vpu_device *vpu_dev, struct vpu_buf *vb, size_t offset,
 			   u8 *data, size_t len, unsigned int endian);
-int wave5_vdi_convert_endian(struct vpu_device *vpu_dev, unsigned int endian);
+unsigned int wave5_vdi_convert_endian(struct vpu_device *vpu_dev, unsigned int endian);
 void wave5_vdi_free_dma_memory(struct vpu_device *vpu_dev, struct vpu_buf *vb);
 
 int wave5_vpu_init_with_bitcode(struct device *dev, u8 *bitcode, size_t size);
