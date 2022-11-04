@@ -175,8 +175,8 @@ static int dma_buf_phys_probe(struct platform_device *pdev)
 	dev_set_drvdata(dev, priv);
 
 	/* No DMA restrictions */
-	dma_coerce_mask_and_coherent(dev, DMA_BIT_MASK(64));
-	dma_set_max_seg_size(dev, UINT_MAX);
+	//dma_coerce_mask_and_coherent(dev, DMA_BIT_MASK(64));
+	//dma_set_max_seg_size(dev, UINT_MAX);
 
 	priv->miscdev.minor = MISC_DYNAMIC_MINOR;
 	priv->miscdev.name = devm_kasprintf(dev, GFP_KERNEL, "%s", DEVICE_NAME);
@@ -202,6 +202,7 @@ static int dma_buf_phys_remove(struct platform_device *pdev)
 
 static const struct of_device_id dma_buf_phys_of_match[] = {
 	{ .compatible = "ti,dma-buf-phys", },
+	{ .compatible = "ti,dma_buf_phys", },
 	{},
 };
 MODULE_DEVICE_TABLE(of, dma_buf_phys_of_match);
@@ -214,7 +215,21 @@ static struct platform_driver dma_buf_phys_driver = {
 		.of_match_table = dma_buf_phys_of_match,
 	}
 };
-module_platform_driver(dma_buf_phys_driver);
+
+static int __init dma_buf_phys_init(void)
+{
+	struct platform_device *pdev;
+	int ret;
+
+	ret = platform_driver_register(&dma_buf_phys_driver);
+	if (ret)
+		return ret;
+
+	pdev = platform_device_register_simple("dma_buf_phys", -1, NULL, 0);
+
+	return PTR_ERR_OR_ZERO(pdev);
+}
+device_initcall(dma_buf_phys_init);
 
 MODULE_AUTHOR("Andrew Davis <afd@ti.com>");
 MODULE_DESCRIPTION("DMA-BUF contiguous buffer physical address user-space exporter");
