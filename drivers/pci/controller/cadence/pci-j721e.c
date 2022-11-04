@@ -450,13 +450,13 @@ static const struct j721e_pcie_data j7200_pcie_rc_data = {
 	.is_intc_v1 = false,
 	.byte_access_allowed = true,
 	.linkdown_irq_regfield = J7200_LINK_DOWN,
-	.max_lanes = 4,
+	.max_lanes = 2,
 };
 
 static const struct j721e_pcie_data j7200_pcie_ep_data = {
 	.mode = PCI_MODE_EP,
 	.quirk_detect_quiet_flag = true,
-	.max_lanes = 4,
+	.max_lanes = 2,
 };
 
 static const struct j721e_pcie_data am64_pcie_rc_data = {
