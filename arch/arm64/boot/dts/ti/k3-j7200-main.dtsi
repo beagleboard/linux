@@ -702,7 +702,7 @@
 		device_type = "pci";
 		ti,syscon-pcie-ctrl = <&scm_conf 0x4074>;
 		max-link-speed = <3>;
-		num-lanes = <4>;
+		num-lanes = <2>;
 		power-domains = <&k3_pds 240 TI_SCI_PD_EXCLUSIVE>;
 		clocks = <&k3_clks 240 6>;
 		clock-names = "fck";
@@ -743,7 +743,7 @@
 		interrupts = <GIC_SPI 330 IRQ_TYPE_EDGE_RISING>;
 		ti,syscon-pcie-ctrl = <&scm_conf 0x4074>;
 		max-link-speed = <3>;
-		num-lanes = <4>;
+		num-lanes = <2>;
 		power-domains = <&k3_pds 240 TI_SCI_PD_EXCLUSIVE>;
 		clocks = <&k3_clks 240 6>;
 		clock-names = "fck";
