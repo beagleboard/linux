@@ -70,4 +70,3 @@ static inline bool wave5_vpu_both_queues_are_streaming(struct vpu_instance *inst
 }
 
 #endif
-

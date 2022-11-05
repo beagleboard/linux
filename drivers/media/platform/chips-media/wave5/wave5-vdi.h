@@ -64,18 +64,4 @@ enum endian_mode {
 int wave5_vdi_init(struct device *dev);
 int wave5_vdi_release(struct device *dev);	//this function may be called only at system off.
 
-/**
- * @brief make clock stable before changing clock frequency
- * @detail before invoking vdi_set_clock_freg caller MUST invoke vdi_ready_change_clock
- *		function.
- * after changing clock frequency caller also invoke wave5_vdi_done_change_clock() function.
- * @return 0 failure
- * 1 success
- */
-int wave5_vdi_ready_change_clock(unsigned long core_idx);
-int wave5_vdi_set_change_clock(unsigned long core_idx, unsigned long clock_mask);
-int wave5_vdi_done_change_clock(unsigned long core_idx);
-int wave5_vdi_buffer_sync(struct device *dev, struct vpu_buf *vb, int dir);
-
 #endif //#ifndef _VDI_H_
-

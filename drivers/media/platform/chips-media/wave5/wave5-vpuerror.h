@@ -393,7 +393,7 @@
 #define AVC_PRESWARN_MISSING_SLICE                                     0x01200000
 
 // AV1
-#define AV1_SPSWARN_OBU_EXTENTION_FLAG_ZERO                            0x00001000
+#define AV1_SPSWARN_OBU_EXTENSION_FLAG_ZERO                            0x00001000
 #define AV1_SPSWARN_DUPLICATE_OPERATING_POINT_IDX                      0x00001001
 #define AV1_SPSWARN_MC_IDENTIY_SUBSAMPLING_X                           0x00001002
 #define AV1_PPSWARN_MC_IDENTIY_SUBSAMPLING_Y                           0x00001003
@@ -411,12 +411,12 @@
 #define AV1_PPSWARN_EXPECTED_FRAME_ID                                  0x00002100
 #define AV1_SPECWARN_OVER_MAX_TILE_AREA_SB                             0x00005000
 #define AV1_SPECWARN_OVER_MAX_PIC_SIZE                                 0x00005001
-#define AV1_ETCWARN_OBU_EXTENTION_FLAG                                 0x00006000
+#define AV1_ETCWARN_OBU_EXTENSION_FLAG                                 0x00006000
 #define AV1_TGWARN_TRAIL_BIT_POS                                       0x00400000
 #define AV1_TGWARN_TRAIL_PAD_BIT                                       0x00800000
 #define AV1_TGWARN_SYM_MAX_OVER                                        0x01000000
 #define AV1_TGWARN_EXP_GOLB_OVER                                       0x02000000
-#define AV1_TGWARN_MV_NOT_VAILD                                        0x04000000
+#define AV1_TGWARN_MV_NOT_VALID                                        0x04000000
 
 // VP9
 #define VP9_PICWARN_COLOR_SPACE_MISMATCH_WITH_REF                      0x00001000
@@ -452,4 +452,3 @@
 #define WAVE5_DEC_VCORE_VLC_BUSY                                       0x0004
 
 #endif /* ERROR_CODE_H_INCLUDED */
-

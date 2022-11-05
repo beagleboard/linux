@@ -88,4 +88,3 @@
 #define WAVE5_SEC_AXI_EXT_ADDR      0x0
 
 #endif  /* _VPU_CONFIG_H_ */
-

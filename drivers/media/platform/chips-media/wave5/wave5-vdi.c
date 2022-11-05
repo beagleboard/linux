@@ -11,17 +11,18 @@
 #include "wave5-regdefine.h"
 #include <linux/delay.h>
 
-#define VDI_SRAM_BASE_ADDR 0x00
+#define VDI_SRAM_BASE_ADDR		0x00
 
-#define VDI_SYSTEM_ENDIAN VDI_LITTLE_ENDIAN
-#define VDI_128BIT_BUS_SYSTEM_ENDIAN VDI_128BIT_LITTLE_ENDIAN
+#define VDI_SYSTEM_ENDIAN		VDI_LITTLE_ENDIAN
+#define VDI_128BIT_BUS_SYSTEM_ENDIAN	VDI_128BIT_LITTLE_ENDIAN
 
 static int wave5_vdi_allocate_common_memory(struct device *dev)
 {
-	int ret;
 	struct vpu_device *vpu_dev = dev_get_drvdata(dev);
 
 	if (!vpu_dev->common_mem.vaddr) {
+		int ret;
+
 		vpu_dev->common_mem.size = SIZE_COMMON;
 		ret = wave5_vdi_allocate_dma_memory(vpu_dev, &vpu_dev->common_mem);
 		if (ret) {
@@ -30,9 +31,8 @@ static int wave5_vdi_allocate_common_memory(struct device *dev)
 		}
 	}
 
-	dev_dbg(dev, "common_mem: daddr=%pad size=%zu vaddr=0x%p\n",
-		&vpu_dev->common_mem.daddr, vpu_dev->common_mem.size,
-			vpu_dev->common_mem.vaddr);
+	dev_dbg(dev, "[VDI] common_mem: daddr=%pad size=%zu vaddr=0x%p\n",
+		&vpu_dev->common_mem.daddr, vpu_dev->common_mem.size, vpu_dev->common_mem.vaddr);
 
 	return 0;
 }
@@ -40,26 +40,28 @@ static int wave5_vdi_allocate_common_memory(struct device *dev)
 int wave5_vdi_init(struct device *dev)
 {
 	struct vpu_device *vpu_dev = dev_get_drvdata(dev);
-	int i;
 	int ret;
 
 	ret = wave5_vdi_allocate_common_memory(dev);
 	if (ret < 0) {
-		dev_err(dev, "[VDI] fail to get vpu common buffer from driver\n");
+		dev_err(dev, "[VDI] failed to get vpu common buffer from driver\n");
 		return ret;
 	}
 
-	if (PRODUCT_CODE_W_SERIES(vpu_dev->product_code)) {
-		// if BIT processor is not running.
-		if (wave5_vdi_readl(vpu_dev, W5_VCPU_CUR_PC) == 0) {
-			for (i = 0; i < 64; i++)
-				wave5_vdi_write_register(vpu_dev, (i * 4) + 0x100, 0x0);
-		}
-	} else {
-		WARN_ONCE(1, "unsupported product code 0x%x\n", vpu_dev->product_code);
+	if (!PRODUCT_CODE_W_SERIES(vpu_dev->product_code)) {
+		WARN_ONCE(1, "unsupported product code: 0x%x\n", vpu_dev->product_code);
+		return 0;
 	}
 
-	dev_dbg(dev, "[VDI] success to init driver\n");
+	// if BIT processor is not running.
+	if (wave5_vdi_readl(vpu_dev, W5_VCPU_CUR_PC) == 0) {
+		int i;
+
+		for (i = 0; i < 64; i++)
+			wave5_vdi_write_register(vpu_dev, (i * 4) + 0x100, 0x0);
+	}
+
+	dev_dbg(dev, "[VDI] driver initialized successfully\n");
 
 	return 0;
 }
@@ -74,7 +76,7 @@ int wave5_vdi_release(struct device *dev)
 	return 0;
 }
 
-void wave5_vdi_write_register(struct vpu_device *vpu_dev, unsigned int addr, unsigned int data)
+void wave5_vdi_write_register(struct vpu_device *vpu_dev, u32 addr, u32 data)
 {
 	writel(data, vpu_dev->vdb_register + addr);
 }
@@ -87,7 +89,7 @@ unsigned int wave5_vdi_readl(struct vpu_device *vpu_dev, u32 addr)
 int wave5_vdi_clear_memory(struct vpu_device *vpu_dev, struct vpu_buf *vb)
 {
 	if (!vb || !vb->vaddr) {
-		dev_err(vpu_dev->dev, "%s(): unable to clear unmapped buffer\n", __func__);
+		dev_err(vpu_dev->dev, "%s: unable to clear unmapped buffer\n", __func__);
 		return -EINVAL;
 	}
 
@@ -95,18 +97,19 @@ int wave5_vdi_clear_memory(struct vpu_device *vpu_dev, struct vpu_buf *vb)
 	return vb->size;
 }
 
-static void wave5_swap_endian(struct vpu_device *vpu_dev, u8 *data, int len, int endian);
+static void wave5_swap_endian(struct vpu_device *vpu_dev, u8 *data, size_t len,
+			      unsigned int endian);
 
 int wave5_vdi_write_memory(struct vpu_device *vpu_dev, struct vpu_buf *vb, size_t offset,
-			   u8 *data, int len, int endian)
+			   u8 *data, size_t len, unsigned int endian)
 {
 	if (!vb || !vb->vaddr) {
-		dev_err(vpu_dev->dev, "%s(): unable to write to unmapped buffer\n", __func__);
+		dev_err(vpu_dev->dev, "%s: unable to write to unmapped buffer\n", __func__);
 		return -EINVAL;
 	}
 
 	if (offset > vb->size || len > vb->size || offset + len > vb->size) {
-		dev_err(vpu_dev->dev, "%s(): buffer too small\n", __func__);
+		dev_err(vpu_dev->dev, "%s: buffer too small\n", __func__);
 		return -ENOSPC;
 	}
 
@@ -122,7 +125,7 @@ int wave5_vdi_allocate_dma_memory(struct vpu_device *vpu_dev, struct vpu_buf *vb
 	dma_addr_t daddr;
 
 	if (!vb->size) {
-		dev_err(vpu_dev->dev, "%s(): requested size==0\n", __func__);
+		dev_err(vpu_dev->dev, "%s: requested size==0\n", __func__);
 		return -EINVAL;
 	}
 
@@ -141,14 +144,14 @@ void wave5_vdi_free_dma_memory(struct vpu_device *vpu_dev, struct vpu_buf *vb)
 		return;
 
 	if (!vb->vaddr)
-		dev_err(vpu_dev->dev, "%s(): requested free of unmapped buffer\n", __func__);
+		dev_err(vpu_dev->dev, "%s: requested free of unmapped buffer\n", __func__);
 	else
 		dma_free_coherent(vpu_dev->dev, vb->size, vb->vaddr, vb->daddr);
 
 	memset(vb, 0, sizeof(*vb));
 }
 
-int wave5_vdi_convert_endian(struct vpu_device *vpu_dev, unsigned int endian)
+unsigned int wave5_vdi_convert_endian(struct vpu_device *vpu_dev, unsigned int endian)
 {
 	if (PRODUCT_CODE_W_SERIES(vpu_dev->product_code)) {
 		switch (endian) {
@@ -170,10 +173,10 @@ int wave5_vdi_convert_endian(struct vpu_device *vpu_dev, unsigned int endian)
 	return (endian & 0x0f);
 }
 
-static void byte_swap(unsigned char *data, int len)
+static void byte_swap(unsigned char *data, size_t len)
 {
 	u8 temp;
-	int i;
+	unsigned int i;
 
 	for (i = 0; i < len; i += 2) {
 		temp = data[i];
@@ -182,12 +185,12 @@ static void byte_swap(unsigned char *data, int len)
 	}
 }
 
-static void word_swap(unsigned char *data, int len)
+static void word_swap(unsigned char *data, size_t len)
 {
 	u16 temp;
 	u16 *ptr = (u16 *)data;
-	int i;
-	s32 size = len / sizeof(uint16_t);
+	unsigned int i;
+	size_t size = len / sizeof(uint16_t);
 
 	for (i = 0; i < size; i += 2) {
 		temp = ptr[i];
@@ -196,12 +199,12 @@ static void word_swap(unsigned char *data, int len)
 	}
 }
 
-static void dword_swap(unsigned char *data, int len)
+static void dword_swap(unsigned char *data, size_t len)
 {
 	u32 temp;
 	u32 *ptr = (u32 *)data;
-	s32 size = len / sizeof(uint32_t);
-	int i;
+	size_t size = len / sizeof(u32);
+	unsigned int i;
 
 	for (i = 0; i < size; i += 2) {
 		temp = ptr[i];
@@ -210,12 +213,12 @@ static void dword_swap(unsigned char *data, int len)
 	}
 }
 
-static void lword_swap(unsigned char *data, int len)
+static void lword_swap(unsigned char *data, size_t len)
 {
 	u64 temp;
 	u64 *ptr = (u64 *)data;
-	s32 size = len / sizeof(uint64_t);
-	int i;
+	size_t size = len / sizeof(uint64_t);
+	unsigned int i;
 
 	for (i = 0; i < size; i += 2) {
 		temp = ptr[i];
@@ -224,16 +227,15 @@ static void lword_swap(unsigned char *data, int len)
 	}
 }
 
-static void wave5_swap_endian(struct vpu_device *vpu_dev, u8 *data, int len, int endian)
+static void wave5_swap_endian(struct vpu_device *vpu_dev, u8 *data, size_t len,
+			      unsigned int endian)
 {
 	int changes;
-	int sys_endian;
+	unsigned int sys_endian = VDI_128BIT_BUS_SYSTEM_ENDIAN;
 	bool byte_change, word_change, dword_change, lword_change;
 
-	if (PRODUCT_CODE_W_SERIES(vpu_dev->product_code)) {
-		sys_endian = VDI_128BIT_BUS_SYSTEM_ENDIAN;
-	} else {
-		dev_err(vpu_dev->dev, "unknown product id : %08x\n", vpu_dev->product_code);
+	if (!PRODUCT_CODE_W_SERIES(vpu_dev->product_code)) {
+		dev_err(vpu_dev->dev, "unknown product id: %08x\n", vpu_dev->product_code);
 		return;
 	}
 
@@ -257,4 +259,3 @@ static void wave5_swap_endian(struct vpu_device *vpu_dev, u8 *data, int len, int
 	if (lword_change)
 		lword_swap(data, len);
 }
-

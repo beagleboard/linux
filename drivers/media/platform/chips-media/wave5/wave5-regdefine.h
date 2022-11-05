@@ -652,4 +652,3 @@ enum QUERY_OPT {
 #define W5_ENC_PIC_SUB_FRAME_SYNC_IF            (W5_REG_BASE + 0x0300)
 
 #endif /* __WAVE5_REGISTER_DEFINE_H__ */
-

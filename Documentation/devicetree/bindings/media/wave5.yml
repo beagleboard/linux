@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
 %YAML 1.2
 ---
-$id: http://devicetree.org/schemas/staging/media/cnm,wave.yaml#
+$id: http://devicetree.org/schemas/media/wave5.yaml#
 $schema: http://devicetree.org/meta-schemas/core.yaml#
 
 title: Chips&Media Wave 5 Series multi-standard codec IP
@@ -9,7 +9,7 @@ title: Chips&Media Wave 5 Series multi-standard codec IP
 maintainers:
   - Nas Chung <nas.chung@chipsnmedia.com>
   - Robert Beckett <bob.beckett@collabora.com>
-  - Dafna Hirschfeld <dafna.hirschfeld@collabora.com>
+  - Sebastian Fricke <sebastian.fricke@collabora.com>
 
 description: |-
   The Chips&Media WAVE codec IP is a multi format video encoder/decoder

@@ -6,5 +6,5 @@ wave5-objs +=  	wave5-hw.o \
 		wave5-vdi.o \
 		wave5-vpu-dec.o \
 		wave5-vpu.o \
-		wave5-vpu-enc.o
-
+		wave5-vpu-enc.o \
+		wave5-helper.o

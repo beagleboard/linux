@@ -36,8 +36,7 @@ enum vpu_instance_state {
 	VPU_INST_STATE_OPEN = 1,
 	VPU_INST_STATE_INIT_SEQ = 2,
 	VPU_INST_STATE_PIC_RUN = 3,
-	VPU_INST_STATE_STOP = 4,
-	VPU_INST_STATE_WAIT_BUF = 5
+	VPU_INST_STATE_STOP = 4
 };
 
 #define WAVE5_MAX_FBS 32
@@ -106,9 +105,9 @@ enum DEC_PIC_HDR_OPTION {
 };
 
 enum DEC_PIC_OPTION {
-	DEC_PIC_NORMAL = 0x00, /* it is normal mode of DEC_PIC command. */
-	DEC_PIC_W_THUMBNAIL = 0x10, /* thumbnail mode (skip non-IRAP without reference reg.) */
-	SKIP_NON_IRAP = 0x11, /* it skips to decode non-IRAP pictures. */
+	DEC_PIC_NORMAL = 0x00, /* it is normal mode of DEC_PIC command */
+	DEC_PIC_W_THUMBNAIL = 0x10, /* thumbnail mode (skip non-IRAP without reference reg) */
+	SKIP_NON_IRAP = 0x11, /* it skips to decode non-IRAP pictures */
 	SKIP_NON_REF_PIC = 0x13
 };
 
@@ -137,6 +136,57 @@ enum DEC_PIC_OPTION {
 /************************************************************************/
 /* utility macros */
 /************************************************************************/
+
+/* bit_alloc_mode */
+#define BIT_ALLOC_MODE_FIXED_RATIO		2
+
+/* bit_rate */
+#define MAX_BIT_RATE				700000000
+
+/* decoding_refresh_type */
+#define DEC_REFRESH_TYPE_NON_IRAP		0
+#define DEC_REFRESH_TYPE_CRA			1
+#define DEC_REFRESH_TYPE_IDR			2
+
+/* depend_slice_mode */
+#define DEPEND_SLICE_MODE_RECOMMENDED		1
+#define DEPEND_SLICE_MODE_BOOST			2
+#define DEPEND_SLICE_MODE_FAST			3
+
+/* hvs_max_delta_qp */
+#define MAX_HVS_MAX_DELTA_QP			51
+
+/* intra_refresh_mode */
+#define REFRESH_MODE_CTU_ROWS			1
+#define REFRESH_MODE_CTU_COLUMNS		2
+#define REFRESH_MODE_CTU_STEP_SIZE		3
+#define REFRESH_MODE_CTUS			4
+
+/* intra_mb_refresh_mode */
+#define REFRESH_MB_MODE_NONE			0
+#define REFRESH_MB_MODE_CTU_ROWS		1
+#define REFRESH_MB_MODE_CTU_COLUMNS		2
+#define REFRESH_MB_MODE_CTU_STEP_SIZE		3
+
+/* intra_qp */
+#define MAX_INTRA_QP				63
+
+/* nr_inter_weight_* */
+#define MAX_INTER_WEIGHT			31
+
+/* nr_intra_weight_* */
+#define MAX_INTRA_WEIGHT			31
+
+/* nr_noise_sigma_* */
+#define MAX_NOISE_SIGMA				255
+
+/* bitstream_buffer_size */
+#define MIN_BITSTREAM_BUFFER_SIZE		1024
+#define MIN_BITSTREAM_BUFFER_SIZE_WAVE521	(1024 * 64)
+
+/* vbv_buffer_size */
+#define MIN_VBV_BUFFER_SIZE			10
+#define MAX_VBV_BUFFER_SIZE			3000
 
 /************************************************************************/
 /* */
@@ -195,6 +245,8 @@ enum codec_command {
 	ENABLE_DEC_THUMBNAIL_MODE,
 	DEC_GET_QUEUE_STATUS,
 	ENC_GET_QUEUE_STATUS,
+	DEC_RESET_FRAMEBUF_INFO,
+	DEC_GET_SEQ_INFO,
 };
 
 enum error_conceal_mode {
@@ -350,38 +402,38 @@ struct vpu_attr {
 	u32 customer_id; /* customer ID number */
 	u32 support_decoders; /* bitmask: see <<vpuapi_h_cod_std>> */
 	u32 support_encoders; /* bitmask: see <<vpuapi_h_cod_std>> */
-	bool support_bitstream_mode;
-	bool support_backbone;
-	bool support_avc10bit_enc;
-	bool support_hevc10bit_enc;
 	u32 support_endian_mask; /* A variable of supported endian mode in product */
-	bool support_dual_core; /* this indicates whether a product has two vcores. */
-	bool support_vcore_backbone;
-	bool support_vcpu_backbone;
+	u32 support_bitstream_mode;
+	u32 support_backbone: 1;
+	u32 support_avc10bit_enc: 1;
+	u32 support_hevc10bit_enc: 1;
+	u32 support_dual_core: 1; /* this indicates whether a product has two vcores */
+	u32 support_vcore_backbone: 1;
+	u32 support_vcpu_backbone: 1;
 };
 
 struct frame_buffer {
 	dma_addr_t buf_y;
 	dma_addr_t buf_cb;
 	dma_addr_t buf_cr;
-	u32 buf_y_size;
-	u32 buf_cb_size;
-	u32 buf_cr_size;
-	int endian;
+	unsigned int buf_y_size;
+	unsigned int buf_cb_size;
+	unsigned int buf_cr_size;
+	unsigned int endian;
 	enum tiled_map_type map_type;
-	int stride; /* A horizontal stride for given frame buffer */
-	int width; /* A width for given frame buffer */
-	int height; /* A height for given frame buffer */
-	int size; /* A size for given frame buffer */
-	int sequence_no;
+	unsigned int stride; /* A horizontal stride for given frame buffer */
+	unsigned int width; /* A width for given frame buffer */
+	unsigned int height; /* A height for given frame buffer */
+	size_t size; /* A size for given frame buffer */
+	unsigned int sequence_no;
 	bool update_fb_info;
 };
 
 struct vpu_rect {
-	u32 left; /* A horizontal pixel offset of top-left corner of rectangle from (0, 0) */
-	u32 top; /* A vertical pixel offset of top-left corner of rectangle from (0, 0) */
-	u32 right; /* A horizontal pixel offset of bottom-right corner of rectangle from (0, 0) */
-	u32 bottom; /* A vertical pixel offset of bottom-right corner of rectangle from (0, 0) */
+	unsigned int left; /* horizontal pixel offset top-left corner of rect. from (0, 0) */
+	unsigned int top; /* vertical pixel offset top-left corner of rect. from (0, 0) */
+	unsigned int right; /* horizontal pixel offset bottom-right corner of rect. from (0, 0) */
+	unsigned int bottom; /* vertical pixel offset bottom-right corner of rect. from (0, 0) */
 };
 
 /*
@@ -390,44 +442,44 @@ struct vpu_rect {
 
 struct dec_open_param {
 	dma_addr_t bitstream_buffer;
-	int bitstream_buffer_size;
-	int cbcr_order;
-	enum endian_mode frame_endian;
-	enum endian_mode stream_endian;
+	size_t bitstream_buffer_size;
+	enum cb_cr_order cbcr_order;
+	unsigned int frame_endian;
+	unsigned int stream_endian;
 	enum bit_stream_mode bitstream_mode;
-	bool enable_non_ref_fbc_write;
-	int av1_format;
+	u32 av1_format;
 	enum error_conceal_unit error_conceal_unit;
 	enum error_conceal_mode error_conceal_mode;
 	u32 pri_ext_addr;
 	u32 pri_axprot;
 	u32 pri_axcache;
+	u32 enable_non_ref_fbc_write: 1;
 };
 
 struct dec_initial_info {
-	s32 pic_width;
-	s32 pic_height;
+	u32 pic_width;
+	u32 pic_height;
 	s32 f_rate_numerator; /* the numerator part of frame rate fraction */
 	s32 f_rate_denominator; /* the denominator part of frame rate fraction */
 	struct vpu_rect pic_crop_rect;
 	u32 min_frame_buffer_count; /* between 1 to 16 */
-	s32 frame_buf_delay;
+	u32 frame_buf_delay;
 
-	s32 max_temporal_layers; /* it indicates the max number of temporal sub-layers. */
-	s32 profile;
-	s32 level;
+	u32 max_temporal_layers; /* it indicates the max number of temporal sub-layers */
+	u32 profile;
+	u32 level;
 	u32 tier;
 	bool is_ext_sar;
 	u32 aspect_rate_info;
-	s32 bit_rate;
+	u32 bit_rate;
 	u32 user_data_header;
-	s32 user_data_size;
+	u32 user_data_size;
 	bool user_data_buf_full;
-	s32 chroma_format_idc;/* A chroma format indicator */
-	s32 luma_bitdepth; /* A bit-depth of luma sample */
-	s32 chroma_bitdepth; /* A bit-depth of chroma sample */
+	u32 chroma_format_idc;/* A chroma format indicator */
+	u32 luma_bitdepth; /* A bit-depth of luma sample */
+	u32 chroma_bitdepth; /* A bit-depth of chroma sample */
 	u32 seq_init_err_reason;
-	s32 warn_info;
+	u32 warn_info;
 	dma_addr_t rd_ptr; /* A read pointer of bitstream buffer */
 	dma_addr_t wr_ptr; /* A write pointer of bitstream buffer */
 	u32 sequence_no;
@@ -441,56 +493,55 @@ struct dec_initial_info {
 #define WAVE_SKIPMODE_NON_REF 2
 
 struct dec_param {
-	s32 skipframe_mode;
-	bool cra_as_bla_flag;
-	bool disable_film_grain;
+	u32 skipframe_mode: 2;
+	u32 cra_as_bla_flag: 1;
+	u32 disable_film_grain: 1;
 };
 
 struct dec_output_ext_data {
 	u32 user_data_header;
-	u32 user_data_size; /* this is the size of user data. */
+	u32 user_data_size; /* this is the size of user data */
 	bool user_data_buf_full;
-	u32 active_format;
 };
 
 struct h265_rp_sei {
-	unsigned int exist;
-	int recovery_poc_cnt; /* recovery_poc_cnt */
-	int exact_match_flag; /* exact_match_flag */
-	int broken_link_flag; /* broken_link_flag */
+	u32 recovery_poc_cnt; /* recovery_poc_cnt */
+	u32 exist: 1;
+	u32 exact_match_flag: 1; /* exact_match_flag */
+	u32 broken_link_flag: 1; /* broken_link_flag */
 };
 
 struct avs2_info {
-	int decoded_poi;
+	s32 decoded_poi;
 	int display_poi;
 };
 
 struct av1_info {
-	int allow_screen_content_tools; /* it indicates whether screen content tool is enabled. */
-	int allow_intra_bc; /* it indicates whether intra block copy is enabled. */
-	int spatial_id; /* it indicates a spatial ID of the picture. */
+	u32 spatial_id; /* indicates a spatial ID of the picture */
+	u32 allow_screen_content_tools: 1; /* indicates whether screen content tool is enabled */
+	u32 allow_intra_bc: 1; /* indicates whether intra block copy is enabled */
 };
 
 struct dec_output_info {
 	/**
 	 * this is a frame buffer index for the picture to be displayed at the moment among
 	 * frame buffers which are registered using vpu_dec_register_frame_buffer(). frame
-	 * data to be displayed are stored into the frame buffer with this index.
+	 * data to be displayed are stored into the frame buffer with this index
 	 * when there is no display delay, this index is always
-	 * the same with index_frame_decoded. however, if display delay does exist for display
+	 * the same with index_frame_decoded, however, if display delay does exist for display
 	 * reordering in AVC
 	 * or B-frames in VC1), this index might be different with index_frame_decoded.
 	 * by checking this index, HOST application can easily know whether sequence decoding
 	 * has been finished or not.
 	 *
 	 * -3(0xFFFD) or -2(0xFFFE) : it is when a display output cannot be given due to picture
-	 * reordering or skip option.
+	 * reordering or skip option
 	 * -1(0xFFFF) : it is when there is no more output for display at the end of sequence
-	 * decoding.
+	 * decoding
 	 */
-	int index_frame_display;
-	int index_frame_display_for_tiled; /* in case of WTL mode, this index indicates a display
-					    * index of tiled or compressed framebuffer.
+	s32 index_frame_display;
+	s32 index_frame_display_for_tiled; /* in case of WTL mode, this index indicates a display
+					    * index of tiled or compressed framebuffer
 					    */
 	/**
 	 * this is a frame buffer index of decoded picture among frame buffers which were
@@ -499,40 +550,39 @@ struct dec_output_info {
 	 * this index.
 	 *
 	 * -2 : it indicates that no decoded output is generated because decoder meets EOS
-	 * (end of sequence) or skip.
+	 * (end of sequence) or skip
 	 * -1 : it indicates that decoder fails to decode a picture because there is no available
-	 * frame buffer.
+	 * frame buffer
 	 */
-	int index_frame_decoded;
-	int index_inter_frame_decoded;
-	int index_frame_decoded_for_tiled;
-	int nal_type;
-	int pic_type;
-	int num_of_err_m_bs;
-	int num_of_tot_m_bs;
-	int num_of_err_m_bs_in_disp;
-	int num_of_tot_m_bs_in_disp;
-	u32 decoding_success;
+	s32 index_frame_decoded;
+	s32 index_inter_frame_decoded;
+	s32 index_frame_decoded_for_tiled;
+	u32 nal_type;
+	unsigned int pic_type;
+	u32 num_of_err_m_bs;
+	u32 num_of_tot_m_bs;
+	u32 num_of_err_m_bs_in_disp;
+	u32 num_of_tot_m_bs_in_disp;
 	struct vpu_rect rc_display;
-	int disp_pic_width;
-	int disp_pic_height;
+	unsigned int disp_pic_width;
+	unsigned int disp_pic_height;
 	struct vpu_rect rc_decoded;
-	int dec_pic_width;
-	int dec_pic_height;
+	u32 dec_pic_width;
+	u32 dec_pic_height;
 	struct avs2_info avs2_info;
 	struct av1_info av1_info;
-	int decoded_poc;
+	s32 decoded_poc;
 	int display_poc;
 	int temporal_id; /* A temporal ID of the picture */
 	struct h265_rp_sei h265_rp_sei;
 	struct dec_output_ext_data dec_output_ext_data;
-	int consumed_byte; /* the number of bytes that are consumed by VPU. */
-	int rd_ptr; /* A stream buffer read pointer for the current decoder instance */
-	int wr_ptr; /* A stream buffer write pointer for the current decoder instance */
+	unsigned int consumed_byte; /* the number of bytes that are consumed by VPU */
+	dma_addr_t rd_ptr; /* A stream buffer read pointer for the current decoder instance */
+	dma_addr_t wr_ptr; /* A stream buffer write pointer for the current decoder instance */
 	dma_addr_t byte_pos_frame_start;
 	dma_addr_t byte_pos_frame_end;
 	struct frame_buffer disp_frame;
-	int frame_display_flag; /* it reports a frame buffer flag to be displayed. */
+	u32 frame_display_flag; /* it reports a frame buffer flag to be displayed */
 	/**
 	 * this variable reports that sequence has been changed while H.264/AVC stream decoding.
 	 * if it is 1, HOST application can get the new sequence information by calling
@@ -540,16 +590,14 @@ struct dec_output_info {
 	 *
 	 * for H.265/HEVC decoder, each bit has a different meaning as follows.
 	 *
-	 * sequence_changed[5] : it indicates that the profile_idc has been changed.
-	 * sequence_changed[16] : it indicates that the resolution has been changed.
+	 * sequence_changed[5] : it indicates that the profile_idc has been changed
+	 * sequence_changed[16] : it indicates that the resolution has been changed
 	 * sequence_changed[19] : it indicates that the required number of frame buffer has
 	 * been changed.
 	 */
-	int sequence_changed;
-	int frame_cycle; /* this variable reports the number of cycles for processing a frame. */
-	int error_reason;
-	u32 error_reason_ext;
-	int warn_info;
+	unsigned int frame_cycle; /* reports the number of cycles for processing a frame */
+	u32 error_reason;
+	u32 warn_info;
 	u32 sequence_no;
 
 	u32 dec_host_cmd_tick; /* tick of DEC_PIC command for the picture */
@@ -564,8 +612,10 @@ struct dec_output_info {
 	u32 parse_cycle;
 	u32 decoded_cycle;
 
-	s32 ctu_size;
+	u32 ctu_size;
 	s32 output_flag;
+	u32 sequence_changed: 1;
+	u32 decoding_success: 1;
 };
 
 struct queue_status_info {
@@ -582,34 +632,34 @@ struct queue_status_info {
 #define MAX_GOP_NUM 8
 
 struct custom_gop_pic_param {
-	int pic_type; /* A picture type of nth picture in the custom GOP */
-	int poc_offset; /* A POC of nth picture in the custom GOP */
-	int pic_qp; /* A quantization parameter of nth picture in the custom GOP */
-	int use_multi_ref_p; /* use multiref pic for P picture. valid only if PIC_TYPE is P */
-	int ref_poc_l0; /* A POC of reference L0 of nth picture in the custom GOP */
-	int ref_poc_l1; /* A POC of reference L1 of nth picture in the custom GOP */
-	int temporal_id; /* A temporal ID of nth picture in the custom GOP */
+	u32 pic_type; /* A picture type of nth picture in the custom GOP */
+	u32 poc_offset; /* A POC of nth picture in the custom GOP */
+	u32 pic_qp; /* A quantization parameter of nth picture in the custom GOP */
+	u32 use_multi_ref_p; /* use multiref pic for P picture. valid only if PIC_TYPE is P */
+	u32 ref_poc_l0; /* A POC of reference L0 of nth picture in the custom GOP */
+	u32 ref_poc_l1; /* A POC of reference L1 of nth picture in the custom GOP */
+	s32 temporal_id; /* A temporal ID of nth picture in the custom GOP */
 };
 
 struct custom_gop_param {
-	int custom_gop_size; /* the size of custom GOP (0~8) */
+	u32 custom_gop_size; /* the size of custom GOP (0~8) */
 	struct custom_gop_pic_param pic_param[MAX_GOP_NUM];
 };
 
 struct wave_custom_map_opt {
-	int roi_avg_qp; /* it sets an average QP of ROI map. */
-	int custom_roi_map_enable; /* it enables ROI map. */
-	int custom_lambda_map_enable; /* it enables custom lambda map. */
-	int custom_mode_map_enable;
-	int custom_coef_drop_enable;
-	dma_addr_t addr_custom_map;
+	u32 roi_avg_qp; /* it sets an average QP of ROI map */
+	u32 addr_custom_map;
+	u32 custom_roi_map_enable: 1; /* it enables ROI map */
+	u32 custom_lambda_map_enable: 1; /* it enables custom lambda map */
+	u32 custom_mode_map_enable: 1;
+	u32 custom_coef_drop_enable: 1;
 };
 
 struct enc_wave_param {
 	/*
 	 * A profile indicator (HEVC only)
 	 *
-	 * 0 : the firmware determines a profile according to internalbitdepth.
+	 * 0 : the firmware determines a profile according to internalbitdepth
 	 * 1 : main profile
 	 * 2 : main10 profile
 	 * 3 : main still picture profile
@@ -617,23 +667,21 @@ struct enc_wave_param {
 	 * based on internalbitdepth. it is HIGH profile for bitdepth of 8 and HIGH10 profile for
 	 * bitdepth of 10.
 	 */
-	int profile;
-	int en_still_picture; /* still picture profile */
-	int level; /* A level indicator (level * 10) */
-	unsigned int tier; /* 0=main, 1=high */
-	int internal_bit_depth;
-	int gop_preset_idx;
-	int decoding_refresh_type; /* 0=non-IRAP, 1=CRA, 2=IDR */
-	int intra_qp; /* A quantization parameter of intra picture */
-	int intra_period; /* A period of intra picture in GOP size */
-	int forced_idr_header_enable;
-	int conf_win_top; /* A top offset of conformance window */
-	int conf_win_bot; /* A bottom offset of conformance window */
-	int conf_win_left; /* A left offset of conformance window */
-	int conf_win_right; /* A right offset of conformance window */
-	int independ_slice_mode_arg;
-	int depend_slice_mode_arg;
-	int intra_refresh_mode;
+	u32 profile;
+	u32 level; /* A level indicator (level * 10) */
+	u32 internal_bit_depth: 4; /* 8/10 */
+	u32 gop_preset_idx: 4; /* 0 - 9 */
+	u32 decoding_refresh_type: 2; /* 0=non-IRAP, 1=CRA, 2=IDR */
+	u32 intra_qp; /* A quantization parameter of intra picture */
+	u32 intra_period; /* A period of intra picture in GOP size */
+	u32 forced_idr_header_enable: 2;
+	u32 conf_win_top; /* A top offset of conformance window */
+	u32 conf_win_bot; /* A bottom offset of conformance window */
+	u32 conf_win_left; /* A left offset of conformance window */
+	u32 conf_win_right; /* A right offset of conformance window */
+	u32 independ_slice_mode_arg;
+	u32 depend_slice_mode_arg;
+	u32 intra_refresh_mode: 3;
 	/*
 	 * it specifies an intra CTU refresh interval. depending on intra_refresh_mode,
 	 * it can mean one of the following.
@@ -643,23 +691,22 @@ struct enc_wave_param {
 	 * A step size in CTU for intra_ctu_refresh_mode of 3
 	 * the number of intra ct_us to be encoded in a picture for intra_ctu_refresh_mode of 4
 	 */
-	int intra_refresh_arg;
+	u32 intra_refresh_arg;
 	/*
 	 * 0 : custom setting
 	 * 1 : recommended encoder parameters (slow encoding speed, highest picture quality)
 	 * 2 : boost mode (normal encoding speed, moderate picture quality)
 	 * 3 : fast mode (fast encoding speed, low picture quality)
 	 */
-	uint32_t depend_slice_mode : 2;
-	uint32_t independ_slice_mode : 1; /* 0=no-multi-slice, 1=slice-in-ctu-number*/
-	uint32_t use_recommend_enc_param: 2;
-	uint32_t max_num_merge: 2;
-	uint32_t scaling_list_enable: 2;
-	uint32_t bit_alloc_mode: 2; /* 0=ref-pic-priority, 1=uniform, 2=fixed_bit_ratio */
-	int beta_offset_div2: 4; /* it sets beta_offset_div2 for deblocking filter. */
-	int tc_offset_div2: 4; /* it sets tc_offset_div3 for deblocking filter. */
-	int hvs_qp_scale: 4; /* QP scaling factor for CU QP adjust if hvs_qp_scale_enable is 1 */
-	int hvs_max_delta_qp; /* A maximum delta QP for HVS */
+	u32 depend_slice_mode : 2;
+	u32 use_recommend_enc_param: 2;
+	u32 max_num_merge: 2;
+	u32 scaling_list_enable: 2;
+	u32 bit_alloc_mode: 2; /* 0=ref-pic-priority, 1=uniform, 2=fixed_bit_ratio */
+	s32 beta_offset_div2: 4; /* it sets beta_offset_div2 for deblocking filter */
+	s32 tc_offset_div2: 4; /* it sets tc_offset_div3 for deblocking filter */
+	u32 hvs_qp_scale: 4; /* QP scaling factor for CU QP adjust if hvs_qp_scale_enable is 1 */
+	u32 hvs_max_delta_qp; /* A maximum delta QP for HVS */
 	/*
 	 * A fixed bit ratio (1 ~ 255) for each picture of GOP's bit
 	 * allocation
@@ -676,60 +723,59 @@ struct enc_wave_param {
 	u32 num_units_in_tick;
 	u32 time_scale;
 	u32 num_ticks_poc_diff_one;
-	int chroma_cb_qp_offset; /* the value of chroma(cb) QP offset */
-	int chroma_cr_qp_offset; /* the value of chroma(cr) QP offset */
-	int initial_rc_qp;
+	s32 chroma_cb_qp_offset; /* the value of chroma(cb) QP offset */
+	s32 chroma_cr_qp_offset; /* the value of chroma(cr) QP offset */
+	u32 initial_rc_qp;
 	u32 nr_intra_weight_y;
 	u32 nr_intra_weight_cb; /* A weight to cb noise level for intra picture (0 ~ 31) */
 	u32 nr_intra_weight_cr; /* A weight to cr noise level for intra picture (0 ~ 31) */
 	u32 nr_inter_weight_y;
 	u32 nr_inter_weight_cb; /* A weight to cb noise level for inter picture (0 ~ 31) */
 	u32 nr_inter_weight_cr; /* A weight to cr noise level for inter picture (0 ~ 31) */
-	u32 nr_noise_sigma_y; /* Y noise standard deviation if nr_noise_est_enable is 0. */
-	u32 nr_noise_sigma_cb;/* cb noise standard deviation if nr_noise_est_enable is 0. */
-	u32 nr_noise_sigma_cr;/* cr noise standard deviation if nr_noise_est_enable is 0. */
+	u32 nr_noise_sigma_y; /* Y noise standard deviation if nr_noise_est_enable is 0 */
+	u32 nr_noise_sigma_cb;/* cb noise standard deviation if nr_noise_est_enable is 0 */
+	u32 nr_noise_sigma_cr;/* cr noise standard deviation if nr_noise_est_enable is 0 */
 	u32 bg_thr_diff;
 	u32 bg_thr_mean_diff;
 	u32 bg_lambda_qp;
-	int bg_delta_qp;
-	int pu04_delta_rate: 8; /* added to the total cost of 4x4 blocks */
-	int pu08_delta_rate: 8; /* added to the total cost of 8x8 blocks */
-	int pu16_delta_rate: 8; /* added to the total cost of 16x16 blocks */
-	int pu32_delta_rate: 8; /* added to the total cost of 32x32 blocks */
-	int pu04_intra_planar_delta_rate: 8;
-	int pu04_intra_dc_delta_rate: 8;
-	int pu04_intra_angle_delta_rate: 8;
-	int pu08_intra_planar_delta_rate: 8;
-	int pu08_intra_dc_delta_rate: 8;
-	int pu08_intra_angle_delta_rate: 8;
-	int pu16_intra_planar_delta_rate: 8;
-	int pu16_intra_dc_delta_rate: 8;
-	int pu16_intra_angle_delta_rate: 8;
-	int pu32_intra_planar_delta_rate: 8;
-	int pu32_intra_dc_delta_rate: 8;
-	int pu32_intra_angle_delta_rate: 8;
-	int cu08_intra_delta_rate: 8;
-	int cu08_inter_delta_rate: 8;
-	int cu08_merge_delta_rate: 8;
-	int cu16_intra_delta_rate: 8;
-	int cu16_inter_delta_rate: 8;
-	int cu16_merge_delta_rate: 8;
-	int cu32_intra_delta_rate: 8;
-	int cu32_inter_delta_rate: 8;
-	int cu32_merge_delta_rate: 8;
-	int coef_clear_disable: 8;
-	int min_qp_i; /* A minimum QP of I picture for rate control */
-	int max_qp_i; /* A maximum QP of I picture for rate control */
-	int min_qp_p; /* A minimum QP of P picture for rate control */
-	int max_qp_p; /* A maximum QP of P picture for rate control */
-	int min_qp_b; /* A minimum QP of B picture for rate control */
-	int max_qp_b; /* A maximum QP of B picture for rate control */
-	dma_addr_t custom_lambda_addr; /* it specifies the address of custom lambda map. */
-	dma_addr_t user_scaling_list_addr; /* it specifies the address of user scaling list file. */
-	int avc_idr_period;/* A period of IDR picture (0 ~ 1024). 0 - implies an infinite period */
-	int avc_slice_mode; /* 0=none, 1=slice-in-mb-number */
-	int avc_slice_arg;	/* the number of MB for a slice when avc_slice_mode is set with 1 */
-	int intra_mb_refresh_mode; /* 0=none, 1=row, 2=column, 3=step-size-in-mb */
+	u32 bg_delta_qp;
+	u32 pu04_delta_rate: 8; /* added to the total cost of 4x4 blocks */
+	u32 pu08_delta_rate: 8; /* added to the total cost of 8x8 blocks */
+	u32 pu16_delta_rate: 8; /* added to the total cost of 16x16 blocks */
+	u32 pu32_delta_rate: 8; /* added to the total cost of 32x32 blocks */
+	u32 pu04_intra_planar_delta_rate: 8;
+	u32 pu04_intra_dc_delta_rate: 8;
+	u32 pu04_intra_angle_delta_rate: 8;
+	u32 pu08_intra_planar_delta_rate: 8;
+	u32 pu08_intra_dc_delta_rate: 8;
+	u32 pu08_intra_angle_delta_rate: 8;
+	u32 pu16_intra_planar_delta_rate: 8;
+	u32 pu16_intra_dc_delta_rate: 8;
+	u32 pu16_intra_angle_delta_rate: 8;
+	u32 pu32_intra_planar_delta_rate: 8;
+	u32 pu32_intra_dc_delta_rate: 8;
+	u32 pu32_intra_angle_delta_rate: 8;
+	u32 cu08_intra_delta_rate: 8;
+	u32 cu08_inter_delta_rate: 8;
+	u32 cu08_merge_delta_rate: 8;
+	u32 cu16_intra_delta_rate: 8;
+	u32 cu16_inter_delta_rate: 8;
+	u32 cu16_merge_delta_rate: 8;
+	u32 cu32_intra_delta_rate: 8;
+	u32 cu32_inter_delta_rate: 8;
+	u32 cu32_merge_delta_rate: 8;
+	u32 coef_clear_disable: 8;
+	u32 min_qp_i; /* A minimum QP of I picture for rate control */
+	u32 max_qp_i; /* A maximum QP of I picture for rate control */
+	u32 min_qp_p; /* A minimum QP of P picture for rate control */
+	u32 max_qp_p; /* A maximum QP of P picture for rate control */
+	u32 min_qp_b; /* A minimum QP of B picture for rate control */
+	u32 max_qp_b; /* A maximum QP of B picture for rate control */
+	u32 custom_lambda_addr; /* it specifies the address of custom lambda map */
+	u32 user_scaling_list_addr; /* it specifies the address of user scaling list file */
+	u32 avc_idr_period;/* A period of IDR picture (0 ~ 1024). 0 - implies an infinite period */
+	u32 avc_slice_arg;	/* the number of MB for a slice when avc_slice_mode is set with 1 */
+	u32 intra_mb_refresh_mode: 2; /* 0=none, 1=row, 2=column, 3=step-size-in-mb */
 	/**
 	 * it specifies an intra MB refresh interval. depending on intra_mb_refresh_mode,
 	 * it can mean one of the following.
@@ -738,40 +784,44 @@ struct enc_wave_param {
 	 * the number of consecutive MB columns for intra_mb_refresh_mode of 2
 	 * A step size in MB for intra_mb_refresh_mode of 3
 	 */
-	int intra_mb_refresh_arg;
-	int entropy_coding_mode; /* 0=CAVLC, 1=CABAC */
+	u32 intra_mb_refresh_arg;
 	u32 rc_weight_param;
 	u32 rc_weight_buf;
 
 	/* flags */
-	uint32_t lossless_enable: 1; /*enables lossless coding. */
-	uint32_t const_intra_pred_flag: 1; /*enables constrained intra prediction. */
-	uint32_t tmvp_enable: 1; /*enables temporal motion vector prediction. */
-	uint32_t wpp_enable: 1;
-	uint32_t disable_deblk: 1; /* it disables in-loop deblocking filtering. */
-	uint32_t lf_cross_slice_boundary_enable: 1;
-	uint32_t skip_intra_trans: 1;
-	uint32_t sao_enable: 1; /* it enables SAO (sample adaptive offset). */
-	uint32_t intra_nx_n_enable: 1; /* it enables intra nx_n p_us. */
-	uint32_t cu_level_rc_enable: 1; /* it enable CU level rate control. */
-	uint32_t hvs_qp_enable: 1; /* enable CU QP adjustment for subjective quality enhancement. */
-	uint32_t roi_enable: 1; /* it enables ROI map. NOTE: it is valid when rate control is on. */
-	uint32_t nr_y_enable: 1; /* it enables noise reduction algorithm to Y component. */
-	uint32_t nr_noise_est_enable: 1;
-	uint32_t nr_cb_enable: 1; /* it enables noise reduction algorithm to cb component. */
-	uint32_t nr_cr_enable: 1; /* it enables noise reduction algorithm to cr component. */
-	uint32_t use_long_term: 1; /* it enables long-term reference function. */
-	uint32_t monochrome_enable: 1; /* it enables monochrom encoding mode. */
-	uint32_t strong_intra_smooth_enable: 1; /* it enables strong intra smoothing. */
-	uint32_t weight_pred_enable: 1; /* it enables to use weighted prediction.*/
-	uint32_t bg_detect_enable: 1; /* it enables background detection. */
-	uint32_t custom_lambda_enable: 1; /* it enables custom lambda table. */
-	uint32_t custom_md_enable: 1; /* it enables custom mode decision. */
-	uint32_t rdo_skip: 1;	/* it skips RDO(rate distortion optimization). */
-	uint32_t lambda_scaling_enable: 1;	/* it enables lambda scaling using custom GOP. */
-	uint32_t transform8x8_enable: 1; /* it enables 8x8 intra prediction and 8x8 transform. */
-	uint32_t mb_level_rc_enable: 1;			/* it enables MB-level rate control. */
-	uint32_t s2fme_disable: 1; /* it disables s2me_fme (only for AVC encoder). */
+	u32 en_still_picture: 1; /* still picture profile */
+	u32 tier: 1; /* 0=main, 1=high */
+	u32 independ_slice_mode : 1; /* 0=no-multi-slice, 1=slice-in-ctu-number*/
+	u32 avc_slice_mode: 1; /* 0=none, 1=slice-in-mb-number */
+	u32 entropy_coding_mode: 1; /* 0=CAVLC, 1=CABAC */
+	u32 lossless_enable: 1; /* enables lossless coding */
+	u32 const_intra_pred_flag: 1; /* enables constrained intra prediction */
+	u32 tmvp_enable: 1; /* enables temporal motion vector prediction */
+	u32 wpp_enable: 1;
+	u32 disable_deblk: 1; /* it disables in-loop deblocking filtering */
+	u32 lf_cross_slice_boundary_enable: 1;
+	u32 skip_intra_trans: 1;
+	u32 sao_enable: 1; /* it enables SAO (sample adaptive offset) */
+	u32 intra_nx_n_enable: 1; /* it enables intra nx_n p_us */
+	u32 cu_level_rc_enable: 1; /* it enable CU level rate control */
+	u32 hvs_qp_enable: 1; /* enable CU QP adjustment for subjective quality enhancement */
+	u32 roi_enable: 1; /* it enables ROI map. NOTE: it is valid when rate control is on */
+	u32 nr_y_enable: 1; /* it enables noise reduction algorithm to Y component */
+	u32 nr_noise_est_enable: 1;
+	u32 nr_cb_enable: 1; /* it enables noise reduction algorithm to cb component */
+	u32 nr_cr_enable: 1; /* it enables noise reduction algorithm to cr component */
+	u32 use_long_term: 1; /* it enables long-term reference function */
+	u32 monochrome_enable: 1; /* it enables monochrom encoding mode */
+	u32 strong_intra_smooth_enable: 1; /* it enables strong intra smoothing */
+	u32 weight_pred_enable: 1; /* it enables to use weighted prediction*/
+	u32 bg_detect_enable: 1; /* it enables background detection */
+	u32 custom_lambda_enable: 1; /* it enables custom lambda table */
+	u32 custom_md_enable: 1; /* it enables custom mode decision */
+	u32 rdo_skip: 1; /* it skips RDO(rate distortion optimization) */
+	u32 lambda_scaling_enable: 1; /* it enables lambda scaling using custom GOP */
+	u32 transform8x8_enable: 1; /* it enables 8x8 intra prediction and 8x8 transform */
+	u32 mb_level_rc_enable: 1; /* it enables MB-level rate control */
+	u32 s2fme_disable: 1; /* it disables s2me_fme (only for AVC encoder) */
 };
 
 struct enc_sub_frame_sync_config {
@@ -781,72 +831,68 @@ struct enc_sub_frame_sync_config {
 
 struct enc_open_param {
 	dma_addr_t bitstream_buffer;
-	u32 bitstream_buffer_size;
-	int ring_buffer_enable;
-	int pic_width; /* the width of a picture to be encoded in unit of sample. */
-	int pic_height; /* the height of a picture to be encoded in unit of sample. */
-	int frame_rate_info;/* desired fps */
-	int vbv_buffer_size;
-	int bit_rate; /* target bitrate in bps */
-	u32 rc_enable : 1; /* rate control */
+	unsigned int bitstream_buffer_size;
+	u32 pic_width; /* the width of a picture to be encoded in unit of sample */
+	u32 pic_height; /* the height of a picture to be encoded in unit of sample */
+	u32 frame_rate_info;/* desired fps */
+	u32 vbv_buffer_size;
+	u32 bit_rate; /* target bitrate in bps */
 	struct enc_wave_param wave_param;
-	int cbcr_order;
-	int stream_endian;
-	int source_endian;
-	int line_buf_int_en;
-	int packed_format; /* <<vpuapi_h_packed_format_num>> */
+	enum cb_cr_order cbcr_order;
+	unsigned int stream_endian;
+	unsigned int source_endian;
+	enum packed_format_num packed_format; /* <<vpuapi_h_packed_format_num>> */
 	enum frame_buffer_format src_format;
-	enum frame_buffer_format output_format;
-	bool enable_pts; /* an enable flag to report PTS(presentation timestamp) */
-	bool enable_non_ref_fbc_write;
-	int sub_frame_sync_enable;
-	int sub_frame_sync_mode;
-	u32 enc_hrd_rbsp_in_vps; /* it encodes the HRD syntax rbsp into VPS. */
+	/* enum frame_buffer_format output_format; not used yet */
+	u32 enc_hrd_rbsp_in_vps; /* it encodes the HRD syntax rbsp into VPS */
 	u32 hrd_rbsp_data_size; /* the bit size of the HRD rbsp data */
-	dma_addr_t hrd_rbsp_data_addr; /* the address of the HRD rbsp data */
+	u32 hrd_rbsp_data_addr; /* the address of the HRD rbsp data */
 	u32 encode_vui_rbsp;
 	u32 vui_rbsp_data_size; /* the bit size of the VUI rbsp data */
-	dma_addr_t vui_rbsp_data_addr; /* the address of the VUI rbsp data */
+	u32 vui_rbsp_data_addr; /* the address of the VUI rbsp data */
 	u32 pri_ext_addr;
 	u32 pri_axprot;
 	u32 pri_axcache;
+	bool ring_buffer_enable;
+	bool line_buf_int_en;
+	bool enable_pts; /* an enable flag to report PTS(presentation timestamp) */
+	u32 rc_enable : 1; /* rate control */
+	u32 enable_non_ref_fbc_write: 1;
+	u32 sub_frame_sync_enable: 1;
+	u32 sub_frame_sync_mode: 1;
 };
 
 struct enc_initial_info {
 	u32 min_frame_buffer_count; /* minimum number of frame buffer */
-	int min_src_frame_count; /* minimum number of source buffer */
-	int max_latency_pictures; /* maximum number of picture latency */
-	int seq_init_err_reason; /* error information */
-	int warn_info; /* warn information */
+	u32 min_src_frame_count; /* minimum number of source buffer */
+	u32 max_latency_pictures; /* maximum number of picture latency */
+	u32 seq_init_err_reason; /* error information */
+	u32 warn_info; /* warn information */
 	u32 vlc_buf_size; /* the size of task buffer */
 	u32 param_buf_size; /* the size of task buffer */
 };
 
 struct enc_code_opt {
-	int implicit_header_encode;
-	int encode_vcl; /* A flag to encode VCL nal unit explicitly */
-	int encode_vps; /* A flag to encode VPS nal unit explicitly */
-	int encode_sps; /* A flag to encode SPS nal unit explicitly */
-	int encode_pps; /* A flag to encode PPS nal unit explicitly */
-	int encode_aud; /* A flag to encode AUD nal unit explicitly */
-	int encode_eos;
-	int encode_eob;
-	int encode_vui; /* A flag to encode VUI nal unit explicitly */
+	u32 implicit_header_encode: 1;
+	u32 encode_vcl: 1; /* A flag to encode VCL nal unit explicitly */
+	u32 encode_vps: 1; /* A flag to encode VPS nal unit explicitly */
+	u32 encode_sps: 1; /* A flag to encode SPS nal unit explicitly */
+	u32 encode_pps: 1; /* A flag to encode PPS nal unit explicitly */
+	u32 encode_aud: 1; /* A flag to encode AUD nal unit explicitly */
+	u32 encode_eos: 1;
+	u32 encode_eob: 1;
+	u32 encode_vui: 1; /* A flag to encode VUI nal unit explicitly */
 };
 
 struct enc_param {
 	struct frame_buffer *source_frame;
-	unsigned int skip_picture : 1;
-	dma_addr_t pic_stream_buffer_addr;
-	int pic_stream_buffer_size;
-	int force_pic_qp_enable; /* flag used to force picture quantization parameter */
-	int force_pic_qp_i;
-	int force_pic_qp_p;
-	int force_pic_qp_b;
-	int force_pic_type_enable; /* A flag to use a force picture type */
-	int force_pic_type;
-	int src_idx; /* A source frame buffer index */
-	int src_end_flag;
+	u32 pic_stream_buffer_addr;
+	u64 pic_stream_buffer_size;
+	u32 force_pic_qp_i;
+	u32 force_pic_qp_p;
+	u32 force_pic_qp_b;
+	u32 force_pic_type: 2;
+	u32 src_idx; /* A source frame buffer index */
 	struct enc_code_opt code_option;
 	u32 use_cur_src_as_longterm_pic;
 	u32 use_longterm_ref;
@@ -858,34 +904,37 @@ struct enc_param {
 	u32 wp_pix_mean_y; /* pixel mean value of Y component for weighted prediction */
 	u32 wp_pix_mean_cb; /* pixel mean value of cb component for weighted prediction */
 	u32 wp_pix_mean_cr; /* pixel mean value of cr component for weighted prediction */
-	u32 force_all_ctu_coef_drop_enable; /* it forces all coefficients to be zero after TQ . */
+	bool src_end_flag;
+	u32 skip_picture: 1;
+	u32 force_pic_qp_enable: 1; /* flag used to force picture quantization parameter */
+	u32 force_pic_type_enable: 1; /* A flag to use a force picture type */
+	u32 force_all_ctu_coef_drop_enable: 1; /* forces all coefficients to be zero after TQ */
 };
 
 struct enc_output_info {
-	dma_addr_t bitstream_buffer;
+	u32 bitstream_buffer;
 	u32 bitstream_size; /* the byte size of encoded bitstream */
-	int bitstream_wrap_around;
-	int pic_type; /* <<vpuapi_h_pic_type>> */
-	int num_of_slices; /* the number of slices of the currently being encoded picture */
-	int recon_frame_index;
+	u32 bitstream_wrap_around;
+	u32 pic_type: 2; /* <<vpuapi_h_pic_type>> */
+	u32 num_of_slices; /* the number of slices of the currently being encoded picture */
+	s32 recon_frame_index;
 	struct frame_buffer recon_frame;
-	int rd_ptr;
-	int wr_ptr;
-	int pic_skipped; /* whether the current encoding has been skipped or not */
-	int num_of_intra; /* the number of intra coded block */
-	int num_of_merge; /* the number of merge block in 8x8 */
-	int num_of_skip_block; /* the number of skip block in 8x8 */
-	int avg_ctu_qp; /* the average value of CTU q_ps */
-	int enc_pic_byte; /* the number of encoded picture bytes */
-	int enc_gop_pic_idx; /* the GOP index of the currently encoded picture */
-	int enc_pic_poc; /* the POC(picture order count) of the currently encoded picture */
-	int release_src_flag; /* the source buffer indicator of the encoded pictures */
-	int enc_src_idx; /* the source buffer index of the currently encoded picture */
-	int enc_vcl_nut;
-	int enc_pic_cnt; /* the encoded picture number */
-	int error_reason; /* the error reason of the currently encoded picture */
-	int warn_info; /* the warning information of the currently encoded picture */
-	int frame_cycle; /* the param for reporting the cycle number of encoding one frame.*/
+	dma_addr_t rd_ptr;
+	dma_addr_t wr_ptr;
+	u32 num_of_intra; /* the number of intra coded blocks */
+	u32 num_of_merge; /* the number of merge block in 8x8 */
+	u32 num_of_skip_block; /* the number of skip block in 8x8 */
+	u32 avg_ctu_qp; /* the average value of CTU q_ps */
+	u32 enc_pic_byte; /* the number of encoded picture bytes */
+	u32 enc_gop_pic_idx; /* the GOP index of the currently encoded picture */
+	u32 enc_pic_poc; /* the POC(picture order count) of the currently encoded picture */
+	u32 release_src_flag; /* the source buffer indicator of the encoded pictures */
+	s32 enc_src_idx; /* the source buffer index of the currently encoded picture */
+	u32 enc_vcl_nut;
+	u32 enc_pic_cnt; /* the encoded picture number */
+	u32 error_reason; /* the error reason of the currently encoded picture */
+	u32 warn_info; /* the warning information of the currently encoded picture */
+	u32 frame_cycle; /* the param for reporting the cycle number of encoding one frame*/
 	u64 pts;
 	u32 enc_host_cmd_tick; /* tick of ENC_PIC command for the picture */
 	u32 enc_prepare_start_tick; /* start tick of preparing slices of the picture */
@@ -899,6 +948,7 @@ struct enc_output_info {
 	u32 encoded_cycle; /* the number of cycles for encoding slices of a picture */
 	u32 pic_distortion_low;
 	u32 pic_distortion_high;
+	u32 pic_skipped: 1; /* whether the current encoding has been skipped or not */
 };
 
 enum ENC_PIC_CODE_OPTION {
@@ -921,13 +971,13 @@ enum GOP_PRESET_IDX {
 
 struct sec_axi_info {
 	struct {
-		int use_ip_enable;
-		int use_lf_row_enable;
-		int use_bit_enable;
-		int use_enc_rdo_enable;
-		int use_enc_lf_enable;
+		u32 use_ip_enable;
+		u32 use_bit_enable;
+		u32 use_lf_row_enable: 1;
+		u32 use_enc_rdo_enable: 1;
+		u32 use_enc_lf_enable: 1;
 	} wave;
-	int buf_size;
+	unsigned int buf_size;
 	dma_addr_t buf_base;
 };
 
@@ -935,71 +985,70 @@ struct dec_info {
 	struct dec_open_param open_param;
 	struct dec_initial_info initial_info;
 	struct dec_initial_info new_seq_info; /* temporal new sequence information */
-	dma_addr_t stream_wr_ptr;
-	dma_addr_t stream_rd_ptr;
-	int stream_endflag;
-	int frame_display_flag;
+	u32 stream_wr_ptr;
+	u32 stream_rd_ptr;
+	u32 frame_display_flag;
 	dma_addr_t stream_buf_start_addr;
 	dma_addr_t stream_buf_end_addr;
-	int stream_buf_size;
+	u32 stream_buf_size;
 	struct vpu_buf vb_mv[MAX_REG_FRAME];
 	struct vpu_buf vb_fbc_y_tbl[MAX_REG_FRAME];
 	struct vpu_buf vb_fbc_c_tbl[MAX_REG_FRAME];
-	int num_fbs_for_decoding;
-	int num_fbs_for_wtl;
-	int stride;
-	bool rotation_enable;
-	bool mirror_enable;
-	int dering_enable;
+	unsigned int num_of_decoding_fbs;
+	unsigned int num_of_display_fbs;
+	unsigned int stride;
 	enum mirror_direction mirror_direction;
-	int rotation_angle;
+	unsigned int rotation_angle;
 	struct frame_buffer rotator_output;
-	int rotator_stride;
-	bool initial_info_obtained;
+	unsigned int rotator_stride;
 	struct sec_axi_info sec_axi_info;
-	int seq_init_escape;
 	dma_addr_t user_data_buf_addr;
 	u32 user_data_enable;
-	int user_data_buf_size;
-	int frame_start_pos;
-	int frame_end_pos;
+	u32 user_data_buf_size;
+	u32 frame_start_pos;
+	u32 frame_end_pos;
 	struct vpu_buf vb_work;
 	struct vpu_buf vb_task;
 	struct dec_output_info dec_out_info[WAVE5_MAX_FBS];
-	int reorder_enable;
-	int thumbnail_mode;
-	int seq_change_mask;
+	u32 seq_change_mask;
 	enum temporal_id_mode temp_id_select_mode;
 	u32 target_temp_id;
 	u32 target_spatial_id;
 	u32 instance_queue_count;
 	u32 report_queue_count;
-	bool first_cycle_check;
 	u32 cycle_per_tick;
 	u32 product_code;
 	u32 vlc_buf_size;
 	u32 param_buf_size;
+	bool rotation_enable;
+	bool mirror_enable;
+	bool dering_enable;
+	bool initial_info_obtained;
+	bool reorder_enable;
+	bool thumbnail_mode;
+	bool first_cycle_check;
+	u32 stream_endflag: 1;
 };
 
 struct enc_info {
 	struct enc_open_param open_param;
 	struct enc_initial_info initial_info;
-	dma_addr_t stream_rd_ptr;
-	dma_addr_t stream_wr_ptr;
+	u32 stream_rd_ptr;
+	u32 stream_wr_ptr;
 	dma_addr_t stream_buf_start_addr;
 	dma_addr_t stream_buf_end_addr;
-	int stream_buf_size;
-	int num_frame_buffers;
-	int stride;
+	u32 stream_buf_size;
+	unsigned int num_frame_buffers;
+	unsigned int stride;
 	bool rotation_enable;
 	bool mirror_enable;
 	enum mirror_direction mirror_direction;
-	int rotation_angle;
+	unsigned int rotation_angle;
 	bool initial_info_obtained;
-	int ring_buffer_enable;
+	bool ring_buffer_enable;
 	struct sec_axi_info sec_axi_info;
 	struct enc_sub_frame_sync_config sub_frame_sync_config;
-	int line_buf_int_en;
+	bool line_buf_int_en;
 	struct vpu_buf vb_work;
 	struct vpu_buf vb_mv; /* col_mv buffer */
 	struct vpu_buf vb_fbc_y_tbl; /* FBC luma table buffer */
@@ -1020,21 +1069,19 @@ struct enc_info {
 struct vpu_device {
 	struct device *dev;
 	struct v4l2_device v4l2_dev;
-	struct v4l2_m2m_dev *v4l2_m2m_dev;
+	struct list_head instances;
 	struct video_device *video_dev_dec;
 	struct video_device *video_dev_enc;
 	struct mutex dev_lock; /* the lock for the src,dst v4l2 queues */
-	struct mutex	 hw_lock; /* lock hw configurations */
-	struct kfifo irq_status;
+	struct mutex hw_lock; /* lock hw configurations */
 	int irq;
-	struct completion irq_done;
 	enum product_id	 product;
 	struct vpu_attr	 attr;
 	struct vpu_buf common_mem;
 	u32 last_performance_cycles;
 	struct dma_vpu_buf sram_buf;
 	void __iomem *vdb_register;
-	int product_code;
+	u32 product_code;
 	struct ida inst_ida;
 	struct clk_bulk_data *clks;
 	int num_clks;
@@ -1049,9 +1096,13 @@ struct vpu_instance_ops {
 };
 
 struct vpu_instance {
+	struct list_head list;
 	struct v4l2_fh v4l2_fh;
 	struct v4l2_ctrl_handler v4l2_ctrl_hdl;
 	struct vpu_device *dev;
+	struct v4l2_m2m_dev *v4l2_m2m_dev;
+	struct kfifo irq_status;
+	struct completion irq_done;
 
 	struct v4l2_pix_format_mplane src_fmt;
 	struct v4l2_pix_format_mplane dst_fmt;
@@ -1066,25 +1117,27 @@ struct vpu_instance {
 	const struct vpu_instance_ops *ops;
 
 	enum wave_std		 std;
-	int			 id;
+	s32			 id;
 	union {
 		struct enc_info enc_info;
 		struct dec_info dec_info;
 	} *codec_info;
 	struct frame_buffer frame_buf[MAX_REG_FRAME];
 	struct vpu_buf frame_vbuf[MAX_REG_FRAME];
-	u32 min_dst_frame_buf_count;
+	u32 min_dst_buf_count;
+	u32 dst_buf_count;
 	u32 queued_src_buf_num;
 	u32 queued_dst_buf_num;
 	u64 timestamp;
 	bool cbcr_interleave;
 	bool nv21;
+	bool eos;
 
-	spinlock_t bitstream_lock; /* lock the src buf queue of the m2m ctx */
 	struct vpu_buf bitstream_vbuf;
 	bool thumbnail_mode;
 
-	unsigned int min_src_frame_buf_count;
+	unsigned int min_src_buf_count;
+	unsigned int src_buf_count;
 	unsigned int rot_angle;
 	unsigned int mirror_direction;
 	unsigned int profile;
@@ -1100,45 +1153,46 @@ struct vpu_instance {
 	unsigned int max_qp_b;
 };
 
-void wave5_vdi_write_register(struct vpu_device *vpu_device, unsigned int addr, unsigned int data);
-unsigned int wave5_vdi_readl(struct vpu_device *vpu_dev, unsigned int addr);
+void wave5_vdi_write_register(struct vpu_device *vpu_dev, u32 addr, u32 data);
+u32 wave5_vdi_readl(struct vpu_device *vpu_dev, u32 addr);
 int wave5_vdi_clear_memory(struct vpu_device *vpu_dev, struct vpu_buf *vb);
 int wave5_vdi_allocate_dma_memory(struct vpu_device *vpu_dev, struct vpu_buf *vb);
 int wave5_vdi_write_memory(struct vpu_device *vpu_dev, struct vpu_buf *vb, size_t offset,
-			   u8 *data, int len, int endian);
-int wave5_vdi_convert_endian(struct vpu_device *vpu_dev, unsigned int endian);
+			   u8 *data, size_t len, unsigned int endian);
+unsigned int wave5_vdi_convert_endian(struct vpu_device *vpu_dev, unsigned int endian);
 void wave5_vdi_free_dma_memory(struct vpu_device *vpu_dev, struct vpu_buf *vb);
 
-int wave5_vpu_init_with_bitcode(struct device *dev, u8 *bitcode, uint32_t size);
-void wave5_vpu_clear_interrupt_ex(struct vpu_instance *inst, int32_t intr_flag);
-int wave5_vpu_get_version_info(struct device *dev, uint32_t *version_info, uint32_t *revision,
-			       uint32_t *product_id);
-int wave5_vpu_dec_open(struct vpu_instance *vpu_inst, struct dec_open_param *pop);
+int wave5_vpu_init_with_bitcode(struct device *dev, u8 *bitcode, size_t size);
+void wave5_vpu_clear_interrupt_ex(struct vpu_instance *inst, u32 intr_flag);
+int wave5_vpu_get_version_info(struct device *dev, u32 *revision, unsigned int *product_id);
+int wave5_vpu_dec_open(struct vpu_instance *inst, struct dec_open_param *open_param);
 int wave5_vpu_dec_close(struct vpu_instance *inst, u32 *fail_res);
 int wave5_vpu_dec_issue_seq_init(struct vpu_instance *inst);
 int wave5_vpu_dec_complete_seq_init(struct vpu_instance *inst, struct dec_initial_info *info);
-int wave5_vpu_dec_register_frame_buffer_ex(struct vpu_instance *inst, int num_of_dec_fbs,
+int wave5_vpu_dec_register_frame_buffer_ex(struct vpu_instance *inst, int num_of_decoding_fbs,
 					   int num_of_display_fbs, int stride, int height,
 					   int map_type);
 int wave5_vpu_dec_start_one_frame(struct vpu_instance *inst, struct dec_param *param,
 				  u32 *res_fail);
 int wave5_vpu_dec_get_output_info(struct vpu_instance *inst, struct dec_output_info *info);
+int wave5_vpu_dec_set_rd_ptr(struct vpu_instance *inst, dma_addr_t addr, int update_wr_ptr);
 int wave5_vpu_dec_give_command(struct vpu_instance *inst, enum codec_command cmd, void *parameter);
-int wave5_vpu_dec_get_bitstream_buffer(struct vpu_instance *inst, dma_addr_t *prd_prt,
-				       dma_addr_t *pwr_ptr, uint32_t *size);
-int wave5_vpu_dec_update_bitstream_buffer(struct vpu_instance *inst, int size);
+int wave5_vpu_dec_get_bitstream_buffer(struct vpu_instance *inst, dma_addr_t *prd_ptr,
+				       dma_addr_t *pwr_ptr, size_t *size);
+int wave5_vpu_dec_update_bitstream_buffer(struct vpu_instance *inst, size_t size);
 int wave5_vpu_dec_clr_disp_flag(struct vpu_instance *inst, int index);
+int wave5_vpu_dec_set_disp_flag(struct vpu_instance *inst, int index);
 
-int wave5_vpu_enc_open(struct vpu_instance *vpu_inst, struct enc_open_param *enc_op_param);
+int wave5_vpu_enc_open(struct vpu_instance *inst, struct enc_open_param *open_param);
 int wave5_vpu_enc_close(struct vpu_instance *inst, u32 *fail_res);
 int wave5_vpu_enc_issue_seq_init(struct vpu_instance *inst);
 int wave5_vpu_enc_complete_seq_init(struct vpu_instance *inst, struct enc_initial_info *info);
-int wave5_vpu_enc_register_frame_buffer(struct vpu_instance *inst, int num, unsigned int stride,
-					int height, enum tiled_map_type map_type);
+int wave5_vpu_enc_register_frame_buffer(struct vpu_instance *inst, unsigned int num,
+					unsigned int stride, int height,
+					enum tiled_map_type map_type);
 int wave5_vpu_enc_start_one_frame(struct vpu_instance *inst, struct enc_param *param,
 				  u32 *fail_res);
 int wave5_vpu_enc_get_output_info(struct vpu_instance *inst, struct enc_output_info *info);
 int wave5_vpu_enc_give_command(struct vpu_instance *inst, enum codec_command cmd, void *parameter);
 
 #endif
-
