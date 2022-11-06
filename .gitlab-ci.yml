@@ -1,0 +1,9 @@
+image: robertcnelson/debian-bullseye-slim-linux-compile:latest
+
+build:
+  stage: build
+  script:
+    - ./jenkins_build.sh
+  artifacts:
+    paths:
+      - "linux-image*.deb"
