@@ -57,12 +57,16 @@ struct am65_cpsw_port {
 	struct am65_cpsw_qos		qos;
 	struct devlink_port		devlink_port;
 	struct dentry			*debugfs_port;
+	/* Only for suspend resume context */
+	u32				vid_context;
 };
 
 struct am65_cpsw_host {
 	struct am65_cpsw_common		*common;
 	void __iomem			*port_base;
 	void __iomem			*stat_base;
+	/* Only for suspend resume context */
+	u32				vid_context;
 };
 
 struct am65_cpsw_tx_chn {
@@ -157,6 +161,8 @@ struct am65_cpsw_common {
 	unsigned char switch_id[MAX_PHYS_ITEM_ID_LEN];
 
 	struct dentry		*debugfs_root;
+	/* only for suspend/resume context restore */
+	u32			*ale_context;
 };
 
 struct am65_cpsw_ndev_stats {

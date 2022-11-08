@@ -38,7 +38,7 @@
 
 #define SHIM_PSI_CFG0(i)		(0x24 + ((i) * 0x20))
 #define SHIM_PSI_CFG0_SRC_TAG		GENMASK(15, 0)
-#define SHIM_PSI_CFG0_DST_TAG		GENMASK(31, 15)
+#define SHIM_PSI_CFG0_DST_TAG		GENMASK(31, 16)
 
 #define CSI_DF_YUV420			0x18
 #define CSI_DF_YUV422			0x1e
@@ -594,7 +594,7 @@ static void ti_csi2rx_setup_shim(struct ti_csi2rx_ctx *ctx)
 	writel(reg, csi->shim + SHIM_DMACNTX(ctx->idx));
 
 	reg = FIELD_PREP(SHIM_PSI_CFG0_SRC_TAG, 0) |
-	      FIELD_PREP(SHIM_PSI_CFG0_DST_TAG, 1);
+	      FIELD_PREP(SHIM_PSI_CFG0_DST_TAG, 0);
 	writel(reg, csi->shim + SHIM_PSI_CFG0(ctx->idx));
 }
 
