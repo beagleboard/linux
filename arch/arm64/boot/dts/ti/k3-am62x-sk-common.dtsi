@@ -151,30 +151,6 @@
 			 <3300000 0x1>;
 	};
 
-	wlan_lten: regulator-5 {
-		compatible = "regulator-fixed";
-		regulator-name = "wlan_lten";
-		regulator-min-microvolt = <3300000>;
-		regulator-max-microvolt = <3300000>;
-		regulator-always-on;
-		vin-supply = <&vcc_3v3_sys>;
-		gpios = <&exp1 11 GPIO_ACTIVE_LOW>;
-	};
-
-	wlan_en: regulator-6 {
-		/* OUTPUT of SN74AVC2T244DQMR */
-		compatible = "regulator-fixed";
-		regulator-name = "wlan_en";
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <1800000>;
-		enable-active-high;
-		regulator-always-on;
-		vin-supply = <&wlan_lten>;
-		gpios = <&main_gpio0 71 GPIO_ACTIVE_HIGH>;
-		pinctrl-names = "default";
-		pinctrl-0 = <&wlan_en_pins_default>;
-	};
-
 	vcc_1v8: regulator-7 {
 		/* output of TPS6282518DMQ */
 		compatible = "regulator-fixed";
@@ -307,12 +283,6 @@
 			AM62X_IOPAD(0x228, PIN_INPUT, 0) /* (C21) MMC1_DAT2 */
 			AM62X_IOPAD(0x224, PIN_INPUT, 0) /* (D22) MMC1_DAT3 */
 			AM62X_IOPAD(0x240, PIN_INPUT, 0) /* (D17) MMC1_SDCD */
-		>;
-	};
-
-	wlan_en_pins_default: wlan-en-pins-default {
-		pinctrl-single,pins = <
-			AM62X_IOPAD(0x124, PIN_OUTPUT, 7) /* (A23) MMC2_SDCD.GPIO0_71 */
 		>;
 	};
 
