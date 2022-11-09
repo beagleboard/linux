@@ -1204,7 +1204,7 @@
 	};
 
 	pcie0_rc: pcie@2900000 {
-		compatible = "ti,j721e-pcie-host";
+		compatible = "ti,j784s4-pcie-host";
 		reg = <0x00 0x02900000 0x00 0x1000>,
 		      <0x00 0x02907000 0x00 0x400>,
 		      <0x00 0x0d000000 0x00 0x00800000>,
@@ -1246,7 +1246,7 @@
 	};
 
 	pcie0_ep: pcie-ep@2900000 {
-		compatible = "ti,j721e-pcie-ep";
+		compatible = "ti,j784s4-pcie-ep";
 		reg = <0x00 0x02900000 0x00 0x1000>,
 		      <0x00 0x02907000 0x00 0x400>,
 		      <0x00 0x0d000000 0x00 0x00800000>,
@@ -1267,7 +1267,7 @@
 	};
 
 	pcie1_rc: pcie@2910000 {
-		compatible = "ti,j721e-pcie-host";
+		compatible = "ti,j784s4-pcie-host";
 		reg = <0x00 0x02910000 0x00 0x1000>,
 		      <0x00 0x02917000 0x00 0x400>,
 		      <0x00 0x0d800000 0x00 0x00800000>,
@@ -1309,7 +1309,7 @@
 	};
 
 	pcie1_ep: pcie-ep@2910000 {
-		compatible = "ti,j721e-pcie-ep";
+		compatible = "ti,j784s4-pcie-ep";
 		reg = <0x00 0x02910000 0x00 0x1000>,
 		      <0x00 0x02917000 0x00 0x400>,
 		      <0x00 0x0d800000 0x00 0x00800000>,
