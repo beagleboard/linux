@@ -1,0 +1,67 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/mfd/ti,tps6594x.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: TPS6594x Power Management Integrated Circuit (PMIC)
+
+maintainers:
+  - Keerthy <j-keerthy@ti.com>
+
+properties:
+  compatible:
+    contains:
+      enum:
+        - ti,tps6594x
+
+  reg:
+    const: 0x48
+    description: I2C slave address
+
+  ti,system-power-controller:
+    type: boolean
+    description: PMIC is controlling the system power.
+
+  rtc:
+    type: object
+    $ref: /schemas/rtc/rtc.yaml#
+    unevaluatedProperties: false
+    properties:
+      compatible:
+        const: ti,tps6594x-rtc
+
+  gpio:
+    type: object
+    unevaluatedProperties: false
+    properties:
+      compatible:
+        const: ti,tps6594x-gpio
+
+additionalProperties: false
+
+required:
+  - compatible
+  - reg
+
+examples:
+  - |
+    i2c0 {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        pmic: pmic@48 {
+            compatible = "ti,tps6594x";
+            reg = <0x48>;
+
+            rtc {
+                compatible = "ti,tps6594x-rtc";
+            };
+
+            gpio {
+                compatible = "ti,tps6594x-gpio";
+            };
+        };
+    };
+
+...
