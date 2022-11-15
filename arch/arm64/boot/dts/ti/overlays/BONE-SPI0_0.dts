@@ -1,0 +1,42 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (C) 2022 BeagleBoard.org - https://beagleboard.org/
+ *
+ * https://elinux.org/Beagleboard:BeagleBone_cape_interface_spec#SPI
+ */
+
+/dts-v1/;
+/plugin/;
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+ */
+&{/chosen} {
+	overlays {
+		BONE-SPI0_0.kernel = __TIMESTAMP__;
+	};
+};
+
+&bone_spi_0 {
+	/* tested with: sudo ./spidev_test -v --device /dev/spidev0.0 */
+	pinctrl-names = "default";
+	pinctrl-0 = <
+		&P9_17_spi_pin /* spi6_cs0 */
+		&P9_22_spi_pin /* spi6_clk */
+		&P9_21_spi_pin /* spi6_d0 */
+		&P9_18_spi_pin /* spi6_d1 */
+	>;
+	ti,spi-num-cs = <1>;
+	ti,pindir-d0-out-d1-in;
+
+	status = "okay";
+
+	spidev@0 {
+		symlink = "bone/spi/0.0";
+		compatible = "rohm,dh2228fv";
+		reg = <0>;	/* CE0 */
+		#address-cells = <1>;
+		#size-cells = <0>;
+		spi-max-frequency = <125000000>;
+	};
+};
