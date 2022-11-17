@@ -4,6 +4,11 @@
  */
 
 / {
+	aliases {
+		ethernet0 = &cpsw_port1;
+		ethernet1 = &cpsw_port2;
+	};
+
 	cpus {
 		cpu@0 {
 			cpu0-supply = <&dcdc2_reg>;
