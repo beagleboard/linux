@@ -1613,6 +1613,8 @@ static void am65_cpsw_nuss_mac_control(struct am65_cpsw_port *port, phy_interfac
 		mac_control |= CPSW_SL_CTL_EXT_EN;
 	if (speed == SPEED_100 && interface == PHY_INTERFACE_MODE_RMII)
 		mac_control |= CPSW_SL_CTL_IFCTL_A;
+	if (interface == PHY_INTERFACE_MODE_USXGMII)
+		mac_control |= CPSW_SL_CTL_XGIG | CPSW_SL_CTL_XGMII_EN;
 	if (duplex)
 		mac_control |= CPSW_SL_CTL_FULLDUPLEX;
 
@@ -2269,21 +2271,35 @@ am65_cpsw_nuss_init_port_ndev(struct am65_cpsw_common *common, u32 port_idx)
 	/* Configuring Phylink */
 	port->slave.phylink_config.dev = &port->ndev->dev;
 	port->slave.phylink_config.type = PHYLINK_NETDEV;
-	port->slave.phylink_config.mac_capabilities = MAC_SYM_PAUSE | MAC_10 | MAC_100 | MAC_1000FD;
+	port->slave.phylink_config.mac_capabilities = MAC_SYM_PAUSE | MAC_10 | MAC_100 |
+						      MAC_1000FD | MAC_5000FD;
 
-	if (phy_interface_mode_is_rgmii(port->slave.phy_if)) {
+	switch (port->slave.phy_if) {
+	case PHY_INTERFACE_MODE_RGMII:
+	case PHY_INTERFACE_MODE_RGMII_ID:
+	case PHY_INTERFACE_MODE_RGMII_RXID:
+	case PHY_INTERFACE_MODE_RGMII_TXID:
 		phy_interface_set_rgmii(port->slave.phylink_config.supported_interfaces);
-	} else if (port->slave.phy_if == PHY_INTERFACE_MODE_RMII) {
-		__set_bit(PHY_INTERFACE_MODE_RMII,
+		break;
+
+	case PHY_INTERFACE_MODE_RMII:
+		__set_bit(port->slave.phy_if,
 			  port->slave.phylink_config.supported_interfaces);
-	} else if (common->pdata.extra_modes & BIT(port->slave.phy_if)) {
-		if (port->slave.phy_if == PHY_INTERFACE_MODE_QSGMII)
-			__set_bit(PHY_INTERFACE_MODE_QSGMII,
+		break;
+
+	case PHY_INTERFACE_MODE_QSGMII:
+	case PHY_INTERFACE_MODE_SGMII:
+	case PHY_INTERFACE_MODE_USXGMII:
+		if (common->pdata.extra_modes & BIT(port->slave.phy_if)) {
+			__set_bit(port->slave.phy_if,
 				  port->slave.phylink_config.supported_interfaces);
-		else
-			__set_bit(PHY_INTERFACE_MODE_SGMII,
-				  port->slave.phylink_config.supported_interfaces);
-	} else {
+		} else {
+			dev_err(dev, "selected phy-mode is not supported\n");
+			return -EOPNOTSUPP;
+		}
+		break;
+
+	default:
 		dev_err(dev, "selected phy-mode is not supported\n");
 		return -EOPNOTSUPP;
 	}
@@ -2923,7 +2939,7 @@ static const struct am65_cpsw_pdata j784s4_cpswxg_pdata = {
 	.quirks = 0,
 	.ale_dev_id = "am64-cpswxg",
 	.fdqring_mode = K3_RINGACC_RING_MODE_MESSAGE,
-	.extra_modes = BIT(PHY_INTERFACE_MODE_QSGMII),
+	.extra_modes = BIT(PHY_INTERFACE_MODE_QSGMII) | BIT(PHY_INTERFACE_MODE_USXGMII),
 };
 
 static const struct of_device_id am65_cpsw_nuss_of_mtable[] = {
