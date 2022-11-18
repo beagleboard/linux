@@ -1,0 +1,17 @@
+/dts-v1/;
+/plugin/;
+
+&{/chosen} {
+	overlays {
+		LED_P8_04.kernel = __TIMESTAMP__;
+	};
+};
+
+&ocp {
+    P8_04_pinmux { pinctrl-0 = <&P8_04_gpio_pd_pin>; };
+};
+
+&bone_led_P8_04 {
+    label = "P8_04";
+    status = "okay";
+};
