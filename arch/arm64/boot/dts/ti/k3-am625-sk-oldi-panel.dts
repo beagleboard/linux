@@ -100,7 +100,7 @@
 	};
 };
 
-&main_i2c1 {
+&main_i2c0 {
 	#address-cells = <1>;
 	#size-cells = <0>;
 
@@ -108,6 +108,6 @@
 		compatible = "ilitek,ili251x";
 		reg = <0x41>;
 		interrupt-parent = <&exp1>;
-		interrupts = <15 IRQ_TYPE_EDGE_FALLING>;
+		interrupts = <22 IRQ_TYPE_EDGE_FALLING>;
 	};
 };
