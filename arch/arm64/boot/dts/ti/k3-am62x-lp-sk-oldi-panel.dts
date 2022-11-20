@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /**
- * Microtips integrated OLDI panel and touch DT overlay for AM625 - SK
+ * Microtips integrated OLDI panel and touch DT overlay for AM62X LP SK
  *
  * Copyright (C) 2021 Texas Instruments Incorporated - http://www.ti.com/
  */
@@ -108,6 +108,7 @@
 		compatible = "ilitek,ili251x";
 		reg = <0x41>;
 		interrupt-parent = <&exp1>;
-		interrupts = <22 IRQ_TYPE_EDGE_FALLING>;
+		interrupts = <15 IRQ_TYPE_EDGE_FALLING>;
+		reset-gpios = <&exp2 18 GPIO_ACTIVE_LOW>;
 	};
 };
