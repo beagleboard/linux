@@ -172,10 +172,16 @@
 		compatible = "simple-audio-card";
 		simple-audio-card,name = "AM62x-SKEVM";
 		simple-audio-card,widgets =
-			"Headphone", "Headphone Jack";
+			"Headphone",	"Headphone Jack",
+			"Line",	"Line In",
+			"Microphone",	"Microphone Jack";
 		simple-audio-card,routing =
 			"Headphone Jack",	"HPLOUT",
-			"Headphone Jack",	"HPROUT";
+			"Headphone Jack",	"HPROUT",
+			"LINE1L",		"Line In",
+			"LINE1R",		"Line In",
+			"MIC3R",		"Microphone Jack",
+			"Microphone Jack",	"Mic Bias";
 		simple-audio-card,format = "dsp_b";
 		simple-audio-card,bitclock-master = <&sound_master>;
 		simple-audio-card,frame-master = <&sound_master>;
@@ -572,6 +578,8 @@
 		#sound-dai-cells = <0>;
 		compatible = "ti,tlv320aic3106";
 		reg = <0x1b>;
+		ai3x-micbias-vg = <1>;		/* 2.0V */
+		status = "okay";
 
 		/* Regulators */
 		AVDD-supply = <&vcc_3v3_sys>;
@@ -698,7 +706,7 @@
 	tdm-slots = <2>;
 
 	serial-dir = <  /* 0: INACTIVE, 1: TX, 2: RX */
-	       1 0 0 0
+	       1 0 2 0
 	       0 0 0 0
 	       0 0 0 0
 	       0 0 0 0
