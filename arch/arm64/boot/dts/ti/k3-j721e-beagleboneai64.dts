@@ -1,0 +1,1208 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * https://beagleboard.org/ai-64
+ * Copyright (C) 2022 Texas Instruments Incorporated - https://www.ti.com/
+ * Copyright (C) 2022 Jason Kridner, BeagleBoard.org Foundation
+ * Copyright (C) 2022 Robert Nelson, BeagleBoard.org Foundation
+ */
+
+/dts-v1/;
+
+#include "k3-j721e-som-p0.dtsi"
+#include "k3-j721e-rtos-memory-map.dtsi"
+#include "k3-j721e-beagleboneai64-bone-buses.dtsi"
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/input.h>
+#include <dt-bindings/leds/common.h>
+#include <dt-bindings/net/ti-dp83867.h>
+#include <dt-bindings/board/k3-j721e-bone-pins.h>
+
+/ {
+	compatible = "beagle,j721e-beagleboneai64", "ti,j721e";
+	model = "BeagleBoard.org BeagleBone AI-64";
+
+	chosen {
+		stdout-path = "serial2:115200n8";
+		base_dtb = "k3-j721e-beagleboneai64.dts";
+		base_dtb_timestamp = __TIMESTAMP__;
+	};
+
+	gpio_keys: gpio-keys {
+		compatible = "gpio-keys";
+		pinctrl-names = "default";
+		pinctrl-0 = <&sw_pwr_pins_default>;
+
+		button-1 {
+			label = "BOOT";
+			linux,code = <BTN_0>;
+			gpios = <&wkup_gpio0 0 GPIO_ACTIVE_LOW>;
+		};
+
+		button-2 {
+			label = "POWER";
+			linux,code = <KEY_POWER>;
+			gpios = <&wkup_gpio0 4 GPIO_ACTIVE_LOW>;
+		};
+	};
+
+	leds {
+		compatible = "gpio-leds";
+		pinctrl-names = "default";
+		pinctrl-0 = <&led_pins_default>;
+
+		led-0 {
+			label = "beaglebone:green:usr0";
+			gpios = <&main_gpio0 96 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "heartbeat";
+			function = LED_FUNCTION_HEARTBEAT;
+		};
+
+		led-1 {
+			label = "beaglebone:green:usr1";
+			gpios = <&main_gpio0 95 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "mmc0";
+			function = LED_FUNCTION_DISK_ACTIVITY;
+		};
+
+		led-2 {
+			label = "beaglebone:green:usr2";
+			gpios = <&main_gpio0 97 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "cpu";
+			function = LED_FUNCTION_CPU;
+		};
+
+		led-3 {
+			label = "beaglebone:green:usr3";
+			gpios = <&main_gpio0 110 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "mmc1";
+			function = LED_FUNCTION_DISK_ACTIVITY;
+		};
+
+		led-4 {
+			label = "beaglebone:green:usr4";
+			gpios = <&main_gpio0 109 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "phy0tx";
+			function = LED_FUNCTION_WLAN;
+			default-state = "off";
+		};
+	};
+
+	evm_12v0: regulator-0 {
+		/* main supply */
+		compatible = "regulator-fixed";
+		regulator-name = "evm_12v0";
+		regulator-min-microvolt = <12000000>;
+		regulator-max-microvolt = <12000000>;
+		regulator-always-on;
+		regulator-boot-on;
+	};
+
+	vsys_3v3: regulator-1 {
+		/* Output of LMS140 */
+		compatible = "regulator-fixed";
+		regulator-name = "vsys_3v3";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		vin-supply = <&evm_12v0>;
+		regulator-always-on;
+		regulator-boot-on;
+	};
+
+	vsys_5v0: regulator-2 {
+		/* Output of LM5140 */
+		compatible = "regulator-fixed";
+		regulator-name = "vsys_5v0";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		vin-supply = <&evm_12v0>;
+		regulator-always-on;
+		regulator-boot-on;
+	};
+
+	vdd_mmc1: regulator-3 {
+		compatible = "regulator-fixed";
+		pinctrl-names = "default";
+		pinctrl-0 = <&sd_pwr_en_pins_default>;
+		regulator-name = "vdd_mmc1";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-boot-on;
+		enable-active-high;
+		vin-supply = <&vsys_3v3>;
+		gpio = <&main_gpio0 82 GPIO_ACTIVE_HIGH>;
+	};
+
+	vdd_sd_dv_alt: regulator-4 {
+		compatible = "regulator-gpio";
+		pinctrl-names = "default";
+		pinctrl-0 = <&vdd_sd_dv_alt_pins_default>;
+		regulator-name = "tlv71033";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-boot-on;
+		vin-supply = <&vsys_5v0>;
+		gpios = <&main_gpio0 117 GPIO_ACTIVE_HIGH>;
+		states = <1800000 0x0>,
+			 <3300000 0x1>;
+	};
+
+	cpsw9g_virt_mac: main_r5fss_cpsw9g_virt_mac0 {
+		compatible = "ti,j721e-cpsw-virt-mac";
+		dma-coherent;
+		ti,psil-base = <0x4a00>;
+		ti,remote-name = "mpu_1_0_ethswitch-device-0";
+
+		dmas = <&main_udmap 0xca00>,
+		       <&main_udmap 0xca01>,
+		       <&main_udmap 0xca02>,
+		       <&main_udmap 0xca03>,
+		       <&main_udmap 0xca04>,
+		       <&main_udmap 0xca05>,
+		       <&main_udmap 0xca06>,
+		       <&main_udmap 0xca07>,
+		       <&main_udmap 0x4a00>;
+		dma-names = "tx0", "tx1", "tx2", "tx3",
+			    "tx4", "tx5", "tx6", "tx7",
+			    "rx";
+
+		virt_emac_port {
+			ti,label = "virt-port";
+			/* local-mac-address = [0 0 0 0 0 0]; */
+		};
+	};
+
+	transceiver1: can-phy@0 {
+		status = "disabled";
+	};
+
+	transceiver2: can-phy@1 {
+		status = "disabled";
+	};
+
+	dp_pwr_3v3: regulator-5 {
+		compatible = "regulator-fixed";
+		pinctrl-names = "default";
+		pinctrl-0 = <&dp0_3v3_en_pins_default>;
+		regulator-name = "dp-pwr";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&main_gpio0 49 GPIO_ACTIVE_HIGH>; /* DP0_PWR_SW_EN */
+		enable-active-high;
+
+		/* Always on for now, until dp-connector driver can handle this */
+		regulator-always-on;
+	};
+
+	dp0: connector {
+		compatible = "dp-connector";
+		label = "DP0";
+		type = "full-size";
+		dp-pwr-supply = <&dp_pwr_3v3>;
+
+		port {
+			dp_connector_in: endpoint {
+				remote-endpoint = <&dp0_out>;
+			};
+		};
+	};
+};
+
+&main_pmx0 {
+	led_pins_default: led-pins-default {
+		pinctrl-single,pins = <
+			J721E_IOPAD(0x184, PIN_INPUT, 7) /* (T23) RGMII5_RD0.GPIO0_96 */
+			J721E_IOPAD(0x180, PIN_INPUT, 7) /* (R23) RGMII5_RD1.GPIO0_95 */
+			J721E_IOPAD(0x188, PIN_INPUT, 7) /* (Y28) RGMII6_TX_CTL.GPIO0_97 */
+			J721E_IOPAD(0x1bc, PIN_INPUT, 7) /* (V24) MDIO0_MDC.GPIO0_110 */
+			J721E_IOPAD(0x1b8, PIN_INPUT, 7) /* (V26) MDIO0_MDIO.GPIO0_109 */
+		>;
+	};
+
+	main_mmc1_pins_default: main-mmc1-pins-default {
+		pinctrl-single,pins = <
+			J721E_IOPAD(0x254, PIN_INPUT, 0) /* (R29) MMC1_CMD */
+			J721E_IOPAD(0x250, PIN_INPUT, 0) /* (P25) MMC1_CLK */
+			J721E_IOPAD(0x2ac, PIN_INPUT, 0) /* (P25) MMC1_CLKLB */
+			J721E_IOPAD(0x24c, PIN_INPUT, 0) /* (R24) MMC1_DAT0 */
+			J721E_IOPAD(0x248, PIN_INPUT, 0) /* (P24) MMC1_DAT1 */
+			J721E_IOPAD(0x244, PIN_INPUT, 0) /* (R25) MMC1_DAT2 */
+			J721E_IOPAD(0x240, PIN_INPUT, 0) /* (R26) MMC1_DAT3 */
+			J721E_IOPAD(0x258, PIN_INPUT, 0) /* (P23) MMC1_SDCD */
+		>;
+	};
+
+	main_uart0_pins_default: main-uart0-pins-default {
+		pinctrl-single,pins = <
+			J721E_IOPAD(0x1e8, PIN_INPUT, 0) /* (AB2) UART0_RXD */
+			J721E_IOPAD(0x1ec, PIN_OUTPUT, 0) /* (AB3) UART0_TXD */
+		>;
+	};
+
+	sd_pwr_en_pins_default: sd-pwr-en-pins-default {
+		pinctrl-single,pins = <
+			J721E_IOPAD(0x14c, PIN_INPUT, 7) /* (AA29) PRG0_PRU1_GPO19.GPIO0_82 */
+		>;
+	};
+
+	vdd_sd_dv_alt_pins_default: vdd-sd-dv-alt-pins-default {
+		pinctrl-single,pins = <
+			J721E_IOPAD(0x1d8, PIN_INPUT, 7) /* (W4) SPI1_CS1.GPIO0_117 */
+		>;
+	};
+
+	main_usbss0_pins_default: main-usbss0-pins-default {
+		pinctrl-single,pins = <
+			J721E_IOPAD(0x210, PIN_INPUT, 7) /* (W3) MCAN1_RX.GPIO1_3 - USBC_DIR */
+		>;
+	};
+
+	tusb322_pins_default: tusb322-pins-default {
+		pinctrl-single,pins = <
+			J721E_IOPAD(0x214, PIN_INPUT, 7) /* (V4) MCAN1_TX.GPIO1_4 -- USBC_INT */
+		>;
+	};
+
+	main_usbss1_pins_default: main-usbss1-pins-default {
+		pinctrl-single,pins = <
+			J721E_IOPAD(0x290, INPUT_DISABLE, 1) /* (U6) USB0_DRVVBUS.USB1_DRVVBUS */
+		>;
+	};
+
+	dp0_3v3_en_pins_default:dp0-3v3-en-pins-default {
+		pinctrl-single,pins = <
+			J721E_IOPAD(0xc8, PIN_INPUT, 7) /* (AE26) PRG0_PRU0_GPO6.GPIO0_49 */
+		>;
+	};
+
+	dp0_pins_default: dp0-pins-default {
+		pinctrl-single,pins = <
+			J721E_IOPAD(0x1c4, PIN_INPUT, 5) /* (Y4) SPI0_CS1.DP0_HPD */
+		>;
+	};
+
+	main_i2c0_pins_default: main-i2c0-pins-default {
+		pinctrl-single,pins = <
+			J721E_IOPAD(0x220, PIN_INPUT_PULLUP, 0) /* (AC5) I2C0_SCL */
+			J721E_IOPAD(0x224, PIN_INPUT_PULLUP, 0) /* (AA5) I2C0_SDA */
+		>;
+	};
+
+	main_i2c1_pins_default: main-i2c1-pins-default {
+		pinctrl-single,pins = <
+			J721E_IOPAD(0x228, PIN_INPUT_PULLUP, 0) /* (Y6) I2C1_SCL */
+			J721E_IOPAD(0x22c, PIN_INPUT_PULLUP, 0) /* (AA6) I2C1_SDA */
+		>;
+	};
+
+	main_i2c3_pins_default: main-i2c3-pins-default {
+		pinctrl-single,pins = <
+			J721E_IOPAD(0x270, PIN_INPUT_PULLUP, 4) /* (T26) MMC2_CLK.I2C3_SCL */
+			J721E_IOPAD(0x274, PIN_INPUT_PULLUP, 4) /* (T25) MMC2_CMD.I2C3_SDA */
+		>;
+	};
+
+	main_i2c5_pins_default: main-i2c5-pins-default {
+		pinctrl-single,pins = <
+			J721E_IOPAD(0x150, PIN_INPUT_PULLUP, 2) /* (Y26) PRG0_MDIO0_MDIO.I2C5_SCL */
+			J721E_IOPAD(0x154, PIN_INPUT_PULLUP, 2) /* (AA27) PRG0_MDIO0_MDC.I2C5_SDA */
+		>;
+	};
+
+	pcie1_rst_pins_default: pcie1-rst-pins-default {
+		pinctrl-single,pins = <
+			J721E_IOPAD(0x5c, PIN_INPUT, 7) /* (AG23) PRG1_PRU1_GPO1.GPIO0_22 */
+		>;
+	};
+
+	ehrpwm0_pins_default: ehrpwm0_pins_default {
+		pinctrl-single,pins = <
+			J721E_IOPAD(0x164, PIN_OUTPUT, 6) /* (V29) RGMII5_TD2.EHRPWM0_A */
+			J721E_IOPAD(0x168, PIN_OUTPUT, 6) /* (V27) RGMII5_TD1.EHRPWM0_B */
+		>;
+	};
+
+	ehrpwm1_pins_default: ehrpwm1_pins_default {
+		pinctrl-single,pins = <
+			J721E_IOPAD(0x16c, PIN_OUTPUT, 6) /* (U28) RGMII5_TD0.EHRPWM1_A */
+			J721E_IOPAD(0x170, PIN_OUTPUT, 6) /* (U29) RGMII5_TXC.EHRPWM1_B */
+		>;
+	};
+
+	ehrpwm2_pins_default: ehrpwm2_pins_default {
+		pinctrl-single,pins = <
+			J721E_IOPAD(0x178, PIN_OUTPUT, 6) /* (U27) RGMII5_RD3.EHRPWM2_A */
+			J721E_IOPAD(0x17c, PIN_OUTPUT, 6) /* (U24) RGMII5_RD2.EHRPWM2_B */
+		>;
+	};
+
+	ehrpwm3_pins_default: ehrpwm3_pins_default {
+		pinctrl-single,pins = <
+			J721E_IOPAD(0x18c, PIN_OUTPUT, 6) /* (V23) RGMII6_RX_CTL.EHRPWM3_A */
+			J721E_IOPAD(0x190, PIN_OUTPUT, 6) /* (W23) RGMII6_TD3.EHRPWM3_B */
+		>;
+	};
+};
+
+&wkup_pmx0 {
+	eeprom_wp_pins_default: eeprom-wp-pins-default {
+		pinctrl-single,pins = <
+			J721E_WKUP_IOPAD(0xc4, PIN_OUTPUT_PULLUP, 7) /* (G24) WKUP_GPIO0_5 */
+		>;
+	};
+
+	mcu_adc0_pins_default: mcu-adc0-pins-default {
+		pinctrl-single,pins = <
+			J721E_WKUP_IOPAD(0x130, PIN_INPUT, 0) /* (K25) MCU_ADC0_AIN0 */
+			J721E_WKUP_IOPAD(0x134, PIN_INPUT, 0) /* (K26) MCU_ADC0_AIN1 */
+			J721E_WKUP_IOPAD(0x138, PIN_INPUT, 0) /* (K28) MCU_ADC0_AIN2 */
+			J721E_WKUP_IOPAD(0x13c, PIN_INPUT, 0) /* (L28) MCU_ADC0_AIN3 */
+			J721E_WKUP_IOPAD(0x140, PIN_INPUT, 0) /* (K24) MCU_ADC0_AIN4 */
+			J721E_WKUP_IOPAD(0x144, PIN_INPUT, 0) /* (K27) MCU_ADC0_AIN5 */ /* TODO: disable? */
+			J721E_WKUP_IOPAD(0x148, PIN_INPUT, 0) /* (K29) MCU_ADC0_AIN6 */
+		>;
+	};
+
+	mcu_adc1_pins_default: mcu-adc1-pins-default {
+		pinctrl-single,pins = <
+			J721E_WKUP_IOPAD(0x150, PIN_INPUT, 0) /* (N23) MCU_ADC1_AIN0 */
+		>;
+	};
+
+	mikro_bus_pins_default: mikro-bus-pins-default {
+		pinctrl-single,pins = <
+			J721E_WKUP_IOPAD(0x108, PIN_INPUT, 7) /* SDAPULLEN (E26) PMIC_POWER_EN0.WKUP_GPIO0_66 */
+			J721E_WKUP_IOPAD(0xd4, PIN_INPUT, 7) /* SDA (G26) WKUP_GPIO0_9.MCU_I2C1_SDA */
+			J721E_WKUP_IOPAD(0xf4, PIN_INPUT, 7) /* SDA (D25) MCU_I3C0_SDA.WKUP_GPIO0_61 */
+			J721E_WKUP_IOPAD(0xd0, PIN_INPUT, 7) /* SCL (G27) WKUP_GPIO0_8.MCU_I2C1_SCL */
+			J721E_WKUP_IOPAD(0xf0, PIN_INPUT, 7) /* SCL (D26) MCU_I3C0_SCL.WKUP_GPIO0_60 */
+
+			J721E_WKUP_IOPAD(0xb8, PIN_INPUT, 7) /* MOSI (F28) WKUP_GPIO0_2.MCU_SPI1_D1 */
+			J721E_WKUP_IOPAD(0xb4, PIN_INPUT, 7) /* MISO (F25) WKUP_GPIO0_1.MCU_SPI1_D0 */
+			J721E_WKUP_IOPAD(0xb0, PIN_INPUT, 7) /* CLK (F26) WKUP_GPIO0_0.MCU_SPI1_CLK */
+			J721E_WKUP_IOPAD(0xbc, PIN_INPUT, 7) /* CS (F27) WKUP_GPIO0_3.MCU_SPI1_CS0 */
+
+			J721E_WKUP_IOPAD(0x44, PIN_INPUT, 7) /* RX (G22) MCU_OSPI1_D1.WKUP_GPIO0_33 */
+			J721E_WKUP_IOPAD(0x48, PIN_INPUT, 7) /* TX (D23) MCU_OSPI1_D2.WKUP_GPIO0_34 */
+
+			J721E_WKUP_IOPAD(0x4c, PIN_INPUT, 7) /* INT (C23) MCU_OSPI1_D3.WKUP_GPIO0_35 */
+			J721E_WKUP_IOPAD(0x54, PIN_INPUT, 7) /* RST (E22) MCU_OSPI1_CSn1.WKUP_GPIO0_37 */
+			J721E_WKUP_IOPAD(0xdc, PIN_INPUT, 7) /* PWM (H27) WKUP_GPIO0_11 */
+			J721E_WKUP_IOPAD(0xac, PIN_INPUT, 7) /* AN (C29) MCU_MCAN0_RX.WKUP_GPIO0_59 */
+		>;
+	};
+
+	mcu_cpsw_pins_default: mcu-cpsw-pins-default {
+		pinctrl-single,pins = <
+			J721E_WKUP_IOPAD(0x84, PIN_INPUT, 0) /* (B24) MCU_RGMII1_RD0 */
+			J721E_WKUP_IOPAD(0x80, PIN_INPUT, 0) /* (A24) MCU_RGMII1_RD1 */
+			J721E_WKUP_IOPAD(0x7c, PIN_INPUT, 0) /* (D24) MCU_RGMII1_RD2 */
+			J721E_WKUP_IOPAD(0x78, PIN_INPUT, 0) /* (A25) MCU_RGMII1_RD3 */
+			J721E_WKUP_IOPAD(0x74, PIN_INPUT, 0) /* (C24) MCU_RGMII1_RXC */
+			J721E_WKUP_IOPAD(0x5c, PIN_INPUT, 0) /* (C25) MCU_RGMII1_RX_CTL */
+			J721E_WKUP_IOPAD(0x6c, PIN_OUTPUT, 0) /* (B25) MCU_RGMII1_TD0 */
+			J721E_WKUP_IOPAD(0x68, PIN_OUTPUT, 0) /* (A26) MCU_RGMII1_TD1 */
+			J721E_WKUP_IOPAD(0x64, PIN_OUTPUT, 0) /* (A27) MCU_RGMII1_TD2 */
+			J721E_WKUP_IOPAD(0x60, PIN_OUTPUT, 0) /* (A28) MCU_RGMII1_TD3 */
+			J721E_WKUP_IOPAD(0x70, PIN_OUTPUT, 0) /* (B26) MCU_RGMII1_TXC */
+			J721E_WKUP_IOPAD(0x58, PIN_OUTPUT, 0) /* (B27) MCU_RGMII1_TX_CTL */
+		>;
+	};
+
+	mcu_mdio_pins_default: mcu-mdio1-pins-default {
+		pinctrl-single,pins = <
+			J721E_WKUP_IOPAD(0x8c, PIN_OUTPUT, 0) /* (F23) MCU_MDIO0_MDC */
+			J721E_WKUP_IOPAD(0x88, PIN_INPUT, 0) /* (E23) MCU_MDIO0_MDIO */
+		>;
+	};
+
+	sw_pwr_pins_default: sw-pwr-pins-default {
+		pinctrl-single,pins = <
+			J721E_WKUP_IOPAD(0xc0, PIN_INPUT, 7) /* (G25) WKUP_GPIO0_4 */
+		>;
+	};
+
+	wkup_i2c0_pins_default: wkup-i2c0-pins-default {
+		pinctrl-single,pins = <
+			J721E_WKUP_IOPAD(0xf8, PIN_INPUT_PULLUP, 0) /* (J25) WKUP_I2C0_SCL */
+			J721E_WKUP_IOPAD(0xfc, PIN_INPUT_PULLUP, 0) /* (H24) WKUP_I2C0_SDA */
+		>;
+	};
+
+	mcu_usbss1_pins_default: mcu-usbss1-pins-default {
+		pinctrl-single,pins = <
+			J721E_WKUP_IOPAD(0x3c, PIN_OUTPUT_PULLUP, 5) /* (A23) MCU_OSPI1_LBCLKO.WKUP_GPIO0_30 */
+		>;
+	};
+};
+
+&wkup_uart0 {
+	/* Wakeup UART is used by TIFS firmware. */
+	status = "reserved";
+};
+
+&main_uart0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_uart0_pins_default>;
+	/* Shared with ATF on this platform */
+	power-domains = <&k3_pds 146 TI_SCI_PD_SHARED>;
+};
+
+&main_uart3 {
+	/* UART not brought out */
+	status = "disabled";
+};
+
+&main_uart6 {
+	/* UART not brought out */
+	status = "disabled";
+};
+
+&main_uart7 {
+	/* UART not brought out */
+	status = "disabled";
+};
+
+&main_uart8 {
+	/* UART not brought out */
+	status = "disabled";
+};
+
+&main_uart9 {
+	/* UART not brought out */
+	status = "disabled";
+};
+
+&main_sdhci0 {
+	/* eMMC */
+	non-removable;
+	ti,driver-strength-ohm = <50>;
+	disable-wp;
+};
+
+&main_sdhci1 {
+	/* SD Card */
+	vmmc-supply = <&vdd_mmc1>;
+	vqmmc-supply = <&vdd_sd_dv_alt>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_mmc1_pins_default>;
+	ti,driver-strength-ohm = <50>;
+	disable-wp;
+};
+
+&main_sdhci2 {
+	/* Unused */
+	status = "disabled";
+};
+
+&main_i2c0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_i2c0_pins_default>;
+	clock-frequency = <400000>;
+};
+
+&main_i2c1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_i2c1_pins_default>;
+	clock-frequency = <400000>;
+
+	tusb322@47 {
+		compatible = "ti,tusb322";
+		reg = <0x47>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&tusb322_pins_default>;
+		interrupt-parent = <&main_gpio1>;
+		interrupts = <4 IRQ_TYPE_EDGE_FALLING>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+	};
+};
+
+&main_i2c3 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_i2c3_pins_default>;
+	clock-frequency = <400000>;
+};
+
+&main_i2c5 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_i2c5_pins_default>;
+	clock-frequency = <400000>;
+};
+
+bone_i2c_0: &wkup_i2c0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&wkup_i2c0_pins_default &eeprom_wp_pins_default>;
+	clock-frequency = <400000>;
+
+	eeprom@50 {
+		compatible = "atmel,24c04";
+		reg = <0x50>;
+	};
+};
+
+&main_gpio0 {
+	status = "okay";
+	gpio-line-names =
+		"NC",
+		"P9_11",
+		"P9_13",
+		"P8_17",
+		"P8_18", /* 0-4 */
+		"P8_22",
+		"P8_24",
+		"P8_34",
+		"P8_36",
+		"P8_38A", /* 5-9 */
+		"P9_23",
+		"P8_37B",
+		"P9_26B",
+		"P9_24B",
+		"P8_08", /* 10-14 */
+		"P8_07",
+		"P8_10",
+		"P8_09",
+		"P9_42B",
+		"NC", /* 15-19 */
+		"P8_03",
+		"TYPEC_PWR_ST",
+		"M2_RSTz",
+		"M2_I2C_ALERT#",
+		"P8_35A", /* 20-24 */
+		"P8_33A",
+		"P8_32A",
+		"NC",
+		"P9_17A",
+		"NC", /* 25-29 */
+		"P8_21",
+		"P8_23",
+		"P8_31A",
+		"P8_05",
+		"P8_06", /* 30-34 */
+		"P8_25",
+		"M2_W_DISABLE1#",
+		"M2_W_DISABLE2#",
+		"P9_22A (BOOTMODE1)",
+		"P9_21A", /* 35-39 */
+		"P9_18A",
+		"DSI_I2C_SCL",
+		"DSI_I2C_SDA",
+		"P9_28B",
+		"P9_30B", /* 40-44 */
+		"P9_12",
+		"P9_27A",
+		"P9_15",
+		"P8_04 (BOOTMODE2)",
+		"VCC_DP_EN", /* 45-49 */
+		"P9_33B",
+		"P8_26",
+		"P9_31B",
+		"P9_29B",
+		"P9_39B", /* 50-54 */
+		"P9_35B",
+		"P9_36B",
+		"P9_37B",
+		"P9_38B",
+		"P8_12", /* 55-59 */
+		"P8_11 (BOOTMODE7)",
+		"P8_15",
+		"P8_16",
+		"NC",
+		"NC", /* 60-64 */
+		"P8_43",
+		"P8_44",
+		"P8_41",
+		"P8_42 (BOOTMODE6)",
+		"P8_39", /* 65-69 */
+		"P8_40",
+		"P8_27",
+		"P8_28",
+		"P8_29",
+		"P8_30", /* 70-74 */
+		"P8_14",
+		"P8_20",
+		"P9_20B",
+		"P9_19B",
+		"P8_45", /* 75-79 */
+		"P8_46 (BOOTMODE3)",
+		"P9_40B",
+		"VDD_SD_EN",
+		"CSI_I2C_SCL",
+		"CSI_I2C_SDA", /* 80-84 */
+		"M2_I2S_SCK",
+		"M2_I2S_WS",
+		"M2_I2S_IN",
+		"P8_19",
+		"P8_13", /* 85-89 */
+		"P9_21B",
+		"P9_22B",
+		"M2_I2S_OUT",
+		"P9_14",
+		"P9_16", /* 90-94 */
+		"USR1",
+		"USR0",
+		"USR2",
+		"DSI_GPIO1",
+		"FAN_PWM", /* 95-99 */
+		"FAN_TACH",
+		"CSI1_GPIO1",
+		"CSI0_GPIO2",
+		"CSI0_GPIO1",
+		"P9_25B", /* 100-104 */
+		"P8_38B",
+		"P8_37A",
+		"CSI1_GPIO2",
+		"DSI_GPIO2",
+		"USR4", /* 105-109 */
+		"USR3",
+		"P8_33B",
+		"DP_HPD",
+		"M2_UART_CTSn",
+		"M2_UART_RTSn", /* 110-114 */
+		"P9_17B",
+		"P8_35B",
+		"VDD_SD_SEL",
+		"P9_26A",
+		"P9_24A", /* 115-119 */
+		"P9_18B",
+		"CONSOLE_RX",
+		"CONSOLE_TX",
+		"P9_42A",
+		"P9_27B", /* 120-124 */
+		"M2_UART_RX",
+		"M2_UART_TX",
+		"P9_25A"; /* 125-127 */
+};
+
+&main_gpio1 {
+	status = "okay";
+	gpio-line-names =
+		"P9_41",
+		"P9_19A",
+		"P9_20A",
+		"TYPEC_DIR",
+		"TYPEC_INT", /* 0-4 */
+		"M2_PCIE_WAKE#",
+		"M2_PCIE_CLKREQ#",
+		"M2_I2C_SCL",
+		"M2_I2C_SDA",
+		"TYPEC/CSI1_I2C_SCL", /* 5-9 */
+		"TYPEC/CSI1_I2C_SDA",
+		"P9_28A",
+		"P9_31A",
+		"P9_30A",
+		"P9_29A", /* 10-14 */
+		"uSD_DAT3",
+		"uSD_DAT2",
+		"uSD_DAT1",
+		"uSD_DAT0",
+		"uSD_CLK", /* 15-19 */
+		"uSD_CMD",
+		"uSD_SDCD",
+		"NC",
+		"M2_SDIO_DAT3",
+		"M2_SDIO_DAT2", /* 20-24 */
+		"M2_SDIO_DAT1",
+		"M2_SDIO_DAT0",
+		"M2_SDIO_CLK",
+		"M2_SDIO_CMD",
+		"USB1_DRVVBUS", /* 25-29 */
+		"NC",
+		"NC",
+		"NC",
+		"NC",
+		"NC", /* 30-34 */
+		"NC",
+		"NC"; /* 35-36 */
+};
+
+&main_gpio2 {
+	status = "disabled";
+};
+
+&main_gpio3 {
+	status = "disabled";
+};
+
+&main_gpio4 {
+	status = "disabled";
+};
+
+&main_gpio5 {
+	status = "disabled";
+};
+
+&main_gpio6 {
+	status = "disabled";
+};
+
+&main_gpio7 {
+	status = "disabled";
+};
+
+&wkup_gpio0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&mcu_adc0_pins_default &mcu_adc1_pins_default &mikro_bus_pins_default>;
+	gpio-line-names =
+		"MB_CLK/BOOT_BTN",
+		"MB_MISO",
+		"MB_MOSI",
+		"MB_CS",
+		"SOC_WAKE", /* 0-4 */
+		"EEPROM_WP",
+		"SOC_INT2z",
+		"H_MCU_INT#",
+		"MB_SCLA",
+		"MB_SDAA", /* 5-9 */
+		"MCU_RGMII_RST#",
+		"MB_PWM",
+		"MCU_BOOTMODE8",
+		"MCU_BOOTMODE9",
+		"MCU_BOOTMODE6", /* 10-14 */
+		"MCU_BOOTMODE7",
+		"NC",
+		"NC",
+		"NC",
+		"NC", /* 15-19 */
+		"NC",
+		"NC",
+		"NC",
+		"NC",
+		"NC", /* 20-24 */
+		"NC",
+		"NC",
+		"NC",
+		"NC",
+		"NC", /* 24-29 */
+		"USB_HUB_RST",
+		"NC",
+		"NC",
+		"MB_RX",
+		"MB_TX", /* 30-34 */
+		"MB_INT",
+		"NC",
+		"MB_RST",
+		"MII_TX_CTL",
+		"MII_RX_CTL", /* 35-39 */
+		"MII_TD3",
+		"MII_TD2",
+		"MII_TD1",
+		"MII_TD0",
+		"MII_TXC", /* 40-44 */
+		"MII_RXC",
+		"MII_RD3",
+		"MII_RD2",
+		"MII_RD1",
+		"MII_RD0", /* 45-49 */
+		"MDIO",
+		"MDC",
+		"MCU_BOOTMODE0",
+		"MCU_BOOTMODE1",
+		"MCU_BOOTMODE2", /* 50-54 */
+		"SYS_MCU_PWRDN",
+		"WKUP_UART_RX",
+		"WKUP_UART_TX",
+		"MII_RST#",
+		"MB_AN", /* 55-59 */
+		"MB_SCLB",
+		"MB_SDAB",
+		"WKUP_I2C0_SCL",
+		"WKUP_I2C0_SDA",
+		"MCU_I2C0_SCL", /* 60-64 */
+		"MCU_I2C0_SDA",
+		"MB_SDAPULLEN",
+		"PMIC_POWER_EN1"; /* 65-67 */
+};
+
+&wkup_gpio1 {
+	status = "disabled";
+};
+
+&usb_serdes_mux {
+	idle-states = <1>, <1>; /* USB0 to SERDES3, USB1 to SERDES2 */
+};
+
+&serdes_ln_ctrl {
+	idle-states = <J721E_SERDES0_LANE0_IP4_UNUSED>, <J721E_SERDES0_LANE1_IP4_UNUSED>, /* TODO: is this right? */
+		      <J721E_SERDES1_LANE0_PCIE1_LANE0>, <J721E_SERDES1_LANE1_PCIE1_LANE1>,
+		      <J721E_SERDES2_LANE0_IP1_UNUSED>, <J721E_SERDES2_LANE1_USB3_1>, /* TODO: USB3_0 or USB3_1? */
+		      <J721E_SERDES3_LANE0_USB3_0_SWAP>, <J721E_SERDES3_LANE1_USB3_0>,
+		      <J721E_SERDES4_LANE0_EDP_LANE0>, <J721E_SERDES4_LANE1_EDP_LANE1>,
+		      <J721E_SERDES4_LANE2_EDP_LANE2>, <J721E_SERDES4_LANE3_EDP_LANE3>;
+};
+
+&serdes_wiz3 {
+	typec-dir-gpios = <&main_gpio1 3 GPIO_ACTIVE_LOW>;
+	typec-dir-debounce-ms = <700>;	/* TUSB321, tCCB_DEFAULT 133 ms */
+};
+
+&serdes3 {
+	serdes3_usb_link: phy@0 {
+		reg = <0>;
+		cdns,num-lanes = <2>;
+		#phy-cells = <0>;
+		cdns,phy-type = <PHY_TYPE_USB3>;
+		resets = <&serdes_wiz3 1>, <&serdes_wiz3 2>;
+	};
+};
+
+&mhdp {
+	pinctrl-names = "default";
+	pinctrl-0 = <&dp0_pins_default>;
+};
+
+&usbss0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_usbss0_pins_default>;
+	ti,vbus-divider;
+};
+
+&usb0 {
+	dr_mode = "peripheral";
+	maximum-speed = "super-speed";
+	phys = <&serdes3_usb_link>;
+	phy-names = "cdns3,usb3-phy";
+};
+
+&serdes2 {
+	serdes2_usb_link: phy@1 {
+		reg = <1>;
+		cdns,num-lanes = <1>;
+		#phy-cells = <0>;
+		cdns,phy-type = <PHY_TYPE_USB3>;
+		resets = <&serdes_wiz2 2>;
+	};
+};
+
+&usbss1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_usbss1_pins_default &mcu_usbss1_pins_default>;
+	ti,vbus-divider;
+};
+
+&usb1 {
+	dr_mode = "host";
+	maximum-speed = "super-speed";
+	phys = <&serdes2_usb_link>;
+	phy-names = "cdns3,usb3-phy";
+};
+
+&tscadc0 {
+	/* BBB Header: P9.39, P9.40, P9.37, P9.38, P9.33, P9.36, P9.35 */
+	adc {
+		ti,adc-channels = <0 1 2 3 4 5 6 7>;
+	};
+};
+
+&tscadc1 {
+	/* MCU mikroBUS Header J10.1 - MCU_ADC1_AIN0 */
+	adc {
+		ti,adc-channels = <0 1 2 3 4 5 6 7>;
+	};
+};
+
+&mcu_cpsw {
+	pinctrl-names = "default";
+	pinctrl-0 = <&mcu_cpsw_pins_default>;
+};
+
+&davinci_mdio {
+	pinctrl-names = "default";
+	pinctrl-0 = <&mcu_mdio_pins_default>;
+
+	phy0: ethernet-phy@0 {
+		reg = <0>;
+		ti,rx-internal-delay = <DP83867_RGMIIDCTL_2_00_NS>;
+		ti,fifo-depth = <DP83867_PHYCR_FIFO_DEPTH_4_B_NIB>;
+	};
+};
+
+&cpsw_port1 {
+	phy-mode = "rgmii-rxid";
+	phy-handle = <&phy0>;
+};
+
+&dss {
+	/*
+	 * These clock assignments are chosen to enable the following outputs:
+	 *
+	 * VP0 - DisplayPort SST
+	 * VP1 - DPI0
+	 * VP2 - DSI
+	 * VP3 - DPI1
+	 */
+
+	assigned-clocks = <&k3_clks 152 1>,
+			  <&k3_clks 152 4>,
+			  <&k3_clks 152 9>,
+			  <&k3_clks 152 13>;
+	assigned-clock-parents = <&k3_clks 152 2>,	/* PLL16_HSDIV0 */
+				 <&k3_clks 152 6>,	/* PLL19_HSDIV0 */
+				 <&k3_clks 152 11>,	/* PLL18_HSDIV0 */
+				 <&k3_clks 152 18>;	/* PLL23_HSDIV0 */
+};
+
+&dss_ports {
+	port@0 {
+		reg = <0>;
+
+		dpi0_out: endpoint {
+			remote-endpoint = <&dp0_in>;
+		};
+	};
+};
+
+&dp0_ports {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	port@0 {
+		reg = <0>;
+		dp0_in: endpoint {
+			remote-endpoint = <&dpi0_out>;
+		};
+	};
+
+	port@4 {
+		reg = <4>;
+		dp0_out: endpoint {
+			remote-endpoint = <&dp_connector_in>;
+		};
+	};
+};
+
+&mcasp0 {
+	/* Unused */
+	status = "disabled";
+};
+
+&mcasp1 {
+	/* Unused */
+	status = "disabled";
+};
+
+&mcasp2 {
+	/* Unused */
+	status = "disabled";
+};
+
+&mcasp3 {
+	/* Unused */
+	status = "disabled";
+};
+
+&mcasp4 {
+	/* Unused */
+	status = "disabled";
+};
+
+&mcasp5 {
+	/* Unused */
+	status = "disabled";
+};
+
+&mcasp6 {
+	/* Unused */
+	status = "disabled";
+};
+
+&mcasp7 {
+	/* Unused */
+	status = "disabled";
+};
+
+&mcasp8 {
+	/* Unused */
+	status = "disabled";
+};
+
+&mcasp9 {
+	/* Unused */
+	status = "disabled";
+};
+
+&mcasp10 {
+	/* Unused */
+	status = "disabled";
+};
+
+&mcasp11 {
+	/* Unused */
+	status = "disabled";
+};
+
+&serdes0 {
+	serdes0_pcie_link: phy@0 {
+		reg = <0>;
+		cdns,num-lanes = <1>;
+		#phy-cells = <0>;
+		cdns,phy-type = <PHY_TYPE_PCIE>;
+		resets = <&serdes_wiz0 1>;
+	};
+};
+
+&serdes1 {
+	serdes1_pcie_link: phy@0 {
+		reg = <0>;
+		cdns,num-lanes = <2>;
+		#phy-cells = <0>;
+		cdns,phy-type = <PHY_TYPE_PCIE>;
+		resets = <&serdes_wiz1 1>, <&serdes_wiz1 2>;
+	};
+};
+
+&pcie0_rc {
+	/* Unused */
+	status = "disabled";
+};
+
+&pcie1_rc {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pcie1_rst_pins_default>;
+	phys = <&serdes1_pcie_link>;
+	phy-names = "pcie-phy";
+	num-lanes = <2>;
+	max-link-speed = <3>;
+	reset-gpios = <&main_gpio0 22 GPIO_ACTIVE_HIGH>;
+};
+
+&pcie2_rc {
+	/* Unused */
+	status = "disabled";
+};
+
+&pcie0_ep {
+	status = "disabled";
+	phys = <&serdes0_pcie_link>;
+	phy-names = "pcie-phy";
+	num-lanes = <1>;
+};
+
+&pcie1_ep {
+	status = "disabled";
+	phys = <&serdes1_pcie_link>;
+	phy-names = "pcie-phy";
+	num-lanes = <2>;
+};
+
+&pcie2_ep {
+	/* Unused */
+	status = "disabled";
+};
+
+&pcie3_rc {
+	/* Unused */
+	status = "disabled";
+};
+
+&pcie3_ep {
+	/* Unused */
+	status = "disabled";
+};
+
+&mcu_mcan0 {
+	status = "disabled";
+};
+
+&mcu_mcan1 {
+	status = "disabled";
+};
+
+&main_mcan0 {
+	status = "disabled";
+};
+
+&main_mcan1 {
+	status = "disabled";
+};
+
+&main_mcan2 {
+	status = "disabled";
+};
+
+&main_mcan3 {
+	status = "disabled";
+};
+
+&main_mcan4 {
+	status = "disabled";
+};
+
+&main_mcan5 {
+	status = "disabled";
+};
+
+&main_mcan6 {
+	status = "disabled";
+};
+
+&main_mcan7 {
+	status = "disabled";
+};
+
+&main_mcan8 {
+	status = "disabled";
+};
+
+&main_mcan9 {
+	status = "disabled";
+};
+
+&main_mcan10 {
+	status = "disabled";
+};
+
+&main_mcan11 {
+	status = "disabled";
+};
+
+&main_mcan12 {
+	status = "disabled";
+};
+
+&main_mcan13 {
+	status = "disabled";
+};
+
+&ufs_wrapper {
+	status = "disabled";
+};
+
+&csi0_port0 {
+	status = "disabled";
+};
+
+&csi0_port1 {
+	status = "disabled";
+};
+
+&csi0_port2 {
+	status = "disabled";
+};
+
+&csi0_port3 {
+	status = "disabled";
+};
+
+&csi0_port4 {
+	status = "disabled";
+};
+
+&csi1_port0 {
+	status = "disabled";
+};
+
+&csi1_port1 {
+	status = "disabled";
+};
+
+&csi1_port2 {
+	status = "disabled";
+};
+
+&csi1_port3 {
+	status = "disabled";
+};
+
+&csi1_port4 {
+	status = "disabled";
+};
