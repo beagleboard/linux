@@ -7,9 +7,6 @@
 
 #include <dt-bindings/soc/ti,sci_pm_domain.h>
 
-/dts-v1/;
-/plugin/;
-
 / {
 	fragment@101 {
 		target-path = "/";
@@ -17,7 +14,7 @@
 		__overlay__ {
 
 			dma_buf_phys {
-				compatible = "ti,dma_buf_phys";
+				compatible = "ti,dma-buf-phys";
 			};
 		};
 	};
@@ -252,11 +249,13 @@
 			<&vision_apps_main_r5fss0_core0_memory_region>,
 			<&vision_apps_main_r5fss0_core0_shared_memory_queue_region>,
 			<&vision_apps_main_r5fss0_core0_shared_memory_bufpool_region>;
+	firmware-name = "vision_apps_eaik/vx_app_rtos_linux_mcu2_0.dontload";
 };
 
 &main_r5fss0_core1 {
 	memory-region = <&vision_apps_main_r5fss0_core1_dma_memory_region>,
 			<&vision_apps_main_r5fss0_core1_memory_region>;
+	firmware-name = "vision_apps_eaik/vx_app_rtos_linux_mcu2_1.dontload";
 };
 
 &main_r5fss1_core0 {
@@ -272,16 +271,17 @@
 &c66_0 {
 	memory-region = <&vision_apps_c66_0_dma_memory_region>,
 			<&vision_apps_c66_0_memory_region>;
+	firmware-name = "vision_apps_eaik/vx_app_rtos_linux_c6x_1.out";
 };
 
 &c66_1 {
 	memory-region = <&vision_apps_c66_1_dma_memory_region>,
 			<&vision_apps_c66_1_memory_region>;
+	firmware-name = "vision_apps_eaik/vx_app_rtos_linux_c6x_2.out";
 };
 
 &c71_0 {
 	memory-region = <&vision_apps_c71_0_dma_memory_region>,
 			<&vision_apps_c71_0_memory_region>;
+	firmware-name = "vision_apps_eaik/vx_app_rtos_linux_c7x_1.out";
 };
-
-
