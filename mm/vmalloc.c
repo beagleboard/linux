@@ -1298,6 +1298,7 @@ static unsigned long lazy_max_pages(void)
 
 	return log * (32UL * 1024 * 1024 / PAGE_SIZE);
 }
+EXPORT_SYMBOL_GPL(map_kernel_range_noflush);
 
 static atomic_long_t vmap_lazy_nr = ATOMIC_LONG_INIT(0);
 
@@ -2115,6 +2116,7 @@ struct vm_struct *get_vm_area(unsigned long size, unsigned long flags)
 				  NUMA_NO_NODE, GFP_KERNEL,
 				  __builtin_return_address(0));
 }
+EXPORT_SYMBOL_GPL(get_vm_area);
 
 struct vm_struct *get_vm_area_caller(unsigned long size, unsigned long flags,
 				const void *caller)
