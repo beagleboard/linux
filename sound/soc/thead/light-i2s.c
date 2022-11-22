@@ -755,6 +755,6 @@ static struct platform_driver light_i2s_driver = {
 
 module_platform_driver(light_i2s_driver);
 
-MODULE_AUTHOR("shuofeng.ren <shuofeng.rsf@alibaba-inc.com>");
+MODULE_AUTHOR("shuofeng.ren <shuofeng.rsf@linux.alibaba.com>");
 MODULE_DESCRIPTION("Thead Light audio driver");
 MODULE_LICENSE("GPL v2");

@@ -552,9 +552,11 @@ int aw87519_hw_reset(struct aw87519 *aw87519)
 int aw87519_read_chipid(struct aw87519 *aw87519)
 {
 	unsigned int cnt = 0;
+	unsigned int retry_count = 1;
 	int ret = -1;
 	unsigned char reg_val = 0;
 
+retry:
 	while (cnt < AW_READ_CHIPID_RETRIES) {
 		aw87519_i2c_write(aw87519, 0x64, 0x2C);
 		ret = aw87519_i2c_read(aw87519, REG_CHIPID, &reg_val);
@@ -563,6 +565,13 @@ int aw87519_read_chipid(struct aw87519 *aw87519)
 		}
 		cnt++;
 		usleep_range(2500, 3000);
+	}
+
+	if (retry_count > 0) {
+		aw87519_hw_reset(aw87519);
+		cnt = 0;
+		retry_count--;
+		goto retry;
 	}
 
 	return -EINVAL;

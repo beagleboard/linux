@@ -36,13 +36,12 @@
 	compiletime_assert(__native_word(t) || sizeof(t) == sizeof(long long),	\
 		"Unsupported access size for {READ,WRITE}_ONCE().")
 
-#define smp_mb()	__asm__ __volatile__ ("fence rw, rw" : : : "memory")
 /*
  * Use __READ_ONCE() instead of READ_ONCE() if you do not require any
  * atomicity. Note that this may result in tears!
  */
 #ifndef __READ_ONCE
-#define __READ_ONCE(x)	({smp_mb();(*(const volatile __unqual_scalar_typeof(x) *)&(x));})
+#define __READ_ONCE(x)	(*(const volatile __unqual_scalar_typeof(x) *)&(x))
 #endif
 
 #define READ_ONCE(x)							\
@@ -53,9 +52,7 @@
 
 #define __WRITE_ONCE(x, val)						\
 do {									\
-	smp_mb();							\
 	*(volatile typeof(x) *)&(x) = (val);				\
-	smp_mb();							\
 } while (0)
 
 #define WRITE_ONCE(x, val)						\
@@ -86,7 +83,6 @@ static __no_kasan_or_inline
 unsigned long read_word_at_a_time(const void *addr)
 {
 	kasan_check_read(addr, 1);
-	smp_mb();
 	return *(unsigned long *)addr;
 }
 

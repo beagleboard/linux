@@ -965,6 +965,6 @@ static struct platform_driver light_efuse_driver = {
 };
 module_platform_driver(light_efuse_driver);
 
-MODULE_AUTHOR("wei.liu <lw312886@alibaba-inc.com>");
+MODULE_AUTHOR("wei.liu <lw312886@linux.alibaba.com>");
 MODULE_DESCRIPTION("Thead light nvmem driver");
 MODULE_LICENSE("GPL v2");

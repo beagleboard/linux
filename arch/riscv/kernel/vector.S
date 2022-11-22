@@ -46,6 +46,72 @@ ENTRY(__vstate_save)
 	csrr	t0,  CSR_VTYPE
 	sd	t0,  TASK_THREAD_VTYPE_V0(a0)
 
+#ifdef CONFIG_VLEN_256
+	vsetvli	t0, x0, e8,m1
+	V_ST	v0,  (a0)
+	addi	a0, a0, RISCV_VECTOR_VLENB
+	V_ST	v1,  (a0)
+	addi	a0, a0, RISCV_VECTOR_VLENB
+	V_ST	v2,  (a0)
+	addi	a0, a0, RISCV_VECTOR_VLENB
+	V_ST	v3,  (a0)
+	addi	a0, a0, RISCV_VECTOR_VLENB
+	V_ST	v4,  (a0)
+	addi	a0, a0, RISCV_VECTOR_VLENB
+	V_ST	v5,  (a0)
+	addi	a0, a0, RISCV_VECTOR_VLENB
+	V_ST	v6,  (a0)
+	addi	a0, a0, RISCV_VECTOR_VLENB
+	V_ST	v7,  (a0)
+	addi	a0, a0, RISCV_VECTOR_VLENB
+	V_ST	v8,  (a0)
+	addi	a0, a0, RISCV_VECTOR_VLENB
+	V_ST	v9,  (a0)
+	addi	a0, a0, RISCV_VECTOR_VLENB
+	V_ST	v10, (a0)
+	addi	a0, a0, RISCV_VECTOR_VLENB
+	V_ST	v11, (a0)
+	addi	a0, a0, RISCV_VECTOR_VLENB
+	V_ST	v12, (a0)
+	addi	a0, a0, RISCV_VECTOR_VLENB
+	V_ST	v13, (a0)
+	addi	a0, a0, RISCV_VECTOR_VLENB
+	V_ST	v14, (a0)
+	addi	a0, a0, RISCV_VECTOR_VLENB
+	V_ST	v15, (a0)
+	addi	a0, a0, RISCV_VECTOR_VLENB
+	V_ST	v16, (a0)
+	addi	a0, a0, RISCV_VECTOR_VLENB
+	V_ST	v17, (a0)
+	addi	a0, a0, RISCV_VECTOR_VLENB
+	V_ST	v18, (a0)
+	addi	a0, a0, RISCV_VECTOR_VLENB
+	V_ST	v19, (a0)
+	addi	a0, a0, RISCV_VECTOR_VLENB
+	V_ST	v20, (a0)
+	addi	a0, a0, RISCV_VECTOR_VLENB
+	V_ST	v21, (a0)
+	addi	a0, a0, RISCV_VECTOR_VLENB
+	V_ST	v22, (a0)
+	addi	a0, a0, RISCV_VECTOR_VLENB
+	V_ST	v23, (a0)
+	addi	a0, a0, RISCV_VECTOR_VLENB
+	V_ST	v24, (a0)
+	addi	a0, a0, RISCV_VECTOR_VLENB
+	V_ST	v25, (a0)
+	addi	a0, a0, RISCV_VECTOR_VLENB
+	V_ST	v26, (a0)
+	addi	a0, a0, RISCV_VECTOR_VLENB
+	V_ST	v27, (a0)
+	addi	a0, a0, RISCV_VECTOR_VLENB
+	V_ST	v28, (a0)
+	addi	a0, a0, RISCV_VECTOR_VLENB
+	V_ST	v29, (a0)
+	addi	a0, a0, RISCV_VECTOR_VLENB
+	V_ST	v30, (a0)
+	addi	a0, a0, RISCV_VECTOR_VLENB
+	V_ST	v31, (a0)
+#else
 	vsetvli	t0, x0, e8,m8
 	V_ST	v0,  (a0)
 	addi	a0, a0, RISCV_VECTOR_VLENB*8
@@ -54,6 +120,7 @@ ENTRY(__vstate_save)
 	V_ST	v16, (a0)
 	addi	a0, a0, RISCV_VECTOR_VLENB*8
 	V_ST	v24, (a0)
+#endif
 
 	csrc	sstatus, t1
 	ret
@@ -67,6 +134,72 @@ ENTRY(__vstate_restore)
 	li	t1, (SR_VS | SR_FS)
 	csrs	sstatus, t1
 
+#ifdef CONFIG_VLEN_256
+	vsetvli	t0, x0, e8,m1
+	V_LD	v0,  (a0)
+	addi	a0, a0, RISCV_VECTOR_VLENB
+	V_LD	v1,  (a0)
+	addi	a0, a0, RISCV_VECTOR_VLENB
+	V_LD	v2,  (a0)
+	addi	a0, a0, RISCV_VECTOR_VLENB
+	V_LD	v3,  (a0)
+	addi	a0, a0, RISCV_VECTOR_VLENB
+	V_LD	v4,  (a0)
+	addi	a0, a0, RISCV_VECTOR_VLENB
+	V_LD	v5,  (a0)
+	addi	a0, a0, RISCV_VECTOR_VLENB
+	V_LD	v6,  (a0)
+	addi	a0, a0, RISCV_VECTOR_VLENB
+	V_LD	v7,  (a0)
+	addi	a0, a0, RISCV_VECTOR_VLENB
+	V_LD	v8,  (a0)
+	addi	a0, a0, RISCV_VECTOR_VLENB
+	V_LD	v9,  (a0)
+	addi	a0, a0, RISCV_VECTOR_VLENB
+	V_LD	v10, (a0)
+	addi	a0, a0, RISCV_VECTOR_VLENB
+	V_LD	v11, (a0)
+	addi	a0, a0, RISCV_VECTOR_VLENB
+	V_LD	v12, (a0)
+	addi	a0, a0, RISCV_VECTOR_VLENB
+	V_LD	v13, (a0)
+	addi	a0, a0, RISCV_VECTOR_VLENB
+	V_LD	v14, (a0)
+	addi	a0, a0, RISCV_VECTOR_VLENB
+	V_LD	v15, (a0)
+	addi	a0, a0, RISCV_VECTOR_VLENB
+	V_LD	v16, (a0)
+	addi	a0, a0, RISCV_VECTOR_VLENB
+	V_LD	v17, (a0)
+	addi	a0, a0, RISCV_VECTOR_VLENB
+	V_LD	v18, (a0)
+	addi	a0, a0, RISCV_VECTOR_VLENB
+	V_LD	v19, (a0)
+	addi	a0, a0, RISCV_VECTOR_VLENB
+	V_LD	v20, (a0)
+	addi	a0, a0, RISCV_VECTOR_VLENB
+	V_LD	v21, (a0)
+	addi	a0, a0, RISCV_VECTOR_VLENB
+	V_LD	v22, (a0)
+	addi	a0, a0, RISCV_VECTOR_VLENB
+	V_LD	v23, (a0)
+	addi	a0, a0, RISCV_VECTOR_VLENB
+	V_LD	v24, (a0)
+	addi	a0, a0, RISCV_VECTOR_VLENB
+	V_LD	v25, (a0)
+	addi	a0, a0, RISCV_VECTOR_VLENB
+	V_LD	v26, (a0)
+	addi	a0, a0, RISCV_VECTOR_VLENB
+	V_LD	v27, (a0)
+	addi	a0, a0, RISCV_VECTOR_VLENB
+	V_LD	v28, (a0)
+	addi	a0, a0, RISCV_VECTOR_VLENB
+	V_LD	v29, (a0)
+	addi	a0, a0, RISCV_VECTOR_VLENB
+	V_LD	v30, (a0)
+	addi	a0, a0, RISCV_VECTOR_VLENB
+	V_LD	v31, (a0)
+#else
 	vsetvli	t0, x0, e8,m8
 	V_LD	v0,  (a0)
 	addi	a0, a0, RISCV_VECTOR_VLENB*8
@@ -75,6 +208,7 @@ ENTRY(__vstate_restore)
 	V_LD	v16, (a0)
 	addi	a0, a0, RISCV_VECTOR_VLENB*8
 	V_LD	v24, (a0)
+#endif
 
 	mv	a0,  t2
 	ld	t0,  TASK_THREAD_VSTART_V0(a0)

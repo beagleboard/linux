@@ -690,11 +690,6 @@ static const struct ili9881c_instr txd_dy800qwxpab_init[] = {
 };
 
 static const struct ili9881c_instr gx_kd080d74_d028_init[] = {
-	ILI9881C_SWITCH_PAGE_INSTR(0),
-	ILI9881C_COMMAND_INSTR(0x35, 0x0),
-	ILI9881C_COMMAND_INSTR(0x11, 0x0),
-	ILI9881C_COMMAND_INSTR(0x29, 0x0),
-
 	ILI9881C_SWITCH_PAGE_INSTR(0x3),
 	ILI9881C_COMMAND_INSTR(0x01, 0x00),
 	ILI9881C_COMMAND_INSTR(0x02, 0x00),

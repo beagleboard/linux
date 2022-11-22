@@ -139,6 +139,6 @@ static struct platform_driver light_visys_clk_driver = {
 };
 
 module_platform_driver(light_visys_clk_driver);
-MODULE_AUTHOR("wei.liu <lw312886@alibaba-inc.com>");
+MODULE_AUTHOR("wei.liu <lw312886@linux.alibaba.com>");
 MODULE_DESCRIPTION("Thead Light Fullmask visys clock gate provider");
 MODULE_LICENSE("GPL v2");

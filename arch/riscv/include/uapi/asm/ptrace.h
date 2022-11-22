@@ -77,8 +77,18 @@ union __riscv_fp_state {
 	struct __riscv_q_ext_state q;
 };
 
+#ifdef CONFIG_VLEN_256
+struct __riscv_vblen {
+	__uint128_t v[2];
+};
+#endif
+
 struct __riscv_v_state {
+#ifdef CONFIG_VLEN_256
+	struct __riscv_vblen v[32];
+#else
 	__uint128_t v[32];
+#endif
 	unsigned long vstart;
 	unsigned long vxsat;
 	unsigned long vxrm;

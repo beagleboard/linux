@@ -51,6 +51,9 @@ void riscv_set_ipi_ops(struct riscv_ipi_ops *ops);
 /* Clear IPI for current CPU */
 void riscv_clear_ipi(void);
 
+void crash_smp_send_stop(void);
+bool smp_crash_stop_failed(void);
+
 /* Secondary hart entry */
 asmlinkage void smp_callin(void);
 

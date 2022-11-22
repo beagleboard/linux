@@ -22,7 +22,31 @@ static struct irq_domain *intc_domain;
 static asmlinkage void riscv_intc_irq(struct pt_regs *regs)
 {
 	unsigned long cause = regs->cause & ~CAUSE_IRQ_FLAG;
+	unsigned long epc = instruction_pointer(regs);
+	u32 insn;
 
+#define MATCH_LR_W 0x1000202f
+#define MASK_LR_W  0xf9f0707f
+#define MATCH_DCACHE_CVAL1 0x0240000b
+#define MASK_DCACHE_CVAL1 0xfff07fff
+
+	if ((epc & 0x7f) != 4)
+		goto out;
+
+	if (__get_user(insn, (u32 *)epc))
+		goto out;
+
+	if ((insn & MASK_LR_W) != MATCH_LR_W)
+		goto out;
+
+	if (__get_user(insn, (u32 *)(epc - 4)))
+		goto out;
+
+	if ((insn & MASK_DCACHE_CVAL1) != MATCH_DCACHE_CVAL1)
+		goto out;
+
+	instruction_pointer_set(regs, epc - 4);
+out:
 	if (unlikely(cause >= BITS_PER_LONG))
 		panic("unexpected interrupt cause");
 

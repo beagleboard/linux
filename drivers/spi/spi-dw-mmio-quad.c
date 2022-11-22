@@ -145,6 +145,6 @@ static struct platform_driver dw_qspi_mmio_driver = {
 };
 module_platform_driver(dw_qspi_mmio_driver);
 
-MODULE_AUTHOR("linghui zeng <linghui.zlh@alibaba-inc.com>");
+MODULE_AUTHOR("linghui zeng <linghui.zlh@linux.alibaba.com>");
 MODULE_DESCRIPTION("Memory-mapped I/O interface driver for DW ehance-spi Core");
 MODULE_LICENSE("GPL v2");

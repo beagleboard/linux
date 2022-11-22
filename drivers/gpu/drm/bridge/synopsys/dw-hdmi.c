@@ -49,6 +49,10 @@
 
 #define HDMI14_MAX_TMDSCLK	340000000
 
+#define HDMI_DDC_CHECK_MAX_RETRIES	100
+#define HDMI_DDC_CHECK_NORMAL		2
+#define HDMI_SCRAMBLING_RETRIES		20
+
 enum hdmi_datamap {
 	RGB444_8B = 0x01,
 	RGB444_10B = 0x03,
@@ -1865,6 +1869,45 @@ static void hdmi_config_drm_infoframe(struct dw_hdmi *hdmi,
 		  HDMI_FC_PACKET_TX_EN_DRM_MASK, HDMI_FC_PACKET_TX_EN);
 }
 
+static bool dw_hdmi_ddc_debounce(struct dw_hdmi *hdmi)
+{
+	u8 config, val, orig;
+	int ret, count = 0, check = 0;
+
+	drm_scdc_readb(hdmi->ddc, SCDC_TMDS_CONFIG, &orig);
+
+	do {
+		drm_scdc_readb(hdmi->ddc, SCDC_TMDS_CONFIG, &config);
+		if (count & 0x1)
+			config |= SCDC_SCRAMBLING_ENABLE;
+		else
+			config &= ~SCDC_SCRAMBLING_ENABLE;
+		drm_scdc_writeb(hdmi->ddc, SCDC_TMDS_CONFIG, config);
+		drm_scdc_readb(hdmi->ddc, SCDC_TMDS_CONFIG, &val);
+
+		if (val != config)
+			check = 0;
+		else
+			check++;
+		if (check >= HDMI_DDC_CHECK_NORMAL) {
+			ret = true;
+			goto out;
+		}
+
+		if (count++ >= HDMI_DDC_CHECK_MAX_RETRIES) {
+			dev_err(hdmi->dev, "exceed max retries:%d\n", HDMI_DDC_CHECK_MAX_RETRIES);
+			ret = false;
+			goto out;
+		}
+
+		usleep_range(10000, 15000);
+	} while (1);
+
+out:
+	drm_scdc_writeb(hdmi->ddc, SCDC_TMDS_CONFIG, orig);
+	return ret;
+}
+
 static void hdmi_av_composer(struct dw_hdmi *hdmi,
 			     const struct drm_display_info *display,
 			     const struct drm_display_mode *mode)
@@ -1983,7 +2026,8 @@ static void hdmi_av_composer(struct dw_hdmi *hdmi,
 			 * Source Devices compliant shall set the
 			 * Source Version = 1.
 			 */
-			mdelay(60);
+			dw_hdmi_ddc_debounce(hdmi);
+
 			drm_scdc_readb(hdmi->ddc, SCDC_SINK_VERSION,
 				       &bytes);
 			drm_scdc_writeb(hdmi->ddc, SCDC_SOURCE_VERSION,
@@ -2137,6 +2181,28 @@ static void hdmi_disable_overflow_interrupts(struct dw_hdmi *hdmi)
 		    HDMI_IH_MUTE_FC_STAT2);
 }
 
+static void hdmi_check_scrambling_status(struct dw_hdmi *hdmi,
+		const struct drm_display_info *display)
+{
+	int count = 0;
+
+	if (!dw_hdmi_support_scdc(hdmi, display))
+		return;
+
+	do {
+		if (drm_scdc_get_scrambling_status(hdmi->ddc))
+			break;
+
+		/* polling scrambling_status up to a maximum of 200ms */
+		if (count++ >= HDMI_SCRAMBLING_RETRIES) {
+			dev_err(hdmi->dev,
+				"TMDS link of scrambling_status is not ready\n");
+			break;
+		}
+		usleep_range(10000, 11000);
+	} while (1);
+}
+
 static int dw_hdmi_setup(struct dw_hdmi *hdmi,
 			 const struct drm_connector *connector,
 			 const struct drm_display_mode *mode)
@@ -2223,6 +2289,7 @@ static int dw_hdmi_setup(struct dw_hdmi *hdmi,
 	hdmi_video_csc(hdmi);
 	hdmi_video_sample(hdmi);
 	hdmi_tx_hdcp_config(hdmi);
+	hdmi_check_scrambling_status(hdmi, &connector->display_info);
 
 	dw_hdmi_clear_overflow(hdmi);
 
@@ -2960,6 +3027,8 @@ static irqreturn_t dw_hdmi_hardirq(int irq, void *dev_id)
 
 	intr_stat = hdmi_readb(hdmi, HDMI_IH_PHY_STAT0);
 	if (intr_stat) {
+		hdmi_writeb(hdmi, intr_stat, HDMI_IH_PHY_STAT0);
+		hdmi_writeb(hdmi, 0xff, HDMI_PHY_MASK0);
 		hdmi_writeb(hdmi, ~0, HDMI_IH_MUTE_PHY_STAT0);
 		return IRQ_WAKE_THREAD;
 	}
@@ -3000,6 +3069,7 @@ static irqreturn_t dw_hdmi_irq(int irq, void *dev_id)
 	struct dw_hdmi *hdmi = dev_id;
 	u8 intr_stat, phy_int_pol, phy_pol_mask, phy_stat;
 
+	msleep(50);
 	intr_stat = hdmi_readb(hdmi, HDMI_IH_PHY_STAT0);
 	phy_int_pol = hdmi_readb(hdmi, HDMI_PHY_POL0);
 	phy_stat = hdmi_readb(hdmi, HDMI_PHY_STAT0);
@@ -3057,6 +3127,7 @@ static irqreturn_t dw_hdmi_irq(int irq, void *dev_id)
 	hdmi_writeb(hdmi, intr_stat, HDMI_IH_PHY_STAT0);
 	hdmi_writeb(hdmi, ~(HDMI_IH_PHY_STAT0_HPD | HDMI_IH_PHY_STAT0_RX_SENSE),
 		    HDMI_IH_MUTE_PHY_STAT0);
+	hdmi_writeb(hdmi, (u8)~(HDMI_PHY_HPD | HDMI_PHY_RX_SENSE), HDMI_PHY_MASK0);
 
 	return IRQ_HANDLED;
 }

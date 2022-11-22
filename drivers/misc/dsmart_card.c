@@ -1246,6 +1246,6 @@ static struct platform_driver dsmart_card_driver = {
 };
 
 module_platform_driver(dsmart_card_driver);
-MODULE_AUTHOR("wei.liu <lw32886@alibaba-inc.com>");
+MODULE_AUTHOR("wei.liu <lw32886@linux.alibaba.com>");
 MODULE_DESCRIPTION("iso7816 smart card platform driver");
 MODULE_LICENSE("GPL v2");

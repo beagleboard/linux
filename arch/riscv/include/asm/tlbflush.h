@@ -65,6 +65,11 @@ static inline void flush_tlb_kernel_range(unsigned long start,
 	end   += PAGE_SIZE - 1;
 	end   &= PAGE_MASK;
 
+	if ((end - start) > SZ_1M) {
+		flush_tlb_all();
+		return;
+	}
+
 	while (start < end) {
 		__asm__ __volatile__ ("sfence.vma %0" : : "r" (start) : "memory");
 		start += PAGE_SIZE;

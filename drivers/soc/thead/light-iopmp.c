@@ -672,6 +672,6 @@ static int __init light_iopmp_init(void)
 arch_initcall(light_iopmp_init);
 
 MODULE_ALIAS("platform:light-iopmp");
-MODULE_AUTHOR("fugang.duan <duanfugang.dfg@alibaba-inc.com>");
+MODULE_AUTHOR("fugang.duan <duanfugang.dfg@linux.alibaba.com>");
 MODULE_DESCRIPTION("Thead Light iopmp driver");
 MODULE_LICENSE("GPL v2");

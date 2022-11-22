@@ -372,10 +372,15 @@ static irqreturn_t dw_wdt_irq(int irq, void *devid)
 	 * following ping operations.
 	 */
 	val = readl(dw_wdt->regs + WDOG_INTERRUPT_STATUS_REG_OFFSET);
-	if (!val)
+	if (!val ) {
+		pr_warn("watchdog irq enter. however status is 0\n");
 		return IRQ_NONE;
+	}
 
+	WARN(1, "watchdog app was stuck! watchdog pretimeout event\n");
 	watchdog_notify_pretimeout(&dw_wdt->wdd);
+
+	dw_wdt_ping(&dw_wdt->wdd);
 
 	return IRQ_HANDLED;
 }

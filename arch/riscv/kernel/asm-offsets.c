@@ -104,7 +104,11 @@ void asm_offsets(void)
 	OFFSET(TASK_THREAD_VXRM, task_struct, thread.vstate.vxrm);
 	OFFSET(TASK_THREAD_VL, task_struct, thread.vstate.vl);
 	OFFSET(TASK_THREAD_VTYPE, task_struct, thread.vstate.vtype);
+#ifdef CONFIG_VLEN_256
+	DEFINE(RISCV_VECTOR_VLENB, sizeof(struct __riscv_vblen));
+#else
 	DEFINE(RISCV_VECTOR_VLENB, sizeof(__uint128_t));
+#endif
 
 	DEFINE(PT_SIZE, sizeof(struct pt_regs));
 	OFFSET(PT_EPC, pt_regs, epc);

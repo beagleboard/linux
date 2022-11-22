@@ -13,8 +13,6 @@
 
 	chosen {
 		bootargs = "console=ttyS0,115200 crashkernel=256M-:128M earlycon clk_ignore_unused sram=0xffe0000000,0x180000";
-		linux,initrd-start = <0x0 0x2000000>;
-		linux,initrd-end = <0x0 0x14600000>;
 		stdout-path = "serial0:115200n8";
 	};
 
@@ -465,6 +463,10 @@
 	};
 };
 
+&cmamem {
+	alloc-ranges = <0 0xe4000000 0 0x14000000>; // [0xE400_0000 ~ 0xF800_0000]
+};
+
 &resmem {
 	#address-cells = <2>;
 	#size-cells = <2>;
@@ -488,14 +490,16 @@
                0x0 0x20688000 0x0 0x00178000>;  /* DSP shared memory */
         no-map;
     };
-	facelib_mem: memory@d0000000 {
-		reg = <0x0 0xd0000000 0 0x10000000>;
+    vi_mem: framebuffer@0f800000 {
+		reg = <0x0 0x0F800000 0x0 0x05400000	/* vi_mem_pool_region[0]  84 MB (default) */
+		       0x0 0x14C00000 0x0 0x01D00000	/* vi_mem_pool_region[1]  29 MB */
+		       0x0 0x16900000 0x0 0x03200000>;	/* vi_mem_pool_region[2]  50 MB */
 		no-map;
 	};
-    vi_mem: framebuffer@70000000 {
-        reg = <0x0 0x70000000 0 0xbc00000>;
+	facelib_mem: memory@22000000 {
+		reg = <0x0 0x22000000 0x0 0x10000000>;
 		no-map;
-    };
+	};
 };
 
 &adc {
@@ -504,7 +508,7 @@
 };
 
 &i2c0 {
-	clock-frequency = <100000>;
+    clock-frequency = <400000>;
 	status = "okay";
 
 	eeprom@50 {
@@ -537,7 +541,7 @@
 };
 
 &i2c1 {
-        clock-frequency = <100000>;
+        clock-frequency = <400000>;
         status = "okay";
         touch1@5d {
                 #gpio-cells = <2>;
@@ -683,6 +687,7 @@
 	no-mmc;
 	non-removable;
 	io_fixed_1v8;
+	post-power-on-delay-ms = <50>;
 	wprtn_ignore;
 	cap-sd-highspeed;
 	keep-power-in-suspend;
@@ -815,6 +820,7 @@
 };
 
 &i2c2 {
+    clock-frequency = <400000>;
 	status = "okay";
 
 	eeprom@50 {
@@ -825,6 +831,7 @@
 };
 
 &i2c3 {
+    clock-frequency = <400000>;
 	status = "okay";
 
 	eeprom@50 {
@@ -835,6 +842,7 @@
 };
 
 &i2c4 {
+    clock-frequency = <400000>;
 	status = "okay";
 
 	eeprom@50 {

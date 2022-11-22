@@ -163,7 +163,7 @@ struct platform_driver dw_hdmi_light_platform_driver = {
 	},
 };
 
-MODULE_AUTHOR("You Xiao <youxiao.fc@alibaba-inc.com>");
+MODULE_AUTHOR("You Xiao <youxiao.fc@linux.alibaba.com>");
 MODULE_DESCRIPTION("Light Platforms Specific DW-HDMI Driver Extention");
 MODULE_LICENSE("GPL v2");
 MODULE_ALIAS("platform:dwhdmi-light");

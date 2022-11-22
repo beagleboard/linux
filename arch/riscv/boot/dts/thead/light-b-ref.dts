@@ -1,0 +1,134 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * Copyright (C) 2021 Alibaba Group Holding Limited.
+ */
+
+/dts-v1/;
+
+#include "light-b-product.dts"
+
+&aon {
+	/delete-node/light-ricoh-reg;
+
+       	soc_vdd18_lcd0_bk_en_reg: soc_vdd18_lcd0_bk_en {
+		compatible = "regulator-fixed";
+		regulator-name = "soc_vdd18_lcd0_bk_en";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		gpio = <&gpio1_porta 9 1>;
+		enable-active-high;
+	};
+
+	aon_reg_dialog: light-dialog-reg {
+		compatible = "thead,light-dialog-pmic-ant";
+		status = "okay";
+	
+		dvdd_cpu_reg: appcpu_dvdd {
+			regulator-name = "appcpu_dvdd";
+			regulator-min-microvolt = <300000>;
+			regulator-max-microvolt = <1570000>;
+			regulator-boot-on;
+			regulator-always-on;
+		};
+	
+		dvddm_cpu_reg: appcpu_dvddm {
+			regulator-name = "appcpu_dvddm";
+			regulator-min-microvolt = <300000>;
+			regulator-max-microvolt = <1570000>;
+			regulator-boot-on;
+			regulator-always-on;
+		};
+	
+		soc_dvdd18_aon_reg: soc_dvdd18_aon {
+			regulator-name = "soc_dvdd18_aon";
+			regulator-boot-on;
+			regulator-always-on;
+		};
+	
+		soc_avdd33_usb3_reg: soc_avdd33_usb3 {
+			regulator-name = "soc_avdd33_usb3";
+			regulator-boot-on;
+			regulator-always-on;
+		};
+	
+		soc_dvdd08_aon_reg: soc_dvdd08_aon {
+			regulator-name = "soc_dvdd08_aon";
+			regulator-boot-on;
+			regulator-always-on;
+		};
+	
+		soc_dvdd08_ddr_reg: soc_dvdd08_ddr {
+			regulator-name = "soc_dvdd08_ddr";
+			regulator-boot-on;
+			regulator-always-on;
+		};
+	
+		soc_vdd_ddr_1v8_reg: soc_vdd_ddr_1v8 {
+			regulator-name = "soc_vdd_ddr_1v8";
+			regulator-boot-on;
+			regulator-always-on;
+		};
+	
+		soc_vdd_ddr_1v1_reg: soc_vdd_ddr_1v1 {
+			regulator-name = "soc_vdd_ddr_1v1";
+			regulator-boot-on;
+			regulator-always-on;
+		};
+	
+		soc_vdd_ddr_0v6_reg: soc_vdd_ddr_0v6 {
+			regulator-name = "soc_vdd_ddr_0v6";
+			regulator-boot-on;
+			regulator-always-on;
+		};
+	
+		soc_dvdd18_ap_reg: soc_dvdd18_ap {
+			regulator-name = "soc_dvdd18_ap";
+			regulator-boot-on;
+			regulator-always-on;
+		};
+	
+		soc_avdd08_mipi_hdmi_reg: soc_avdd08_mipi_hdmi {
+			regulator-name = "soc_avdd08_mipi_hdmi";
+			regulator-boot-on;
+			regulator-always-on;
+		};
+	
+		soc_avdd18_mipi_hdmi_reg: soc_avdd18_mipi_hdmi {
+			regulator-name = "soc_avdd18_mipi_hdmi";
+			regulator-boot-on;
+			regulator-always-on;
+		};
+	
+		soc_vdd33_emmc_reg: soc_vdd33_emmc {
+			regulator-name = "soc_vdd33_emmc";
+			regulator-boot-on;
+			regulator-always-on;
+		};
+	
+		soc_vdd18_emmc_reg: soc_vdd18_emmc {
+			regulator-name = "soc_vdd18_emmc";
+			regulator-boot-on;
+			regulator-always-on;
+		};
+#if 0	
+		soc_dovdd18_scan_reg: soc_dovdd18_scan {
+			regulator-name = "soc_dovdd18_scan";
+		};
+	
+		soc_dvdd12_scan_reg: soc_dvdd12_scan {
+			regulator-name = "soc_dvdd12_scan";
+		};
+	
+		soc_avdd28_scan_en_reg: soc_avdd28_scan_en {
+			regulator-name = "soc_avdd28_scan_en";
+		};
+#endif
+	
+	};
+};
+
+
+&panel0 {
+
+	vdd1v8-supply = <&soc_vdd18_lcd0_bk_en_reg>;
+};

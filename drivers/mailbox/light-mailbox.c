@@ -254,10 +254,8 @@ static irqreturn_t light_mbox_isr(int irq, void *p)
 		mbox_chan_txdone(chan, 0);
 	}
 
-	if (!info0_data && !info7_data) {
-		dev_warn_ratelimited(priv->dev, "not expected chan[%d] interrupt\n", cp->idx);
+	if (!info0_data && !info7_data)
 		return IRQ_NONE;
-	}
 
 	return IRQ_HANDLED;
 }
@@ -504,6 +502,6 @@ static struct platform_driver light_mbox_driver = {
 };
 module_platform_driver(light_mbox_driver);
 
-MODULE_AUTHOR("fugang.duan <duanfugang.dfg@alibaba-inc.com>");
+MODULE_AUTHOR("fugang.duan <duanfugang.dfg@linux.alibaba.com>");
 MODULE_DESCRIPTION("Thead Light mailbox IPC driver");
 MODULE_LICENSE("GPL v2");

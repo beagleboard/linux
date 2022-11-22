@@ -13,9 +13,15 @@
 #include <linux/of_address.h>
 #include <linux/pm_opp.h>
 #include <linux/platform_device.h>
+#include <linux/reboot.h>
 #include <linux/regulator/consumer.h>
 #include <linux/suspend.h>
 #include <linux/clk-provider.h>
+#include <linux/smp.h>
+
+static DEFINE_MUTEX(cpufreq_lock);
+
+bool cpufreq_denied = false;
 
 struct regulator *dvdd_cpu_reg;
 struct regulator *dvddm_cpu_reg;
@@ -62,6 +68,13 @@ static int light_set_target(struct cpufreq_policy *policy, unsigned int index)
 	u32 val;
 	u32 re_modify_bus_freq = 0;
 
+	mutex_lock(&cpufreq_lock);
+
+	if (cpufreq_denied) {
+		dev_emerg(cpu_dev, "Denied to set cpu frequency temporarily on reboot\n");
+		mutex_unlock(&cpufreq_lock);
+		return 0;
+	}
 	new_freq = freq_table[index].frequency;
 	freq_hz = new_freq * 1000;
 	old_freq = policy->cur;
@@ -69,6 +82,7 @@ static int light_set_target(struct cpufreq_policy *policy, unsigned int index)
 	opp = dev_pm_opp_find_freq_ceil(cpu_dev, &freq_hz);
 	if (IS_ERR(opp)) {
 		dev_err(cpu_dev, "failed to find OPP for %ld\n", freq_hz);
+		mutex_unlock(&cpufreq_lock);
 		return PTR_ERR(opp);
 	}
 
@@ -78,6 +92,7 @@ static int light_set_target(struct cpufreq_policy *policy, unsigned int index)
 	volt_old = regulator_get_voltage(dvdd_cpu_reg);
 	if (volt_old < 0) {
 		dev_err(cpu_dev, "failed to get cpu voltage\n");
+		mutex_unlock(&cpufreq_lock);
 		return volt_old;
 	}
 
@@ -113,12 +128,14 @@ static int light_set_target(struct cpufreq_policy *policy, unsigned int index)
 		ret = regulator_set_voltage_tol(dvddm_cpu_reg, light_dvddm_volt[index], 0);
 		if (ret) {
 			dev_err(cpu_dev, "failed to scale vddsoc up: %d\n", ret);
+			mutex_unlock(&cpufreq_lock);
 			return ret;
 		}
 		ret = regulator_set_voltage_tol(dvdd_cpu_reg, volt, 0);
 		if (ret) {
 			dev_err(cpu_dev,
 				"failed to scale vddarm up: %d\n", ret);
+			mutex_unlock(&cpufreq_lock);
 			return ret;
 		}
 	}
@@ -150,6 +167,7 @@ static int light_set_target(struct cpufreq_policy *policy, unsigned int index)
 		ret1 = regulator_set_voltage_tol(dvdd_cpu_reg, volt_old, 0);
 		if (ret1)
 			dev_err(cpu_dev, "failed to restore dvdd_cpu voltage: %d\n", ret1);
+		mutex_unlock(&cpufreq_lock);
 		return ret;
 	}
 
@@ -177,6 +195,8 @@ static int light_set_target(struct cpufreq_policy *policy, unsigned int index)
 		udelay(1);
 	}
 
+	mutex_unlock(&cpufreq_lock);
+
 	return 0;
 }
 
@@ -190,6 +210,20 @@ static int light_cpufreq_init(struct cpufreq_policy *policy)
 
 	return 0;
 }
+
+static int light_cpufreq_reboot_notifier(struct notifier_block *this,
+					 unsigned long event, void *ptr)
+{
+	mutex_lock(&cpufreq_lock);
+	cpufreq_denied = true;
+	mutex_unlock(&cpufreq_lock);
+
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block cpufreq_reboot_notifier = {
+	.notifier_call = light_cpufreq_reboot_notifier,
+};
 
 static struct cpufreq_driver light_cpufreq_driver = {
 	.flags = CPUFREQ_NEED_INITIAL_FREQ_CHECK |
@@ -222,6 +256,53 @@ static int light_cpufreq_pm_notify(struct notifier_block *nb,
 
 static struct notifier_block light_cpufreq_pm_notifier = {
 	.notifier_call = light_cpufreq_pm_notify,
+};
+
+/*
+ * Set CPU PLL1's frequency as minimum on panic
+ */
+static int panic_cpufreq_notifier_call(struct notifier_block *nb,
+				 unsigned long action, void *data)
+{
+	int cpu = smp_processor_id();
+	struct cpufreq_policy *policy = cpufreq_cpu_get(cpu);
+	u32 val = readl(ap_sys_reg);
+
+	pr_debug("[%s,%d]Enter panic_cpufreq_notifier_call\n", __func__, __LINE__);
+
+	/*
+	 * set CPU PLL1's frequency as minimum to compatible voltage
+	 * becarefull if the PLL1 is serving the cpu core, swith to PLL0 first
+	 */
+	if (strcmp(__clk_get_name(clk_get_parent(clks[LIGHT_C910_CCLK].clk)),
+		__clk_get_name(clks[LIGHT_C910_CCLK_I0].clk))) {
+		pr_debug("[%s,%d]\n", __func__, __LINE__);
+
+		clk_set_rate(clks[LIGHT_CPU_PLL0_FOUTPOSTDIV].clk, policy->min * 1000);
+		udelay(1);
+		clk_set_parent(clks[LIGHT_C910_CCLK].clk, clks[LIGHT_C910_CCLK_I0].clk);
+
+		pr_debug("[%s,%d]\n", __func__, __LINE__);
+	}
+
+	pr_debug("[%s,%d]\n", __func__, __LINE__);
+	/*
+	 * since the clk driver will use PLL1 as the default clock source,
+	 * in order to compatible voltage which is unpredictable we should
+	 * set the CPU PLL1's frequency as minimum in advance, otherwise the
+	 * system may crash in crash kernel stage.
+	 */
+	clk_prepare_enable(clks[LIGHT_CPU_PLL1_FOUTPOSTDIV].clk);
+	clk_set_rate(clks[LIGHT_CPU_PLL1_FOUTPOSTDIV].clk, policy->min * 1000);
+	udelay(1);
+
+	pr_debug("finish to execute cpufreq notifier callback on panic\n");
+
+	return 0;
+}
+
+static struct notifier_block panic_cpufreq_notifier = {
+	.notifier_call = panic_cpufreq_notifier_call,
 };
 
 static int light_cpufreq_probe(struct platform_device *pdev)
@@ -341,6 +422,15 @@ soc_opp_out:
 
 	of_node_put(np);
 
+	ret = atomic_notifier_chain_register(&panic_notifier_list,
+					     &panic_cpufreq_notifier);
+	if (ret) {
+		pr_err("unable to register notifier(%d)\n", ret);
+		goto free_freq_table;
+	}
+
+	register_reboot_notifier(&cpufreq_reboot_notifier);
+
 	dev_info(cpu_dev, "finish to register cpufreq driver\n");
 
 	return 0;
@@ -391,6 +481,6 @@ static struct platform_driver light_cpufreq_platdrv = {
 module_platform_driver(light_cpufreq_platdrv);
 
 MODULE_ALIAS("platform:light-cpufreq");
-MODULE_AUTHOR("fugang.duan <duanfugang.dfg@alibaba-inc.com>");
+MODULE_AUTHOR("fugang.duan <duanfugang.dfg@linux.alibaba.com>");
 MODULE_DESCRIPTION("Thead Light cpufreq driver");
 MODULE_LICENSE("GPL v2");

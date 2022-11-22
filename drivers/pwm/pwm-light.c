@@ -313,6 +313,6 @@ static struct platform_driver pwm_light_driver = {
 };
 module_platform_driver(pwm_light_driver);
 
-MODULE_AUTHOR("wei.liu <lw312886@alibaba-inc.com>");
+MODULE_AUTHOR("wei.liu <lw312886@linux.alibaba.com>");
 MODULE_DESCRIPTION("Thead light pwm driver");
 MODULE_LICENSE("GPL v2");

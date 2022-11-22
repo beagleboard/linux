@@ -625,7 +625,7 @@
 		dma {
 			subdev_name = "vipre";
 			idx = <0>;
-			path_type = "VIPRE_CSI2_DDR";
+			path_type = "VIPRE_CSI2_DSP";
 		};
 		dsp {
 			subdev_name = "dsp";
@@ -651,7 +651,7 @@
 		dma {
 			subdev_name = "vipre";
 			idx = <0>;
-			path_type = "VIPRE_CSI2_DDR";
+			path_type = "VIPRE_CSI2_DSP";
 		};
 		dsp {
 			subdev_name = "dsp";
@@ -811,7 +811,7 @@
 		dma {
 			subdev_name = "vipre";
 			idx = <0>;
-			path_type = "VIPRE_CSI1_DDR";
+			path_type = "VIPRE_CSI1_DSP";
 		};
 		dsp {
 			subdev_name = "dsp";
@@ -844,7 +844,7 @@
 		dma {
 			subdev_name = "vipre";
 			idx = <0>;
-			path_type = "VIPRE_CSI2_DDR";
+			path_type = "VIPRE_CSI2_DSP";
 		};
 		dsp {
 			subdev_name = "dsp";

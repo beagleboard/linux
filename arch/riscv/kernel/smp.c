@@ -11,6 +11,7 @@
 #include <linux/cpu.h>
 #include <linux/interrupt.h>
 #include <linux/module.h>
+#include <linux/kexec.h>
 #include <linux/profile.h>
 #include <linux/smp.h>
 #include <linux/sched.h>
@@ -26,6 +27,7 @@ enum ipi_message_type {
 	IPI_RESCHEDULE,
 	IPI_CALL_FUNC,
 	IPI_CPU_STOP,
+	IPI_CPU_CRASH_STOP,
 	IPI_IRQ_WORK,
 	IPI_MAX
 };
@@ -85,6 +87,22 @@ static void ipi_stop(void)
 		wait_for_interrupt();
 }
 
+#ifdef CONFIG_KEXEC_CORE
+static atomic_t waiting_for_crash_ipi = ATOMIC_INIT(0);
+
+static void ipi_cpu_crash_stop(unsigned int cpu, struct pt_regs *regs)
+{
+	crash_save_cpu(regs, cpu);
+
+	atomic_dec(&waiting_for_crash_ipi);
+
+	local_irq_disable();
+
+	while(1)
+		wait_for_interrupt();
+}
+#endif
+
 static struct riscv_ipi_ops *ipi_ops;
 
 void riscv_set_ipi_ops(struct riscv_ipi_ops *ops)
@@ -138,6 +156,7 @@ void arch_irq_work_raise(void)
 
 void handle_IPI(struct pt_regs *regs)
 {
+	unsigned int cpu = smp_processor_id();
 	struct pt_regs *old_regs = set_irq_regs(regs);
 	unsigned long *pending_ipis = &ipi_data[smp_processor_id()].bits;
 	unsigned long *stats = ipi_data[smp_processor_id()].stats;
@@ -171,6 +190,13 @@ void handle_IPI(struct pt_regs *regs)
 			ipi_stop();
 		}
 
+		if (ops & (1 << IPI_CPU_CRASH_STOP)) {
+#ifdef CONFIG_KEXEC_CORE
+			ipi_cpu_crash_stop(cpu, get_irq_regs());
+#endif
+			unreachable();
+		}
+
 		if (ops & (1 << IPI_IRQ_WORK)) {
 			stats[IPI_IRQ_WORK]++;
 			irq_work_run();
@@ -191,6 +217,7 @@ static const char * const ipi_names[] = {
 	[IPI_RESCHEDULE]	= "Rescheduling interrupts",
 	[IPI_CALL_FUNC]		= "Function call interrupts",
 	[IPI_CPU_STOP]		= "CPU stop interrupts",
+	[IPI_CPU_CRASH_STOP]    = "CPU stop (for crash dump) interrupts",
 	[IPI_IRQ_WORK]		= "IRQ work interrupts",
 };
 
@@ -241,6 +268,64 @@ void smp_send_stop(void)
 		pr_warn("SMP: failed to stop secondary CPUs %*pbl\n",
 			   cpumask_pr_args(cpu_online_mask));
 }
+
+#ifdef CONFIG_KEXEC_CORE
+/*
+ * The number of CPUs online, not counting this CPU (which may not be
+ * fully online and so not counted in num_online_cpus()).
+ */
+static inline unsigned int num_other_online_cpus(void)
+{
+        unsigned int this_cpu_online = cpu_online(smp_processor_id());
+
+        return num_online_cpus() - this_cpu_online;
+}
+
+void crash_smp_send_stop(void)
+{
+        static int cpus_stopped;
+        cpumask_t mask;
+        unsigned long timeout;
+
+        /*
+         * This function can be called twice in panic path, but obviously
+         * we execute this only once.
+         */
+        if (cpus_stopped)
+                return;
+
+        cpus_stopped = 1;
+
+        /*
+         * If this cpu is the only one alive at this point in time, online or
+         * not, there are no stop messages to be sent around, so just back out.
+         */
+        if (num_other_online_cpus() == 0)
+                return;
+
+        cpumask_copy(&mask, cpu_online_mask);
+        cpumask_clear_cpu(smp_processor_id(), &mask);
+
+        atomic_set(&waiting_for_crash_ipi, num_other_online_cpus());
+
+        pr_crit("SMP: stopping secondary CPUs\n");
+        send_ipi_mask(&mask, IPI_CPU_CRASH_STOP);
+
+        /* Wait up to ten seconds for other CPUs to stop */
+        timeout = USEC_PER_SEC * 10;
+        while ((atomic_read(&waiting_for_crash_ipi) > 0) && timeout--)
+                udelay(1);
+
+        if (atomic_read(&waiting_for_crash_ipi) > 0)
+                pr_warn("SMP: failed to stop secondary CPUs %*pbl\n",
+                        cpumask_pr_args(&mask));
+}
+
+bool smp_crash_stop_failed(void)
+{
+        return (atomic_read(&waiting_for_crash_ipi) > 0);
+}
+#endif
 
 void smp_send_reschedule(int cpu)
 {

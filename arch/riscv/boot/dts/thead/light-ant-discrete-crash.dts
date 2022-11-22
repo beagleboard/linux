@@ -1,0 +1,88 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * Copyright (C) 2022 Alibaba Group Holding Limited.
+ */
+
+#include "light-crash.dts"
+
+&aon {
+	aon_reg_dialog: light-dialog-reg {
+		compatible = "thead,light-dialog-pmic-ant";
+		status = "okay";
+
+		dvdd_cpu_reg: appcpu_dvdd {
+			regulator-name = "appcpu_dvdd";
+			regulator-min-microvolt = <300000>;
+			regulator-max-microvolt = <1570000>;
+			regulator-boot-on;
+			regulator-always-on;
+		};
+
+		dvddm_cpu_reg: appcpu_dvddm {
+			regulator-name = "appcpu_dvddm";
+			regulator-min-microvolt = <300000>;
+			regulator-max-microvolt = <1570000>;
+			regulator-boot-on;
+			regulator-always-on;
+		};
+	};
+};
+
+&cpus {
+	c910_0: cpu@0 {
+		operating-points = <
+			/* kHz    uV */
+			300000	720000
+			800000	720000
+			1500000	820000
+		>;
+		light,dvddm-operating-points = <
+			/* kHz   uV */
+			300000	770000
+			800000	820000
+			1500000	820000
+		>;
+	};
+	c910_1: cpu@1 {
+		operating-points = <
+			/* kHz    uV */
+			300000	720000
+			800000	720000
+			1500000	820000
+		>;
+		light,dvddm-operating-points = <
+			/* kHz   uV */
+			300000	770000
+			800000	820000
+			1500000	820000
+		>;
+	};
+	c910_2: cpu@2 {
+		operating-points = <
+			/* kHz    uV */
+			300000	720000
+			800000	720000
+			1500000	820000
+		>;
+		light,dvddm-operating-points = <
+			/* kHz   uV */
+			300000	770000
+			800000	820000
+			1500000	820000
+		>;
+	};
+	c910_3: cpu@3 {
+		operating-points = <
+			/* kHz    uV */
+			300000	720000
+			800000	720000
+			1500000	820000
+		>;
+		light,dvddm-operating-points = <
+			/* kHz   uV */
+			300000	770000
+			800000	820000
+			1500000	820000
+		>;
+	};
+};

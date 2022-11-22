@@ -1390,6 +1390,9 @@ int dc_hw_init(struct dc_hw *hw)
     dc_write(hw, DC_OVERLAY_WATER_MARK + 0xc, 0x3000);
     dc_write(hw, DC_QOS_CONFIG, 0xc0);
 
+    dc_write(hw, DC_CLK_GATTING, 0x0);
+    dc_write(hw, DC_CLK_GATTING + 0x4, 0x0);
+
     return 0;
 }
 

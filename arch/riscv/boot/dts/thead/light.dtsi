@@ -14,6 +14,7 @@
 #include <dt-bindings/firmware/thead/rsrc.h>
 #include <dt-bindings/soc/thead,light-iopmp.h>
 #include <dt-bindings/thermal/thermal.h>
+#include <dt-bindings/reset/light-reset.h>
 
 / {
 	compatible = "thead,light";
@@ -74,7 +75,7 @@
 
 	memory@0 {
 		device_type = "memory";
-		reg = <0x0 0x00000000 0x1 0x00000000>;
+		reg = <0x0 0x200000 0x0 0xffe00000>;
 	};
 
 	resmem: reserved-memory {
@@ -86,8 +87,8 @@
 		cmamem: linux,cma {
 			compatible = "shared-dma-pool";
 			reusable;
-			size = <0 0x14000000>;
-			alloc-ranges = <0 0x20000000 0 0x40000000>;
+			size = <0 0x14000000>; // 320MB by default
+			alloc-ranges = <0 0x64000000 0 0x14000000>; // [0x6400_0000 ~ 0x7800_0000]
 			linux,cma-default;
 		};
 	};
@@ -975,9 +976,9 @@
 			status = "disabled";
 		};
 
-		adc: adc@ffec020000 {
+		adc: adc@0xfffff51000 {
 			compatible = "thead,light-adc";
-			reg = <0xff 0xfff51000 0x0 0x2000>;
+			reg = <0xff 0xfff51000 0x0 0x1000>;
 			interrupt-parent = <&intc>;
 			interrupts = <61>;
 			clocks = <&dummy_clock_aonsys_clk>;
@@ -1171,8 +1172,9 @@
 			reg = <0xff 0xefc30000 0x0 0x1000>;
 			interrupt-parent = <&intc>;
 			interrupts = <24>;
-			clocks = <&dummy_clock_apb>;
-			clock-names = "baudclk";
+			clocks = <&clk CLKGEN_WDT0_PCLK>;
+			clock-names = "tclk";
+			resets = <&rst LIGHT_RESET_WDT0>; 
 			status = "okay";
 		};
 
@@ -1181,8 +1183,9 @@
 			reg = <0xff 0xefc31000 0x0 0x1000>;
 			interrupt-parent = <&intc>;
 			interrupts = <25>;
-			clocks = <&dummy_clock_apb>;
-			clock-names = "baudclk";
+			clocks = <&clk CLKGEN_WDT1_PCLK>;
+			clock-names = "tclk";
+			resets = <&rst LIGHT_RESET_WDT1>; 
 			status = "okay";
 		};
 
@@ -1234,6 +1237,13 @@
 			#clock-cells = <1>;
 			clocks = <&osc_32k>, <&osc_24m>, <&rc_24m>;
 			clock-names = "osc_32k", "osc_24m", "rc_24m";
+			status = "okay";
+		};
+
+		rst: reset-controller@ffef014000 {
+			compatible = "thead,light-reset-src","syscon";
+			reg = <0xff 0xef014000 0x0 0x1000>;
+			#reset-cells = <1>;
 			status = "okay";
 		};
 
@@ -1386,6 +1396,7 @@
 			interrupt-parent = <&intc>;
 			interrupts = <113>;
 			interrupt-names = "npuirq";
+			power-domains = <&pd LIGHT_AON_NPU_PD>;
 			clocks = <&clk CLKGEN_TOP_APB_SX_PCLK>,
 			         <&clk CLKGEN_TOP_AXI4S_ACLK>;
 			clock-names = "pclk", "aclk";
@@ -1401,6 +1412,8 @@
 		    interrupt-parent = <&intc>;
 		    interrupts = <102>;
 		    interrupt-names = "gpuirq";
+			vosys-regmap = <&vosys_reg>;
+			power-domains = <&pd LIGHT_AON_GPU_PD>;
             clocks = <&vosys_clk_gate LIGHT_CLKGEN_GPU_CORE_CLK>,
                      <&vosys_clk_gate LIGHT_CLKGEN_GPU_CFG_ACLK>;
             clock-names = "cclk", "aclk";
@@ -1427,6 +1440,7 @@
 			reg = <0xff 0xecc00000 0x0 0x8000>;
 			interrupt-parent = <&intc>;
 			interrupts = <131>;
+			power-domains = <&pd LIGHT_AON_VDEC_PD>;
 			clocks = <&vpsys_clk_gate LIGHT_VPSYS_VDEC_ACLK>,
 				<&vpsys_clk_gate LIGHT_VPSYS_VDEC_CCLK>,
 				<&vpsys_clk_gate LIGHT_VPSYS_VDEC_PCLK>;
@@ -1439,6 +1453,7 @@
 			reg = <0xff 0xecc10000 0x0 0x8000>;
 			interrupt-parent = <&intc>;
 			interrupts = <133>;
+			power-domains = <&pd LIGHT_AON_VENC_PD>;
 			clocks = <&vpsys_clk_gate LIGHT_VPSYS_VENC_ACLK>,
 				<&vpsys_clk_gate LIGHT_VPSYS_VENC_CCLK>,
 				<&vpsys_clk_gate LIGHT_VPSYS_VENC_PCLK>;
@@ -1562,8 +1577,8 @@
 			fs_lcnt = /bits/ 16 <0x42>;
 			fp_hcnt = /bits/ 16 <0x14>;
 			fp_lcnt = /bits/ 16 <0x1a>;
-			hs_hcnt = /bits/ 16 <0x5>;
-			hs_lcnt = /bits/ 16 <0x15>;
+			hs_hcnt = /bits/ 16 <0x9>;
+			hs_lcnt = /bits/ 16 <0x11>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 		};
@@ -1581,8 +1596,8 @@
 			fs_lcnt = /bits/ 16 <0x42>;
 			fp_hcnt = /bits/ 16 <0x14>;
 			fp_lcnt = /bits/ 16 <0x1a>;
-			hs_hcnt = /bits/ 16 <0x5>;
-			hs_lcnt = /bits/ 16 <0x15>;
+			hs_hcnt = /bits/ 16 <0x9>;
+			hs_lcnt = /bits/ 16 <0x11>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 		};
@@ -1600,8 +1615,8 @@
 			fs_lcnt = /bits/ 16 <0x42>;
 			fp_hcnt = /bits/ 16 <0x14>;
 			fp_lcnt = /bits/ 16 <0x1a>;
-			hs_hcnt = /bits/ 16 <0x5>;
-			hs_lcnt = /bits/ 16 <0x15>;
+			hs_hcnt = /bits/ 16 <0x9>;
+			hs_lcnt = /bits/ 16 <0x11>;
 			status = "disabled";
 
 			#address-cells = <1>;
@@ -1621,8 +1636,8 @@
 			fs_lcnt = /bits/ 16 <0x42>;
 			fp_hcnt = /bits/ 16 <0x14>;
 			fp_lcnt = /bits/ 16 <0x1a>;
-			hs_hcnt = /bits/ 16 <0x5>;
-			hs_lcnt = /bits/ 16 <0x15>;
+			hs_hcnt = /bits/ 16 <0x9>;
+			hs_lcnt = /bits/ 16 <0x11>;
 			status = "disabled";
 
 			#address-cells = <1>;
@@ -1642,8 +1657,8 @@
 			fs_lcnt = /bits/ 16 <0x42>;
 			fp_hcnt = /bits/ 16 <0x14>;
 			fp_lcnt = /bits/ 16 <0x1a>;
-			hs_hcnt = /bits/ 16 <0x5>;
-			hs_lcnt = /bits/ 16 <0x15>;
+			hs_hcnt = /bits/ 16 <0x9>;
+			hs_lcnt = /bits/ 16 <0x11>;
 			status = "disabled";
 
 			#address-cells = <1>;
@@ -1674,10 +1689,10 @@
 			reg = <0xff 0xe4100000 0x0 0x10000>;
 			interrupt-parent = <&intc>;
 			interrupts = <117>,<118>;
-			clocks = <&dummy_clock_visys>,
-				<&dummy_clock_visys>,
-				<&dummy_clock_visys>,
-				<&dummy_clock_visys>;
+			clocks =  <&visys_clk_gate LIGHT_CLKGEN_ISP0_ACLK>,
+			          <&visys_clk_gate LIGHT_CLKGEN_ISP0_HCLK>,
+				  <&visys_clk_gate LIGHT_CLKGEN_ISP0_PIXELCLK>,
+				  <&visys_clk_gate LIGHT_CLKGEN_ISP0_CLK>;
 			clock-names = "aclk", "hclk", "isp0_pclk", "cclk";
 			status = "disabled";
 		};
@@ -1687,11 +1702,11 @@
 			reg = <0xff 0xe4110000 0x0 0x10000>;
 			interrupt-parent = <&intc>;
 			interrupts = <120>,<121>;
-			clocks = <&dummy_clock_visys>,
-				<&dummy_clock_visys>,
-				<&dummy_clock_visys>,
-				<&dummy_clock_visys>,
-				<&dummy_clock_visys>;
+			clocks = <&visys_clk_gate LIGHT_CLKGEN_ISP0_ACLK>,
+			         <&visys_clk_gate LIGHT_CLKGEN_ISP0_HCLK>,
+				 <&visys_clk_gate LIGHT_CLKGEN_ISP0_PIXELCLK>,
+				 <&visys_clk_gate LIGHT_CLKGEN_ISP1_CLK>,
+				 <&visys_clk_gate LIGHT_CLKGEN_ISP1_PIXELCLK>;
 			clock-names = "aclk", "hclk", "isp0_pclk", "cclk", "isp1_pclk";
 			status = "disabled";
 		};
@@ -1701,9 +1716,9 @@
 			reg = <0xff 0xe4120000 0x0 0x10000>;
 			interrupt-parent = <&intc>;
 			interrupts = <123>,<124>;
-			clocks = <&dummy_clock_visys>,
-				<&dummy_clock_visys>,
-				<&dummy_clock_visys>;
+			clocks = <&visys_clk_gate LIGHT_CLKGEN_ISP_RY_ACLK>,
+			         <&visys_clk_gate LIGHT_CLKGEN_ISP_RY_HCLK>,
+				 <&visys_clk_gate LIGHT_CLKGEN_ISP_RY_CCLK>;
 			clock-names = "aclk", "hclk", "cclk";
 			status = "disabled";
 		};
@@ -1713,10 +1728,10 @@
 			reg = <0xff 0xe4130000 0x0 0x10000>;
 			interrupt-parent = <&intc>;
 			interrupts = <98>,<99>;
-			clocks = <&dummy_clock_visys>,
-				<&dummy_clock_visys>,
-				<&dummy_clock_visys>,
-				<&dummy_clock_visys>;
+			clocks = <&visys_clk_gate LIGHT_CLKGEN_DW200_ACLK>,
+			         <&visys_clk_gate LIGHT_CLKGEN_DW200_HCLK>,
+				 <&visys_clk_gate LIGHT_CLKGEN_DW200_CLK_VSE>,
+				 <&visys_clk_gate LIGHT_CLKGEN_DW200_CLK_DWE>;
 			clock-names = "aclk", "hclk", "vseclk", "dweclk";
 			status = "disabled";
 		};
@@ -1752,12 +1767,20 @@
 			interrupts = <128>;
 			dphyglueiftester = <0x180>;
 			sysreg_mipi_csi_ctrl = <0x140>;
-            clocks = <&dummy_clock_visys>,
-                     <&dummy_clock_visys>,
-                     <&dummy_clock_visys>;
-			clock-names = "pclk", "pixclk", "cfg_clk";
-
+			clocks = <&visys_clk_gate LIGHT_CLKGEN_MIPI_CSI0_PCLK>,
+			         <&visys_clk_gate LIGHT_CLKGEN_MIPI_CSI0_PIXCLK>,
+				 <&visys_clk_gate LIGHT_CLKGEN_MIPI_CSI0_CFG_CLK>,
+				 <&visys_clk_gate LIGHT_CLKGEN_MIPI_CSI1_CFG_CLK>,
+				 <&visys_clk_gate LIGHT_CLKGEN_MIPI_CSI2_CFG_CLK>;
+				clock-names = "pclk", "pixclk", "cfg_clk0", "cfg_clk1", "cfg_clk2";
+            phy_name = "CSI_4LANE";
 			status = "disabled";
+		};
+
+        csia_reg: visys-reg@ffe4020000 {
+		    compatible = "thead,light-visys-reg", "syscon";
+			reg = < 0xff 0xe4020000 0x0 0x10000>;
+            status = "okay";
 		};
 
 		bm_csi1: csi@ffe4010000{ //CSI2X2_B
@@ -1767,11 +1790,15 @@
 			interrupts = <126>; // 110 + 16 int_mipi_csi2x2_int0
 			dphyglueiftester = <0x182>; // for FPGA PHY only. ASIC not needed.
 			sysreg_mipi_csi_ctrl = <0x148>;
-            clocks = <&dummy_clock_visys>,
-                     <&dummy_clock_visys>,
-                     <&dummy_clock_visys>;
-			clock-names = "pclk", "pixclk", "cfg_clk";
-
+            visys-regmap = <&visys_reg>;
+            csia-regmap = <&csia_reg>;
+			clocks = <&visys_clk_gate LIGHT_CLKGEN_MIPI_CSI1_PCLK>,
+			         <&visys_clk_gate LIGHT_CLKGEN_MIPI_CSI1_PIXCLK>,
+				 <&visys_clk_gate LIGHT_CLKGEN_MIPI_CSI0_CFG_CLK>,
+				 <&visys_clk_gate LIGHT_CLKGEN_MIPI_CSI1_CFG_CLK>,
+				 <&visys_clk_gate LIGHT_CLKGEN_MIPI_CSI2_CFG_CLK>;
+			clock-names = "pclk", "pixclk", "cfg_clk0", "cfg_clk1", "cfg_clk2";
+            phy_name = "CSI_B";
 			status = "disabled";
 		};
 
@@ -1782,11 +1809,13 @@
 			interrupts = <127>;
 			dphyglueiftester = <0x184>;
 			sysreg_mipi_csi_ctrl = <0x144>;
-            clocks = <&dummy_clock_visys>,
-                     <&dummy_clock_visys>,
-                     <&dummy_clock_visys>;
-			clock-names = "pclk", "pixclk", "cfg_clk";
-
+			clocks = <&visys_clk_gate LIGHT_CLKGEN_MIPI_CSI2_PCLK>,
+			         <&visys_clk_gate LIGHT_CLKGEN_MIPI_CSI2_PIXCLK>,
+				 <&visys_clk_gate LIGHT_CLKGEN_MIPI_CSI0_CFG_CLK>,
+				 <&visys_clk_gate LIGHT_CLKGEN_MIPI_CSI1_CFG_CLK>,
+				 <&visys_clk_gate LIGHT_CLKGEN_MIPI_CSI2_CFG_CLK>;
+			clock-names = "pclk", "pixclk", "cfg_clk0", "cfg_clk1", "cfg_clk2";
+            phy_name = "CSI_A";
 			status = "disabled";
 		};
 
@@ -1815,6 +1844,10 @@
 			reg = <0xff 0xe4030000 0x0 0x1000>;
 			interrupt-parent = <&intc>;
 			interrupts = <134>;
+			clocks = <&visys_clk_gate LIGHT_CLKGEN_VIPRE_ACLK>,
+			         <&visys_clk_gate LIGHT_CLKGEN_VIPRE_PCLK>,
+				 <&visys_clk_gate LIGHT_CLKGEN_VIPRE_PIXELCLK>;
+			clock-names ="aclk", "pclk", "pixclk";
 			status = "disabled";
 		};
 
@@ -1960,8 +1993,8 @@
 			interrupt-parent = <&intc>;
 			interrupts = <156>;
 			firmware-name = "xrp0.elf";
-            clocks = <&dummy_clock_visys>,
-            <&dummy_clock_visys>;
+			clocks = <&dummy_clock_visys>,
+			<&dummy_clock_visys>;
 			clock-names = "pclk", "cclk";
 			status = "disabled";
 
@@ -1998,8 +2031,8 @@
 			interrupt-parent = <&intc>;
 			interrupts = <157>;
 			firmware-name = "xrp1.elf";
-            clocks = <&dummy_clock_visys>,
-            <&dummy_clock_visys>;
+			clocks = <&dummy_clock_visys>,
+			<&dummy_clock_visys>;
 			clock-names = "pclk", "cclk";
 			status = "disabled";
 

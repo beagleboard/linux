@@ -91,7 +91,7 @@ void flush_icache_pte(pte_t pte)
 
 static bool thead_dma_init_flag = false;
 
-#define sync_is()	asm volatile (".long 0x01b0000b")
+#define sync_is()	asm volatile (".long 0x01a0000b")
 void dma_wbinv_range(unsigned long start, unsigned long end)
 {
 	register unsigned long i asm("a0") = start & ~(L1_CACHE_BYTES - 1);

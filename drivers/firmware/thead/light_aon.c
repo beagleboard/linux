@@ -239,6 +239,6 @@ static struct platform_driver light_aon_driver = {
 };
 builtin_platform_driver(light_aon_driver);
 
-MODULE_AUTHOR("fugang.duan <duanfugang.dfg@alibaba-inc.com>");
+MODULE_AUTHOR("fugang.duan <duanfugang.dfg@linux.alibaba.com>");
 MODULE_DESCRIPTION("Thead Light firmware protocol driver");
 MODULE_LICENSE("GPL v2");

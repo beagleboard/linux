@@ -16,8 +16,6 @@
 
 	chosen {
 		bootargs = "console=ttyS0,115200 crashkernel=256M-:128M earlycon clk_ignore_unused sram=0xffe0000000,0x180000";
-		linux,initrd-start = <0x0 0x2000000>;
-		linux,initrd-end = <0x0 0x14600000>;
 		stdout-path = "serial0:115200n8";
 	};
 
@@ -405,6 +403,8 @@
 			};
 			soc_dovdd18_scan_reg: soc_dovdd18_scan {
 				regulator-name = "soc_dovdd18_scan";
+				regulator-min-microvolt = <900000>;
+				regulator-max-microvolt = <3600000>;
 			};
 			soc_vext_2v8_reg: soc_vext_2v8 {
 				regulator-name = "soc_vext_2v8";
@@ -413,37 +413,51 @@
 			};
 			soc_dvdd12_scan_reg: soc_dvdd12_scan {
 				regulator-name = "soc_dvdd12_scan";
+				regulator-min-microvolt = <900000>;
+				regulator-max-microvolt = <3600000>;
 			};
 			soc_avdd28_scan_en_reg: soc_avdd28_scan_en {
 				regulator-name = "soc_avdd28_scan_en";
 			};
 			soc_avdd28_rgb_reg: soc_avdd28_rgb {
 				regulator-name = "soc_avdd28_rgb";
+				regulator-min-microvolt = <2200000>;
+				regulator-max-microvolt = <3475000>;
 				regulator-boot-on;
 				regulator-always-on;
 			};
 			soc_dovdd18_rgb_reg: soc_dovdd18_rgb {
 				regulator-name = "soc_dovdd18_rgb";
+				regulator-min-microvolt = <1200000>;
+				regulator-max-microvolt = <3600000>;
 				regulator-boot-on;
 				regulator-always-on;
 			};
 			soc_dvdd12_rgb_reg: soc_dvdd12_rgb {
 				regulator-name = "soc_dvdd12_rgb";
+				regulator-min-microvolt = <400000>;
+				regulator-max-microvolt = <1675000>;
 				regulator-boot-on;
 				regulator-always-on;
 			};
 			soc_avdd25_ir_reg: soc_avdd25_ir {
 				regulator-name = "soc_avdd25_ir";
+				regulator-min-microvolt = <2200000>;
+				regulator-max-microvolt = <3475000>;
 				regulator-boot-on;
 				regulator-always-on;
 			};
 			soc_dovdd18_ir_reg: soc_dovdd18_ir {
 				regulator-name = "soc_dovdd18_ir";
+				regulator-min-microvolt = <1200000>;
+				regulator-max-microvolt = <3600000>;
 				regulator-boot-on;
 				regulator-always-on;
 			};
 			soc_dvdd12_ir_reg: soc_dvdd12_ir {
 				regulator-name = "soc_dvdd12_ir";
+				regulator-min-microvolt = <400000>;
+				regulator-max-microvolt = <1675000>;
 				regulator-boot-on;
 				regulator-always-on;
 			};
@@ -459,6 +473,10 @@
 			compatible = "thead,light-aon-test";
 		};
 	};
+};
+
+&cmamem {
+	alloc-ranges = <0 0xe4000000 0 0x14000000>; // [0xE400_0000 ~ 0xF800_0000]
 };
 
 &resmem {
@@ -484,17 +502,17 @@
 		       0x0 0x20688000 0x0 0x00178000>;	/* DSP shared memory */
 		no-map;
 	};
-	facelib_mem: memory@d0000000 {
-		reg = <0x0 0xd0000000 0x0 0x10000000>;
+    vi_mem: framebuffer@0f800000 {
+		reg = <0x0 0x0F800000 0x0 0x05400000	/* vi_mem_pool_region[0]  84 MB (default) */
+		       0x0 0x14C00000 0x0 0x01D00000	/* vi_mem_pool_region[1]  29 MB */
+		       0x0 0x16900000 0x0 0x03200000>;	/* vi_mem_pool_region[2]  50 MB */
+		no-map;
+	};
+	facelib_mem: memory@22000000 {
+		reg = <0x0 0x22000000 0x0 0x10000000>;
 		no-map;
 	};
 
-	vi_mem: framebuffer@70000000 {
-		reg = <0x0 0x70000000 0x0 0x05400000	/* vi_mem_pool_region[0]  84 MB (default) */
-		       0x0 0x75400000 0x0 0x01D00000	/* vi_mem_pool_region[1]  29 MB */
-		       0x0 0x77100000 0x0 0x03200000>;	/* vi_mem_pool_region[2]  50 MB */
-		no-map;
-	};
 };
 
 &adc {
@@ -503,7 +521,7 @@
 };
 
 &i2c0 {
-	clock-frequency = <100000>;
+	clock-frequency = <400000>;
 	status = "okay";
 
 	eeprom@50 {
@@ -553,7 +571,7 @@
 };
 
 &i2c1 {
-        clock-frequency = <100000>;
+        clock-frequency = <400000>;
         status = "okay";
         touch1@5d {
                 #gpio-cells = <2>;
@@ -699,6 +717,7 @@
 	no-mmc;
 	non-removable;
 	io_fixed_1v8;
+	post-power-on-delay-ms = <50>;
 	wprtn_ignore;
 	cap-sd-highspeed;
 	keep-power-in-suspend;
@@ -837,8 +856,8 @@
 };
 
 &i2c2 {
+    clock-frequency = <400000>;
 	status = "okay";
-
 	eeprom@50 {
 		compatible = "atmel,24c32";
 		reg = <0x50>;
@@ -847,8 +866,8 @@
 };
 
 &i2c3 {
+    clock-frequency = <400000>;
 	status = "okay";
-
 	eeprom@50 {
 		compatible = "atmel,24c32";
 		reg = <0x50>;
@@ -857,8 +876,8 @@
 };
 
 &i2c4 {
+    clock-frequency = <400000>;
 	status = "okay";
-
 	eeprom@50 {
 		compatible = "atmel,24c32";
 		reg = <0x50>;
@@ -950,7 +969,7 @@
 	sensor_regulators = "DOVDD18_RGB", "DVDD12_RGB", "AVDD28_RGB";
 	sensor_regulator_timing_us = <70 50 20>;
 	sensor_rst = <&gpio1_porta 16 0>;
-	sensor_pdn_delay_us = <1000>; //powerdown pin / shutdown pin actived till I2C ready
+	sensor_pdn_delay_us = <4000>; //powerdown pin / shutdown pin actived till I2C ready
 	DOVDD18_RGB-supply = <&soc_dovdd18_rgb_reg>;
 	DVDD12_RGB-supply = <&soc_dvdd12_rgb_reg>;
 	AVDD28_RGB-supply = <&soc_avdd28_rgb_reg>;
@@ -990,8 +1009,9 @@
 	sensor_name = "SC2310";
 	sensor_regulators = "DOVDD18_SCAN", "DVDD12_SCAN", "AVDD28_SCAN";
 	sensor_regulator_timing_us = <70 50 20>;
-	//sensor_pdn = <&gpio1_porta 30 0>; //powerdown pin / shutdown pin
-	//sensor_rst = <&gpio1_porta 29 0>;
+	sensor_pdn = <&gpio1_porta 30 0>; //powerdown pin / shutdown pin
+	sensor_rst = <&gpio1_porta 29 0>;
+	sensor_pdn_delay_us = <4000>; //powerdown pin / shutdown pin actived till I2C ready
 	DOVDD18_SCAN-supply = <&soc_dovdd18_scan_reg>;
 	DVDD12_SCAN-supply = <&soc_dvdd12_scan_reg>;
 	AVDD28_SCAN-supply = <&soc_avdd28_scan_en_reg>;
@@ -1002,10 +1022,10 @@
 &vvcam_sensor4 {
     sensor_name = "SC132GS";
     sensor_regulators = "DOVDD18_IR", "DVDD12_IR", "AVDD25_IR";
-	sensor_regulator_timing_us = <70 50 20>;
+    sensor_regulator_timing_us = <70 1000 2000>;
     i2c_addr = /bits/ 8 <0x31>;
     sensor_rst = <&gpio1_porta 24 0>;
-	sensor_pdn_delay_us = <1000>; //powerdown pin / shutdown pin actived till I2C ready
+	sensor_pdn_delay_us = <2000>; //powerdown pin / shutdown pin actived till I2C ready
     DOVDD18_IR-supply = <&soc_dovdd18_ir_reg>;
     DVDD12_IR-supply = <&soc_dvdd12_ir_reg>;
     AVDD25_IR-supply = <&soc_avdd25_ir_reg>;
@@ -1019,7 +1039,7 @@
     sensor_name = "OV12870";
     sensor_regulators = "DOVDD18_RGB", "DVDD12_RGB", "AVDD28_RGB";
     sensor_regulator_timing_us = <100 50 0>;
-    //sensor_rst = <&gpio1_porta 16 0>;
+    sensor_rst = <&gpio1_porta 16 0>;
     sensor_pdn_delay_us = <60>; //powerdown pin / shutdown pin actived till I2C ready
     DOVDD18_RGB-supply = <&soc_dovdd18_rgb_reg>;
     DVDD12_RGB-supply = <&soc_dvdd12_rgb_reg>;
@@ -1031,6 +1051,22 @@
     status = "okay";
 };
 
+&vvcam_sensor6 {
+	sensor_name = "GC02M1B";
+	sensor_regulators = "DOVDD18_RGB", "DVDD12_RGB", "AVDD28_RGB";
+	sensor_regulator_timing_us = <70 50 20>;
+	sensor_rst = <&gpio1_porta 16 0>;
+	sensor_pdn_delay_us = <1000>; //powerdown pin / shutdown pin actived till I2C ready
+	DOVDD18_RGB-supply = <&soc_dovdd18_rgb_reg>;
+	DVDD12_RGB-supply = <&soc_dvdd12_rgb_reg>;
+	AVDD28_RGB-supply = <&soc_avdd28_rgb_reg>;
+    i2c_reg_width = /bits/ 8 <1>;
+    i2c_data_width = /bits/ 8 <1>;
+    i2c_addr = /bits/ 8 <0x37>;
+	i2c_bus = /bits/ 8 <3>;
+	status = "okay";
+};
+
 &video0{
 	vi_mem_pool_region = <2>;	// vi_mem: framebuffer, region[2]
 	pipline0 {
@@ -1038,13 +1074,15 @@
 			subdev_name = "vivcam";
 			idx = <2>; //<2>=vivcam2 : gc5035
 			csi_idx = <1>; //<1>=CSI2X2_B
-			path_type = "SENSOR_1080P_RAW10_LINER"; //SENSOR_VGA_RAW10_LINER//
+			mode_idx = <3>;
+			path_type = "SENSOR_1296x972_RAW10_LINER"; //SENSOR_VGA_RAW10_LINER//
 		};
 		sensor1 {
 			subdev_name = "vivcam";
 			idx = <3>; //<3>=vivcam3 : sc2310
 			csi_idx = <1>; //<1>=CSI2X2_B
-			path_type = "SENSOR_1080P_RAW12_LINER";
+			mode_idx = <1>;
+			path_type = "SENSOR_1920X1088_26FPS_RAW12_LINER";
 		};
 		isp {
 			subdev_name = "isp";
@@ -1063,13 +1101,15 @@
 			subdev_name = "vivcam";
 			idx = <2>; //<2>=vivcam2 : gc5035
 			csi_idx = <1>; //<1>=CSI2X2_B
-			path_type = "SENSOR_1080P_RAW10_LINER"; //SENSOR_VGA_RAW10_LINER//
+			mode_idx = <3>;
+			path_type = "SENSOR_1296x972_RAW10_LINER"; //SENSOR_VGA_RAW10_LINER//
 		};
 		sensor1 {
 			subdev_name = "vivcam";
 			idx = <3>; //<3>=vivcam3 : sc2310
 			csi_idx = <1>; //<1>=CSI2X2_B
-			path_type = "SENSOR_1080P_RAW12_LINER";
+			mode_idx = <1>;
+			path_type = "SENSOR_1920X1088_26FPS_RAW12_LINER";
 		};
 		isp {
 			subdev_name = "isp";
@@ -1088,13 +1128,15 @@
 			subdev_name = "vivcam";
 			idx = <2>; //<2>=vivcam2 : gc5035
 			csi_idx = <1>; //<1>=CSI2X2_B
-			path_type = "SENSOR_1080P_RAW10_LINER"; //SENSOR_VGA_RAW10_LINER//
+			mode_idx = <3>;
+			path_type = "SENSOR_1296x972_RAW10_LINER"; //SENSOR_VGA_RAW10_LINER//
 		};
 		sensor1 {
 			subdev_name = "vivcam";
 			idx = <3>; //<3>=vivcam3 : sc2310
 			csi_idx = <1>; //<1>=CSI2X2_B
-			path_type = "SENSOR_1080P_RAW12_LINER";
+			mode_idx = <1>;
+			path_type = "SENSOR_1920X1088_26FPS_RAW12_LINER";
 		};
 		isp {
 			subdev_name = "isp";
@@ -1118,13 +1160,15 @@
 			subdev_name = "vivcam";
 			idx = <2>; //<2>=vivcam2 : gc5035
 			csi_idx = <1>; //<1>=CSI2X2_B
-			path_type = "SENSOR_1080P_RAW10_LINER";
+			mode_idx = <3>;
+			path_type = "SENSOR_1296x972_RAW10_LINER";
 		};
 		sensor1 {
 			subdev_name = "vivcam";
 			idx = <3>; //<3>=vivcam3 : sc2310
 			csi_idx = <1>; //<1>=CSI2X2_B
-			path_type = "SENSOR_1080P_RAW12_LINER";
+			mode_idx = <1>;
+			path_type = "SENSOR_1920X1088_26FPS_RAW12_LINER";
 		};
 		isp {
 			subdev_name = "isp";
@@ -1149,13 +1193,15 @@
 			subdev_name = "vivcam";
 			idx = <2>; //<2>=vivcam2 : gc5035
 			csi_idx = <1>; //<1>=CSI2X2_B
-			path_type = "SENSOR_1080P_RAW10_LINER";
+			mode_idx = <3>;
+			path_type = "SENSOR_1296x972_RAW10_LINER";
 		};
 		sensor1 {
 			subdev_name = "vivcam";
 			idx = <3>; //<3>=vivcam3 : sc2310
 			csi_idx = <1>; //<1>=CSI2X2_B
-			path_type = "SENSOR_1080P_RAW12_LINER";
+			mode_idx = <1>;
+			path_type = "SENSOR_1920X1088_26FPS_RAW12_LINER";
 		};
 		isp {
 			subdev_name = "isp";
@@ -1180,13 +1226,15 @@
 			subdev_name = "vivcam";
 			idx = <2>; //<2>=vivcam2 : gc5035
 			csi_idx = <1>; //<1>=CSI2X2_B
-			path_type = "SENSOR_1080P_RAW10_LINER";
+			mode_idx = <3>;
+			path_type = "SENSOR_1296x972_RAW10_LINER";
 		};
 		sensor1 {
 			subdev_name = "vivcam";
 			idx = <3>; //<3>=vivcam3 : sc2310
 			csi_idx = <1>; //<1>=CSI2X2_B
-			path_type = "SENSOR_1080P_RAW12_LINER";
+			mode_idx = <1>;
+			path_type = "SENSOR_1920X1088_26FPS_RAW12_LINER";
 		};
 		isp {
 			subdev_name = "isp";
@@ -1215,7 +1263,15 @@
 			subdev_name = "vivcam";
 			idx = <0>; //sc2310
 			csi_idx = <0>; //<0>=CSI2
-			path_type = "SENSOR_1080P_RAW12_LINER";
+			mode_idx = <1>;
+			path_type = "SENSOR_1920X1088_26FPS_RAW12_LINER";
+		};
+		sensor1 {
+			subdev_name = "vivcam";
+			idx = <6>; //gc02m1b
+			csi_idx = <0>; //<0>=CSI2
+			mode_idx = <0>;
+			path_type = "SENSOR_1600x1200_RAW10_LINER";
 		};
 		isp {
 			subdev_name = "isp";
@@ -1224,7 +1280,7 @@
 			output {
 				max_width = <1920>;
 				max_height = <1088>;
-				bit_per_pixel = <12>;
+				bit_per_pixel = <16>;
 				frame_count = <3>;
 			};
 		};
@@ -1234,7 +1290,15 @@
 			subdev_name = "vivcam";
 			idx = <0>; //sc2310
 			csi_idx = <0>; //<0>=CSI2
-			path_type = "SENSOR_1080P_RAW12_LINER";
+			mode_idx = <1>;
+			path_type = "SENSOR_1920X1088_26FPS_RAW12_LINER";
+		};
+		sensor1 {
+			subdev_name = "vivcam";
+			idx = <6>; //gc02m1b
+			csi_idx = <0>; //<0>=CSI2
+			mode_idx = <0>;
+			path_type = "SENSOR_1600x1200_RAW10_LINER";
 		};
 		isp {
 			subdev_name = "isp";
@@ -1243,7 +1307,7 @@
 			output {
 				max_width = <1920>;
 				max_height = <1088>;
-				bit_per_pixel = <12>;
+				bit_per_pixel = <16>;
 				frame_count = <3>;
 			};
 		};
@@ -1253,7 +1317,15 @@
 			subdev_name = "vivcam";
 			idx = <0>; //sc2310
 			csi_idx = <0>; //<0>=CSI2
-			path_type = "SENSOR_1080P_RAW12_LINER";
+			mode_idx = <1>;
+			path_type = "SENSOR_1920X1088_26FPS_RAW12_LINER";
+		};
+		sensor1 {
+			subdev_name = "vivcam";
+			idx = <6>; //gc02m1b
+			csi_idx = <0>; //<0>=CSI2
+			mode_idx = <0>;
+			path_type = "SENSOR_1600x1200_RAW10_LINER";
 		};
 		isp {
 			subdev_name = "isp";
@@ -1262,7 +1334,7 @@
 			output {
 				max_width = <1920>;
 				max_height = <1088>;
-				bit_per_pixel = <12>;
+				bit_per_pixel = <16>;
 				frame_count = <3>;
 			};
 		};
@@ -1276,7 +1348,15 @@
 			subdev_name = "vivcam";
 			idx = <0>; //sc2310
 			csi_idx = <0>; //<0>=CSI2
-			path_type = "SENSOR_1080P_RAW12_LINER";
+			mode_idx = <1>;
+			path_type = "SENSOR_1920X1088_26FPS_RAW12_LINER";
+		};
+		sensor1 {
+			subdev_name = "vivcam";
+			idx = <6>; //gc02m1b
+			csi_idx = <0>; //<0>=CSI2
+			mode_idx = <0>;
+			path_type = "SENSOR_1600x1200_RAW10_LINER";
 		};
 		isp {
 			subdev_name = "isp";
@@ -1301,7 +1381,15 @@
 			subdev_name = "vivcam";
 			idx = <0>; //sc2310
 			csi_idx = <0>; //<0>=CSI2
-			path_type = "SENSOR_1080P_RAW12_LINER";
+			mode_idx = <1>;
+			path_type = "SENSOR_1920X1088_26FPS_RAW12_LINER";
+		};
+		sensor1 {
+			subdev_name = "vivcam";
+			idx = <6>; //gc02m1b
+			csi_idx = <0>; //<0>=CSI2
+			mode_idx = <0>;
+			path_type = "SENSOR_1600x1200_RAW10_LINER";
 		};
 		isp {
 			subdev_name = "isp";
@@ -1326,7 +1414,15 @@
 			subdev_name = "vivcam";
 			idx = <0>; //sc2310
 			csi_idx = <0>; //<0>=CSI2
-			path_type = "SENSOR_1080P_RAW12_LINER";
+			mode_idx = <1>;
+			path_type = "SENSOR_1920X1088_26FPS_RAW12_LINER";
+		};
+		sensor1 {
+			subdev_name = "vivcam";
+			idx = <6>; //gc02m1b
+			csi_idx = <0>; //<0>=CSI2
+			mode_idx = <0>;
+			path_type = "SENSOR_1600x1200_RAW10_LINER";
 		};
 		isp {
 			subdev_name = "isp";
@@ -1355,7 +1451,15 @@
 			subdev_name = "vivcam";
 			idx = <0>; //sc2310
 			csi_idx = <0>; //<0>=CSI2
-			path_type = "SENSOR_1080P_RAW12_LINER";
+			mode_idx = <1>;
+			path_type = "SENSOR_1920X1088_26FPS_RAW12_LINER";
+		};
+		sensor1 {
+			subdev_name = "vivcam";
+			idx = <6>; //gc02m1b
+			csi_idx = <0>; //<0>=CSI2
+			mode_idx = <0>;
+			path_type = "SENSOR_1600x1200_RAW10_LINER";
 		};
 		isp {
 			subdev_name = "isp";
@@ -1396,7 +1500,15 @@
 			subdev_name = "vivcam";
 			idx = <0>; //sc2310
 			csi_idx = <0>; //<0>=CSI2
-			path_type = "SENSOR_1080P_RAW12_LINER";
+			mode_idx = <1>;
+			path_type = "SENSOR_1920X1088_26FPS_RAW12_LINER";
+		};
+		sensor1 {
+			subdev_name = "vivcam";
+			idx = <6>; //gc02m1b
+			csi_idx = <0>; //<0>=CSI2
+			mode_idx = <0>;
+			path_type = "SENSOR_1600x1200_RAW10_LINER";
 		};
 		isp {
 			subdev_name = "isp";
@@ -1437,7 +1549,15 @@
 			subdev_name = "vivcam";
 			idx = <0>; //sc2310
 			csi_idx = <0>; //<0>=CSI2
-			path_type = "SENSOR_1080P_RAW12_LINER";
+			mode_idx = <1>;
+			path_type = "SENSOR_1920X1088_26FPS_RAW12_LINER";
+		};
+		sensor1 {
+			subdev_name = "vivcam";
+			idx = <6>; //gc02m1b
+			csi_idx = <0>; //<0>=CSI2
+			mode_idx = <0>;
+			path_type = "SENSOR_1600x1200_RAW10_LINER";
 		};
 		isp {
 			subdev_name = "isp";
@@ -1482,7 +1602,15 @@
 			subdev_name = "vivcam";
 			idx = <0>; //sc2310
 			csi_idx = <0>; //<0>=CSI2
-			path_type = "SENSOR_1080P_RAW12_LINER";
+			mode_idx = <1>;
+			path_type = "SENSOR_1920X1088_26FPS_RAW12_LINER";
+		};
+		sensor1 {
+			subdev_name = "vivcam";
+			idx = <6>; //gc02m1b
+			csi_idx = <0>; //<0>=CSI2
+			mode_idx = <0>;
+			path_type = "SENSOR_1600x1200_RAW10_LINER";
 		};
 		isp {
 			subdev_name = "isp";
@@ -1529,7 +1657,15 @@
 			subdev_name = "vivcam";
 			idx = <0>; //sc2310
 			csi_idx = <0>; //<0>=CSI2
-			path_type = "SENSOR_1080P_RAW12_LINER";
+			mode_idx = <1>;
+			path_type = "SENSOR_1920X1088_26FPS_RAW12_LINER";
+		};
+		sensor1 {
+			subdev_name = "vivcam";
+			idx = <6>; //gc02m1b
+			csi_idx = <0>; //<0>=CSI2
+			mode_idx = <0>;
+			path_type = "SENSOR_1600x1200_RAW10_LINER";
 		};
 		isp {
 			subdev_name = "isp";
@@ -1576,7 +1712,15 @@
 			subdev_name = "vivcam";
 			idx = <0>; //sc2310
 			csi_idx = <0>; //<0>=CSI2
-			path_type = "SENSOR_1080P_RAW12_LINER";
+			mode_idx = <1>;
+			path_type = "SENSOR_1920X1088_26FPS_RAW12_LINER";
+		};
+		sensor1 {
+			subdev_name = "vivcam";
+			idx = <6>; //gc02m1b
+			csi_idx = <0>; //<0>=CSI2
+			mode_idx = <0>;
+			path_type = "SENSOR_1600x1200_RAW10_LINER";
 		};
 		isp {
 			subdev_name = "isp";
@@ -1628,7 +1772,8 @@
 			idx = <4>; //sc132gs
 			csi_idx = <2>; //<2>=CSI2X2_A
 			flash_led_idx = <0>;
-			path_type = "SENSOR_1080P_RAW10_LINER";
+			mode_idx = <0>;
+			path_type = "SENSOR_1080X1280_30FPS_RAW10_LINER";
 		};
 		dsp{
 			output {
@@ -1645,7 +1790,8 @@
 			idx = <4>; //sc132gs
 			csi_idx = <2>; //<2>=CSI2X2_A
 			flash_led_idx = <0>;
-			path_type = "SENSOR_1080P_RAW10_LINER";
+			mode_idx = <0>;
+			path_type = "SENSOR_1080X1280_30FPS_RAW10_LINER";
 		};
 		dsp{
 			output {
@@ -1664,13 +1810,15 @@
 			subdev_name = "vivcam";
 			idx = <2>; //<2>=vivcam2 : gc5035
 			csi_idx = <1>; //<1>=CSI2X2_B
-			path_type = "SENSOR_1080P_RAW10_LINER"; //SENSOR_VGA_RAW10_LINER//
+			mode_idx = <3>;
+			path_type = "SENSOR_1296x972_RAW10_LINER"; //SENSOR_VGA_RAW10_LINER//
 		};
 		sensor1 {
 			subdev_name = "vivcam";
 			idx = <3>; //<3>=vivcam3 : sc2310
 			csi_idx = <1>; //<1>=CSI2X2_B
-			path_type = "SENSOR_1080P_RAW12_LINER";
+			mode_idx = <1>;
+			path_type = "SENSOR_1920X1088_26FPS_RAW12_LINER";
 		};
 		isp {
 			subdev_name = "isp";
@@ -1717,13 +1865,15 @@
 			subdev_name = "vivcam";
 			idx = <2>; //<2>=vivcam2 : gc5035
 			csi_idx = <1>; //<1>=CSI2X2_B
-			path_type = "SENSOR_1080P_RAW10_LINER"; //SENSOR_VGA_RAW10_LINER//
+			mode_idx = <3>;
+			path_type = "SENSOR_1296x972_RAW10_LINER"; //SENSOR_VGA_RAW10_LINER//
 		};
 		sensor1 {
 			subdev_name = "vivcam";
 			idx = <3>; //<3>=vivcam3 : sc2310
 			csi_idx = <1>; //<1>=CSI2X2_B
-			path_type = "SENSOR_1080P_RAW12_LINER";
+			mode_idx = <1>;
+			path_type = "SENSOR_1920X1088_26FPS_RAW12_LINER";
 		};
 		isp {
 			subdev_name = "isp";
@@ -1770,13 +1920,15 @@
 			subdev_name = "vivcam";
 			idx = <2>; //<2>=vivcam2 : gc5035
 			csi_idx = <1>; //<1>=CSI2X2_B
-			path_type = "SENSOR_1080P_RAW10_LINER"; //SENSOR_VGA_RAW10_LINER//
+			mode_idx = <3>;
+			path_type = "SENSOR_1296x972_RAW10_LINER"; //SENSOR_VGA_RAW10_LINER//
 		};
 		sensor1 {
 			subdev_name = "vivcam";
 			idx = <3>; //<3>=vivcam3 : sc2310
 			csi_idx = <1>; //<1>=CSI2X2_B
-			path_type = "SENSOR_1080P_RAW12_LINER";
+			mode_idx = <1>;
+			path_type = "SENSOR_1920X1088_26FPS_RAW12_LINER";
 		};
 		isp {
 			subdev_name = "isp";
@@ -1828,13 +1980,15 @@
 			subdev_name = "vivcam";
 			idx = <2>; //<2>=vivcam2 : gc5035
 			csi_idx = <1>; //<1>=CSI2X2_B
-			path_type = "SENSOR_1080P_RAW10_LINER"; //SENSOR_VGA_RAW10_LINER//
+			mode_idx = <3>;
+			path_type = "SENSOR_1296x972_RAW10_LINER"; //SENSOR_VGA_RAW10_LINER//
 		};
 		sensor1 {
 			subdev_name = "vivcam";
 			idx = <3>; //<3>=vivcam3 : sc2310
 			csi_idx = <1>; //<1>=CSI2X2_B
-			path_type = "SENSOR_1080P_RAW12_LINER";
+			mode_idx = <1>;
+			path_type = "SENSOR_1920X1088_26FPS_RAW12_LINER";
 		};
 		dsp {
 			subdev_name = "dsp";
@@ -1856,7 +2010,8 @@
 			subdev_name = "vivcam";
 			idx = <4>; //sc132gs
 			csi_idx = <2>; //<2>=CSI2X2_A
-			path_type = "SENSOR_1080P_RAW10_LINER";
+			mode_idx = <0>;
+			path_type = "SENSOR_1080X1280_30FPS_RAW10_LINER";
 		};
 		dsp{
 			output {
@@ -1876,13 +2031,17 @@
 			subdev_name = "vivcam";
 			idx = <2>; //<2>=vivcam2 : gc5035
 			csi_idx = <1>; //<1>=CSI2X2_B
+			mode_idx = <1>;
 			path_type = "SENSOR_1080P_RAW10_LINER"; //SENSOR_VGA_RAW10_LINER//
+			skip_init = <1>;
 		};
 		sensor1 {
 			subdev_name = "vivcam";
 			idx = <3>; //<3>=vivcam3 : sc2310
 			csi_idx = <1>; //<1>=CSI2X2_B
-			path_type = "SENSOR_1080P_RAW12_LINER";
+			mode_idx = <1>;
+			path_type = "SENSOR_1920X1088_26FPS_RAW12_LINER";
+			skip_init = <1>;
 		};
 	};
 };
@@ -1896,7 +2055,8 @@
 			idx = <4>; //sc132gs
 			csi_idx = <2>; //<2>=CSI2X2_A
 			flash_led_idx = <0>;
-			path_type = "SENSOR_1080P_RAW10_LINER";
+			mode_idx = <0>;
+			path_type = "SENSOR_1080X1280_30FPS_RAW10_LINER";
 		};
 		isp {
 			subdev_name = "isp";
@@ -1912,13 +2072,22 @@
 	};
 };
 
-&video12{
+&video12{ // TUNINGTOOL
 	pipline0 { // CSI2
 		sensor0 {
 			subdev_name = "vivcam";
 			idx = <0>; //sc2310
 			csi_idx = <0>; //<0>=CSI2
-			path_type = "SENSOR_1080P_RAW12_LINER";
+			mode_idx = <1>;
+			path_type = "SENSOR_1920X1088_26FPS_RAW12_LINER";
+			skip_init = <1>;
+		};
+		sensor1 {
+			subdev_name = "vivcam";
+			idx = <6>; //gc02m1b
+			csi_idx = <0>; //<0>=CSI2
+			mode_idx = <0>;
+			path_type = "SENSOR_1600x1200_RAW10_LINER";
 			skip_init = <1>;
 		};
 	};
@@ -1963,3 +2132,71 @@
 	status = "okay";
 };
 
+&cpus {
+	c910_0: cpu@0 {
+		operating-points = <
+			/* kHz    uV */
+			300000	650000
+			800000	700000
+			1500000	800000
+			1848000	1000000
+		>;
+		light,dvddm-operating-points = <
+			/* kHz   uV */
+			300000	800000
+			800000	800000
+			1500000	800000
+			1848000	1000000
+		>;
+	};
+	c910_1: cpu@1 {
+		operating-points = <
+			/* kHz    uV */
+			300000	650000
+			800000	700000
+			1500000	800000
+			1848000	1000000
+		>;
+		light,dvddm-operating-points = <
+			/* kHz   uV */
+			300000	800000
+			800000	800000
+			1500000	800000
+			1848000	1000000
+		>;
+	};
+	c910_2: cpu@2 {
+
+		operating-points = <
+			/* kHz    uV */
+			300000	650000
+			800000	700000
+			1500000	800000
+			1848000	1000000
+		>;
+		light,dvddm-operating-points = <
+			/* kHz   uV */
+			300000	800000
+			800000	800000
+			1500000	800000
+			1848000	1000000
+		>;
+	};
+	c910_3: cpu@3 {
+
+		operating-points = <
+			/* kHz    uV */
+			300000	650000
+			800000	700000
+			1500000	800000
+			1848000	1000000
+		>;
+		light,dvddm-operating-points = <
+			/* kHz   uV */
+			300000	800000
+			800000	800000
+			1500000	800000
+			1848000	1000000
+		>;
+	};
+};

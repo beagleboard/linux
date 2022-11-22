@@ -251,6 +251,42 @@ static int aon_regu_is_enabled(struct regulator_dev *reg)
 	return (int) msg.rpc.regu_pwr_get.status;
 }
 
+static int aon_regu_set_voltage(struct regulator_dev *reg,
+				int minuV, int uV, unsigned *selector)
+{
+	u16 regu_id =(u16) rdev_get_id(reg);
+	u32 voltage = minuV; /* uV */
+	int err;
+
+	pr_debug("[%s,%d]minuV = %d, uV = %d\n", __func__, __LINE__, minuV, uV);
+
+	err = aon_set_regulator(light_aon_pmic_info.ipc_handle, regu_id,
+				       voltage, 0, 0);
+	if (err) {
+		pr_err("failed to set Voltages to %d!\n", minuV);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int aon_regu_get_voltage(struct regulator_dev *reg)
+{
+	u16 regu_id = (u16) rdev_get_id(reg);
+	int voltage, ret;
+
+	ret = aon_get_regulator(light_aon_pmic_info.ipc_handle, regu_id,
+				&voltage, NULL, 0);
+	if (ret) {
+		pr_err("failed to get voltage\n");
+		return -EINVAL;
+	}
+
+	pr_debug("[%s,%d]voltage = %d\n", __func__, __LINE__, voltage);
+
+	return voltage;
+}
+
 static const struct apcpu_vol_set *apcpu_get_matched_signed_off_voltage(u32 vdd, u32 vddm)
 {
 	int vol_count = ARRAY_SIZE(apcpu_volts);
@@ -362,6 +398,9 @@ static const struct regulator_ops regu_common_ops = {
 	.enable =        aon_regu_enable,
 	.disable =       aon_regu_disable,
 	.is_enabled =    aon_regu_is_enabled,
+	.list_voltage =  regulator_list_voltage_linear,
+	.set_voltage =   aon_regu_set_voltage,
+	.get_voltage =   aon_regu_get_voltage,
 };
 static const struct regulator_ops apcpu_dvdd_ops = {
 	.enable =        aon_regu_dummy_enable,
@@ -843,7 +882,7 @@ static struct platform_driver light_aon_regulator_driver = {
 
 module_platform_driver(light_aon_regulator_driver);
 
-MODULE_AUTHOR("fugang.duan <duanfugang.dfg@alibaba-inc.com>");
-MODULE_AUTHOR("linghui.zlh <linghui.zlh@alibaba-inc.com>");
+MODULE_AUTHOR("fugang.duan <duanfugang.dfg@linux.alibaba.com>");
+MODULE_AUTHOR("linghui.zlh <linghui.zlh@linux.alibaba.com>");
 MODULE_DESCRIPTION("Thead Light Aon regulator virtual driver");
 MODULE_LICENSE("GPL v2");

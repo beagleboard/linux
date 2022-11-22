@@ -791,6 +791,6 @@ int dw_qspi_resume_host(struct dw_spi *dws)
 }
 EXPORT_SYMBOL_GPL(dw_qspi_resume_host);
 
-MODULE_AUTHOR("linghui zeng<linghui.zlh@alibaba-inc.com>");
+MODULE_AUTHOR("linghui zeng<linghui.zlh@linux.alibaba.com>");
 MODULE_DESCRIPTION("Driver for DesignWare ehance-spi controller core");
 MODULE_LICENSE("GPL v2");

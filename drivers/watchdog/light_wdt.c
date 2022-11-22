@@ -14,6 +14,7 @@
 #include <linux/of_address.h>
 #include <linux/platform_device.h>
 #include <linux/regmap.h>
+#include <linux/device.h>
 #include <linux/watchdog.h>
 #include <linux/firmware/thead/ipc.h>
 
@@ -44,6 +45,7 @@ struct light_wdt_device {
 	struct device *dev;
 	struct light_aon_ipc *ipc_handle;
 	struct light_aon_msg_wdg_ctrl msg;
+	unsigned int    is_aon_wdt_ena;
 };
 
 struct light_wdt_device *light_power_off_wdt;
@@ -210,6 +212,40 @@ static const struct watchdog_ops light_watchdog_ops = {
 	.restart = light_wdt_restart,
 };
 
+static ssize_t aon_sys_wdt_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct light_wdt_device *wdt_dev = platform_get_drvdata(pdev);
+	return sprintf(buf,"%u\n",wdt_dev->is_aon_wdt_ena);
+}
+
+static ssize_t aon_sys_wdt_store(struct device *dev,
+				 struct device_attribute *attr,
+				 const char *buf, size_t size)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct light_wdt_device *wdt_dev = platform_get_drvdata(pdev);
+	struct light_aon_ipc *ipc;
+	int ret;
+	char *start = (char *)buf;
+	unsigned long val;
+
+	ipc = wdt_dev->ipc_handle;
+	val = simple_strtoul(start, &start, 0);
+	wdt_dev->is_aon_wdt_ena = val;
+	if (val)
+		light_wdt_msg_hdr_fill(&wdt_dev->msg.hdr, LIGHT_AON_MISC_FUNC_AON_WDT_ON);
+	else
+		light_wdt_msg_hdr_fill(&wdt_dev->msg.hdr, LIGHT_AON_MISC_FUNC_AON_WDT_OFF);
+	ret = light_aon_call_rpc(ipc, &wdt_dev->msg, true);
+	if (ret){
+		pr_err("%s: err:%d \n",__func__,ret);
+		return -EINVAL;
+	}
+	return size;
+}
+
 void light_pm_power_off(void)
 {
 	struct light_wdt_device *wdt_dev = light_power_off_wdt;
@@ -226,6 +262,17 @@ void light_pm_power_off(void)
 		pr_err("failed to power off the system\n");
 }
 
+
+static DEVICE_ATTR(aon_sys_wdt, 0644, aon_sys_wdt_show, aon_sys_wdt_store);
+
+static struct attribute *aon_sys_wdt_sysfs_entries[] = {
+	&dev_attr_aon_sys_wdt.attr,
+	NULL
+};
+static const struct attribute_group dev_attr_aon_sys_wdt_group = {
+	.attrs = aon_sys_wdt_sysfs_entries,
+};
+
 static int light_wdt_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -236,6 +283,7 @@ static int light_wdt_probe(struct platform_device *pdev)
 	wdt_dev = devm_kzalloc(dev, sizeof(*wdt_dev), GFP_KERNEL);
 	if (!wdt_dev)
 		return -ENOMEM;
+	wdt_dev->is_aon_wdt_ena = 0;
 
 	ret = light_aon_get_handle(&(wdt_dev->ipc_handle));
 	if (ret == -EPROBE_DEFER)
@@ -260,6 +308,7 @@ static int light_wdt_probe(struct platform_device *pdev)
 	watchdog_init_timeout(wdd, 0, dev);
 	light_wdt_set_timeout(wdd, wdd->timeout);
 
+	platform_set_drvdata(pdev, wdt_dev);
 	ret = light_wdt_is_running(wdt_dev);
 	if (ret < 0) {
 		pr_err("failed to get pmic wdt running state\n");
@@ -280,6 +329,12 @@ static int light_wdt_probe(struct platform_device *pdev)
 	pm_power_off = light_pm_power_off;
 
 	light_power_off_wdt = wdt_dev;
+
+	ret = sysfs_create_group(&pdev->dev.kobj, &dev_attr_aon_sys_wdt_group);
+	if (ret) {
+		dev_err(&pdev->dev, "Failed to create aon_sys_wdt sysfs.\n");
+		return ret;
+	}
 
 	pr_info("succeed to register light pmic watchdog\n");
 
@@ -314,6 +369,6 @@ static int __init light_wdt_init(void)
 }
 device_initcall(light_wdt_init);
 
-MODULE_AUTHOR("Wei.Liu <lw312886@alibaba-inc.com>");
+MODULE_AUTHOR("Wei.Liu <lw312886@linux.alibaba.com>");
 MODULE_DESCRIPTION("PMIC Watchdog Driver for Light");
 MODULE_LICENSE("GPL");

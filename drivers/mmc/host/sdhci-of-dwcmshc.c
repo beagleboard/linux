@@ -33,6 +33,7 @@ struct dwcmshc_priv {
 	bool pull_up_en;
 	bool io_fixed_1v8;
 	bool wprtn_ignore;
+	long reset_cnt;
 };
 
 #define HS400_DELAY_LINE 24
@@ -255,12 +256,35 @@ static int snps_execute_tuning(struct sdhci_host *host, u32 opcode)
 	return 0;
 }
 
-static void snps_sdhci_reset(struct sdhci_host *host, u8 mask)
+static void snps_sdhci_set_phy(struct sdhci_host *host)
 {
 	struct sdhci_pltfm_host *pltfm_host;
 	struct dwcmshc_priv *priv;
 	u8 emmc_ctl;
-	//u32 soc_reg;
+	
+	pltfm_host = sdhci_priv(host);
+	priv = sdhci_pltfm_priv(pltfm_host);
+	
+	/*Before power on,set PHY configs*/
+	emmc_ctl = sdhci_readw(host, EMMC_CTRL_R);
+	if (priv->is_emmc_card) {
+		snps_phy_1_8v_init(host);
+		emmc_ctl |= (1 << CARD_IS_EMMC);
+	} else {
+		snps_phy_3_3v_init(host);
+		emmc_ctl &=~(1 << CARD_IS_EMMC);
+	}
+	sdhci_writeb(host, emmc_ctl, EMMC_CTRL_R);
+	sdhci_writeb(host, 0x25, PHY_DLL_CNFG1_R);
+}
+
+static void snps_sdhci_reset(struct sdhci_host *host, u8 mask)
+{
+	struct sdhci_pltfm_host *pltfm_host;
+	struct dwcmshc_priv *priv;
+
+	u16 ctrl_2;
+
 
 	pltfm_host = sdhci_priv(host);
 	priv = sdhci_pltfm_priv(pltfm_host);
@@ -274,19 +298,21 @@ static void snps_sdhci_reset(struct sdhci_host *host, u8 mask)
 
 	/*host reset*/
 	sdhci_reset(host, mask);
-	/*fix host reset error*/
-	mdelay(100);
+	
+	/* Before phy reset,set io voltage to fixed  to 1v8.
+	 * For mask is SDHCI_RESET_ALL,regs will reset to default val.
+	*/
+	if(priv->io_fixed_1v8){
+		ctrl_2 = sdhci_readw(host, SDHCI_HOST_CONTROL2);
+		if(! (ctrl_2 & SDHCI_CTRL_VDD_180)){
+			ctrl_2 |= SDHCI_CTRL_VDD_180;
+			sdhci_writew(host, ctrl_2, SDHCI_HOST_CONTROL2);
+		}
+	} 
+	
+	++(priv->reset_cnt);
+	pr_debug("%s: sdhci reset cnt %ld\n",host->hw_name,priv->reset_cnt);
 
-	emmc_ctl = sdhci_readw(host, EMMC_CTRL_R);
-	if (priv->is_emmc_card) {
-		snps_phy_1_8v_init(host);
-		emmc_ctl |= (1 << CARD_IS_EMMC);
-	} else {
-		snps_phy_3_3v_init(host);
-		emmc_ctl &=~(1 << CARD_IS_EMMC);
-	}
-	sdhci_writeb(host, emmc_ctl, EMMC_CTRL_R);
-	sdhci_writeb(host, 0x25, PHY_DLL_CNFG1_R);
 }
 /*
  * If DMA addr spans 128MB boundary, we split the DMA transfer into two
@@ -362,7 +388,7 @@ static void dwcmshc_set_uhs_signaling(struct sdhci_host *host,
 
 	if (priv->io_fixed_1v8)
 		ctrl_2 |= SDHCI_CTRL_VDD_180;
-
+	
 	sdhci_writew(host, ctrl_2, SDHCI_HOST_CONTROL2);
 
 	if (timing == MMC_TIMING_MMC_HS400) {
@@ -381,6 +407,7 @@ static void dwcmshc_set_uhs_signaling(struct sdhci_host *host,
 		sdhci_writel(host, reg, AT_CTRL_R);
 
 		delay_line = HS400_DELAY_LINE;
+		snps_sdhci_set_phy(host);	/* update tx delay*/
 	} else {
 		sdhci_writeb(host, 0, PHY_DLLDL_CNFG_R);
 	}
@@ -400,8 +427,141 @@ static unsigned int dwcmshc_pltfm_get_ro(struct sdhci_host *host)
 	return is_readonly;
 }
 
+/* Complete selection of HS400 ,software reset DAT & cmd line 
+* resolve for first time data access  error(time out) when 
+* first swith to hs400 mode.
+*
+* From : SDHCI_QUIRK_RESET_CMD_DATA_ON_IOS
+* Some (ENE) controllers go apeshit on some ios operation,
+* signalling timeout and CRC errors even on CMD0. Resetting
+* it on each ios seems to solve the problem.
+*
+*/
+static void  dwcmshc_hs400_complete(struct mmc_host *mmc)
+{
+	struct sdhci_host *host = mmc_priv(mmc);
+	u8 mask = SDHCI_RESET_CMD | SDHCI_RESET_DATA;
+
+	if (host->quirks & SDHCI_QUIRK_NO_CARD_NO_RESET) {
+
+		if (!mmc->ops->get_cd(mmc))
+			return;
+	}
+	snps_sdhci_reset(host,mask);
+	//host->ops->reset(host, mask);
+}
+
+static void sdhci_set_power_reg(struct sdhci_host *host, unsigned char mode,
+				unsigned short vdd)
+{
+	struct mmc_host *mmc = host->mmc;
+
+	mmc_regulator_set_ocr(mmc, mmc->supply.vmmc, vdd);
+
+	if (mode != MMC_POWER_OFF)
+		sdhci_writeb(host, SDHCI_POWER_ON, SDHCI_POWER_CONTROL);
+	else
+		sdhci_writeb(host, 0, SDHCI_POWER_CONTROL);
+}
+
+/* Add snps_sdhci_set_phy before POWER ON for this controller.
+ * Similar to public sdhci.c sdhci_set_power_noreg().
+ */
+static void dwcmshc_set_power_noreg(struct sdhci_host *host, unsigned char mode,
+			   unsigned short vdd)
+{
+	u8 pwr = 0;
+
+	if (mode != MMC_POWER_OFF) {
+		switch (1 << vdd) {
+		case MMC_VDD_165_195:
+		/*
+		 * Without a regulator, SDHCI does not support 2.0v
+		 * so we only get here if the driver deliberately
+		 * added the 2.0v range to ocr_avail. Map it to 1.8v
+		 * for the purpose of turning on the power.
+		 */
+		case MMC_VDD_20_21:
+			pwr = SDHCI_POWER_180;
+			break;
+		case MMC_VDD_29_30:
+		case MMC_VDD_30_31:
+			pwr = SDHCI_POWER_300;
+			break;
+		case MMC_VDD_32_33:
+		case MMC_VDD_33_34:
+		/*
+		 * 3.4 ~ 3.6V are valid only for those platforms where it's
+		 * known that the voltage range is supported by hardware.
+		 */
+		case MMC_VDD_34_35:
+		case MMC_VDD_35_36:
+			pwr = SDHCI_POWER_330;
+			break;
+		default:
+			WARN(1, "%s: Invalid vdd %#x\n",
+			     mmc_hostname(host->mmc), vdd);
+			break;
+		}
+	}
+
+	if (host->pwr == pwr)
+		return;
+
+	host->pwr = pwr;
+	snps_sdhci_set_phy(host);
+
+	if (pwr == 0) {
+		sdhci_writeb(host, 0, SDHCI_POWER_CONTROL);
+		/*
+		if (host->quirks2 & SDHCI_QUIRK2_CARD_ON_NEEDS_BUS_ON)
+			sdhci_runtime_pm_bus_off(host);
+		*/
+	} else {
+		/*
+		 * Spec says that we should clear the power reg before setting
+		 * a new value. Some controllers don't seem to like this though.
+		 */
+		if (!(host->quirks & SDHCI_QUIRK_SINGLE_POWER_WRITE))
+			sdhci_writeb(host, 0, SDHCI_POWER_CONTROL);
+
+		/*
+		 * At least the Marvell CaFe chip gets confused if we set the
+		 * voltage and set turn on power at the same time, so set the
+		 * voltage first.
+		 */
+		if (host->quirks & SDHCI_QUIRK_NO_SIMULT_VDD_AND_POWER)
+			sdhci_writeb(host, pwr, SDHCI_POWER_CONTROL);
+
+		pwr |= SDHCI_POWER_ON;
+
+		sdhci_writeb(host, pwr, SDHCI_POWER_CONTROL);
+		/*
+		if (host->quirks2 & SDHCI_QUIRK2_CARD_ON_NEEDS_BUS_ON)
+			sdhci_runtime_pm_bus_on(host);
+		*/
+		/*
+		 * Some controllers need an extra 10ms delay of 10ms before
+		 * they can apply clock after applying power
+		 */
+		if (host->quirks & SDHCI_QUIRK_DELAY_AFTER_POWER)
+			mdelay(10);
+	}
+}
+
+static void dwcmshc_set_power(struct sdhci_host *host, unsigned char mode,
+		     unsigned short vdd)
+{
+	if (IS_ERR(host->mmc->supply.vmmc))
+		dwcmshc_set_power_noreg(host, mode, vdd);
+	else
+		sdhci_set_power_reg(host, mode, vdd);
+}
+
+
 static const struct sdhci_ops sdhci_dwcmshc_ops = {
 	.set_clock		= sdhci_set_clock,
+	.set_power		= dwcmshc_set_power,
 	.set_bus_width		= sdhci_set_bus_width,
 	.set_uhs_signaling	= dwcmshc_set_uhs_signaling,
 	.get_max_clock		= sdhci_pltfm_clk_get_max_clock,
@@ -415,7 +575,7 @@ static const struct sdhci_ops sdhci_dwcmshc_ops = {
 
 static const struct sdhci_pltfm_data sdhci_dwcmshc_pdata = {
 	.ops = &sdhci_dwcmshc_ops,
-	.quirks = SDHCI_QUIRK_CAP_CLOCK_BASE_BROKEN,
+	.quirks = SDHCI_QUIRK_CAP_CLOCK_BASE_BROKEN | SDHCI_QUIRK_SINGLE_POWER_WRITE,
 	.quirks2 = SDHCI_QUIRK2_PRESET_VALUE_BROKEN,
 };
 
@@ -463,6 +623,15 @@ static int dwcmshc_probe(struct platform_device *pdev)
 		priv->io_fixed_1v8 = true;
 	else
 		priv->io_fixed_1v8 = false;
+	
+	/* start_signal_voltage_switch will try 3V3 first, when io fixed 1V8, 
+	 * use SDHCI_SIGNALING_180 ranther than SDHCI_SIGNALING_330 to avoid set to 3V3
+	 * in sdhci_start_signal_voltage_switch. 
+	 */
+	if(priv->io_fixed_1v8){
+		host->flags &=~SDHCI_SIGNALING_330;
+		host->flags |= SDHCI_SIGNALING_180;
+	}
 
 	if (device_property_present(&pdev->dev, "wprtn_ignore"))
 		priv->wprtn_ignore = true;
@@ -490,6 +659,7 @@ static int dwcmshc_probe(struct platform_device *pdev)
 	sdhci_get_of_property(pdev);
 
 	host->mmc_host_ops.request = dwcmshc_request;
+	host->mmc_host_ops.hs400_complete = dwcmshc_hs400_complete;
 
 	err = sdhci_add_host(host);
 	if (err)

@@ -55,13 +55,11 @@ static __always_inline void atomic64_set(atomic64_t *v, s64 i)
 static __always_inline							\
 void atomic##prefix##_##op(c_type i, atomic##prefix##_t *v)		\
 {									\
-	smp_mb();							\
 	__asm__ __volatile__ (						\
 		"	amo" #asm_op "." #asm_type " zero, %1, %0"	\
 		: "+A" (v->counter)					\
 		: "r" (I)						\
 		: "memory");						\
-	smp_mb();							\
 }									\
 
 #ifdef CONFIG_GENERIC_ATOMIC64
@@ -93,26 +91,22 @@ c_type atomic##prefix##_fetch_##op##_relaxed(c_type i,			\
 					     atomic##prefix##_t *v)	\
 {									\
 	register c_type ret;						\
-	smp_mb();							\
 	__asm__ __volatile__ (						\
 		"	amo" #asm_op "." #asm_type " %1, %2, %0"	\
 		: "+A" (v->counter), "=r" (ret)				\
 		: "r" (I)						\
 		: "memory");						\
-	smp_mb();							\
 	return ret;							\
 }									\
 static __always_inline							\
 c_type atomic##prefix##_fetch_##op(c_type i, atomic##prefix##_t *v)	\
 {									\
 	register c_type ret;						\
-	smp_mb();							\
 	__asm__ __volatile__ (						\
 		"	amo" #asm_op "." #asm_type ".aqrl  %1, %2, %0"	\
 		: "+A" (v->counter), "=r" (ret)				\
 		: "r" (I)						\
 		: "memory");						\
-	smp_mb();							\
 	return ret;							\
 }
 
@@ -207,7 +201,6 @@ static __always_inline int atomic_fetch_add_unless(atomic_t *v, int a, int u)
 {
        int prev, rc;
 
-	smp_mb();
 	__asm__ __volatile__ (
 		"0:	lr.w     %[p],  %[c]\n"
 		"	beq      %[p],  %[u], 1f\n"
@@ -219,7 +212,6 @@ static __always_inline int atomic_fetch_add_unless(atomic_t *v, int a, int u)
 		: [p]"=&r" (prev), [rc]"=&r" (rc), [c]"+A" (v->counter)
 		: [a]"r" (a), [u]"r" (u)
 		: "memory");
-	smp_mb();
 	return prev;
 }
 #define atomic_fetch_add_unless atomic_fetch_add_unless
@@ -230,7 +222,6 @@ static __always_inline s64 atomic64_fetch_add_unless(atomic64_t *v, s64 a, s64 u
        s64 prev;
        long rc;
 
-	smp_mb();
 	__asm__ __volatile__ (
 		"0:	lr.d     %[p],  %[c]\n"
 		"	beq      %[p],  %[u], 1f\n"
@@ -242,7 +233,6 @@ static __always_inline s64 atomic64_fetch_add_unless(atomic64_t *v, s64 a, s64 u
 		: [p]"=&r" (prev), [rc]"=&r" (rc), [c]"+A" (v->counter)
 		: [a]"r" (a), [u]"r" (u)
 		: "memory");
-	smp_mb();
 	return prev;
 }
 #define atomic64_fetch_add_unless atomic64_fetch_add_unless
@@ -324,7 +314,6 @@ static __always_inline int atomic_sub_if_positive(atomic_t *v, int offset)
 {
        int prev, rc;
 
-	smp_mb();
 	__asm__ __volatile__ (
 		"0:	lr.w     %[p],  %[c]\n"
 		"	sub      %[rc], %[p], %[o]\n"
@@ -336,7 +325,6 @@ static __always_inline int atomic_sub_if_positive(atomic_t *v, int offset)
 		: [p]"=&r" (prev), [rc]"=&r" (rc), [c]"+A" (v->counter)
 		: [o]"r" (offset)
 		: "memory");
-	smp_mb();
 	return prev - offset;
 }
 
@@ -348,7 +336,6 @@ static __always_inline s64 atomic64_sub_if_positive(atomic64_t *v, s64 offset)
        s64 prev;
        long rc;
 
-	smp_mb();
 	__asm__ __volatile__ (
 		"0:	lr.d     %[p],  %[c]\n"
 		"	sub      %[rc], %[p], %[o]\n"
@@ -360,7 +347,6 @@ static __always_inline s64 atomic64_sub_if_positive(atomic64_t *v, s64 offset)
 		: [p]"=&r" (prev), [rc]"=&r" (rc), [c]"+A" (v->counter)
 		: [o]"r" (offset)
 		: "memory");
-	smp_mb();
 	return prev - offset;
 }
 

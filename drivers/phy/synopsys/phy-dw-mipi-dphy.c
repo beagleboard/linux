@@ -767,6 +767,6 @@ static struct platform_driver dw_dphy_driver = {
 };
 module_platform_driver(dw_dphy_driver);
 
-MODULE_AUTHOR("You Xiao <youxiao.fc@alibaba-inc.com>");
+MODULE_AUTHOR("You Xiao <youxiao.fc@linux.alibaba.com>");
 MODULE_DESCRIPTION("Synopsys DesignWare MIPI DPHY driver");
 MODULE_LICENSE("GPL");

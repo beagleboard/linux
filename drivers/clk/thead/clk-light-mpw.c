@@ -487,6 +487,6 @@ static struct platform_driver light_clk_driver = {
 };
 
 module_platform_driver(light_clk_driver);
-MODULE_AUTHOR("fugang.duan <duanfugang.dfg@alibaba-inc.com>");
+MODULE_AUTHOR("fugang.duan <duanfugang.dfg@linux.alibaba.com>");
 MODULE_DESCRIPTION("Thead Light MPW clock driver");
 MODULE_LICENSE("GPL v2");

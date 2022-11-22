@@ -42,6 +42,7 @@
 		vivcam3= &vvcam_sensor3;
 		vivcam4= &vvcam_sensor4;
 		vivcam5= &vvcam_sensor5;
+		vivcam6= &vvcam_sensor6;
 	};
 
 	memory@0 {
@@ -1571,6 +1572,11 @@
 		};
 
 		vvcam_sensor5: vvcam_sensor@5 {
+			compatible = "thead,light-vvcam-sensor";
+			status = "disabled";
+		};
+		
+		vvcam_sensor6: vvcam_sensor@6 {
 			compatible = "thead,light-vvcam-sensor";
 			status = "disabled";
 		};

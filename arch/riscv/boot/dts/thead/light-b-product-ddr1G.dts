@@ -16,6 +16,6 @@
 };
 
 &cmamem {
-	size = <0 0x8c00000>;
-	alloc-ranges = <0 0x35000000 0 0x3dc00000>;
+	size = <0 0x8c00000>; // 140MB by default
+	alloc-ranges = <0 0x02000000 0 0x0cc000000>; // [0x0600_0000 ~ 0x0EC0_0000]
 };

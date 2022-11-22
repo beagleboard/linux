@@ -227,10 +227,13 @@ static void vs_gem_free_object(struct drm_gem_object *obj)
 {
     struct vs_gem_object *vs_obj = to_vs_gem_object(obj);
 
-    if (obj->import_attach)
+    if (obj->import_attach) {
         drm_prime_gem_destroy(obj, vs_obj->sgt);
-    else
+        kvfree(vs_obj->pages);
+    }
+    else {
         vs_gem_free_buf(vs_obj);
+    }
 
     drm_gem_object_release(obj);
 

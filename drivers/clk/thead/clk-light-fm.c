@@ -5,6 +5,7 @@
 
 #include <dt-bindings/clock/light-fm-ap-clock.h>
 #include <linux/clk.h>
+#include <linux/delay.h>
 #include <linux/err.h>
 #include <linux/init.h>
 #include <linux/io.h>
@@ -607,6 +608,8 @@ static int light_clocks_probe(struct platform_device *pdev)
 
 #ifndef FPGA_EMU
 	/* HW defalut */
+	clk_prepare_enable(clks[CPU_PLL1_FOUTPOSTDIV]);
+	udelay(1);
 	clk_set_parent(clks[C910_CCLK], clks[CPU_PLL1_FOUTPOSTDIV]);
 #else
 	clk_set_parent(clks[C910_CCLK_I0], clks[OSC_24M]);
@@ -640,6 +643,6 @@ static struct platform_driver light_clk_driver = {
 };
 
 module_platform_driver(light_clk_driver);
-MODULE_AUTHOR("wei.liu <lw312886@alibaba-inc.com>");
+MODULE_AUTHOR("wei.liu <lw312886@linux.alibaba.com>");
 MODULE_DESCRIPTION("Thead Light Fullmask clock driver");
 MODULE_LICENSE("GPL v2");
