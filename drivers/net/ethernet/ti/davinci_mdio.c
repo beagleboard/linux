@@ -543,10 +543,6 @@ static int davinci_mdio_probe(struct platform_device *pdev)
 		const struct soc_device_attribute *soc_match_data;
 
 		soc_match_data = soc_device_match(k3_mdio_socinfo);
-
-		if (!soc_match_data)
-			return -EPROBE_DEFER;
-
 		if (soc_match_data && soc_match_data->data) {
 			const struct k3_mdio_soc_data *socdata =
 						soc_match_data->data;
