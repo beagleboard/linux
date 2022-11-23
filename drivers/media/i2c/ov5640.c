@@ -1976,8 +1976,7 @@ static int ov5640_set_virtual_channel(struct ov5640_dev *sensor)
 }
 
 static const struct ov5640_mode_info *
-ov5640_find_mode(struct ov5640_dev *sensor, enum ov5640_frame_rate fr,
-		 int width, int height, bool nearest)
+ov5640_find_mode(struct ov5640_dev *sensor, int width, int height, bool nearest)
 {
 	const struct ov5640_mode_info *mode;
 
@@ -1988,10 +1987,6 @@ ov5640_find_mode(struct ov5640_dev *sensor, enum ov5640_frame_rate fr,
 	if (!mode ||
 	    (!nearest &&
 	     (mode->width != width || mode->height != height)))
-		return NULL;
-
-	/* Check to see if the current mode exceeds the max frame rate */
-	if (ov5640_framerates[fr] > ov5640_framerates[mode->max_fps])
 		return NULL;
 
 	return mode;
@@ -2621,7 +2616,7 @@ static int ov5640_try_frame_interval(struct ov5640_dev *sensor,
 	fi->denominator = best_fps;
 
 find_mode:
-	mode = ov5640_find_mode(sensor, rate, width, height, false);
+	mode = ov5640_find_mode(sensor, width, height, false);
 	return mode ? rate : -EINVAL;
 }
 
@@ -2659,7 +2654,7 @@ static int ov5640_try_fmt_internal(struct v4l2_subdev *sd,
 	const struct ov5640_mode_info *mode;
 	int i;
 
-	mode = ov5640_find_mode(sensor, fr, fmt->width, fmt->height, true);
+	mode = ov5640_find_mode(sensor, fmt->width, fmt->height, true);
 	if (!mode)
 		return -EINVAL;
 	fmt->width = mode->width;
@@ -3454,9 +3449,13 @@ static int ov5640_s_frame_interval(struct v4l2_subdev *sd,
 		goto out;
 	}
 
-	mode = ov5640_find_mode(sensor, frame_rate, mode->width,
-				mode->height, true);
+	mode = ov5640_find_mode(sensor, mode->width, mode->height, true);
 	if (!mode) {
+		ret = -EINVAL;
+		goto out;
+	}
+
+	if (ov5640_framerates[frame_rate] > ov5640_framerates[mode->max_fps]) {
 		ret = -EINVAL;
 		goto out;
 	}
