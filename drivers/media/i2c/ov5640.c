@@ -319,6 +319,7 @@ struct ov5640_mode_info {
 
 	/* Used by s_frame_interval only. */
 	u32 max_fps;
+	u32 def_fps;
 };
 
 struct ov5640_ctrls {
@@ -600,7 +601,8 @@ static const struct ov5640_mode_info ov5640_mode_data[OV5640_NUM_MODES] = {
 		},
 		.reg_data	= ov5640_setting_low_res,
 		.reg_data_size	= ARRAY_SIZE(ov5640_setting_low_res),
-		.max_fps	= OV5640_30_FPS
+		.max_fps	= OV5640_30_FPS,
+		.def_fps	= OV5640_30_FPS
 	}, {
 		/* 176x144 */
 		.id		= OV5640_MODE_QCIF_176_144,
@@ -644,7 +646,8 @@ static const struct ov5640_mode_info ov5640_mode_data[OV5640_NUM_MODES] = {
 		},
 		.reg_data	= ov5640_setting_low_res,
 		.reg_data_size	= ARRAY_SIZE(ov5640_setting_low_res),
-		.max_fps	= OV5640_30_FPS
+		.max_fps	= OV5640_30_FPS,
+		.def_fps	= OV5640_30_FPS
 	}, {
 		/* 320x240 */
 		.id		= OV5640_MODE_QVGA_320_240,
@@ -688,7 +691,8 @@ static const struct ov5640_mode_info ov5640_mode_data[OV5640_NUM_MODES] = {
 		},
 		.reg_data	= ov5640_setting_low_res,
 		.reg_data_size	= ARRAY_SIZE(ov5640_setting_low_res),
-		.max_fps	= OV5640_30_FPS
+		.max_fps	= OV5640_30_FPS,
+		.def_fps	= OV5640_30_FPS
 	}, {
 		/* 640x480 */
 		.id		= OV5640_MODE_VGA_640_480,
@@ -732,7 +736,8 @@ static const struct ov5640_mode_info ov5640_mode_data[OV5640_NUM_MODES] = {
 		},
 		.reg_data	= ov5640_setting_low_res,
 		.reg_data_size	= ARRAY_SIZE(ov5640_setting_low_res),
-		.max_fps	= OV5640_60_FPS
+		.max_fps	= OV5640_60_FPS,
+		.def_fps	= OV5640_30_FPS
 	}, {
 		/* 720x480 */
 		.id		= OV5640_MODE_NTSC_720_480,
@@ -775,7 +780,8 @@ static const struct ov5640_mode_info ov5640_mode_data[OV5640_NUM_MODES] = {
 		},
 		.reg_data	= ov5640_setting_low_res,
 		.reg_data_size	= ARRAY_SIZE(ov5640_setting_low_res),
-		.max_fps	= OV5640_30_FPS
+		.max_fps	= OV5640_30_FPS,
+		.def_fps	= OV5640_30_FPS
 	}, {
 		/* 720x576 */
 		.id		= OV5640_MODE_PAL_720_576,
@@ -818,7 +824,8 @@ static const struct ov5640_mode_info ov5640_mode_data[OV5640_NUM_MODES] = {
 		},
 		.reg_data	= ov5640_setting_low_res,
 		.reg_data_size	= ARRAY_SIZE(ov5640_setting_low_res),
-		.max_fps	= OV5640_30_FPS
+		.max_fps	= OV5640_30_FPS,
+		.def_fps	= OV5640_30_FPS
 	}, {
 		/* 1024x768 */
 		.id		= OV5640_MODE_XGA_1024_768,
@@ -860,7 +867,8 @@ static const struct ov5640_mode_info ov5640_mode_data[OV5640_NUM_MODES] = {
 		},
 		.reg_data	= ov5640_setting_low_res,
 		.reg_data_size	= ARRAY_SIZE(ov5640_setting_low_res),
-		.max_fps	= OV5640_30_FPS
+		.max_fps	= OV5640_30_FPS,
+		.def_fps	= OV5640_30_FPS
 	}, {
 		/* 1280x720 */
 		.id		= OV5640_MODE_720P_1280_720,
@@ -902,7 +910,8 @@ static const struct ov5640_mode_info ov5640_mode_data[OV5640_NUM_MODES] = {
 		},
 		.reg_data	= ov5640_setting_720P_1280_720,
 		.reg_data_size	= ARRAY_SIZE(ov5640_setting_720P_1280_720),
-		.max_fps	= OV5640_30_FPS
+		.max_fps	= OV5640_30_FPS,
+		.def_fps	= OV5640_30_FPS
 	}, {
 		/* 1920x1080 */
 		.id		= OV5640_MODE_1080P_1920_1080,
@@ -946,7 +955,8 @@ static const struct ov5640_mode_info ov5640_mode_data[OV5640_NUM_MODES] = {
 		},
 		.reg_data	= ov5640_setting_1080P_1920_1080,
 		.reg_data_size	= ARRAY_SIZE(ov5640_setting_1080P_1920_1080),
-		.max_fps	= OV5640_30_FPS
+		.max_fps	= OV5640_30_FPS,
+		.def_fps	= OV5640_30_FPS
 	}, {
 		/* 2592x1944 */
 		.id		= OV5640_MODE_QSXGA_2592_1944,
@@ -989,7 +999,8 @@ static const struct ov5640_mode_info ov5640_mode_data[OV5640_NUM_MODES] = {
 		},
 		.reg_data	= ov5640_setting_QSXGA_2592_1944,
 		.reg_data_size	= ARRAY_SIZE(ov5640_setting_QSXGA_2592_1944),
-		.max_fps	= OV5640_15_FPS
+		.max_fps	= OV5640_15_FPS,
+		.def_fps	= OV5640_15_FPS
 	},
 };
 
@@ -2684,6 +2695,7 @@ static int ov5640_update_pixel_rate(struct ov5640_dev *sensor)
 	u32 pixel_rate;
 	s64 link_freq;
 	u32 num_lanes;
+	u32 vblank;
 	u32 bpp;
 
 	/*
@@ -2742,15 +2754,29 @@ static int ov5640_update_pixel_rate(struct ov5640_dev *sensor)
 	__v4l2_ctrl_modify_range(sensor->ctrls.hblank,
 				 hblank, hblank, 1, hblank);
 
-	__v4l2_ctrl_modify_range(sensor->ctrls.vblank, OV5640_MIN_VBLANK,
-				 OV5640_MAX_VTS - mode->height, 1,
-				 timings->vblank_def);
-	__v4l2_ctrl_s_ctrl(sensor->ctrls.vblank, timings->vblank_def);
+	vblank = timings->vblank_def;
 
-	exposure_max = timings->crop.height + timings->vblank_def - 4;
+	if (sensor->current_fr != mode->def_fps) {
+		/*
+		 * Compute the vertical blanking according to the framerate
+		 * configured with s_frame_interval.
+		 */
+		int fie_num = sensor->frame_interval.numerator;
+		int fie_denom = sensor->frame_interval.denominator;
+
+		vblank = ((fie_num * pixel_rate / fie_denom) / timings->htot) -
+			mode->height;
+	}
+
+	__v4l2_ctrl_modify_range(sensor->ctrls.vblank, OV5640_MIN_VBLANK,
+				 OV5640_MAX_VTS - mode->height, 1, vblank);
+	__v4l2_ctrl_s_ctrl(sensor->ctrls.vblank, vblank);
+
+	exposure_max = timings->crop.height + vblank - 4;
 	exposure_val = clamp_t(s32, sensor->ctrls.exposure->val,
 			       sensor->ctrls.exposure->minimum,
 			       exposure_max);
+
 	__v4l2_ctrl_modify_range(sensor->ctrls.exposure,
 				 sensor->ctrls.exposure->minimum,
 				 exposure_max, 1, exposure_val);
@@ -2788,6 +2814,7 @@ static int ov5640_set_fmt(struct v4l2_subdev *sd,
 	}
 
 	if (new_mode != sensor->current_mode) {
+		sensor->current_fr = new_mode->def_fps;
 		sensor->current_mode = new_mode;
 		sensor->pending_mode_change = true;
 	}
@@ -3441,8 +3468,7 @@ static int ov5640_s_frame_interval(struct v4l2_subdev *sd,
 		sensor->current_mode = mode;
 		sensor->pending_mode_change = true;
 
-		__v4l2_ctrl_s_ctrl_int64(sensor->ctrls.pixel_rate,
-					 ov5640_calc_pixel_rate(sensor));
+		ov5640_update_pixel_rate(sensor);
 	}
 out:
 	mutex_unlock(&sensor->lock);
