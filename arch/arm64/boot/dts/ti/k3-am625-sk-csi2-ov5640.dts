@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
+ * ALINX AN5641 & Digilent PCam 5C - OV5640 camera module
  * Copyright (C) 2022 Texas Instruments Incorporated - https://www.ti.com/
  */
 
@@ -29,11 +30,7 @@
 	#size-cells = <0>;
 	status = "okay";
 
-	/*
-	 * HACK: The camera module only works reliably at 10 KHz. So drop the
-	 * bus frequency to 10 KHz.
-	 */
-	clock-frequency = <10000>;
+	clock-frequency = <400000>;
 
 	i2c-switch@71 {
 		compatible = "nxp,pca9543";
