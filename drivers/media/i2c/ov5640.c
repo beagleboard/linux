@@ -2944,15 +2944,13 @@ static int ov5640_s_stream(struct v4l2_subdev *sd, int enable)
 			sensor->pending_fmt_change = false;
 		}
 
-		ret = ov5640_set_stream(sensor, true);
-		if (ret)
-			goto put_pm;
-	} else {
-		ret = ov5640_set_stream(sensor, false);
-		if (ret)
-			goto err;
+		if (sensor->ep.bus_type == V4L2_MBUS_CSI2)
+			ret = ov5640_set_stream_mipi(sensor, enable);
+		else
+			ret = ov5640_set_stream_dvp(sensor, enable);
 
-		pm_runtime_put(dev);
+		if (!ret)
+			sensor->streaming = enable;
 	}
 
 	sensor->streaming = enable;
