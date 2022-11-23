@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /**
- * DT overlay for MCAN transceiver on AM642 EVM
+ * DT overlay for MCAN transceiver on AM625 SK
  *
  * Copyright (C) 2022 Texas Instruments Incorporated - https://www.ti.com/
  */
