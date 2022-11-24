@@ -246,15 +246,15 @@
 	status = "disabled";
 };
 
-&ecap0 {
+&ecap0_pwm {
 	status = "disabled";
 };
 
-&ecap1 {
+&ecap1_pwm {
 	status = "disabled";
 };
 
-&ecap2 {
+&ecap2_pwm {
 	status = "disabled";
 };
 

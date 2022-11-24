@@ -414,7 +414,7 @@ omap2_mcspi_rx_dma(struct spi_device *spi, struct spi_transfer *xfer,
 	struct omap2_mcspi_cs	*cs = spi->controller_state;
 	void __iomem		*chstat_reg = cs->base + OMAP2_MCSPI_CHSTAT0;
 	struct dma_async_tx_descriptor *tx;
-	dma_cookie_t dma_rx_cookie;
+	dma_cookie_t dma_rx_cookie = 0;
 	struct dma_tx_state mcspi_dma_rxstate;
 	enum dma_status dma_status;
 
