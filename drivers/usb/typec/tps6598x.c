@@ -644,9 +644,10 @@ static int tps6589x_suspend(struct device *dev)
 	if (client->irq) {
 		disable_irq(client->irq);
 	} else {
-		/* Flush any delayed pending polling work */
-		flush_delayed_work(&tps->wq_poll);
+		/* Cancel any delayed pending polling work */
+		cancel_delayed_work_sync(&tps->wq_poll);
 	}
+
 	return 0;
 }
 
