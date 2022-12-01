@@ -628,12 +628,16 @@ static int it66121_bridge_attach(struct drm_bridge *bridge,
 	struct it66121_ctx *ctx = container_of(bridge, struct it66121_ctx, bridge);
 	int ret;
 
-	if (!(flags & DRM_BRIDGE_ATTACH_NO_CONNECTOR))
-		return -EINVAL;
-
-	ret = drm_bridge_attach(bridge->encoder, ctx->next_bridge, bridge, flags);
-	if (ret)
+	if (flags & DRM_BRIDGE_ATTACH_NO_CONNECTOR) {
+		ret = drm_bridge_attach(bridge->encoder, ctx->next_bridge, bridge, flags);
+		pr_err("%s:%s: %d\n", __FILE__, __func__,  __LINE__);
 		return ret;
+	}
+
+	if (!bridge->encoder) {
+		dev_err(ctx->dev, "Missing encoder\n");
+		return -ENODEV;
+	}
 
 	ret = regmap_write_bits(ctx->regmap, IT66121_CLK_BANK_REG,
 				IT66121_CLK_BANK_PWROFF_RCLK, 0);
@@ -764,8 +768,30 @@ static void it66121_bridge_enable(struct drm_bridge *bridge,
 {
 	struct it66121_ctx *ctx = container_of(bridge, struct it66121_ctx, bridge);
 	struct drm_atomic_state *state = bridge_state->base.state;
+	int ret;
+	u32 *fmts;
+	unsigned int num_fmts;
 
 	ctx->connector = drm_atomic_get_new_connector_for_encoder(state, bridge->encoder);
+
+	fmts = kcalloc(MAX_INPUT_SEL_FORMATS, sizeof(*fmts), GFP_KERNEL);
+	if (!fmts)
+		return;
+
+	if (ctx->bus_width == 12)
+		/* IT66121FN Datasheet specifies Little-Endian ordering */
+		fmts[0] = MEDIA_BUS_FMT_RGB888_2X12_LE;
+	else
+		/* TOFIX support more input bus formats in 24bit width */
+		fmts[0] = MEDIA_BUS_FMT_RGB888_1X24;
+
+	num_fmts = 1;
+	ret = drm_display_info_set_bus_formats(&ctx->connector->display_info,
+					       fmts, num_fmts);
+	if (ret) {
+		dev_err(ctx->dev, "Did'nt set display info: %d\n", ret);
+		return;
+	}
 
 	it66121_set_mute(ctx, false);
 }
@@ -1462,15 +1488,21 @@ static int it66121_audio_get_eld(struct device *dev, void *data,
 				 u8 *buf, size_t len)
 {
 	struct it66121_ctx *ctx = dev_get_drvdata(dev);
+	int ret = 0;
 
 	mutex_lock(&ctx->lock);
 
-	memcpy(buf, ctx->connector->eld,
-	       min(sizeof(ctx->connector->eld), len));
+	if (!ctx->connector) {
+		dev_err(dev, "connector is NOT valid yet\n");
+		ret = -EINVAL;
+	} else {
+		memcpy(buf, ctx->connector->eld,
+		       min(sizeof(ctx->connector->eld), len));
+	}
 
 	mutex_unlock(&ctx->lock);
 
-	return 0;
+	return ret;
 }
 
 static const struct hdmi_codec_ops it66121_audio_codec_ops = {
