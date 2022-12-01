@@ -617,6 +617,8 @@ patternProperties:
     description: LSI Corp. (LSI Logic)
   "^lwn,.*":
     description: Liebherr-Werk Nenzing GmbH
+  "^lincolntech,.*":
+    description: Lincoln Technology Solutions
   "^lxa,.*":
     description: Linux Automation GmbH
   "^macnica,.*":
