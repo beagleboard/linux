@@ -1,0 +1,2236 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright (C) 2020 Deepak Khatri <deepaklorkhatri7@gmail.com>
+ */
+
+#include <dt-bindings/board/am572x-bone-pins.h>
+
+&dra7_pmx_core {
+
+/* macro: BONE_PIN( <pin>, <mode_name>, <register_value_macro(s)> */
+#define BONE_PIN(XX,ZZ,QQ) \
+	XX##_##ZZ##_pin: pinmux_##XX##_##ZZ##_pin { pinctrl-single,pins = < QQ >; };
+
+	/************************/
+	/* P8 Header */
+	/************************/
+
+	/* P8_01                GND */
+
+	/* P8_02                GND */
+
+
+	/* P8_03 (ball AB8) gpio1_24 [page 49] */
+	BONE_PIN(P8_03, default, P8_03( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))		/* mmc3_dat6.gpio1_24 */
+	BONE_PIN(P8_03, gpio, P8_03( PIN_OUTPUT | INPUT_EN | MUX_MODE14 ))				/* mmc3_dat6.gpio1_24 */
+	BONE_PIN(P8_03, gpio_pu, P8_03( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14 ))		/* mmc3_dat6.gpio1_24 */
+	BONE_PIN(P8_03, gpio_pd, P8_03( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))		/* mmc3_dat6.gpio1_24 */
+	BONE_PIN(P8_03, pruin, P8_03( PIN_INPUT | MUX_MODE12 ))		/* mmc3_dat6.pr2_pru0_gpi10 */
+	BONE_PIN(P8_03, pruout, P8_03( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE13 ))		/* mmc3_dat6.pr2_pru0_gpo10 */
+
+	/* P8_04  (ball AB5) gpio1_25 */
+	BONE_PIN(P8_04, default, P8_04( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))		/* mmc3_dat7.gpio1_25 */
+	BONE_PIN(P8_04, gpio, P8_04( PIN_OUTPUT | INPUT_EN | MUX_MODE14 ))				/* mmc3_dat7.gpio1_25 */
+	BONE_PIN(P8_04, gpio_pu, P8_04( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14 ))		/* mmc3_dat7.gpio1_25 */
+	BONE_PIN(P8_04, gpio_pd, P8_04( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))		/* mmc3_dat7.gpio1_25 */
+	BONE_PIN(P8_04, pruin, P8_04( PIN_INPUT | MUX_MODE12 ))		/* mmc3_dat7.pr2_pru0_gpi11 */
+	BONE_PIN(P8_04, pruout, P8_04( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE13 ))		/* mmc3_dat7.pr2_pru0_gpo11 */
+	BONE_PIN(P8_04, ecap_pwm, P8_04( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE10 ))		/* mmc3_dat7.eCAP3_in_PWM3_out */
+
+	/* P8_05  (ball AC9) gpio7_1 */
+	BONE_PIN(P8_05, default, P8_05( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))		/* mmc3_dat2.gpio7_1 */
+	BONE_PIN(P8_05, gpio, P8_05( PIN_OUTPUT | INPUT_EN | MUX_MODE14 ))				/* mmc3_dat2.gpio7_1 */
+	BONE_PIN(P8_05, gpio_pu, P8_05( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14 ))		/* mmc3_dat2.gpio7_1 */
+	BONE_PIN(P8_05, gpio_pd, P8_05( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))		/* mmc3_dat2.gpio7_1 */
+	BONE_PIN(P8_05, pruin, P8_05( PIN_INPUT | MUX_MODE12 ))		/* mmc3_dat2.pr2_pru0_gpi06 */
+	BONE_PIN(P8_05, pruout, P8_05( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE13 ))		/* mmc3_dat2.pr2_pru0_gpo06 */
+	BONE_PIN(P8_05, eqep, P8_05( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE10 ))		/* mmc3_dat2.eQEP3_index */
+
+	/* P8_06  (ball AC3) gpio7_2 */
+	BONE_PIN(P8_06, default, P8_06( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))		/* mmc3_dat3.gpio7_2 */
+	BONE_PIN(P8_06, gpio, P8_06( PIN_OUTPUT | INPUT_EN | MUX_MODE14 ))				/* mmc3_dat3.gpio7_2 */
+	BONE_PIN(P8_06, gpio_pu, P8_06( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14 ))		/* mmc3_dat3.gpio7_2 */
+	BONE_PIN(P8_06, gpio_pd, P8_06( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))		/* mmc3_dat3.gpio7_2 */
+	BONE_PIN(P8_06, pruin, P8_06( PIN_INPUT | MUX_MODE12 ))		/* mmc3_dat3.pr2_pru0_gpi07 */
+	BONE_PIN(P8_06, pruout, P8_06( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE13 ))		/* mmc3_dat3.pr2_pru0_gpo07 */
+	BONE_PIN(P8_06, eqep, P8_06( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE10 ))		/* mmc3_dat3.eQEP3_strobe */
+
+	/* P8_07  (ball G14) gpio6_5*/
+	BONE_PIN(P8_07, default, P8_07( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14 ))		/* mcasp1_axr14.gpio6_5 */
+	BONE_PIN(P8_07, gpio, P8_07( PIN_OUTPUT | INPUT_EN | MUX_MODE14 ))				/* mcasp1_axr14.gpio6_5 */
+	BONE_PIN(P8_07, gpio_pu, P8_07( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14 ))		/* mcasp1_axr14.gpio6_5 */
+	BONE_PIN(P8_07, gpio_pd, P8_07( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))		/* mcasp1_axr14.gpio6_5 */
+	BONE_PIN(P8_07, timer, P8_07( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE10 ))		/* mcasp1_axr14.timer11 */
+	BONE_PIN(P8_07, pruin, P8_07( PIN_INPUT | MUX_MODE12 ))		/* mcasp1_axr14.pr2_pru1_gpi16 */
+	BONE_PIN(P8_07, pruout, P8_07( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE13 ))		/* mcasp1_axr14.pr2_pru1_gpo16 */
+
+	/* P8_08  (ball F14) gpio6_6 */
+	BONE_PIN(P8_08, default, P8_08( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14 ))		/* mcasp1_axr15.gpio6_6 */
+	BONE_PIN(P8_08, gpio, P8_08( PIN_OUTPUT | INPUT_EN | MUX_MODE14 ))				/* mcasp1_axr15.gpio6_6 */
+	BONE_PIN(P8_08, gpio_pu, P8_08( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14 ))		/* mcasp1_axr15.gpio6_6 */
+	BONE_PIN(P8_08, gpio_pd, P8_08( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))		/* mcasp1_axr15.gpio6_6 */
+	BONE_PIN(P8_08, timer, P8_08( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE10 ))		/* mcasp1_axr15.timer12 */
+	BONE_PIN(P8_08, pruin, P8_08( PIN_INPUT | MUX_MODE12 ))		/* mcasp1_axr15.pr2_pru0_gpi20 */
+	BONE_PIN(P8_08, pruout, P8_08( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE13 ))		/* mcasp1_axr15.pr2_pru0_gpo20 */
+
+	/* P8_09  (ball E17) gpio6_18 */
+	BONE_PIN(P8_09, default, P8_09( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14 ))		/* xref_clk1.gpio6_18 */
+	BONE_PIN(P8_09, gpio, P8_09( PIN_OUTPUT | INPUT_EN | MUX_MODE14 ))				/* xref_clk1.gpio6_18 */
+	BONE_PIN(P8_09, gpio_pu, P8_09( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14 ))		/* xref_clk1.gpio6_18 */
+	BONE_PIN(P8_09, gpio_pd, P8_09( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))		/* xref_clk1.gpio6_18 */
+	BONE_PIN(P8_09, timer, P8_09( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE10 ))		/* xref_clk1.timer14 */
+	BONE_PIN(P8_09, pruin, P8_09( PIN_INPUT | MUX_MODE12 ))		/* xref_clk1.pr2_pru1_gpi06 */
+	BONE_PIN(P8_09, pruout, P8_09( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE13 ))		/* xref_clk1.pr2_pru1_gpo06 */
+
+	/* P8_10  (ball A13) gpio6_4 */
+	BONE_PIN(P8_10, default, P8_10( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14 ))		/* mcasp1_axr13.gpio6_4 */
+	BONE_PIN(P8_10, gpio, P8_10( PIN_OUTPUT | INPUT_EN | MUX_MODE14 ))				/* mcasp1_axr13.gpio6_4 */
+	BONE_PIN(P8_10, gpio_pu, P8_10( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14 ))		/* mcasp1_axr13.gpio6_4 */
+	BONE_PIN(P8_10, gpio_pd, P8_10( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))		/* mcasp1_axr13.gpio6_4 */
+	BONE_PIN(P8_10, timer, P8_10( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE10 ))		/* mcasp1_axr13.timer10 */
+	BONE_PIN(P8_10, pruin, P8_10( PIN_INPUT | MUX_MODE12 ))		/* mcasp1_axr13.pr2_pru1_gpi15 */
+	BONE_PIN(P8_10, pruout, P8_10( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE13 ))		/* mcasp1_axr13.pr2_pru1_gpo15 */
+
+	/* P8_11  (ball AH4) gpio3_11 */
+	BONE_PIN(P8_11, default, P8_11( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))		/* vin1a_d7.gpio3_11 */
+	BONE_PIN(P8_11, gpio, P8_11( PIN_OUTPUT | INPUT_EN | MUX_MODE14 ))				/* vin1a_d7.gpio3_11 */
+	BONE_PIN(P8_11, gpio_pu, P8_11( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14 ))		/* vin1a_d7.gpio3_11 */
+	BONE_PIN(P8_11, gpio_pd, P8_11( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))		/* vin1a_d7.gpio3_11 */
+	BONE_PIN(P8_11, eqep, P8_11( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE10 ))		/* vin1a_d7.eQEP2B_in */
+	BONE_PIN(P8_11, pruin, P8_11( PIN_INPUT | MUX_MODE12 ))		/* vin1a_d7.pr1_pru0_gpi4 */
+	BONE_PIN(P8_11, pruout, P8_11( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE13 ))		/* vin1a_d7.pr1_pru0_gpo4 */
+
+	/* P8_12  (ball AG6) gpio3_10 */
+	BONE_PIN(P8_12, default, P8_12( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))		/* vin1a_d6.gpio3_10 */
+	BONE_PIN(P8_12, gpio, P8_12( PIN_OUTPUT | INPUT_EN | MUX_MODE14 ))				/* vin1a_d6.gpio3_10 */
+	BONE_PIN(P8_12, gpio_pu, P8_12( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14 ))		/* vin1a_d6.gpio3_10 */
+	BONE_PIN(P8_12, gpio_pd, P8_12( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))		/* vin1a_d6.gpio3_10 */
+	BONE_PIN(P8_12, eqep, P8_12( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE10 ))		/* vin1a_d6.eQEP2A_in */
+	BONE_PIN(P8_12, pruin, P8_12( PIN_INPUT | MUX_MODE12 ))		/* vin1a_d6.pr1_pru0_gpi3 */
+	BONE_PIN(P8_12, pruout, P8_12( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE13 ))		/* vin1a_d6.pr1_pru0_gpo3 */
+
+	/* P8_13  (ball  D3) gpio4_11 */
+	BONE_PIN(P8_13, default, P8_13( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))		/* vin2a_d10.gpio4_11 */
+	BONE_PIN(P8_13, gpio, P8_13( PIN_OUTPUT | INPUT_EN | MUX_MODE14 ))				/* vin2a_d10.gpio4_11 */
+	BONE_PIN(P8_13, gpio_pu, P8_13( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14 ))		/* vin2a_d10.gpio4_11 */
+	BONE_PIN(P8_13, gpio_pd, P8_13( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))		/* vin2a_d10.gpio4_11 */
+	BONE_PIN(P8_13, pwm, P8_13( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE10 ))		/* vin2a_d10.ehrpwm2B */
+	BONE_PIN(P8_13, pruin, P8_13( PIN_INPUT | MUX_MODE12 ))	/* vin2a_d10.pr1_pru1_gpi7 */
+	BONE_PIN(P8_13, pruout, P8_13( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE13 ))	/* vin2a_d10.pr1_pru1_gpo7 */
+
+	/* P8_14  (ball  D5) gpio4_13*/
+	BONE_PIN(P8_14, default, P8_14( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))		/* vin2a_d12.gpio4_13 */
+	BONE_PIN(P8_14, gpio, P8_14( PIN_OUTPUT | INPUT_EN | MUX_MODE14 ))				/* vin2a_d12.gpio4_13 */
+	BONE_PIN(P8_14, gpio_pu, P8_14( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14 ))		/* vin2a_d12.gpio4_13 */
+	BONE_PIN(P8_14, gpio_pd, P8_14( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))		/* vin2a_d12.gpio4_13 */
+	BONE_PIN(P8_14, ecap_pwm, P8_14( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE10 ))		/* vin2a_d12.eCAP2_in_PWM2_out */
+	BONE_PIN(P8_14, pruin, P8_14( PIN_INPUT | MUX_MODE12 ))	/* vin2a_d12.pr1_pru1_gpi9 */
+	BONE_PIN(P8_14, pruout, P8_14( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE13 ))	/* vin2a_d12.pr1_pru1_gpo9 */
+
+	/* P8_15a (ball  D1) gpio4_3*/
+	P8_15_default_pin: pinmux_P8_15_default_pin { pinctrl-single,pins = < P8_15A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14) P8_15B( PIN_OUTPUT | MUX_MODE15) >; };	/* vin2a_d2.gpio4_3, vin2a_d19.off */
+	P8_15_gpio_pin: pinmux_P8_15_gpio_pin { pinctrl-single,pins = < P8_15A( PIN_OUTPUT | INPUT_EN | MUX_MODE14) P8_15B( PIN_OUTPUT | MUX_MODE15) >; };	/* vin2a_d2.gpio4_3, vin2a_d19.off */
+	P8_15_gpio_pu_pin: pinmux_P8_15_gpio_pu_pin { pinctrl-single,pins = < P8_15A( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14) P8_15B( PIN_OUTPUT | MUX_MODE15) >; };	/* vin2a_d2.gpio4_3, vin2a_d19.off */
+	P8_15_gpio_pd_pin: pinmux_P8_15_gpio_pd_pin { pinctrl-single,pins = < P8_15A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14) P8_15B( PIN_OUTPUT | MUX_MODE15) >; };	/* vin2a_d2.gpio4_3, vin2a_d19.off */
+	P8_15_pru_ecap_pwm_pin: pinmux_P8_15_pru_ecap_pwm_pin { pinctrl-single,pins = < P8_15A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE11) P8_15B( PIN_OUTPUT | MUX_MODE15) >; };	/* vin2a_d2.pr1_ecap0_ecap_capin_apwm_o, vin2a_d19.off */
+	P8_15_ecap_pwm_pin: pinmux_P8_15_ecap_pwm_pin { pinctrl-single,pins = < P8_15A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE10) P8_15B( PIN_OUTPUT | MUX_MODE15) >; };	/* vin2a_d2.eCAP1_in_PWM1_out, vin2a_d19.off */
+
+	/* P8_15b (ball  A3) gpio4_27 */
+	P8_15_pruin_pin: pinmux_P8_15_pruin_pin { pinctrl-single,pins = < P8_15B( PIN_INPUT | MUX_MODE12) P8_15A( PIN_OUTPUT | MUX_MODE15) >; };	/* vin2a_d19.pr1_pru1_gpi16, vin2a_d2.off */
+	P8_15_pruout_pin: pinmux_P8_15_pruout_pin { pinctrl-single,pins = < P8_15B( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE13) P8_15A( PIN_OUTPUT | MUX_MODE15) >; };	/* vin2a_d19.pr1_pru1_gp016, vin2a_d2.off */
+
+	/* P8_15 dummy nodes for unavailable bone bus pins*/
+	P8_15_eqep_pin: pinmux_P8_15_eqep_pin { pinctrl-single,pins = < /* To avoid FDT_ERROR on BBAI when using BONE-EQEP2.dtbo */
+		/* Default pinmux configuration of P8_15 (P8_15_default_pin) */
+		P8_15A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14) P8_15B( PIN_OUTPUT | MUX_MODE15) >; };	/* vin2a_d2.gpio4_3, vin2a_d19.off */
+
+	/* P8_16  (ball  B4) gpio4_29 */
+	BONE_PIN(P8_16, default, P8_16( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))	/* vin2a_d21.gpio4_29 */
+	BONE_PIN(P8_16, gpio, P8_16( PIN_OUTPUT | INPUT_EN | MUX_MODE14 ))	/* vin2a_d21.gpio4_29 */
+	BONE_PIN(P8_16, gpio_pu, P8_16( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14 ))	/* vin2a_d21.gpio4_29 */
+	BONE_PIN(P8_16, gpio_pd, P8_16( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))	/* vin2a_d21.gpio4_29 */
+	BONE_PIN(P8_16, pruin, P8_16( PIN_INPUT | MUX_MODE12 ))	/* vin2a_d21.pr1_pru1_gpi18 */
+	BONE_PIN(P8_16, pruout, P8_16( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE13 ))	/* vin2a_d21.pr1_pru1_gpo18 */
+
+	/* P8_16 dummy nodes for unavailable bone bus pins*/
+	P8_16_eqep_pin: pinmux_P8_16_eqep_pin { pinctrl-single,pins = < /* To avoid FDT_ERROR on BBAI when using BONE-EQEP2.dtbo */
+		/* Default pinmux configuration of P8_16 (P8_16_default_pin) */
+		P8_16( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14) >; };	/* vin2a_d21.gpio4_29 */
+
+	/* P8_17  (ball  A7) gpio8_18 */
+	BONE_PIN(P8_17, default, P8_17( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))	/* vout1_d18.gpio8_18 */
+	BONE_PIN(P8_17, gpio, P8_17( PIN_OUTPUT | INPUT_EN | MUX_MODE14 ))	/* vout1_d18.gpio8_18 */
+	BONE_PIN(P8_17, gpio_pu, P8_17( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14 ))	/* vout1_d18.gpio8_18 */
+	BONE_PIN(P8_17, gpio_pd, P8_17( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))	/* vout1_d18.gpio8_18 */
+	BONE_PIN(P8_17, pruin, P8_17( PIN_INPUT | MUX_MODE12 ))		/* vout1_d18.pr2_pru0_gpi15 */
+	BONE_PIN(P8_17, pruout, P8_17( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE13 ))		/* vout1_d18.pr2_pru0_gpo15 */
+
+	/* P8_18  (ball  F5) gpio4_9 */
+	BONE_PIN(P8_18, default, P8_18( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))	/* vin2a_d8.gpio4_9 */
+	BONE_PIN(P8_18, gpio, P8_18( PIN_OUTPUT | INPUT_EN | MUX_MODE14 ))	/* vin2a_d8.gpio4_9 */
+	BONE_PIN(P8_18, gpio_pu, P8_18( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14 ))	/* vin2a_d8.gpio4_9 */
+	BONE_PIN(P8_18, gpio_pd, P8_18( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))	/* vin2a_d8.gpio4_9 */
+	BONE_PIN(P8_18, eqep, P8_18( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE10 ))	/* vin2a_d8.eQEP2_strobe */
+	BONE_PIN(P8_18, pruin, P8_18( PIN_INPUT | MUX_MODE12 ))	/* vin2a_d8.pr1_pru1_gpi5 */
+	BONE_PIN(P8_18, pruout, P8_18( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE13 ))	/* vin2a_d8.pr1_pru1_gpo5 */
+
+	/* P8_19  (ball  E6) gpio4_10 */
+	BONE_PIN(P8_19, default, P8_19( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))	/* vin2a_d9.gpio4_10 */
+	BONE_PIN(P8_19, gpio, P8_19( PIN_OUTPUT | INPUT_EN | MUX_MODE14 ))	/* vin2a_d9.gpio4_10 */
+	BONE_PIN(P8_19, gpio_pu, P8_19( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14 ))	/* vin2a_d9.gpio4_10 */
+	BONE_PIN(P8_19, gpio_pd, P8_19( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))	/* vin2a_d9.gpio4_10 */
+	BONE_PIN(P8_19, pwm, P8_19( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE10 ))	/* vin2a_d9.ehrpwm2A */
+	BONE_PIN(P8_19, pruin, P8_19( PIN_INPUT | MUX_MODE12 ))	/* vin2a_d9.pr1_pru1_gpi6 */
+	BONE_PIN(P8_19, pruout, P8_19( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE13 ))	/* vin2a_d9.pr1_pru1_gpo6 */
+
+	/* P8_20  (ball AC4) gpio6_30 */
+	BONE_PIN(P8_20, default, P8_20( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))	/* mmc3_cmd.gpio6_30 */
+	BONE_PIN(P8_20, gpio, P8_20( PIN_OUTPUT | INPUT_EN | MUX_MODE14 ))	/* mmc3_cmd.gpio6_30 */
+	BONE_PIN(P8_20, gpio_pu, P8_20( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14 ))	/* mmc3_cmd.gpio6_30 */
+	BONE_PIN(P8_20, gpio_pd, P8_20( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))	/* mmc3_cmd.gpio6_30 */
+	BONE_PIN(P8_20, pruout, P8_20( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE13 ))	/* mmc3_cmd.pr2_pru0_gpo3 */
+	BONE_PIN(P8_20, pruin, P8_20( PIN_INPUT | MUX_MODE12 ))	/* mmc3_cmd.pr2_pru0_gpi3 */
+	BONE_PIN(P8_20, ecap_pwm, P8_20( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE10 ))		/* mmc3_cmd.eCAP2_in_PWM2_out */
+
+	/* P8_21  (ball AD4) gpio6_29 */
+	BONE_PIN(P8_21, default, P8_21( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))	/* mmc3_clk.gpio6_29 */
+	BONE_PIN(P8_21, gpio, P8_21( PIN_OUTPUT | INPUT_EN | MUX_MODE14 ))	/* mmc3_clk.gpio6_29 */
+	BONE_PIN(P8_21, gpio_pu, P8_21( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14 ))	/* mmc3_clk.gpio6_29 */
+	BONE_PIN(P8_21, gpio_pd, P8_21( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))	/* mmc3_clk.gpio6_29 */
+	BONE_PIN(P8_21, pruout, P8_21( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE13 ))	/* mmc3_clk.pr2_pru0_gpo2 */
+	BONE_PIN(P8_21, pruin, P8_21( PIN_INPUT | MUX_MODE12 ))	/* mmc3_clk.pr2_pru0_gpi2 */
+
+	/* P8_22  (ball AD6) gpio1_23 */
+	BONE_PIN(P8_22, default, P8_22( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))	/* mmc3_dat5.gpio1_23 */
+	BONE_PIN(P8_22, gpio, P8_22( PIN_OUTPUT | INPUT_EN | MUX_MODE14 ))	/* mmc3_dat5.gpio1_23 */
+	BONE_PIN(P8_22, gpio_pu, P8_22( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14 ))	/* mmc3_dat5.gpio1_23 */
+	BONE_PIN(P8_22, gpio_pd, P8_22( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))	/* mmc3_dat5.gpio1_23 */
+	BONE_PIN(P8_22, pruout, P8_22( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE13 ))	/* mmc3_dat5.pr2_pru0_gpo9 */
+	BONE_PIN(P8_22, pruin, P8_22( PIN_INPUT | MUX_MODE12 ))	/* mmc3_dat5.pr2_pru0_gpi9 */
+
+	/* P8_23  (ball AC8) gpio1_22 */
+	BONE_PIN(P8_23, default, P8_23( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))	/* mmc3_dat4.gpio1_22 */
+	BONE_PIN(P8_23, gpio, P8_23( PIN_OUTPUT | INPUT_EN | MUX_MODE14 ))	/* mmc3_dat4.gpio1_22 */
+	BONE_PIN(P8_23, gpio_pu, P8_23( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14 ))	/* mmc3_dat4.gpio1_22 */
+	BONE_PIN(P8_23, gpio_pd, P8_23( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))	/* mmc3_dat4.gpio1_22 */
+	BONE_PIN(P8_23, pruout, P8_23( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE13 ))	/* mmc3_dat4.pr2_pru0_gpo8 */
+	BONE_PIN(P8_23, pruin, P8_23( PIN_INPUT | MUX_MODE12 ))	/* mmc3_dat4.pr2_pru0_gpi8 */
+
+	/* P8_24  (ball AC6) gpio7_0 */
+	BONE_PIN(P8_24, default, P8_24( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))	/* mmc3_dat1.gpio7_0 */
+	BONE_PIN(P8_24, gpio, P8_24( PIN_OUTPUT | INPUT_EN | MUX_MODE14 ))	/* mmc3_dat1.gpio7_0 */
+	BONE_PIN(P8_24, gpio_pu, P8_24( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14 ))	/* mmc3_dat1.gpio7_0 */
+	BONE_PIN(P8_24, gpio_pd, P8_24( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))	/* mmc3_dat1.gpio7_0 */
+	BONE_PIN(P8_24, pruout, P8_24( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE13 ))	/* mmc3_dat1.pr2_pru0_gpo5 */
+	BONE_PIN(P8_24, pruin, P8_24( PIN_INPUT | MUX_MODE12 ))	/* mmc3_dat1.pr2_pru0_gpi5 */
+
+	/* P8_25  (ball AC7) gpio6_31 */
+	BONE_PIN(P8_25, default, P8_25( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))	/* mmc3_dat0.gpio6_31 */
+	BONE_PIN(P8_25, gpio, P8_25( PIN_OUTPUT | INPUT_EN | MUX_MODE14 ))	/* mmc3_dat0.gpio6_31 */
+	BONE_PIN(P8_25, gpio_pu, P8_25( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14 ))	/* mmc3_dat0.gpio6_31 */
+	BONE_PIN(P8_25, gpio_pd, P8_25( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))	/* mmc3_dat0.gpio6_31 */
+	BONE_PIN(P8_25, pruout, P8_25( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE13 ))	/* mmc3_dat0.pr2_pru0_gpo4 */
+	BONE_PIN(P8_25, pruin, P8_25( PIN_INPUT | MUX_MODE12 ))	/* mmc3_dat0.pr2_pru0_gpi4 */
+
+	/* P8_26  (ball  B3) gpio4_28 */
+	BONE_PIN(P8_26, default, P8_26( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14 ))	/* vin2a_d20.gpio4_28 */
+	BONE_PIN(P8_26, gpio, P8_26( PIN_OUTPUT | INPUT_EN | MUX_MODE14 ))	/* vin2a_d20.gpio4_28 */
+	BONE_PIN(P8_26, gpio_pu, P8_26( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14 ))	/* vin2a_d20.gpio4_28 */
+	BONE_PIN(P8_26, gpio_pd, P8_26( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))	/* vin2a_d20.gpio4_28 */
+	BONE_PIN(P8_26, pruin, P8_26( PIN_INPUT | MUX_MODE12 ))	/* vin2a_d20.pr1_pru1_gpi17 */
+	BONE_PIN(P8_26, pruout, P8_26( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE13 ))	/* vin2a_d20.pr1_pru1_gpo17 */
+	BONE_PIN(P8_26, ecap_pwm, P8_26( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE10 ))		/* vin2a_d20.eCAP3_in_PWM3_out */
+
+	/* P8_27a (ball E11) gpio4_23 */
+	BONE_PIN(P8_27, default, P8_27A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14) P8_27B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_vsync.gpio4_23, vout1_d19.off */
+	BONE_PIN(P8_27, gpio, P8_27A( PIN_OUTPUT | INPUT_EN | MUX_MODE14) P8_27B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_vsync.gpio4_23, vout1_d19.off */
+	BONE_PIN(P8_27, gpio_pu, P8_27A( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14) P8_27B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_vsync.gpio4_23, vout1_d19.off */
+	BONE_PIN(P8_27, gpio_pd, P8_27A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14) P8_27B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_vsync.gpio4_23, vout1_d19.off */
+	BONE_PIN(P8_27, lcd, P8_27A( PIN_OUTPUT | MUX_MODE0) P8_27B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_vsync.vout1_vsync, vout1_d19.off */
+	BONE_PIN(P8_27, pruout, P8_27A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE13) P8_27B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_vsync.pr2_pru1_gpo17, vout1_d19.off */
+	BONE_PIN(P8_27, pruin, P8_27A( PIN_INPUT | MUX_MODE12) P8_27B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_vsync.pr2_pru1_gpi17, vout1_d19.off */
+
+	/* P8_27b (ball  A8) gpio8_19 */
+
+	/* P8_28a (ball D11) gpio4_19 */
+	BONE_PIN(P8_28, default, P8_28A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14) P8_28B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_clk.gpio4_19, vout1_d20.off */
+	BONE_PIN(P8_28, gpio, P8_28A( PIN_OUTPUT | INPUT_EN | MUX_MODE14) P8_28B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_clk.gpio4_19, vout1_d20.off */
+	BONE_PIN(P8_28, gpio_pu, P8_28A( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14) P8_28B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_clk.gpio4_19, vout1_d20.off */
+	BONE_PIN(P8_28, gpio_pd, P8_28A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14) P8_28B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_clk.gpio4_19, vout1_d20.off */
+	BONE_PIN(P8_28, lcd, P8_28A( PIN_OUTPUT | MUX_MODE0) P8_28B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_clk.vout1_clk, vout1_d20.off */
+
+	/* P8_28b (ball  C9) gpio8_20 */
+	BONE_PIN(P8_28, pruout, P8_28B( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE13) P8_28A( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d20.pr2_pru0_gpo17, vout1_clk.off */
+	BONE_PIN(P8_28, pruin, P8_28B( PIN_INPUT | MUX_MODE12) P8_28A( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d20.pr2_pru0_gpi17, vout1_clk.off */
+
+	/* P8_29a (ball C11) gpio4_22 */
+	BONE_PIN(P8_29, default, P8_29A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14) P8_29B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_hsync.gpio4_22, vout1_d21.off */
+	BONE_PIN(P8_29, gpio, P8_29A( PIN_OUTPUT | INPUT_EN | MUX_MODE14) P8_29B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_hsync.gpio4_22, vout1_d21.off */
+	BONE_PIN(P8_29, gpio_pu, P8_29A( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14) P8_29B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_hsync.gpio4_22, vout1_d21.off */
+	BONE_PIN(P8_29, gpio_pd, P8_29A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14) P8_29B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_hsync.gpio4_22, vout1_d21.off */
+	BONE_PIN(P8_29, lcd, P8_29A( PIN_OUTPUT | MUX_MODE0) P8_29B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_hsync.vout1_hsync, vout1_d21.off */
+
+	/* P8_29b (ball  A9) gpio8_21 */
+	BONE_PIN(P8_29, pruout, P8_29B( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE13) P8_29A( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d21.pr2_pru0_gpo18, vout1_hsync.off */
+	BONE_PIN(P8_29, pruin, P8_29B( PIN_INPUT | MUX_MODE12) P8_29A( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d21.pr2_pru0_gpi18, vout1_hsync.off */
+
+	/* P8_30a (ball B10) gpio4_20 */
+	BONE_PIN(P8_30, default, P8_30A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14) P8_30B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_de.gpio4_20, vout1_d22.off */
+	BONE_PIN(P8_30, gpio, P8_30A( PIN_OUTPUT | INPUT_EN | MUX_MODE14) P8_30B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_de.gpio4_20, vout1_d22.off */
+	BONE_PIN(P8_30, gpio_pu, P8_30A( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14) P8_30B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_de.gpio4_20, vout1_d22.off */
+	BONE_PIN(P8_30, gpio_pd, P8_30A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14) P8_30B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_de.gpio4_20, vout1_d22.off */
+	BONE_PIN(P8_30, lcd, P8_30A( PIN_OUTPUT | MUX_MODE0) P8_30B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_de.vout1_de, vout1_d22.off  */
+
+	/* P8_30b (ball  B9) gpio8_22 */
+	BONE_PIN(P8_30, pruout, P8_30B( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE13) P8_30A( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d22.pr2_pru0_gpo19, vout1_de.off */
+	BONE_PIN(P8_30, pruin, P8_30B( PIN_INPUT | MUX_MODE12) P8_30A( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d22.pr2_pru0_gpi19, vout1_de.off */
+
+
+	/* P8_31a (ball  C8) gpio8_14 */
+	BONE_PIN(P8_31, default, P8_31A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14) P8_31B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d14.gpio8_14, mcasp4_axr0.off */
+	BONE_PIN(P8_31, gpio, P8_31A( PIN_OUTPUT | INPUT_EN | MUX_MODE14) P8_31B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d14.gpio8_14, mcasp4_axr0.off */
+	BONE_PIN(P8_31, gpio_pu, P8_31A( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14) P8_31B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d14.gpio8_14, mcasp4_axr0.off */
+	BONE_PIN(P8_31, gpio_pd, P8_31A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14) P8_31B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d14.gpio8_14, mcasp4_axr0.off */
+	BONE_PIN(P8_31, lcd, P8_31A( PIN_OUTPUT | MUX_MODE0) P8_31B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d14.vout1_d14, mcasp4_axr0.off */
+	BONE_PIN(P8_31, pruout, P8_31A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE13) P8_31B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d14.pr2_pru0_gpo11, mcasp4_axr0.off */
+	BONE_PIN(P8_31, pruin, P8_31A( PIN_INPUT | MUX_MODE12) P8_31B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d14.pr2_pru0_gpi11, mcasp4_axr0.off */
+	BONE_PIN(P8_31, pru_uart, P8_31A( PIN_OUTPUT_PULLUP | MUX_MODE10) P8_31B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d14.pr2_uart0_txd, mcasp4_axr0.off */
+
+	/* P8_31b (ball G16) */
+	BONE_PIN(P8_31, uart, P8_31B( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE4) P8_31A( PIN_OUTPUT | MUX_MODE15 ))	/* mcasp4_axr0.uart4_rxd,vout1_d14.off */
+
+	/* P8_31 dummy nodes for unavailable bone bus pins*/
+	P8_31_eqep_pin: pinmux_P8_31_eqep_pin { pinctrl-single,pins = < /* To avoid FDT_ERROR on BBAI when using BONE-EQEP1.dtbo */
+		/* Default pinmux configuration of P8_31 (P8_31_default_pin) */
+		P8_31A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14) P8_31B( PIN_OUTPUT | MUX_MODE15) >; };	/* vout1_d14.gpio8_14, mcasp4_axr0.off */
+
+	/* P8_32a (ball  C7) gpio8_15 */
+	BONE_PIN(P8_32, default, P8_32A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14) P8_32B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d15.gpio8_15, mcasp4_axr1.off */
+	BONE_PIN(P8_32, gpio, P8_32A( PIN_OUTPUT | INPUT_EN | MUX_MODE14) P8_32B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d15.gpio8_15, mcasp4_axr1.off */
+	BONE_PIN(P8_32, gpio_pu, P8_32A( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14) P8_32B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d15.gpio8_15, mcasp4_axr1.off */
+	BONE_PIN(P8_32, gpio_pd, P8_32A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14) P8_32B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d15.gpio8_15, mcasp4_axr1.off */
+	BONE_PIN(P8_32, lcd, P8_32A( PIN_OUTPUT | MUX_MODE0) P8_32B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d15.vout1_d15, mcasp4_axr1.off */
+	BONE_PIN(P8_32, pru_ecap_pwm, P8_32A( PIN_OUTPUT | MUX_MODE10) P8_32B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d15.pr2_ecap0_ecap_capin_apwm_o, mcasp4_axr1.off */
+
+	/* P8_32b (ball D17) */
+	BONE_PIN(P8_32, uart, P8_32B( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE4) P8_32A( PIN_OUTPUT | MUX_MODE15 ))	/* mcasp4_axr1.uart4_txd, vout1_d15.off */
+	BONE_PIN(P8_32, pruout, P8_32B( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE13) P8_32A( PIN_OUTPUT | MUX_MODE15 ))	/* mcasp4_axr1.pr2_pru1_gpo0, vout1_d15.off */
+	BONE_PIN(P8_32, pruin, P8_32B( PIN_INPUT | MUX_MODE12) P8_32A( PIN_OUTPUT | MUX_MODE15 ))	/* mcasp4_axr1.pr2_pru1_gpi0, vout1_d15.off */
+
+	/* P8_32 dummy nodes for unavailable bone bus pins*/
+	P8_32_eqep_pin: pinmux_P8_32_eqep_pin { pinctrl-single,pins = < /* To avoid FDT_ERROR on BBAI when using BONE-EQEP1.dtbo */
+		/* Default pinmux configuration of P8_32 (P8_32_default_pin) */
+		P8_32A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14) P8_32B( PIN_OUTPUT | MUX_MODE15) >; };	/* vout1_d15.gpio8_15, mcasp4_axr1.off */
+
+	/* P8_33a (ball  C6) gpio8_13 */
+	BONE_PIN(P8_33, default, P8_33A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14) P8_33B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d13.gpio8_13, vin1a_fld0.off */
+	BONE_PIN(P8_33, gpio, P8_33A( PIN_OUTPUT | INPUT_EN | MUX_MODE14) P8_33B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d13.gpio8_13, vin1a_fld0.off */
+	BONE_PIN(P8_33, gpio_pu, P8_33A( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14) P8_33B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d13.gpio8_13, vin1a_fld0.off */
+	BONE_PIN(P8_33, gpio_pd, P8_33A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14) P8_33B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d13.gpio8_13, vin1a_fld0.off */
+	BONE_PIN(P8_33, lcd, P8_33A( PIN_OUTPUT | MUX_MODE0) P8_33B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d13.vout1_d13, vin1a_fld0.off  */
+	BONE_PIN(P8_33, pruout, P8_33A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE13) P8_33B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d13.pr2_pru0_gpo10, vin1a_fld0.off */
+	BONE_PIN(P8_33, pruin, P8_33A( PIN_INPUT | MUX_MODE12) P8_33B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d13.pr2_pru0_gpi10, vin1a_fld0.off */
+	BONE_PIN(P8_33, pru_uart, P8_33A( PIN_INPUT_PULLUP | MUX_MODE10) P8_33B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d13.pr2_uart0_rxd, vin1a_fld0.off */
+
+	/* P8_33b (ball AF9) gpio3_1 */
+	BONE_PIN(P8_33, eqep, P8_33B( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE10) P8_33A( PIN_OUTPUT | MUX_MODE15 ))	/* vin1a_fld0.eQEP1B_in, vout1_d13.off */
+
+
+	/* P8_34a (ball  D8) gpio8_11 */
+	BONE_PIN(P8_34, default, P8_34A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14) P8_34B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d11.gpio8_11, vin2a_vsync0.off */
+	BONE_PIN(P8_34, gpio, P8_34A( PIN_OUTPUT | INPUT_EN | MUX_MODE14) P8_34B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d11.gpio8_11, vin2a_vsync0.off */
+	BONE_PIN(P8_34, gpio_pu, P8_34A( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14) P8_34B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d11.gpio8_11, vin2a_vsync0.off */
+	BONE_PIN(P8_34, gpio_pd, P8_34A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14) P8_34B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d11.gpio8_11, vin2a_vsync0.off */
+	BONE_PIN(P8_34, lcd, P8_34A( PIN_OUTPUT | MUX_MODE0) P8_34B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d11.vout1_d11, vin2a_vsync0.off */
+	BONE_PIN(P8_34, pruout, P8_34A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE13) P8_34B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d11.pr2_pru0_gpo8, vin2a_vsync0.off */
+	BONE_PIN(P8_34, pruin, P8_34A( PIN_INPUT | MUX_MODE12) P8_34B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d11.pr2_pru0_gpi8, vin2a_vsync0.off */
+	BONE_PIN(P8_34, pru_uart, P8_34A( PIN_INPUT_PULLUP | MUX_MODE10) P8_34B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d11.pr2_uart0_cts_n, vin2a_vsync0.off */
+
+	/* P8_34b (ball  G6) gpio4_0 */
+	BONE_PIN(P8_34, pwm, P8_34B( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE10) P8_34A( PIN_OUTPUT | MUX_MODE15 ))	/* vin2a_vsync0.ehrpwm1A, vout1_d11.off */
+
+	/* P8_35a (ball  A5) gpio8_12 */
+	BONE_PIN(P8_35, default, P8_35A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14) P8_35B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d12.gpio8_12, vin1a_de0.off */
+	BONE_PIN(P8_35, gpio, P8_35A( PIN_OUTPUT | INPUT_EN | MUX_MODE14) P8_35B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d12.gpio8_12, vin1a_de0.off */
+	BONE_PIN(P8_35, gpio_pu, P8_35A( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14) P8_35B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d12.gpio8_12, vin1a_de0.off */
+	BONE_PIN(P8_35, gpio_pd, P8_35A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14) P8_35B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d12.gpio8_12, vin1a_de0.off */
+	BONE_PIN(P8_35, lcd, P8_35A( PIN_OUTPUT | MUX_MODE0) P8_35B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d12.vout1_d12, vin1a_de0.off */
+	BONE_PIN(P8_35, pruout, P8_35A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE13) P8_35B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d12.pr2_pru0_gpo9, vin1a_de0.off */
+	BONE_PIN(P8_35, pruin, P8_35A( PIN_INPUT | MUX_MODE12) P8_35B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d12.pr2_pru0_gpi9, vin1a_de0.off */
+	BONE_PIN(P8_35, pru_uart, P8_35A( PIN_OUTPUT_PULLUP | MUX_MODE10) P8_35B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d12.pr2_uart0_rts_n, vin1a_de0.off */
+
+	/* P8_35b (ball AD9) gpio3_0 */
+	BONE_PIN(P8_35, eqep, P8_35B( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE10) P8_35A( PIN_OUTPUT | MUX_MODE15 ))	/* vin1a_de0.eQEP1A_in, vout1_d12.off */
+
+	/* P8_36a (ball  D7) gpio8_10 */
+	BONE_PIN(P8_36, default, P8_36A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14) P8_36B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d10.gpio8_10, vin2a_d0.off */
+	BONE_PIN(P8_36, gpio, P8_36A( PIN_OUTPUT | INPUT_EN | MUX_MODE14) P8_36B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d10.gpio8_10, vin2a_d0.off */
+	BONE_PIN(P8_36, gpio_pu, P8_36A( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14) P8_36B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d10.gpio8_10, vin2a_d0.off */
+	BONE_PIN(P8_36, gpio_pd, P8_36A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14) P8_36B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d10.gpio8_10, vin2a_d0.off */
+	BONE_PIN(P8_36, lcd, P8_36A( PIN_OUTPUT | MUX_MODE0) P8_36B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d10.vout1_d10, vin2a_d0.off */
+	BONE_PIN(P8_36, pruout, P8_36A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE13) P8_36B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d10.pr2_pru0_gpo7, vin2a_d0.off */
+	BONE_PIN(P8_36, pruin, P8_36A( PIN_INPUT | MUX_MODE12) P8_36B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d10.pr2_pru0_gpi7, vin2a_d0.off */
+
+	/* P8_36b (ball  F2) gpio4_1 */
+	BONE_PIN(P8_36, pwm, P8_36B( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE10) P8_36A( PIN_OUTPUT | MUX_MODE15 ))	/* vin2a_d0.ehrpwm1B, vout1_d10.off */
+
+	/* P8_37a (ball  E8) gpio8_8 */
+	BONE_PIN(P8_37, default, P8_37A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14) P8_37B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d8.gpio8_8, mcasp4_fsx.off */
+	BONE_PIN(P8_37, gpio, P8_37A( PIN_OUTPUT | INPUT_EN | MUX_MODE14) P8_37B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d8.gpio8_8, mcasp4_fsx.off */
+	BONE_PIN(P8_37, gpio_pu, P8_37A( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14) P8_37B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d8.gpio8_8, mcasp4_fsx.off */
+	BONE_PIN(P8_37, gpio_pd, P8_37A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14) P8_37B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d8.gpio8_8, mcasp4_fsx.off */
+	BONE_PIN(P8_37, lcd, P8_37A( PIN_OUTPUT | MUX_MODE0) P8_37B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d8.vout1_d8, mcasp4_fsx.off */
+	BONE_PIN(P8_37, pruout, P8_37A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE13) P8_37B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d8.pr2_pru0_gpo5, mcasp4_fsx.off */
+	BONE_PIN(P8_37, pruin, P8_37A( PIN_INPUT | MUX_MODE12) P8_37B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d8.pr2_pru0_gpi5, mcasp4_fsx.off */
+
+	/* P8_37b (ball A21) */
+	BONE_PIN(P8_37, uart, P8_37B( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE3) P8_37A( PIN_OUTPUT | MUX_MODE15 ))	/* mcasp4_fsx.uart8_txd. vout1_d8.off */
+
+	/* P8_38a (ball  D9) gpio8_9 */
+	BONE_PIN(P8_38, default, P8_38A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14) P8_38B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d9.gpio8_9, mcasp4_aclkx.off */
+	BONE_PIN(P8_38, gpio, P8_38A( PIN_OUTPUT | INPUT_EN | MUX_MODE14) P8_38B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d9.gpio8_9, mcasp4_aclkx.off */
+	BONE_PIN(P8_38, gpio_pu, P8_38A( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14) P8_38B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d9.gpio8_9, mcasp4_aclkx.off */
+	BONE_PIN(P8_38, gpio_pd, P8_38A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14) P8_38B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d9.gpio8_9, mcasp4_aclkx.off */
+	BONE_PIN(P8_38, lcd, P8_38A( PIN_OUTPUT | MUX_MODE0) P8_38B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d9.vout1_d9, mcasp4_aclkx.off */
+	BONE_PIN(P8_38, pruout, P8_38A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE13) P8_38B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d9.pr2_pru0_gpo6, mcasp4_aclkx.off */
+	BONE_PIN(P8_38, pruin, P8_38A( PIN_INPUT | MUX_MODE12) P8_38B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d9.pr2_pru0_gpi6, mcasp4_aclkx.off */
+
+	/* P8_38b (ball C18) */
+	BONE_PIN(P8_38, uart, P8_38B( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE3) P8_38A( PIN_OUTPUT | MUX_MODE15 ))	/* mcasp4_aclkx.uart8_rxd,  vout1_d9.off */
+
+	/* P8_39  (ball  F8) gpio8_6 */
+	BONE_PIN(P8_39, default, P8_39( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))	/* vout1_d6.gpio8_6 */
+	BONE_PIN(P8_39, gpio, P8_39( PIN_OUTPUT | INPUT_EN | MUX_MODE14 ))	/* vout1_d6.gpio8_6 */
+	BONE_PIN(P8_39, gpio_pu, P8_39( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14 ))	/* vout1_d6.gpio8_6 */
+	BONE_PIN(P8_39, gpio_pd, P8_39( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))	/* vout1_d6.gpio8_6 */
+	BONE_PIN(P8_39, pruout, P8_39( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE13 ))	/* vout1_d6.pr2_pru0_gpo3 */
+	BONE_PIN(P8_39, pruin, P8_39( PIN_INPUT | MUX_MODE12 ))	/* vout1_d6.pr2_pru0_gpi3 */
+	BONE_PIN(P8_39, lcd, P8_39( PIN_OUTPUT | MUX_MODE0 ))	/* vout1_d6.vout1_d6 */
+
+	/* P8_39 dummy nodes for unavailable bone bus pins*/
+	P8_39_eqep_pin: pinmux_P8_39_eqep_pin { pinctrl-single,pins = < /* To avoid FDT_ERROR on BBAI when using BONE-EQEP2A.dtbo */
+		/* Default pinmux configuration of P8_39 (P8_39_default_pin) */
+		P8_39( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14) >; };	/* vout1_d6.gpio8_6 */
+
+	/* P8_40  (ball  E7) gpio8_7 */
+	BONE_PIN(P8_40, default, P8_40( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))	/* vout1_d7.gpio8_7 */
+	BONE_PIN(P8_40, gpio, P8_40( PIN_OUTPUT | INPUT_EN | MUX_MODE14 ))	/* vout1_d7.gpio8_7 */
+	BONE_PIN(P8_40, gpio_pu, P8_40( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14 ))	/* vout1_d7.gpio8_7 */
+	BONE_PIN(P8_40, gpio_pd, P8_40( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))	/* vout1_d7.gpio8_7 */
+	BONE_PIN(P8_40, pruout, P8_40( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE13 ))	/* vout1_d7.pr2_pru0_gpo4 */
+	BONE_PIN(P8_40, pruin, P8_40( PIN_INPUT | MUX_MODE12 ))	/* vout1_d7.pr2_pru0_gpi4 */
+	BONE_PIN(P8_40, lcd, P8_40( PIN_OUTPUT | MUX_MODE0 ))	/* vout1_d7.vout1_d7 */
+
+	/* P8_40 dummy nodes for unavailable bone bus pins*/
+	P8_40_eqep_pin: pinmux_P8_40_eqep_pin { pinctrl-single,pins = < /* To avoid FDT_ERROR on BBAI when using BONE-EQEP2A.dtbo */
+		/* Default pinmux configuration of P8_40 (P8_40_default_pin) */
+		P8_40( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14) >; };	/* vout1_d7.gpio8_7 */
+
+	/* P8_41  (ball  E9) gpio8_4 */
+	BONE_PIN(P8_41, default, P8_41( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))	/* vout1_d4.gpio8_4 */
+	BONE_PIN(P8_41, gpio, P8_41( PIN_OUTPUT | INPUT_EN | MUX_MODE14 ))	/* vout1_d4.gpio8_4 */
+	BONE_PIN(P8_41, gpio_pu, P8_41( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14 ))	/* vout1_d4.gpio8_4 */
+	BONE_PIN(P8_41, gpio_pd, P8_41( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))	/* vout1_d4.gpio8_4 */
+	BONE_PIN(P8_41, pruout, P8_41( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE13 ))	/* vout1_d4.pr2_pru0_gpo1 */
+	BONE_PIN(P8_41, pruin, P8_41( PIN_INPUT | MUX_MODE12 ))	/* vout1_d4.pr2_pru0_gpi1 */
+	BONE_PIN(P8_41, lcd, P8_41( PIN_OUTPUT | MUX_MODE0 ))	/* vout1_d4.vout1_d4 */
+
+	/* P8_41 dummy nodes for unavailable bone bus pins*/
+	P8_41_eqep_pin: pinmux_P8_41_eqep_pin { pinctrl-single,pins = < /* To avoid FDT_ERROR on BBAI when using BONE-EQEP2A.dtbo */
+		/* Default pinmux configuration of P8_41 (P8_41_default_pin) */
+		P8_41( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14) >; };	/* vout1_d4.gpio8_4 */
+
+	/* P8_42  (ball  F9) gpio8_5 */
+	BONE_PIN(P8_42, default, P8_42( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))	/* vout1_d5.gpio8_5 */
+	BONE_PIN(P8_42, gpio, P8_42( PIN_OUTPUT | INPUT_EN | MUX_MODE14 ))	/* vout1_d5.gpio8_5 */
+	BONE_PIN(P8_42, gpio_pu, P8_42( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14 ))	/* vout1_d5.gpio8_5 */
+	BONE_PIN(P8_42, gpio_pd, P8_42( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))	/* vout1_d5.gpio8_5 */
+	BONE_PIN(P8_42, pruout, P8_42( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE13 ))	/* vout1_d5.pr2_pru0_gpo2 */
+	BONE_PIN(P8_42, pruin, P8_42( PIN_INPUT | MUX_MODE12 ))	/* vout1_d5.pr2_pru0_gpi2 */
+	BONE_PIN(P8_42, lcd, P8_42( PIN_OUTPUT | MUX_MODE0 ))	/* vout1_d5.vout1_d5 */
+
+	/* P8_42 dummy nodes for unavailable bone bus pins*/
+	P8_42_eqep_pin: pinmux_P8_42_eqep_pin { pinctrl-single,pins = < /* To avoid FDT_ERROR on BBAI when using BONE-EQEP2A.dtbo */
+		/* Default pinmux configuration of P8_42 (P8_42_default_pin) */
+		P8_42( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14) >; };	/* vout1_d5.gpio8_5 */
+
+	/* P8_43  (ball F10) gpio8_2 */
+	BONE_PIN(P8_43, default, P8_43( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))	/* vout1_d2.gpio8_2 */
+	BONE_PIN(P8_43, gpio, P8_43( PIN_OUTPUT | INPUT_EN | MUX_MODE14 ))	/* vout1_d2.gpio8_2 */
+	BONE_PIN(P8_43, gpio_pu, P8_43( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14 ))	/* vout1_d2.gpio8_2 */
+	BONE_PIN(P8_43, gpio_pd, P8_43( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))	/* vout1_d2.gpio8_2 */
+	BONE_PIN(P8_43, pruout, P8_43( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE13 ))	/* vout1_d2.pr2_pru1_gpo20 */
+	BONE_PIN(P8_43, pruin, P8_43( PIN_INPUT | MUX_MODE12 ))	/* vout1_d2.pr2_pru1_gpi20 */
+	BONE_PIN(P8_43, lcd, P8_43( PIN_OUTPUT | MUX_MODE0 ))	/* vout1_d2.vout1_d2 */
+	BONE_PIN(P8_43, pru_uart, P8_43( PIN_INPUT_PULLUP | MUX_MODE10 ))	/* vout1_d2.pr1_uart0_rxd */
+
+	/* P8_44  (ball G11) gpio8_3 */
+	BONE_PIN(P8_44, default, P8_44( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))	/* vout1_d3.gpio8_3 */
+	BONE_PIN(P8_44, gpio, P8_44( PIN_OUTPUT | INPUT_EN | MUX_MODE14 ))	/* vout1_d3.gpio8_3 */
+	BONE_PIN(P8_44, gpio_pu, P8_44( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14 ))	/* vout1_d3.gpio8_3 */
+	BONE_PIN(P8_44, gpio_pd, P8_44( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))	/* vout1_d3.gpio8_3 */
+	BONE_PIN(P8_44, pruout, P8_44( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE13 ))	/* vout1_d3.pr2_pru0_gpo0 */
+	BONE_PIN(P8_44, pruin, P8_44( PIN_INPUT | MUX_MODE12 ))	/* vout1_d3.pr2_pru0_gpi0 */
+	BONE_PIN(P8_44, lcd, P8_44( PIN_OUTPUT | MUX_MODE0 ))	/* vout1_d3.vout1_d3 */
+	BONE_PIN(P8_44, pru_uart, P8_44( PIN_OUTPUT_PULLUP | MUX_MODE10 ))	/* vout1_d3.pr1_uart0_txd */
+
+	/* P8_45a (ball F11) gpio8_0 */
+	BONE_PIN(P8_45, default, P8_45A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14) P8_45B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d0.gpio8_0, vout1_d16.off */
+	BONE_PIN(P8_45, gpio, P8_45A( PIN_OUTPUT | INPUT_EN | MUX_MODE14) P8_45B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d0.gpio8_0, vout1_d16.off */
+	BONE_PIN(P8_45, gpio_pu, P8_45A( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14) P8_45B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d0.gpio8_0, vout1_d16.off */
+	BONE_PIN(P8_45, gpio_pd, P8_45A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14) P8_45B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d0.gpio8_0, vout1_d16.off */
+	BONE_PIN(P8_45, lcd, P8_45A( PIN_OUTPUT | MUX_MODE0) P8_45B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d0.vout1_d0, vout1_d16.off */
+	BONE_PIN(P8_45, pruout, P8_45A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE13) P8_45B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d0.pr2_pru1_gpo18, vout1_d16.off */
+	BONE_PIN(P8_45, pruin, P8_45A( PIN_INPUT | MUX_MODE12) P8_45B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d0.pr2_pru1_gpi18, vout1_d16.off */
+	BONE_PIN(P8_45, pru_uart, P8_45A( PIN_INPUT_PULLUP | MUX_MODE10) P8_45B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d0.pr1_uart0_cts_n, vout1_d16.off */
+
+	/* P8_45b (ball  B7) gpio8_16 */
+
+	/* P8_46a (ball G10) gpio8_1 */
+	BONE_PIN(P8_46, default, P8_46A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14) P8_46B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d1.gpio8_1, vout1_d23.off */
+	BONE_PIN(P8_46, gpio, P8_46A( PIN_OUTPUT | INPUT_EN | MUX_MODE14) P8_46B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d1.gpio8_1, vout1_d23.off */
+	BONE_PIN(P8_46, gpio_pu, P8_46A( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14) P8_46B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d1.gpio8_1, vout1_d23.off */
+	BONE_PIN(P8_46, gpio_pd, P8_46A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14) P8_46B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d1.gpio8_1, vout1_d23.off */
+	BONE_PIN(P8_46, lcd, P8_46A( PIN_OUTPUT | MUX_MODE0) P8_46B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d1.vout1_d1, vout1_d23.off */
+	BONE_PIN(P8_46, pruout, P8_46A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE13) P8_46B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d1.pr2_pru1_gpo19, vout1_d23.off */
+	BONE_PIN(P8_46, pruin, P8_46A( PIN_INPUT | MUX_MODE12) P8_46B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d1.pr2_pru1_gpi19, vout1_d23.off */
+	BONE_PIN(P8_46, pru_uart, P8_46A( PIN_OUTPUT_PULLUP | MUX_MODE10) P8_46B( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d1.pr1_uart0_rts_n, vout1_d23.off */
+
+	/* P8_46b (ball A10) gpio8_23 */
+
+	/************************/
+	/* P9 Header */
+	/************************/
+
+	/* P9_01                GND */
+
+	/* P9_02                GND */
+
+	/* P9_03                3V3 */
+
+	/* P9_04                3V3 */
+
+	/* P9_05                VDD_5V */
+
+	/* P9_06                VDD_5V */
+
+	/* P9_07                SYS_5V */
+
+	/* P9_08                SYS_5V */
+
+	/* P9_09                PWR_BUT */
+
+	/* P9_10                RSTn */
+
+	/* P9_11a (ball B19) */
+	BONE_PIN(P9_11, uart, P9_11A( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE4) P9_11B( PIN_OUTPUT | MUX_MODE15 ))	/* mcasp3_axr0.uart5_rxd, vout1_d17.off */
+	BONE_PIN(P9_11, pruout, P9_11A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE13) P9_11B( PIN_OUTPUT | MUX_MODE15 ))	/* mcasp3_axr0.pr2_pru0_gpo14, vout1_d17.off */
+	BONE_PIN(P9_11, pruin, P9_11A( PIN_INPUT | MUX_MODE12) P9_11B( PIN_OUTPUT | MUX_MODE15 ))	/* mcasp3_axr0.pr2_pru0_gpi14, vout1_d17.off */
+
+	/* P9_11b (ball  B8) gpio8_17 */
+	BONE_PIN(P9_11, default, P9_11B( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14) P9_11A( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d17.gpio8_17, mcasp3_axr0.off */
+	BONE_PIN(P9_11, gpio, P9_11B( PIN_OUTPUT | INPUT_EN | MUX_MODE14) P9_11A( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d17.gpio8_17, mcasp3_axr0.off */
+	BONE_PIN(P9_11, gpio_pu, P9_11B( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14) P9_11A( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d17.gpio8_17, mcasp3_axr0.off */
+	BONE_PIN(P9_11, gpio_pd, P9_11B( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14) P9_11A( PIN_OUTPUT | MUX_MODE15 ))	/* vout1_d17.gpio8_17, mcasp3_axr0.off */
+
+	/* P9_12  (ball B14) gpio5_0 */
+	BONE_PIN(P9_12, default, P9_12( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14 ))	/* mcasp1_aclkr.gpio5_0 */
+	BONE_PIN(P9_12, gpio, P9_12( PIN_OUTPUT | INPUT_EN | MUX_MODE14 ))	/* mcasp1_aclkr.gpio5_0 */
+	BONE_PIN(P9_12, gpio_pu, P9_12( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14 ))	/* mcasp1_aclkr.gpio5_0 */
+	BONE_PIN(P9_12, gpio_pd, P9_12( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))	/* mcasp1_aclkr.gpio5_0 */
+	BONE_PIN(P9_12, mcasp, P9_12( PIN_INPUT_PULLDOWN | MUX_MODE0 ))	/* mcasp1_aclkr.mcasp1_aclkr */
+
+	/* P9_13a (ball C17) */
+	BONE_PIN(P9_13, uart, P9_13A( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE4) P9_13B( PIN_OUTPUT | MUX_MODE15 ))	/* mcasp3_axr1.uart5_txd, usb1_drvvbus.off */
+	BONE_PIN(P9_13, pruout, P9_13A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE13) P9_13B( PIN_OUTPUT | MUX_MODE15 ))	/* mcasp3_axr1.pr2_pru0_gpo15, usb1_drvvbus.off */
+	BONE_PIN(P9_13, pruin, P9_13A( PIN_INPUT | MUX_MODE12) P9_13B( PIN_OUTPUT | MUX_MODE15 ))	/* mcasp3_axr1.pr2_pru0_gpi15, usb1_drvvbus.off */
+
+	/* P9_13b (ball AB10) gpio6_12 */
+	BONE_PIN(P9_13, default, P9_13B( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14) P9_13A( PIN_OUTPUT | MUX_MODE15 ))	/* usb1_drvvbus.gpio6_12, mcasp3_axr1.off */
+	BONE_PIN(P9_13, gpio, P9_13B( PIN_OUTPUT | INPUT_EN | MUX_MODE14) P9_13A( PIN_OUTPUT | MUX_MODE15 ))	/* usb1_drvvbus.gpio6_12, mcasp3_axr1.off */
+	BONE_PIN(P9_13, gpio_pu, P9_13B( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14) P9_13A( PIN_OUTPUT | MUX_MODE15 ))	/* usb1_drvvbus.gpio6_12, mcasp3_axr1.off */
+	BONE_PIN(P9_13, gpio_pd, P9_13B( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14) P9_13A( PIN_OUTPUT | MUX_MODE15 ))	/* usb1_drvvbus.gpio6_12, mcasp3_axr1.off */
+
+
+	/* P9_14  (ball D6) gpio4_25 */
+	BONE_PIN(P9_14, default, P9_14( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))	/* vin2a_d17.gpio4_25 */
+	BONE_PIN(P9_14, gpio, P9_14( PIN_OUTPUT | INPUT_EN | MUX_MODE14 ))	/* vin2a_d17.gpio4_25 */
+	BONE_PIN(P9_14, gpio_pu, P9_14( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14 ))	/* vin2a_d17.gpio4_25 */
+	BONE_PIN(P9_14, gpio_pd, P9_14( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))	/* vin2a_d17.gpio4_25 */
+	BONE_PIN(P9_14, pwm, P9_14( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE10 ))	/* vin2a_d17.ehrpwm3A */
+	BONE_PIN(P9_14, pruin, P9_14( PIN_INPUT | MUX_MODE12 ))	/* vin2a_d17.pr1_pru1_gpi14 */
+	BONE_PIN(P9_14, pruout, P9_14( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE13 ))	/* vin2a_d17.pr1_pru1_gpo14 */
+
+	/* P9_15  (ball AG4) gpio3_12 */
+	BONE_PIN(P9_15, default, P9_15( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))	/* vin1a_d8.gpio3_12 */
+	BONE_PIN(P9_15, gpio, P9_15( PIN_OUTPUT | INPUT_EN | MUX_MODE14 ))	/* vin1a_d8.gpio3_12 */
+	BONE_PIN(P9_15, gpio_pu, P9_15( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14 ))	/* vin1a_d8.gpio3_12 */
+	BONE_PIN(P9_15, gpio_pd, P9_15( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))	/* vin1a_d8.gpio3_12 */
+	BONE_PIN(P9_15, pruin, P9_15( PIN_INPUT | MUX_MODE12 ))	/* vin1a_d8.pr1_pru0_gpi5 */
+	BONE_PIN(P9_15, pruout, P9_15( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE13 ))	/* vin1a_d8.pr1_pru0_gpo5 */
+	BONE_PIN(P9_15, eqep, P9_15( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE10 ))	/* vin1a_d8.eQEP2_index */
+
+	/* P9_16  (ball C5) gpio4_26 */
+	BONE_PIN(P9_16, default, P9_16( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE10 ))	/* vin2a_d18.gpio4_26 */
+	BONE_PIN(P9_16, gpio, P9_16( PIN_OUTPUT | INPUT_EN | MUX_MODE14 ))	/* vin2a_d18.gpio4_26 */
+	BONE_PIN(P9_16, gpio_pu, P9_16( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14 ))	/* vin2a_d18.gpio4_26 */
+	BONE_PIN(P9_16, gpio_pd, P9_16( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))	/* vin2a_d18.gpio4_26 */
+	BONE_PIN(P9_16, pwm, P9_16( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE10 ))	/* vin2a_d18.ehrpwm3B */
+	BONE_PIN(P9_16, pruin, P9_16( PIN_INPUT | MUX_MODE12 ))	/* vin2a_d18.pr1_pru1_gpi15 */
+	BONE_PIN(P9_16, pruout, P9_16( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE13 ))	/* vin2a_d18.pr1_pru1_gpo15 */
+
+	/* P9_17a (ball B24) gpio7_17 */
+	BONE_PIN(P9_17, default, P9_17A( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14) P9_17B( PIN_OUTPUT | MUX_MODE15 ))	/* spi2_cs0.gpio7_17, mcasp1_axr1.off */
+	BONE_PIN(P9_17, gpio, P9_17A( PIN_OUTPUT | INPUT_EN | MUX_MODE14) P9_17B( PIN_OUTPUT | MUX_MODE15 ))	/* spi2_cs0.gpio7_17, mcasp1_axr1.off */
+	BONE_PIN(P9_17, gpio_pu, P9_17A( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14) P9_17B( PIN_OUTPUT | MUX_MODE15 ))	/* spi2_cs0.gpio7_17, mcasp1_axr1.off */
+	BONE_PIN(P9_17, gpio_pd, P9_17A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14) P9_17B( PIN_OUTPUT | MUX_MODE15 ))	/* spi2_cs0.gpio7_17, mcasp1_axr1.off */
+	BONE_PIN(P9_17, spi_cs, P9_17A( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE0) P9_17B( PIN_OUTPUT | MUX_MODE15 ))	/* spi2_cs0.spi2_cs0, mcasp1_axr1.off */
+
+	/* P9_17b (ball F12) gpio5_3 */
+	BONE_PIN(P9_17, i2c, P9_17B( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE10) P9_17A( PIN_OUTPUT | MUX_MODE15 ))	/* mcasp1_axr1.i2c5_scl, spi2_cs0.off */
+	BONE_PIN(P9_17, pru_uart, P9_17B( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE3) P9_17A( PIN_OUTPUT | MUX_MODE15 ))	/* mcasp1_axr1.uart6_txd, spi2_cs0.off */
+	BONE_PIN(P9_17, pruout, P9_17B( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE13) P9_17A( PIN_OUTPUT | MUX_MODE15 ))	/* mcasp1_axr1.pr2_pru1_gpo9, spi2_cs0.off */
+	BONE_PIN(P9_17, pruin, P9_17B( PIN_INPUT | MUX_MODE12) P9_17A( PIN_OUTPUT | MUX_MODE15 ))	/* mcasp1_axr1.pr2_pru1_gpi9, spi2_cs0.off */
+
+	/* P9_18a  (ball G17) gpio7_16 */
+	BONE_PIN(P9_18, default, P9_18A( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14) P9_18B( PIN_OUTPUT | MUX_MODE15 ))	/* spi2_d0.gpio7_16, mcasp1_axr0.off */
+	BONE_PIN(P9_18, gpio, P9_18A( PIN_OUTPUT | INPUT_EN | MUX_MODE14) P9_18B( PIN_OUTPUT | MUX_MODE15 ))	/* spi2_d0.gpio7_16, mcasp1_axr0.off */
+	BONE_PIN(P9_18, gpio_pu, P9_18A( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14) P9_18B( PIN_OUTPUT | MUX_MODE15 ))	/* spi2_d0.gpio7_16, mcasp1_axr0.off */
+	BONE_PIN(P9_18, gpio_pd, P9_18A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14) P9_18B( PIN_OUTPUT | MUX_MODE15 ))	/* spi2_d0.gpio7_16, mcasp1_axr0.off */
+	BONE_PIN(P9_18, spi, P9_18A( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE0) P9_18B( PIN_OUTPUT | MUX_MODE15 ))	/* spi2_d0.spi2_d0, mcasp1_axr0.off */
+
+	/* P9_18b  (ball G12) gpio5_2 */
+	BONE_PIN(P9_18, i2c, P9_18B( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE10) P9_18A( PIN_OUTPUT | MUX_MODE15 ))	/* mcasp1_axr0.i2c5_sda, spi2_d0.off */
+	BONE_PIN(P9_18, pru_uart, P9_18B( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE3) P9_18A( PIN_OUTPUT | MUX_MODE15 ))	/* mcasp1_axr0.uart6_rxd, spi2_d0.off */
+	BONE_PIN(P9_18, pruout, P9_18B( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE13) P9_18A( PIN_OUTPUT | MUX_MODE15 ))	/* mcasp1_axr0.pr2_pru1_gpo8, spi2_d0.off */
+	BONE_PIN(P9_18, pruin, P9_18B( PIN_INPUT | MUX_MODE12) P9_18A( PIN_OUTPUT | MUX_MODE15 ))	/* mcasp1_axr0.pr2_pru1_gpi8, spi2_d0.off */
+
+	/* P9_19a (ball R6) gpio7_3 */
+	BONE_PIN(P9_19, default, P9_19A( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE7) P9_19B( PIN_OUTPUT | MUX_MODE15 ))	/* gpmc_a0.i2c4_scl, gpmc_a0.off */
+	BONE_PIN(P9_19, gpio, P9_19A( PIN_OUTPUT | INPUT_EN | MUX_MODE14) P9_19B( PIN_OUTPUT | MUX_MODE15 ))	/* gpmc_a0.gpio7_3, gpmc_a0.off */
+	BONE_PIN(P9_19, gpio_pu, P9_19A( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14) P9_19B( PIN_OUTPUT | MUX_MODE15 ))	/* gpmc_a0.gpio7_3, gpmc_a0.off */
+	BONE_PIN(P9_19, gpio_pd, P9_19A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14) P9_19B( PIN_OUTPUT | MUX_MODE15 ))	/* gpmc_a0.gpio7_3, gpmc_a0.off */
+	BONE_PIN(P9_19, i2c, P9_19A( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE7) P9_19B( PIN_OUTPUT | MUX_MODE15 ))	/* gpmc_a0.i2c4_scl, gpmc_a0.off */
+
+	/* P9_19b (ball F4) gpio4_6 */
+	BONE_PIN(P9_19, eqep, P9_19B( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE10) P9_19A( PIN_OUTPUT | MUX_MODE15 ))	/* vin2a_d5.eQEP2A_in, gpmc_a0.off */
+	BONE_PIN(P9_19, pruin, P9_19B( PIN_INPUT | MUX_MODE12) P9_19A( PIN_OUTPUT | MUX_MODE15 ))	/* vin2a_d5.pr1_pru1_gpi2, gpmc_a0.off */
+	BONE_PIN(P9_19, pruout, P9_19B( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE13) P9_19A( PIN_OUTPUT | MUX_MODE15 ))	/* vin2a_d5.pr1_pru1_gpo2, gpmc_a0.off */
+
+	/* P9_19 dummy nodes for unavailable bone bus */
+	P9_19_can_pin: pinmux_P9_19_default_pin { pinctrl-single,pins = < /* To avoid FDT_ERROR on BBAI when using BONE-CAN0-00A0.dtbo */
+		/* Default pinmux configuration of P9_19 (P9_19_default_pin) */
+		P9_19A( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE7) P9_19B( PIN_OUTPUT | MUX_MODE15) >; };	/* gpmc_a0.i2c4_scl, gpmc_a0.off */
+
+	/* P9_20a  (ball T9) gpio7_4 */
+	BONE_PIN(P9_20, default, P9_20A( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE7) P9_20B( PIN_OUTPUT | MUX_MODE15 ))	/* gpmc_a1.i2c4_sda, vin2a_d4.off */
+	BONE_PIN(P9_20, gpio, P9_20A( PIN_OUTPUT | INPUT_EN | MUX_MODE14) P9_20B( PIN_OUTPUT | MUX_MODE15 ))	/* gpmc_a1.gpio7_4, vin2a_d4.off */
+	BONE_PIN(P9_20, gpio_pu, P9_20A( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14) P9_20B( PIN_OUTPUT | MUX_MODE15 ))	/* gpmc_a1.gpio7_4, vin2a_d4.off */
+	BONE_PIN(P9_20, gpio_pd, P9_20A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14) P9_20B( PIN_OUTPUT | MUX_MODE15 ))	/* gpmc_a1.gpio7_4, vin2a_d4.off */
+	BONE_PIN(P9_20, i2c, P9_20A( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE7) P9_20B( PIN_OUTPUT | MUX_MODE15 ))	/* gpmc_a1.i2c4_sda, vin2a_d4.off */
+
+	/* P9_20b  (ball D2) gpio4_5*/
+	BONE_PIN(P9_20, pruout, P9_20B( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE13) P9_20A( PIN_OUTPUT | MUX_MODE15 ))	/* vin2a_d4.pr1_pru1_gpo1, gpmc_a1.off */
+	BONE_PIN(P9_20, pruin, P9_20B( PIN_INPUT | MUX_MODE12) P9_20A( PIN_OUTPUT | MUX_MODE15 ))	/* vin2a_d4.pr1_pru1_gpi1, gpmc_a1.off */
+
+	/* P9_20 dummy nodes for unavailable bone bus */
+	P9_20_can_pin: pinmux_P9_20_default_pin { pinctrl-single,pins = < /* To avoid FDT_ERROR on BBAI when using BONE-CAN0-00A0.dtbo */
+		/* Default pinmux configuration of P9_20 (P9_20_default_pin) */
+		P9_20A( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE7) P9_20B( PIN_OUTPUT | MUX_MODE15) >; };	/* gpmc_a1.i2c4_sda, vin2a_d4.off */
+
+	/* P9_21a (ball AF8) gpio3_3 */
+	BONE_PIN(P9_21, default, P9_21A( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14) P9_21B( PIN_OUTPUT | MUX_MODE15 ))	/* vin1a_vsync0.gpio3_3,spi2_d1.off */
+	BONE_PIN(P9_21, gpio, P9_21A( PIN_OUTPUT | INPUT_EN | MUX_MODE14) P9_21B( PIN_OUTPUT | MUX_MODE15 ))	/* vin1a_vsync0.gpio3_3,spi2_d1.off */
+	BONE_PIN(P9_21, gpio_pu, P9_21A( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14) P9_21B( PIN_OUTPUT | MUX_MODE15 ))	/* vin1a_vsync0.gpio3_3,spi2_d1.off */
+	BONE_PIN(P9_21, gpio_pd, P9_21A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14) P9_21B( PIN_OUTPUT | MUX_MODE15 ))	/* vin1a_vsync0.gpio3_3,spi2_d1.off */
+	BONE_PIN(P9_21, eqep, P9_21A( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE10) P9_21B( PIN_OUTPUT | MUX_MODE15 ))	/* vin1a_vsync0.eQEP1_strobe,spi2_d1.off */
+	BONE_PIN(P9_21, timer, P9_21A( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE7) P9_21B( PIN_OUTPUT | MUX_MODE15 ))	/* vin1a_vsync0.timer13,spi2_d1.off */
+
+	/* P9_21b (ball B22) gpio7_15 */
+	BONE_PIN(P9_21, spi, P9_21B( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE0) P9_21A( PIN_OUTPUT | MUX_MODE15 ))	/* spi2_d1.spi2_d1, vin1a_vsync0.off */
+	BONE_PIN(P9_21, uart, P9_21B( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE1) P9_21A( PIN_OUTPUT | MUX_MODE15 ))	/* spi2_d1.uart3_txd, vin1a_vsync0.off */
+
+	/* P9_21 dummy nodes for unavailable bone bus */
+	P9_21_i2c_pin: pinmux_P9_21_default_pin { pinctrl-single,pins = < /* To avoid FDT_ERROR on BBAI when using BONE-I2C2A-00A0.dtbo */
+		/* Default pinmux configuration of P9_21 (P9_21_default_pin) */
+		P9_21A( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14) P9_21B( PIN_OUTPUT | MUX_MODE15) >; };	/* vin1a_vsync0.gpio3_3,spi2_d1.off */
+	P9_21_pwm_pin: pinmux_P9_21_default_pin { pinctrl-single,pins = < /* To avoid FDT_ERROR on BBAI when using BONE-PWM0-00A0.dtbo */
+		/* Default pinmux configuration of P9_21 (P9_21_default_pin) */
+		P9_21A( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14) P9_21B( PIN_OUTPUT | MUX_MODE15) >; };	/* vin1a_vsync0.gpio3_3,spi2_d1.off */
+
+	/* P9_22a (ball B26) gpio6_19 */
+	BONE_PIN(P9_22, default, P9_22A( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14) P9_22B( PIN_OUTPUT | MUX_MODE15 ))	/* xref_clk2.gpio6_19, spi2_sclk.off */
+	BONE_PIN(P9_22, gpio, P9_22A( PIN_OUTPUT | INPUT_EN | MUX_MODE14) P9_22B( PIN_OUTPUT | MUX_MODE15 ))	/* xref_clk2.gpio6_19, spi2_sclk.off */
+	BONE_PIN(P9_22, gpio_pu, P9_22A( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14) P9_22B( PIN_OUTPUT | MUX_MODE15 ))	/* xref_clk2.gpio6_19, spi2_sclk.off */
+	BONE_PIN(P9_22, gpio_pd, P9_22A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14) P9_22B( PIN_OUTPUT | MUX_MODE15 ))	/* xref_clk2.gpio6_19, spi2_sclk.off */
+	BONE_PIN(P9_22, timer, P9_22A( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE10) P9_22B( PIN_OUTPUT | MUX_MODE15 ))	/* xref_clk2.timer15, spi2_sclk.off */
+
+	/* P9_22b (ball A26) gpio7_14 */
+	BONE_PIN(P9_22, spi_sclk, P9_22B( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE0) P9_22A( PIN_OUTPUT | MUX_MODE15 ))	/* spi2_sclk.spi2_sclk, xref_clk2.off */
+	BONE_PIN(P9_22, uart, P9_22B( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE1) P9_22A( PIN_OUTPUT | MUX_MODE15 ))	/* spi2_sclk.uart3_rxd, xref_clk2.off */
+
+	/* P9_22 dummy nodes for unavailable bone bus */
+	P9_22_i2c_pin: pinmux_P9_22_default_pin { pinctrl-single,pins = < /* To avoid FDT_ERROR on BBAI when using BONE-I2C2A-00A0.dtbo */
+		/* Default pinmux configuration of P9_22 (P9_22_default_pin) */
+		P9_22A( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14) P9_22B( PIN_OUTPUT | MUX_MODE15) >; };	/* xref_clk2.gpio6_19, spi2_sclk.off */
+	P9_22_pwm_pin: pinmux_P9_22_default_pin { pinctrl-single,pins = < /* To avoid FDT_ERROR on BBAI when using BONE-PWM0-00A0.dtbo */
+		/* Default pinmux configuration of P9_22 (P9_22_default_pin) */
+		P9_22A( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14) P9_22B( PIN_OUTPUT | MUX_MODE15) >; };	/* xref_clk2.gpio6_19, spi2_sclk.off */
+
+	/* P9_23  (ball A22) gpio7_11 */
+	BONE_PIN(P9_23, default, P9_23( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))	/* spi1_cs1.gpio7_11 */
+	BONE_PIN(P9_23, gpio, P9_23( PIN_OUTPUT | INPUT_EN | MUX_MODE14 ))	/* spi1_cs1.gpio7_11 */
+	BONE_PIN(P9_23, gpio_pu, P9_23( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14 ))	/* spi1_cs1.gpio7_11 */
+	BONE_PIN(P9_23, gpio_pd, P9_23( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))	/* spi1_cs1.gpio7_11 */
+	BONE_PIN(P9_23, spi_cs, P9_23( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE3 ))	/* spi1_cs1.spi2_cs1 */
+
+	/* P9_24  (ball F20) gpio6_15*/
+	BONE_PIN(P9_24, default, P9_24( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14 ))	/* gpio6_15.gpio6_15 */
+	BONE_PIN(P9_24, gpio, P9_24( PIN_OUTPUT | INPUT_EN | MUX_MODE14 ))	/* gpio6_15.gpio6_15 */
+	BONE_PIN(P9_24, gpio_pu, P9_24( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14 ))	/* gpio6_15.gpio6_15 */
+	BONE_PIN(P9_24, gpio_pd, P9_24( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))	/* gpio6_15.gpio6_15 */
+	BONE_PIN(P9_24, uart, P9_24( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE3 ))	/* gpio6_15.uart10_txd */
+	BONE_PIN(P9_24, can, P9_24( PIN_INPUT_PULLUP | MUX_MODE2 ))	/* gpio6_15.dcan2_rx  */
+	BONE_PIN(P9_24, i2c, P9_24( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE9 ))	/* gpio6_15.i2c3_scl */
+
+	/* P9_25  (ball D18) gpio6_17 */
+	BONE_PIN(P9_25, default, P9_25( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))	/* xref_clk0.gpio6_17 */
+	BONE_PIN(P9_25, gpio, P9_25( PIN_OUTPUT | INPUT_EN | MUX_MODE14 ))	/* xref_clk0.gpio6_17 */
+	BONE_PIN(P9_25, gpio_pu, P9_25( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14 ))	/* xref_clk0.gpio6_17 */
+	BONE_PIN(P9_25, gpio_pd, P9_25( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))	/* xref_clk0.gpio6_17 */
+	BONE_PIN(P9_25, pruout, P9_25( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE13 ))	/* xref_clk0.pr2_pru1_gpo5 */
+	BONE_PIN(P9_25, pruin, P9_25( PIN_INPUT | MUX_MODE12 ))	/* xref_clk0.pr2_pru1_gpi5 */
+	BONE_PIN(P9_25, mcasp, P9_25( PIN_INPUT_PULLDOWN | MUX_MODE3 ))	/* xref_clk0.mcasp1_ahclkx */
+
+	/* P9_25 dummy nodes for unavailable bone bus pins*/
+	P9_25_eqep_pin: pinmux_P9_25_eqep_pin { pinctrl-single,pins = < /* To avoid FDT_ERROR on BBAI when using BONE-EQEP0.dtbo */
+		/* Default pinmux configuration of P9_25 (P9_25_default_pin) */
+		P9_25( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14) >; };	/* xref_clk0.gpio6_17 */
+
+	/* P9_26a (ball E21) gpio6_14 */
+	BONE_PIN(P9_26, default, P9_26A( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14) P9_26B( PIN_OUTPUT | MUX_MODE15 ))	/* gpio6_14.gpio6_14, vin1a_d20.off */
+	BONE_PIN(P9_26, gpio, P9_26A( PIN_OUTPUT | INPUT_EN | MUX_MODE14) P9_26B( PIN_OUTPUT | MUX_MODE15 ))	/* gpio6_14.gpio6_14, vin1a_d20.off */
+	BONE_PIN(P9_26, gpio_pu, P9_26A( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14) P9_26B( PIN_OUTPUT | MUX_MODE15 ))	/* gpio6_14.gpio6_14, vin1a_d20.off */
+	BONE_PIN(P9_26, gpio_pd, P9_26A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14) P9_26B( PIN_OUTPUT | MUX_MODE15 ))	/* gpio6_14.gpio6_14, vin1a_d20.off */
+	BONE_PIN(P9_26, uart, P9_26A( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE3) P9_26B( PIN_OUTPUT | MUX_MODE15 ))	/* gpio6_14.uart10_rxd, vin1a_d20.off */
+	BONE_PIN(P9_26, can, P9_26A( PIN_OUTPUT_PULLUP | MUX_MODE2) P9_26B( PIN_OUTPUT | MUX_MODE15 ))	/* gpio6_14.dcan2_tx, vin1a_d20.off */
+	BONE_PIN(P9_26, i2c, P9_26A( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE9) P9_26B( PIN_OUTPUT | MUX_MODE15 ))	/* gpio6_14.i2c3_sda, vin1a_d20.off */
+
+	/* P9_26b (ball AE2) gpio3_24 */
+	BONE_PIN(P9_26, pruout, P9_26B( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE13) P9_26A( PIN_OUTPUT | MUX_MODE15 ))	/* vin1a_d20.pr1_pru0_gpo17, gpio6_14.off */
+	BONE_PIN(P9_26, pruin, P9_26B( PIN_INPUT | MUX_MODE12) P9_26A( PIN_OUTPUT | MUX_MODE15 ))	/* vin1a_d20.pr1_pru0_gpi17, gpio6_14.off */
+
+	/* P9_27a (ball C3) gpio4_15 */
+	BONE_PIN(P9_27, default, P9_27A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14) P9_27B( PIN_OUTPUT | MUX_MODE15 ))	/* vin2a_d14.gpio4_15, mcasp1_fsr.off */
+	BONE_PIN(P9_27, gpio, P9_27A( PIN_OUTPUT | INPUT_EN | MUX_MODE14) P9_27B( PIN_OUTPUT | MUX_MODE15 ))	/* vin2a_d14.gpio4_15, mcasp1_fsr.off */
+	BONE_PIN(P9_27, gpio_pu, P9_27A( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14) P9_27B( PIN_OUTPUT | MUX_MODE15 ))	/* vin2a_d14.gpio4_15, mcasp1_fsr.off */
+	BONE_PIN(P9_27, gpio_pd, P9_27A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14) P9_27B( PIN_OUTPUT | MUX_MODE15 ))	/* vin2a_d14.gpio4_15, mcasp1_fsr.off */
+	BONE_PIN(P9_27, eqep, P9_27A( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE10) P9_27B( PIN_OUTPUT | MUX_MODE15 ))	/* vin2a_d14.eQEP3B_in, mcasp1_fsr.off */
+	BONE_PIN(P9_27, pruout, P9_27A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE13) P9_27B( PIN_OUTPUT | MUX_MODE15 ))	/* vin2a_d14.pr1_pru1_gpo11, mcasp1_fsr.off */
+	BONE_PIN(P9_27, pruin, P9_27A( PIN_INPUT | MUX_MODE12) P9_27B( PIN_OUTPUT | MUX_MODE15 ))	/* vin2a_d14.pr1_pru1_gpi11, mcasp1_fsr.off */
+
+	/* P9_27b (ball J14) gpio5_1 */
+	BONE_PIN(P9_27, mcasp, P9_27B( PIN_INPUT_PULLDOWN | MUX_MODE0) P9_27A( PIN_OUTPUT | MUX_MODE15 ))	/* mcasp1_fsr.mcasp1_fsr, vin2a_d14.off */
+
+	/* P9_28  (ball A12) gpio4_17 */
+	BONE_PIN(P9_28, default, P9_28( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))	/* mcasp1_axr11.gpio4_17 */
+	BONE_PIN(P9_28, gpio, P9_28( PIN_OUTPUT | INPUT_EN | MUX_MODE14 ))	/* mcasp1_axr11.gpio4_17 */
+	BONE_PIN(P9_28, gpio_pu, P9_28( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14 ))	/* mcasp1_axr11.gpio4_17 */
+	BONE_PIN(P9_28, gpio_pd, P9_28( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))	/* mcasp1_axr11.gpio4_17 */
+	BONE_PIN(P9_28, spi_cs, P9_28( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE3 ))	/* mcasp1_axr11.spi3_cs0 */
+	BONE_PIN(P9_28, pruout, P9_28( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE13 ))	/* mcasp1_axr11.pr2_pru1_gpo13 */
+	BONE_PIN(P9_28, pruin, P9_28( PIN_INPUT | MUX_MODE12 ))	/* mcasp1_axr11.pr2_pru1_gpi13 */
+	BONE_PIN(P9_28, mcasp, P9_28( PIN_INPUT_PULLDOWN | MUX_MODE0 ))	/* mcasp1_axr11.mcasp1_axr11 */
+
+	/* P9_29a (ball A11) gpio5_11*/
+	BONE_PIN(P9_29, default, P9_29A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14) P9_29B( PIN_OUTPUT | MUX_MODE15 ))	/* mcasp1_axr9.gpio5_11, mcasp1_fsx.off */
+	BONE_PIN(P9_29, gpio, P9_29A( PIN_OUTPUT | INPUT_EN | MUX_MODE14) P9_29B( PIN_OUTPUT | MUX_MODE15 ))	/* mcasp1_axr9.gpio5_11, mcasp1_fsx.off */
+	BONE_PIN(P9_29, gpio_pu, P9_29A( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14) P9_29B( PIN_OUTPUT | MUX_MODE15 ))	/* mcasp1_axr9.gpio5_11, mcasp1_fsx.off */
+	BONE_PIN(P9_29, gpio_pd, P9_29A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14) P9_29B( PIN_OUTPUT | MUX_MODE15 ))	/* mcasp1_axr9.gpio5_11, mcasp1_fsx.off */
+	BONE_PIN(P9_29, spi, P9_29A( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE3) P9_29B( PIN_OUTPUT | MUX_MODE15 ))	/* mcasp1_axr9.spi3_d1, mcasp1_fsx.off */
+	BONE_PIN(P9_29, pruout, P9_29A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE13) P9_29B( PIN_OUTPUT | MUX_MODE15 ))	/* mcasp1_axr9.pr2_pru1_gpo11, mcasp1_fsx.off */
+	BONE_PIN(P9_29, pruin, P9_29A( PIN_INPUT | MUX_MODE12) P9_29B( PIN_OUTPUT | MUX_MODE15 ))	/* mcasp1_axr9.pr2_pru1_gpi11, mcasp1_fsx.off */
+
+	/* P9_29b (ball D14) gpio7_30 */
+	BONE_PIN(P9_29, mcasp, P9_29B( PIN_INPUT_PULLDOWN | MUX_MODE0) P9_29A( PIN_OUTPUT | MUX_MODE15 ))	/* mcasp1_fsx.mcasp1_fsx, mcasp1_axr9.off */
+
+	/* P9_30  (ball B13) gpio5_12*/
+	BONE_PIN(P9_30, default, P9_30( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))	/* mcasp1_axr10.gpio5_12 */
+	BONE_PIN(P9_30, gpio, P9_30( PIN_OUTPUT | INPUT_EN | MUX_MODE14 ))	/* mcasp1_axr10.gpio5_12 */
+	BONE_PIN(P9_30, gpio_pu, P9_30( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14 ))	/* mcasp1_axr10.gpio5_12 */
+	BONE_PIN(P9_30, gpio_pd, P9_30( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14 ))	/* mcasp1_axr10.gpio5_12 */
+	BONE_PIN(P9_30, spi, P9_30( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE3 ))	/* mcasp1_axr10.spi3_d0 */
+	BONE_PIN(P9_30, pruout, P9_30( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE13 ))	/* mcasp1_axr10.pr2_pru1_gpo12 */
+	BONE_PIN(P9_30, pruin, P9_30( PIN_INPUT | MUX_MODE12 ))	/* mcasp1_axr10.pr2_pru1_gpi12 */
+	BONE_PIN(P9_30, mcasp, P9_30( PIN_INPUT_PULLDOWN | MUX_MODE0 ))	/* mcasp1_axr10.mcasp1_axr10 */
+
+	/* P9_31a (ball B12) gpio5_10 */
+	BONE_PIN(P9_31, default, P9_31A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14) P9_31B( PIN_OUTPUT | MUX_MODE15 ))	/* mcasp1_axr8.gpio5_10, mcasp1_aclkx.off */
+	BONE_PIN(P9_31, gpio, P9_31A( PIN_OUTPUT | INPUT_EN | MUX_MODE14) P9_31B( PIN_OUTPUT | MUX_MODE15 ))	/* mcasp1_axr8.gpio5_10, mcasp1_aclkx.off */
+	BONE_PIN(P9_31, gpio_pu, P9_31A( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14) P9_31B( PIN_OUTPUT | MUX_MODE15 ))	/* mcasp1_axr8.gpio5_10, mcasp1_aclkx.off */
+	BONE_PIN(P9_31, gpio_pd, P9_31A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14) P9_31B( PIN_OUTPUT | MUX_MODE15 ))	/* mcasp1_axr8.gpio5_10, mcasp1_aclkx.off */
+	BONE_PIN(P9_31, spi_sclk, P9_31A( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE3) P9_31B( PIN_OUTPUT | MUX_MODE15 ))	/* mcasp1_axr8.spi3_sclk, mcasp1_aclkx.off */
+	BONE_PIN(P9_31, pruout, P9_31A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE13) P9_31B( PIN_OUTPUT | MUX_MODE15 ))	/* mcasp1_axr8.pr2_pru1_gpo10, mcasp1_aclkx.off */
+	BONE_PIN(P9_31, pruin, P9_31A( PIN_INPUT | MUX_MODE12) P9_31B( PIN_OUTPUT | MUX_MODE15 ))	/* mcasp1_axr8.pr2_pru1_gpi10, mcasp1_aclkx.off */
+
+	/* P9_31b (ball C14) gpio7_31*/
+	BONE_PIN(P9_31, mcasp, P9_31B( PIN_INPUT_PULLDOWN | MUX_MODE0) P9_31A( PIN_OUTPUT | MUX_MODE15 ))	/* mcasp1_aclkx.mcasp1_aclkx, mcasp1_axr8.off */
+
+	/* P9_32                VADC */
+
+	/* P9_33 	  			AIN4*/
+
+	/* P9_34                AGND */
+
+	/* P9_35 				AIN6 */
+
+	/* P9_36 				AIN5 */
+
+	/* P9_37  				AIN2 */
+
+	/* P9_38  				AIN3*/
+
+	/* P9_39  				AIN0*/
+
+	/* P9_40   				AIN1*/
+
+	/* P9_41a (ball C23) gpio6_20 */
+	BONE_PIN(P9_41, default, P9_41A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14) P9_41B( PIN_OUTPUT | MUX_MODE15 ))	/* xref_clk3.gpio6_20, vin2a_d6.off */
+	BONE_PIN(P9_41, gpio, P9_41A( PIN_OUTPUT | INPUT_EN | MUX_MODE14) P9_41B( PIN_OUTPUT | MUX_MODE15 ))	/* xref_clk3.gpio6_20, vin2a_d6.off */
+	BONE_PIN(P9_41, gpio_pu, P9_41A( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14) P9_41B( PIN_OUTPUT | MUX_MODE15 ))	/* xref_clk3.gpio6_20, vin2a_d6.off */
+	BONE_PIN(P9_41, gpio_pd, P9_41A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14) P9_41B( PIN_OUTPUT | MUX_MODE15 ))	/* xref_clk3.gpio6_20, vin2a_d6.off */
+
+	/* P9_41b (ball C1) gpio4_7 */
+	BONE_PIN(P9_41, pruout, P9_41B( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE13) P9_41A( PIN_OUTPUT | MUX_MODE15 ))	/* vin2a_d6.pr1_pru1_gpo3, xref_clk3.off */
+	BONE_PIN(P9_41, pruin, P9_41B( PIN_INPUT | MUX_MODE12) P9_41A( PIN_OUTPUT | MUX_MODE15 ))	/* vin2a_d6.pr1_pru1_gpi3, xref_clk3.off */
+
+	/* P9_41 dummy nodes for unavailable bone bus pins*/
+	P9_41_eqep_pin: pinmux_P9_41_eqep_pin { pinctrl-single,pins = < /* To avoid FDT_ERROR on BBAI when using BONE-EQEP0.dtbo */
+		/* Default pinmux configuration of P9_41 (P9_41_default_pin) */
+		P9_41A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14) P9_41B( PIN_OUTPUT | MUX_MODE15) >; };	/* xref_clk3.gpio6_20, vin2a_d6.off */
+
+	/* P9_42a (ball E14) gpio4_18 */
+	BONE_PIN(P9_42, default, P9_42A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14) P9_42B( PIN_OUTPUT | MUX_MODE15 ))	/* mcasp1_axr12.gpio4_18, vin2a_d13.off */
+	BONE_PIN(P9_42, gpio, P9_42A( PIN_OUTPUT | INPUT_EN | MUX_MODE14) P9_42B( PIN_OUTPUT | MUX_MODE15 ))	/* mcasp1_axr12.gpio4_18, vin2a_d13.off */
+	BONE_PIN(P9_42, gpio_pu, P9_42A( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE14) P9_42B( PIN_OUTPUT | MUX_MODE15 ))	/* mcasp1_axr12.gpio4_18, vin2a_d13.off */
+	BONE_PIN(P9_42, gpio_pd, P9_42A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14) P9_42B( PIN_OUTPUT | MUX_MODE15 ))	/* mcasp1_axr12.gpio4_18, vin2a_d13.off */
+	BONE_PIN(P9_42, spi_cs, P9_42A( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE3) P9_42B( PIN_OUTPUT | MUX_MODE15 ))	/* mcasp1_axr12.spi3_cs1, vin2a_d13.off */
+
+	/* P9_42b (ball C2) gpio4_14*/
+	BONE_PIN(P9_42, pruout, P9_42B( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE13) P9_42A( PIN_OUTPUT | MUX_MODE15 ))	/* vin2a_d13.pr1_pru1_gpo10, mcasp1_axr12.off */
+	BONE_PIN(P9_42, pruin, P9_42B( PIN_INPUT | MUX_MODE12) P9_42A( PIN_OUTPUT | MUX_MODE15 ))	/* vin2a_d13.pr1_pru1_gpi10, mcasp1_axr12.off */
+	BONE_PIN(P9_42, eqep, P9_42B( PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE10) P9_42A( PIN_OUTPUT | MUX_MODE15 ))	/* vin2a_d13.eQEP3A_in, mcasp1_axr12.off */
+
+	/* P9_42 dummy nodes for unavailable bone bus */
+	P9_42_uart_pin: pinmux_P9_42_default_pin { pinctrl-single,pins = < /* To avoid FDT_ERROR on BBAI when using BONE-UART3-00A0.dtbo */
+		/* Default pinmux configuration of P9_42 (P9_42_default_pin) */
+		P9_42A( PIN_OUTPUT_PULLDOWN | INPUT_EN | MUX_MODE14) P9_42B( PIN_OUTPUT | MUX_MODE15) >; };	/* mcasp1_axr12.gpio4_18, vin2a_d13.off */
+
+	/* P9_43                GND */
+
+	/* P9_44                GND */
+
+	/* P9_45                GND */
+
+	/* P9_46                GND */
+};
+
+/**********************************************************************/
+/* Pin Multiplex Helpers                                              */
+/*                                                                    */
+/* These provide userspace runtime pin configuration for the          */
+/* BeagleBone cape expansion headers                                  */
+/**********************************************************************/
+
+&ocp {
+	/************************/
+	/* P8 Header */
+	/************************/
+
+	/* P8_01                GND */
+
+	/* P8_02                GND */
+
+	P8_03_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "pruin", "pruout";
+		pinctrl-0 = <&P8_03_default_pin>;
+		pinctrl-1 = <&P8_03_gpio_pin>;
+		pinctrl-2 = <&P8_03_gpio_pu_pin>;
+		pinctrl-3 = <&P8_03_gpio_pd_pin>;
+		pinctrl-4 = <&P8_03_pruin_pin>;
+		pinctrl-5 = <&P8_03_pruout_pin>;
+	};
+
+	P8_04_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "ecap_pwm", "pruin", "pruout";
+		pinctrl-0 = <&P8_04_default_pin>;
+		pinctrl-1 = <&P8_04_gpio_pin>;
+		pinctrl-2 = <&P8_04_gpio_pu_pin>;
+		pinctrl-3 = <&P8_04_gpio_pd_pin>;
+		pinctrl-4 = <&P8_04_ecap_pwm_pin>;
+		pinctrl-5 = <&P8_04_pruin_pin>;
+		pinctrl-6 = <&P8_04_pruout_pin>;
+	};
+
+	P8_05_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "eqep", "pruin", "pruout";
+		pinctrl-0 = <&P8_05_default_pin>;
+		pinctrl-1 = <&P8_05_gpio_pin>;
+		pinctrl-2 = <&P8_05_gpio_pu_pin>;
+		pinctrl-3 = <&P8_05_gpio_pd_pin>;
+		pinctrl-4 = <&P8_05_eqep_pin>;
+		pinctrl-5 = <&P8_05_pruin_pin>;
+		pinctrl-6 = <&P8_05_pruout_pin>;
+	};
+
+	P8_06_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "eqep", "pruin", "pruout";
+		pinctrl-0 = <&P8_06_default_pin>;
+		pinctrl-1 = <&P8_06_gpio_pin>;
+		pinctrl-2 = <&P8_06_gpio_pu_pin>;
+		pinctrl-3 = <&P8_06_gpio_pd_pin>;
+		pinctrl-4 = <&P8_06_eqep_pin>;
+		pinctrl-5 = <&P8_06_pruin_pin>;
+		pinctrl-6 = <&P8_06_pruout_pin>;
+	};
+
+	P8_07_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "timer", "pruin", "pruout";
+		pinctrl-0 = <&P8_07_default_pin>;
+		pinctrl-1 = <&P8_07_gpio_pin>;
+		pinctrl-2 = <&P8_07_gpio_pu_pin>;
+		pinctrl-3 = <&P8_07_gpio_pd_pin>;
+		pinctrl-4 = <&P8_07_timer_pin>;
+		pinctrl-5 = <&P8_07_pruin_pin>;
+		pinctrl-6 = <&P8_07_pruout_pin>;
+	};
+
+	P8_08_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "timer", "pruin", "pruout";
+		pinctrl-0 = <&P8_08_default_pin>;
+		pinctrl-1 = <&P8_08_gpio_pin>;
+		pinctrl-2 = <&P8_08_gpio_pu_pin>;
+		pinctrl-3 = <&P8_08_gpio_pd_pin>;
+		pinctrl-4 = <&P8_08_timer_pin>;
+		pinctrl-5 = <&P8_08_pruin_pin>;
+		pinctrl-6 = <&P8_08_pruout_pin>;
+	};
+
+	P8_09_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "timer", "pruin", "pruout";
+		pinctrl-0 = <&P8_09_default_pin>;
+		pinctrl-1 = <&P8_09_gpio_pin>;
+		pinctrl-2 = <&P8_09_gpio_pu_pin>;
+		pinctrl-3 = <&P8_09_gpio_pd_pin>;
+		pinctrl-4 = <&P8_09_timer_pin>;
+		pinctrl-5 = <&P8_09_pruin_pin>;
+		pinctrl-6 = <&P8_09_pruout_pin>;
+	};
+
+	P8_10_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "timer", "pruin", "pruout";
+		pinctrl-0 = <&P8_10_default_pin>;
+		pinctrl-1 = <&P8_10_gpio_pin>;
+		pinctrl-2 = <&P8_10_gpio_pu_pin>;
+		pinctrl-3 = <&P8_10_gpio_pd_pin>;
+		pinctrl-4 = <&P8_10_timer_pin>;
+		pinctrl-5 = <&P8_10_pruin_pin>;
+		pinctrl-6 = <&P8_10_pruout_pin>;
+	};
+
+	P8_11_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "eqep", "pruin", "pruout";
+		pinctrl-0 = <&P8_11_default_pin>;
+		pinctrl-1 = <&P8_11_gpio_pin>;
+		pinctrl-2 = <&P8_11_gpio_pu_pin>;
+		pinctrl-3 = <&P8_11_gpio_pd_pin>;
+		pinctrl-4 = <&P8_11_eqep_pin>;
+		pinctrl-5 = <&P8_11_pruin_pin>;
+		pinctrl-6 = <&P8_11_pruout_pin>;
+	};
+
+	P8_12_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "eqep", "pruin", "pruout";
+		pinctrl-0 = <&P8_12_default_pin>;
+		pinctrl-1 = <&P8_12_gpio_pin>;
+		pinctrl-2 = <&P8_12_gpio_pu_pin>;
+		pinctrl-3 = <&P8_12_gpio_pd_pin>;
+		pinctrl-4 = <&P8_12_eqep_pin>;
+		pinctrl-5 = <&P8_12_pruin_pin>;
+		pinctrl-6 = <&P8_12_pruout_pin>;
+	};
+
+	P8_13_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "pwm", "pruin", "pruout";
+		pinctrl-0 = <&P8_13_default_pin>;
+		pinctrl-1 = <&P8_13_gpio_pin>;
+		pinctrl-2 = <&P8_13_gpio_pu_pin>;
+		pinctrl-3 = <&P8_13_gpio_pd_pin>;
+		pinctrl-4 = <&P8_13_pwm_pin>;
+		pinctrl-5 = <&P8_13_pruin_pin>;
+		pinctrl-6 = <&P8_13_pruout_pin>;
+	};
+
+	P8_14_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "ecap_pwm", "pruin", "pruout";
+		pinctrl-0 = <&P8_14_default_pin>;
+		pinctrl-1 = <&P8_14_gpio_pin>;
+		pinctrl-2 = <&P8_14_gpio_pu_pin>;
+		pinctrl-3 = <&P8_14_gpio_pd_pin>;
+		pinctrl-4 = <&P8_14_ecap_pwm_pin>;
+		pinctrl-5 = <&P8_14_pruin_pin>;
+		pinctrl-6 = <&P8_14_pruout_pin>;
+	};
+
+	P8_15_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "pru_ecap_pwm", "pruin", "pruout", "ecap_pwm";
+		pinctrl-0 = <&P8_15_default_pin>;
+		pinctrl-1 = <&P8_15_gpio_pin>;
+		pinctrl-2 = <&P8_15_gpio_pu_pin>;
+		pinctrl-3 = <&P8_15_gpio_pd_pin>;
+		pinctrl-4 = <&P8_15_pru_ecap_pwm_pin>;
+		pinctrl-5 = <&P8_15_pruin_pin>;
+		pinctrl-6 = <&P8_15_pruout_pin>;
+		pinctrl-7 = <&P8_15_ecap_pwm_pin>;
+	};
+
+	P8_16_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "pruin", "pruout";
+		pinctrl-0 = <&P8_16_default_pin>;
+		pinctrl-1 = <&P8_16_gpio_pin>;
+		pinctrl-2 = <&P8_16_gpio_pu_pin>;
+		pinctrl-3 = <&P8_16_gpio_pd_pin>;
+		pinctrl-4 = <&P8_16_pruin_pin>;
+		pinctrl-5 = <&P8_16_pruout_pin>;
+	};
+
+	P8_17_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "pruin", "pruout";
+		pinctrl-0 = <&P8_17_default_pin>;
+		pinctrl-1 = <&P8_17_gpio_pin>;
+		pinctrl-2 = <&P8_17_gpio_pu_pin>;
+		pinctrl-3 = <&P8_17_gpio_pd_pin>;
+		pinctrl-4 = <&P8_17_pruin_pin>;
+		pinctrl-5 = <&P8_17_pruout_pin>;
+	};
+
+	P8_18_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "eqep", "pruin", "pruout";
+		pinctrl-0 = <&P8_18_default_pin>;
+		pinctrl-1 = <&P8_18_gpio_pin>;
+		pinctrl-2 = <&P8_18_gpio_pu_pin>;
+		pinctrl-3 = <&P8_18_gpio_pd_pin>;
+        pinctrl-4 = <&P8_18_eqep_pin>;
+		pinctrl-5 = <&P8_18_pruin_pin>;
+		pinctrl-6 = <&P8_18_pruout_pin>;
+	};
+
+	P8_19_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "pwm", "pruin", "pruout";
+		pinctrl-0 = <&P8_19_default_pin>;
+		pinctrl-1 = <&P8_19_gpio_pin>;
+		pinctrl-2 = <&P8_19_gpio_pu_pin>;
+		pinctrl-3 = <&P8_19_gpio_pd_pin>;
+		pinctrl-4 = <&P8_19_pwm_pin>;
+		pinctrl-5 = <&P8_19_pruin_pin>;
+		pinctrl-6 = <&P8_19_pruout_pin>;
+	};
+
+	P8_20_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "pruout", "pruin", "ecap-pwm";
+		pinctrl-0 = <&P8_20_default_pin>;
+		pinctrl-1 = <&P8_20_gpio_pin>;
+		pinctrl-2 = <&P8_20_gpio_pu_pin>;
+		pinctrl-3 = <&P8_20_gpio_pd_pin>;
+		pinctrl-4 = <&P8_20_pruout_pin>;
+		pinctrl-5 = <&P8_20_pruin_pin>;
+		pinctrl-6 = <&P8_20_ecap_pwm_pin>;
+	};
+
+	P8_21_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "pruout", "pruin";
+		pinctrl-0 = <&P8_21_default_pin>;
+		pinctrl-1 = <&P8_21_gpio_pin>;
+		pinctrl-2 = <&P8_21_gpio_pu_pin>;
+		pinctrl-3 = <&P8_21_gpio_pd_pin>;
+		pinctrl-4 = <&P8_21_pruout_pin>;
+		pinctrl-5 = <&P8_21_pruin_pin>;
+	};
+
+	P8_22_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "pruout", "pruin";
+		pinctrl-0 = <&P8_22_default_pin>;
+		pinctrl-1 = <&P8_22_gpio_pin>;
+		pinctrl-2 = <&P8_22_gpio_pu_pin>;
+		pinctrl-3 = <&P8_22_gpio_pd_pin>;
+		pinctrl-4 = <&P8_22_pruout_pin>;
+		pinctrl-5 = <&P8_22_pruin_pin>;
+	};
+
+	P8_23_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "pruout", "pruin";
+		pinctrl-0 = <&P8_23_default_pin>;
+		pinctrl-1 = <&P8_23_gpio_pin>;
+		pinctrl-2 = <&P8_23_gpio_pu_pin>;
+		pinctrl-3 = <&P8_23_gpio_pd_pin>;
+		pinctrl-4 = <&P8_23_pruout_pin>;
+		pinctrl-5 = <&P8_23_pruin_pin>;
+	};
+
+	P8_24_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "pruout", "pruin";
+		pinctrl-0 = <&P8_24_default_pin>;
+		pinctrl-1 = <&P8_24_gpio_pin>;
+		pinctrl-2 = <&P8_24_gpio_pu_pin>;
+		pinctrl-3 = <&P8_24_gpio_pd_pin>;
+		pinctrl-4 = <&P8_24_pruout_pin>;
+		pinctrl-5 = <&P8_24_pruin_pin>;
+	};
+
+	P8_25_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "pruout", "pruin";
+		pinctrl-0 = <&P8_25_default_pin>;
+		pinctrl-1 = <&P8_25_gpio_pin>;
+		pinctrl-2 = <&P8_25_gpio_pu_pin>;
+		pinctrl-3 = <&P8_25_gpio_pd_pin>;
+		pinctrl-4 = <&P8_25_pruout_pin>;
+		pinctrl-5 = <&P8_25_pruin_pin>;
+	};
+
+	P8_26_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "ecap_pwm", "pruout", "pruin";
+		pinctrl-0 = <&P8_26_default_pin>;
+		pinctrl-1 = <&P8_26_gpio_pin>;
+		pinctrl-2 = <&P8_26_gpio_pu_pin>;
+		pinctrl-3 = <&P8_26_gpio_pd_pin>;
+		pinctrl-4 = <&P8_26_ecap_pwm_pin>;
+		pinctrl-5 = <&P8_26_pruout_pin>;
+		pinctrl-6 = <&P8_26_pruin_pin>;
+	};
+
+	P8_27_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "pruout", "pruin";
+		pinctrl-0 = <&P8_27_default_pin>;
+		pinctrl-1 = <&P8_27_gpio_pin>;
+		pinctrl-2 = <&P8_27_gpio_pu_pin>;
+		pinctrl-3 = <&P8_27_gpio_pd_pin>;
+		pinctrl-4 = <&P8_27_pruout_pin>;
+		pinctrl-5 = <&P8_27_pruin_pin>;
+	};
+
+	P8_28_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "pruout", "pruin";
+		pinctrl-0 = <&P8_28_default_pin>;
+		pinctrl-1 = <&P8_28_gpio_pin>;
+		pinctrl-2 = <&P8_28_gpio_pu_pin>;
+		pinctrl-3 = <&P8_28_gpio_pd_pin>;
+		pinctrl-4 = <&P8_28_pruout_pin>;
+		pinctrl-5 = <&P8_28_pruin_pin>;
+	};
+
+	P8_29_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "pruout", "pruin";
+		pinctrl-0 = <&P8_29_default_pin>;
+		pinctrl-1 = <&P8_29_gpio_pin>;
+		pinctrl-2 = <&P8_29_gpio_pu_pin>;
+		pinctrl-3 = <&P8_29_gpio_pd_pin>;
+		pinctrl-4 = <&P8_29_pruout_pin>;
+		pinctrl-5 = <&P8_29_pruin_pin>;
+	};
+
+	P8_30_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "pruout", "pruin";
+		pinctrl-0 = <&P8_30_default_pin>;
+		pinctrl-1 = <&P8_30_gpio_pin>;
+		pinctrl-2 = <&P8_30_gpio_pu_pin>;
+		pinctrl-3 = <&P8_30_gpio_pd_pin>;
+		pinctrl-4 = <&P8_30_pruout_pin>;
+		pinctrl-5 = <&P8_30_pruin_pin>;
+	};
+
+	P8_31_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "uart", "pruout", "pruin";
+		pinctrl-0 = <&P8_31_default_pin>;
+		pinctrl-1 = <&P8_31_gpio_pin>;
+		pinctrl-2 = <&P8_31_gpio_pu_pin>;
+		pinctrl-3 = <&P8_31_gpio_pd_pin>;
+		pinctrl-4 = <&P8_31_uart_pin>;
+		pinctrl-5 = <&P8_31_pruout_pin>;
+		pinctrl-6 = <&P8_31_pruin_pin>;
+	};
+
+	P8_32_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "pruout", "pruin";
+		pinctrl-0 = <&P8_32_default_pin>;
+		pinctrl-1 = <&P8_32_gpio_pin>;
+		pinctrl-2 = <&P8_32_gpio_pu_pin>;
+		pinctrl-3 = <&P8_32_gpio_pd_pin>;
+		pinctrl-4 = <&P8_32_pruout_pin>;
+		pinctrl-5 = <&P8_32_pruin_pin>;
+	};
+
+	P8_33_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "eqep", "pruout", "pruin";
+		pinctrl-0 = <&P8_33_default_pin>;
+		pinctrl-1 = <&P8_33_gpio_pin>;
+		pinctrl-2 = <&P8_33_gpio_pu_pin>;
+		pinctrl-3 = <&P8_33_gpio_pd_pin>;
+		pinctrl-4 = <&P8_33_eqep_pin>;
+		pinctrl-5 = <&P8_33_pruout_pin>;
+		pinctrl-6 = <&P8_33_pruin_pin>;
+	};
+
+	P8_34_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "pwm", "pruout", "pruin";
+		pinctrl-0 = <&P8_34_default_pin>;
+		pinctrl-1 = <&P8_34_gpio_pin>;
+		pinctrl-2 = <&P8_34_gpio_pu_pin>;
+		pinctrl-3 = <&P8_34_gpio_pd_pin>;
+		pinctrl-4 = <&P8_34_pwm_pin>;
+		pinctrl-5 = <&P8_34_pruout_pin>;
+		pinctrl-6 = <&P8_34_pruin_pin>;
+	};
+
+	P8_35_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "eqep", "pruout", "pruin";
+		pinctrl-0 = <&P8_35_default_pin>;
+		pinctrl-1 = <&P8_35_gpio_pin>;
+		pinctrl-2 = <&P8_35_gpio_pu_pin>;
+		pinctrl-3 = <&P8_35_gpio_pd_pin>;
+		pinctrl-4 = <&P8_35_eqep_pin>;
+		pinctrl-5 = <&P8_35_pruout_pin>;
+		pinctrl-6 = <&P8_35_pruin_pin>;
+	};
+
+	P8_36_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "pwm", "pruout", "pruin";
+		pinctrl-0 = <&P8_36_default_pin>;
+		pinctrl-1 = <&P8_36_gpio_pin>;
+		pinctrl-2 = <&P8_36_gpio_pu_pin>;
+		pinctrl-3 = <&P8_36_gpio_pd_pin>;
+		pinctrl-4 = <&P8_36_pwm_pin>;
+		pinctrl-5 = <&P8_36_pruout_pin>;
+		pinctrl-6 = <&P8_36_pruin_pin>;
+	};
+
+	P8_37_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "uart", "pruout", "pruin";
+		pinctrl-0 = <&P8_37_default_pin>;
+		pinctrl-1 = <&P8_37_gpio_pin>;
+		pinctrl-2 = <&P8_37_gpio_pu_pin>;
+		pinctrl-3 = <&P8_37_gpio_pd_pin>;
+		pinctrl-4 = <&P8_37_uart_pin>;
+		pinctrl-5 = <&P8_37_pruout_pin>;
+		pinctrl-6 = <&P8_37_pruin_pin>;
+	};
+
+	P8_38_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "uart", "pruout", "pruin";
+		pinctrl-0 = <&P8_38_default_pin>;
+		pinctrl-1 = <&P8_38_gpio_pin>;
+		pinctrl-2 = <&P8_38_gpio_pu_pin>;
+		pinctrl-3 = <&P8_38_gpio_pd_pin>;
+		pinctrl-4 = <&P8_38_uart_pin>;
+		pinctrl-5 = <&P8_38_pruout_pin>;
+		pinctrl-6 = <&P8_38_pruin_pin>;
+	};
+
+	P8_39_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "pruout", "pruin";
+		pinctrl-0 = <&P8_39_default_pin>;
+		pinctrl-1 = <&P8_39_gpio_pin>;
+		pinctrl-2 = <&P8_39_gpio_pu_pin>;
+		pinctrl-3 = <&P8_39_gpio_pd_pin>;
+		pinctrl-4 = <&P8_39_pruout_pin>;
+		pinctrl-5 = <&P8_39_pruin_pin>;
+	};
+
+	P8_40_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "pruout", "pruin";
+		pinctrl-0 = <&P8_40_default_pin>;
+		pinctrl-1 = <&P8_40_gpio_pin>;
+		pinctrl-2 = <&P8_40_gpio_pu_pin>;
+		pinctrl-3 = <&P8_40_gpio_pd_pin>;
+		pinctrl-4 = <&P8_40_pruout_pin>;
+		pinctrl-5 = <&P8_40_pruin_pin>;
+	};
+
+	P8_41_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "pruout", "pruin";
+		pinctrl-0 = <&P8_41_default_pin>;
+		pinctrl-1 = <&P8_41_gpio_pin>;
+		pinctrl-2 = <&P8_41_gpio_pu_pin>;
+		pinctrl-3 = <&P8_41_gpio_pd_pin>;
+		pinctrl-4 = <&P8_41_pruout_pin>;
+		pinctrl-5 = <&P8_41_pruin_pin>;
+	};
+
+	P8_42_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "pruout", "pruin";
+		pinctrl-0 = <&P8_42_default_pin>;
+		pinctrl-1 = <&P8_42_gpio_pin>;
+		pinctrl-2 = <&P8_42_gpio_pu_pin>;
+		pinctrl-3 = <&P8_42_gpio_pd_pin>;
+		pinctrl-4 = <&P8_42_pruout_pin>;
+		pinctrl-5 = <&P8_42_pruin_pin>;
+	};
+
+	P8_43_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "pruout", "pruin";
+		pinctrl-0 = <&P8_43_default_pin>;
+		pinctrl-1 = <&P8_43_gpio_pin>;
+		pinctrl-2 = <&P8_43_gpio_pu_pin>;
+		pinctrl-3 = <&P8_43_gpio_pd_pin>;
+		pinctrl-4 = <&P8_43_pruout_pin>;
+		pinctrl-5 = <&P8_43_pruin_pin>;
+	};
+
+	P8_44_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "pruout", "pruin";
+		pinctrl-0 = <&P8_44_default_pin>;
+		pinctrl-1 = <&P8_44_gpio_pin>;
+		pinctrl-2 = <&P8_44_gpio_pu_pin>;
+		pinctrl-3 = <&P8_44_gpio_pd_pin>;
+		pinctrl-4 = <&P8_44_pruout_pin>;
+		pinctrl-5 = <&P8_44_pruin_pin>;
+	};
+
+	P8_45_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "pruout", "pruin";
+		pinctrl-0 = <&P8_45_default_pin>;
+		pinctrl-1 = <&P8_45_gpio_pin>;
+		pinctrl-2 = <&P8_45_gpio_pu_pin>;
+		pinctrl-3 = <&P8_45_gpio_pd_pin>;
+		pinctrl-4 = <&P8_45_pruout_pin>;
+		pinctrl-5 = <&P8_45_pruin_pin>;
+	};
+
+	P8_46_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "pruout", "pruin";
+		pinctrl-0 = <&P8_46_default_pin>;
+		pinctrl-1 = <&P8_46_gpio_pin>;
+		pinctrl-2 = <&P8_46_gpio_pu_pin>;
+		pinctrl-3 = <&P8_46_gpio_pd_pin>;
+		pinctrl-4 = <&P8_46_pruout_pin>;
+		pinctrl-5 = <&P8_46_pruin_pin>;
+	};
+
+	/************************/
+	/* P9 Header */
+	/************************/
+
+	/* P9_01                GND */
+
+	/* P9_02                GND */
+
+	/* P9_03                3V3 */
+
+	/* P9_04                3V3 */
+
+	/* P9_05                VDD_5V */
+
+	/* P9_06                VDD_5V */
+
+	/* P9_07                SYS_5V */
+
+	/* P9_08                SYS_5V */
+
+	/* P9_09                PWR_BUT */
+
+	/* P9_10                RSTn */
+
+	P9_11_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "uart", "pruout", "pruin";
+		pinctrl-0 = <&P9_11_default_pin>;
+		pinctrl-1 = <&P9_11_gpio_pin>;
+		pinctrl-2 = <&P9_11_gpio_pu_pin>;
+		pinctrl-3 = <&P9_11_gpio_pd_pin>;
+		pinctrl-4 = <&P9_11_uart_pin>;
+		pinctrl-5 = <&P9_11_pruout_pin>;
+		pinctrl-6 = <&P9_11_pruin_pin>;
+	};
+
+	P9_12_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "mcasp";
+		pinctrl-0 = <&P9_12_default_pin>;
+		pinctrl-1 = <&P9_12_gpio_pin>;
+		pinctrl-2 = <&P9_12_gpio_pu_pin>;
+		pinctrl-3 = <&P9_12_gpio_pd_pin>;
+		pinctrl-4 = <&P9_12_mcasp_pin>;
+	};
+
+	P9_13_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "uart", "pruout", "pruin";
+		pinctrl-0 = <&P9_13_default_pin>;
+		pinctrl-1 = <&P9_13_gpio_pin>;
+		pinctrl-2 = <&P9_13_gpio_pu_pin>;
+		pinctrl-3 = <&P9_13_gpio_pd_pin>;
+		pinctrl-4 = <&P9_13_uart_pin>;
+		pinctrl-5 = <&P9_13_pruout_pin>;
+		pinctrl-6 = <&P9_13_pruin_pin>;
+	};
+
+	P9_14_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "pwm", "pruout", "pruin";
+		pinctrl-0 = <&P9_14_default_pin>;
+		pinctrl-1 = <&P9_14_gpio_pin>;
+		pinctrl-2 = <&P9_14_gpio_pu_pin>;
+		pinctrl-3 = <&P9_14_gpio_pd_pin>;
+		pinctrl-4 = <&P9_14_pwm_pin>;
+		pinctrl-5 = <&P9_14_pruout_pin>;
+		pinctrl-6 = <&P9_14_pruin_pin>;
+	};
+
+	P9_15_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "eqep", "pruout", "pruin";
+		pinctrl-0 = <&P9_15_default_pin>;
+		pinctrl-1 = <&P9_15_gpio_pin>;
+		pinctrl-2 = <&P9_15_gpio_pu_pin>;
+		pinctrl-3 = <&P9_15_gpio_pd_pin>;
+		pinctrl-4 = <&P9_15_eqep_pin>;
+		pinctrl-5 = <&P9_15_pruout_pin>;
+		pinctrl-6 = <&P9_15_pruin_pin>;
+	};
+
+	P9_16_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "pwm", "pruout", "pruin";
+		pinctrl-0 = <&P9_16_default_pin>;
+		pinctrl-1 = <&P9_16_gpio_pin>;
+		pinctrl-2 = <&P9_16_gpio_pu_pin>;
+		pinctrl-3 = <&P9_16_gpio_pd_pin>;
+		pinctrl-4 = <&P9_16_pwm_pin>;
+		pinctrl-5 = <&P9_16_pruout_pin>;
+		pinctrl-6 = <&P9_16_pruin_pin>;
+	};
+
+	P9_17_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "spi_cs", "i2c", "uart", "pruout", "pruin";
+		pinctrl-0 = <&P9_17_default_pin>;
+		pinctrl-1 = <&P9_17_gpio_pin>;
+		pinctrl-2 = <&P9_17_gpio_pu_pin>;
+		pinctrl-3 = <&P9_17_gpio_pd_pin>;
+		pinctrl-4 = <&P9_17_spi_cs_pin>;
+		pinctrl-5 = <&P9_17_i2c_pin>;
+		pinctrl-6 = <&P9_17_pru_uart_pin>;
+		pinctrl-7 = <&P9_17_pruout_pin>;
+		pinctrl-8 = <&P9_17_pruin_pin>;
+	};
+
+	P9_18_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "spi", "i2c", "uart", "pruout", "pruin";
+		pinctrl-0 = <&P9_18_default_pin>;
+		pinctrl-1 = <&P9_18_gpio_pin>;
+		pinctrl-2 = <&P9_18_gpio_pu_pin>;
+		pinctrl-3 = <&P9_18_gpio_pd_pin>;
+		pinctrl-4 = <&P9_18_spi_pin>;
+		pinctrl-5 = <&P9_18_i2c_pin>;
+		pinctrl-6 = <&P9_18_pru_uart_pin>;
+		pinctrl-7 = <&P9_18_pruout_pin>;
+		pinctrl-8 = <&P9_18_pruin_pin>;
+	};
+
+	P9_19_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "i2c", "eqep", "pruout", "pruin";
+		pinctrl-0 = <&P9_19_default_pin>;
+		pinctrl-1 = <&P9_19_gpio_pin>;
+		pinctrl-2 = <&P9_19_gpio_pu_pin>;
+		pinctrl-3 = <&P9_19_gpio_pd_pin>;
+		pinctrl-4 = <&P9_19_i2c_pin>;
+		pinctrl-5 = <&P9_19_eqep_pin>;
+		pinctrl-6 = <&P9_19_pruout_pin>;
+		pinctrl-7 = <&P9_19_pruin_pin>;
+	};
+
+	P9_20_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "i2c", "pruout", "pruin";
+		pinctrl-0 = <&P9_20_default_pin>;
+		pinctrl-1 = <&P9_20_gpio_pin>;
+		pinctrl-2 = <&P9_20_gpio_pu_pin>;
+		pinctrl-3 = <&P9_20_gpio_pd_pin>;
+		pinctrl-4 = <&P9_20_i2c_pin>;
+		pinctrl-5 = <&P9_20_pruout_pin>;
+		pinctrl-6 = <&P9_20_pruin_pin>;
+	};
+
+	P9_21_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "spi", "uart", "eqep";
+		pinctrl-0 = <&P9_21_default_pin>;
+		pinctrl-1 = <&P9_21_gpio_pin>;
+		pinctrl-2 = <&P9_21_gpio_pu_pin>;
+		pinctrl-3 = <&P9_21_gpio_pd_pin>;
+		pinctrl-4 = <&P9_21_spi_pin>;
+		pinctrl-5 = <&P9_21_uart_pin>;
+		pinctrl-6 = <&P9_21_eqep_pin>;
+	};
+
+	P9_22_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "spi_sclk", "uart";
+		pinctrl-0 = <&P9_22_default_pin>;
+		pinctrl-1 = <&P9_22_gpio_pin>;
+		pinctrl-2 = <&P9_22_gpio_pu_pin>;
+		pinctrl-3 = <&P9_22_gpio_pd_pin>;
+		pinctrl-4 = <&P9_22_spi_sclk_pin>;
+		pinctrl-5 = <&P9_22_uart_pin>;
+	};
+
+	P9_23_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd";
+		pinctrl-0 = <&P9_23_default_pin>;
+		pinctrl-1 = <&P9_23_gpio_pin>;
+		pinctrl-2 = <&P9_23_gpio_pu_pin>;
+		pinctrl-3 = <&P9_23_gpio_pd_pin>;
+	};
+
+	P9_24_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "uart", "can", "i2c";
+		pinctrl-0 = <&P9_24_default_pin>;
+		pinctrl-1 = <&P9_24_gpio_pin>;
+		pinctrl-2 = <&P9_24_gpio_pu_pin>;
+		pinctrl-3 = <&P9_24_gpio_pd_pin>;
+		pinctrl-4 = <&P9_24_uart_pin>;
+		pinctrl-5 = <&P9_24_can_pin>;
+		pinctrl-6 = <&P9_24_i2c_pin>;
+	};
+
+	P9_25_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "pruout", "pruin", "mcasp";
+		pinctrl-0 = <&P9_25_default_pin>;
+		pinctrl-1 = <&P9_25_gpio_pin>;
+		pinctrl-2 = <&P9_25_gpio_pu_pin>;
+		pinctrl-3 = <&P9_25_gpio_pd_pin>;
+		pinctrl-4 = <&P9_25_pruout_pin>;
+		pinctrl-5 = <&P9_25_pruin_pin>;
+		pinctrl-6 = <&P9_25_mcasp_pin>;
+	};
+
+	P9_26_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "uart", "can", "i2c", "pruout", "pruin";
+		pinctrl-0 = <&P9_26_default_pin>;
+		pinctrl-1 = <&P9_26_gpio_pin>;
+		pinctrl-2 = <&P9_26_gpio_pu_pin>;
+		pinctrl-3 = <&P9_26_gpio_pd_pin>;
+		pinctrl-4 = <&P9_26_uart_pin>;
+		pinctrl-5 = <&P9_26_can_pin>;
+		pinctrl-6 = <&P9_26_i2c_pin>;
+		pinctrl-7 = <&P9_26_pruout_pin>;
+		pinctrl-8 = <&P9_26_pruin_pin>;
+	};
+
+	P9_27_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "eqep", "pruout", "pruin", "mcasp";
+		pinctrl-0 = <&P9_27_default_pin>;
+		pinctrl-1 = <&P9_27_gpio_pin>;
+		pinctrl-2 = <&P9_27_gpio_pu_pin>;
+		pinctrl-3 = <&P9_27_gpio_pd_pin>;
+		pinctrl-4 = <&P9_27_eqep_pin>;
+		pinctrl-5 = <&P9_27_pruout_pin>;
+		pinctrl-6 = <&P9_27_pruin_pin>;
+		pinctrl-7 = <&P9_27_mcasp_pin>;
+	};
+
+	P9_28_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "spi_cs", "pruout", "pruin", "mcasp";
+		pinctrl-0 = <&P9_28_default_pin>;
+		pinctrl-1 = <&P9_28_gpio_pin>;
+		pinctrl-2 = <&P9_28_gpio_pu_pin>;
+		pinctrl-3 = <&P9_28_gpio_pd_pin>;
+		pinctrl-4 = <&P9_28_spi_cs_pin>;
+		pinctrl-5 = <&P9_28_pruout_pin>;
+		pinctrl-6 = <&P9_28_pruin_pin>;
+		pinctrl-7 = <&P9_28_mcasp_pin>;
+	};
+
+	P9_29_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "spi", "pruout", "pruin", "mcasp";
+		pinctrl-0 = <&P9_29_default_pin>;
+		pinctrl-1 = <&P9_29_gpio_pin>;
+		pinctrl-2 = <&P9_29_gpio_pu_pin>;
+		pinctrl-3 = <&P9_29_gpio_pd_pin>;
+		pinctrl-4 = <&P9_29_spi_pin>;
+		pinctrl-5 = <&P9_29_pruout_pin>;
+		pinctrl-6 = <&P9_29_pruin_pin>;
+		pinctrl-7 = <&P9_29_mcasp_pin>;
+	};
+
+	P9_30_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "spi", "pruout", "pruin", "mcasp";
+		pinctrl-0 = <&P9_30_default_pin>;
+		pinctrl-1 = <&P9_30_gpio_pin>;
+		pinctrl-2 = <&P9_30_gpio_pu_pin>;
+		pinctrl-3 = <&P9_30_gpio_pd_pin>;
+		pinctrl-4 = <&P9_30_spi_pin>;
+		pinctrl-5 = <&P9_30_pruout_pin>;
+		pinctrl-6 = <&P9_30_pruin_pin>;
+		pinctrl-7 = <&P9_30_mcasp_pin>;
+	};
+
+	P9_31_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "spi_sclk", "pruout", "pruin", "mcasp";
+		pinctrl-0 = <&P9_31_default_pin>;
+		pinctrl-1 = <&P9_31_gpio_pin>;
+		pinctrl-2 = <&P9_31_gpio_pu_pin>;
+		pinctrl-3 = <&P9_31_gpio_pd_pin>;
+		pinctrl-4 = <&P9_31_spi_sclk_pin>;
+		pinctrl-5 = <&P9_31_pruout_pin>;
+		pinctrl-6 = <&P9_31_pruin_pin>;
+		pinctrl-7 = <&P9_31_mcasp_pin>;
+	};
+
+	/* P9_32                VADC */
+
+	/* P9_33 	  			AIN4*/
+
+	/* P9_34                AGND */
+
+	/* P9_35 				AIN6 */
+
+	/* P9_36 				AIN5 */
+
+	/* P9_37  				AIN2 */
+
+	/* P9_38  				AIN3*/
+
+	/* P9_39  				AIN0*/
+
+	/* P9_40   				AIN1*/
+
+	P9_41_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "pruout", "pruin";
+		pinctrl-0 = <&P9_41_default_pin>;
+		pinctrl-1 = <&P9_41_gpio_pin>;
+		pinctrl-2 = <&P9_41_gpio_pu_pin>;
+		pinctrl-3 = <&P9_41_gpio_pd_pin>;
+		pinctrl-4 = <&P9_41_pruout_pin>;
+		pinctrl-5 = <&P9_41_pruin_pin>;
+	};
+
+	P9_42_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "spi_cs", "pruout", "pruin", "eqep";
+		pinctrl-0 = <&P9_42_default_pin>;
+		pinctrl-1 = <&P9_42_gpio_pin>;
+		pinctrl-2 = <&P9_42_gpio_pu_pin>;
+		pinctrl-3 = <&P9_42_gpio_pd_pin>;
+		pinctrl-4 = <&P9_42_spi_cs_pin>;
+		pinctrl-5 = <&P9_42_pruout_pin>;
+		pinctrl-6 = <&P9_42_pruin_pin>;
+		pinctrl-7 = <&P9_42_eqep_pin>;
+	};
+
+	/* P9_43                GND */
+
+	/* P9_44                GND */
+
+	/* P9_45                GND */
+
+	/* P9_46                GND */
+
+	cape-universal {
+		compatible = "gpio-of-helper";
+		status = "okay";
+		pinctrl-names = "default";
+		pinctrl-0 = <>;
+
+		P8_03 {
+			gpio-name = "P8_03";
+			gpio = <&gpio1 24 0>;
+			input;
+			dir-changeable;
+		};
+
+		P8_04 {
+			gpio-name = "P8_04";
+			gpio = <&gpio1 25 0>;
+			input;
+			dir-changeable;
+		};
+
+		P8_05 {
+			gpio-name = "P8_05";
+			gpio = <&gpio7 1 0>;
+			input;
+			dir-changeable;
+		};
+
+		P8_06 {
+			gpio-name = "P8_06";
+			gpio = <&gpio7 2 0>;
+			input;
+			dir-changeable;
+		};
+
+		P8_07 {
+			gpio-name = "P8_07";
+			gpio = <&gpio6 5 0>;
+			input;
+			dir-changeable;
+		};
+
+		P8_08 {
+			gpio-name = "P8_08";
+			gpio = <&gpio6 6 0>;
+			input;
+			dir-changeable;
+		};
+
+		P8_09 {
+			gpio-name = "P8_09";
+			gpio = <&gpio6 18 0>;
+			input;
+			dir-changeable;
+		};
+
+		P8_10 {
+			gpio-name = "P8_10";
+			gpio = <&gpio6 4 0>;
+			input;
+			dir-changeable;
+		};
+
+		P8_11 {
+			gpio-name = "P8_11";
+			gpio = <&gpio3 11 0>;
+			input;
+			dir-changeable;
+		};
+
+		P8_12 {
+			gpio-name = "P8_12";
+			gpio = <&gpio3 10 0>;
+			input;
+			dir-changeable;
+		};
+
+		P8_13 {
+			gpio-name = "P8_13";
+			gpio = <&gpio4 11 0>;
+			input;
+			dir-changeable;
+		};
+
+		P8_14 {
+			gpio-name = "P8_14";
+			gpio = <&gpio4 13 0>;
+			input;
+			dir-changeable;
+		};
+
+		P8_15 {
+			gpio-name = "P8_15";
+			gpio = <&gpio4 3 0>;
+			input;
+			dir-changeable;
+		};
+
+		P8_16 {
+			gpio-name = "P8_16";
+			gpio = <&gpio4 29 0>;
+			input;
+			dir-changeable;
+		};
+
+		P8_17 {
+			gpio-name = "P8_17";
+			gpio = <&gpio8 18 0>;
+			input;
+			dir-changeable;
+		};
+
+		P8_18 {
+			gpio-name = "P8_18";
+			gpio = <&gpio4 9 0>;
+			input;
+			dir-changeable;
+		};
+
+		P8_19 {
+			gpio-name = "P8_19";
+			gpio = <&gpio4 10 0>;
+			input;
+			dir-changeable;
+		};
+
+		P8_20 {
+			gpio-name = "P8_20";
+			gpio = <&gpio6 30 0>;
+			input;
+			dir-changeable;
+		};
+
+		P8_21 {
+			gpio-name = "P8_21";
+			gpio = <&gpio6 29 0>;
+			input;
+			dir-changeable;
+		};
+
+		P8_22 {
+			gpio-name = "P8_22";
+			gpio = <&gpio1 23 0>;
+			input;
+			dir-changeable;
+		};
+
+		P8_23 {
+			gpio-name = "P8_23";
+			gpio = <&gpio1 22 0>;
+			input;
+			dir-changeable;
+		};
+
+		P8_24 {
+			gpio-name = "P8_24";
+			gpio = <&gpio7 0 0>;
+			input;
+			dir-changeable;
+		};
+
+		P8_25 {
+			gpio-name = "P8_25";
+			gpio = <&gpio6 31 0>;
+			input;
+			dir-changeable;
+		};
+
+		P8_26 {
+			gpio-name = "P8_26";
+			gpio = <&gpio4 28 0>;
+			input;
+			dir-changeable;
+		};
+
+		P8_27 {
+			gpio-name = "P8_27";
+			gpio = <&gpio4 23 0>;
+			input;
+			dir-changeable;
+		};
+
+		P8_28 {
+			gpio-name = "P8_28";
+			gpio = <&gpio4 19 0>;
+			input;
+			dir-changeable;
+		};
+
+		P8_29 {
+			gpio-name = "P8_29";
+			gpio = <&gpio4 22 0>;
+			input;
+			dir-changeable;
+		};
+
+		P8_30 {
+			gpio-name = "P8_30";
+			gpio = <&gpio4 20 0>;
+			input;
+			dir-changeable;
+		};
+
+		P8_31 {
+			gpio-name = "P8_31";
+			gpio = <&gpio8 14 0>;
+			input;
+			dir-changeable;
+		};
+
+		P8_32 {
+			gpio-name = "P8_32";
+			gpio = <&gpio8 15 0>;
+			input;
+			dir-changeable;
+		};
+
+		P8_33 {
+			gpio-name = "P8_33";
+			gpio = <&gpio8 13 0>;
+			input;
+			dir-changeable;
+		};
+
+		P8_34 {
+			gpio-name = "P8_34";
+			gpio = <&gpio8 11 0>;
+			input;
+			dir-changeable;
+		};
+
+		P8_35 {
+			gpio-name = "P8_35";
+			gpio = <&gpio8 12 0>;
+			input;
+			dir-changeable;
+		};
+
+		P8_36 {
+			gpio-name = "P8_36";
+			gpio = <&gpio8 10 0>;
+			input;
+			dir-changeable;
+		};
+
+		P8_37 {
+			gpio-name = "P8_37";
+			gpio = <&gpio8 8 0>;
+			input;
+			dir-changeable;
+		};
+
+		P8_38 {
+			gpio-name = "P8_38";
+			gpio = <&gpio8 9 0>;
+			input;
+			dir-changeable;
+		};
+
+		P8_39 {
+			gpio-name = "P8_39";
+			gpio = <&gpio8 6 0>;
+			input;
+			dir-changeable;
+		};
+
+		P8_40 {
+			gpio-name = "P8_40";
+			gpio = <&gpio8 7 0>;
+			input;
+			dir-changeable;
+		};
+
+		P8_41 {
+			gpio-name = "P8_41";
+			gpio = <&gpio8 4 0>;
+			input;
+			dir-changeable;
+		};
+
+		P8_42 {
+			gpio-name = "P8_42";
+			gpio = <&gpio8 5 0>;
+			input;
+			dir-changeable;
+		};
+
+		P8_43 {
+			gpio-name = "P8_43";
+			gpio = <&gpio8 2 0>;
+			input;
+			dir-changeable;
+		};
+
+		P8_44 {
+			gpio-name = "P8_44";
+			gpio = <&gpio8 3 0>;
+			input;
+			dir-changeable;
+		};
+
+		P8_45 {
+			gpio-name = "P8_45";
+			gpio = <&gpio8 0 0>;
+			input;
+			dir-changeable;
+		};
+
+		P8_46 {
+			gpio-name = "P8_46";
+			gpio = <&gpio8 1 0>;
+			input;
+			dir-changeable;
+		};
+
+		P9_11 {
+			gpio-name = "P9_11";
+			gpio = <&gpio8 17 0>;
+			input;
+			dir-changeable;
+		};
+
+		P9_12 {
+			gpio-name = "P9_12";
+			gpio = <&gpio5 0 0>;
+			input;
+			dir-changeable;
+		};
+
+		P9_13 {
+			gpio-name = "P9_13";
+			gpio = <&gpio6 12 0>;
+			input;
+			dir-changeable;
+		};
+
+		P9_14 {
+			gpio-name = "P9_14";
+			gpio = <&gpio4 25 0>;
+			input;
+			dir-changeable;
+		};
+
+		P9_15 {
+			gpio-name = "P9_15";
+			gpio = <&gpio3 12 0>;
+			input;
+			dir-changeable;
+		};
+
+		P9_16 {
+			gpio-name = "P9_16";
+			gpio = <&gpio4 26 0>;
+			input;
+			dir-changeable;
+		};
+
+		P9_17 {
+			gpio-name = "P9_17";
+			gpio = <&gpio7 17 0>;
+			input;
+			dir-changeable;
+		};
+
+		P9_18 {
+			gpio-name = "P9_18";
+			gpio = <&gpio7 16 0>;
+			input;
+			dir-changeable;
+		};
+
+		P9_19 {
+			gpio-name = "P9_19";
+			gpio = <&gpio7 3 0>;
+			input;
+			dir-changeable;
+		};
+
+		P9_20 {
+			gpio-name = "P9_20";
+			gpio = <&gpio7 4 0>;
+			input;
+			dir-changeable;
+		};
+
+		P9_21 {
+			gpio-name = "P9_21";
+			gpio = <&gpio3 3 0>;
+			input;
+			dir-changeable;
+		};
+
+		P9_22 {
+			gpio-name = "P9_22";
+			gpio = <&gpio6 19 0>;
+			input;
+			dir-changeable;
+		};
+
+		P9_23 {
+			gpio-name = "P9_23";
+			gpio = <&gpio7 11 0>;
+			input;
+			dir-changeable;
+		};
+
+		P9_24 {
+			gpio-name = "P9_24";
+			gpio = <&gpio6 15 0>;
+			input;
+			dir-changeable;
+		};
+
+		P9_25 {
+			gpio-name = "P9_25";
+			gpio = <&gpio6 17 0>;
+			input;
+			dir-changeable;
+		};
+
+		P9_26 {
+			gpio-name = "P9_26";
+			gpio = <&gpio6 14 0>;
+			input;
+			dir-changeable;
+		};
+
+		P9_27 {
+			gpio-name = "P9_27";
+			gpio = <&gpio4 15 0>;
+			input;
+			dir-changeable;
+		};
+
+		P9_28 {
+			gpio-name = "P9_28";
+			gpio = <&gpio4 17 0>;
+			input;
+			dir-changeable;
+		};
+
+		P9_29 {
+			gpio-name = "P9_29";
+			gpio = <&gpio5 11 0>;
+			input;
+			dir-changeable;
+		};
+
+		P9_30 {
+			gpio-name = "P9_30";
+			gpio = <&gpio5 12 0>;
+			input;
+			dir-changeable;
+		};
+
+		P9_31 {
+			gpio-name = "P9_31";
+			gpio = <&gpio5 10 0>;
+			input;
+			dir-changeable;
+		};
+
+		P9_41 {
+			gpio-name = "P9_41";
+			gpio = <&gpio6 20 0>;
+			input;
+			dir-changeable;
+		};
+
+		P9_42 {
+			gpio-name = "P9_42";
+			gpio = <&gpio4 18 0>;
+			input;
+			dir-changeable;
+		};
+	};
+};
