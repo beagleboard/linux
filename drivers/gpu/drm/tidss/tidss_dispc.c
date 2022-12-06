@@ -966,16 +966,16 @@ static void dispc_oldi_tx_power(struct dispc_device *dispc, bool power)
 
 			default:
 				/* Power down both the OLDI TXes */
-				val = OLDI0_PWRDN_TX | OLDI1_PWRDN_TX;
+				val = OLDI0_PWRDN_TX | OLDI1_PWRDN_TX | OLDI_PWRDN_TX;
 				break;
 			}
 		} else {
 			/* Power down both the OLDI TXes */
-			val = OLDI0_PWRDN_TX | OLDI1_PWRDN_TX;
+			val = OLDI0_PWRDN_TX | OLDI1_PWRDN_TX | OLDI_PWRDN_TX;
 		}
 
 		regmap_update_bits(dispc->oldi_io_ctrl, OLDI_PD_CTRL,
-				   OLDI0_PWRDN_TX | OLDI1_PWRDN_TX, val);
+				   OLDI0_PWRDN_TX | OLDI1_PWRDN_TX | OLDI_PWRDN_TX, val);
 	}
 }
 
