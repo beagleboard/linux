@@ -1,0 +1,39 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright (C) 2022 Robert Nelson <robertcnelson@gmail.com>
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/pinctrl/k3.h>
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/board/k3-j721e-bone-pins.h>
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+ */
+&{/chosen} {
+	overlays {
+		BB-I2C2-MPU6050.kernel = __TIMESTAMP__;
+	};
+};
+
+&bone_i2c_2 {
+	status = "okay";
+
+	clock-frequency = <400000>;
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	imu@68 {
+		pinctrl-names = "default";
+		pinctrl-0 = <&P9_12_gpio_pin>;
+		compatible = "invensense,mpu6050";
+		reg = <0x68>;
+		interrupt-parent = <&main_gpio0>;
+		interrupts = <45 IRQ_TYPE_EDGE_RISING>;
+	};
+};
