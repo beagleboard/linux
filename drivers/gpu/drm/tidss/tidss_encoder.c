@@ -5,6 +5,7 @@
  */
 
 #include <linux/export.h>
+#include <linux/media-bus-format.h>
 
 #include <drm/drm_crtc.h>
 #include <drm/drm_crtc_helper.h>
