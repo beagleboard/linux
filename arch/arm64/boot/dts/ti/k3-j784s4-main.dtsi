@@ -1903,11 +1903,68 @@
 		};
 	};
 
+	ti_csi2rx2: ticsi2rx@4520000 {
+		status = "disabled";
+		compatible = "ti,j721e-csi2rx";
+		dmas = <&main_udmap 0x4980>, <&main_udmap 0x4981>, <&main_udmap 0x4982>,
+			<&main_udmap 0x4983>, <&main_udmap 0x4984>, <&main_udmap 0x4985>,
+			<&main_udmap 0x4986>, <&main_udmap 0x4987>;
+		dma-names = "rx0", "rx1", "rx2", "rx3", "rx4", "rx5", "rx6", "rx7";
+		reg = <0x00 0x04520000 0x00 0x00001000>;
+		power-domains = <&k3_pds 74 TI_SCI_PD_EXCLUSIVE>;
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		cdns_csi2rx2: csi-bridge@4524000 {
+			compatible = "cdns,csi2rx";
+			reg = <0x00 0x04524000 0x00 0x00001000>;
+			clocks = <&k3_clks 74 2>, <&k3_clks 74 0>, <&k3_clks 74 2>,
+				<&k3_clks 74 2>, <&k3_clks 74 3>, <&k3_clks 74 3>;
+			clock-names = "sys_clk", "p_clk", "pixel_if0_clk",
+				"pixel_if1_clk", "pixel_if2_clk", "pixel_if3_clk";
+			phys = <&dphy_rx2>;
+			phy-names = "dphy";
+			power-domains = <&k3_pds 74 TI_SCI_PD_EXCLUSIVE>;
+			status = "disabled";
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				csi2_port0: port@0 {
+					reg = <0>;
+					status = "disabled";
+				};
+
+				csi2_port1: port@1 {
+					reg = <1>;
+					status = "disabled";
+				};
+
+				csi2_port2: port@2 {
+					reg = <2>;
+					status = "disabled";
+				};
+
+				csi2_port3: port@3 {
+					reg = <3>;
+					status = "disabled";
+				};
+
+				csi2_port4: port@4 {
+					reg = <4>;
+					status = "disabled";
+				};
+			};
+		};
+	};
+
 	dphy_rx0: phy@4580000 {
 		compatible = "ti,j721e-dphy", "cdns,dphy";
 		reg = <0x00 0x04580000 0x00 0x00001100>;
 		#phy-cells = <0>;
-		power-domains = <&k3_pds 147 TI_SCI_PD_EXCLUSIVE>;
+		power-domains = <&k3_pds 212 TI_SCI_PD_EXCLUSIVE>;
 		status = "disabled";
 	};
 
@@ -1915,7 +1972,15 @@
 		compatible = "ti,j721e-dphy", "cdns,dphy";
 		reg = <0x00 0x04590000 0x00 0x00001100>;
 		#phy-cells = <0>;
-		power-domains = <&k3_pds 148 TI_SCI_PD_EXCLUSIVE>;
+		power-domains = <&k3_pds 213 TI_SCI_PD_EXCLUSIVE>;
+		status = "disabled";
+	};
+
+	dphy_rx2: phy@45a0000 {
+		compatible = "ti,j721e-dphy", "cdns,dphy";
+		reg = <0x00 0x045a0000 0x00 0x00001100>;
+		#phy-cells = <0>;
+		power-domains = <&k3_pds 214 TI_SCI_PD_EXCLUSIVE>;
 		status = "disabled";
 	};
 
