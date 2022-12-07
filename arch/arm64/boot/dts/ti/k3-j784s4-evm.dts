@@ -998,6 +998,10 @@
 	status = "okay";
 };
 
+&dphy_rx2 {
+	status = "okay";
+};
+
 &cdns_csi2rx0 {
 	status = "okay";
 };
@@ -1006,11 +1010,19 @@
 	status = "okay";
 };
 
+&cdns_csi2rx2 {
+	status = "okay";
+};
+
 &ti_csi2rx0 {
 	status = "okay";
 };
 
 &ti_csi2rx1 {
+	status = "okay";
+};
+
+&ti_csi2rx2 {
 	status = "okay";
 };
 
