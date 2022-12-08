@@ -2414,6 +2414,7 @@ static int ov5640_set_power_on(struct ov5640_dev *sensor)
 
 	ov5640_reset(sensor);
 	ov5640_power(sensor, true);
+	usleep_range(26000, 30000);
 
 	ret = ov5640_init_slave_id(sensor);
 	if (ret)
