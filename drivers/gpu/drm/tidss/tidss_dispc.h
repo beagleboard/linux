@@ -137,6 +137,7 @@ int dispc_plane_setup(struct dispc_device *dispc, u32 hw_plane,
 		      u32 hw_videoport);
 int dispc_plane_enable(struct dispc_device *dispc, u32 hw_plane, bool enable);
 const u32 *dispc_plane_formats(struct dispc_device *dispc, unsigned int *len);
+enum dispc_dss_subrevision dispc_get_subrev(struct dispc_device *dispc);
 
 int dispc_init(struct tidss_device *tidss);
 void dispc_remove(struct tidss_device *tidss);
