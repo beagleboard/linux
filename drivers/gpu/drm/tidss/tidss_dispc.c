@@ -2037,6 +2037,13 @@ const u32 *dispc_plane_formats(struct dispc_device *dispc, unsigned int *len)
 	return dispc->fourccs;
 }
 
+enum dispc_dss_subrevision dispc_get_subrev(struct dispc_device *dispc)
+{
+	WARN_ON(!dispc->feat->subrev);
+
+	return dispc->feat->subrev;
+}
+
 static s32 pixinc(int pixels, u8 ps)
 {
 	if (pixels == 1)
