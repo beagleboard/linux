@@ -246,4 +246,7 @@ enum dispc_common_regs {
 #define OLDI0_PWRDN_TX				BIT(0)
 #define OLDI1_PWRDN_TX				BIT(1)
 
+/* Bit to power on/off Bandgap reference for LVDS Buffers */
+#define OLDI_BG_PWRDN				BIT(8)
+
 #endif /* __TIDSS_DISPC_REGS_H */

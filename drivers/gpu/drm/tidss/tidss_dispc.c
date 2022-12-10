@@ -948,17 +948,19 @@ static void dispc_oldi_tx_power(struct dispc_device *dispc, bool power)
 				break;
 
 			default:
-				/* Power down both the OLDI TXes */
-				val = OLDI0_PWRDN_TX | OLDI1_PWRDN_TX;
+				/* Power down both OLDI TXes and the LVDS Bandgap */
+				val = OLDI_BG_PWRDN | OLDI0_PWRDN_TX | OLDI1_PWRDN_TX;
 				break;
 			}
+
 		} else {
-			/* Power down both the OLDI TXes */
-			val = OLDI0_PWRDN_TX | OLDI1_PWRDN_TX;
+			/* Power down both OLDI TXes and the LVDS Bandgap */
+			val = OLDI_BG_PWRDN | OLDI0_PWRDN_TX | OLDI1_PWRDN_TX;
 		}
 
 		regmap_update_bits(dispc->oldi_io_ctrl, OLDI_PD_CTRL,
-				   OLDI0_PWRDN_TX | OLDI1_PWRDN_TX, val);
+				   OLDI_BG_PWRDN | OLDI0_PWRDN_TX |
+				   OLDI1_PWRDN_TX, val);
 	}
 }
 

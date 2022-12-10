@@ -984,11 +984,11 @@ static void ti_csi2rx_stop_streaming(struct vb2_queue *vq)
 	 * the pixel reset. But at the same time, drain does not work either.
 	 * Figure this one out.
 	 */
-	if (state == TI_CSI2RX_DMA_IDLE) {
+	if (state != TI_CSI2RX_DMA_STOPPED) {
 		ret = ti_csi2rx_drain_dma(ctx);
 		if (ret)
-			dev_warn(csi->dev,
-				 "Failed to drain DMA. Next frame might be bogus\n");
+			dev_dbg(csi->dev,
+				"Failed to drain DMA. Next frame might be bogus\n");
 	}
 }
 
