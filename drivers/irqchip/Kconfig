@@ -494,6 +494,7 @@ config TI_SCI_INTR_IRQCHIP
 
 config TI_SCI_INTA_IRQCHIP
 	tristate "TI SCI INTA Interrupt Controller"
+	depends on ARCH_K3
 	depends on TI_SCI_PROTOCOL
 	select IRQ_DOMAIN_HIERARCHY
 	select TI_SCI_INTA_MSI_DOMAIN
