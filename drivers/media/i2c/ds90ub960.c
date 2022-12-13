@@ -8,6 +8,7 @@
 
 #include <linux/bitops.h>
 #include <linux/clk.h>
+#include <linux/clk-provider.h>
 #include <linux/delay.h>
 #include <linux/gpio/consumer.h>
 #include <linux/i2c-atr.h>
@@ -324,7 +325,8 @@ struct ub960_data {
 	struct v4l2_ctrl_handler   ctrl_handler;
 	struct v4l2_async_notifier notifier;
 
-	unsigned long refclk;
+	struct clk		*refclk;
+	struct clk_hw		*line_clk_hw;
 
 	u32 tx_data_rate;		/* Nominal data rate (Gb/s) */
 	s64 tx_link_freq[1];
@@ -1966,6 +1968,50 @@ static void ub960_remove_ports(struct ub960_data *priv)
 			ub960_txport_remove_one(priv, i);
 }
 
+static int ub960_register_clocks(struct ub960_data *priv)
+{
+	struct device *dev = &priv->client->dev;
+	const char *name;
+	int err;
+
+	/* Get our input clock (REFCLK, 23..26 MHz) */
+
+	priv->refclk = devm_clk_get(dev, NULL);
+	if (IS_ERR(priv->refclk))
+		return dev_err_probe(dev, PTR_ERR(priv->refclk), "Cannot get REFCLK");
+
+	dev_dbg(dev, "REFCLK: %lu Hz\n", clk_get_rate(priv->refclk));
+
+	/* Provide FPD-Link III line rate (160 * REFCLK in Synchronous mode) */
+
+	name = kasprintf(GFP_KERNEL, "%s.fpd_line_rate", dev_name(dev));
+	priv->line_clk_hw =
+		clk_hw_register_fixed_factor(dev, name,
+					     __clk_get_name(priv->refclk),
+					     0, 160, 1);
+	kfree(name);
+	if (IS_ERR(priv->line_clk_hw))
+		return dev_err_probe(dev, PTR_ERR(priv->line_clk_hw),
+				     "Cannot register clock HW\n");
+
+	dev_dbg(dev, "line rate: %lu Hz\n", clk_hw_get_rate(priv->line_clk_hw));
+
+	/* Expose the line rate to OF */
+
+	err = devm_of_clk_add_hw_provider(dev, of_clk_hw_simple_get, priv->line_clk_hw);
+	if (err) {
+		clk_hw_unregister_fixed_factor(priv->line_clk_hw);
+		return dev_err_probe(dev, err, "Cannot add OF clock provider\n");
+	}
+
+	return 0;
+}
+
+static void ub960_unregister_clocks(struct ub960_data *priv)
+{
+	clk_hw_unregister_fixed_factor(priv->line_clk_hw);
+}
+
 static int ub960_parse_dt(struct ub960_data *priv)
 {
 	struct device_node *np = priv->client->dev.of_node;
@@ -2266,7 +2312,6 @@ static int ub960_probe(struct i2c_client *client)
 	struct device *dev = &client->dev;
 	struct ub960_data *priv;
 	unsigned int nport;
-	struct clk *clk;
 	u8 rev_mask;
 	int ret;
 
@@ -2307,16 +2352,9 @@ static int ub960_probe(struct i2c_client *client)
 		ub960_sw_reset(priv);
 	}
 
-	clk = clk_get(dev, NULL);
-	if (IS_ERR(clk)) {
-		ret = PTR_ERR(clk);
-		if (ret != -EPROBE_DEFER)
-			dev_err(dev, "Cannot get REFCLK (%d)", ret);
+	ret = ub960_register_clocks(priv);
+	if (ret)
 		return ret;
-	}
-	priv->refclk = clk_get_rate(clk);
-	clk_put(clk);
-	dev_dbg(dev, "REFCLK %lu", priv->refclk);
 
 	/* Runtime check register accessibility */
 	ret = ub960_read(priv, UB960_SR_REV_MASK, &rev_mask);
@@ -2399,6 +2437,7 @@ err_parse_dt:
 	ub960_atr_remove(priv);
 err_atr_probe:
 err_reg_read:
+	ub960_unregister_clocks(priv);
 	if (priv->pd_gpio)
 		gpiod_set_value_cansleep(priv->pd_gpio, 1);
 	mutex_destroy(&priv->alias_table_lock);
@@ -2417,6 +2456,7 @@ static int ub960_remove(struct i2c_client *client)
 	ub960_destroy_subdev(priv);
 	ub960_remove_ports(priv);
 	ub960_atr_remove(priv);
+	ub960_unregister_clocks(priv);
 	if (priv->pd_gpio)
 		gpiod_set_value_cansleep(priv->pd_gpio, 1);
 	mutex_destroy(&priv->alias_table_lock);
