@@ -10,20 +10,6 @@
 
 #include <dt-bindings/gpio/gpio.h>
 
-/ {
-	fragment@101 {
-		target-path = "/";
-
-		__overlay__ {
-			clk_cam_27M: fixed-clock-1-1-27M {
-				compatible = "fixed-clock";
-				#clock-cells = <0>;
-				clock-frequency = <27000000>;
-			};
-		};
-	};
-};
-
 &ds90ub960_1_ports {
 	#address-cells = <1>;
 	#size-cells = <0>;
@@ -40,10 +26,12 @@
 
 			serializer: remote-chip {
 				compatible = "ti,ds90ub953-q1";
+				clocks = <&ds90ub960_0>;
 
 				gpio-controller;
 				#gpio-cells = <2>;
 
+				#clock-cells = <0>;
 				ports {
 					#address-cells = <1>;
 					#size-cells = <0>;
@@ -52,6 +40,7 @@
 						reg = <0>;
 						ub953_in: endpoint {
 							remote-endpoint = <&sensor_out>;
+							data-lanes = <0 1 2 3>;
 						};
 					};
 
@@ -81,8 +70,10 @@
 			compatible = "sony,imx390";
 			reg = <0x21>;
 
-			clocks = <&clk_cam_27M>;
+			clocks = <&serializer>;
 			clock-names = "inck";
+			assigned-clocks = <&serializer>;
+			assigned-clock-rates = <27000000>;
 
 			xclr-gpios = <&serializer 0 GPIO_ACTIVE_LOW>;
 			error0-gpios = <&serializer 1 GPIO_ACTIVE_HIGH>;
