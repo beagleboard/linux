@@ -139,6 +139,7 @@ struct am65_cpsw_common {
 
 	struct am65_cpsw_rx_chn	rx_chns;
 	struct napi_struct	napi_rx;
+	bool			rx_irq_disabled;
 	struct hrtimer rx_hrtimer;
 	unsigned long rx_pace_timeout;
 
