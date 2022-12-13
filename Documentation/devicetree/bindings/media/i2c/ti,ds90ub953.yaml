@@ -22,7 +22,48 @@ properties:
 
   gpio-controller: true
 
-  ports: true
+  i2c-1_8v:
+    type: boolean
+    description:
+      Use 1.8V for I2C instead of the default 3.3V
+
+  ports:
+    $ref: /schemas/graph.yaml#/properties/ports
+
+    properties:
+      port@0:
+        $ref: /schemas/graph.yaml#/$defs/port-base
+        description: CSI-2 Input
+
+        properties:
+          endpoint:
+            $ref: /schemas/media/video-interfaces.yaml#
+
+            properties:
+              data-lanes:
+                $ref: /schemas/types.yaml#/definitions/uint32-array
+                minItems: 1
+                maxItems: 4
+                uniqueItems: true
+                items:
+                  maximum: 4
+
+              clock-noncontinuous:
+                type: boolean
+                description:
+                  Allow MIPI CSI-2 non-continuous clock mode.
+
+          required:
+            - data-lanes
+            - clock-noncontinuous
+
+      port@1:
+        $ref: /schemas/graph.yaml#/$defs/port-base
+        description: FPD-Link 3 Output
+
+        properties:
+          endpoint:
+            $ref: /schemas/media/video-interfaces.yaml#
 
 required:
   - compatible
