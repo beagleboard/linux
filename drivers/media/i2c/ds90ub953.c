@@ -8,6 +8,8 @@
  * Copyright (c) 2021 Tomi Valkeinen <tomi.valkeinen@ideasonboard.com>
  */
 
+#include <linux/clk.h>
+#include <linux/clk-provider.h>
 #include <linux/delay.h>
 #include <linux/gpio/driver.h>
 #include <linux/i2c.h>
@@ -15,6 +17,7 @@
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_graph.h>
+#include <linux/rational.h>
 #include <linux/regmap.h>
 
 #include <media/v4l2-ctrls.h>
@@ -80,6 +83,9 @@ struct ub953_data {
 	struct i2c_client	*client;
 	struct regmap		*regmap;
 
+	struct clk		*line_rate_clk;
+	struct clk_hw		clk_out_hw;
+
 	u32			gpio_func[UB953_NUM_GPIOS];
 
 	struct gpio_chip	gpio_chip;
@@ -100,6 +106,11 @@ struct ub953_data {
 	struct device_node	*tx_ep_np;
 
 	bool			use_1v8_i2c;
+
+	u8			clkout_mul;
+	u8			clkout_div;
+	u8			clkout_ctrl0;
+	u8			clkout_ctrl1;
 };
 
 static inline struct ub953_data *sd_to_ub953(struct v4l2_subdev *sd)
@@ -160,6 +171,124 @@ static int ub953_write_ind16(const struct ub953_data *priv, u8 reg, u16 val)
 	if (!ret)
 		ret = ub953_write(priv, UB953_REG_IND_ACC_DATA, val & 0xff);
 	return ret;
+}
+
+/*
+ * Clock output
+ */
+
+/*
+ * Assume mode 0 "CSI-2 Synchronous mode" (strap, reg 0x03) is always
+ * used. In this mode all clocks are derived from the deserializer. Other
+ * modes are not implemented.
+ */
+
+/*
+ * We always use 4 as a pre-divider (HS_CLK_DIV = 2).
+ *
+ * According to the datasheet:
+ * - "HS_CLK_DIV typically should be set to either 16, 8, or 4 (default)."
+ * - "if it is not possible to have an integer ratio of N/M, it is best to
+ *    select a smaller value for HS_CLK_DIV.
+ *
+ * For above reasons the default HS_CLK_DIV seems the best in the average
+ * case. Use always that value to keep the code simple.
+ */
+static const unsigned long hs_clk_div = 2;
+static const unsigned long prediv = (1 << hs_clk_div);
+
+static unsigned long ub953_clkout_recalc_rate(struct clk_hw *hw,
+					      unsigned long parent_rate)
+{
+	struct ub953_data *priv = container_of(hw, struct ub953_data, clk_out_hw);
+	u8 ctrl0, ctrl1;
+	unsigned long mul, div, ret;
+
+	ub953_read(priv, UB953_REG_CLKOUT_CTRL0, &ctrl0);
+	ub953_read(priv, UB953_REG_CLKOUT_CTRL1, &ctrl1);
+
+	if (ctrl0 < 0 || ctrl1 < 0) {
+		/* Perhaps link down, use cached values */
+		ctrl0 = priv->clkout_ctrl0;
+		ctrl1 = priv->clkout_ctrl1;
+	}
+
+	mul = ctrl0 & 0x1f;
+	div = ctrl1 & 0xff;
+
+	if (div == 0)
+		return 0;
+
+	ret = parent_rate / prediv * mul / div;
+
+	return ret;
+}
+
+static long ub953_clkout_round_rate(struct clk_hw *hw, unsigned long rate,
+				    unsigned long *parent_rate)
+{
+	struct ub953_data *priv = container_of(hw, struct ub953_data, clk_out_hw);
+	struct device *dev = &priv->client->dev;
+	unsigned long mul, div, res;
+
+	rational_best_approximation(rate, *parent_rate / prediv,
+				    (1 << 5) - 1, (1 << 8) - 1,
+				    &mul, &div);
+	priv->clkout_mul = mul;
+	priv->clkout_div = div;
+
+	res = *parent_rate / prediv * priv->clkout_mul / priv->clkout_div;
+
+	dev_dbg(dev, "%lu / %lu * %lu / %lu = %lu (wanted %lu)",
+		*parent_rate, prediv, mul, div, res, rate);
+
+	return res;
+}
+
+static int ub953_clkout_set_rate(struct clk_hw *hw, unsigned long rate,
+				 unsigned long parent_rate)
+{
+	struct ub953_data *priv = container_of(hw, struct ub953_data, clk_out_hw);
+
+	priv->clkout_ctrl0 = (hs_clk_div << 5) | priv->clkout_mul;
+	priv->clkout_ctrl1 = priv->clkout_div;
+
+	ub953_write(priv, UB953_REG_CLKOUT_CTRL0, priv->clkout_ctrl0);
+	ub953_write(priv, UB953_REG_CLKOUT_CTRL1, priv->clkout_ctrl1);
+
+	return 0;
+}
+
+static const struct clk_ops ub953_clkout_ops = {
+	.recalc_rate	= ub953_clkout_recalc_rate,
+	.round_rate	= ub953_clkout_round_rate,
+	.set_rate	= ub953_clkout_set_rate,
+};
+
+static int ub953_register_clkout(struct ub953_data *priv)
+{
+	struct device *dev = &priv->client->dev;
+	const char *parent_names[1] = { __clk_get_name(priv->line_rate_clk) };
+	const struct clk_init_data init = {
+		.name         = kasprintf(GFP_KERNEL, "%s.clk_out", dev_name(dev)),
+		.ops          = &ub953_clkout_ops,
+		.parent_names = parent_names,
+		.num_parents  = 1,
+	};
+	int err;
+
+	priv->clk_out_hw.init = &init;
+
+	err = devm_clk_hw_register(dev, &priv->clk_out_hw);
+	kfree(init.name); /* clock framework made a copy of the name */
+	if (err)
+		return dev_err_probe(dev, err, "Cannot register clock HW\n");
+
+	err = devm_of_clk_add_hw_provider(dev, of_clk_hw_simple_get, &priv->clk_out_hw);
+	if (err)
+		return dev_err_probe(dev, err, "Cannot add OF clock provider\n");
+
+	return 0;
 }
 
 /*
@@ -870,6 +999,12 @@ static int ub953_probe(struct i2c_client *client)
 		return PTR_ERR(priv->regmap);
 	}
 
+	priv->line_rate_clk = devm_clk_get(dev, NULL);
+	if (IS_ERR(priv->line_rate_clk))
+		return dev_err_probe(dev, PTR_ERR(priv->line_rate_clk),
+				     "Cannot get line rate clock\n");
+	dev_dbg(dev, "line rate: %lu Hz\n", clk_get_rate(priv->line_rate_clk));
+
 	ret = ub953_parse_dt(priv);
 	if (ret)
 		return ret;
@@ -945,18 +1080,14 @@ static int ub953_probe(struct i2c_client *client)
 		dev_err(dev, "v4l2_async_register_subdev error: %d\n", ret);
 		goto err_unreg_notif;
 	}
-	/*
-	 * TODO compute these hard-coded values
-	 *
-	 * SET CLK_OUT:
-	 * MODE    = 0 = CSI-2 sync (strap, reg 0x03) -> refclk from deser
-	 * REFCLK  = 23..26 MHz (REFCLK pin @ remote deserializer)
-	 * FC      = fwd channel data rate = 160 x REFCLK
-	 * CLK_OUT = FC * M / (HS_CLK_DIV * N)
-	 *         = FC * 1 / (4 * 20) = 2 * REFCLK
-	 */
-	ub953_write(priv, UB953_REG_CLKOUT_CTRL0, 0x41); /* div by 4, M=1 */
-	ub953_write(priv, UB953_REG_CLKOUT_CTRL1, 0x25); /* N */
+
+	/* Default values for clock multiplier and divider registers */
+	priv->clkout_ctrl0 = 0x41;
+	priv->clkout_ctrl1 = 0x28;
+	ret = ub953_register_clkout(priv);
+	if (ret) {
+		goto err_unreg_notif;
+	}
 
 	ub953_general_cfg(priv);
 	if (ret)
