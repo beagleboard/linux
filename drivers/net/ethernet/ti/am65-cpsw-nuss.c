@@ -3200,6 +3200,7 @@ static int am65_cpsw_nuss_resume(struct device *dev)
 	struct net_device *ndev;
 	int i, ret;
 	struct am65_cpsw_host *host_p = am65_common_get_host(common);
+	bool need_ale_restore = false;
 
 	ret = am65_cpsw_nuss_init_tx_chns(common);
 	if (ret)
@@ -3222,6 +3223,7 @@ static int am65_cpsw_nuss_resume(struct device *dev)
 			continue;
 
 		if (netif_running(ndev)) {
+			need_ale_restore = true;
 			rtnl_lock();
 			ret = am65_cpsw_nuss_ndo_slave_open(ndev);
 			rtnl_unlock();
@@ -3236,7 +3238,8 @@ static int am65_cpsw_nuss_resume(struct device *dev)
 	}
 
 	writel(host_p->vid_context, host_p->port_base + AM65_CPSW_PORT_VLAN_REG_OFFSET);
-	cpsw_ale_restore(common->ale, common->ale_context);
+	if (need_ale_restore)
+		cpsw_ale_restore(common->ale, common->ale_context);
 
 	return 0;
 }
