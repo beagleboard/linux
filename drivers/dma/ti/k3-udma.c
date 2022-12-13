@@ -4753,7 +4753,10 @@ static int bcdma_setup_resources(struct udma_dev *ud)
 						oes->bcdma_bchan_ring;
 			irq_res.desc[i].num = rm_res->desc[i].num;
 		}
+	} else {
+		i = 0;
 	}
+
 	if (ud->tchan_cnt) {
 		rm_res = tisci_rm->rm_ranges[RM_RANGE_TCHAN];
 		for (j = 0; j < rm_res->sets; j++, i += 2) {
