@@ -27,6 +27,18 @@
 #define DP83TD510E_AN_STAT_1			0x60c
 #define DP83TD510E_MASTER_SLAVE_RESOL_FAIL	BIT(15)
 
+int dp83td510_config_init(struct phy_device *phydev)
+{
+	/*
+	 * Use 0x0049 If we wanted the green LED to be the Rx/Tx indicator.
+	 * But the orange LED is just overwhelming.
+	 * So pick the other way around - Link LED is the green one
+	 * (assuming there is just intermittent data traffic, and don't
+	 * blind the folks), just use the orange LED for link traffic.
+	 */
+	return phy_write_mmd(phydev, MDIO_MMD_VEND2, 0x460, 0x0940);
+}
+
 static int dp83td510_config_intr(struct phy_device *phydev)
 {
 	int ret;
@@ -187,6 +199,7 @@ static struct phy_driver dp83td510_driver[] = {
 	PHY_ID_MATCH_MODEL(DP83TD510E_PHY_ID),
 	.name		= "TI DP83TD510E",
 
+	.config_init    = dp83td510_config_init,
 	.config_aneg	= dp83td510_config_aneg,
 	.read_status	= dp83td510_read_status,
 	.get_features	= dp83td510_get_features,
