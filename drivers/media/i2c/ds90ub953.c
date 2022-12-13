@@ -24,6 +24,7 @@
 #define UB953_PAD_SOURCE		1
 
 #define UB953_NUM_GPIOS			4
+#define UB953_MAX_DATA_LANES		4
 
 #define UB953_REG_RESET_CTL			0x01
 #define UB953_REG_RESET_CTL_DIGITAL_RESET_1	BIT(1)
@@ -95,7 +96,10 @@ struct ub953_data {
 
 	bool			streaming;
 
+	struct device_node	*rx_ep_np;
 	struct device_node	*tx_ep_np;
+
+	bool			use_1v8_i2c;
 };
 
 static inline struct ub953_data *sd_to_ub953(struct v4l2_subdev *sd)
@@ -790,6 +794,30 @@ static int ub953_i2c_init(struct ub953_data *priv)
 	return 0;
 }
 
+static int ub953_general_cfg(struct ub953_data *priv)
+{
+	struct device *dev = &priv->client->dev;
+	u32 num_data_lanes;
+	bool clock_continuous;
+	int ret;
+
+	ret = of_property_count_u32_elems(priv->rx_ep_np, "data-lanes");
+	if (ret < 1 || ret > UB953_MAX_DATA_LANES) {
+		dev_err(dev, "DT: invalid data-lanes (%d), only 1-4 lanes supported\n", ret);
+		return ret;
+	} else {
+		num_data_lanes = ret;
+	}
+
+	clock_continuous = !of_property_read_bool(priv->rx_ep_np, "clock-noncontinuous");
+
+	return ub953_write(priv, UB953_REG_GENERAL_CFG,
+			   ((clock_continuous) << 6) |
+			   ((num_data_lanes - 1) << 4) |
+			   (1 << 1) | /* CRC TX gen */
+			   (priv->use_1v8_i2c << 0));
+}
+
 static int ub953_parse_dt(struct ub953_data *priv)
 {
 	struct device_node *np = priv->client->dev.of_node;
@@ -806,6 +834,9 @@ static int ub953_parse_dt(struct ub953_data *priv)
 					 ARRAY_SIZE(priv->gpio_func));
 	if (ret && ret != -EINVAL)
 		dev_err(dev, "DT: invalid gpio-functions property (%d)", ret);
+
+	/* read i2c voltage level */
+	priv->use_1v8_i2c = of_property_read_bool(np, "i2c-1_8v");
 
 	return 0;
 }
@@ -895,6 +926,7 @@ static int ub953_probe(struct i2c_client *client)
 		goto err_remove_ctrls;
 	}
 
+	priv->rx_ep_np = of_graph_get_endpoint_by_regs(dev->of_node, 0, 0);
 	priv->tx_ep_np = of_graph_get_endpoint_by_regs(dev->of_node, 1, 0);
 	priv->sd.fwnode = of_fwnode_handle(priv->tx_ep_np);
 
@@ -913,7 +945,6 @@ static int ub953_probe(struct i2c_client *client)
 		dev_err(dev, "v4l2_async_register_subdev error: %d\n", ret);
 		goto err_unreg_notif;
 	}
-
 	/*
 	 * TODO compute these hard-coded values
 	 *
@@ -927,10 +958,9 @@ static int ub953_probe(struct i2c_client *client)
 	ub953_write(priv, UB953_REG_CLKOUT_CTRL0, 0x41); /* div by 4, M=1 */
 	ub953_write(priv, UB953_REG_CLKOUT_CTRL1, 0x25); /* N */
 
-	ub953_write(priv, UB953_REG_GENERAL_CFG,
-		    (1 << 6) | /* continuous clk */
-		    (3 << 4) | /* 4 lanes */
-		    (1 << 1)); /* CRC TX gen */
+	ub953_general_cfg(priv);
+	if (ret)
+		goto err_unreg_notif;
 
 	dev_dbg(dev, "Successfully probed\n");
 
@@ -941,6 +971,8 @@ err_unreg_notif:
 err_free_state:
 	v4l2_subdev_cleanup(&priv->sd);
 err_entity_cleanup:
+	if (priv->rx_ep_np)
+		of_node_put(priv->rx_ep_np);
 	if (priv->tx_ep_np)
 		of_node_put(priv->tx_ep_np);
 
