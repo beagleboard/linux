@@ -1,0 +1,90 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * OV2312 FPD-Link 3 Camera Module
+ *
+ * Copyright (c) 2022 Jai Luthra <j-luthra@ti.com>
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+
+&ds90ub960_0_ports {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	/* FPDLink RX 3 */
+	port@3 {
+		reg = <3>;
+
+		ds90ub960_fpd3_in: endpoint {
+			remote-endpoint = <&ub953_out>;
+
+			mode = <3>;
+			bc-freq = <50000000>;
+
+			serializer: remote-chip {
+				compatible = "ti,ds90ub953-q1";
+				clocks = <&ds90ub960_0>;
+
+				gpio-controller;
+				#gpio-cells = <2>;
+
+				i2c-1_8v;
+
+				#clock-cells = <0>;
+				ports {
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					port@0 {
+						reg = <0>;
+						ub953_in: endpoint {
+							remote-endpoint = <&sensor_out>;
+							data-lanes = <0 1>;
+							clock-noncontinuous;
+						};
+					};
+
+					port@1 {
+						reg = <1>;
+
+						ub953_out: endpoint {
+							remote-endpoint = <&ds90ub960_fpd3_in>;
+						};
+					};
+				};
+			};
+		};
+	};
+};
+
+&ds90ub960_0_atr {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	i2c@3 {
+		reg = <3>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		sensor@60 {
+			compatible = "ovti,ov2312";
+			reg = <0x60>;
+
+			clocks = <&serializer>;
+			clock-names = "xvclk";
+			assigned-clocks = <&serializer>;
+			assigned-clock-rates = <24000000>;
+
+			reset-gpios = <&serializer 2 GPIO_ACTIVE_HIGH>;
+
+			port {
+				sensor_out: endpoint {
+					remote-endpoint = <&ub953_in>;
+				};
+			};
+		};
+	};
+};
