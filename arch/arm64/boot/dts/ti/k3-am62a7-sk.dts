@@ -350,6 +350,20 @@
 			};
 		};
 	};
+
+	exp2: gpio@23 {
+		compatible = "ti,tca6424";
+		reg = <0x23>;
+		gpio-controller;
+		#gpio-cells = <2>;
+	};
+};
+
+&main_i2c2 {
+	status = "disabled";
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_i2c2_pins_default>;
+	clock-frequency = <400000>;
 };
 
 &sdhci1 {
@@ -451,4 +465,24 @@
 			remote-endpoint = <&usb_con_hs>;
 		};
 	};
+};
+
+&csi0_port0 {
+	status = "disabled";
+};
+
+&csi0_port1 {
+	status = "disabled";
+};
+
+&csi0_port2 {
+	status = "disabled";
+};
+
+&csi0_port3 {
+	status = "disabled";
+};
+
+&csi0_port4 {
+	status = "disabled";
 };
