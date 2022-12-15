@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * IMX390 FPD-Link 3 Camera Module
+ * OV2312 FPD-Link 3 Camera Module
  *
- * Copyright (c) 2021 Tomi Valkeinen <tomi.valkeinen@ideasonboard.com>
+ * Copyright (c) 2022 Jai Luthra <j-luthra@ti.com>
  */
 
 /dts-v1/;
@@ -10,13 +10,13 @@
 
 #include <dt-bindings/gpio/gpio.h>
 
-&ds90ub960_1_ports {
+&ds90ub960_0_ports {
 	#address-cells = <1>;
 	#size-cells = <0>;
 
-	/* FPDLink RX 1 */
-	port@1 {
-		reg = <1>;
+	/* FPDLink RX 3 */
+	port@3 {
+		reg = <3>;
 
 		ds90ub960_fpd3_in: endpoint {
 			remote-endpoint = <&ub953_out>;
@@ -31,6 +31,8 @@
 				gpio-controller;
 				#gpio-cells = <2>;
 
+				i2c-1_8v;
+
 				#clock-cells = <0>;
 				ports {
 					#address-cells = <1>;
@@ -40,7 +42,8 @@
 						reg = <0>;
 						ub953_in: endpoint {
 							remote-endpoint = <&sensor_out>;
-							data-lanes = <0 1 2 3>;
+							data-lanes = <0 1>;
+							clock-noncontinuous;
 						};
 					};
 
@@ -57,28 +60,25 @@
 	};
 };
 
-&ds90ub960_1_atr {
+&ds90ub960_0_atr {
 	#address-cells = <1>;
 	#size-cells = <0>;
 
-	i2c@1 {
-		reg = <1>;
+	i2c@3 {
+		reg = <3>;
 		#address-cells = <1>;
 		#size-cells = <0>;
 
-		sensor@1a {
-			compatible = "sony,imx390";
-			reg = <0x1a>;
+		sensor@60 {
+			compatible = "ovti,ov2312";
+			reg = <0x60>;
 
 			clocks = <&serializer>;
-			clock-names = "inck";
+			clock-names = "xvclk";
 			assigned-clocks = <&serializer>;
-			assigned-clock-rates = <27000000>;
+			assigned-clock-rates = <24000000>;
 
-			xclr-gpios = <&serializer 1 GPIO_ACTIVE_LOW>;
-			error0-gpios = <&serializer 2 GPIO_ACTIVE_HIGH>;
-			error1-gpios = <&serializer 3 GPIO_ACTIVE_HIGH>;
-			comready-gpios = <&serializer 0 GPIO_ACTIVE_HIGH>;
+			reset-gpios = <&serializer 2 GPIO_ACTIVE_HIGH>;
 
 			port {
 				sensor_out: endpoint {

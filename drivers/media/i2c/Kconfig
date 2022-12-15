@@ -837,6 +837,18 @@ config VIDEO_IMX390
 	  To compile this driver as a module, choose M here: the
 	  module will be called imx390.
 
+config VIDEO_OV2312
+	tristate "OmniVision OV2312 sensor support"
+	depends on VIDEO_V4L2 && I2C
+	select MEDIA_CONTROLLER
+	select VIDEO_V4L2_SUBDEV_API
+	help
+	  This is a Video4Linux2 sensor driver for the OmniVision
+	  OV2312 camera.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called ov2312.
+
 config VIDEO_OV2640
 	tristate "OmniVision OV2640 sensor support"
 	depends on VIDEO_V4L2 && I2C

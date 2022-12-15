@@ -1423,6 +1423,14 @@ static void v4l_fill_fmtdesc(struct v4l2_fmtdesc *fmt)
 	case V4L2_META_FMT_VIVID:       descr = "Vivid Metadata"; break;
 	case V4L2_PIX_FMT_TI1210:       descr = "10-bit YUV 4:2:0 (NV12)"; break;
 	case V4L2_PIX_FMT_TI1610:       descr = "10-bit YUV 4:2:2 (NV16)"; break;
+	case V4L2_PIX_FMT_SRGGI10:      descr = "10-bit Bayer RGBG/GIrGIr"; break;
+	case V4L2_PIX_FMT_SGRIG10:      descr = "10-bit Bayer GRGB/IrGIrG"; break;
+	case V4L2_PIX_FMT_SBGGI10:      descr = "10-bit Bayer BGRG/GIrGIr"; break;
+	case V4L2_PIX_FMT_SGBIG10:      descr = "10-bit Bayer GBGR/IrGIrG"; break;
+	case V4L2_PIX_FMT_SGIRG10:      descr = "10-bit Bayer GIrGIr/RGBG"; break;
+	case V4L2_PIX_FMT_SIGGR10:      descr = "10-bit Bayer IrGIrG/GRGB"; break;
+	case V4L2_PIX_FMT_SGIBG10:      descr = "10-bit Bayer GIrGIr/BGRG"; break;
+	case V4L2_PIX_FMT_SIGGB10:      descr = "10-bit Bayer IrGIrG/GBGR"; break;
 
 	default:
 		/* Compressed formats */

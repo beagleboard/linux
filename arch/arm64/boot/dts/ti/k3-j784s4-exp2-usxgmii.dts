@@ -74,6 +74,8 @@
 
 &serdes2 {
 	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
 	serdes2_usxgmii_link: phy@3 {
 		reg = <3>;
 		cdns,num-lanes = <1>;

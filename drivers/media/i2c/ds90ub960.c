@@ -8,6 +8,7 @@
 
 #include <linux/bitops.h>
 #include <linux/clk.h>
+#include <linux/clk-provider.h>
 #include <linux/delay.h>
 #include <linux/gpio/consumer.h>
 #include <linux/i2c-atr.h>
@@ -33,6 +34,8 @@
 
 #define UB960_NUM_SLAVE_ALIASES	8
 #define UB960_MAX_POOL_ALIASES	(UB960_MAX_RX_NPORTS * UB960_NUM_SLAVE_ALIASES)
+
+#define UB960_MAX_VC		4
 
 /*
  * Register map
@@ -300,6 +303,11 @@ struct ub960_txport {
 	u32 num_data_lanes;
 };
 
+struct ub960_vc_map {
+	u8	vc_map[UB960_MAX_RX_NPORTS];
+	bool	port_en[UB960_MAX_RX_NPORTS];
+};
+
 struct ub960_data {
 	const struct ub960_hw_data	*hw_data;
 	struct i2c_client	*client; /* for shared local registers */
@@ -309,6 +317,7 @@ struct ub960_data {
 	struct i2c_atr		*atr;
 	struct ub960_rxport	*rxports[UB960_MAX_RX_NPORTS];
 	struct ub960_txport	*txports[UB960_MAX_TX_NPORTS];
+	struct ub960_vc_map	vc_map;
 
 	struct v4l2_subdev	sd;
 	struct media_pad	pads[UB960_MAX_NPORTS];
@@ -316,7 +325,8 @@ struct ub960_data {
 	struct v4l2_ctrl_handler   ctrl_handler;
 	struct v4l2_async_notifier notifier;
 
-	unsigned long refclk;
+	struct clk		*refclk;
+	struct clk_hw		*line_clk_hw;
 
 	u32 tx_data_rate;		/* Nominal data rate (Gb/s) */
 	s64 tx_link_freq[1];
@@ -1340,10 +1350,15 @@ static int ub960_start_streaming(struct ub960_data *priv)
 			break;
 
 		case RXPORT_MODE_CSI2:
-			/* Map all VCs from this port to VC(nport) */
-			ub960_rxport_write(priv, nport, UB960_RR_CSI_VC_MAP,
-					   (nport << 6) | (nport << 4) |
-						   (nport << 2) | (nport << 0));
+			if (priv->vc_map.port_en[nport]) {
+				/* Map VCs from this port */
+				ub960_rxport_write(priv, nport, UB960_RR_CSI_VC_MAP,
+						   priv->vc_map.vc_map[nport]);
+			} else {
+				/* Disable port */
+				ub960_update_bits_shared(priv, UB960_SR_RX_PORT_CTL,
+							 BIT(nport), 0);
+			}
 
 			break;
 		}
@@ -1518,6 +1533,70 @@ static int ub960_get_source_frame_desc(struct ub960_data *priv,
 	return 0;
 }
 
+static inline u8 ub960_get_output_vc(u8 map, u8 input_vc) {
+	return (map >> (2 * input_vc)) & 0x03;
+}
+
+static void ub960_map_virtual_channels(struct ub960_data *priv)
+{
+	struct device *dev = &priv->client->dev;
+	struct ub960_vc_map vc_map = {.vc_map = {0x00}, .port_en = {false}};
+	u8 nport, available_vc = 0;
+
+	for (nport = 0; nport < priv->hw_data->num_rxports; ++nport) {
+		struct v4l2_mbus_frame_desc source_fd;
+		bool used_vc[UB960_MAX_VC] = {false};
+		u8 vc, cur_vc = available_vc;
+		int j, ret;
+		u8 map;
+
+		ret = ub960_get_source_frame_desc(priv, &source_fd, nport);
+		/* Mark channels used in source in used_vc[] */
+		if (!ret) {
+			for (j = 0; j < source_fd.num_entries; ++j) {
+				u8 source_vc = source_fd.entry[j].bus.csi2.vc;
+				if (source_vc < UB960_MAX_VC) {
+					used_vc[source_vc] = true;
+				}
+			}
+		} else if (ret == -ENOIOCTLCMD) {
+			/* assume VC=0 is used if sensor driver doesn't provide info */
+			used_vc[0] = true;
+		} else {
+			continue;
+		}
+
+		/* Start with all channels mapped to first free output */
+		map = (cur_vc << 6) | (cur_vc << 4) | (cur_vc << 2) |
+			(cur_vc << 0);
+
+		/* Map actually used to channels to distinct free outputs */
+		for (vc = 0; vc < UB960_MAX_VC; ++vc) {
+			if (used_vc[vc]) {
+				map &= ~(0x03 << (2*vc));
+				map |= (cur_vc << (2*vc));
+				++cur_vc;
+			}
+		}
+
+		/* Don't enable port if we ran out of available channels */
+		if (cur_vc > UB960_MAX_VC) {
+			dev_err(dev,
+				"No VCs available, RX ports %d will be disabled\n",
+				nport);
+			continue;
+		}
+
+		/* Enable port and update map */
+		vc_map.vc_map[nport] = map;
+		vc_map.port_en[nport] = true;
+		available_vc = cur_vc;
+		dev_dbg(dev, "%s: VC map for port %d is 0x%02x",
+			__func__, nport, map);
+	}
+	priv->vc_map = vc_map;
+}
+
 static int ub960_get_frame_desc(struct v4l2_subdev *sd, unsigned int pad,
 				struct v4l2_mbus_frame_desc *fd)
 {
@@ -1540,6 +1619,8 @@ static int ub960_get_frame_desc(struct v4l2_subdev *sd, unsigned int pad,
 	memset(fd, 0, sizeof(*fd));
 
 	fd->type = V4L2_MBUS_FRAME_DESC_TYPE_CSI2;
+
+	ub960_map_virtual_channels(priv);
 
 	for (i = 0; i < routing->num_routes; ++i) {
 		const struct v4l2_subdev_route *route = &routing->routes[i];
@@ -1583,8 +1664,12 @@ static int ub960_get_frame_desc(struct v4l2_subdev *sd, unsigned int pad,
 		fd->entry[fd->num_entries].pixelcode =
 			source_entry->pixelcode;
 
-		/* Use the RX channel number as VC. See ub960_start_streaming() */
-		fd->entry[fd->num_entries].bus.csi2.vc = route->sink_pad;
+		fd->entry[fd->num_entries].bus.csi2.vc =
+			ub960_get_output_vc(priv->vc_map.vc_map[route->sink_pad],
+					    source_entry->bus.csi2.vc);
+		dev_dbg(dev, "Mapping sink %d/%d to output VC %d",
+			route->sink_pad, route->sink_stream,
+			fd->entry[fd->num_entries].bus.csi2.vc);
 
 		if (source_fd.type == V4L2_MBUS_FRAME_DESC_TYPE_CSI2) {
 			fd->entry[fd->num_entries].bus.csi2.dt =
@@ -1881,6 +1966,50 @@ static void ub960_remove_ports(struct ub960_data *priv)
 	for (i = 0; i < priv->hw_data->num_txports; i++)
 		if (priv->txports[i])
 			ub960_txport_remove_one(priv, i);
+}
+
+static int ub960_register_clocks(struct ub960_data *priv)
+{
+	struct device *dev = &priv->client->dev;
+	const char *name;
+	int err;
+
+	/* Get our input clock (REFCLK, 23..26 MHz) */
+
+	priv->refclk = devm_clk_get(dev, NULL);
+	if (IS_ERR(priv->refclk))
+		return dev_err_probe(dev, PTR_ERR(priv->refclk), "Cannot get REFCLK");
+
+	dev_dbg(dev, "REFCLK: %lu Hz\n", clk_get_rate(priv->refclk));
+
+	/* Provide FPD-Link III line rate (160 * REFCLK in Synchronous mode) */
+
+	name = kasprintf(GFP_KERNEL, "%s.fpd_line_rate", dev_name(dev));
+	priv->line_clk_hw =
+		clk_hw_register_fixed_factor(dev, name,
+					     __clk_get_name(priv->refclk),
+					     0, 160, 1);
+	kfree(name);
+	if (IS_ERR(priv->line_clk_hw))
+		return dev_err_probe(dev, PTR_ERR(priv->line_clk_hw),
+				     "Cannot register clock HW\n");
+
+	dev_dbg(dev, "line rate: %lu Hz\n", clk_hw_get_rate(priv->line_clk_hw));
+
+	/* Expose the line rate to OF */
+
+	err = devm_of_clk_add_hw_provider(dev, of_clk_hw_simple_get, priv->line_clk_hw);
+	if (err) {
+		clk_hw_unregister_fixed_factor(priv->line_clk_hw);
+		return dev_err_probe(dev, err, "Cannot add OF clock provider\n");
+	}
+
+	return 0;
+}
+
+static void ub960_unregister_clocks(struct ub960_data *priv)
+{
+	clk_hw_unregister_fixed_factor(priv->line_clk_hw);
 }
 
 static int ub960_parse_dt(struct ub960_data *priv)
@@ -2183,7 +2312,6 @@ static int ub960_probe(struct i2c_client *client)
 	struct device *dev = &client->dev;
 	struct ub960_data *priv;
 	unsigned int nport;
-	struct clk *clk;
 	u8 rev_mask;
 	int ret;
 
@@ -2224,16 +2352,9 @@ static int ub960_probe(struct i2c_client *client)
 		ub960_sw_reset(priv);
 	}
 
-	clk = clk_get(dev, NULL);
-	if (IS_ERR(clk)) {
-		ret = PTR_ERR(clk);
-		if (ret != -EPROBE_DEFER)
-			dev_err(dev, "Cannot get REFCLK (%d)", ret);
+	ret = ub960_register_clocks(priv);
+	if (ret)
 		return ret;
-	}
-	priv->refclk = clk_get_rate(clk);
-	clk_put(clk);
-	dev_dbg(dev, "REFCLK %lu", priv->refclk);
 
 	/* Runtime check register accessibility */
 	ret = ub960_read(priv, UB960_SR_REV_MASK, &rev_mask);
@@ -2316,6 +2437,7 @@ err_parse_dt:
 	ub960_atr_remove(priv);
 err_atr_probe:
 err_reg_read:
+	ub960_unregister_clocks(priv);
 	if (priv->pd_gpio)
 		gpiod_set_value_cansleep(priv->pd_gpio, 1);
 	mutex_destroy(&priv->alias_table_lock);
@@ -2334,6 +2456,7 @@ static int ub960_remove(struct i2c_client *client)
 	ub960_destroy_subdev(priv);
 	ub960_remove_ports(priv);
 	ub960_atr_remove(priv);
+	ub960_unregister_clocks(priv);
 	if (priv->pd_gpio)
 		gpiod_set_value_cansleep(priv->pd_gpio, 1);
 	mutex_destroy(&priv->alias_table_lock);
