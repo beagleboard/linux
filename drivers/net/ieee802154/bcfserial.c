@@ -232,7 +232,7 @@ static void bcfserial_hdlc_send_ack(struct bcfserial *bcfserial, u8 address, u8 
 
 static int bcfserial_hdlc_receive(struct bcfserial *bcfserial, u8 cmd, void *buffer, size_t count)
 {
-	int retries = 5;
+	int retries = 80;
 	bcfserial->response_size = count;
 	bcfserial->response_buffer = (u8*)buffer;
 	bcfserial_hdlc_send_cmd(bcfserial, cmd);
