@@ -458,12 +458,14 @@ size_t mikrobus_manifest_header_validate(void *data, size_t size)
 	struct greybus_manifest_header *header;
 	u16 manifest_size;
 
-	if (size < sizeof(*header)) {
+	header = data;
+	manifest_size = le16_to_cpu(header->size);
+	
+	if (manifest_size < sizeof(*header)) {
 		pr_err("short manifest (%zu < %zu)", size, sizeof(*header));
 		return -EINVAL;
 	}
-	header = data;
-	manifest_size = le16_to_cpu(header->size);
+
 	if (header->version_major > MIKROBUS_VERSION_MAJOR) {
 		pr_err("manifest version too new (%u.%u > %u.%u)",
 		header->version_major, header->version_minor,
