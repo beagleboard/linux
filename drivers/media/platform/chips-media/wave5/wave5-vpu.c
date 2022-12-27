@@ -9,7 +9,6 @@
 #include <linux/platform_device.h>
 #include <linux/clk.h>
 #include <linux/of_address.h>
-#include <linux/io.h>
 #include <linux/firmware.h>
 #include <linux/interrupt.h>
 #include "wave5-vpu.h"
