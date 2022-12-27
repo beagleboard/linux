@@ -1,0 +1,18 @@
+* Handle interrupts better
+
+Currently the interrupt handling uses an unusual design employing a kfifo to
+transfer irq status to irq thread. This was done as a work around for dropped
+interrupts seen with IRQF_ONESHOT based handling.
+
+This needs further investigation and fixing properly, with the aid of
+C&M.
+
+* power management handling - add (runtime_)suspen/resume cb where the clock is enabled
+
+* revise logic of wave5_vpu_(dec/enc)_register_framebuffer
+
+* check if the  normal kernel endianness/__swab32 routines are sufficient. (instead of the ones
+  implemented in the driver)
+
+* Adjust STREAMON routine for the stateful decoder to adhere to the API, which
+  declares that STREAMON can be called before source buffers have been queued.
