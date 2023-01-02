@@ -108,6 +108,9 @@ static const struct drm_mode_config_funcs mode_config_funcs = {
 	.atomic_commit = drm_atomic_helper_commit,
 };
 
+/* HACK: set this variable to 1 if using bridges which need no_connector */
+static unsigned long tidss_no_connector_hack = 1;
+
 static int tidss_dispc_modeset_init(struct tidss_device *tidss)
 {
 	struct device *dev = tidss->dev;
@@ -235,7 +238,10 @@ static int tidss_dispc_modeset_init(struct tidss_device *tidss)
 			return ret;
 		}
 
-		if (dispc_get_subrev(tidss->dispc) == DISPC_AM625) {
+		/*
+		 * If the bridge driver has no support for standard connector
+		 */
+		if ((dispc_get_subrev(tidss->dispc) == DISPC_AM625) && tidss_no_connector_hack) {
 			connector = drm_bridge_connector_init(ddev, enc);
 			if (IS_ERR(connector)) {
 				dev_err(tidss->dev,
@@ -307,3 +313,30 @@ int tidss_modeset_init(struct tidss_device *tidss)
 
 	return 0;
 }
+
+static int tidss_no_connector_flag_set(const char *arg, const struct kernel_param *kp)
+{
+	int ret;
+
+	ret = kstrtoul(arg, 10, &tidss_no_connector_hack);
+
+	if (ret)
+		return ret;
+
+	if (tidss_no_connector_hack > 1) {
+		pr_err("Invalid parameter!\n");
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static const struct kernel_param_ops tidss_no_connector_hack_ops = {
+		.set = tidss_no_connector_flag_set,
+		.get = param_get_int,
+};
+
+module_param_cb(no_connector_hack, &tidss_no_connector_hack_ops,
+		&tidss_no_connector_hack, 0664);
+MODULE_PARM_DESC(no_connector_hack,
+		 "Hack support for non-connector framework: 0 (Disable), 1 (Enable");
