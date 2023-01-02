@@ -495,6 +495,14 @@
 		};
 	};
 
+	vpu: video-codec@30210000 {
+		compatible = "cnm,cm521c-vpu";
+		reg = <0x00 0x30210000 0x00 0x10000>;
+		clocks = <&k3_clks 204 2>;
+		clock-names = "vcodec";
+		power-domains = <&k3_pds 204 TI_SCI_PD_EXCLUSIVE>;
+	};
+
 	sdhci2: mmc@fa20000 {
 		compatible = "ti,am62-sdhci";
 		reg = <0x00 0xfa20000 0x00 0x260>, <0x00 0xfa28000 0x00 0x134>;
