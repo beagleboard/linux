@@ -1677,6 +1677,18 @@ static int wave5_vpu_open_enc(struct file *filp)
 	inst->frame_rate = 30;
 
 	init_completion(&inst->irq_done);
+
+	if (inst->dev->irq < 0) {
+		ret = mutex_lock_interruptible(&inst->dev->dev_lock);
+		if (ret)
+			return ret;
+
+		if (!hrtimer_active(&inst->dev->hrtimer))
+			hrtimer_start(&inst->dev->hrtimer, ns_to_ktime(0), HRTIMER_MODE_REL_PINNED);
+
+		mutex_unlock(&inst->dev->dev_lock);
+	}
+
 	ret = kfifo_alloc(&inst->irq_status, 16 * sizeof(int), GFP_KERNEL);
 	if (ret) {
 		dev_err(inst->dev->dev, "Allocating fifo, fail: %d\n", ret);
