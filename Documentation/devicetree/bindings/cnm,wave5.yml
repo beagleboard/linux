@@ -54,7 +54,6 @@ properties:
 required:
   - compatible
   - reg
-  - interrupts
   - clocks
   - clock-names
 
