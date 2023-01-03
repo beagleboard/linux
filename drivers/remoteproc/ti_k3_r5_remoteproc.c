@@ -909,14 +909,14 @@ config:
 	boot_vec = 0x0;
 	if (core == core0) {
 		clr_cfg = PROC_BOOT_CFG_FLAG_R5_TEINIT;
-		if (cluster->soc_data->single_cpu_mode) {
+		if ((cluster->soc_data->single_cpu_mode) || (cluster->soc_data->is_single_core)) {
 			/*
 			 * Single-CPU configuration bit can only be configured
 			 * on Core0 and system firmware will NACK any requests
 			 * with the bit configured, so program it only on
 			 * permitted cores
 			 */
-			if (cluster->mode == CLUSTER_MODE_SINGLECPU)
+			if ((cluster->mode == CLUSTER_MODE_SINGLECPU) || (cluster->mode == CLUSTER_MODE_NONE))
 				set_cfg = PROC_BOOT_CFG_FLAG_R5_SINGLE_CORE;
 		} else {
 			/*
