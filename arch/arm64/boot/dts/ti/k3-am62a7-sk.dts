@@ -31,6 +31,10 @@
 		reg = <0x00000000 0x80000000 0x00000000 0x80000000>;
 	};
 
+	dma_buf_phys {
+		compatible = "ti,dma_buf_phys";
+	};
+
 	reserved-memory {
 		#address-cells = <2>;
 		#size-cells = <2>;
