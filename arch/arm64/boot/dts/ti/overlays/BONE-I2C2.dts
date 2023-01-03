@@ -1,0 +1,22 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (C) 2022 BeagleBoard.org - https://beagleboard.org/
+ *
+ * https://elinux.org/Beagleboard:BeagleBone_cape_interface_spec#I2C
+ */
+
+/dts-v1/;
+/plugin/;
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+ */
+&{/chosen} {
+	overlays {
+		BONE-I2C2.kernel = __TIMESTAMP__;
+	};
+};
+
+&bone_i2c_2 {
+	status = "okay";
+};
