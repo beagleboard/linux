@@ -268,7 +268,7 @@ static int panic_cpufreq_notifier_call(struct notifier_block *nb,
 	struct cpufreq_policy *policy = cpufreq_cpu_get(cpu);
 	u32 val = readl(ap_sys_reg);
 
-	pr_debug("[%s,%d]Enter panic_cpufreq_notifier_call\n", __func__, __LINE__);
+	pr_info("enter panic_cpufreq_notifier_call\n");
 
 	/*
 	 * set CPU PLL1's frequency as minimum to compatible voltage
@@ -277,7 +277,7 @@ static int panic_cpufreq_notifier_call(struct notifier_block *nb,
 	if (strcmp(__clk_get_name(clk_get_parent(clks[LIGHT_C910_CCLK].clk)),
 		__clk_get_name(clks[LIGHT_C910_CCLK_I0].clk))) {
 		pr_debug("[%s,%d]\n", __func__, __LINE__);
-
+		clk_prepare_enable(clks[LIGHT_CPU_PLL0_FOUTPOSTDIV].clk);
 		clk_set_rate(clks[LIGHT_CPU_PLL0_FOUTPOSTDIV].clk, policy->min * 1000);
 		udelay(1);
 		clk_set_parent(clks[LIGHT_C910_CCLK].clk, clks[LIGHT_C910_CCLK_I0].clk);
@@ -296,7 +296,7 @@ static int panic_cpufreq_notifier_call(struct notifier_block *nb,
 	clk_set_rate(clks[LIGHT_CPU_PLL1_FOUTPOSTDIV].clk, policy->min * 1000);
 	udelay(1);
 
-	pr_debug("finish to execute cpufreq notifier callback on panic\n");
+	pr_info("finish to execute cpufreq notifier callback on panic\n");
 
 	return 0;
 }

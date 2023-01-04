@@ -80,9 +80,9 @@ static int light_visys_clk_probe(struct platform_device *pdev)
 	gates[LIGHT_CLKGEN_MIPI_CSI0_CFG_CLK] = thead_gate_clk_register("clkgen_mipi_csi0_cfg_clk", NULL,
 									visys_regmap, 0xa0, 8, GATE_NOT_SHARED, NULL, dev);
 	gates[LIGHT_CLKGEN_MIPI_CSI1_CFG_CLK] = thead_gate_clk_register("clkgen_mipi_csi1_cfg_clk", NULL,
-									visys_regmap, 0xa0, 7, GATE_NOT_SHARED, NULL, dev);
-	gates[LIGHT_CLKGEN_MIPI_CSI2_CFG_CLK] = thead_gate_clk_register("clkgen_mipi_csi2_cfg_clk", NULL,
 									visys_regmap, 0xa0, 6, GATE_NOT_SHARED, NULL, dev);
+	gates[LIGHT_CLKGEN_MIPI_CSI2_CFG_CLK] = thead_gate_clk_register("clkgen_mipi_csi2_cfg_clk", NULL,
+									visys_regmap, 0xa0, 7, GATE_NOT_SHARED, NULL, dev);
 	gates[LIGHT_CLKGEN_DW200_CLK_VSE] = thead_gate_clk_register("clkgen_dw200_clk_vse", NULL,
 									visys_regmap, 0xa0, 5, GATE_NOT_SHARED, NULL, dev);
 	gates[LIGHT_CLKGEN_DW200_CLK_DWE] = thead_gate_clk_register("clkgen_dw200_clk_dwe", NULL,

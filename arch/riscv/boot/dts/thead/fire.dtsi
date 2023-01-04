@@ -17,7 +17,7 @@
 #include <dt-bindings/reset/light-reset.h>
 
 / {
-	compatible = "thead,light";
+	compatible = "thead,fire";
 	#address-cells = <2>;
 	#size-cells = <2>;
 
@@ -1390,22 +1390,6 @@
 			status = "disabled";
 		};
 
-		npu: vha@fffc800000 {
-			compatible = "img,ax3386-nna";
-			reg = <0xff 0xfc800000 0x0 0x100000>;
-			interrupt-parent = <&intc>;
-			interrupts = <113>;
-			interrupt-names = "npuirq";
-			power-domains = <&pd LIGHT_AON_NPU_PD>;
-			clocks = <&clk CLKGEN_TOP_APB_SX_PCLK>,
-			         <&clk CLKGEN_TOP_AXI4S_ACLK>;
-			clock-names = "pclk", "aclk";
-			vha_clk_rate = <1000000000>;
-			ldo_vha-supply = <&npu>;
-			dma-mask = <0xf 0xffffffff>;
-			status = "disabled";
-		};
-
 		gpu: gpu@ffef400000 {
 		    compatible = "img,gpu";
 		    reg = <0xff 0xef400000 0x0 0x100000>;
@@ -1420,19 +1404,6 @@
 		    gpu_clk_rate = <18000000>;
 		    dma-mask = <0xf 0xffffffff>;
 		    status = "disabled";
-		};
-
-		fce: fce@fffcc50000 {
-			compatible = "thead,light-fce";
-			reg = <0xff 0xfcc50000 0x0 0x10000>;
-			interrupt-parent = <&intc>;
-			interrupts = <100>;
-			interrupt-names = "fceirq";
-			clocks = <&vpsys_clk_gate LIGHT_VPSYS_FCE_ACLK>,
-				<&vpsys_clk_gate LIGHT_VPSYS_FCE_PCLK>;
-			clock-names = "aclk", "pclk";
-			dma-mask = <0xf 0xffffffff>;
-			status = "disabled";
 		};
 
 		vdec: vdec@ffecc00000 {

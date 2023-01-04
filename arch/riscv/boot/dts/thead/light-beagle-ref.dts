@@ -565,25 +565,6 @@
 	status = "okay";
 };
 
-&i2c0 {
-	clock-frequency = <100000>;
-	status = "okay";
-
-       touch@5d {
-               #gpio-cells = <2>;
-               compatible = "goodix,gt911";
-               reg = <0x5d>;
-               interrupt-parent = <&gpio1_porta>;
-               interrupts = <8 0>;
-               irq-gpios = <&gpio1_porta 8 0>;
-               reset-gpios = <&gpio1_porta 7 0>;
-               AVDD28-supply = <&reg_tp_pwr_en>;
-               touchscreen-size-x = <720>;
-               touchscreen-size-y = <1280>;
-       };
-
-};
-
 &audio_i2c0 {
         clock-frequency = <100000>;
         status = "okay";
@@ -1008,7 +989,6 @@
 &vvcam_sensor2 {
 	sensor_name = "GC5035";
 	sensor_regulators = "DOVDD18_SCAN", "DVDD12_SCAN", "AVDD28_SCAN";
-	sensor_regulator_voltage_uV = <1800000 1200000 2800000>;
 	sensor_regulator_timing_us = <100 50 0>;
 	sensor_pdn = <&gpio1_porta 30 0>; //powerdown pin / shutdown pin 
 	sensor_rst = <&gpio1_porta 29 0>;
@@ -1026,7 +1006,6 @@
 &vvcam_sensor3 {
 	sensor_name = "GC02M1B";
 	sensor_regulators = "DOVDD18_SCAN", "DVDD12_SCAN", "AVDD28_SCAN";
-	sensor_regulator_voltage_uV = <1800000 1800000 2800000>;
 	sensor_regulator_timing_us = <100 50 0>;
 	sensor_pdn = <&gpio1_porta 30 0>; //powerdown pin / shutdown pin 
 	sensor_rst = <&gpio1_porta 29 0>;
@@ -2240,12 +2219,10 @@
 	};
 
 	panel0@0 {
-		compatible = "txd,dy800qwxpab";
+		compatible = "i2c_dsi,ili9881d";
 		reg = <0>;
-		backlight = <&lcd0_backlight>;
-		reset-gpio = <&gpio1_porta 5 1>; /* active low */
-		vdd1v8-supply = <&soc_vdd18_lcd0_en_reg>;
-		vspn5v7-supply = <&soc_lcd0_bias_en_reg>;
+		mcu_auto_reset_enable = <0>;
+		tp_point_rotate = <0>;
 
 		port {
 			panel0_in: endpoint {

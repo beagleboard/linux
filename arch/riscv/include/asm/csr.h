@@ -143,11 +143,6 @@
 #define CSR_VTYPE		0xc21
 #define CSR_VLENB		0xc22
 
-#define CSR_SMIR		0x9c0
-#define CSR_SMEL		0x9c1
-#define CSR_SMEH		0x9c2
-#define CSR_SMCIR		0x9c3
-
 #ifdef CONFIG_RISCV_M_MODE
 # define CSR_STATUS	CSR_MSTATUS
 # define CSR_IE		CSR_MIE

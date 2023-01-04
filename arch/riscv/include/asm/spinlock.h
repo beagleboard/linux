@@ -1,135 +1,92 @@
-/* SPDX-License-Identifier: GPL-2.0-only */
-/*
- * Copyright (C) 2015 Regents of the University of California
- * Copyright (C) 2017 SiFive
- */
-
-#ifndef _ASM_RISCV_SPINLOCK_H
-#define _ASM_RISCV_SPINLOCK_H
-
-#include <linux/kernel.h>
-#include <asm/current.h>
-#include <asm/fence.h>
+/* SPDX-License-Identifier: GPL-2.0 */
 
 /*
- * Simple spin lock operations.  These provide no fairness guarantees.
+ * 'Generic' ticket-lock implementation.
+ *
+ * It relies on atomic_fetch_add() having well defined forward progress
+ * guarantees under contention. If your architecture cannot provide this, stick
+ * to a test-and-set lock.
+ *
+ * It also relies on atomic_fetch_add() being safe vs smp_store_release() on a
+ * sub-word of the value. This is generally true for anything LL/SC although
+ * you'd be hard pressed to find anything useful in architecture specifications
+ * about this. If your architecture cannot do this you might be better off with
+ * a test-and-set.
+ *
+ * It further assumes atomic_*_release() + atomic_*_acquire() is RCpc and hence
+ * uses atomic_fetch_add() which is RCsc to create an RCsc hot path, along with
+ * a full fence after the spin to upgrade the otherwise-RCpc
+ * atomic_cond_read_acquire().
+ *
+ * The implementation uses smp_cond_load_acquire() to spin, so if the
+ * architecture has WFE like instructions to sleep instead of poll for word
+ * modifications be sure to implement that (see ARM64 for example).
+ *
  */
 
-/* FIXME: Replace this with a ticket lock, like MIPS. */
+#ifndef __ASM_GENERIC_SPINLOCK_H
+#define __ASM_GENERIC_SPINLOCK_H
 
-#define arch_spin_is_locked(x)	(READ_ONCE((x)->lock) != 0)
+#include <linux/atomic.h>
+#include <asm/spinlock_types.h>
 
-static inline void arch_spin_unlock(arch_spinlock_t *lock)
+static __always_inline void arch_spin_lock(arch_spinlock_t *lock)
 {
-	smp_store_release(&lock->lock, 0);
+	u32 val = atomic_fetch_add(1<<16, lock);
+	u16 ticket = val >> 16;
+
+	if (ticket == (u16)val)
+		return;
+
+	/*
+	 * atomic_cond_read_acquire() is RCpc, but rather than defining a
+	 * custom cond_read_rcsc() here we just emit a full fence.  We only
+	 * need the prior reads before subsequent writes ordering from
+	 * smb_mb(), but as atomic_cond_read_acquire() just emits reads and we
+	 * have no outstanding writes due to the atomic_fetch_add() the extra
+	 * orderings are free.
+	 */
+	atomic_cond_read_acquire(lock, ticket == (u16)VAL);
+	smp_mb();
 }
 
-static inline int arch_spin_trylock(arch_spinlock_t *lock)
+static __always_inline bool arch_spin_trylock(arch_spinlock_t *lock)
 {
-	int tmp = 1, busy;
+	u32 old = atomic_read(lock);
 
-	__asm__ __volatile__ (
-		"	amoswap.w %0, %2, %1\n"
-		RISCV_ACQUIRE_BARRIER
-		: "=r" (busy), "+A" (lock->lock)
-		: "r" (tmp)
-		: "memory");
+	if ((old >> 16) != (old & 0xffff))
+		return false;
 
-	return !busy;
+	return atomic_try_cmpxchg(lock, &old, old + (1<<16)); /* SC, for RCsc */
 }
 
-static inline void arch_spin_lock(arch_spinlock_t *lock)
+static __always_inline void arch_spin_unlock(arch_spinlock_t *lock)
 {
-	while (1) {
-		if (arch_spin_is_locked(lock))
-			continue;
+	u16 *ptr = (u16 *)lock + IS_ENABLED(CONFIG_CPU_BIG_ENDIAN);
+	u32 val = atomic_read(lock);
 
-		if (arch_spin_trylock(lock))
-			break;
-	}
+	smp_store_release(ptr, (u16)val + 1);
 }
 
-/***********************************************************/
-
-static inline void arch_read_lock(arch_rwlock_t *lock)
+static __always_inline int arch_spin_is_locked(arch_spinlock_t *lock)
 {
-	int tmp;
+	u32 val = atomic_read(lock);
 
-	__asm__ __volatile__(
-		"1:	lr.w	%1, %0\n"
-		"	bltz	%1, 1b\n"
-		"	addi	%1, %1, 1\n"
-		"	sc.w	%1, %1, %0\n"
-		"	bnez	%1, 1b\n"
-		RISCV_ACQUIRE_BARRIER
-		: "+A" (lock->lock), "=&r" (tmp)
-		:: "memory");
+	return ((val >> 16) != (val & 0xffff));
 }
 
-static inline void arch_write_lock(arch_rwlock_t *lock)
+static __always_inline int arch_spin_is_contended(arch_spinlock_t *lock)
 {
-	int tmp;
+	u32 val = atomic_read(lock);
 
-	__asm__ __volatile__(
-		"1:	lr.w	%1, %0\n"
-		"	bnez	%1, 1b\n"
-		"	li	%1, -1\n"
-		"	sc.w	%1, %1, %0\n"
-		"	bnez	%1, 1b\n"
-		RISCV_ACQUIRE_BARRIER
-		: "+A" (lock->lock), "=&r" (tmp)
-		:: "memory");
+	return (s16)((val >> 16) - (val & 0xffff)) > 1;
 }
 
-static inline int arch_read_trylock(arch_rwlock_t *lock)
+static __always_inline int arch_spin_value_unlocked(arch_spinlock_t lock)
 {
-	int busy;
-
-	__asm__ __volatile__(
-		"1:	lr.w	%1, %0\n"
-		"	bltz	%1, 1f\n"
-		"	addi	%1, %1, 1\n"
-		"	sc.w	%1, %1, %0\n"
-		"	bnez	%1, 1b\n"
-		RISCV_ACQUIRE_BARRIER
-		"1:\n"
-		: "+A" (lock->lock), "=&r" (busy)
-		:: "memory");
-
-	return !busy;
+	return !arch_spin_is_locked(&lock);
 }
 
-static inline int arch_write_trylock(arch_rwlock_t *lock)
-{
-	int busy;
+#include <asm/qrwlock.h>
 
-	__asm__ __volatile__(
-		"1:	lr.w	%1, %0\n"
-		"	bnez	%1, 1f\n"
-		"	li	%1, -1\n"
-		"	sc.w	%1, %1, %0\n"
-		"	bnez	%1, 1b\n"
-		RISCV_ACQUIRE_BARRIER
-		"1:\n"
-		: "+A" (lock->lock), "=&r" (busy)
-		:: "memory");
-
-	return !busy;
-}
-
-static inline void arch_read_unlock(arch_rwlock_t *lock)
-{
-	__asm__ __volatile__(
-		RISCV_RELEASE_BARRIER
-		"	amoadd.w x0, %1, %0\n"
-		: "+A" (lock->lock)
-		: "r" (-1)
-		: "memory");
-}
-
-static inline void arch_write_unlock(arch_rwlock_t *lock)
-{
-	smp_store_release(&lock->lock, 0);
-}
-
-#endif /* _ASM_RISCV_SPINLOCK_H */
+#endif /* __ASM_GENERIC_SPINLOCK_H */

@@ -56,13 +56,47 @@ void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 	 */
 	cpu = smp_processor_id();
 
-	cpumask_clear_cpu(cpu, mm_cpumask(prev));
 	cpumask_set_cpu(cpu, mm_cpumask(next));
 
 #ifdef CONFIG_MMU
+	__asm__ __volatile__(
+			"jal t0,1f\n\t"
+			"1: \n\t"
+			"jal t0,2f\n\t"
+			"2: \n\t"
+			"jal t0,3f\n\t"
+			"3: \n\t"
+			"jal t0,4f\n\t"
+			"4: \n\t"
+			"jal t0,5f\n\t"
+			"5: \n\t"
+			"jal t0,6f\n\t"
+			"6: \n\t"
+			"jal t0,7f\n\t"
+			"7: \n\t"
+			"jal t0,8f\n\t"
+			"8: \n\t"
+			"jal t0,9f\n\t"
+			"9: \n\t"
+			"jal t0,10f\n\t"
+			"10: \n\t"
+			"jal t0,11f\n\t"
+			"11: \n\t"
+			"jal t0,12f\n\t"
+			"12: \n\t"
+			::: "memory", "t0");
+
 	check_and_switch_context(next, cpu);
 	asid = (next->context.asid.counter & SATP_ASID_MASK)
 		<< SATP_ASID_SHIFT;
+
+	local_flush_tlb_page(0);
+
+	/* flush utlb before setting satp */
+	__asm__ __volatile__(
+			"li t0, 0\n\t"
+			"sfence.vma t0, t0\n\t"
+			::: "memory", "t0");
 
 	csr_write(sptbr, virt_to_pfn(next->pgd) | SATP_MODE | asid);
 #endif

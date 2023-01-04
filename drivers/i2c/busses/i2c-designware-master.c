@@ -613,7 +613,7 @@ static u32 i2c_dw_read_clear_intrbits(struct dw_i2c_dev *dev)
  */
 static int i2c_dw_irq_handler_master(struct dw_i2c_dev *dev)
 {
-	u32 stat;
+	u32 stat, status;
 
 	stat = i2c_dw_read_clear_intrbits(dev);
 	if (stat & DW_IC_INTR_TX_ABRT) {
@@ -641,7 +641,11 @@ static int i2c_dw_irq_handler_master(struct dw_i2c_dev *dev)
 	 */
 
 tx_aborted:
-	if ((stat & (DW_IC_INTR_TX_ABRT | DW_IC_INTR_STOP_DET)) || dev->msg_err)
+	regmap_read(dev->map, DW_IC_STATUS, &status);
+	if ((stat & DW_IC_INTR_TX_ABRT) || dev->msg_err ||
+			((status & DW_IC_STATUS_TFE) &&
+			 (!(status & DW_IC_STATUS_RFNE)) &&
+			 (!(status & DW_IC_STATUS_MASTER_ACTIVITY))))
 		complete(&dev->cmd_complete);
 	else if (unlikely(dev->flags & ACCESS_INTR_MASK)) {
 		/* Workaround to trigger pending interrupt */

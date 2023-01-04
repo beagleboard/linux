@@ -608,8 +608,6 @@ static int light_clocks_probe(struct platform_device *pdev)
 
 #ifndef FPGA_EMU
 	/* HW defalut */
-	clk_prepare_enable(clks[CPU_PLL1_FOUTPOSTDIV]);
-	udelay(1);
 	clk_set_parent(clks[C910_CCLK], clks[CPU_PLL1_FOUTPOSTDIV]);
 #else
 	clk_set_parent(clks[C910_CCLK_I0], clks[OSC_24M]);

@@ -500,4 +500,14 @@ config DRM_PANEL_XINPENG_XPP055C272
 	  Say Y here if you want to enable support for the Xinpeng
 	  XPP055C272 controller for 720x1280 LCD panels with MIPI/RGB/SPI
 	  system interfaces.
+
+config DRM_PANEL_ILI9881D
+	tristate "ILI9881D-based panels"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y if you want to enable support for panels based on the
+	  ILI9881d controller.
+
 endmenu

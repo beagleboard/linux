@@ -37,6 +37,7 @@
 #define SHADOW_RDATA6   0xd8
 #define SHADOW_RDATA7   0xdc
 
+#define TEE_SYS_EFUSE_LC_PRELD_OFF	0x64
 #define TEE_SYS_EFUSE_DBG_KEY1_OFF	0x70
 #define ENABLE_DFT_FUNC_MASK		GENMASK(3, 0)
 #define ENABLE_DFT_FUNC			0x5
@@ -837,14 +838,139 @@ exit:
 	return ret < 0 ? ret : count;
 }
 
+static ssize_t lc_preld_show(struct device *dev,
+			     struct device_attribute *attr, char *buf)
+{
+	struct light_efuse_priv *priv = dev_get_drvdata(dev);
+	int ret;
+	u32 data;
+
+	ret = regmap_read(priv->teesys_regs, TEE_SYS_EFUSE_LC_PRELD_OFF, &data);
+	if (ret) {
+		dev_err(dev, "failed to read data from LC_PRELD area\n");
+		return ret;
+	}
+
+	return sprintf(buf, "0x%08x\n", data);
+}
+
+static ssize_t update_lc_store(struct device *dev,
+			       struct device_attribute *attr,
+			       const char *buf, size_t count)
+{
+	struct light_efuse_priv *priv = dev_get_drvdata(dev);
+	int ret;
+	u32 value, data;
+	const char *p, *life_cycle = buf;
+	int len;
+
+	p = memchr(buf, '\n', count);
+	len = p ? p - buf : count;
+
+	dev_dbg(dev, "life_cycle: %s, buf: %s, len: %d\n", life_cycle, buf, len);
+
+	if (!strncmp(life_cycle, "LC_RMA", len)) {
+		/* If target life cycle is RMA, open permission in teesystem regs */
+		ret = regmap_read(priv->teesys_regs,
+				  TEE_SYS_EFUSE_DBG_KEY1_OFF,
+				  &data); /* Register from tee system */
+		if (ret) {
+			dev_err(dev, "failed to read data from DBG_KEY1 area\n");
+			return ret;
+		}
+
+		data &= ~0xf;
+		data |= 0x5;
+		ret = regmap_write(priv->teesys_regs,
+				   TEE_SYS_EFUSE_DBG_KEY1_OFF,
+				   data);
+		if (ret) {
+			dev_err(dev, "failed to write data to DBG_KEY1 area\n");
+			return ret;
+		}
+
+		value = 0x1A946F9B;
+	} else if (!strncmp(life_cycle, "LC_OEM", len))
+		value = 0x64EA9B8E;
+	else if (!strncmp(life_cycle, "LC_PRO", len))
+		value = 0xB0E047A8;
+	else if (!strncmp(life_cycle, "LC_DEV", len))
+		value = 0x59DD3BDF;
+	else if (!strncmp(life_cycle, "LC_RIP", len))
+		value = 0xEE45E8A7;
+	else if (!strncmp(life_cycle, "LC_KILL_KEY1", len))
+		value = 0x7D8E9CA1;
+	else if (!strncmp(life_cycle, "LC_KILL_KEY0", len))
+		value = 0xC29F604B;
+	else {
+		dev_err(dev, "invalid life cycle type!\n");
+		return -EINVAL;
+	}
+
+	/*
+	 * Check permission:
+	 * Check it every time to avoid wp0~3 are changed somewhere
+	 */
+	efuse_permission_magic_config(priv->base, cmd_perm_magic_num, CMD_UPDATE_LC);
+
+	/* Config life cycle */
+	efuse_life_cycle_para_config(priv->base, value);
+
+	/* set command */
+	ret = efuse_cmd_start(priv->base, CON_CMD_UP_LC);
+	if (ret)
+		goto exit;
+
+	/* Wait controller completed */
+	ret = efuse_idle_check(priv->base);
+
+exit:
+	/* Check status, if there has error, reort and clear status */
+	ret |= efuse_status_check(priv->base);
+	if (ret)
+		dev_err(dev, "error occurs while starting write\n");
+
+	efuse_data_clear(priv->base);
+
+	if (strncmp(life_cycle, "LC_RMA", len))
+		goto out;
+
+	dev_info(dev, "set LC_RMA life cycle\n");
+	/* If target life cycle is RMA, close permission in teesystem regs */
+	ret = regmap_read(priv->teesys_regs,
+			  TEE_SYS_EFUSE_DBG_KEY1_OFF,
+			  &data); /* Register from tee system */
+	if (ret) {
+		dev_err(dev, "failed to read data from DBG_KEY1 area\n");
+		return ret;
+	}
+
+	data &= ~0xf;
+	data |= 0xa;
+	ret = regmap_write(priv->teesys_regs,
+			   TEE_SYS_EFUSE_DBG_KEY1_OFF,
+			   data);
+	if (ret) {
+		dev_err(dev, "failed to write data to DBG_KEY1 area\n");
+		return ret;
+	}
+
+out:
+	return ret < 0 ? ret : count;
+}
+
 static DEVICE_ATTR_WO(rma_lc);
 static DEVICE_ATTR_WO(rip_lc);
 static DEVICE_ATTR_RW(efuse_nvmem);
+static DEVICE_ATTR_RO(lc_preld);
+static DEVICE_ATTR_WO(update_lc);
 
 static struct attribute *light_efuse_sysfs_entries[] = {
 	&dev_attr_efuse_nvmem.attr,
 	&dev_attr_rip_lc.attr,
 	&dev_attr_rma_lc.attr,
+	&dev_attr_lc_preld.attr,
+	&dev_attr_update_lc.attr,
 	NULL
 };
 

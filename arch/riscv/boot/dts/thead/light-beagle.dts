@@ -5,7 +5,7 @@
 
 /dts-v1/;
 
-#include "light-ant-ref.dts"
+#include "light-beagle-ref.dts"
 
 &vvcam_sensor4 { // beagle board J5 CSI0 connector
 	sensor_name = "IMX219";
@@ -30,13 +30,13 @@
 };
 
 /*
-sensor imx219 mounted on beagle board J4
+sensor imx219 mounted on beagle board J4 CSI1 (=light CSI2X2_A+CSI2X2_B   /   CSI2X2_A only)
 video0: sensor-vipre-isp0
 video1: sensor-vipre-isp0-dw
 video7: sensor-vipre-isp0-dsp1-ry-dw
 video10: tuningtool
 
-sensor imx219 mounted on beagle board J5
+sensor imx219 mounted on beagle board J5 CSI0 (=light CSI2)
 video2: sensor-vipre-isp1   
 video3: sensor-vipre-isp1-dw   
 video4: sensor-vipre-isp1-dsp0-ry
@@ -44,11 +44,108 @@ video5: sensor-vipre-isp1-dsp0-ry-dw
 video12: tuningtool
 */
 
+&video0{
+    vi_mem_pool_region = <0xFFFFFFFF>;	// vi_mem: framebuffer, region[2]
+    channel0 {
+		sensor0 {
+			subdev_name = "vivcam";
+			idx = <5>; // imx219
+			csi_idx = <2>; //<2>=CSI2X2_A
+			mode_idx = <0>;
+			path_type = "SENSOR_1080P_RAW10_LINER";
+		};
+		sensor1 {
+			subdev_name = "vivcam";
+			idx = <0xff>; // invalid
+			csi_idx = <0xff>;
+			path_type = "SENSOR_VGA_RAW10_LINER";
+		};
+        dma {
+			subdev_name = "vipre";
+			idx = <0>;
+			path_type = "VIPRE_CSI2_ISP0";
+		};
+		isp {
+			subdev_name = "isp";
+			idx = <0>;
+			path_type = "ISP_MI_PATH_MP";
+			output {
+				max_width = <1920>;
+				max_height = <1088>;
+				bit_per_pixel = <16>;
+				frame_count = <3>;
+			};
+		};
+	};
+	channel1 {
+		sensor0 {
+			subdev_name = "vivcam";
+			idx = <5>; // imx219
+			csi_idx = <2>; //<2>=CSI2X2_A
+			mode_idx = <0>;
+			path_type = "SENSOR_1080P_RAW10_LINER";
+		};
+		sensor1 {
+			subdev_name = "vivcam";
+			idx = <0xff>; // invalid
+			csi_idx = <0xff>;
+			path_type = "SENSOR_VGA_RAW10_LINER";
+		};
+        dma {
+			subdev_name = "vipre";
+			idx = <0>;
+			path_type = "VIPRE_CSI2_ISP0";
+		};
+		isp {
+			subdev_name = "isp";
+			idx = <0>;
+			path_type = "ISP_MI_PATH_SP";
+			output {
+				max_width = <1920>;
+				max_height = <1088>;
+				bit_per_pixel = <16>;
+				frame_count = <3>;
+			};
+		};
+	};
+	channel2 {
+		sensor0 {
+			subdev_name = "vivcam";
+			idx = <5>; // imx219
+			csi_idx = <2>; //<2>=CSI2X2_A
+			mode_idx = <0>;
+			path_type = "SENSOR_1080P_RAW10_LINER";
+		};
+		sensor1 {
+			subdev_name = "vivcam";
+			idx = <0xff>; // invalid
+			csi_idx = <0xff>;
+			path_type = "SENSOR_VGA_RAW10_LINER";
+		};
+        dma {
+			subdev_name = "vipre";
+			idx = <0>;
+			path_type = "VIPRE_CSI2_ISP0";
+		};
+		isp {
+			subdev_name = "isp";
+			idx = <0>;
+			path_type = "ISP_MI_PATH_SP2_BP";
+			output {
+				max_width = <1920>;
+				max_height = <1088>;
+				bit_per_pixel = <16>;
+				frame_count = <3>;
+			};
+		};
+	};
+};
+
 &video2 {
     vi_mem_pool_region = <0>;	// vi_mem: framebuffer, region[0]
 	status = "okay";
-	pipline0 {
-		pipline_id = <0>;
+	channel0 {
+		channel_id = <0>;
 		status = "okay";
 		sensor0 {
 			subdev_name = "vivcam";
@@ -80,8 +177,8 @@ video12: tuningtool
 			};
 		};
 	};
-	pipline1 {
-		pipline_id = <1>;
+	channel1 {
+		channel_id = <1>;
 		status = "okay";
 		sensor0 {
 			subdev_name = "vivcam";
@@ -113,8 +210,8 @@ video12: tuningtool
 			};
 		};
 	};
-	pipline2 {
-		pipline_id = <2>;
+	channel2 {
+		channel_id = <2>;
 		status = "okay";
 		sensor0 {
 			subdev_name = "vivcam";
@@ -150,7 +247,7 @@ video12: tuningtool
 
 &video3{
     vi_mem_pool_region = <0>;	// vi_mem: framebuffer, region[0]
-	pipline0 {
+	channel0 {
 		sensor0 {
 			subdev_name = "vivcam";
 			idx = <4>; // imx219
@@ -187,7 +284,7 @@ video12: tuningtool
 			dw_dst_depth = <2>;
 		};
 	};
-	pipline1 {
+	channel1 {
 		sensor0 {
 			subdev_name = "vivcam";
 			idx = <4>; // imx219
@@ -224,7 +321,7 @@ video12: tuningtool
 			dw_dst_depth = <2>;
 		};
 	};
-	pipline2 {
+	channel2 {
 		sensor0 {
 			subdev_name = "vivcam";
 			idx = <4>; // imx219
@@ -265,7 +362,7 @@ video12: tuningtool
 
 &video4{
     vi_mem_pool_region = <0>;	// vi_mem: framebuffer, region[0]
-	pipline0 {
+	channel0 {
 		sensor0 {
 			subdev_name = "vivcam";
 			idx = <4>; // imx219
@@ -318,7 +415,7 @@ video12: tuningtool
 			};
 		};
 	};
-	pipline1 {
+	channel1 {
 		sensor0 {
 			subdev_name = "vivcam";
 			idx = <4>; // imx219
@@ -371,7 +468,7 @@ video12: tuningtool
 			};
 		};
 	};
-	pipline2 {
+	channel2 {
 		sensor0 {
 			subdev_name = "vivcam";
 			idx = <4>; // imx219
@@ -428,7 +525,7 @@ video12: tuningtool
 
 &video5{
 	vi_mem_pool_region = <0>;	// vi_mem: framebuffer, region[0]
-	pipline0 {
+	channel0 {
 		sensor0 {
 			subdev_name = "vivcam";
 			idx = <4>; // imx219
@@ -487,7 +584,7 @@ video12: tuningtool
 			dw_dst_depth = <2>;
 		};
 	};
-	pipline1 {
+	channel1 {
 		sensor0 {
 			subdev_name = "vivcam";
 			idx = <4>; // imx219
@@ -546,7 +643,7 @@ video12: tuningtool
 			dw_dst_depth = <2>;
 		};
 	};
-	pipline2 {
+	channel2 {
 		sensor0 {
 			subdev_name = "vivcam";
 			idx = <4>; // imx219

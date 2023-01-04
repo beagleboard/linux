@@ -1,22 +1,18 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (C) 2021 Alibaba Group Holding Limited.
+ * Copyright (C) 2021-2022 Alibaba Group Holding Limited.
  */
 
 /dts-v1/;
 
-#include "light.dtsi"
+#include "fire.dtsi"
 #include <dt-bindings/input/linux-event-codes.h>
 #include <dt-bindings/gpio/gpio.h>
 #include "light-vi-devices.dtsi"
-/ {
-	model = "T-HEAD Light val board";
-	compatible = "thead,light-val", "thead,light";
 
-	memory@0 {
-		device_type = "memory";
-		reg = <0x0 0x00000000 0x0 0x80000000>;
-	};
+/ {
+	model = "T-HEAD fire fpga board";
+	compatible = "thead,fire-emu", "thead,fire";
 
 	chosen {
 		bootargs = "console=ttyS0,115200 crashkernel=256M-:128M earlycon clk_ignore_unused sram=0xffe0000000,0x180000";
@@ -25,7 +21,7 @@
 
 	leds {
 		compatible = "gpio-leds";
-		status = "disabled";
+
 		led0 {
 			label = "SYS_STATUS";
 			gpios = <&gpio1_porta 15 0>;	/* GPIO_ACTIVE_HIGH: 0 */
@@ -33,13 +29,16 @@
 		};
 	};
 
-	display-subsystem {
-		status = "okay";
-	};
-
 	lcd0_backlight: pwm-backlight@0 {
 		compatible = "pwm-backlight";
 		pwms = <&pwm 0 5000000>;
+		brightness-levels = <0 4 8 16 32 64 128 255>;
+		default-brightness-level = <7>;
+	};
+
+	lcd1_backlight: pwm-backlight@1 {
+		compatible = "pwm-backlight";
+		pwms = <&pwm 1 5000000>;
 		brightness-levels = <0 4 8 16 32 64 128 255>;
 		default-brightness-level = <7>;
 	};
@@ -123,14 +122,6 @@
 			is_default_region;
 		};
 
-		iopmp_fce: IOPMP_FCE {
-			is_default_region;
-		};
-
-		iopmp_npu: IOPMP_NPU {
-			is_default_region;
-		};
-
 		iopmp0_dpu: IOPMP0_DPU {
 			bypass_en;
 		};
@@ -207,15 +198,61 @@
 	status = "okay";
 	};
 
-        reg_tp_pwr_en: regulator-pwr-en {
+		reg_tp_pwr_en: regulator-pwr-en {
                 compatible = "regulator-fixed";
                 regulator-name = "PWR_EN";
                 regulator-min-microvolt = <2800000>;
                 regulator-max-microvolt = <2800000>;
-                gpio = <&gpio1_porta 12 1>;
+                gpio = <&pcal6408ahk_a 3 1>;
                 enable-active-high;
                 regulator-always-on;
         };
+
+        reg_tp1_pwr_en: regulator-tp1-pwr-en {
+                compatible = "regulator-fixed";
+                regulator-name = "PWR_EN";
+                regulator-min-microvolt = <2800000>;
+                regulator-max-microvolt = <2800000>;
+                gpio = <&pcal6408ahk_a 6 1>;
+                enable-active-high;
+                regulator-always-on;
+        };
+
+	lcd0_1v8: regulator-lcd0-vdd18 {
+		compatible = "regulator-fixed";
+		regulator-name = "lcd0_en";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		gpio = <&pcal6408ahk_a 2 0>;
+		enable-active-high;
+	};
+
+	lcd0_5v7: regulator-lcd0-vspn57 {
+		compatible = "regulator-fixed";
+		regulator-name = "lcd0_bias_en";
+		regulator-min-microvolt = <5700000>;
+		regulator-max-microvolt = <5700000>;
+		gpio = <&pcal6408ahk_a 4 0>;
+		enable-active-high;
+	};
+
+	lcd1_1v8: regulator-lcd1-vdd18 {
+		compatible = "regulator-fixed";
+		regulator-name = "lcd1_en";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		gpio = <&pcal6408ahk_a 5 0>;
+		enable-active-high;
+	};
+
+	lcd1_5v7: regulator-lcd1-vspn57 {
+		compatible = "regulator-fixed";
+		regulator-name = "lcd1_bias_en";
+		regulator-min-microvolt = <5700000>;
+		regulator-max-microvolt = <5700000>;
+		gpio = <&pcal6408ahk_a 7 0>;
+		enable-active-high;
+	};
 
 	wcn_wifi: wireless-wlan {
 		compatible = "wlan-platdata";
@@ -224,37 +261,38 @@
 		keep_wifi_power_on;
 		pinctrl-names = "default";
 		wifi_chip_type = "rtl8723ds";
-		WIFI,poweren_gpio = <&gpio2_porta 29 0>;
-		WIFI,reset_n = <&gpio2_porta 22 0>;
-		status = "okay";
+		WIFI,poweren_gpio = <&gpio2_porta 26 0>;
+		WIFI,reset_n = <&gpio2_porta 28 0>;
+		status = "disabled";
 	};
 
 	wcn_bt: wireless-bluetooth {
 		compatible = "bluetooth-platdata";
 		pinctrl-names = "default", "rts_gpio";
 		BT,power_gpio    = <&gpio2_porta 29 0>;
-		status = "okay";
+		status = "disabled";
 	};
 
-	gpio-keys {
+	gpio_keys: gpio_keys{
 		compatible = "gpio-keys";
 		pinctrl-0 = <&pinctrl_volume>;
 		pinctrl-names = "default";
+		status = "disabled";
 		key-volumedown {
 			label = "Volume Down Key";
-			linux,code = <KEY_VOLUMEDOWN>;
-			debounce-interval = <1>;
-			gpios = <&gpio1_porta 19 0x1>;
+			linux,code = <KEY_1>;
+			debounce-interval = <2>;
+			gpios = <&ao_gpio_porta 4 GPIO_ACTIVE_LOW>;
 		};
 		key-volumeup {
 			label = "Volume Up Key";
-			linux,code = <KEY_VOLUMEUP>;
-			debounce-interval = <1>;
-			gpios = <&gpio2_porta 25 0x1>;
+			linux,code = <KEY_2>;
+			debounce-interval = <2>;
+			gpios = <&ao_gpio_porta 5 GPIO_ACTIVE_LOW>;
 		};
 	};
 
-	aon: aon {
+	aon {
 		compatible = "thead,light-aon";
 		mbox-names = "aon";
 		mboxes = <&mbox_910t 1 0>;
@@ -265,142 +303,9 @@
 			#power-domain-cells = <1>;
 		};
 
-		soc_aud_3v3_en_reg: soc_aud_3v3_en {
-			compatible = "regulator-fixed";
-			regulator-name = "soc_aud_3v3_en";
-			regulator-min-microvolt = <3300000>;
-			regulator-max-microvolt = <3300000>;
-			gpio = <&ao_gpio_porta 7 1>;
-			enable-active-high;
-			regulator-always-on;
-		};
-
-		soc_aud_1v8_en_reg: soc_aud_1v8_en {
-			compatible = "regulator-fixed";
-			regulator-name = "soc_aud_1v8_en";
-			regulator-min-microvolt = <1800000>;
-			regulator-max-microvolt = <1800000>;
-			gpio = <&ao_gpio_porta 8 1>;
-			enable-active-high;
-			regulator-always-on;
-		};
-
-		soc_vdd_3v3_en_reg: soc_vdd_3v3_en {
-			compatible = "regulator-fixed";
-			regulator-name = "soc_vdd_3v3_en";
-			regulator-min-microvolt = <3300000>;
-			regulator-max-microvolt = <3300000>;
-			gpio = <&gpio0_porta 30 1>;
-			enable-active-high;
-			regulator-always-on;
-		};
-
-		soc_lcd0_bias_en_reg: soc_lcd0_bias_en {
-			compatible = "regulator-fixed";
-			regulator-name = "soc_lcd0_bias_en";
-			regulator-min-microvolt = <5700000>;
-			regulator-max-microvolt = <5700000>;
-			gpio = <&gpio1_porta 10 1>;
-			enable-active-high;
-		};
-
-		soc_vdd18_lcd0_en_reg: soc_lcd0_en {
-			compatible = "regulator-fixed";
-			regulator-name = "soc_lcd0_en";
-			regulator-min-microvolt = <1800000>;
-			regulator-max-microvolt = <1800000>;
-			gpio = <&gpio1_porta 9 1>;
-			enable-active-high;
-		};
-
-		soc_vdd5v_se_en_reg: soc_vdd5v_se_en {
-			compatible = "regulator-fixed";
-			regulator-name = "soc_vdd5v_se_en";
-			regulator-min-microvolt = <5000000>;
-			regulator-max-microvolt = <5000000>;
-			gpio = <&gpio2_porta 14 1>;
-			enable-active-high;
-			regulator-always-on;
-		};
-
-		soc_wcn33_en_reg: soc_wcn33_en {
-			compatible = "regulator-fixed";
-			regulator-name = "soc_wcn33_en";
-			regulator-min-microvolt = <3300000>;
-			regulator-max-microvolt = <3300000>;
-			gpio = <&gpio2_porta 29 1>;
-			enable-active-high;
-			regulator-always-on;
-		};
-
-		soc_vbus_en_reg: soc_vbus_en {
-			compatible = "regulator-fixed";
-			regulator-name = "soc_vbus_en";
-			regulator-min-microvolt = <3300000>;
-			regulator-max-microvolt = <3300000>;
-			gpio = <&gpio2_porta 28 1>;
-			enable-active-high;
-			regulator-always-on;
-		};
-
-
-        	soc_avdd28_rgb_reg: soc_avdd28_rgb {
-			compatible = "regulator-fixed";
-			regulator-name = "soc_avdd28_rgb";
-			regulator-min-microvolt = <2800000>;
-			regulator-max-microvolt = <2800000>;
-			gpio = <&gpio1_porta 15 1>;
-			enable-active-high;
-		};
-
-        	soc_dovdd18_rgb_reg: soc_dovdd18_rgb {
-			compatible = "regulator-fixed";
-			regulator-name = "soc_dovdd18_rgb";
-			regulator-min-microvolt = <2800000>;
-			regulator-max-microvolt = <2800000>;
-			gpio = <&gpio1_porta 13 1>;
-			enable-active-high;
-		};
-
-        	soc_dvdd12_rgb_reg: soc_dvdd12_rgb {
-			compatible = "regulator-fixed";
-			regulator-name = "soc_dvdd12_rgb";
-			regulator-min-microvolt = <2800000>;
-			regulator-max-microvolt = <2800000>;
-			gpio = <&gpio1_porta 14 1>;
-			enable-active-high;
-		};
-
-        	soc_avdd25_ir_reg: soc_avdd25_ir {
-			compatible = "regulator-fixed";
-			regulator-name = "soc_avdd25_ir";
-			regulator-min-microvolt = <2500000>;
-			regulator-max-microvolt = <2500000>;
-			gpio = <&gpio0_porta 28 1>;
-			enable-active-high;
-		};
-
-        	soc_dovdd18_ir_reg: soc_dovdd18_ir {
-			compatible = "regulator-fixed";
-			regulator-name = "soc_dovdd18_ir";
-			regulator-min-microvolt = <1800000>;
-			regulator-max-microvolt = <1800000>;
-			gpio = <&gpio1_porta 13 1>;
-			enable-active-high;
-		};
-
-        	soc_dvdd12_ir_reg: soc_dvdd12_ir {
-			compatible = "regulator-fixed";
-			regulator-name = "soc_dvdd12_ir";
-			regulator-min-microvolt = <1200000>;
-			regulator-max-microvolt = <1200000>;
-			gpio = <&gpio0_porta 29 1>;
-			enable-active-high;
-		};
-
 		aon_reg_dialog: light-dialog-reg {
-			compatible = "thead,light-dialog-pmic-ant";
-			status = "okay";
+			compatible = "thead,light-dialog-pmic";
+			status = "disabled";
 
 			dvdd_cpu_reg: appcpu_dvdd {
 				regulator-name = "appcpu_dvdd";
@@ -417,7 +322,6 @@
 				regulator-boot-on;
 				regulator-always-on;
 			};
-
 			soc_dvdd18_aon_reg: soc_dvdd18_aon {
 				regulator-name = "soc_dvdd18_aon";
 				regulator-boot-on;
@@ -489,37 +393,82 @@
 				regulator-boot-on;
 				regulator-always-on;
 			};
-
 			soc_dovdd18_scan_reg: soc_dovdd18_scan {
 				regulator-name = "soc_dovdd18_scan";
 				regulator-min-microvolt = <900000>;
 				regulator-max-microvolt = <3600000>;
 			};
-
+			soc_vext_2v8_reg: soc_vext_2v8 {
+				regulator-name = "soc_vext_2v8";
+				regulator-boot-on;
+				regulator-always-on;
+			};
 			soc_dvdd12_scan_reg: soc_dvdd12_scan {
 				regulator-name = "soc_dvdd12_scan";
 				regulator-min-microvolt = <900000>;
 				regulator-max-microvolt = <3600000>;
 			};
-
 			soc_avdd28_scan_en_reg: soc_avdd28_scan_en {
 				regulator-name = "soc_avdd28_scan_en";
-				regulator-min-microvolt = <900000>;
+			};
+			soc_avdd28_rgb_reg: soc_avdd28_rgb {
+				regulator-name = "soc_avdd28_rgb";
+				regulator-min-microvolt = <2200000>;
+				regulator-max-microvolt = <3475000>;
+				regulator-boot-on;
+				regulator-always-on;
+			};
+			soc_dovdd18_rgb_reg: soc_dovdd18_rgb {
+				regulator-name = "soc_dovdd18_rgb";
+				regulator-min-microvolt = <1200000>;
 				regulator-max-microvolt = <3600000>;
+				regulator-boot-on;
+				regulator-always-on;
+			};
+			soc_dvdd12_rgb_reg: soc_dvdd12_rgb {
+				regulator-name = "soc_dvdd12_rgb";
+				regulator-min-microvolt = <400000>;
+				regulator-max-microvolt = <1675000>;
+				regulator-boot-on;
+				regulator-always-on;
+			};
+			soc_avdd25_ir_reg: soc_avdd25_ir {
+				regulator-name = "soc_avdd25_ir";
+				regulator-min-microvolt = <2200000>;
+				regulator-max-microvolt = <3475000>;
+				regulator-boot-on;
+				regulator-always-on;
+			};
+			soc_dovdd18_ir_reg: soc_dovdd18_ir {
+				regulator-name = "soc_dovdd18_ir";
+				regulator-min-microvolt = <1200000>;
+				regulator-max-microvolt = <3600000>;
+				regulator-boot-on;
+				regulator-always-on;
+			};
+			soc_dvdd12_ir_reg: soc_dvdd12_ir {
+				regulator-name = "soc_dvdd12_ir";
+				regulator-min-microvolt = <400000>;
+				regulator-max-microvolt = <1675000>;
+				regulator-boot-on;
+				regulator-always-on;
 			};
 
 		};
 
 		c910_cpufreq {
 			compatible = "thead,light-mpw-cpufreq";
-			status = "okay";
+			status = "disabled";
 		};
 
 		test: light-aon-test {
 			compatible = "thead,light-aon-test";
 		};
 	};
+};
 
+&cmamem {
+	alloc-ranges = <0 0xe4000000 0 0x14000000>; // [0xE400_0000 ~ 0xF800_0000]
 };
 
 &resmem {
@@ -527,47 +476,64 @@
 	#size-cells = <2>;
 	ranges;
 
-	tee_mem: memory@1c000000 {
-		reg = <0x0 0x1c000000 0 0x2000000>;
+	tee_mem: memory@1a000000 {
+		reg = <0x0 0x1a000000 0 0x4000000>;
+		no-map;
+	};
+	dsp0_mem: memory@20000000 {			/**0x2000_0000~0x2040_0000 4M**/
+		reg = <0x0 0x20000000 0x0 0x00280000	/* DSP FW code&data section 2.5M*/
+		       0x0 0x20280000 0x0 0x00001000	/* DSP communication area 4K*/
+		       0x0 0x20281000 0x0 0x00007000	/* Panic/log page 28K */
+		       0x0 0x20288000 0x0 0x00178000>;	/* DSP shared memory 1.5M-32K*/
+		no-map;
+	};
+	dsp1_mem: memory@20400000 {			/**0x2040_0000~0x2080_0000 4M**/
+		reg = <0x0 0x20400000 0x0 0x00280000	/* DSP FW code&data section */
+		       0x0 0x20680000 0x0 0x00001000	/* DSP communication area */
+		       0x0 0x20681000 0x0 0x00007000	/* Panic/log page*/
+		       0x0 0x20688000 0x0 0x00178000>;	/* DSP shared memory */
+		no-map;
+	};
+    vi_mem: framebuffer@0f800000 {
+		reg = <0x0 0x0F800000 0x0 0x05400000	/* vi_mem_pool_region[0]  84 MB (default) */
+		       0x0 0x14C00000 0x0 0x01D00000	/* vi_mem_pool_region[1]  29 MB */
+		       0x0 0x16900000 0x0 0x03200000>;	/* vi_mem_pool_region[2]  50 MB */
+		no-map;
+	};
+	facelib_mem: memory@22000000 {
+		reg = <0x0 0x22000000 0x0 0x10000000>;
 		no-map;
 	};
 
-	dsp0_mem: memory@20000000 {             /**0x2000_0000~0x2040_0000 4M**/
-		reg = <0x0 0x20000000 0x0 0x00280000   /* DSP FW code&data section 2.5M*/ 
-               0x0 0x20280000 0x0 0x00001000   /* DSP communication area 4K*/ 
-               0x0 0x20281000 0x0 0x00007000  /* Panic/log page 28K */
-               0x0 0x20288000 0x0 0x00178000>;  /* DSP shared memory 1.5M-32K*/
-		no-map;
-	};
-    dsp1_mem: memory@20400000 {             /**0x2040_0000~0x2080_0000 4M**/
-        reg = <0x0 0x20400000 0x0 0x00280000  /* DSP FW code&data section */ 
-               0x0 0x20680000 0x0 0x00001000 /* DSP communication area */
-               0x0 0x20681000 0x0 0x00007000    /* Panic/log page*/ 
-               0x0 0x20688000 0x0 0x00178000>;  /* DSP shared memory */
-        no-map;
-    };
-	vi_mem: framebuffer@10000000 {
-		reg = <0x0 0x10000000 0x0 0x02C00000	/* vi_mem_pool_region[0]  44 MB (default) */
-		       0x0 0x12C00000 0x0 0x01D00000	/* vi_mem_pool_region[1]  29 MB */
-		       0x0 0x14900000 0x0 0x01E00000>;	/* vi_mem_pool_region[2]  30 MB */
-		no-map;
-	};
-	facelib_mem: memory@17000000 {
-		reg = <0x0 0x17000000 0 0x02000000>;
-		no-map;
-	};
+};
 
+&clk {
+	status = "disabled";
 };
 
 &adc {
 	vref-supply = <&reg_vref_1v8>;
-    #io-channel-cells = <1>;
 	status = "okay";
 };
 
 &i2c0 {
-	clock-frequency = <100000>;
+	clock-frequency = <400000>;
 	status = "okay";
+
+	eeprom@50 {
+		compatible = "atmel,24c32";
+		reg = <0x50>;
+		pagesize = <32>;
+	};
+
+	codec: wm8960@1a {
+		#sound-dai-cells = <0>;
+		compatible = "wlf,wm8960";
+		reg = <0x1a>;
+		wlf,shared-lrclk;
+		wlf,hp-cfg = <3 2 3>;
+		wlf,gpio-cfg = <1 3>;
+	};
 
        touch@5d {
                #gpio-cells = <2>;
@@ -581,7 +547,6 @@
                touchscreen-size-x = <720>;
                touchscreen-size-y = <1280>;
        };
-
 };
 
 &audio_i2c0 {
@@ -599,25 +564,30 @@
                 compatible = "MicArray_0";
                 reg = <0x40>;
         };
-
-	audio_aw87519_pa@58 {
-		compatible = "awinic,aw87519_pa";
-		reg = <0x58>;
-		reset-gpio = <&ao_gpio4_porta 9 0x1>;
-		status = "okay";
-	};
 };
 
 &i2c1 {
-        clock-frequency = <100000>;
+        clock-frequency = <400000>;
         status = "okay";
+        touch1@5d {
+                #gpio-cells = <2>;
+                compatible = "goodix,gt911";
+                reg = <0x5d>;
+                interrupt-parent = <&gpio1_porta>;
+                interrupts = <12 0>;
+                irq-gpios = <&gpio1_porta 12 0>;
+                reset-gpios = <&gpio1_porta 11 0>;
+                AVDD28-supply = <&reg_tp1_pwr_en>;
+                touchscreen-size-x = <720>;
+                touchscreen-size-y = <1280>;
+        };
 };
 
 &spi0 {
 	num-cs = <1>;
 	cs-gpios = <&gpio2_porta 15 0>; // GPIO_ACTIVE_HIGH: 0
 	rx-sample-delay-ns = <10>;
-	status = "disabled";
+	status = "okay";
 
 	spi_norflash@0 {
 		#address-cells = <1>;
@@ -626,6 +596,7 @@
 		reg = <0>;
 		spi-max-frequency = <50000000>;
 		w25q,fast-read;
+		status = "disabled";
 	};
 
 	spidev@1 {
@@ -664,19 +635,24 @@
 };
 
 &qspi1 {
-	compatible = "snps,dw-apb-ssi";
 	num-cs = <1>;
 	cs-gpios = <&gpio0_porta 1 0>;
-	status = "okay";
+	status = "disabled";
 
-	spidev@0 {
-		compatible = "spidev";
-		#address-cells = <0x1>;
-		#size-cells = <0x1>;
-		reg = <0x0>;
-		spi-max-frequency = <50000000>;
+	spi-flash@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "spi-nand";
+		spi-max-frequency = <66000000>;
+		spi-tx-bus-width = <4>;
+		spi-rx-bus-width = <4>;
+		reg = <0>;
+
+		partition@0 {
+			label = "ubi2";
+			reg = <0x00000000 0x08000000>;
+		};
 	};
-
 };
 
 &gmac0 {
@@ -706,7 +682,7 @@
 	rx-clk-delay = <0x00>; /* for RGMII */
 	tx-clk-delay = <0x00>; /* for RGMII */
 	phy-handle = <&phy_88E1111_1>;
-	status = "disabled";
+	status = "okay";
 };
 
 &emmc {
@@ -743,7 +719,7 @@
 	cap-sd-highspeed;
 	keep-power-in-suspend;
 	wakeup-source;
-	status = "okay";
+	status = "disabled";
 };
 
 &padctrl0_apsys { /* right-pinctrl */
@@ -795,6 +771,7 @@
 			pinctrl_pwm: pwmgrp {
 				thead,pins = <
 					FM_GPIO3_2	0x1	0x208	/* pwm0 */
+					FM_GPIO3_3	0x1	0x208	/* pwm1 */
 				>;
 			};
 		};
@@ -828,6 +805,8 @@
 					FM_QSPI1_CSN0    0x3    0x20a
 					FM_QSPI1_D0_MOSI 0x0    0x23a
 					FM_QSPI1_D1_MISO 0x0    0x23a
+					FM_QSPI1_D2_WP   0x0    0x23a
+					FM_QSPI1_D3_HOLD 0x0    0x23a
 				>;
 			};
 
@@ -842,11 +821,6 @@
 				>;
 			};
 
-			pinctrl_volume: volume_grp {
-				thead,pins = <
-					FM_CLK_OUT_2  0x3     0x208
-				>;
-			};
 		};
 };
 
@@ -869,32 +843,50 @@
 				>;
 			};
 
+			pinctrl_volume: volume_grp {
+				thead,pins = <
+					FM_CPU_JTG_TDI  0x3     0x208
+					FM_CPU_JTG_TDO  0x3     0x208
+				>;
+			};
 	};
-};
-
-&i2c0 {
-    clock-frequency = <400000>;
-	status = "okay";
-};
-
-&i2c1 {
-    clock-frequency = <400000>;
-	status = "okay";
 };
 
 &i2c2 {
     clock-frequency = <400000>;
 	status = "okay";
+	eeprom@50 {
+		compatible = "atmel,24c32";
+		reg = <0x50>;
+		pagesize = <32>;
+	};
 };
 
 &i2c3 {
     clock-frequency = <400000>;
 	status = "okay";
+	eeprom@50 {
+		compatible = "atmel,24c32";
+		reg = <0x50>;
+		pagesize = <32>;
+	};
 };
 
 &i2c4 {
     clock-frequency = <400000>;
 	status = "okay";
+	eeprom@50 {
+		compatible = "atmel,24c32";
+		reg = <0x50>;
+		pagesize = <32>;
+	};
+
+	pcal6408ahk_a: gpio@20 {
+		compatible = "nxp,pcal9554b";
+		reg = <0x20>;
+		gpio-controller;
+		#gpio-cells = <2>;
+	};
 };
 
 &isp0 {
@@ -955,27 +947,25 @@
     memory-region = <&dsp0_mem>;
 };
 
-&xtensa_dsp1 {
-	status = "okay";
+&xtensa_dsp1{
+    status = "okay";
     memory-region = <&dsp1_mem>;
 };
 
 &vvcam_flash_led0{
     flash_led_name = "aw36413_aw36515";
-    floodlight_i2c_bus = /bits/ 8 <2>;
-    floodlight_en_pin = <&gpio1_porta 26 0>;
-    projection_i2c_bus = /bits/ 8 <1>;
-    flash_led_touch_pin = <&gpio1_porta 27 0>; //flash led touch pin
-    io-channels = <&adc 2>;
-    io-channel-names = "projection_adc";
-    status = "okay";
+	floodlight_i2c_bus = /bits/ 8 <2>;
+	floodlight_en_pin = <&gpio1_porta 25 0>;
+	//projection_i2c_bus = /bits/ 8 <2>;
+	flash_led_touch_pin = <&gpio1_porta 27 0>; //flash led touch pin
+	status = "okay";
 };
 
 &vvcam_sensor0 {
 	sensor_name = "SC2310";
 	sensor_regulators = "DOVDD18_RGB", "DVDD12_RGB", "AVDD28_RGB";
+	sensor_regulator_voltage_uV = <1800000 1200000 2800000>;
 	sensor_regulator_timing_us = <70 50 20>;
-	sensor_pdn = <&gpio1_porta 21 0>; //powerdown pin / shutdown pin 
 	sensor_rst = <&gpio1_porta 16 0>;
 	sensor_pdn_delay_us = <4000>; //powerdown pin / shutdown pin actived till I2C ready
 	DOVDD18_RGB-supply = <&soc_dovdd18_rgb_reg>;
@@ -989,30 +979,20 @@
 };
 
 &vvcam_sensor1 {
-    sensor_name = "SC132GS";
-    sensor_regulators = "DOVDD18_IR", "DVDD12_IR", "AVDD25_IR";
-    sensor_regulator_timing_us = <70 1000 2000>;
-    i2c_addr = /bits/ 8 <0x31>;
-    sensor_pdn = <&gpio1_porta 28 0>; //powerdown pin / shutdown pin 
-    sensor_rst = <&gpio1_porta 24 0>;
-	sensor_pdn_delay_us = <2000>; //powerdown pin / shutdown pin actived till I2C ready
-    DOVDD18_IR-supply = <&soc_dovdd18_ir_reg>;
-    DVDD12_IR-supply = <&soc_dvdd12_ir_reg>;
-    AVDD25_IR-supply = <&soc_avdd25_ir_reg>;
-    i2c_reg_width = /bits/ 8 <2>;
-    i2c_data_width = /bits/ 8 <1>;
-    i2c_bus = /bits/ 8 <2>;
-    status = "okay";
+	sensor_name = "OV5693";
+	i2c_bus = /bits/ 8 <3>;
+	i2c_reg_width = /bits/ 8 <1>;
+	i2c_data_width = /bits/ 8 <1>;
+	status = "disabled";
 };
 
 &vvcam_sensor2 {
 	sensor_name = "GC5035";
 	sensor_regulators = "DOVDD18_SCAN", "DVDD12_SCAN", "AVDD28_SCAN";
-	sensor_regulator_voltage_uV = <1800000 1200000 2800000>;
 	sensor_regulator_timing_us = <100 50 0>;
-	sensor_pdn = <&gpio1_porta 30 0>; //powerdown pin / shutdown pin 
+	sensor_pdn = <&gpio1_porta 30 0>; //powerdown pin / shutdown pin
 	sensor_rst = <&gpio1_porta 29 0>;
-	sensor_pdn_delay_us = <1000>; //powerdown pin / shutdown pin actived till I2C ready
+	sensor_pdn_delay_us = <60>; //powerdown pin / shutdown pin actived till I2C ready
 	DOVDD18_SCAN-supply = <&soc_dovdd18_scan_reg>;
 	DVDD12_SCAN-supply = <&soc_dvdd12_scan_reg>;
 	AVDD28_SCAN-supply = <&soc_avdd28_scan_en_reg>;
@@ -1024,42 +1004,85 @@
 };
 
 &vvcam_sensor3 {
-	sensor_name = "GC02M1B";
+	sensor_name = "SC2310";
 	sensor_regulators = "DOVDD18_SCAN", "DVDD12_SCAN", "AVDD28_SCAN";
-	sensor_regulator_voltage_uV = <1800000 1800000 2800000>;
-	sensor_regulator_timing_us = <100 50 0>;
-	sensor_pdn = <&gpio1_porta 30 0>; //powerdown pin / shutdown pin 
+	sensor_regulator_timing_us = <70 50 20>;
+	sensor_pdn = <&gpio1_porta 30 0>; //powerdown pin / shutdown pin
 	sensor_rst = <&gpio1_porta 29 0>;
-	sensor_pdn_delay_us = <1000>; //powerdown pin / shutdown pin actived till I2C ready
+	sensor_pdn_delay_us = <4000>; //powerdown pin / shutdown pin actived till I2C ready
 	DOVDD18_SCAN-supply = <&soc_dovdd18_scan_reg>;
 	DVDD12_SCAN-supply = <&soc_dvdd12_scan_reg>;
 	AVDD28_SCAN-supply = <&soc_avdd28_scan_en_reg>;
-	i2c_addr = /bits/ 8 <0x37>;
 	i2c_bus = /bits/ 8 <4>;
-	i2c_reg_width = /bits/ 8 <1>;
-	i2c_data_width = /bits/ 8 <1>;
+	status = "okay";
+};
+
+&vvcam_sensor4 {
+    sensor_name = "SC132GS";
+    sensor_regulators = "DOVDD18_IR", "DVDD12_IR", "AVDD25_IR";
+    sensor_regulator_timing_us = <70 1000 2000>;
+    i2c_addr = /bits/ 8 <0x31>;
+    sensor_rst = <&gpio1_porta 24 0>;
+	sensor_pdn_delay_us = <2000>; //powerdown pin / shutdown pin actived till I2C ready
+    DOVDD18_IR-supply = <&soc_dovdd18_ir_reg>;
+    DVDD12_IR-supply = <&soc_dvdd12_ir_reg>;
+    AVDD25_IR-supply = <&soc_avdd25_ir_reg>;
+    i2c_reg_width = /bits/ 8 <2>;
+    i2c_data_width = /bits/ 8 <1>;
+    i2c_bus = /bits/ 8 <2>;
+    status = "okay";
+};
+
+&vvcam_sensor5 {
+    sensor_name = "OV12870";
+    sensor_regulators = "DOVDD18_RGB", "DVDD12_RGB", "AVDD28_RGB";
+    sensor_regulator_voltage_uV = <1800000 1200000 2800000>;
+    sensor_regulator_timing_us = <100 50 0>;
+    sensor_rst = <&gpio1_porta 16 0>;
+    sensor_pdn_delay_us = <60>; //powerdown pin / shutdown pin actived till I2C ready
+    DOVDD18_RGB-supply = <&soc_dovdd18_rgb_reg>;
+    DVDD12_RGB-supply = <&soc_dvdd12_rgb_reg>;
+    AVDD28_RGB-supply = <&soc_avdd28_rgb_reg>;
+    i2c_addr = /bits/ 8 <0x10>;
+    i2c_reg_width = /bits/ 8 <2>;
+    i2c_data_width = /bits/ 8 <1>;
+    i2c_bus = /bits/ 8 <3>;
+    status = "okay";
+};
+
+&vvcam_sensor6 {
+	sensor_name = "GC02M1B";
+	sensor_regulators = "DOVDD18_RGB", "DVDD12_RGB", "AVDD28_RGB";
+	sensor_regulator_voltage_uV = <1800000 1675000 2800000>;
+	sensor_regulator_timing_us = <70 50 20>;
+	sensor_rst = <&gpio1_porta 16 0>;
+	sensor_pdn_delay_us = <1000>; //powerdown pin / shutdown pin actived till I2C ready
+	DOVDD18_RGB-supply = <&soc_dovdd18_rgb_reg>;
+	DVDD12_RGB-supply = <&soc_dvdd12_rgb_reg>;
+	AVDD28_RGB-supply = <&soc_avdd28_rgb_reg>;
+    i2c_reg_width = /bits/ 8 <1>;
+    i2c_data_width = /bits/ 8 <1>;
+    i2c_addr = /bits/ 8 <0x37>;
+	i2c_bus = /bits/ 8 <3>;
 	status = "okay";
 };
 
 &video0{
-    vi_mem_pool_region = <2>;	// vi_mem: framebuffer, region[2]
-    channel0 {
+	vi_mem_pool_region = <2>;	// vi_mem: framebuffer, region[2]
+	channel0 {
 		sensor0 {
 			subdev_name = "vivcam";
 			idx = <2>; //<2>=vivcam2 : gc5035
-			csi_idx = <0>; //<0>=CSI2
+			csi_idx = <1>; //<1>=CSI2X2_B
 			mode_idx = <3>;
 			path_type = "SENSOR_1296x972_RAW10_LINER"; //SENSOR_VGA_RAW10_LINER//
 		};
 		sensor1 {
 			subdev_name = "vivcam";
-			idx = <3>; //<3>=vivcam3 : gc02m1b
-			csi_idx = <0>; //<0>=CSI2
-			mode_idx = <0>;
-			path_type = "SENSOR_1600x1200_RAW10_LINER";
-		};
-        dma {
-			path_type = "VIPRE_CSI0_ISP0";
+			idx = <3>; //<3>=vivcam3 : sc2310
+			csi_idx = <1>; //<1>=CSI2X2_B
+			mode_idx = <1>;
+			path_type = "SENSOR_1920X1088_26FPS_RAW12_LINER";
 		};
 		isp {
 			subdev_name = "isp";
@@ -1077,19 +1100,16 @@
 		sensor0 {
 			subdev_name = "vivcam";
 			idx = <2>; //<2>=vivcam2 : gc5035
-			csi_idx = <0>; //<0>=CSI2
+			csi_idx = <1>; //<1>=CSI2X2_B
 			mode_idx = <3>;
 			path_type = "SENSOR_1296x972_RAW10_LINER"; //SENSOR_VGA_RAW10_LINER//
 		};
 		sensor1 {
 			subdev_name = "vivcam";
-			idx = <3>; //<3>=vivcam3 : gc02m1b
-			csi_idx = <0>; //<0>=CSI2
-			mode_idx = <0>;
-			path_type = "SENSOR_1600x1200_RAW10_LINER";
-		};
-        dma {
-			path_type = "VIPRE_CSI0_ISP0";
+			idx = <3>; //<3>=vivcam3 : sc2310
+			csi_idx = <1>; //<1>=CSI2X2_B
+			mode_idx = <1>;
+			path_type = "SENSOR_1920X1088_26FPS_RAW12_LINER";
 		};
 		isp {
 			subdev_name = "isp";
@@ -1107,19 +1127,16 @@
 		sensor0 {
 			subdev_name = "vivcam";
 			idx = <2>; //<2>=vivcam2 : gc5035
-			csi_idx = <0>; //<0>=CSI2
+			csi_idx = <1>; //<1>=CSI2X2_B
 			mode_idx = <3>;
 			path_type = "SENSOR_1296x972_RAW10_LINER"; //SENSOR_VGA_RAW10_LINER//
 		};
 		sensor1 {
 			subdev_name = "vivcam";
-			idx = <3>; //<3>=vivcam3 : gc02m1b
-			csi_idx = <0>; //<0>=CSI2
-			mode_idx = <0>;
-			path_type = "SENSOR_1600x1200_RAW10_LINER";
-		};
-        dma {
-			path_type = "VIPRE_CSI0_ISP0";
+			idx = <3>; //<3>=vivcam3 : sc2310
+			csi_idx = <1>; //<1>=CSI2X2_B
+			mode_idx = <1>;
+			path_type = "SENSOR_1920X1088_26FPS_RAW12_LINER";
 		};
 		isp {
 			subdev_name = "isp";
@@ -1137,26 +1154,22 @@
 
 
 &video1{
-    vi_mem_pool_region = <2>;	// vi_mem: framebuffer, region[2]
-    channel0 {
+	vi_mem_pool_region = <2>;	// vi_mem: framebuffer, region[2]
+	channel0 {
 		sensor0 {
 			subdev_name = "vivcam";
 			idx = <2>; //<2>=vivcam2 : gc5035
-			csi_idx = <0>; //<0>=CSI2
+			csi_idx = <1>; //<1>=CSI2X2_B
 			mode_idx = <3>;
 			path_type = "SENSOR_1296x972_RAW10_LINER";
 		};
 		sensor1 {
 			subdev_name = "vivcam";
-			idx = <3>; //<3>=vivcam3 : gc02m1b
-			csi_idx = <0>; //<0>=CSI2
-			mode_idx = <0>;
-			path_type = "SENSOR_1600x1200_RAW10_LINER";
+			idx = <3>; //<3>=vivcam3 : sc2310
+			csi_idx = <1>; //<1>=CSI2X2_B
+			mode_idx = <1>;
+			path_type = "SENSOR_1920X1088_26FPS_RAW12_LINER";
 		};
-        dma {
-			path_type = "VIPRE_CSI0_ISP0";
-		};
-
 		isp {
 			subdev_name = "isp";
 			idx = <0>;
@@ -1179,21 +1192,17 @@
 		sensor0 {
 			subdev_name = "vivcam";
 			idx = <2>; //<2>=vivcam2 : gc5035
-			csi_idx = <0>; //<0>=CSI2
+			csi_idx = <1>; //<1>=CSI2X2_B
 			mode_idx = <3>;
 			path_type = "SENSOR_1296x972_RAW10_LINER";
 		};
 		sensor1 {
 			subdev_name = "vivcam";
-			idx = <3>; //<3>=vivcam3 : gc02m1b
-			csi_idx = <0>; //<0>=CSI2
-			mode_idx = <0>;
-			path_type = "SENSOR_1600x1200_RAW10_LINER";
+			idx = <3>; //<3>=vivcam3 : sc2310
+			csi_idx = <1>; //<1>=CSI2X2_B
+			mode_idx = <1>;
+			path_type = "SENSOR_1920X1088_26FPS_RAW12_LINER";
 		};
-        dma {
-			path_type = "VIPRE_CSI0_ISP0";
-		};
-
 		isp {
 			subdev_name = "isp";
 			idx = <0>;
@@ -1216,21 +1225,17 @@
 		sensor0 {
 			subdev_name = "vivcam";
 			idx = <2>; //<2>=vivcam2 : gc5035
-			csi_idx = <0>; //<0>=CSI2
+			csi_idx = <1>; //<1>=CSI2X2_B
 			mode_idx = <3>;
 			path_type = "SENSOR_1296x972_RAW10_LINER";
 		};
 		sensor1 {
 			subdev_name = "vivcam";
-			idx = <3>; //<3>=vivcam3 : gc02m1b
-			csi_idx = <0>; //<0>=CSI2
-			mode_idx = <0>;
-			path_type = "SENSOR_1600x1200_RAW10_LINER";
+			idx = <3>; //<3>=vivcam3 : sc2310
+			csi_idx = <1>; //<1>=CSI2X2_B
+			mode_idx = <1>;
+			path_type = "SENSOR_1920X1088_26FPS_RAW12_LINER";
 		};
-        dma {
-			path_type = "VIPRE_CSI0_ISP0";
-		};
-
 		isp {
 			subdev_name = "isp";
 			idx = <0>;
@@ -1253,16 +1258,20 @@
 
 &video2{
     vi_mem_pool_region = <0>;	// vi_mem: framebuffer, region[0]
-    channel0 {
+	channel0 {
 		sensor0 {
 			subdev_name = "vivcam";
-			idx = <0>; //vivcam0 sc2310
-			csi_idx = <1>; //<1>=CSI2_B
+			idx = <0>; //sc2310
+			csi_idx = <0>; //<0>=CSI2
 			mode_idx = <1>;
-			path_type = "SENSOR_1920X1088_30FPS_RAW12_LINER";
+			path_type = "SENSOR_1920X1088_26FPS_RAW12_LINER";
 		};
-        dma {
-			path_type = "VIPRE_CSI1_ISP1";
+		sensor1 {
+			subdev_name = "vivcam";
+			idx = <6>; //gc02m1b
+			csi_idx = <0>; //<0>=CSI2
+			mode_idx = <0>;
+			path_type = "SENSOR_1600x1200_RAW10_LINER";
 		};
 		isp {
 			subdev_name = "isp";
@@ -1271,7 +1280,7 @@
 			output {
 				max_width = <1920>;
 				max_height = <1088>;
-				bit_per_pixel = <12>;
+				bit_per_pixel = <16>;
 				frame_count = <3>;
 			};
 		};
@@ -1279,13 +1288,17 @@
 	channel1 {
 		sensor0 {
 			subdev_name = "vivcam";
-			idx = <0>; //vivcam0 sc2310
-			csi_idx = <1>; //<1>=CSI2_B
+			idx = <0>; //sc2310
+			csi_idx = <0>; //<0>=CSI2
 			mode_idx = <1>;
-			path_type = "SENSOR_1920X1088_30FPS_RAW12_LINER";
+			path_type = "SENSOR_1920X1088_26FPS_RAW12_LINER";
 		};
-        dma {
-			path_type = "VIPRE_CSI1_ISP1";
+		sensor1 {
+			subdev_name = "vivcam";
+			idx = <6>; //gc02m1b
+			csi_idx = <0>; //<0>=CSI2
+			mode_idx = <0>;
+			path_type = "SENSOR_1600x1200_RAW10_LINER";
 		};
 		isp {
 			subdev_name = "isp";
@@ -1294,7 +1307,7 @@
 			output {
 				max_width = <1920>;
 				max_height = <1088>;
-				bit_per_pixel = <12>;
+				bit_per_pixel = <16>;
 				frame_count = <3>;
 			};
 		};
@@ -1302,13 +1315,17 @@
 	channel2 {
 		sensor0 {
 			subdev_name = "vivcam";
-			idx = <0>; //vivcam0 sc2310
-			csi_idx = <1>; //<1>=CSI2_B
+			idx = <0>; //sc2310
+			csi_idx = <0>; //<0>=CSI2
 			mode_idx = <1>;
-			path_type = "SENSOR_1920X1088_30FPS_RAW12_LINER";
+			path_type = "SENSOR_1920X1088_26FPS_RAW12_LINER";
 		};
-        dma {
-			path_type = "VIPRE_CSI1_ISP1";
+		sensor1 {
+			subdev_name = "vivcam";
+			idx = <6>; //gc02m1b
+			csi_idx = <0>; //<0>=CSI2
+			mode_idx = <0>;
+			path_type = "SENSOR_1600x1200_RAW10_LINER";
 		};
 		isp {
 			subdev_name = "isp";
@@ -1317,7 +1334,7 @@
 			output {
 				max_width = <1920>;
 				max_height = <1088>;
-				bit_per_pixel = <12>;
+				bit_per_pixel = <16>;
 				frame_count = <3>;
 			};
 		};
@@ -1326,16 +1343,20 @@
 
 &video3{
     vi_mem_pool_region = <0>;	// vi_mem: framebuffer, region[0]
-    channel0 {
+	channel0 {
 		sensor0 {
 			subdev_name = "vivcam";
-			idx = <0>; //vivcam0 sc2310
-			csi_idx = <1>; //<1>=CSI2B
+			idx = <0>; //sc2310
+			csi_idx = <0>; //<0>=CSI2
 			mode_idx = <1>;
-			path_type = "SENSOR_1920X1088_30FPS_RAW12_LINER";
+			path_type = "SENSOR_1920X1088_26FPS_RAW12_LINER";
 		};
-        dma {
-			path_type = "VIPRE_CSI1_ISP1";
+		sensor1 {
+			subdev_name = "vivcam";
+			idx = <6>; //gc02m1b
+			csi_idx = <0>; //<0>=CSI2
+			mode_idx = <0>;
+			path_type = "SENSOR_1600x1200_RAW10_LINER";
 		};
 		isp {
 			subdev_name = "isp";
@@ -1358,13 +1379,17 @@
 	channel1 {
 		sensor0 {
 			subdev_name = "vivcam";
-			idx = <0>; //vivcam0 sc2310
-			csi_idx = <1>; //<1>=CSI2B
+			idx = <0>; //sc2310
+			csi_idx = <0>; //<0>=CSI2
 			mode_idx = <1>;
-			path_type = "SENSOR_1920X1088_30FPS_RAW12_LINER";
+			path_type = "SENSOR_1920X1088_26FPS_RAW12_LINER";
 		};
-        dma {
-			path_type = "VIPRE_CSI1_ISP1";
+		sensor1 {
+			subdev_name = "vivcam";
+			idx = <6>; //gc02m1b
+			csi_idx = <0>; //<0>=CSI2
+			mode_idx = <0>;
+			path_type = "SENSOR_1600x1200_RAW10_LINER";
 		};
 		isp {
 			subdev_name = "isp";
@@ -1387,13 +1412,17 @@
 	channel2 {
 		sensor0 {
 			subdev_name = "vivcam";
-			idx = <0>; //vivcam0 sc2310
-			csi_idx = <1>; //<1>=CSI2_B
+			idx = <0>; //sc2310
+			csi_idx = <0>; //<0>=CSI2
 			mode_idx = <1>;
-			path_type = "SENSOR_1920X1088_30FPS_RAW12_LINER";
+			path_type = "SENSOR_1920X1088_26FPS_RAW12_LINER";
 		};
-        dma {
-			path_type = "VIPRE_CSI1_ISP1";
+		sensor1 {
+			subdev_name = "vivcam";
+			idx = <6>; //gc02m1b
+			csi_idx = <0>; //<0>=CSI2
+			mode_idx = <0>;
+			path_type = "SENSOR_1600x1200_RAW10_LINER";
 		};
 		isp {
 			subdev_name = "isp";
@@ -1417,16 +1446,20 @@
 
 &video4{
     vi_mem_pool_region = <0>;	// vi_mem: framebuffer, region[0]
-    channel0 {
+	channel0 {
 		sensor0 {
 			subdev_name = "vivcam";
-			idx = <0>; //vivcam0 sc2310
-			csi_idx = <1>; //<1>=CSI2_B
+			idx = <0>; //sc2310
+			csi_idx = <0>; //<0>=CSI2
 			mode_idx = <1>;
-			path_type = "SENSOR_1920X1088_30FPS_RAW12_LINER";
+			path_type = "SENSOR_1920X1088_26FPS_RAW12_LINER";
 		};
-        dma {
-			path_type = "VIPRE_CSI1_ISP1";
+		sensor1 {
+			subdev_name = "vivcam";
+			idx = <6>; //gc02m1b
+			csi_idx = <0>; //<0>=CSI2
+			mode_idx = <0>;
+			path_type = "SENSOR_1600x1200_RAW10_LINER";
 		};
 		isp {
 			subdev_name = "isp";
@@ -1465,13 +1498,17 @@
 	channel1 {
 		sensor0 {
 			subdev_name = "vivcam";
-			idx = <0>; //vivcam0 sc2310
-			csi_idx = <1>; //<1>=CSI2_B
+			idx = <0>; //sc2310
+			csi_idx = <0>; //<0>=CSI2
 			mode_idx = <1>;
-			path_type = "SENSOR_1920X1088_30FPS_RAW12_LINER";
+			path_type = "SENSOR_1920X1088_26FPS_RAW12_LINER";
 		};
-        dma {
-			path_type = "VIPRE_CSI1_ISP1";
+		sensor1 {
+			subdev_name = "vivcam";
+			idx = <6>; //gc02m1b
+			csi_idx = <0>; //<0>=CSI2
+			mode_idx = <0>;
+			path_type = "SENSOR_1600x1200_RAW10_LINER";
 		};
 		isp {
 			subdev_name = "isp";
@@ -1510,13 +1547,17 @@
 	channel2 {
 		sensor0 {
 			subdev_name = "vivcam";
-			idx = <0>; //vivcam0 sc2310
-			csi_idx = <1>; //<1>=CSI2_B
+			idx = <0>; //sc2310
+			csi_idx = <0>; //<0>=CSI2
 			mode_idx = <1>;
-			path_type = "SENSOR_1920X1088_30FPS_RAW12_LINER";
+			path_type = "SENSOR_1920X1088_26FPS_RAW12_LINER";
 		};
-        dma {
-			path_type = "VIPRE_CSI1_ISP1";
+		sensor1 {
+			subdev_name = "vivcam";
+			idx = <6>; //gc02m1b
+			csi_idx = <0>; //<0>=CSI2
+			mode_idx = <0>;
+			path_type = "SENSOR_1600x1200_RAW10_LINER";
 		};
 		isp {
 			subdev_name = "isp";
@@ -1555,17 +1596,21 @@
 };
 
 &video5{
-    vi_mem_pool_region = <0>;	// vi_mem: framebuffer, region[0]
-    channel0 {
+	vi_mem_pool_region = <0>;	// vi_mem: framebuffer, region[0]
+	channel0 {
 		sensor0 {
 			subdev_name = "vivcam";
-			idx = <0>; //vivcam0 sc2310
-			csi_idx = <1>; //<1>=CSI2_B
+			idx = <0>; //sc2310
+			csi_idx = <0>; //<0>=CSI2
 			mode_idx = <1>;
-			path_type = "SENSOR_1920X1088_30FPS_RAW12_LINER";
+			path_type = "SENSOR_1920X1088_26FPS_RAW12_LINER";
 		};
-        dma {
-			path_type = "VIPRE_CSI1_ISP1";
+		sensor1 {
+			subdev_name = "vivcam";
+			idx = <6>; //gc02m1b
+			csi_idx = <0>; //<0>=CSI2
+			mode_idx = <0>;
+			path_type = "SENSOR_1600x1200_RAW10_LINER";
 		};
 		isp {
 			subdev_name = "isp";
@@ -1610,13 +1655,17 @@
 	channel1 {
 		sensor0 {
 			subdev_name = "vivcam";
-			idx = <0>; //vivcam0 sc2310
-			csi_idx = <1>; //<1>=CSI2_B
+			idx = <0>; //sc2310
+			csi_idx = <0>; //<0>=CSI2
 			mode_idx = <1>;
-			path_type = "SENSOR_1920X1088_30FPS_RAW12_LINER";
+			path_type = "SENSOR_1920X1088_26FPS_RAW12_LINER";
 		};
-        dma {
-			path_type = "VIPRE_CSI1_ISP1";
+		sensor1 {
+			subdev_name = "vivcam";
+			idx = <6>; //gc02m1b
+			csi_idx = <0>; //<0>=CSI2
+			mode_idx = <0>;
+			path_type = "SENSOR_1600x1200_RAW10_LINER";
 		};
 		isp {
 			subdev_name = "isp";
@@ -1661,13 +1710,17 @@
 	channel2 {
 		sensor0 {
 			subdev_name = "vivcam";
-			idx = <0>; //vivcam0 sc2310
-			csi_idx = <1>; //<1>=CSI2_B
+			idx = <0>; //sc2310
+			csi_idx = <0>; //<0>=CSI2
 			mode_idx = <1>;
-			path_type = "SENSOR_1920X1088_30FPS_RAW12_LINER";
+			path_type = "SENSOR_1920X1088_26FPS_RAW12_LINER";
 		};
-        dma {
-			path_type = "VIPRE_CSI1_ISP1";
+		sensor1 {
+			subdev_name = "vivcam";
+			idx = <6>; //gc02m1b
+			csi_idx = <0>; //<0>=CSI2
+			mode_idx = <0>;
+			path_type = "SENSOR_1600x1200_RAW10_LINER";
 		};
 		isp {
 			subdev_name = "isp";
@@ -1713,10 +1766,10 @@
 
 &video6{
 	vi_mem_pool_region = <1>;	// vi_mem: framebuffer, region[1]
-    channel0 {
+	channel0 {
 		sensor0 {
 			subdev_name = "vivcam";
-			idx = <1>; // vivcam1 sc132gs
+			idx = <4>; //sc132gs
 			csi_idx = <2>; //<2>=CSI2X2_A
 			flash_led_idx = <0>;
 			mode_idx = <0>;
@@ -1734,7 +1787,7 @@
 	channel1 {
 		sensor0 {
 			subdev_name = "vivcam";
-			idx = <1>; //vivcam1 sc132gs
+			idx = <4>; //sc132gs
 			csi_idx = <2>; //<2>=CSI2X2_A
 			flash_led_idx = <0>;
 			mode_idx = <0>;
@@ -1749,7 +1802,6 @@
 			};
 		};
 	};
-
 };
 
 &video7{
@@ -1757,21 +1809,17 @@
 		sensor0 {
 			subdev_name = "vivcam";
 			idx = <2>; //<2>=vivcam2 : gc5035
-			csi_idx = <0>; //<0>=CSI2
+			csi_idx = <1>; //<1>=CSI2X2_B
 			mode_idx = <3>;
 			path_type = "SENSOR_1296x972_RAW10_LINER"; //SENSOR_VGA_RAW10_LINER//
 		};
 		sensor1 {
 			subdev_name = "vivcam";
-			idx = <3>; //<3>=vivcam3 : gc02m1b
-			csi_idx = <0>; //<0>=CSI2
-			mode_idx = <0>;
-			path_type = "SENSOR_1600x1200_RAW10_LINER";
+			idx = <3>; //<3>=vivcam3 : sc2310
+			csi_idx = <1>; //<1>=CSI2X2_B
+			mode_idx = <1>;
+			path_type = "SENSOR_1920X1088_26FPS_RAW12_LINER";
 		};
-        dma {
-			path_type = "VIPRE_CSI0_ISP0";
-		};
-
 		isp {
 			subdev_name = "isp";
 			idx = <0>;
@@ -1816,21 +1864,17 @@
 		sensor0 {
 			subdev_name = "vivcam";
 			idx = <2>; //<2>=vivcam2 : gc5035
-			csi_idx = <0>; //<0>=CSI2
+			csi_idx = <1>; //<1>=CSI2X2_B
 			mode_idx = <3>;
 			path_type = "SENSOR_1296x972_RAW10_LINER"; //SENSOR_VGA_RAW10_LINER//
 		};
 		sensor1 {
 			subdev_name = "vivcam";
-			idx = <3>; //<3>=vivcam3 : gc02m1b
-			csi_idx = <0>; //<0>=CSI2
-			mode_idx = <0>;
-			path_type = "SENSOR_1600x1200_RAW10_LINER";
+			idx = <3>; //<3>=vivcam3 : sc2310
+			csi_idx = <1>; //<1>=CSI2X2_B
+			mode_idx = <1>;
+			path_type = "SENSOR_1920X1088_26FPS_RAW12_LINER";
 		};
-        dma {
-			path_type = "VIPRE_CSI0_ISP0";
-		};
-
 		isp {
 			subdev_name = "isp";
 			idx = <0>;
@@ -1875,21 +1919,17 @@
 		sensor0 {
 			subdev_name = "vivcam";
 			idx = <2>; //<2>=vivcam2 : gc5035
-			csi_idx = <0>; //<0>=CSI2
+			csi_idx = <1>; //<1>=CSI2X2_B
 			mode_idx = <3>;
 			path_type = "SENSOR_1296x972_RAW10_LINER"; //SENSOR_VGA_RAW10_LINER//
 		};
 		sensor1 {
 			subdev_name = "vivcam";
-			idx = <3>; //<3>=vivcam3 : gc02m1b
-			csi_idx = <0>; //<0>=CSI2
-			mode_idx = <0>;
-			path_type = "SENSOR_1600x1200_RAW10_LINER";
+			idx = <3>; //<3>=vivcam3 : sc2310
+			csi_idx = <1>; //<1>=CSI2X2_B
+			mode_idx = <1>;
+			path_type = "SENSOR_1920X1088_26FPS_RAW12_LINER";
 		};
-        dma {
-			path_type = "VIPRE_CSI0_ISP0";
-		};
-
 		isp {
 			subdev_name = "isp";
 			idx = <0>;
@@ -1934,24 +1974,21 @@
 
 
 &video8{
-	vi_mem_pool_region = <1>;	// vi_mem: framebuffer, region[1]
+    vi_mem_pool_region = <1>;	// vi_mem: framebuffer, region[1]
 	channel0 {
 		sensor0 {
 			subdev_name = "vivcam";
 			idx = <2>; //<2>=vivcam2 : gc5035
-			csi_idx = <0>; //<0>=CSI2
+			csi_idx = <1>; //<1>=CSI2X2_B
 			mode_idx = <3>;
 			path_type = "SENSOR_1296x972_RAW10_LINER"; //SENSOR_VGA_RAW10_LINER//
 		};
 		sensor1 {
 			subdev_name = "vivcam";
-			idx = <3>; //<3>=vivcam3 : gc02m1b
-			csi_idx = <0>; //<0>=CSI2
-			mode_idx = <0>;
-			path_type = "SENSOR_1600x1200_RAW10_LINER";
-		};
-        dma {
-			path_type = "VIPRE_CSI0_DSP";
+			idx = <3>; //<3>=vivcam3 : sc2310
+			csi_idx = <1>; //<1>=CSI2X2_B
+			mode_idx = <1>;
+			path_type = "SENSOR_1920X1088_26FPS_RAW12_LINER";
 		};
 		dsp {
 			subdev_name = "dsp";
@@ -1971,7 +2008,7 @@
 	channel0 {
 		sensor0 {
 			subdev_name = "vivcam";
-			idx = <1>; //vivcam1 sc132gs
+			idx = <4>; //sc132gs
 			csi_idx = <2>; //<2>=CSI2X2_A
 			mode_idx = <0>;
 			path_type = "SENSOR_1080X1280_30FPS_RAW10_LINER";
@@ -1988,37 +2025,34 @@
 };
 
 
-&video10{ // TUNINGTOOL
+&video10{
 	channel0 {
 		sensor0 {
 			subdev_name = "vivcam";
 			idx = <2>; //<2>=vivcam2 : gc5035
-			csi_idx = <0>; //<0>=CSI2
+			csi_idx = <1>; //<1>=CSI2X2_B
 			mode_idx = <1>;
 			path_type = "SENSOR_1080P_RAW10_LINER"; //SENSOR_VGA_RAW10_LINER//
 			skip_init = <1>;
 		};
 		sensor1 {
 			subdev_name = "vivcam";
-			idx = <3>; //<3>=vivcam3 : gc02m1b
-			csi_idx = <0>; //<0>=CSI2
-			mode_idx = <0>;
-			path_type = "SENSOR_1600x1200_RAW10_LINER";
+			idx = <3>; //<3>=vivcam3 : sc2310
+			csi_idx = <1>; //<1>=CSI2X2_B
+			mode_idx = <1>;
+			path_type = "SENSOR_1920X1088_26FPS_RAW12_LINER";
 			skip_init = <1>;
-		};
-        dma {
-			path_type = "VIPRE_CSI0_ISP0";
 		};
 	};
 };
 
 &video11{
-	channel0 { 
+	channel0 {
 		channel_id = <0>;
 		status = "okay";
 		sensor0 {
 			subdev_name = "vivcam";
-			idx = <1>; //sc132gs
+			idx = <4>; //sc132gs
 			csi_idx = <2>; //<2>=CSI2X2_A
 			flash_led_idx = <0>;
 			mode_idx = <0>;
@@ -2043,110 +2077,20 @@
 		sensor0 {
 			subdev_name = "vivcam";
 			idx = <0>; //sc2310
-			csi_idx = <1>; //<1>=CSI2_B
+			csi_idx = <0>; //<0>=CSI2
 			mode_idx = <1>;
-			path_type = "SENSOR_1920X1088_30FPS_RAW12_LINER";
+			path_type = "SENSOR_1920X1088_26FPS_RAW12_LINER";
 			skip_init = <1>;
 		};
 		sensor1 {
 			subdev_name = "vivcam";
 			idx = <6>; //gc02m1b
-			csi_idx = <1>; //<1>=CSI2_B
+			csi_idx = <0>; //<0>=CSI2
 			mode_idx = <0>;
 			path_type = "SENSOR_1600x1200_RAW10_LINER";
 			skip_init = <1>;
 		};
 	};
-    dma {
-			path_type = "VIPRE_CSI1_ISP0";
-    };
-};
-
-&video13{
-    status = "okay";
-    //vi_mem_pool_region = <0>;
-    channel0 {
-        channel_id = <0>;
-        status = "okay";
-        sensor0 {
-            subdev_name = "vivcam";
-            idx = <0>; //sc2310
-			csi_idx = <1>; //<1>=CSI2_B
-            mode_idx = <1>;
-            path_type = "SENSOR_1920X1088_26FPS_RAW12_LINER";
-        };
-        dma {
-            subdev_name = "vipre";
-            idx = <0>;
-            path_type = "VIPRE_CSI0_ISP0";
-        };
-        isp {
-            subdev_name = "isp";
-            idx = <0>;
-            path_type = "ISP_MI_MCM_WR0";
-            output {
-                max_width = <1920>;
-                max_height = <1088>;
-                bit_per_pixel = <16>;
-                frame_count = <3>;
-            };
-        };
-    };
-};
-
-&video14{
-    vi_mem_pool_region = <2>;   // vi_mem: framebuffer, region[0]
-    status = "okay";
-    channel0 {
-        channel_id = <0>;
-        status = "okay";
-        sensor0 {
-            subdev_name = "vivcam";
-            idx = <1>; //sc132gs
-            csi_idx = <2>; //<2>=CSI2X2_A
-            flash_led_idx = <0>;
-            mode_idx = <0>;
-            path_type = "SENSOR_1080X1280_30FPS_RAW10_LINER";
-        };
-        dma {
-            subdev_name = "vipre";
-            idx = <0>;
-            path_type = "VIPRE_CSI2_ISP1";
-        };
-        isp {
-            subdev_name = "isp";
-            idx = <1>;
-            path_type = "ISP_MI_MCM_WR0";
-            output {
-                max_width = <1080>;
-                max_height = <1280>;
-                bit_per_pixel = <16>;
-                frame_count = <3>;
-            };
-        };
-    };
-};
-
-&video15{
-    status = "okay";
-    //vi_mem_pool_region = <0>;
-    channel0 {
-        channel_id = <0>;
-        status = "okay";
-        sensor0 {
-            subdev_name = "vivcam";
-            idx = <0>; //<0>=vivcam0 :2310 
-			csi_idx = <1>; //<1>=CSI2_B
-            flash_led_idx = <0>;
-            mode_idx = <1>;
-            path_type = "SENSOR_1920X1088_26FPS_RAW12_LINER";
-        };
-        dma {
-            subdev_name = "vipre";
-            idx = <0>;
-            path_type = "VIPRE_CSI0_DDR";
-        };
-    };
 };
 
 &trng {
@@ -2171,153 +2115,11 @@
 
 &vidmem {
 	status = "okay";
-    memory-region = <&vi_mem>;
+	memory-region = <&vi_mem>;
 };
 
 &gpu {
 	status = "okay";
-};
-
-&npu {
-	vha_clk_rate = <1000000000>;
-	status = "okay";
-};
-
-&fce {
-	memory-region = <&facelib_mem>;
-	status = "okay";
-};
-
-&dpu_enc0 {
-	status = "okay";
-
-	ports {
-		/* output */
-		port@1 {
-			reg = <1>;
-
-			enc0_out: endpoint {
-				remote-endpoint = <&dsi0_in>;
-			};
-		};
-	};
-};
-
-&dpu_enc1 {
-        ports {
-                /delete-node/ port@0;
-        };
-};
-
-&dpu {
-        status = "okay";
-};
-
-&dsi0 {
-        status = "okay";
-};
-
-&dhost_0 {
-	ports {
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		port@0 {
-			reg = <0>;
-
-			dsi0_in: endpoint {
-				remote-endpoint = <&enc0_out>;
-			};
-		};
-
-		port@1 {
-			reg = <1>;
-
-			dsi0_out: endpoint {
-				remote-endpoint = <&panel0_in>;
-			};
-		};
-	};
-
-	panel0@0 {
-		compatible = "txd,dy800qwxpab";
-		reg = <0>;
-		backlight = <&lcd0_backlight>;
-		reset-gpio = <&gpio1_porta 5 1>; /* active low */
-		vdd1v8-supply = <&soc_vdd18_lcd0_en_reg>;
-		vspn5v7-supply = <&soc_lcd0_bias_en_reg>;
-
-		port {
-			panel0_in: endpoint {
-				remote-endpoint = <&dsi0_out>;
-			};
-		};
-	};
-};
-
-&disp1_out {
-	remote-endpoint = <&hdmi_tx_in>;
-};
-
-&hdmi_tx {
-	status = "okay";
-
-	port@0 {
-		/* input */
-		hdmi_tx_in: endpoint {
-			remote-endpoint = <&disp1_out>;
-		};
-	};
-};
-
-&lightsound {
-        status = "okay";
-        simple-audio-card,dai-link@0 {          /* I2S - AUDIO SYS CODEC 8156*/
-                reg = <0>;
-                format = "i2s";
-                cpu {
-                        sound-dai = <&i2s1 0>;
-                };
-                codec {
-                        sound-dai = <&es8156_audio_codec>;
-                };
-        };
-        simple-audio-card,dai-link@1 {          /* I2S - AUDIO SYS CODEC 7210*/
-                reg = <1>;
-                format = "i2s";
-                cpu {
-                        sound-dai = <&i2s3 0>;
-                };
-                codec {
-                        sound-dai = <&es7210_audio_codec>;
-                };
-        };
-        simple-audio-card,dai-link@2 {          /* I2S - HDMI */
-                reg = <2>;
-                format = "i2s";
-                cpu {
-                        sound-dai = <&light_i2s 1>;
-                };
-                codec {
-                        sound-dai = <&dummy_codec 2>;
-                };
-        };
-};
-
-&light_i2s {
-        status = "okay";
-};
-
-&i2s0 {
-        status = "okay";
-};
-
-&i2s1 {
-        status = "okay";
-};
-
-&i2s3 {
-        status = "okay";
 };
 
 &cpus {
@@ -2327,12 +2129,14 @@
 			300000	650000
 			800000	700000
 			1500000	800000
+			1848000	1000000
 		>;
 		light,dvddm-operating-points = <
 			/* kHz   uV */
 			300000	800000
 			800000	800000
 			1500000	800000
+			1848000	1000000
 		>;
 	};
 	c910_1: cpu@1 {
@@ -2341,12 +2145,14 @@
 			300000	650000
 			800000	700000
 			1500000	800000
+			1848000	1000000
 		>;
 		light,dvddm-operating-points = <
 			/* kHz   uV */
 			300000	800000
 			800000	800000
 			1500000	800000
+			1848000	1000000
 		>;
 	};
 	c910_2: cpu@2 {
@@ -2356,12 +2162,14 @@
 			300000	650000
 			800000	700000
 			1500000	800000
+			1848000	1000000
 		>;
 		light,dvddm-operating-points = <
 			/* kHz   uV */
 			300000	800000
 			800000	800000
 			1500000	800000
+			1848000	1000000
 		>;
 	};
 	c910_3: cpu@3 {
@@ -2371,12 +2179,14 @@
 			300000	650000
 			800000	700000
 			1500000	800000
+			1848000	1000000
 		>;
 		light,dvddm-operating-points = <
 			/* kHz   uV */
 			300000	800000
 			800000	800000
 			1500000	800000
+			1848000	1000000
 		>;
 	};
 };

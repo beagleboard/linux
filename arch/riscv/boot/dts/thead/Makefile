@@ -33,3 +33,5 @@ dtb-$(CONFIG_SOC_THEAD) += light-a-val-crash.dtb light-b-product-crash.dtb light
 dtb-$(CONFIG_SOC_THEAD) += light-b-power.dtb
 
 dtb-$(CONFIG_SOC_THEAD) += light-a-val-android.dtb
+
+dtb-$(CONFIG_SOC_THEAD) += fire-emu.dtb fire-emu-crash.dtb

@@ -5,13 +5,13 @@
 
 /dts-v1/;
 
-#include "light.dtsi"
+#include "fire.dtsi"
 #include <dt-bindings/input/linux-event-codes.h>
 #include <dt-bindings/gpio/gpio.h>
 #include "light-vi-devices.dtsi"
 / {
-	model = "T-HEAD Light val board";
-	compatible = "thead,light-val", "thead,light";
+	model = "T-HEAD Fire emu board";
+	compatible = "thead,fire-emu", "thead,fire";
 
 	chosen {
 		bootargs = "console=ttyS0,115200 earlycon";
@@ -121,10 +121,6 @@
 		};
 
 		iopmp_fce: IOPMP_FCE {
-			is_default_region;
-		};
-
-		iopmp_npu: IOPMP_NPU {
 			is_default_region;
 		};
 
@@ -819,14 +815,6 @@
 };
 
 &gpu {
-	status = "disabled";
-};
-
-&npu {
-	status = "disabled";
-};
-
-&fce {
 	status = "disabled";
 };
 

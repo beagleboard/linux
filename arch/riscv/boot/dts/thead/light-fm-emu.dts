@@ -451,8 +451,8 @@
 
 &video{
 	status = "okay";
-	piplane0 {
-				pipline_id = <0>;
+	channel0 {
+				channel_id = <0>;
 				status = "okay";
 				sensor0 {
 					subdev_name = "vivcam";

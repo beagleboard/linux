@@ -34,6 +34,7 @@ config RISCV
 	select ARCH_HAS_DMA_MMAP_PGPROT
 	select ARCH_OPTIONAL_KERNEL_RWX if ARCH_HAS_STRICT_KERNEL_RWX
 	select ARCH_OPTIONAL_KERNEL_RWX_DEFAULT
+	select ARCH_USE_QUEUED_RWLOCKS
 	select ARCH_WANT_DEFAULT_TOPDOWN_MMAP_LAYOUT if MMU
 	select ARCH_WANT_FRAME_POINTERS
 	select ARCH_WANT_HUGE_PMD_SHARE if 64BIT
@@ -360,6 +361,8 @@ config RISCV_ISA_C
 
 config NO_SFENCE_VMA
 	bool "Replace sfence.vma with CSR_SMCIR operation"
+	depends on !SMP
+	default y
 
 config RISCV_SWIOTLB
 	bool "Enable SWIOTLB"

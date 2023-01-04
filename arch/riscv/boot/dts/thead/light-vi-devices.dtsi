@@ -5,8 +5,8 @@
 
 &video0{
 	status = "okay";
-	pipline0 {
-		pipline_id = <0>;
+	channel0 {
+		channel_id = <0>;
 		status = "okay";
 		sensor0 {
 			subdev_name = "vivcam";
@@ -31,8 +31,8 @@
 			path_type = "ISP_MI_PATH_MP";
 		};
 	};
-	pipline1 {
-		pipline_id = <1>;
+	channel1 {
+		channel_id = <1>;
 		status = "okay";
 		sensor0 {
 			subdev_name = "vivcam";
@@ -57,8 +57,8 @@
 			path_type = "ISP_MI_PATH_SP";
 		};
 	};
-	pipline2 {
-		pipline_id = <2>;
+	channel2 {
+		channel_id = <2>;
 		status = "okay";
 		sensor0 {
 			subdev_name = "vivcam";
@@ -87,8 +87,8 @@
 
 &video1{
 	status = "okay";
-	pipline0 { // VSE0
-		pipline_id = <0>;
+	channel0 { // VSE0
+		channel_id = <0>;
 		status = "okay";
 		sensor0 {
 			subdev_name = "vivcam";
@@ -118,8 +118,8 @@
 			path_type = "DW_DWE_VSE0";
 		};
 	};
-	pipline1 { // VSE1
-		pipline_id = <1>;
+	channel1 { // VSE1
+		channel_id = <1>;
 		status = "okay";
 		sensor0 {
 			subdev_name = "vivcam";
@@ -149,8 +149,8 @@
 			path_type = "DW_DWE_VSE1";
 		};
 	};
-	pipline2 { // VSE2
-		pipline_id = <2>;
+	channel2 { // VSE2
+		channel_id = <2>;
 		status = "okay";
 		sensor0 {
 			subdev_name = "vivcam";
@@ -184,8 +184,8 @@
 
 &video2 {
 	status = "okay";
-	pipline0 {
-		pipline_id = <0>;
+	channel0 {
+		channel_id = <0>;
 		status = "okay";
 		sensor0 {
 			subdev_name = "vivcam";
@@ -210,8 +210,8 @@
 			path_type = "ISP_MI_PATH_MP";
 		};
 	};
-	pipline1 {
-		pipline_id = <1>;
+	channel1 {
+		channel_id = <1>;
 		status = "okay";
 		sensor0 {
 			subdev_name = "vivcam";
@@ -236,8 +236,8 @@
 			path_type = "ISP_MI_PATH_SP";
 		};
 	};
-	pipline2 {
-		pipline_id = <2>;
+	channel2 {
+		channel_id = <2>;
 		status = "okay";
 		sensor0 {
 			subdev_name = "vivcam";
@@ -267,8 +267,8 @@
 
 &video3 {
 	status = "okay";
-		pipline0 {
-		pipline_id = <0>;
+		channel0 {
+		channel_id = <0>;
 		status = "okay";
 		sensor0 {
 			subdev_name = "vivcam";
@@ -298,8 +298,8 @@
 			path_type = "DW_DWE_VSE0";
 		};
 	};
-	pipline1 {
-		pipline_id = <1>;
+	channel1 {
+		channel_id = <1>;
 		status = "okay";
 		sensor0 {
 			subdev_name = "vivcam";
@@ -330,8 +330,8 @@
 			path_type = "DW_DWE_VSE1";
 		};
 	};
-	pipline2 {
-		pipline_id = <2>;
+	channel2 {
+		channel_id = <2>;
 		status = "okay";
 		sensor0 {
 			subdev_name = "vivcam";
@@ -365,8 +365,8 @@
 
 &video4 {
 	status = "okay";
-	pipline0 {
-		pipline_id = <0>;
+	channel0 {
+		channel_id = <0>;
 		status = "okay";
 		sensor0 {
 			subdev_name = "vivcam";
@@ -402,8 +402,8 @@
 			path_type = "ISP_RY_MI_PATH_MP";
 		};
 	};
-	pipline1 {
-		pipline_id = <1>;
+	channel1 {
+		channel_id = <1>;
 		status = "okay";
 		sensor0 {
 			subdev_name = "vivcam";
@@ -438,8 +438,8 @@
 			path_type = "ISP_RY_MI_PATH_SP";
 		};
 	};
-	pipline2 {
-		pipline_id = <2>;
+	channel2 {
+		channel_id = <2>;
 		status = "okay";
 		sensor0 {
 			subdev_name = "vivcam";
@@ -478,8 +478,8 @@
 
 &video5 {
 	status = "okay";
-	pipline0 {
-		pipline_id = <0>;
+	channel0 {
+		channel_id = <0>;
 		status = "okay";
 		sensor0 {
 			subdev_name = "vivcam";
@@ -520,8 +520,8 @@
 			path_type = "DW_DWE_VSE0";
 		};
 	};
-	pipline1 {
-		pipline_id = <1>;
+	channel1 {
+		channel_id = <1>;
 		status = "okay";
 		sensor0 {
 			subdev_name = "vivcam";
@@ -561,8 +561,8 @@
 			path_type = "DW_DWE_VSE1";
 		};
 	};
-	pipline2 {
-		pipline_id = <2>;
+	channel2 {
+		channel_id = <2>;
 		status = "okay";
 		sensor0 {
 			subdev_name = "vivcam";
@@ -607,8 +607,8 @@
 
 &video6 {
 	status = "okay";
-	pipline0 {
-		pipline_id = <0>;
+	channel0 {
+		channel_id = <0>;
 		status = "okay";
 		sensor0 {
 			subdev_name = "vivcam";
@@ -633,8 +633,8 @@
 			path_type = "DSP_PATH_VIPRE_ODD";
 		};
 	};
-	pipline1 {
-		pipline_id = <1>;
+	channel1 {
+		channel_id = <1>;
 		status = "okay";
 		sensor0 {
 			subdev_name = "vivcam";
@@ -664,8 +664,8 @@
 
 &video7{
 	status = "okay";
-	pipline0 {
-		pipline_id = <0>;
+	channel0 {
+		channel_id = <0>;
 		status = "okay";
 		sensor0 {
 			subdev_name = "vivcam";
@@ -706,8 +706,8 @@
 		};
 
 	};
-	pipline1 {
-		pipline_id = <1>;
+	channel1 {
+		channel_id = <1>;
 		status = "okay";
 		sensor0 {
 			subdev_name = "vivcam";
@@ -747,8 +747,8 @@
 			path_type = "DW_DWE_VSE1";
 		};
 	};
-	pipline2 {
-		pipline_id = <2>;
+	channel2 {
+		channel_id = <2>;
 		status = "okay";
 		sensor0 {
 			subdev_name = "vivcam";
@@ -793,8 +793,8 @@
 
 &video8{
 	status = "okay";
-	pipline0 {
-		pipline_id = <0>;
+	channel0 {
+		channel_id = <0>;
 		status = "okay";
 		sensor0 {
 			subdev_name = "vivcam";
@@ -824,8 +824,8 @@
 
 &video9 { //IR debug
 	status = "okay";
-	pipline0 {
-		pipline_id = <0>;
+	channel0 {
+		channel_id = <0>;
 		status = "okay";
 		sensor0 {
 			subdev_name = "vivcam";
@@ -857,7 +857,7 @@
 
 &video10{ // TUNING TOOL
 	status = "okay";
-	pipline0 { // CSI2X2_B
+	channel0 { // CSI2X2_B
 		status = "okay";
 		sensor0 {
 			subdev_name = "vivcam";
@@ -884,8 +884,8 @@
 
 &video11{
 	status = "okay";
-	pipline0 {
-		pipline_id = <0>;
+	channel0 {
+		channel_id = <0>;
 		status = "okay";
 		sensor0 {
 			subdev_name = "vivcam";
@@ -915,7 +915,7 @@
 
 &video12{ // TUNING TOOL
 	status = "okay";
-	pipline0 { // CSI2
+	channel0 { // CSI2
 		status = "okay";
 		sensor0 {
 			subdev_name = "vivcam";

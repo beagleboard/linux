@@ -1107,7 +1107,7 @@
 
 &video0{
 	vi_mem_pool_region = <2>;	// vi_mem: framebuffer, region[2]
-	pipline0 {
+	channel0 {
 		sensor0 {
 			subdev_name = "vivcam";
 			idx = <2>; //<2>=vivcam2 : gc5035
@@ -1134,7 +1134,7 @@
 			};
 		};
 	};
-	pipline1 {
+	channel1 {
 		sensor0 {
 			subdev_name = "vivcam";
 			idx = <2>; //<2>=vivcam2 : gc5035
@@ -1161,7 +1161,7 @@
 			};
 		};
 	};
-	pipline2 {
+	channel2 {
 		sensor0 {
 			subdev_name = "vivcam";
 			idx = <2>; //<2>=vivcam2 : gc5035
@@ -1193,7 +1193,7 @@
 
 &video1{
 	vi_mem_pool_region = <2>;	// vi_mem: framebuffer, region[2]
-	pipline0 {
+	channel0 {
 		sensor0 {
 			subdev_name = "vivcam";
 			idx = <2>; //<2>=vivcam2 : gc5035
@@ -1226,7 +1226,7 @@
 			dw_dst_depth = <2>;
 		};
 	};
-	pipline1 {
+	channel1 {
 		sensor0 {
 			subdev_name = "vivcam";
 			idx = <2>; //<2>=vivcam2 : gc5035
@@ -1259,7 +1259,7 @@
 			dw_dst_depth = <2>;
 		};
 	};
-	pipline2 {
+	channel2 {
 		sensor0 {
 			subdev_name = "vivcam";
 			idx = <2>; //<2>=vivcam2 : gc5035
@@ -1296,7 +1296,7 @@
 
 &video2{
     vi_mem_pool_region = <0>;	// vi_mem: framebuffer, region[0]
-	pipline0 {
+	channel0 {
 		sensor0 {
 			subdev_name = "vivcam";
 			idx = <0>; //sc2310
@@ -1323,7 +1323,7 @@
 			};
 		};
 	};
-	pipline1 {
+	channel1 {
 		sensor0 {
 			subdev_name = "vivcam";
 			idx = <0>; //sc2310
@@ -1350,7 +1350,7 @@
 			};
 		};
 	};
-	pipline2 {
+	channel2 {
 		sensor0 {
 			subdev_name = "vivcam";
 			idx = <0>; //sc2310
@@ -1381,7 +1381,7 @@
 
 &video3{
     vi_mem_pool_region = <0>;	// vi_mem: framebuffer, region[0]
-	pipline0 {
+	channel0 {
 		sensor0 {
 			subdev_name = "vivcam";
 			idx = <0>; //sc2310
@@ -1414,7 +1414,7 @@
 			dw_dst_depth = <2>;
 		};
 	};
-	pipline1 {
+	channel1 {
 		sensor0 {
 			subdev_name = "vivcam";
 			idx = <0>; //sc2310
@@ -1447,7 +1447,7 @@
 			dw_dst_depth = <2>;
 		};
 	};
-	pipline2 {
+	channel2 {
 		sensor0 {
 			subdev_name = "vivcam";
 			idx = <0>; //sc2310
@@ -1484,7 +1484,7 @@
 
 &video4{
     vi_mem_pool_region = <0>;	// vi_mem: framebuffer, region[0]
-	pipline0 {
+	channel0 {
 		sensor0 {
 			subdev_name = "vivcam";
 			idx = <0>; //sc2310
@@ -1533,7 +1533,7 @@
 			};
 		};
 	};
-	pipline1 {
+	channel1 {
 		sensor0 {
 			subdev_name = "vivcam";
 			idx = <0>; //sc2310
@@ -1582,7 +1582,7 @@
 			};
 		};
 	};
-	pipline2 {
+	channel2 {
 		sensor0 {
 			subdev_name = "vivcam";
 			idx = <0>; //sc2310
@@ -1635,7 +1635,7 @@
 
 &video5{
 	vi_mem_pool_region = <0>;	// vi_mem: framebuffer, region[0]
-	pipline0 {
+	channel0 {
 		sensor0 {
 			subdev_name = "vivcam";
 			idx = <0>; //sc2310
@@ -1690,7 +1690,7 @@
 			dw_dst_depth = <2>;
 		};
 	};
-	pipline1 {
+	channel1 {
 		sensor0 {
 			subdev_name = "vivcam";
 			idx = <0>; //sc2310
@@ -1745,7 +1745,7 @@
 			dw_dst_depth = <2>;
 		};
 	};
-	pipline2 {
+	channel2 {
 		sensor0 {
 			subdev_name = "vivcam";
 			idx = <0>; //sc2310
@@ -1804,7 +1804,7 @@
 
 &video6{
 	vi_mem_pool_region = <1>;	// vi_mem: framebuffer, region[1]
-	pipline0 {
+	channel0 {
 		sensor0 {
 			subdev_name = "vivcam";
 			idx = <4>; //sc132gs
@@ -1822,7 +1822,7 @@
 			};
 		};
 	};
-	pipline1 {
+	channel1 {
 		sensor0 {
 			subdev_name = "vivcam";
 			idx = <4>; //sc132gs
@@ -1844,7 +1844,7 @@
 };
 
 &video7{
-	pipline0 {
+	channel0 {
 		sensor0 {
 			subdev_name = "vivcam";
 			idx = <2>; //<2>=vivcam2 : gc5035
@@ -1899,7 +1899,7 @@
 			dw_dst_depth = <2>;
 		};
 	};
-	pipline1 {
+	channel1 {
 		sensor0 {
 			subdev_name = "vivcam";
 			idx = <2>; //<2>=vivcam2 : gc5035
@@ -1954,7 +1954,7 @@
 			dw_dst_depth = <2>;
 		};
 	};
-	pipline2 {
+	channel2 {
 		sensor0 {
 			subdev_name = "vivcam";
 			idx = <2>; //<2>=vivcam2 : gc5035
@@ -2014,7 +2014,7 @@
 
 &video8{
 	vi_mem_pool_region = <1>;	// vi_mem: framebuffer, region[1]
-    pipline0 {
+    channel0 {
 		sensor0 {
 			subdev_name = "vivcam";
 			idx = <2>; //<2>=vivcam2 : gc5035
@@ -2044,7 +2044,7 @@
 };
 
 &video9{
-	pipline0 {
+	channel0 {
 		sensor0 {
 			subdev_name = "vivcam";
 			idx = <4>; //sc132gs
@@ -2065,7 +2065,7 @@
 
 
 &video10{ // TUNINGTOOL
-	pipline0 {
+	channel0 {
 		sensor0 {
 			subdev_name = "vivcam";
 			idx = <2>; //<2>=vivcam2 : gc5035
@@ -2086,8 +2086,8 @@
 };
 
 &video11{
-	pipline0 { 
-		pipline_id = <0>;
+	channel0 { 
+		channel_id = <0>;
 		status = "okay";
 		sensor0 {
 			subdev_name = "vivcam";
@@ -2112,7 +2112,7 @@
 };
 
 &video12{ // TUNINGTOOL
-	pipline0 { // CSI2
+	channel0 { // CSI2
 		sensor0 {
 			subdev_name = "vivcam";
 			idx = <0>; //sc2310
@@ -2135,8 +2135,8 @@
 &video14{
     vi_mem_pool_region = <2>;	// vi_mem: framebuffer, region[0]
 	status = "okay";
-	pipline0 {
-		pipline_id = <0>;
+	channel0 {
+		channel_id = <0>;
 		status = "okay";
         sensor0 {
 			subdev_name = "vivcam";
@@ -2168,8 +2168,8 @@
 &video15{
 	status = "okay";
 	//vi_mem_pool_region = <0>;
-	pipline0 {
-		pipline_id = <0>;
+	channel0 {
+		channel_id = <0>;
 		status = "okay";
         sensor0 {
 			subdev_name = "vivcam";
