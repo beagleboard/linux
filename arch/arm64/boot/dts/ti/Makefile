@@ -20,6 +20,11 @@ dtb-$(CONFIG_ARCH_K3) += k3-am654-evm-tc358876.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-am654-evm-oldi-lcd1evm.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-am654-evm-ov5640.dtbo
 
+dtb-$(CONFIG_ARCH_K3) += k3-am68-sk-base-board.dtb
+dtb-$(CONFIG_ARCH_K3) += k3-am68-sk-bb-csi2-ov5640.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-am68-sk-bb-rpi-cam-imx219.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-am68-sk-som-ddr_mem_carveout.dtbo
+
 dtb-$(CONFIG_ARCH_K3) += k3-j721e-common-proc-board.dtb
 dtb-$(CONFIG_ARCH_K3) += k3-j721e-proc-board-tps65917.dtb
 dtb-$(CONFIG_ARCH_K3) += k3-j721e-common-proc-board-infotainment.dtbo
