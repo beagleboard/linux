@@ -33,12 +33,13 @@ int wave5_vpu_release_device(struct file *filp,
 			     char *name)
 {
 	struct vpu_instance *inst = wave5_to_vpu_inst(filp->private_data);
+	struct vpu_device *dev = inst->dev;
+	int ret = 0;
 
 	v4l2_m2m_ctx_release(inst->v4l2_fh.m2m_ctx);
 	if (inst->state != VPU_INST_STATE_NONE) {
 		u32 fail_res;
 		int retry_count = 10;
-		int ret;
 
 		do {
 			fail_res = 0;
@@ -63,8 +64,20 @@ int wave5_vpu_release_device(struct file *filp,
 	}
 
 	wave5_cleanup_instance(inst);
+	if (dev->irq < 0) {
+		ret = mutex_lock_interruptible(&dev->dev_lock);
+		if (ret)
+			return ret;
 
-	return 0;
+		if (list_empty(&dev->instances)) {
+			dev_dbg(dev->dev, "Disabling the hrtimer\n");
+			hrtimer_cancel(&dev->hrtimer);
+		}
+
+		mutex_unlock(&dev->dev_lock);
+	}
+
+	return ret;
 }
 
 int wave5_vpu_queue_init(void *priv, struct vb2_queue *src_vq, struct vb2_queue *dst_vq,
@@ -107,7 +120,7 @@ int wave5_vpu_subscribe_event(struct v4l2_fh *fh, const struct v4l2_event_subscr
 	struct vpu_instance *inst = wave5_to_vpu_inst(fh);
 	bool is_decoder = inst->type == VPU_INST_TYPE_DEC;
 
-	dev_dbg(inst->dev->dev, "%s: [%s] type: %d id: %d | flags: %d\n", __func__,
+	dev_dbg(inst->dev->dev, "%s: [%s] type: %u id: %u | flags: %u\n", __func__,
 		is_decoder ? "decoder" : "encoder", sub->type, sub->id, sub->flags);
 
 	switch (sub->type) {

@@ -80,7 +80,7 @@ static int wave5_check_dec_open_param(struct vpu_instance *inst, struct dec_open
 	struct vpu_attr *p_attr = &inst->dev->attr;
 
 	if (inst->id >= MAX_NUM_INSTANCE) {
-		dev_err(inst->dev->dev, "Too many simultaneous instances: %d (max: %d)\n",
+		dev_err(inst->dev->dev, "Too many simultaneous instances: %d (max: %u)\n",
 			inst->id, MAX_NUM_INSTANCE);
 		return -EOPNOTSUPP;
 	}
@@ -317,7 +317,6 @@ int wave5_vpu_dec_get_bitstream_buffer(struct vpu_instance *inst, dma_addr_t *pr
 	struct dec_info *p_dec_info;
 	dma_addr_t rd_ptr;
 	dma_addr_t wr_ptr;
-	dma_addr_t temp_ptr;
 	int room;
 	struct vpu_device *vpu_dev = inst->dev;
 	int ret;
@@ -332,21 +331,19 @@ int wave5_vpu_dec_get_bitstream_buffer(struct vpu_instance *inst, dma_addr_t *pr
 
 	wr_ptr = p_dec_info->stream_wr_ptr;
 
-	temp_ptr = rd_ptr;
-
 	if (p_dec_info->open_param.bitstream_mode != BS_MODE_PIC_END) {
-		if (wr_ptr < temp_ptr)
-			room = temp_ptr - wr_ptr;
+		if (wr_ptr < rd_ptr)
+			room = rd_ptr - wr_ptr;
 		else
 			room = (p_dec_info->stream_buf_end_addr - wr_ptr) +
-				(temp_ptr - p_dec_info->stream_buf_start_addr);
+				(rd_ptr - p_dec_info->stream_buf_start_addr);
 		room--;
 	} else {
 		room = (p_dec_info->stream_buf_end_addr - wr_ptr);
 	}
 
 	if (prd_ptr)
-		*prd_ptr = temp_ptr;
+		*prd_ptr = rd_ptr;
 	if (pwr_ptr)
 		*pwr_ptr = wr_ptr;
 	if (size)
@@ -413,8 +410,6 @@ int wave5_vpu_dec_start_one_frame(struct vpu_instance *inst, struct dec_param *p
 	if (ret)
 		return ret;
 
-	p_dec_info->frame_start_pos = p_dec_info->stream_rd_ptr;
-
 	ret = wave5_vpu_decode(inst, param, res_fail);
 
 	mutex_unlock(&vpu_dev->hw_lock);
@@ -477,13 +472,12 @@ int wave5_vpu_dec_get_output_info(struct vpu_instance *inst, struct dec_output_i
 
 	// calculate display frame region
 	val = 0;
+	//default value
+	rect_info.left = 0;
+	rect_info.right = 0;
+	rect_info.top = 0;
+	rect_info.bottom = 0;
 	if (decoded_index < WAVE5_MAX_FBS) {
-		//default value
-		rect_info.left = 0;
-		rect_info.right = info->dec_pic_width;
-		rect_info.top = 0;
-		rect_info.bottom = info->dec_pic_height;
-
 		if (inst->std == W_HEVC_DEC || inst->std == W_AVC_DEC)
 			rect_info = p_dec_info->initial_info.pic_crop_rect;
 
@@ -494,132 +488,76 @@ int wave5_vpu_dec_get_output_info(struct vpu_instance *inst, struct dec_output_i
 			p_dec_info->dec_out_info[decoded_index].avs2_info.decoded_poi =
 				info->avs2_info.decoded_poi;
 
-		info->rc_decoded.left = rect_info.left;
-		p_dec_info->dec_out_info[decoded_index].rc_decoded.left = rect_info.left;
-		info->rc_decoded.right = rect_info.right;
-		p_dec_info->dec_out_info[decoded_index].rc_decoded.right = rect_info.right;
-		info->rc_decoded.top = rect_info.top;
-		p_dec_info->dec_out_info[decoded_index].rc_decoded.top = rect_info.top;
-		info->rc_decoded.bottom = rect_info.bottom;
-		p_dec_info->dec_out_info[decoded_index].rc_decoded.bottom = rect_info.bottom;
-	} else {
-		info->rc_decoded.left = 0;
-		info->rc_decoded.right = info->dec_pic_width;
-		info->rc_decoded.top = 0;
-		info->rc_decoded.bottom = info->dec_pic_height;
+		p_dec_info->dec_out_info[decoded_index].rc_decoded = rect_info;
 	}
+	info->rc_decoded = rect_info;
 
 	disp_idx = info->index_frame_display;
 	disp_info = &p_dec_info->dec_out_info[disp_idx];
 	if (info->index_frame_display >= 0 && info->index_frame_display < WAVE5_MAX_FBS) {
-		if (p_dec_info->rotation_enable) {
-			switch (p_dec_info->rotation_angle) {
-			case 90:
-				info->rc_display.left =
-					disp_info->rc_decoded.top;
-				info->rc_display.right =
-					disp_info->rc_decoded.bottom;
-				info->rc_display.top =
-					disp_info->dec_pic_width -
-					disp_info->rc_decoded.right;
-				info->rc_display.bottom =
-					disp_info->dec_pic_width -
-					disp_info->rc_decoded.left;
-				break;
-			case 270:
-				info->rc_display.left =
-					disp_info->dec_pic_height -
-					disp_info->rc_decoded.bottom;
-				info->rc_display.right =
-					disp_info->dec_pic_height -
-					disp_info->rc_decoded.top;
-				info->rc_display.top =
-					disp_info->rc_decoded.left;
-				info->rc_display.bottom =
-					disp_info->rc_decoded.right;
-				break;
-			case 180:
-				info->rc_display.left =
-					disp_info->rc_decoded.left;
-				info->rc_display.right =
-					disp_info->rc_decoded.right;
-				info->rc_display.top =
-					disp_info->dec_pic_height -
-					disp_info->rc_decoded.bottom;
-				info->rc_display.bottom =
-					disp_info->dec_pic_height -
-					disp_info->rc_decoded.top;
-				break;
-			default:
-				info->rc_display.left =
-					disp_info->rc_decoded.left;
-				info->rc_display.right =
-					disp_info->rc_decoded.right;
-				info->rc_display.top =
-					disp_info->rc_decoded.top;
-				info->rc_display.bottom =
-					disp_info->rc_decoded.bottom;
-				break;
-			}
+		u32 width = info->dec_pic_width;
+		u32 height = info->dec_pic_height;
 
-		} else {
-			info->rc_display.left = disp_info->rc_decoded.left;
-			info->rc_display.right =
-				disp_info->rc_decoded.right;
-			info->rc_display.top = disp_info->rc_decoded.top;
-			info->rc_display.bottom =
-				disp_info->rc_decoded.bottom;
-		}
-
-		if (p_dec_info->mirror_enable) {
-			u32 temp;
-			u32 width = (p_dec_info->rotation_angle == 90 ||
-					p_dec_info->rotation_angle == 270) ? info->dec_pic_height :
-					info->dec_pic_width;
-			u32 height = (p_dec_info->rotation_angle == 90 ||
-					p_dec_info->rotation_angle == 270) ? info->dec_pic_width :
-					info->dec_pic_height;
-
-			if (p_dec_info->mirror_direction & MIRDIR_VER) {
-				temp = info->rc_display.top;
-				info->rc_display.top = height - info->rc_display.bottom;
-				info->rc_display.bottom = height - temp;
-			}
-			if (p_dec_info->mirror_direction & MIRDIR_HOR) {
-				temp = info->rc_display.left;
-				info->rc_display.left = width - info->rc_display.right;
-				info->rc_display.right = width - temp;
-			}
-		}
-
-		switch (inst->std) {
-		case W_HEVC_DEC:
-			info->display_poc = disp_info->decoded_poc;
-			break;
-		case W_AVS2_DEC:
-			info->avs2_info.display_poi =
-				disp_info->avs2_info.decoded_poi;
-			break;
-		case W_AVC_DEC:
-			info->display_poc = disp_info->decoded_poc;
-			break;
-		default:
-			break;
-		}
-
-		if (info->index_frame_display == info->index_frame_decoded) {
-			info->disp_pic_width = info->dec_pic_width;
-			info->disp_pic_height = info->dec_pic_height;
-		} else {
+		if (info->index_frame_display != info->index_frame_decoded) {
 			/*
 			 * when index_frame_decoded < 0, and index_frame_display >= 0
 			 * info->dec_pic_width and info->dec_pic_height are still valid
 			 * but those of p_dec_info->dec_out_info[disp_idx] are invalid in VP9
 			 */
-			info->disp_pic_width = disp_info->dec_pic_width;
-			info->disp_pic_height = disp_info->dec_pic_height;
+			width = disp_info->dec_pic_width;
+			height = disp_info->dec_pic_height;
+		}
+		// TODO no rotation/mirror v4l2 cmd implemented for the decoder
+		if (p_dec_info->rotation_enable || p_dec_info->mirror_enable)
+			if (p_dec_info->rotation_angle == 90 || p_dec_info->rotation_angle == 270)
+				swap(width, height);
+
+		if (p_dec_info->rotation_enable) {
+			switch (p_dec_info->rotation_angle) {
+			case 90:
+				info->rc_display.left = disp_info->rc_decoded.top;
+				info->rc_display.right = disp_info->rc_decoded.bottom;
+				info->rc_display.top = disp_info->rc_decoded.right;
+				info->rc_display.bottom = disp_info->rc_decoded.left;
+				break;
+			case 270:
+				info->rc_display.left = disp_info->rc_decoded.bottom;
+				info->rc_display.right = disp_info->rc_decoded.top;
+				info->rc_display.top = disp_info->rc_decoded.left;
+				info->rc_display.bottom = disp_info->rc_decoded.right;
+				break;
+			case 180:
+				info->rc_display.left = disp_info->rc_decoded.right;
+				info->rc_display.right = disp_info->rc_decoded.left;
+				info->rc_display.top = disp_info->rc_decoded.bottom;
+				info->rc_display.bottom = disp_info->rc_decoded.top;
+				break;
+			default:
+				info->rc_display = disp_info->rc_decoded;
+				break;
+			}
+		} else {
+			info->rc_display = disp_info->rc_decoded;
 		}
 
+		if (p_dec_info->mirror_enable) {
+			if (p_dec_info->mirror_direction & MIRDIR_VER)
+				swap(info->rc_display.top, info->rc_display.bottom);
+			if (p_dec_info->mirror_direction & MIRDIR_HOR)
+				swap(info->rc_display.left, info->rc_display.right);
+		}
+
+		switch (inst->std) {
+		case W_AVS2_DEC:
+			info->avs2_info.display_poi =
+				disp_info->avs2_info.decoded_poi;
+			break;
+		default:
+			break;
+		}
+
+		info->disp_pic_width = width;
+		info->disp_pic_height = height;
 	} else {
 		info->rc_display.left = 0;
 		info->rc_display.right = 0;
@@ -640,13 +578,6 @@ int wave5_vpu_dec_get_output_info(struct vpu_instance *inst, struct dec_output_i
 	p_dec_info->frame_display_flag = vpu_read_reg(vpu_dev, W5_RET_DEC_DISP_IDC);
 	if (inst->std == W_VP9_DEC)
 		p_dec_info->frame_display_flag &= 0xFFFF;
-	p_dec_info->frame_end_pos = p_dec_info->stream_rd_ptr;
-
-	if (p_dec_info->frame_end_pos < p_dec_info->frame_start_pos)
-		info->consumed_byte = p_dec_info->frame_end_pos + p_dec_info->stream_buf_size -
-			p_dec_info->frame_start_pos;
-	else
-		info->consumed_byte = p_dec_info->frame_end_pos - p_dec_info->frame_start_pos;
 
 	if (p_dec_info->dering_enable || p_dec_info->mirror_enable || p_dec_info->rotation_enable) {
 		info->disp_frame = p_dec_info->rotator_output;
@@ -670,14 +601,8 @@ int wave5_vpu_dec_get_output_info(struct vpu_instance *inst, struct dec_output_i
 	if (decoded_index < WAVE5_MAX_FBS)
 		p_dec_info->dec_out_info[decoded_index] = *info;
 
-	if (disp_idx < WAVE5_MAX_FBS) {
-		info->num_of_tot_m_bs_in_disp = disp_info->num_of_tot_m_bs;
-		info->num_of_err_m_bs_in_disp = disp_info->num_of_err_m_bs;
+	if (disp_idx < WAVE5_MAX_FBS)
 		info->disp_frame.sequence_no = info->sequence_no;
-	} else {
-		info->num_of_tot_m_bs_in_disp = 0;
-		info->num_of_err_m_bs_in_disp = 0;
-	}
 
 	if (info->sequence_changed &&
 	    !(info->sequence_changed & SEQ_CHANGE_INTER_RES_CHANGE)) {

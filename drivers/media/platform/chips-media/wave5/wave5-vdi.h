@@ -20,7 +20,7 @@
 
 /* system register write */
 #define vpu_write_reg(VPU_INST, ADDR, DATA) wave5_vdi_write_register(VPU_INST, ADDR, DATA)
-// system register read
+/* system register read */
 #define vpu_read_reg(CORE, ADDR) wave5_vdi_readl(CORE, ADDR)
 
 struct vpu_buf {

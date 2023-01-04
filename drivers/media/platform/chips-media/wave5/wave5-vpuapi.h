@@ -188,6 +188,18 @@ enum DEC_PIC_OPTION {
 #define MIN_VBV_BUFFER_SIZE			10
 #define MAX_VBV_BUFFER_SIZE			3000
 
+/* Bitstream buffer option: Explicit End
+ * When set to 1 the VPU assumes that the bitstream has at least one frame and
+ * will read until the end of the bitstream buffer.
+ * When set to 0 the VPU will not read the last few bytes.
+ * This option can be set anytime but cannot be cleared during processing.
+ * It can be set to force finish decoding even though there is not enough
+ * bitstream data for a full frame.
+ */
+#define BS_EXPLICIT_END_MODE_ON			1
+
+#define BUFFER_MARGIN				4096
+
 /************************************************************************/
 /* */
 /************************************************************************/
@@ -430,10 +442,10 @@ struct frame_buffer {
 };
 
 struct vpu_rect {
-	unsigned int left; /* horizontal pixel offset top-left corner of rect. from (0, 0) */
-	unsigned int top; /* vertical pixel offset top-left corner of rect. from (0, 0) */
-	unsigned int right; /* horizontal pixel offset bottom-right corner of rect. from (0, 0) */
-	unsigned int bottom; /* vertical pixel offset bottom-right corner of rect. from (0, 0) */
+	unsigned int left; /* horizontal pixel offset from left edge */
+	unsigned int top; /* vertical pixel offset from top edge */
+	unsigned int right; /* horizontal pixel offset from right edge */
+	unsigned int bottom; /* vertical pixel offset from bottom edge */
 };
 
 /*
@@ -498,28 +510,9 @@ struct dec_param {
 	u32 disable_film_grain: 1;
 };
 
-struct dec_output_ext_data {
-	u32 user_data_header;
-	u32 user_data_size; /* this is the size of user data */
-	bool user_data_buf_full;
-};
-
-struct h265_rp_sei {
-	u32 recovery_poc_cnt; /* recovery_poc_cnt */
-	u32 exist: 1;
-	u32 exact_match_flag: 1; /* exact_match_flag */
-	u32 broken_link_flag: 1; /* broken_link_flag */
-};
-
 struct avs2_info {
 	s32 decoded_poi;
 	int display_poi;
-};
-
-struct av1_info {
-	u32 spatial_id; /* indicates a spatial ID of the picture */
-	u32 allow_screen_content_tools: 1; /* indicates whether screen content tool is enabled */
-	u32 allow_intra_bc: 1; /* indicates whether intra block copy is enabled */
 };
 
 struct dec_output_info {
@@ -540,9 +533,6 @@ struct dec_output_info {
 	 * decoding
 	 */
 	s32 index_frame_display;
-	s32 index_frame_display_for_tiled; /* in case of WTL mode, this index indicates a display
-					    * index of tiled or compressed framebuffer
-					    */
 	/**
 	 * this is a frame buffer index of decoded picture among frame buffers which were
 	 * registered using vpu_dec_register_frame_buffer(). the currently decoded frame is stored
@@ -555,14 +545,9 @@ struct dec_output_info {
 	 * frame buffer
 	 */
 	s32 index_frame_decoded;
-	s32 index_inter_frame_decoded;
 	s32 index_frame_decoded_for_tiled;
 	u32 nal_type;
 	unsigned int pic_type;
-	u32 num_of_err_m_bs;
-	u32 num_of_tot_m_bs;
-	u32 num_of_err_m_bs_in_disp;
-	u32 num_of_tot_m_bs_in_disp;
 	struct vpu_rect rc_display;
 	unsigned int disp_pic_width;
 	unsigned int disp_pic_height;
@@ -570,17 +555,10 @@ struct dec_output_info {
 	u32 dec_pic_width;
 	u32 dec_pic_height;
 	struct avs2_info avs2_info;
-	struct av1_info av1_info;
 	s32 decoded_poc;
-	int display_poc;
 	int temporal_id; /* A temporal ID of the picture */
-	struct h265_rp_sei h265_rp_sei;
-	struct dec_output_ext_data dec_output_ext_data;
-	unsigned int consumed_byte; /* the number of bytes that are consumed by VPU */
 	dma_addr_t rd_ptr; /* A stream buffer read pointer for the current decoder instance */
 	dma_addr_t wr_ptr; /* A stream buffer write pointer for the current decoder instance */
-	dma_addr_t byte_pos_frame_start;
-	dma_addr_t byte_pos_frame_end;
 	struct frame_buffer disp_frame;
 	u32 frame_display_flag; /* it reports a frame buffer flag to be displayed */
 	/**
@@ -596,26 +574,12 @@ struct dec_output_info {
 	 * been changed.
 	 */
 	unsigned int frame_cycle; /* reports the number of cycles for processing a frame */
-	u32 error_reason;
-	u32 warn_info;
 	u32 sequence_no;
 
 	u32 dec_host_cmd_tick; /* tick of DEC_PIC command for the picture */
-	u32 dec_seek_start_tick; /* start tick of seeking slices of the picture */
-	u32 dec_seek_end_tick; /* end tick of seeking slices of the picture */
-	u32 dec_parse_start_tick; /* start tick of parsing slices of the picture */
-	u32 dec_parse_end_tick; /* end tick of parsing slices of the picture */
-	u32 dec_decode_start_tick; /* start tick of decoding slices of the picture */
 	u32 dec_decode_end_tick; /* end tick of decoding slices of the picture */
 
-	u32 seek_cycle;
-	u32 parse_cycle;
-	u32 decoded_cycle;
-
-	u32 ctu_size;
-	s32 output_flag;
-	u32 sequence_changed: 1;
-	u32 decoding_success: 1;
+	u32 sequence_changed;
 };
 
 struct queue_status_info {
@@ -725,7 +689,7 @@ struct enc_wave_param {
 	u32 num_ticks_poc_diff_one;
 	s32 chroma_cb_qp_offset; /* the value of chroma(cb) QP offset */
 	s32 chroma_cr_qp_offset; /* the value of chroma(cr) QP offset */
-	u32 initial_rc_qp;
+	s32 initial_rc_qp;
 	u32 nr_intra_weight_y;
 	u32 nr_intra_weight_cb; /* A weight to cb noise level for intra picture (0 ~ 31) */
 	u32 nr_intra_weight_cr; /* A weight to cr noise level for intra picture (0 ~ 31) */
@@ -914,41 +878,19 @@ struct enc_param {
 struct enc_output_info {
 	u32 bitstream_buffer;
 	u32 bitstream_size; /* the byte size of encoded bitstream */
-	u32 bitstream_wrap_around;
 	u32 pic_type: 2; /* <<vpuapi_h_pic_type>> */
-	u32 num_of_slices; /* the number of slices of the currently being encoded picture */
 	s32 recon_frame_index;
-	struct frame_buffer recon_frame;
 	dma_addr_t rd_ptr;
 	dma_addr_t wr_ptr;
-	u32 num_of_intra; /* the number of intra coded blocks */
-	u32 num_of_merge; /* the number of merge block in 8x8 */
-	u32 num_of_skip_block; /* the number of skip block in 8x8 */
-	u32 avg_ctu_qp; /* the average value of CTU q_ps */
 	u32 enc_pic_byte; /* the number of encoded picture bytes */
-	u32 enc_gop_pic_idx; /* the GOP index of the currently encoded picture */
-	u32 enc_pic_poc; /* the POC(picture order count) of the currently encoded picture */
-	u32 release_src_flag; /* the source buffer indicator of the encoded pictures */
 	s32 enc_src_idx; /* the source buffer index of the currently encoded picture */
 	u32 enc_vcl_nut;
-	u32 enc_pic_cnt; /* the encoded picture number */
 	u32 error_reason; /* the error reason of the currently encoded picture */
 	u32 warn_info; /* the warning information of the currently encoded picture */
-	u32 frame_cycle; /* the param for reporting the cycle number of encoding one frame*/
+	unsigned int frame_cycle; /* param for reporting the cycle number of encoding one frame*/
 	u64 pts;
 	u32 enc_host_cmd_tick; /* tick of ENC_PIC command for the picture */
-	u32 enc_prepare_start_tick; /* start tick of preparing slices of the picture */
-	u32 enc_prepare_end_tick; /* end tick of preparing slices of the picture */
-	u32 enc_processing_start_tick; /* start tick of processing slices of the picture */
-	u32 enc_processing_end_tick; /* end tick of processing slices of the picture */
-	u32 enc_encode_start_tick; /* start tick of encoding slices of the picture */
 	u32 enc_encode_end_tick; /* end tick of encoding slices of the picture */
-	u32 prepare_cycle; /* the number of cycles for preparing slices of a picture */
-	u32 processing; /* the number of cycles for processing slices of a picture */
-	u32 encoded_cycle; /* the number of cycles for encoding slices of a picture */
-	u32 pic_distortion_low;
-	u32 pic_distortion_high;
-	u32 pic_skipped: 1; /* whether the current encoding has been skipped or not */
 };
 
 enum ENC_PIC_CODE_OPTION {
@@ -1005,8 +947,6 @@ struct dec_info {
 	dma_addr_t user_data_buf_addr;
 	u32 user_data_enable;
 	u32 user_data_buf_size;
-	u32 frame_start_pos;
-	u32 frame_end_pos;
 	struct vpu_buf vb_work;
 	struct vpu_buf vb_task;
 	struct dec_output_info dec_out_info[WAVE5_MAX_FBS];
@@ -1084,6 +1024,9 @@ struct vpu_device {
 	u32 product_code;
 	struct ida inst_ida;
 	struct clk_bulk_data *clks;
+	struct hrtimer hrtimer;
+	struct kthread_work work;
+	struct kthread_worker *worker;
 	int num_clks;
 };
 
@@ -1128,6 +1071,8 @@ struct vpu_instance {
 	u32 dst_buf_count;
 	u32 queued_src_buf_num;
 	u32 queued_dst_buf_num;
+	u32 conf_win_width;
+	u32 conf_win_height;
 	u64 timestamp;
 	bool cbcr_interleave;
 	bool nv21;
@@ -1140,17 +1085,13 @@ struct vpu_instance {
 	unsigned int src_buf_count;
 	unsigned int rot_angle;
 	unsigned int mirror_direction;
-	unsigned int profile;
-	unsigned int level;
 	unsigned int bit_depth;
 	unsigned int frame_rate;
 	unsigned int vbv_buf_size;
-	unsigned int min_qp_i;
-	unsigned int max_qp_i;
-	unsigned int min_qp_p;
-	unsigned int max_qp_p;
-	unsigned int min_qp_b;
-	unsigned int max_qp_b;
+	unsigned int rc_mode;
+	unsigned int rc_enable;
+	unsigned int bit_rate;
+	struct enc_wave_param enc_param;
 };
 
 void wave5_vdi_write_register(struct vpu_device *vpu_dev, u32 addr, u32 data);

@@ -5,11 +5,7 @@ transfer irq status to irq thread. This was done as a work around for dropped
 interrupts seen with IRQF_ONESHOT based handling.
 
 This needs further investigation and fixing properly, with the aid of
-C&M and StarFive engineers.
-
-* remove all struct fields, that are assigned to but not used in the code, add
-  documentation about each removed field at the macro for the register it is
-  related too.
+C&M.
 
 * power management handling - add (runtime_)suspen/resume cb where the clock is enabled
 
@@ -18,8 +14,5 @@ C&M and StarFive engineers.
 * check if the  normal kernel endianness/__swab32 routines are sufficient. (instead of the ones
   implemented in the driver)
 
-* Extended Codec Controls for encoder.
-
-implement extended codec control for HEVC/H264 encoder.
-PROFILE/LEVEL/MIN_QP/MAX_QP/LOOP_FILTER/HFLIP/VFIIP/ROTATE/
-GOP_SIZE/RC_ENABLE/I_PERIOD/BITRATE.
+* Adjust STREAMON routine for the stateful decoder to adhere to the API, which
+  declares that STREAMON can be called before source buffers have been queued.

@@ -377,29 +377,87 @@ enum QUERY_OPT {
 #define W5_RET_DEC_NUM_REORDER_DELAY        (W5_REG_BASE + 0x013C)
 #define W5_RET_DEC_SUB_LAYER_INFO           (W5_REG_BASE + 0x0140)
 #define W5_RET_DEC_NOTIFICATION             (W5_REG_BASE + 0x0144)
+/*
+ * USER_DATA_FLAGS for HEVC/H264 only.
+ * Bits:
+ * [1] - User data buffer full boolean
+ * [2] - VUI parameter flag
+ * [4] - Pic_timing SEI flag
+ * [5] - 1st user_data_registed_itu_t_t35 prefix SEI flag
+ * [6] - user_data_unregistered prefix SEI flag
+ * [7] - 1st user_data_registed_itu_t_t35 suffix SEI flag
+ * [8] - user_data_unregistered suffix SEI flag
+ * [10]- mastering_display_color_volume prefix SEI flag
+ * [11]- chroma_resampling_display_color_volume prefix SEI flag
+ * [12]- knee_function_info SEI flag
+ * [13]- tone_mapping_info prefix SEI flag
+ * [14]- film_grain_characteristics_info prefix SEI flag
+ * [15]- content_light_level_info prefix SEI flag
+ * [16]- color_remapping_info prefix SEI flag
+ * [28]- 2nd user_data_registed_itu_t_t35 prefix SEI flag
+ * [29]- 3rd user_data_registed_itu_t_t35 prefix SEI flag
+ * [30]- 2nd user_data_registed_itu_t_t35 suffix SEI flag
+ * [31]- 3rd user_data_registed_itu_t_t35 suffix SEI flag
+ */
 #define W5_RET_DEC_USERDATA_IDC             (W5_REG_BASE + 0x0148)
 #define W5_RET_DEC_PIC_SIZE                 (W5_REG_BASE + 0x014C)
 #define W5_RET_DEC_CROP_TOP_BOTTOM          (W5_REG_BASE + 0x0150)
 #define W5_RET_DEC_CROP_LEFT_RIGHT          (W5_REG_BASE + 0x0154)
-#define W5_RET_DEC_AU_START_POS             (W5_REG_BASE + 0x0158)
-#define W5_RET_DEC_AU_END_POS               (W5_REG_BASE + 0x015C)
+/*
+ * #define W5_RET_DEC_AU_START_POS             (W5_REG_BASE + 0x0158)
+ * => Access unit (AU) Bitstream start position
+ * #define W5_RET_DEC_AU_END_POS               (W5_REG_BASE + 0x015C)
+ * => Access unit (AU) Bitstream end position
+ */
+
+/*
+ * Decoded picture type:
+ * reg_val & 0x7			=> picture type
+ * (reg_val >> 4) & 0x3f		=> VCL NAL unit type
+ * (reg_val >> 31) & 0x1		=> output_flag
+ * 16 << ((reg_val >> 10) & 0x3)	=> ctu_size
+ */
 #define W5_RET_DEC_PIC_TYPE                 (W5_REG_BASE + 0x0160)
 #define W5_RET_DEC_PIC_POC                  (W5_REG_BASE + 0x0164)
-#define W5_RET_DEC_RECOVERY_POINT           (W5_REG_BASE + 0x0168)
+/*
+ * #define W5_RET_DEC_RECOVERY_POINT           (W5_REG_BASE + 0x0168)
+ * => HEVC recovery point
+ * reg_val & 0xff => number of signed recovery picture order counts
+ * (reg_val >> 16) & 0x1 => exact match flag
+ * (reg_val >> 17) & 0x1 => broken link flag
+ * (reg_val >> 18) & 0x1 => exist flag
+ */
 #define W5_RET_DEC_DEBUG_INDEX              (W5_REG_BASE + 0x016C)
 #define W5_RET_DEC_DECODED_INDEX            (W5_REG_BASE + 0x0170)
 #define W5_RET_DEC_DISPLAY_INDEX            (W5_REG_BASE + 0x0174)
-#define W5_RET_DEC_REALLOC_INDEX            (W5_REG_BASE + 0x0178)
+/*
+ * #define W5_RET_DEC_REALLOC_INDEX            (W5_REG_BASE + 0x0178)
+ * => display picture index in decoded picture buffer
+ * reg_val & 0xf => display picture index for FBC buffer (by reordering)
+ */
 #define W5_RET_DEC_DISP_IDC                 (W5_REG_BASE + 0x017C)
-#define W5_RET_DEC_ERR_CTB_NUM              (W5_REG_BASE + 0x0180)
-#define W5_RET_DEC_PIC_PARAM                (W5_REG_BASE + 0x01A0)
-
+/*
+ * #define W5_RET_DEC_ERR_CTB_NUM              (W5_REG_BASE + 0x0180)
+ * => Number of error CTUs
+ * reg_val >> 16	=> erroneous CTUs in bitstream
+ * reg_val & 0xffff	=> total CTUs in bitstream
+ *
+ * #define W5_RET_DEC_PIC_PARAM                (W5_REG_BASE + 0x01A0)
+ * => Bitstream sequence/picture parameter information (AV1 only)
+ * reg_val & 0x1 => intrabc tool enable
+ * (reg_val >> 1) & 0x1 => screen content tools enable
+ */
 #define W5_RET_DEC_HOST_CMD_TICK            (W5_REG_BASE + 0x01B8)
-#define W5_RET_DEC_SEEK_START_TICK          (W5_REG_BASE + 0x01BC)
-#define W5_RET_DEC_SEEK_END_TICK            (W5_REG_BASE + 0x01C0)
-#define W5_RET_DEC_PARSING_START_TICK       (W5_REG_BASE + 0x01C4)
-#define W5_RET_DEC_PARSING_END_TICK         (W5_REG_BASE + 0x01C8)
-#define W5_RET_DEC_DECODING_START_TICK      (W5_REG_BASE + 0x01CC)
+/*
+ * #define W5_RET_DEC_SEEK_START_TICK          (W5_REG_BASE + 0x01BC)
+ * #define W5_RET_DEC_SEEK_END_TICK            (W5_REG_BASE + 0x01C0)
+ * => Start and end ticks for seeking slices of the picture
+ * #define W5_RET_DEC_PARSING_START_TICK       (W5_REG_BASE + 0x01C4)
+ * #define W5_RET_DEC_PARSING_END_TICK         (W5_REG_BASE + 0x01C8)
+ * => Start and end ticks for parsing slices of the picture
+ * #define W5_RET_DEC_DECODING_START_TICK      (W5_REG_BASE + 0x01CC)
+ * => Start tick for decoding slices of the picture
+ */
 #define W5_RET_DEC_DECODING_ENC_TICK        (W5_REG_BASE + 0x01D0)
 #define W5_RET_DEC_WARN_INFO                (W5_REG_BASE + 0x01D4)
 #define W5_RET_DEC_ERR_INFO                 (W5_REG_BASE + 0x01D8)
@@ -586,32 +644,64 @@ enum QUERY_OPT {
 #define W5_RET_ENC_NUM_REQUIRED_FB              (W5_REG_BASE + 0x11C)
 #define W5_RET_ENC_MIN_SRC_BUF_NUM              (W5_REG_BASE + 0x120)
 #define W5_RET_ENC_PIC_TYPE                     (W5_REG_BASE + 0x124)
-#define W5_RET_ENC_PIC_POC                      (W5_REG_BASE + 0x128)
+/*
+ * #define W5_RET_ENC_PIC_POC                      (W5_REG_BASE + 0x128)
+ * => picture order count value of current encoded picture
+ */
 #define W5_RET_ENC_PIC_IDX                      (W5_REG_BASE + 0x12C)
-#define W5_RET_ENC_PIC_SLICE_NUM                (W5_REG_BASE + 0x130)
-#define W5_RET_ENC_PIC_SKIP                     (W5_REG_BASE + 0x134)
-#define W5_RET_ENC_PIC_NUM_INTRA                (W5_REG_BASE + 0x138)
-#define W5_RET_ENC_PIC_NUM_MERGE                (W5_REG_BASE + 0x13C)
-
-#define W5_RET_ENC_PIC_NUM_SKIP                 (W5_REG_BASE + 0x144)
-#define W5_RET_ENC_PIC_AVG_CTU_QP               (W5_REG_BASE + 0x148)
+/*
+ * #define W5_RET_ENC_PIC_SLICE_NUM                (W5_REG_BASE + 0x130)
+ * reg_val & 0xffff = total independent slice segment number (16 bits)
+ * (reg_val >> 16) & 0xffff = total dependent slice segment number (16 bits)
+ *
+ * #define W5_RET_ENC_PIC_SKIP                     (W5_REG_BASE + 0x134)
+ * reg_val & 0xfe = picture skip flag (7 bits)
+ *
+ * #define W5_RET_ENC_PIC_NUM_INTRA                (W5_REG_BASE + 0x138)
+ * => number of intra blocks in 8x8 (32 bits)
+ *
+ * #define W5_RET_ENC_PIC_NUM_MERGE                (W5_REG_BASE + 0x13C)
+ * => number of merge blocks in 8x8 (32 bits)
+ *
+ * #define W5_RET_ENC_PIC_NUM_SKIP                 (W5_REG_BASE + 0x144)
+ * => number of skip blocks in 8x8 (32 bits)
+ *
+ * #define W5_RET_ENC_PIC_AVG_CTU_QP               (W5_REG_BASE + 0x148)
+ * => Average CTU QP value (32 bits)
+ */
 #define W5_RET_ENC_PIC_BYTE                     (W5_REG_BASE + 0x14C)
-#define W5_RET_ENC_GOP_PIC_IDX                  (W5_REG_BASE + 0x150)
+/*
+ * #define W5_RET_ENC_GOP_PIC_IDX                  (W5_REG_BASE + 0x150)
+ * => picture index in group of pictures
+ */
 #define W5_RET_ENC_USED_SRC_IDX                 (W5_REG_BASE + 0x154)
-#define W5_RET_ENC_PIC_NUM                      (W5_REG_BASE + 0x158)
+/*
+ * #define W5_RET_ENC_PIC_NUM                      (W5_REG_BASE + 0x158)
+ * => encoded picture number
+ */
 #define W5_RET_ENC_VCL_NUT                      (W5_REG_BASE + 0x15C)
-
-#define W5_RET_ENC_PIC_DIST_LOW                 (W5_REG_BASE + 0x164)
-#define W5_RET_ENC_PIC_DIST_HIGH                (W5_REG_BASE + 0x168)
-
+/*
+ * Only for H264:
+ * #define W5_RET_ENC_PIC_DIST_LOW                 (W5_REG_BASE + 0x164)
+ * => lower 32 bits of the sum of squared difference between source Y picture
+ *    and reconstructed Y picture
+ * #define W5_RET_ENC_PIC_DIST_HIGH                (W5_REG_BASE + 0x168)
+ * => upper 32 bits of the sum of squared difference between source Y picture
+ *    and reconstructed Y picture
+ */
 #define W5_RET_ENC_PIC_MAX_LATENCY_PICS     (W5_REG_BASE + 0x16C)
 
 #define W5_RET_ENC_HOST_CMD_TICK                (W5_REG_BASE + 0x1B8)
-#define W5_RET_ENC_PREPARE_START_TICK           (W5_REG_BASE + 0x1BC)
-#define W5_RET_ENC_PREPARE_END_TICK             (W5_REG_BASE + 0x1C0)
-#define W5_RET_ENC_PROCESSING_START_TICK        (W5_REG_BASE + 0x1C4)
-#define W5_RET_ENC_PROCESSING_END_TICK          (W5_REG_BASE + 0x1C8)
-#define W5_RET_ENC_ENCODING_START_TICK          (W5_REG_BASE + 0x1CC)
+/*
+ * #define W5_RET_ENC_PREPARE_START_TICK           (W5_REG_BASE + 0x1BC)
+ * #define W5_RET_ENC_PREPARE_END_TICK             (W5_REG_BASE + 0x1C0)
+ * => Start and end ticks for preparing slices of the picture
+ * #define W5_RET_ENC_PROCESSING_START_TICK        (W5_REG_BASE + 0x1C4)
+ * #define W5_RET_ENC_PROCESSING_END_TICK          (W5_REG_BASE + 0x1C8)
+ * => Start and end ticks for processing slices of the picture
+ * #define W5_RET_ENC_ENCODING_START_TICK          (W5_REG_BASE + 0x1CC)
+ * => Start tick for encoding slices of the picture
+ */
 #define W5_RET_ENC_ENCODING_END_TICK            (W5_REG_BASE + 0x1D0)
 
 #define W5_RET_ENC_WARN_INFO                    (W5_REG_BASE + 0x1D4)
@@ -646,7 +736,6 @@ enum QUERY_OPT {
 /************************************************************************/
 /* ENCODER - QUERY (GET_SRC_FLAG)                                       */
 /************************************************************************/
-#define W5_RET_ENC_SRC_BUF_FLAG                 (W5_REG_BASE + 0x18C)
 #define W5_RET_RELEASED_SRC_INSTANCE            (W5_REG_BASE + 0x1EC)
 
 #define W5_ENC_PIC_SUB_FRAME_SYNC_IF            (W5_REG_BASE + 0x0300)

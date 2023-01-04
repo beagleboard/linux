@@ -18931,7 +18931,7 @@ M:	Robert Beckett <bob.beckett@collabora.com>
 M:	Sebastian Fricke <sebastian.fricke@collabora.com>
 L:	linux-media@vger.kernel.org
 S:	Maintained
-F:	Documentation/devicetree/bindings/staging/media/cnm,wave.yaml
+F:	Documentation/devicetree/bindings/media/cnm,wave5.yaml
 F:	drivers/media/platform/chips-media/wave5/
 
 WHISKEYCOVE PMIC GPIO DRIVER

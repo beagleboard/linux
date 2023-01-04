@@ -54,7 +54,6 @@ properties:
 required:
   - compatible
   - reg
-  - interrupts
   - clocks
   - clock-names
 
@@ -70,4 +69,3 @@ examples:
         clock-names = "vcodec";
         sram = <&sram>;
     };
-

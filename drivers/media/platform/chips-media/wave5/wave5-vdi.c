@@ -175,56 +175,40 @@ unsigned int wave5_vdi_convert_endian(struct vpu_device *vpu_dev, unsigned int e
 
 static void byte_swap(unsigned char *data, size_t len)
 {
-	u8 temp;
 	unsigned int i;
 
-	for (i = 0; i < len; i += 2) {
-		temp = data[i];
-		data[i] = data[i + 1];
-		data[i + 1] = temp;
-	}
+	for (i = 0; i < len; i += 2)
+		swap(data[i], data[i + 1]);
 }
 
 static void word_swap(unsigned char *data, size_t len)
 {
-	u16 temp;
 	u16 *ptr = (u16 *)data;
 	unsigned int i;
 	size_t size = len / sizeof(uint16_t);
 
-	for (i = 0; i < size; i += 2) {
-		temp = ptr[i];
-		ptr[i] = ptr[i + 1];
-		ptr[i + 1] = temp;
-	}
+	for (i = 0; i < size; i += 2)
+		swap(ptr[i], ptr[i + 1]);
 }
 
 static void dword_swap(unsigned char *data, size_t len)
 {
-	u32 temp;
 	u32 *ptr = (u32 *)data;
 	size_t size = len / sizeof(u32);
 	unsigned int i;
 
-	for (i = 0; i < size; i += 2) {
-		temp = ptr[i];
-		ptr[i] = ptr[i + 1];
-		ptr[i + 1] = temp;
-	}
+	for (i = 0; i < size; i += 2)
+		swap(ptr[i], ptr[i + 1]);
 }
 
 static void lword_swap(unsigned char *data, size_t len)
 {
-	u64 temp;
 	u64 *ptr = (u64 *)data;
 	size_t size = len / sizeof(uint64_t);
 	unsigned int i;
 
-	for (i = 0; i < size; i += 2) {
-		temp = ptr[i];
-		ptr[i] = ptr[i + 1];
-		ptr[i + 1] = temp;
-	}
+	for (i = 0; i < size; i += 2)
+		swap(ptr[i], ptr[i + 1]);
 }
 
 static void wave5_swap_endian(struct vpu_device *vpu_dev, u8 *data, size_t len,

@@ -293,8 +293,8 @@ int wave5_vpu_get_version(struct vpu_device *vpu_dev, u32 *revision)
 static void remap_page(struct vpu_device *vpu_dev, dma_addr_t code_base, u32 index)
 {
 	u32 remap_size = (W5_REMAP_MAX_SIZE >> 12) & 0x1ff;
-	u32 reg_val = 0x80000000 | (WAVE5_UPPER_PROC_AXI_ID << 20) | (0 << 16)
-		| (index << 12) | BIT(11) | remap_size;
+	u32 reg_val = 0x80000000 | (WAVE5_UPPER_PROC_AXI_ID << 20) | (index << 12) | BIT(11)
+		| remap_size;
 
 	vpu_write_reg(vpu_dev, W5_VPU_REMAP_CTRL, reg_val);
 	vpu_write_reg(vpu_dev, W5_VPU_REMAP_VADDR, index * W5_REMAP_MAX_SIZE);
@@ -557,7 +557,6 @@ static void wave5_get_dec_seq_result(struct vpu_instance *inst, struct dec_initi
 {
 	u32 reg_val, sub_layer_info;
 	u32 profile_compatibility_flag;
-	u32 left, right, top, bottom;
 	u32 output_bit_depth_minus8;
 	struct dec_info *p_dec_info = &inst->codec_info->dec_info;
 
@@ -573,16 +572,11 @@ static void wave5_get_dec_seq_result(struct vpu_instance *inst, struct dec_initi
 	info->frame_buf_delay = vpu_read_reg(inst->dev, W5_RET_DEC_NUM_REORDER_DELAY);
 
 	reg_val = vpu_read_reg(inst->dev, W5_RET_DEC_CROP_LEFT_RIGHT);
-	left = (reg_val >> 16) & 0xffff;
-	right = reg_val & 0xffff;
+	info->pic_crop_rect.left = (reg_val >> 16) & 0xffff;
+	info->pic_crop_rect.right = reg_val & 0xffff;
 	reg_val = vpu_read_reg(inst->dev, W5_RET_DEC_CROP_TOP_BOTTOM);
-	top = (reg_val >> 16) & 0xffff;
-	bottom = reg_val & 0xffff;
-
-	info->pic_crop_rect.left = left;
-	info->pic_crop_rect.right = info->pic_width - right;
-	info->pic_crop_rect.top = top;
-	info->pic_crop_rect.bottom = info->pic_height - bottom;
+	info->pic_crop_rect.top = (reg_val >> 16) & 0xffff;
+	info->pic_crop_rect.bottom = reg_val & 0xffff;
 
 	info->f_rate_numerator = vpu_read_reg(inst->dev, W5_RET_DEC_FRAME_RATE_NR);
 	info->f_rate_denominator = vpu_read_reg(inst->dev, W5_RET_DEC_FRAME_RATE_DR);
@@ -592,7 +586,7 @@ static void wave5_get_dec_seq_result(struct vpu_instance *inst, struct dec_initi
 	info->chroma_bitdepth = (reg_val >> 4) & 0xf;
 	info->chroma_format_idc = (reg_val >> 8) & 0xf;
 	info->aspect_rate_info = (reg_val >> 16) & 0xff;
-	info->is_ext_sar = (info->aspect_rate_info == 255 ? true : false);
+	info->is_ext_sar = ((info->aspect_rate_info == 255) ? true : false);
 	/* [0:15] - vertical size, [16:31] - horizontal size */
 	if (info->is_ext_sar)
 		info->aspect_rate_info = vpu_read_reg(inst->dev, W5_RET_DEC_ASPECT_RATIO);
@@ -691,13 +685,13 @@ int wave5_vpu_dec_get_seq_info(struct vpu_instance *inst, struct dec_initial_inf
 
 static u32 calculate_table_size(u32 bit_depth, u32 frame_width, u32 frame_height, u32 ot_bg_width)
 {
-	u32 bgs_width = (bit_depth > 8 ? 256 : 512);
+	u32 bgs_width = ((bit_depth > 8) ? 256 : 512);
 	u32 comp_frame_width = ALIGN(ALIGN(frame_width, 16) + 16, 16);
 	u32 ot_frame_width = ALIGN(comp_frame_width, ot_bg_width);
 
 	// sizeof_offset_table()
 	u32 ot_bg_height = 32;
-	u32 bgs_height = BIT(14) / bgs_width / (bit_depth > 8 ? 2 : 1);
+	u32 bgs_height = BIT(14) / bgs_width / ((bit_depth > 8) ? 2 : 1);
 	u32 comp_frame_height = ALIGN(ALIGN(frame_height, 4) + 4, bgs_height);
 	u32 ot_frame_height = ALIGN(comp_frame_height, ot_bg_height);
 
@@ -769,8 +763,7 @@ int wave5_vpu_dec_register_framebuffer(struct vpu_instance *inst, struct frame_b
 		if (inst->std == W_HEVC_DEC || inst->std == W_AVS2_DEC || inst->std ==
 				W_VP9_DEC || inst->std == W_AVC_DEC || inst->std ==
 				W_AV1_DEC) {
-			/* 4096 is a margin */
-			vb_buf.size = ALIGN(mv_col_size, 4096) + 4096;
+			vb_buf.size = ALIGN(mv_col_size, BUFFER_MARGIN) + BUFFER_MARGIN;
 
 			for (i = 0 ; i < count ; i++) {
 				if (p_dec_info->vb_mv[i].size == 0) {
@@ -794,7 +787,7 @@ int wave5_vpu_dec_register_framebuffer(struct vpu_instance *inst, struct frame_b
 		}
 
 		vb_buf.daddr = 0;
-		vb_buf.size = ALIGN(fbc_y_tbl_size, 4096) + 4096;
+		vb_buf.size = ALIGN(fbc_y_tbl_size, BUFFER_MARGIN) + BUFFER_MARGIN;
 		for (i = 0 ; i < count ; i++) {
 			if (p_dec_info->vb_fbc_y_tbl[i].size == 0) {
 				ret = wave5_vdi_allocate_dma_memory(inst->dev, &vb_buf);
@@ -814,7 +807,7 @@ int wave5_vpu_dec_register_framebuffer(struct vpu_instance *inst, struct frame_b
 		}
 
 		vb_buf.daddr = 0;
-		vb_buf.size = ALIGN(fbc_c_tbl_size, 4096) + 4096;
+		vb_buf.size = ALIGN(fbc_c_tbl_size, BUFFER_MARGIN) + BUFFER_MARGIN;
 		for (i = 0 ; i < count ; i++) {
 			if (p_dec_info->vb_fbc_c_tbl[i].size == 0) {
 				ret = wave5_vdi_allocate_dma_memory(inst->dev, &vb_buf);
@@ -855,7 +848,7 @@ int wave5_vpu_dec_register_framebuffer(struct vpu_instance *inst, struct frame_b
 		(nv21 << 17) |
 		(cbcr_interleave << 16) |
 		(fb_arr[0].stride);
-	vpu_write_reg(inst->dev, W5_COMMON_PIC_INFO, reg_val); //// 0x008012c0
+	vpu_write_reg(inst->dev, W5_COMMON_PIC_INFO, reg_val);
 
 	remain = count;
 	cnt_8_chunk = ALIGN(count, 8) / 8;
@@ -865,7 +858,7 @@ int wave5_vpu_dec_register_framebuffer(struct vpu_instance *inst, struct frame_b
 		reg_val |= (p_dec_info->open_param.enable_non_ref_fbc_write << 26);
 		vpu_write_reg(inst->dev, W5_SFB_OPTION, reg_val);
 		start_no = j * 8;
-		end_no = start_no + (remain >= 8 ? 8 : remain) - 1;
+		end_no = start_no + ((remain >= 8) ? 8 : remain) - 1;
 
 		vpu_write_reg(inst->dev, W5_SET_FB_NUM, (start_no << 8) | end_no);
 
@@ -948,7 +941,7 @@ int wave5_vpu_decode(struct vpu_instance *inst, struct dec_param *option, u32 *f
 			mode_option = SKIP_NON_REF_PIC;
 			break;
 		default:
-			// skip off
+			// skip mode off
 			break;
 		}
 	}
@@ -972,8 +965,7 @@ int wave5_vpu_decode(struct vpu_instance *inst, struct dec_param *option, u32 *f
 
 	vpu_write_reg(inst->dev, W5_BS_RD_PTR, p_dec_info->stream_rd_ptr);
 	vpu_write_reg(inst->dev, W5_BS_WR_PTR, p_dec_info->stream_wr_ptr);
-	if (p_dec_info->stream_endflag)
-		bs_option = 3; // (stream_end_flag<<1) | EXPLICIT_END
+	bs_option = (p_dec_info->stream_endflag << 1) | BS_EXPLICIT_END_MODE_ON;
 	if (p_open_param->bitstream_mode == BS_MODE_PIC_END)
 		bs_option |= BIT(31);
 	if (inst->std == W_AV1_DEC)
@@ -1050,27 +1042,9 @@ int wave5_vpu_dec_get_result(struct vpu_instance *inst, struct dec_output_info *
 	p_dec_info->instance_queue_count = (reg_val >> 16) & 0xff;
 	p_dec_info->report_queue_count = (reg_val & QUEUE_REPORT_MASK);
 
-	result->decoding_success = vpu_read_reg(inst->dev, W5_RET_DEC_DECODING_SUCCESS);
-	if (!result->decoding_success)
-		result->error_reason = vpu_read_reg(inst->dev, W5_RET_DEC_ERR_INFO);
-	else
-		result->warn_info = vpu_read_reg(inst->dev, W5_RET_DEC_WARN_INFO);
-
-	result->dec_output_ext_data.user_data_size = 0;
-	result->dec_output_ext_data.user_data_buf_full = false;
-	result->dec_output_ext_data.user_data_header = vpu_read_reg(inst->dev,
-								    W5_RET_DEC_USERDATA_IDC);
-	if (result->dec_output_ext_data.user_data_header) {
-		reg_val = result->dec_output_ext_data.user_data_header;
-		if (reg_val & BIT(USERDATA_FLAG_BUFF_FULL))
-			result->dec_output_ext_data.user_data_buf_full = true;
-		result->dec_output_ext_data.user_data_size = p_dec_info->user_data_buf_size;
-	}
-
 	reg_val = vpu_read_reg(inst->dev, W5_RET_DEC_PIC_TYPE);
 
-	nal_unit_type = (reg_val & 0x3f0) >> 4;
-	result->nal_type = nal_unit_type;
+	nal_unit_type = (reg_val >> 4) & 0x3f;
 
 	if (inst->std == W_VP9_DEC) {
 		if (reg_val & 0x01)
@@ -1150,11 +1124,8 @@ int wave5_vpu_dec_get_result(struct vpu_instance *inst, struct dec_output_info *
 			break;
 		}
 	}
-	result->output_flag = (reg_val >> 31) & 0x1;
-	result->ctu_size = 16 << ((reg_val >> 10) & 0x3);
 	index = vpu_read_reg(inst->dev, W5_RET_DEC_DISPLAY_INDEX);
 	result->index_frame_display = index;
-	result->index_frame_display_for_tiled = index;
 	index = vpu_read_reg(inst->dev, W5_RET_DEC_DECODED_INDEX);
 	result->index_frame_decoded = index;
 	result->index_frame_decoded_for_tiled = index;
@@ -1164,7 +1135,6 @@ int wave5_vpu_dec_get_result(struct vpu_instance *inst, struct dec_output_info *
 
 	if (inst->std == W_HEVC_DEC) {
 		result->decoded_poc = -1;
-		result->display_poc = -1;
 		if (result->index_frame_decoded >= 0 ||
 		    result->index_frame_decoded == DECODED_IDX_FLAG_SKIP)
 			result->decoded_poc = vpu_read_reg(inst->dev, W5_RET_DEC_PIC_POC);
@@ -1176,28 +1146,17 @@ int wave5_vpu_dec_get_result(struct vpu_instance *inst, struct dec_output_info *
 				vpu_read_reg(inst->dev, W5_RET_DEC_PIC_POC);
 	} else if (inst->std == W_AVC_DEC) {
 		result->decoded_poc = -1;
-		result->display_poc = -1;
 		if (result->index_frame_decoded >= 0 ||
 		    result->index_frame_decoded == DECODED_IDX_FLAG_SKIP)
 			result->decoded_poc = vpu_read_reg(inst->dev, W5_RET_DEC_PIC_POC);
 	} else if (inst->std == W_AV1_DEC) {
 		result->decoded_poc = -1;
-		result->display_poc = -1;
 		if (result->index_frame_decoded >= 0 ||
 		    result->index_frame_decoded == DECODED_IDX_FLAG_SKIP)
 			result->decoded_poc = vpu_read_reg(inst->dev, W5_RET_DEC_PIC_POC);
-
-		result->av1_info.spatial_id = (sub_layer_info >> 19) & 0x3;
-		reg_val = vpu_read_reg(inst->dev, W5_RET_DEC_PIC_PARAM);
-		result->av1_info.allow_intra_bc = reg_val & 0x1;
-		result->av1_info.allow_screen_content_tools = (reg_val >> 1) & 0x1;
 	}
 
 	result->sequence_changed = vpu_read_reg(inst->dev, W5_RET_DEC_NOTIFICATION);
-	if (result->sequence_changed & SEQ_CHANGE_INTER_RES_CHANGE)
-		result->index_inter_frame_decoded = vpu_read_reg(inst->dev,
-								 W5_RET_DEC_REALLOC_INDEX);
-
 	reg_val = vpu_read_reg(inst->dev, W5_RET_DEC_PIC_SIZE);
 	result->dec_pic_width = reg_val >> 16;
 	result->dec_pic_height = reg_val & 0xffff;
@@ -1208,28 +1167,7 @@ int wave5_vpu_dec_get_result(struct vpu_instance *inst, struct dec_output_info *
 		wave5_get_dec_seq_result(inst, &p_dec_info->new_seq_info);
 	}
 
-	result->num_of_err_m_bs = vpu_read_reg(inst->dev, W5_RET_DEC_ERR_CTB_NUM) >> 16;
-	result->num_of_tot_m_bs = vpu_read_reg(inst->dev, W5_RET_DEC_ERR_CTB_NUM) & 0xffff;
-	result->byte_pos_frame_start = vpu_read_reg(inst->dev, W5_RET_DEC_AU_START_POS);
-	result->byte_pos_frame_end = vpu_read_reg(inst->dev, W5_RET_DEC_AU_END_POS);
-
-	reg_val = vpu_read_reg(inst->dev, W5_RET_DEC_RECOVERY_POINT);
-	result->h265_rp_sei.recovery_poc_cnt = reg_val & 0xFFFF; // [15:0]
-	result->h265_rp_sei.exact_match_flag = (reg_val >> 16) & 0x01; // [16]
-	result->h265_rp_sei.broken_link_flag = (reg_val >> 17) & 0x01; // [17]
-	result->h265_rp_sei.exist = (reg_val >> 18) & 0x01; // [18]
-	if (!result->h265_rp_sei.exist) {
-		result->h265_rp_sei.recovery_poc_cnt = 0;
-		result->h265_rp_sei.exact_match_flag = 0;
-		result->h265_rp_sei.broken_link_flag = 0;
-	}
-
 	result->dec_host_cmd_tick = vpu_read_reg(inst->dev, W5_RET_DEC_HOST_CMD_TICK);
-	result->dec_seek_start_tick = vpu_read_reg(inst->dev, W5_RET_DEC_SEEK_START_TICK);
-	result->dec_seek_end_tick = vpu_read_reg(inst->dev, W5_RET_DEC_SEEK_END_TICK);
-	result->dec_parse_start_tick = vpu_read_reg(inst->dev, W5_RET_DEC_PARSING_START_TICK);
-	result->dec_parse_end_tick = vpu_read_reg(inst->dev, W5_RET_DEC_PARSING_END_TICK);
-	result->dec_decode_start_tick = vpu_read_reg(inst->dev, W5_RET_DEC_DECODING_START_TICK);
 	result->dec_decode_end_tick = vpu_read_reg(inst->dev, W5_RET_DEC_DECODING_ENC_TICK);
 
 	if (!p_dec_info->first_cycle_check) {
@@ -1248,15 +1186,6 @@ int wave5_vpu_dec_get_result(struct vpu_instance *inst, struct dec_output_info *
 				(result->dec_decode_end_tick - result->dec_host_cmd_tick) *
 				p_dec_info->cycle_per_tick;
 	}
-	result->seek_cycle =
-		(result->dec_seek_end_tick - result->dec_seek_start_tick) *
-		p_dec_info->cycle_per_tick;
-	result->parse_cycle =
-		(result->dec_parse_end_tick - result->dec_parse_start_tick) *
-		p_dec_info->cycle_per_tick;
-	result->decoded_cycle =
-		(result->dec_decode_end_tick - result->dec_decode_start_tick) *
-		p_dec_info->cycle_per_tick;
 
 	// no remaining command. reset frame cycle.
 	if (p_dec_info->instance_queue_count == 0 && p_dec_info->report_queue_count == 0)
@@ -1392,8 +1321,14 @@ static int wave5_vpu_sleep_wake(struct device *dev, bool i_sleep_wake, const uin
 		if (ret)
 			return ret;
 
+		/*
+		 * Declare who has ownership for the host interface access
+		 * 1 = VPU
+		 * 0 = Host processer
+		 */
 		vpu_write_reg(vpu_dev, W5_VPU_BUSY_STATUS, 1);
 		vpu_write_reg(vpu_dev, W5_COMMAND, W5_SLEEP_VPU);
+		/* Send an interrupt named HOST to the VPU */
 		vpu_write_reg(vpu_dev, W5_VPU_HOST_INT_REQ, 1);
 
 		ret = wave5_wait_vpu_busy(vpu_dev, W5_VPU_BUSY_STATUS);
@@ -1417,6 +1352,7 @@ static int wave5_vpu_sleep_wake(struct device *dev, bool i_sleep_wake, const uin
 			return -EINVAL;
 		}
 
+		/* Power on without DEBUG mode */
 		vpu_write_reg(vpu_dev, W5_PO_CONF, 0);
 
 		remap_page(vpu_dev, code_base, W5_REMAP_INDEX0);
@@ -1464,6 +1400,7 @@ static int wave5_vpu_sleep_wake(struct device *dev, bool i_sleep_wake, const uin
 
 		vpu_write_reg(vpu_dev, W5_VPU_BUSY_STATUS, 1);
 		vpu_write_reg(vpu_dev, W5_COMMAND, W5_WAKEUP_VPU);
+		/* Start VPU after settings */
 		vpu_write_reg(vpu_dev, W5_VPU_REMAP_CORE_START, 1);
 
 		ret = wave5_wait_vpu_busy(vpu_dev, W5_VPU_BUSY_STATUS);
@@ -2113,7 +2050,7 @@ int wave5_vpu_enc_init_seq(struct vpu_instance *inst)
 	vpu_write_reg(inst->dev, W5_CMD_ENC_SEQ_BG_PARAM, (p_param->bg_detect_enable) |
 		      (p_param->bg_thr_diff << 1) | (p_param->bg_thr_mean_diff << 10) |
 		      (p_param->bg_lambda_qp << 18) | ((p_param->bg_delta_qp & 0x1F) << 24) |
-		      (inst->std == W_AVC_ENC ? p_param->s2fme_disable << 29 : 0));
+		      ((inst->std == W_AVC_ENC) ? p_param->s2fme_disable << 29 : 0));
 
 	if (inst->std == W_HEVC_ENC || inst->std == W_AVC_ENC) {
 		vpu_write_reg(inst->dev, W5_CMD_ENC_SEQ_CUSTOM_LAMBDA_ADDR,
@@ -2277,12 +2214,12 @@ int wave5_vpu_enc_get_seq_info(struct vpu_instance *inst, struct enc_initial_inf
 
 static u32 calculate_luma_stride(u32 width, u32 bit_depth)
 {
-	return ALIGN(ALIGN(width, 16) * (bit_depth > 8 ? 5 : 4), 32);
+	return ALIGN(ALIGN(width, 16) * ((bit_depth > 8) ? 5 : 4), 32);
 }
 
 static u32 calculate_chroma_stride(u32 width, u32 bit_depth)
 {
-	return ALIGN(ALIGN(width / 2, 16) * (bit_depth > 8 ? 5 : 4), 32);
+	return ALIGN(ALIGN(width / 2, 16) * ((bit_depth > 8) ? 5 : 4), 32);
 }
 
 int wave5_vpu_enc_register_framebuffer(struct device *dev, struct vpu_instance *inst,
@@ -2300,11 +2237,11 @@ int wave5_vpu_enc_register_framebuffer(struct device *dev, struct vpu_instance *
 	u32 buf_height = 0, buf_width = 0;
 	u32 bit_depth;
 	bool avc_encoding = (inst->std == W_AVC_ENC);
-	struct vpu_buf vb_mv = {0,};
-	struct vpu_buf vb_fbc_y_tbl = {0,};
-	struct vpu_buf vb_fbc_c_tbl = {0,};
-	struct vpu_buf vb_sub_sam_buf = {0,};
-	struct vpu_buf vb_task = {0,};
+	struct vpu_buf vb_mv = {0};
+	struct vpu_buf vb_fbc_y_tbl = {0};
+	struct vpu_buf vb_fbc_c_tbl = {0};
+	struct vpu_buf vb_sub_sam_buf = {0};
+	struct vpu_buf vb_task = {0};
 	struct enc_open_param *p_open_param;
 	struct enc_info *p_enc_info = &inst->codec_info->enc_info;
 
@@ -2352,14 +2289,12 @@ int wave5_vpu_enc_register_framebuffer(struct device *dev, struct vpu_instance *
 	if (avc_encoding) {
 		mv_col_size = WAVE5_ENC_AVC_BUF_SIZE(buf_width, buf_height);
 		vb_mv.daddr = 0;
-		/* 4096 is a margin */
-		vb_mv.size = ALIGN(mv_col_size * count, 4096) + 4096;
+		vb_mv.size = ALIGN(mv_col_size * count, BUFFER_MARGIN) + BUFFER_MARGIN;
 	} else {
 		mv_col_size = WAVE5_ENC_HEVC_BUF_SIZE(buf_width, buf_height);
 		mv_col_size = ALIGN(mv_col_size, 16);
 		vb_mv.daddr = 0;
-		/* 4096 is a margin */
-		vb_mv.size = ALIGN(mv_col_size * count, 4096) + 4096;
+		vb_mv.size = ALIGN(mv_col_size * count, BUFFER_MARGIN) + BUFFER_MARGIN;
 	}
 
 	ret = wave5_vdi_allocate_dma_memory(vpu_dev, &vb_mv);
@@ -2380,7 +2315,7 @@ int wave5_vpu_enc_register_framebuffer(struct device *dev, struct vpu_instance *
 	}
 
 	vb_fbc_y_tbl.daddr = 0;
-	vb_fbc_y_tbl.size = ALIGN(fbc_y_tbl_size * count, 4096) + 4096;
+	vb_fbc_y_tbl.size = ALIGN(fbc_y_tbl_size * count, BUFFER_MARGIN) + BUFFER_MARGIN;
 	ret = wave5_vdi_allocate_dma_memory(vpu_dev, &vb_fbc_y_tbl);
 	if (ret)
 		goto free_vb_fbc_y_tbl;
@@ -2397,7 +2332,7 @@ int wave5_vpu_enc_register_framebuffer(struct device *dev, struct vpu_instance *
 	}
 
 	vb_fbc_c_tbl.daddr = 0;
-	vb_fbc_c_tbl.size = ALIGN(fbc_c_tbl_size * count, 4096) + 4096;
+	vb_fbc_c_tbl.size = ALIGN(fbc_c_tbl_size * count, BUFFER_MARGIN) + BUFFER_MARGIN;
 	ret = wave5_vdi_allocate_dma_memory(vpu_dev, &vb_fbc_c_tbl);
 	if (ret)
 		goto free_vb_fbc_c_tbl;
@@ -2408,7 +2343,7 @@ int wave5_vpu_enc_register_framebuffer(struct device *dev, struct vpu_instance *
 		sub_sampled_size = WAVE5_SUBSAMPLED_ONE_SIZE_AVC(buf_width, buf_height);
 	else
 		sub_sampled_size = WAVE5_SUBSAMPLED_ONE_SIZE(buf_width, buf_height);
-	vb_sub_sam_buf.size = ALIGN(sub_sampled_size * count, 4096) + 4096;
+	vb_sub_sam_buf.size = ALIGN(sub_sampled_size * count, BUFFER_MARGIN) + BUFFER_MARGIN;
 	vb_sub_sam_buf.daddr = 0;
 	ret = wave5_vdi_allocate_dma_memory(vpu_dev, &vb_sub_sam_buf);
 	if (ret)
@@ -2455,14 +2390,14 @@ int wave5_vpu_enc_register_framebuffer(struct device *dev, struct vpu_instance *
 	vpu_write_reg(inst->dev, W5_COMMON_PIC_INFO, stride);
 
 	remain = count;
-	cnt_8_chunk = (count + 7) / 8;
+	cnt_8_chunk = ALIGN(count, 8) / 8;
 	idx = 0;
 	for (j = 0; j < cnt_8_chunk; j++) {
 		reg_val = (endian << 16) | (j == cnt_8_chunk - 1) << 4 | ((j == 0) << 3);
 		reg_val |= (p_open_param->enable_non_ref_fbc_write << 26);
 		vpu_write_reg(inst->dev, W5_SFB_OPTION, reg_val);
 		start_no = j * 8;
-		end_no = start_no + (remain >= 8 ? 8 : remain) - 1;
+		end_no = start_no + ((remain >= 8) ? 8 : remain) - 1;
 
 		vpu_write_reg(inst->dev, W5_SET_FB_NUM, (start_no << 8) | end_no);
 
@@ -2592,7 +2527,7 @@ int wave5_vpu_encode(struct vpu_instance *inst, struct enc_param *option, u32 *f
 	case FORMAT_VYUY:
 		justified = WTL_LEFT_JUSTIFIED;
 		format_no = WTL_PIXEL_8BIT;
-		src_stride_c = (inst->cbcr_interleave) ? p_src_frame->stride :
+		src_stride_c = inst->cbcr_interleave ? p_src_frame->stride :
 			(p_src_frame->stride / 2);
 		src_stride_c = (p_open_param->src_format == FORMAT_422) ? src_stride_c * 2 :
 			src_stride_c;
@@ -2605,7 +2540,7 @@ int wave5_vpu_encode(struct vpu_instance *inst, struct enc_param *option, u32 *f
 	case FORMAT_VYUY_P10_16BIT_MSB:
 		justified = WTL_RIGHT_JUSTIFIED;
 		format_no = WTL_PIXEL_16BIT;
-		src_stride_c = (inst->cbcr_interleave) ? p_src_frame->stride :
+		src_stride_c = inst->cbcr_interleave ? p_src_frame->stride :
 			(p_src_frame->stride / 2);
 		src_stride_c = (p_open_param->src_format ==
 				FORMAT_422_P10_16BIT_MSB) ? src_stride_c * 2 : src_stride_c;
@@ -2618,7 +2553,7 @@ int wave5_vpu_encode(struct vpu_instance *inst, struct enc_param *option, u32 *f
 	case FORMAT_VYUY_P10_16BIT_LSB:
 		justified = WTL_LEFT_JUSTIFIED;
 		format_no = WTL_PIXEL_16BIT;
-		src_stride_c = (inst->cbcr_interleave) ? p_src_frame->stride :
+		src_stride_c = inst->cbcr_interleave ? p_src_frame->stride :
 			(p_src_frame->stride / 2);
 		src_stride_c = (p_open_param->src_format ==
 				FORMAT_422_P10_16BIT_LSB) ? src_stride_c * 2 : src_stride_c;
@@ -2631,7 +2566,7 @@ int wave5_vpu_encode(struct vpu_instance *inst, struct enc_param *option, u32 *f
 	case FORMAT_VYUY_P10_32BIT_MSB:
 		justified = WTL_RIGHT_JUSTIFIED;
 		format_no = WTL_PIXEL_32BIT;
-		src_stride_c = (inst->cbcr_interleave) ? p_src_frame->stride :
+		src_stride_c = inst->cbcr_interleave ? p_src_frame->stride :
 			ALIGN(p_src_frame->stride / 2, 16) * BIT(inst->cbcr_interleave);
 		src_stride_c = (p_open_param->src_format ==
 				FORMAT_422_P10_32BIT_MSB) ? src_stride_c * 2 : src_stride_c;
@@ -2644,7 +2579,7 @@ int wave5_vpu_encode(struct vpu_instance *inst, struct enc_param *option, u32 *f
 	case FORMAT_VYUY_P10_32BIT_LSB:
 		justified = WTL_LEFT_JUSTIFIED;
 		format_no = WTL_PIXEL_32BIT;
-		src_stride_c = (inst->cbcr_interleave) ? p_src_frame->stride :
+		src_stride_c = inst->cbcr_interleave ? p_src_frame->stride :
 			ALIGN(p_src_frame->stride / 2, 16) * BIT(inst->cbcr_interleave);
 		src_stride_c = (p_open_param->src_format ==
 				FORMAT_422_P10_32BIT_LSB) ? src_stride_c * 2 : src_stride_c;
@@ -2762,35 +2697,19 @@ int wave5_vpu_enc_get_result(struct vpu_instance *inst, struct enc_output_info *
 
 	result->warn_info = vpu_read_reg(inst->dev, W5_RET_ENC_WARN_INFO);
 
-	result->enc_pic_cnt = vpu_read_reg(inst->dev, W5_RET_ENC_PIC_NUM);
 	reg_val = vpu_read_reg(inst->dev, W5_RET_ENC_PIC_TYPE);
 	result->pic_type = reg_val & 0xFFFF;
 
 	result->enc_vcl_nut = vpu_read_reg(inst->dev, W5_RET_ENC_VCL_NUT);
+	/*
+	 * To get the reconstructed frame use the following index on
+	 * inst->frame_buf
+	 */
 	result->recon_frame_index = vpu_read_reg(inst->dev, W5_RET_ENC_PIC_IDX);
-
-	if (result->recon_frame_index >= 0)
-		result->recon_frame = inst->frame_buf[result->recon_frame_index];
-
-	result->num_of_slices = vpu_read_reg(inst->dev, W5_RET_ENC_PIC_SLICE_NUM);
-	result->pic_skipped = vpu_read_reg(inst->dev, W5_RET_ENC_PIC_SKIP);
-	result->num_of_intra = vpu_read_reg(inst->dev, W5_RET_ENC_PIC_NUM_INTRA);
-	result->num_of_merge = vpu_read_reg(inst->dev, W5_RET_ENC_PIC_NUM_MERGE);
-	result->num_of_skip_block = vpu_read_reg(inst->dev, W5_RET_ENC_PIC_NUM_SKIP);
-	result->bitstream_wrap_around = 0; // only support line-buffer mode.
-
-	result->avg_ctu_qp = vpu_read_reg(inst->dev, W5_RET_ENC_PIC_AVG_CTU_QP);
 	result->enc_pic_byte = vpu_read_reg(inst->dev, W5_RET_ENC_PIC_BYTE);
-
-	result->enc_gop_pic_idx = vpu_read_reg(inst->dev, W5_RET_ENC_GOP_PIC_IDX);
-	result->enc_pic_poc = vpu_read_reg(inst->dev, W5_RET_ENC_PIC_POC);
 	result->enc_src_idx = vpu_read_reg(inst->dev, W5_RET_ENC_USED_SRC_IDX);
-	result->release_src_flag = vpu_read_reg(inst->dev, W5_RET_ENC_SRC_BUF_FLAG);
 	p_enc_info->stream_wr_ptr = vpu_read_reg(inst->dev, W5_RET_ENC_WR_PTR);
 	p_enc_info->stream_rd_ptr = vpu_read_reg(inst->dev, W5_RET_ENC_RD_PTR);
-
-	result->pic_distortion_low = vpu_read_reg(inst->dev, W5_RET_ENC_PIC_DIST_LOW);
-	result->pic_distortion_high = vpu_read_reg(inst->dev, W5_RET_ENC_PIC_DIST_HIGH);
 
 	result->bitstream_buffer = vpu_read_reg(inst->dev, W5_RET_ENC_RD_PTR);
 	result->rd_ptr = p_enc_info->stream_rd_ptr;
@@ -2805,13 +2724,6 @@ int wave5_vpu_enc_get_result(struct vpu_instance *inst, struct enc_output_info *
 		result->bitstream_size = result->enc_pic_byte;
 
 	result->enc_host_cmd_tick = vpu_read_reg(inst->dev, W5_RET_ENC_HOST_CMD_TICK);
-	result->enc_prepare_start_tick = vpu_read_reg(inst->dev, W5_RET_ENC_PREPARE_START_TICK);
-	result->enc_prepare_end_tick = vpu_read_reg(inst->dev, W5_RET_ENC_PREPARE_END_TICK);
-	result->enc_processing_start_tick = vpu_read_reg(inst->dev,
-							 W5_RET_ENC_PROCESSING_START_TICK);
-	result->enc_processing_end_tick = vpu_read_reg(inst->dev,
-						       W5_RET_ENC_PROCESSING_END_TICK);
-	result->enc_encode_start_tick = vpu_read_reg(inst->dev, W5_RET_ENC_ENCODING_START_TICK);
 	result->enc_encode_end_tick = vpu_read_reg(inst->dev, W5_RET_ENC_ENCODING_END_TICK);
 
 	if (!p_enc_info->first_cycle_check) {
@@ -2827,12 +2739,6 @@ int wave5_vpu_enc_get_result(struct vpu_instance *inst, struct enc_output_info *
 					result->enc_host_cmd_tick) * p_enc_info->cycle_per_tick;
 	}
 	vpu_dev->last_performance_cycles = result->enc_encode_end_tick;
-	result->prepare_cycle = (result->enc_prepare_end_tick -
-			result->enc_prepare_start_tick) * p_enc_info->cycle_per_tick;
-	result->processing = (result->enc_processing_end_tick -
-			result->enc_processing_start_tick) * p_enc_info->cycle_per_tick;
-	result->encoded_cycle = (result->enc_encode_end_tick -
-			result->enc_encode_start_tick) * p_enc_info->cycle_per_tick;
 
 	return 0;
 }
@@ -2895,7 +2801,7 @@ static int wave5_vpu_enc_check_common_param_valid(struct vpu_instance *inst,
 	if (param->gop_preset_idx == PRESET_IDX_CUSTOM_GOP) {
 		for (i = 0; i < param->gop_param.custom_gop_size; i++) {
 			if (param->gop_param.pic_param[i].temporal_id >= MAX_NUM_TEMPORAL_LAYER) {
-				dev_err(dev, "temporal_id: %d exceeds MAX_NUM_TEMPORAL_LAYER (%d)\n",
+				dev_err(dev, "temporal_id: %d exceeds MAX_NUM_TEMPORAL_LAYER (%u)\n",
 					param->gop_param.pic_param[i].temporal_id,
 					MAX_NUM_TEMPORAL_LAYER);
 				return -EINVAL;
@@ -2910,10 +2816,10 @@ static int wave5_vpu_enc_check_common_param_valid(struct vpu_instance *inst,
 	}
 
 	if (param->wpp_enable && param->independ_slice_mode) {
-		int num_ctb_in_width = ALIGN(open_param->pic_width, 64) >> 6;
+		unsigned int num_ctb_in_width = ALIGN(open_param->pic_width, 64) >> 6;
 
 		if (param->independ_slice_mode_arg % num_ctb_in_width) {
-			dev_err(dev, "independ_slice_mode_arg: %d must be a multiple of num_ctb_in_width (%d)\n",
+			dev_err(dev, "independ_slice_mode_arg %u must be a multiple of %u\n",
 				param->independ_slice_mode_arg, num_ctb_in_width);
 			return -EINVAL;
 		}
@@ -2931,40 +2837,40 @@ static int wave5_vpu_enc_check_common_param_valid(struct vpu_instance *inst,
 	} else if (param->independ_slice_mode &&
 		   param->depend_slice_mode == DEPEND_SLICE_MODE_RECOMMENDED &&
 		   param->independ_slice_mode_arg < param->depend_slice_mode_arg) {
-		dev_err(dev, "independ_slice_mode_arg: %d must be smaller than depend_slice_mode_arg (%d)\n",
+		dev_err(dev, "independ_slice_mode_arg: %u must be smaller than %u\n",
 			param->independ_slice_mode_arg, param->depend_slice_mode_arg);
 		return -EINVAL;
 	}
 
 	if (param->independ_slice_mode && param->independ_slice_mode_arg > 65535) {
-		dev_err(dev, "independ_slice_mode_arg: %d must be smaller than 65535\n",
+		dev_err(dev, "independ_slice_mode_arg: %u must be smaller than 65535\n",
 			param->independ_slice_mode_arg);
 		return -EINVAL;
 	}
 
 	if (param->depend_slice_mode && param->depend_slice_mode_arg > 65535) {
-		dev_err(dev, "depend_slice_mode_arg: %d must be smaller than 65535\n",
+		dev_err(dev, "depend_slice_mode_arg: %u must be smaller than 65535\n",
 			param->depend_slice_mode_arg);
 		return -EINVAL;
 	}
 
 	if (param->conf_win_top % 2) {
-		dev_err(dev, "conf_win_top: %d, must be a multiple of 2\n", param->conf_win_top);
+		dev_err(dev, "conf_win_top: %u, must be a multiple of 2\n", param->conf_win_top);
 		return -EINVAL;
 	}
 
 	if (param->conf_win_bot % 2) {
-		dev_err(dev, "conf_win_bot: %d, must be a multiple of 2\n", param->conf_win_bot);
+		dev_err(dev, "conf_win_bot: %u, must be a multiple of 2\n", param->conf_win_bot);
 		return -EINVAL;
 	}
 
 	if (param->conf_win_left % 2) {
-		dev_err(dev, "conf_win_left: %d, must be a multiple of 2\n", param->conf_win_left);
+		dev_err(dev, "conf_win_left: %u, must be a multiple of 2\n", param->conf_win_left);
 		return -EINVAL;
 	}
 
 	if (param->conf_win_right % 2) {
-		dev_err(dev, "conf_win_right: %d, Must be a multiple of 2\n",
+		dev_err(dev, "conf_win_right: %u, Must be a multiple of 2\n",
 			param->conf_win_right);
 		return -EINVAL;
 	}
@@ -2998,7 +2904,7 @@ static int wave5_vpu_enc_check_common_param_valid(struct vpu_instance *inst,
 
 	// intra refresh
 	if (param->intra_refresh_mode && param->intra_refresh_arg == 0) {
-		dev_err(dev, "Invalid refresh argument, mode: %d, refresh: %d must be > 0\n",
+		dev_err(dev, "Invalid refresh argument, mode: %u, refresh: %u must be > 0\n",
 			param->intra_refresh_mode, param->intra_refresh_arg);
 		return -EINVAL;
 	}
@@ -3019,12 +2925,12 @@ static int wave5_vpu_enc_check_common_param_valid(struct vpu_instance *inst,
 		if (param->intra_refresh_arg > ctu_sz)
 			goto invalid_refresh_argument;
 		if (param->lossless_enable) {
-			dev_err(dev, "mode: %d cannot be used lossless_enable",
+			dev_err(dev, "mode: %u cannot be used lossless_enable",
 				param->intra_refresh_mode);
 			return -EINVAL;
 		}
 		if (param->roi_enable) {
-			dev_err(dev, "mode: %d cannot be used and roi_enable",
+			dev_err(dev, "mode: %u cannot be used and roi_enable",
 				param->intra_refresh_mode);
 			return -EINVAL;
 		}
@@ -3032,7 +2938,7 @@ static int wave5_vpu_enc_check_common_param_valid(struct vpu_instance *inst,
 	return 0;
 
 invalid_refresh_argument:
-	dev_err(dev, "Invalid refresh argument, mode: %d, refresh: %d > W(%d)xH(%d)\n",
+	dev_err(dev, "Invalid refresh argument, mode: %u, refresh: %u > W(%u)xH(%u)\n",
 		param->intra_refresh_mode, param->intra_refresh_arg,
 		num_ctu_row, num_ctu_col);
 	return -EINVAL;
@@ -3053,7 +2959,7 @@ static int wave5_vpu_enc_check_param_valid(struct vpu_device *vpu_dev,
 
 		if (open_param->bit_rate <= (int)open_param->frame_rate_info) {
 			dev_err(vpu_dev->dev,
-				"enc_bit_rate: %d must be greater than the frame_rate: %d\n",
+				"enc_bit_rate: %u must be greater than the frame_rate: %u\n",
 				open_param->bit_rate, (int)open_param->frame_rate_info);
 			return -EINVAL;
 		}
@@ -3069,7 +2975,8 @@ static int wave5_vpu_enc_check_custom_gop(struct vpu_device *vpu_dev,
 	struct custom_gop_pic_param *gop_pic_param;
 	struct custom_gop_pic_param new_gop[MAX_GOP_NUM * 2 + 1];
 
-	u32 i, ei, gi, gop_size;
+	unsigned int i, ei, gi;
+	u32 gop_size;
 	s32 curr_poc, ref_poc;
 	s32 enc_tid[MAX_GOP_NUM * 2 + 1];
 
@@ -3101,11 +3008,11 @@ static int wave5_vpu_enc_check_custom_gop(struct vpu_device *vpu_dev,
 		gop_pic_param = &gop_param->pic_param[i];
 
 		if (gop_pic_param->poc_offset <= 0) {
-			dev_err(vpu_dev->dev, "POC of the %d-th pic not greater then -1\n", i + 1);
+			dev_err(vpu_dev->dev, "POC of the %u-th pic not greater then -1\n", i + 1);
 			return -EINVAL;
 		}
 		if (gop_pic_param->poc_offset > gop_size) {
-			dev_err(vpu_dev->dev, "POC of %dth pic bigger than gop_size\n", i + 1);
+			dev_err(vpu_dev->dev, "POC of %uth pic bigger than gop_size\n", i + 1);
 			return -EINVAL;
 		}
 		if (gop_pic_param->temporal_id < 0) {
@@ -3127,17 +3034,17 @@ static int wave5_vpu_enc_check_custom_gop(struct vpu_device *vpu_dev,
 
 			/* reference picture is not encoded yet */
 			if (enc_tid[ref_poc] < 0) {
-				dev_err(vpu_dev->dev, "1st ref pic can't be ref of pic (POC: %d)\n",
+				dev_err(vpu_dev->dev, "1st ref pic can't be ref of pic (POC: %u)\n",
 					cur_pic->poc_offset - gop_size);
 				return -EINVAL;
 			}
 			if (enc_tid[ref_poc] > cur_pic->temporal_id) {
-				dev_err(vpu_dev->dev, "wrong temporal_id of pic (POC: %d)\n",
+				dev_err(vpu_dev->dev, "wrong temporal_id of pic (POC: %u)\n",
 					cur_pic->poc_offset - gop_size);
 				return -EINVAL;
 			}
 			if (ref_poc >= cur_pic->poc_offset) {
-				dev_err(vpu_dev->dev, "POC of 1st ref pic of %d-th pic is wrong\n",
+				dev_err(vpu_dev->dev, "POC of 1st ref pic of %u-th pic is wrong\n",
 					cur_pic->poc_offset - gop_size);
 				return -EINVAL;
 			}
@@ -3147,24 +3054,24 @@ static int wave5_vpu_enc_check_custom_gop(struct vpu_device *vpu_dev,
 
 			/* reference picture is not encoded yet */
 			if (enc_tid[ref_poc] < 0) {
-				dev_err(vpu_dev->dev, "2nd ref pic can't be ref of pic (POC: %d)\n"
+				dev_err(vpu_dev->dev, "2nd ref pic can't be ref of pic (POC: %u)\n"
 						, cur_pic->poc_offset - gop_size);
 				return -EINVAL;
 			}
 			if (enc_tid[ref_poc] > cur_pic->temporal_id) {
-				dev_err(vpu_dev->dev,  "temporal_id of %d-th picture is wrong\n",
+				dev_err(vpu_dev->dev,  "temporal_id of %u-th picture is wrong\n",
 					cur_pic->poc_offset - gop_size);
 				return -EINVAL;
 			}
 			if (new_gop[ei].pic_type == PIC_TYPE_P && new_gop[ei].use_multi_ref_p > 0) {
 				if (ref_poc >= cur_pic->poc_offset) {
-					dev_err(vpu_dev->dev,  "bad POC of 2nd ref pic of %dth pic\n",
+					dev_err(vpu_dev->dev,  "bad POC of 2nd ref pic of %uth pic\n",
 						cur_pic->poc_offset - gop_size);
 					return -EINVAL;
 				}
 			} else if (ref_poc == cur_pic->poc_offset) {
 				/* HOST_PIC_TYPE_B */
-				dev_err(vpu_dev->dev,  "POC of 2nd ref pic of %dth pic is wrong\n",
+				dev_err(vpu_dev->dev,  "POC of 2nd ref pic of %uth pic is wrong\n",
 					cur_pic->poc_offset - gop_size);
 				return -EINVAL;
 			}
@@ -3191,7 +3098,7 @@ int wave5_vpu_enc_check_open_param(struct vpu_instance *inst, struct enc_open_pa
 	pic_height = open_param->pic_height;
 
 	if (inst->id >= MAX_NUM_INSTANCE) {
-		dev_err(inst->dev->dev, "Too many simultaneous instances: %d (max: %d)\n",
+		dev_err(inst->dev->dev, "Too many simultaneous instances: %d (max: %u)\n",
 			inst->id, MAX_NUM_INSTANCE);
 		return -EOPNOTSUPP;
 	}
@@ -3223,7 +3130,7 @@ int wave5_vpu_enc_check_open_param(struct vpu_instance *inst, struct enc_open_pa
 		if (open_param->bitstream_buffer_size % 1024 ||
 		    open_param->bitstream_buffer_size < MIN_BITSTREAM_BUFFER_SIZE) {
 			dev_err(inst->dev->dev,
-				"Bitstream buffer size must be aligned to a multiple of 1024 and have a minimum size of %d\n",
+				"Bitstream buffer size must be aligned to a multiple of 1024 and have a minimum size of %u\n",
 				MIN_BITSTREAM_BUFFER_SIZE);
 			return -EINVAL;
 		}
@@ -3235,7 +3142,7 @@ int wave5_vpu_enc_check_open_param(struct vpu_instance *inst, struct enc_open_pa
 			}
 			if (open_param->bitstream_buffer_size < MIN_BITSTREAM_BUFFER_SIZE_WAVE521) {
 				dev_err(inst->dev->dev,
-					"Bitstream buffer too small: %d (minimum: %d)\n",
+					"Bitstream buffer too small: %u (minimum: %u)\n",
 					open_param->bitstream_buffer_size,
 					MIN_BITSTREAM_BUFFER_SIZE_WAVE521);
 				return -EINVAL;
@@ -3246,14 +3153,14 @@ int wave5_vpu_enc_check_open_param(struct vpu_instance *inst, struct enc_open_pa
 	if (!open_param->frame_rate_info)
 		return -EINVAL;
 	if (open_param->bit_rate > MAX_BIT_RATE) {
-		dev_err(inst->dev->dev, "Invalid encoding bit-rate: %d (valid: 0-%d)\n",
+		dev_err(inst->dev->dev, "Invalid encoding bit-rate: %u (valid: 0-%u)\n",
 			open_param->bit_rate, MAX_BIT_RATE);
 		return -EINVAL;
 	}
 
 	if (pic_width < W5_MIN_ENC_PIC_WIDTH || pic_width > W5_MAX_ENC_PIC_WIDTH ||
 	    pic_height < W5_MIN_ENC_PIC_HEIGHT || pic_height > W5_MAX_ENC_PIC_HEIGHT) {
-		dev_err(inst->dev->dev, "Invalid encoding dimension: %dx%d\n",
+		dev_err(inst->dev->dev, "Invalid encoding dimension: %ux%u\n",
 			pic_width, pic_height);
 		return -EINVAL;
 	}
@@ -3268,7 +3175,7 @@ int wave5_vpu_enc_check_open_param(struct vpu_instance *inst, struct enc_open_pa
 			      param->internal_bit_depth < 10)) &&
 			    param->profile != HEVC_PROFILE_STILLPICTURE) {
 				dev_err(inst->dev->dev,
-					"Invalid HEVC encoding profile: %d (bit-depth: %d)\n",
+					"Invalid HEVC encoding profile: %u (bit-depth: %u)\n",
 					param->profile, param->internal_bit_depth);
 				return -EINVAL;
 			}
@@ -3276,21 +3183,15 @@ int wave5_vpu_enc_check_open_param(struct vpu_instance *inst, struct enc_open_pa
 			if ((param->internal_bit_depth > 8 &&
 			     param->profile != H264_PROFILE_HIGH10)) {
 				dev_err(inst->dev->dev,
-					"Invalid AVC encoding profile: %d (bit-depth: %d)\n",
+					"Invalid AVC encoding profile: %u (bit-depth: %u)\n",
 					param->profile, param->internal_bit_depth);
 				return -EINVAL;
 			}
 		}
 	}
 
-	if (param->internal_bit_depth != 8 && param->internal_bit_depth != 10) {
-		dev_err(inst->dev->dev, "Invalid encoding bit-depth: %d (valid: 8 & 10)\n",
-			param->internal_bit_depth);
-		return -EINVAL;
-	}
-
 	if (param->decoding_refresh_type > DEC_REFRESH_TYPE_IDR) {
-		dev_err(inst->dev->dev, "Invalid decoding refresh type: %d (valid: 0-2)\n",
+		dev_err(inst->dev->dev, "Invalid decoding refresh type: %u (valid: 0-2)\n",
 			param->decoding_refresh_type);
 		return -EINVAL;
 	}
@@ -3299,7 +3200,7 @@ int wave5_vpu_enc_check_open_param(struct vpu_instance *inst, struct enc_open_pa
 		if (param->gop_param.custom_gop_size < 1 ||
 		    param->gop_param.custom_gop_size > MAX_GOP_NUM) {
 			dev_err(inst->dev->dev,
-				"Invalid custom group of pictures size: %d (valid: 1-%d)\n",
+				"Invalid custom group of pictures size: %u (valid: 1-%u)\n",
 				param->gop_param.custom_gop_size, MAX_GOP_NUM);
 			return -EINVAL;
 		}
@@ -3324,7 +3225,7 @@ int wave5_vpu_enc_check_open_param(struct vpu_instance *inst, struct enc_open_pa
 	}
 
 	if (param->scaling_list_enable > 2) {
-		dev_err(inst->dev->dev, "Invalid scaling_list_enable: %d (valid: 0-2)\n",
+		dev_err(inst->dev->dev, "Invalid scaling_list_enable: %u (valid: 0-2)\n",
 			param->scaling_list_enable);
 		return -EINVAL;
 	}
@@ -3345,7 +3246,7 @@ int wave5_vpu_enc_check_open_param(struct vpu_instance *inst, struct enc_open_pa
 
 	if (param->intra_qp > MAX_INTRA_QP) {
 		dev_err(inst->dev->dev,
-			"Invalid intra quantization parameter: %d (valid: 0-%d)\n",
+			"Invalid intra quantization parameter: %u (valid: 0-%u)\n",
 			param->intra_qp, MAX_INTRA_QP);
 		return -EINVAL;
 	}
@@ -3356,7 +3257,7 @@ int wave5_vpu_enc_check_open_param(struct vpu_instance *inst, struct enc_open_pa
 		    param->min_qp_b > MAX_INTRA_QP || param->max_qp_b > MAX_INTRA_QP) {
 			dev_err(inst->dev->dev,
 				"Invalid quantization parameter min/max values: "
-				"I: %d-%d, P: %d-%d, B: %d-%d (valid for each: 0-%d)\n",
+				"I: %u-%u, P: %u-%u, B: %u-%u (valid for each: 0-%u)\n",
 				param->min_qp_i, param->max_qp_i, param->min_qp_p, param->max_qp_p,
 				param->min_qp_b, param->max_qp_b, MAX_INTRA_QP);
 			return -EINVAL;
@@ -3364,20 +3265,20 @@ int wave5_vpu_enc_check_open_param(struct vpu_instance *inst, struct enc_open_pa
 
 		if (param->hvs_qp_enable && param->hvs_max_delta_qp > MAX_HVS_MAX_DELTA_QP) {
 			dev_err(inst->dev->dev,
-				"Invalid HVS max delta quantization parameter: %d (valid: 0-%d)\n",
+				"Invalid HVS max delta quantization parameter: %u (valid: 0-%u)\n",
 				param->hvs_max_delta_qp, MAX_HVS_MAX_DELTA_QP);
 			return -EINVAL;
 		}
 
 		if (param->bit_alloc_mode > BIT_ALLOC_MODE_FIXED_RATIO) {
-			dev_err(inst->dev->dev, "Invalid bit alloc mode: %d (valid: 0-2)\n",
+			dev_err(inst->dev->dev, "Invalid bit alloc mode: %u (valid: 0-2)\n",
 				param->bit_alloc_mode);
 			return -EINVAL;
 		}
 
 		if (open_param->vbv_buffer_size < MIN_VBV_BUFFER_SIZE ||
 		    open_param->vbv_buffer_size > MAX_VBV_BUFFER_SIZE) {
-			dev_err(inst->dev->dev, "VBV buffer size: %d (valid: %d-%d)\n",
+			dev_err(inst->dev->dev, "VBV buffer size: %u (valid: %u-%u)\n",
 				open_param->vbv_buffer_size, MIN_VBV_BUFFER_SIZE,
 				MAX_VBV_BUFFER_SIZE);
 			return -EINVAL;
@@ -3420,7 +3321,7 @@ int wave5_vpu_enc_check_open_param(struct vpu_instance *inst, struct enc_open_pa
 		    param->nr_noise_sigma_cb > MAX_NOISE_SIGMA ||
 		    param->nr_noise_sigma_cr > MAX_NOISE_SIGMA) {
 			dev_err(inst->dev->dev,
-				"Invalid noise sigma Y(%d) Cb(%d) Cr(%d) (valid: %d)\n",
+				"Invalid noise sigma Y(%u) Cb(%u) Cr(%u) (valid: %u)\n",
 				param->nr_noise_sigma_y, param->nr_noise_sigma_cb,
 				param->nr_noise_sigma_cr, MAX_NOISE_SIGMA);
 			return -EINVAL;
@@ -3430,7 +3331,7 @@ int wave5_vpu_enc_check_open_param(struct vpu_instance *inst, struct enc_open_pa
 		    param->nr_intra_weight_cb > MAX_INTRA_WEIGHT ||
 		    param->nr_intra_weight_cr > MAX_INTRA_WEIGHT) {
 			dev_err(inst->dev->dev,
-				"Invalid intra weight Y(%d) Cb(%d) Cr(%d) (valid: %d)\n",
+				"Invalid intra weight Y(%u) Cb(%u) Cr(%u) (valid: %u)\n",
 				param->nr_intra_weight_y, param->nr_intra_weight_cb,
 				param->nr_intra_weight_cr, MAX_INTRA_WEIGHT);
 			return -EINVAL;
@@ -3440,7 +3341,7 @@ int wave5_vpu_enc_check_open_param(struct vpu_instance *inst, struct enc_open_pa
 		    param->nr_inter_weight_cb > MAX_INTER_WEIGHT ||
 		    param->nr_inter_weight_cr > MAX_INTER_WEIGHT) {
 			dev_err(inst->dev->dev,
-				"Invalid inter weight Y(%d) Cb(%d) Cr(%d) (valid: %d)\n",
+				"Invalid inter weight Y(%u) Cb(%u) Cr(%u) (valid: %u)\n",
 				param->nr_inter_weight_y, param->nr_inter_weight_cb,
 				param->nr_inter_weight_cr, MAX_INTER_WEIGHT);
 			return -EINVAL;
