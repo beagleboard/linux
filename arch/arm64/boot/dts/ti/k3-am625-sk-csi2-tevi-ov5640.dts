@@ -50,7 +50,7 @@
 
 				clocks = <&clk_ov5640_fixed>;
 				clock-names = "xclk";
-				reset-gpios = <&exp1 13 GPIO_ACTIVE_LOW>;
+				powerdown-gpios = <&exp1 13 GPIO_ACTIVE_LOW>;
 
 				port {
 					csi2_cam0: endpoint {
