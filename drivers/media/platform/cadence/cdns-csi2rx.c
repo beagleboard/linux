@@ -122,6 +122,22 @@ static const struct csi2rx_fmt formats[] = {
 		.bpp	= 16,
 	},
 	{
+		.code	= MEDIA_BUS_FMT_YUYV8_1X16,
+		.bpp	= 16,
+	},
+	{
+		.code	= MEDIA_BUS_FMT_UYVY8_1X16,
+		.bpp	= 16,
+	},
+	{
+		.code	= MEDIA_BUS_FMT_YVYU8_1X16,
+		.bpp	= 16,
+	},
+	{
+		.code	= MEDIA_BUS_FMT_VYUY8_1X16,
+		.bpp	= 16,
+	},
+	{
 		.code	= MEDIA_BUS_FMT_SBGGR8_1X8,
 		.bpp	= 8,
 	},
@@ -588,7 +604,7 @@ static int csi2rx_init_cfg(struct v4l2_subdev *subdev,
 		.format = {
 			.width = 640,
 			.height = 480,
-			.code = MEDIA_BUS_FMT_UYVY8_2X8,
+			.code = MEDIA_BUS_FMT_UYVY8_1X16,
 			.field = V4L2_FIELD_NONE,
 			.colorspace = V4L2_COLORSPACE_SRGB,
 			.ycbcr_enc = V4L2_YCBCR_ENC_601,
