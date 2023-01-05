@@ -7,6 +7,16 @@
 
 #include "light-beagle-ref.dts"
 
+/ {
+
+	bcmdhd_wlan {
+		compatible = "android,bcmdhd_wlan";
+
+		gpio_wl_reg_on =   <&gpio2_porta 31 1>;
+		gpio_wl_host_wake = <&gpio2_porta 25 1>;
+	};
+};
+
 &vvcam_sensor4 { // beagle board J5 CSI0 connector
 	sensor_name = "IMX219";
 	sensor_pdn = <&gpio2_porta 23 0>; //powerdown pin / shutdown pin 

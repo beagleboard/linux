@@ -49,6 +49,7 @@ source "drivers/net/wireless/ti/Kconfig"
 source "drivers/net/wireless/zydas/Kconfig"
 source "drivers/net/wireless/quantenna/Kconfig"
 source "drivers/net/wireless/rtl8723ds/Kconfig"
+source "drivers/net/wireless/bcmdhd.101.10.361.x/Kconfig"
 
 config PCMCIA_RAYCS
 	tristate "Aviator/Raytheon 2.4GHz wireless support"
