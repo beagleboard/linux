@@ -33,7 +33,7 @@
 	};
 
 	dma_buf_phys {
-		compatible = "ti,dma_buf_phys";
+		compatible = "ti,dma-buf-phys";
 	};
 
 	reserved-memory {
