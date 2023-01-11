@@ -462,7 +462,6 @@ struct dec_open_param {
 	u32 av1_format;
 	enum error_conceal_unit error_conceal_unit;
 	enum error_conceal_mode error_conceal_mode;
-	u32 pri_ext_addr;
 	u32 pri_axprot;
 	u32 pri_axcache;
 	u32 enable_non_ref_fbc_write: 1;
@@ -814,7 +813,6 @@ struct enc_open_param {
 	u32 encode_vui_rbsp;
 	u32 vui_rbsp_data_size; /* the bit size of the VUI rbsp data */
 	u32 vui_rbsp_data_addr; /* the address of the VUI rbsp data */
-	u32 pri_ext_addr;
 	u32 pri_axprot;
 	u32 pri_axcache;
 	bool ring_buffer_enable;
@@ -850,7 +848,7 @@ struct enc_code_opt {
 
 struct enc_param {
 	struct frame_buffer *source_frame;
-	u32 pic_stream_buffer_addr;
+	dma_addr_t pic_stream_buffer_addr;
 	u64 pic_stream_buffer_size;
 	u32 force_pic_qp_i;
 	u32 force_pic_qp_p;
@@ -876,7 +874,7 @@ struct enc_param {
 };
 
 struct enc_output_info {
-	u32 bitstream_buffer;
+	dma_addr_t bitstream_buffer;
 	u32 bitstream_size; /* the byte size of encoded bitstream */
 	u32 pic_type: 2; /* <<vpuapi_h_pic_type>> */
 	s32 recon_frame_index;
@@ -927,8 +925,8 @@ struct dec_info {
 	struct dec_open_param open_param;
 	struct dec_initial_info initial_info;
 	struct dec_initial_info new_seq_info; /* temporal new sequence information */
-	u32 stream_wr_ptr;
-	u32 stream_rd_ptr;
+	dma_addr_t stream_wr_ptr;
+	dma_addr_t stream_rd_ptr;
 	u32 frame_display_flag;
 	dma_addr_t stream_buf_start_addr;
 	dma_addr_t stream_buf_end_addr;
@@ -973,8 +971,8 @@ struct dec_info {
 struct enc_info {
 	struct enc_open_param open_param;
 	struct enc_initial_info initial_info;
-	u32 stream_rd_ptr;
-	u32 stream_wr_ptr;
+	dma_addr_t stream_rd_ptr;
+	dma_addr_t stream_wr_ptr;
 	dma_addr_t stream_buf_start_addr;
 	dma_addr_t stream_buf_end_addr;
 	u32 stream_buf_size;
@@ -1022,6 +1020,7 @@ struct vpu_device {
 	struct dma_vpu_buf sram_buf;
 	void __iomem *vdb_register;
 	u32 product_code;
+	u32 ext_addr;
 	struct ida inst_ida;
 	struct clk_bulk_data *clks;
 	struct hrtimer hrtimer;
