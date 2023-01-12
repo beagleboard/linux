@@ -136,6 +136,7 @@ struct udma_match_data {
 	u32 statictr_z_mask;
 	u8 burst_size[3];
 	struct udma_soc_data *soc_data;
+	u8 order_id;
 };
 
 struct udma_soc_data {
@@ -2112,6 +2113,7 @@ static int udma_tisci_rx_channel_config(struct udma_chan *uc)
 static int bcdma_tisci_rx_channel_config(struct udma_chan *uc)
 {
 	struct udma_dev *ud = uc->ud;
+	const struct udma_match_data *match_data = ud->match_data;
 	struct udma_tisci_rm *tisci_rm = &ud->tisci_rm;
 	const struct ti_sci_rm_udmap_ops *tisci_ops = tisci_rm->tisci_udmap_ops;
 	struct udma_rchan *rchan = uc->rchan;
@@ -2121,6 +2123,11 @@ static int bcdma_tisci_rx_channel_config(struct udma_chan *uc)
 	req_rx.valid_params = TISCI_BCDMA_RCHAN_VALID_PARAMS;
 	req_rx.nav_id = tisci_rm->tisci_dev_id;
 	req_rx.index = rchan->id;
+
+	if (match_data->order_id) {
+		req_rx.valid_params |= TI_SCI_MSG_VALUE_RM_UDMAP_CH_ORDER_ID_VALID;
+		req_rx.rx_orderid = match_data->order_id;
+	}
 
 	ret = tisci_ops->rx_ch_cfg(tisci_rm->tisci, &req_rx);
 	if (ret)
@@ -4318,6 +4325,7 @@ static struct udma_match_data am62a_bcdma_csirx_data = {
 		0, /* No UH Channels */
 	},
 	.soc_data = &am62a_dmss_csi_soc_data,
+	.order_id = 8,
 };
 
 static struct udma_match_data am64_bcdma_data = {
