@@ -1,0 +1,136 @@
+// SPDX-License-Identifier: GPL-2.0
+/**
+ * DT Overlay for OV5640 Camera on I2C bus interfaced to CSI2 with AM69 SK board.
+ *
+ * Copyright (C) 2022 Texas Instruments Incorporated - https://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/pinctrl/k3.h>
+
+&wkup_pmx0 {
+	csi2_exp_refclk_pins_default: csi2-exp-refclk-pins-default {
+		pinctrl-single,pins = <
+			J784S4_IOPAD(0x0ec, PIN_OUTPUT, 6) /* (M38) WKUP_GPIO0_11.MCU_CLKOUT0 */
+		>;
+	};
+};
+
+&k3_clks {
+	pinctrl-names = "default";
+	pinctrl-0 = <&csi2_exp_refclk_pins_default>;
+};
+
+&exp2 {
+	p01-hog{
+		/* P01 - CSI_MUX_SEL_2 */
+		gpio-hog;
+		gpios = <1 GPIO_ACTIVE_LOW>;
+		output-high;
+		line-name = "CSI_MUX_SEL_2";
+	};
+	p02-hog{
+		/* P02 - CSI2_RSTz */
+		gpio-hog;
+		gpios = <2 GPIO_ACTIVE_HIGH>;
+		output-high;
+		line-name = "CSI2_RSTz";
+	};
+};
+
+&main_i2c1 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	i2c-mux@70 {
+		compatible = "nxp,pca9543";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0x70>;
+
+		i2c-alias-pool = /bits/ 16 <0x3c 0x3d>;
+
+		/* CAM0 I2C */
+		i2c@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+
+			camera@3c {
+				compatible = "ovti,ov5640";
+				reg = <0x3c>;
+
+				/* MCU_CLKOUT0 WKUP_GPIO0_11 (M38) */
+				clocks = <&k3_clks 157 174>;
+				clock-names = "xclk";
+
+				/* HSDIV4_16FFT_MCU_2_HSDIVOUT0_CLK10 -> REFCLK2 */
+				assigned-clocks = <&k3_clks 157 174>;
+				assigned-clock-parents = <&k3_clks 157 176>;
+				assigned-clock-rates = <25000000>;
+
+				port {
+					csi2_cam0: endpoint {
+						remote-endpoint = <&csi2rx0_in_sensor>;
+						clock-lanes = <0>;
+						data-lanes = <1 2>;
+					};
+				};
+			};
+		};
+		/* CAM1 I2C */
+		i2c@1 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <1>;
+
+			camera@3c {
+				compatible = "ovti,ov5640";
+				reg = <0x3c>;
+
+				/* MCU_CLKOUT0 WKUP_GPIO0_11 (M38) */
+				clocks = <&k3_clks 157 174>;
+				clock-names = "xclk";
+
+				/* HSDIV4_16FFT_MCU_2_HSDIVOUT0_CLK10 -> REFCLK2 */
+				assigned-clocks = <&k3_clks 157 174>;
+				assigned-clock-parents = <&k3_clks 157 176>;
+				assigned-clock-rates = <25000000>;
+
+				port {
+					csi2_cam1: endpoint {
+						remote-endpoint = <&csi2rx1_in_sensor>;
+						clock-lanes = <0>;
+						data-lanes = <1 2>;
+					};
+				};
+			};
+		};
+	};
+};
+
+&csi0_port0 {
+	status = "okay";
+
+	csi2rx0_in_sensor: endpoint {
+		remote-endpoint = <&csi2_cam0>;
+		bus-type = <4>; /* CSI2 DPHY. */
+		clock-lanes = <0>;
+		data-lanes = <1 2>;
+	};
+};
+
+&csi2_port0 {
+	status = "okay";
+
+	csi2rx1_in_sensor: endpoint {
+		remote-endpoint = <&csi2_cam1>;
+		bus-type = <4>; /* CSI2 DPHY. */
+		clock-lanes = <0>;
+		data-lanes = <1 2>;
+	};
+};

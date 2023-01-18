@@ -139,34 +139,6 @@ struct ti_csi2rx_dev {
 static const struct ti_csi2rx_fmt formats[] = {
 	{
 		.fourcc			= V4L2_PIX_FMT_YUYV,
-		.code			= MEDIA_BUS_FMT_YUYV8_2X8,
-		.colorspace		= V4L2_COLORSPACE_SRGB,
-		.csi_df			= CSI_DF_YUV422,
-		.bpp			= 16,
-		.size			= SHIM_DMACNTX_SIZE_8,
-	}, {
-		.fourcc			= V4L2_PIX_FMT_UYVY,
-		.code			= MEDIA_BUS_FMT_UYVY8_2X8,
-		.colorspace		= V4L2_COLORSPACE_SRGB,
-		.csi_df			= CSI_DF_YUV422,
-		.bpp			= 16,
-		.size			= SHIM_DMACNTX_SIZE_8,
-	}, {
-		.fourcc			= V4L2_PIX_FMT_YVYU,
-		.code			= MEDIA_BUS_FMT_YVYU8_2X8,
-		.colorspace		= V4L2_COLORSPACE_SRGB,
-		.csi_df			= CSI_DF_YUV422,
-		.bpp			= 16,
-		.size			= SHIM_DMACNTX_SIZE_8,
-	}, {
-		.fourcc			= V4L2_PIX_FMT_VYUY,
-		.code			= MEDIA_BUS_FMT_VYUY8_2X8,
-		.colorspace		= V4L2_COLORSPACE_SRGB,
-		.csi_df			= CSI_DF_YUV422,
-		.bpp			= 16,
-		.size			= SHIM_DMACNTX_SIZE_8,
-	}, {
-		.fourcc			= V4L2_PIX_FMT_YUYV,
 		.code			= MEDIA_BUS_FMT_YUYV8_1X16,
 		.colorspace		= V4L2_COLORSPACE_SRGB,
 		.csi_df			= CSI_DF_YUV422,
@@ -1279,6 +1251,7 @@ static int ti_csi2rx_init_vb2q(struct ti_csi2rx_ctx *ctx)
 	q->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC;
 	q->dev = dmaengine_get_dma_device(ctx->dma.chan);
 	q->lock = &ctx->mutex;
+	q->min_buffers_needed = 1;
 
 	ret = vb2_queue_init(q);
 	if (ret)
