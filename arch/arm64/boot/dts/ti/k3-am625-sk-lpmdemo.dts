@@ -19,6 +19,12 @@
 			/delete-property/ default-state;
 		};
 	};
+
+	firmware {
+		optee {
+			status = "disabled";
+		};
+	};
 };
 
 &dmsc {
