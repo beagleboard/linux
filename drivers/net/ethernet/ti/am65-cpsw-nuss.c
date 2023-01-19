@@ -3102,7 +3102,7 @@ static int am65_cpsw_nuss_probe(struct platform_device *pdev)
 
 	ret = am65_cpsw_nuss_register_debugfs(common);
 	if (ret)
-		goto err_of_clear;
+		goto err_free_phylink;
 
 	ret = am65_cpsw_nuss_register_ndevs(common);
 	if (ret) {
@@ -3115,6 +3115,7 @@ static int am65_cpsw_nuss_probe(struct platform_device *pdev)
 
 err_free_phylink:
 	am65_cpsw_nuss_phylink_cleanup(common);
+	am65_cpts_release(common->cpts);
 err_of_clear:
 	of_platform_device_destroy(common->mdio_dev, NULL);
 err_pm_clear:
@@ -3139,6 +3140,7 @@ static int am65_cpsw_nuss_remove(struct platform_device *pdev)
 
 	am65_cpsw_nuss_unregister_debugfs(common);
 	am65_cpsw_nuss_phylink_cleanup(common);
+	am65_cpts_release(common->cpts);
 	am65_cpsw_unregister_devlink(common);
 	am65_cpsw_unregister_notifiers(common);
 
