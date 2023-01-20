@@ -216,6 +216,7 @@ config TI_ICSSG_PRUETH
 	select TI_DAVINCI_MDIO
 	select NET_PTP_CLASSIFY
 	select TI_ICSS_IEP
+	select PAGE_POOL
 	imply PTP_1588_CLOCK
 	depends on PRU_REMOTEPROC
 	depends on NET_SWITCHDEV

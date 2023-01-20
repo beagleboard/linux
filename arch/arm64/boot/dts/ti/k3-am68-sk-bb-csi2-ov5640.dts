@@ -12,13 +12,15 @@
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/pinctrl/k3.h>
 
-&main_pmx0 {
+&wkup_pmx0 {
 	csi2_exp_refclk_pins_default: csi2-exp-refclk-pins-default {
 		pinctrl-single,pins = <
 			J721S2_IOPAD(0x0ec, PIN_OUTPUT, 6) /* (F25) WKUP_GPIO0_11.MCU_CLKOUT0 */
 		>;
 	};
+};
 
+&main_pmx0 {
 	main_i2c1_pins_default: main-i2c1-pins-default {
 		pinctrl-single,pins = <
 			J721S2_IOPAD(0x0ac, PIN_INPUT, 13) /* (AC25) MCASP0_AXR15.I2C1_SCL */

@@ -683,7 +683,7 @@
 };
 
 &main_cpsw1 {
-	status = "disabled";
+	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&main_cpsw2g_pins_default &main_cpsw2g_mdio_pins_default>;
 };

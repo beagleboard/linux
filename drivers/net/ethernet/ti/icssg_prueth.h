@@ -8,6 +8,8 @@
 #ifndef __NET_TI_ICSSG_PRUETH_H
 #define __NET_TI_ICSSG_PRUETH_H
 
+#include <linux/bpf.h>
+#include <linux/bpf_trace.h>
 #include <linux/etherdevice.h>
 #include <linux/genalloc.h>
 #include <linux/if_vlan.h>
@@ -32,6 +34,7 @@
 #include <linux/dma/k3-udma-glue.h>
 
 #include <net/devlink.h>
+#include <net/page_pool.h>
 
 #include "icssg_config.h"
 #include "icss_iep.h"
@@ -111,6 +114,8 @@ struct prueth_rx_chn {
 	u32 descs_num;
 	unsigned int irq[ICSSG_MAX_RFLOWS];	/* separate irq per flow */
 	char name[32];
+	struct page_pool *pg_pool;
+	struct xdp_rxq_info xdp_rxq;
 };
 
 enum prueth_devlink_param_id {
@@ -122,12 +127,39 @@ struct prueth_devlink {
 	struct prueth *prueth;
 };
 
+enum prueth_swdata_type {
+	PRUETH_SWDATA_INVALID = 0,
+	PRUETH_SWDATA_SKB,
+	PRUETH_SWDATA_PAGE,
+	PRUETH_SWDATA_CMD,
+	PRUETH_SWDATA_XDPF,
+};
+
+union prueth_data {
+	struct sk_buff *skb;
+	struct page *page;
+	u32 cmd;
+	struct xdp_frame *xdpf;
+};
+
+struct prueth_swdata {
+	union prueth_data data;
+	struct prueth_rx_chn *rx_chn;
+	enum prueth_swdata_type type;
+};
+
 /* There are 4 Tx DMA channels, but the highest priority is CH3 (thread 3)
  * and lower three are lower priority channels or threads.
  */
 #define PRUETH_MAX_TX_QUEUES	4
 
 #define PRUETH_MAX_TX_TS_REQUESTS	50	/* Max simultaneous TX_TS requests */
+
+/* XDP BPF state */
+#define ICSSG_XDP_PASS           0
+#define ICSSG_XDP_CONSUMED       BIT(0)
+#define ICSSG_XDP_TX             BIT(1)
+#define ICSSG_XDP_REDIR          BIT(2)
 
 /* data for each emac port */
 struct prueth_emac {
@@ -192,7 +224,14 @@ struct prueth_emac {
 	struct work_struct ts_work;
 	struct delayed_work stats_work;
 	u64 *stats;
+
+	struct bpf_prog *xdp_prog;
+	struct xdp_attachment_info xdpi;
 };
+
+/* The buf includes headroom compatible with both skb and xdpf */
+#define PRUETH_HEADROOM_NA (max(XDP_PACKET_HEADROOM, NET_SKB_PAD) + NET_IP_ALIGN)
+#define PRUETH_HEADROOM  ALIGN(PRUETH_HEADROOM_NA, sizeof(long))
 
 /**
  * struct prueth - PRUeth platform data
