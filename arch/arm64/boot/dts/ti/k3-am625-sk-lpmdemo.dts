@@ -57,10 +57,6 @@
 	status = "disabled";
 };
 
-&gpu {
-	status = "disabled";
-};
-
 /*
  * FIXME: Check explicitly if this is still needed.
  * Regular SK dts does not have this, while the
