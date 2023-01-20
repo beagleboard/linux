@@ -148,11 +148,3 @@
 &tlv320aic3106 {
 	status = "disabled";
 };
-
-&gpmc0 {
-	status = "disabled";
-};
-
-&elm0 {
-	status = "disabled";
-};
