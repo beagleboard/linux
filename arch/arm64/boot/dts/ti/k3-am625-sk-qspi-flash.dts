@@ -1,0 +1,16 @@
+// SPDX-License-Identifier: GPL-2.0
+/**
+ * Add Overlay for QSPI NOR Flash usage with the AM625 SK EVM
+ *
+ * Copyright (C) 2023 Texas Instruments Incorporated - https://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+
+&spi_nor_flash {
+	spi-tx-bus-width = <1>;
+	spi-rx-bus-width = <4>;
+	spi-max-frequency = <50000000>;
+	cdns,read-delay = <2>;
+};
