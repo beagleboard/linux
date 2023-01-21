@@ -92,6 +92,7 @@ struct cqspi_st {
 	u32			trigger_address;
 	u32			wr_delay;
 	bool			use_direct_mode;
+	bool			use_direct_mode_wr;
 	struct cqspi_flash_pdata f_pdata[CQSPI_MAX_CHIPSELECT];
 };
 
@@ -1423,6 +1424,13 @@ static int cqspi_write_setup(struct cqspi_flash_pdata *f_pdata,
 	reg |= CQSPI_REG_WR_DISABLE_AUTO_POLL;
 	writel(reg, reg_base + CQSPI_REG_WR_COMPLETION_CTRL);
 
+	/*
+	 * DAC mode require auto polling as flash needs to be polled for
+	 * write completion in case of bubble in SPI transaction due to slow
+	 * CPU/DMA master.
+	 */
+	cqspi->use_direct_mode_wr = false;
+
 	reg = readl(reg_base + CQSPI_REG_SIZE);
 	reg &= ~CQSPI_REG_SIZE_ADDRESS_MASK;
 	reg |= (op->addr.nbytes - 1);
@@ -1769,7 +1777,7 @@ static ssize_t cqspi_write(struct cqspi_flash_pdata *f_pdata,
 	 * data.
 	 */
 	if (!f_pdata->dtr && cqspi->use_direct_mode &&
-	    ((to + len) <= cqspi->ahb_size)) {
+	    ((to + len) <= cqspi->ahb_size) && cqspi->use_direct_mode_wr) {
 		memcpy_toio(cqspi->ahb_base + to, buf, len);
 		return cqspi_wait_idle(cqspi);
 	}
@@ -2367,8 +2375,10 @@ static int cqspi_probe(struct platform_device *pdev)
 						cqspi->master_ref_clk_hz);
 		if (ddata->hwcaps_mask & CQSPI_SUPPORTS_OCTAL)
 			master->mode_bits |= SPI_RX_OCTAL | SPI_TX_OCTAL;
-		if (!(ddata->quirks & CQSPI_DISABLE_DAC_MODE))
+		if (!(ddata->quirks & CQSPI_DISABLE_DAC_MODE)) {
 			cqspi->use_direct_mode = true;
+			cqspi->use_direct_mode_wr = true;
+		}
 	}
 
 	ret = devm_request_irq(dev, irq, cqspi_irq_handler, 0,
