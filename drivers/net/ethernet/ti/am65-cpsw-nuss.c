@@ -1804,6 +1804,7 @@ static int am65_cpsw_nuss_ndev_add_tx_napi(struct am65_cpsw_common *common)
 				tx_chn->id, tx_chn->irq, ret);
 			goto err;
 		}
+		irq_set_affinity_hint(tx_chn->irq, get_cpu_mask(i % num_online_cpus()));
 	}
 
 err:
@@ -2029,6 +2030,7 @@ static int am65_cpsw_nuss_init_rx_chns(struct am65_cpsw_common *common)
 			rx_chn->irq, ret);
 		goto err;
 	}
+	irq_set_affinity_hint(rx_chn->irq, get_cpu_mask(cpumask_first(cpu_present_mask)));
 
 err:
 	i = devm_add_action(dev, am65_cpsw_nuss_free_rx_chns, common);
