@@ -343,8 +343,10 @@ static struct ti_sci_inta_event_desc *ti_sci_inta_alloc_irq(struct irq_domain *d
 				continue;
 			free_bit = find_first_zero_bit(vint_desc->event_map,
 						       MAX_EVENTS_PER_VINT);
-			if (free_bit != MAX_EVENTS_PER_VINT)
+			if (free_bit != MAX_EVENTS_PER_VINT) {
 				set_bit(free_bit, vint_desc->event_map);
+				break;
+			}
 		}
 	} else  {
 		vint_desc = ti_sci_inta_alloc_parent_irq(domain, vint_id);
