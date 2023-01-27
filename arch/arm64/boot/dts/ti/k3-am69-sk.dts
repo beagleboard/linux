@@ -704,6 +704,13 @@
 
 &serdes0 {
 	status = "okay";
+	serdes0_pcie_link: phy@0 {
+		reg = <0>;
+		cdns,num-lanes = <2>;
+		#phy-cells = <0>;
+		cdns,phy-type = <PHY_TYPE_PCIE>;
+		resets = <&serdes_wiz0 1>, <&serdes_wiz0 2>;
+	};
 	serdes0_usb_link: phy@3 {
 		reg = <3>;
 		cdns,num-lanes = <1>;
@@ -711,6 +718,21 @@
 		cdns,phy-type = <PHY_TYPE_USB3>;
 		resets = <&serdes_wiz0 4>;
 	};
+};
+
+&pcie1_rc {
+	status = "okay";
+	reset-gpios = <&exp1 5 GPIO_ACTIVE_HIGH>;
+	phys = <&serdes0_pcie_link>;
+	phy-names = "pcie-phy";
+	num-lanes = <2>;
+};
+
+&pcie1_ep {
+	status = "disabled";
+	phys = <&serdes0_pcie_link>;
+	phy-names = "pcie-phy";
+	num-lanes = <2>;
 };
 
 &usb_serdes_mux {
