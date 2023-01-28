@@ -98,10 +98,6 @@
 	status = "disabled";
 };
 
-&mcasp1 {
-	status = "disabled";
-};
-
 &cbass_mcu {
 	status = "disabled";
 };
@@ -116,18 +112,6 @@
 &wlan_en {
 	status = "disabled";
 };
-/* regulator-7 */
-&vcc_1v8 {
-	status = "disabled";
-};
-
-&tlv320_mclk {
-	status = "disabled";
-};
-
-&codec_audio {
-	status = "disabled";
-};
 
 &hdmi_mstrclk {
 	status = "disabled";
@@ -138,9 +122,5 @@
 };
 
 &sii9022 {
-	status = "disabled";
-};
-
-&tlv320aic3106 {
 	status = "disabled";
 };

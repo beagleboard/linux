@@ -50,6 +50,7 @@ dtb-$(CONFIG_ARCH_K3) += k3-j721s2-fpdlink-cpb-fusion.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-am69-sk.dtb
 dtb-$(CONFIG_ARCH_K3) += k3-am69-sk-csi2-ov5640.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-am69-sk-ddr-mem-carveout.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-am69-sk-fpdlink-fusion.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-am69-sk-rpi-cam-imx219.dtbo
 
 dtb-$(CONFIG_ARCH_K3) += k3-j784s4-evm.dtb
