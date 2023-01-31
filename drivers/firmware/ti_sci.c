@@ -19,7 +19,6 @@
 #include <linux/mailbox_client.h>
 #include <linux/module.h>
 #include <linux/of_device.h>
-#include <linux/of_reserved_mem.h>
 #include <linux/semaphore.h>
 #include <linux/slab.h>
 #include <linux/soc/ti/ti-msgmgr.h>
@@ -2028,7 +2027,7 @@ static int ti_sci_get_resource_range(const struct ti_sci_handle *handle,
 		desc->num = resp->range_num;
 		desc->start_sec = resp->range_start_sec;
 		desc->num_sec = resp->range_num_sec;
-	};
+	}
 
 fail:
 	ti_sci_put_one_xfer(&info->minfo, xfer);
@@ -3351,7 +3350,7 @@ u16 ti_sci_get_free_resource(struct ti_sci_resource *res)
 
 		free_bit = find_first_zero_bit(desc->res_map, res_count);
 		if (free_bit != res_count) {
-			set_bit(free_bit, desc->res_map);
+			__set_bit(free_bit, desc->res_map);
 			raw_spin_unlock_irqrestore(&res->lock, flags);
 
 			if (desc->num && free_bit < desc->num)
@@ -3382,10 +3381,10 @@ void ti_sci_release_resource(struct ti_sci_resource *res, u16 id)
 
 		if (desc->num && desc->start <= id &&
 		    (desc->start + desc->num) > id)
-			clear_bit(id - desc->start, desc->res_map);
+			__clear_bit(id - desc->start, desc->res_map);
 		else if (desc->num_sec && desc->start_sec <= id &&
 			 (desc->start_sec + desc->num_sec) > id)
-			clear_bit(id - desc->start_sec, desc->res_map);
+			__clear_bit(id - desc->start_sec, desc->res_map);
 	}
 	raw_spin_unlock_irqrestore(&res->lock, flags);
 }
@@ -3456,9 +3455,8 @@ devm_ti_sci_get_resource_sets(const struct ti_sci_handle *handle,
 
 		valid_set = true;
 		res_count = res->desc[i].num + res->desc[i].num_sec;
-		res->desc[i].res_map =
-			devm_kzalloc(dev, BITS_TO_LONGS(res_count) *
-				     sizeof(*res->desc[i].res_map), GFP_KERNEL);
+		res->desc[i].res_map = devm_bitmap_zalloc(dev, res_count,
+							  GFP_KERNEL);
 		if (!res->desc[i].res_map)
 			return ERR_PTR(-ENOMEM);
 	}
@@ -3545,15 +3543,18 @@ static int ti_sci_load_lpm_firmware(struct device *dev, struct ti_sci_info *info
 
 	/* If no firmware name is set, do not attempt to load. */
 	if (!info->lpm_firmware_name)
-		return 0;
+		return -EINVAL;
 
-	if (request_firmware_direct(&firmware, info->lpm_firmware_name, dev)) {
+	ret = request_firmware_direct(&firmware, info->lpm_firmware_name, dev);
+	if (ret) {
 		dev_warn(dev, "Cannot load %s\n", info->lpm_firmware_name);
-		return -ENODEV;
+		return ret;
 	}
 
-	if (firmware->size > info->lpm_region_size)
+	if (firmware->size > info->lpm_region_size) {
+		release_firmware(firmware);
 		return -ENOMEM;
+	}
 
 	memcpy_toio(info->lpm_region, firmware->data, firmware->size);
 
@@ -3578,14 +3579,10 @@ static int __maybe_unused ti_sci_prepare_system_suspend(struct ti_sci_info *info
 		ret = 0;
 		break;
 	default:
-		ret = -EINVAL;
-	}
-#endif
-	/*
-	 * Do not fail if we don't have action to take for a
-	 * specific suspend mode.
-	 */
-	if (ret)
+		/*
+		 * Do not fail if we don't have action to take for a
+		 * specific suspend mode.
+		 */
 		return 0;
 
 	ret = ti_sci_cmd_prepare_sleep(&info->handle, mode, info->mem_ctx_lo,
@@ -3602,7 +3599,6 @@ static int __maybe_unused ti_sci_suspend(struct device *dev)
 	ret = ti_sci_prepare_system_suspend(info);
 	if (ret)
 		return ret;
-
 	/*
 	 * We must switch operation to polled mode now as drivers and the genpd
 	 * layer may make late TI SCI calls to change clock and device states
@@ -3628,33 +3624,27 @@ static int tisci_pm_handler(struct notifier_block *nb, unsigned long pm_event,
 			    void *unused)
 {
 	struct ti_sci_info *info = pm_nb_to_ti_sci_info(nb);
-	int ret = NOTIFY_DONE;
+	int ret;
 
-	switch (pm_event) {
-	case PM_SUSPEND_PREPARE:
-		if (!info->lpm_firmware_loaded) {
-			ret = ti_sci_load_lpm_firmware(info->dev, info);
-			if (ret) {
-				dev_err(info->dev,
-					"Failed to load low power mode firmware, suspend is non functional (%d)\n",
-					ret);
-				ret = NOTIFY_BAD;
-			} else {
-				info->lpm_firmware_loaded = true;
-			}
-		}
+	/* Load the LPM firmware on PM_SUSPEND_PREPARE if not loaded yet */
+	if (pm_event != PM_SUSPEND_PREPARE || info->lpm_firmware_loaded)
+		return NOTIFY_DONE;
 
-		break;
+	ret = ti_sci_load_lpm_firmware(info->dev, info);
+	if (ret) {
+		dev_err(info->dev, "Failed to load LPM firmware (%d)\n", ret);
+		return NOTIFY_BAD;
 	}
 
-	return ret;
+	info->lpm_firmware_loaded = true;
+
+	return NOTIFY_OK;
 }
 
-static int ti_sci_init_suspend(struct platform_device *pdev, struct ti_sci_info *info)
+static int ti_sci_init_suspend(struct platform_device *pdev,
+			       struct ti_sci_info *info)
 {
 	struct device *dev = &pdev->dev;
-	struct device_node *rmem_np;
-	struct reserved_mem *rmem;
 	struct resource *res;
 	int ret;
 
@@ -3667,31 +3657,27 @@ static int ti_sci_init_suspend(struct platform_device *pdev, struct ti_sci_info 
 		return -ENOMEM;
 	}
 
-	rmem = of_reserved_mem_lookup(rmem_np);
-	of_node_put(rmem_np);
-	if (!rmem)
-		return -EINVAL;
-
-	info->mem_ctx_lo = (rmem->base & 0xFFFFFFFF);
-	info->mem_ctx_hi = (rmem->base >> 32);
-
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "lpm");
 	if (!res) {
 		dev_warn(dev,
 			 "lpm region is required for suspend but not provided.\n");
-		return -EINVAL;
+		ret = -EINVAL;
+		goto err;
 	}
 
 	info->lpm_region = devm_ioremap_resource(dev, res);
-	if (IS_ERR(info->lpm_region))
-		return PTR_ERR(info->lpm_region);
+	if (IS_ERR(info->lpm_region)) {
+		ret = PTR_ERR(info->lpm_region);
+		goto err;
+	}
 	info->lpm_region_size = resource_size(res);
 
-	if (of_property_read_string(dev->of_node, "ti,lpm-firmware-name",
+	if (of_property_read_string(dev->of_node, "firmware-name",
 				    &info->lpm_firmware_name)) {
 		dev_warn(dev,
-			 "ti,lpm-firmware-name is required for suspend but not provided.\n");
-		return -EINVAL;
+			 "firmware-name is required for suspend but not provided.\n");
+		ret = -EINVAL;
+		goto err;
 	}
 
 	info->pm_nb.notifier_call = tisci_pm_handler;
@@ -3699,11 +3685,16 @@ static int ti_sci_init_suspend(struct platform_device *pdev, struct ti_sci_info 
 
 	ret = register_pm_notifier(&info->pm_nb);
 	if (ret) {
-		dev_err(dev, "pm_notifier registration fail(%d)\n", ret);
-		return ret;
+		dev_err(dev, "pm_notifier registration fail (%d)\n", ret);
+		goto err;
 	}
 
 	return 0;
+err:
+	dma_free_coherent(info->dev, LPM_CTX_MEM_SIZE,
+			  info->ctx_mem_buf,
+			  info->ctx_mem_addr);
+	return ret;
 }
 
 /* Description for K2G */
@@ -3794,13 +3785,11 @@ static int ti_sci_probe(struct platform_device *pdev)
 	if (!minfo->xfer_block)
 		return -ENOMEM;
 
-	minfo->xfer_alloc_table = devm_kcalloc(dev,
-					       BITS_TO_LONGS(desc->max_msgs),
-					       sizeof(unsigned long),
-					       GFP_KERNEL);
+	minfo->xfer_alloc_table = devm_bitmap_zalloc(dev,
+						     desc->max_msgs,
+						     GFP_KERNEL);
 	if (!minfo->xfer_alloc_table)
 		return -ENOMEM;
-	bitmap_zero(minfo->xfer_alloc_table, desc->max_msgs);
 
 	/* Pre-initialize the buffer pointer to pre-allocated buffers */
 	for (i = 0, xfer = minfo->xfer_block; i < desc->max_msgs; i++, xfer++) {
@@ -3854,7 +3843,7 @@ static int ti_sci_probe(struct platform_device *pdev)
 		ret = register_restart_handler(&info->nb);
 		if (ret) {
 			dev_err(dev, "reboot registration fail(%d)\n", ret);
-			return ret;
+			goto out;
 		}
 	}
 
@@ -3895,6 +3884,9 @@ static int ti_sci_remove(struct platform_device *pdev)
 	of_platform_depopulate(dev);
 
 	info = platform_get_drvdata(pdev);
+
+	if (info->pm_nb.notifier_call)
+		unregister_pm_notifier(&info->pm_nb);
 
 	if (info->nb.notifier_call)
 		unregister_restart_handler(&info->nb);
