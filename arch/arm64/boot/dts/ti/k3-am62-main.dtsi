@@ -160,7 +160,7 @@
 		reg-names = "debug_messages", "lpm";
 		reg = <0x00 0x44043000 0x00 0xfe0>,
 		      <0x00 0x78000000 0x00 0x8000>;
-		ti,lpm-firmware-name = "ti-sysfw/ti-fs-stub-firmware-am62x-gp-signed.bin";
+		firmware-name = "ti-sysfw/ti-fs-stub-firmware-am62x-gp-signed.bin";
 
 		k3_pds: power-controller {
 			compatible = "ti,sci-pm-domain";
