@@ -132,7 +132,6 @@
 		compatible = "ti,tcan1042";
 		#phy-cells = <0>;
 		max-bitrate = <5000000>;
-		standby-gpios = <&exp1 1 GPIO_ACTIVE_HIGH>;
 	};
 
 	transceiver2: can-phy1 {
