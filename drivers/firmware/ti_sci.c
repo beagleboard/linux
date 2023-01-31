@@ -3570,13 +3570,19 @@ static void ti_sci_set_is_suspending(struct ti_sci_info *info, bool is_suspendin
 
 static int __maybe_unused ti_sci_prepare_system_suspend(struct ti_sci_info *info)
 {
-	int ret = -EINVAL;
-	int mode;
-#ifdef CONFIG_SUSPEND
+#if IS_ENABLED(CONFIG_SUSPEND)
+	u8 mode;
+
+	/* Map and validate the target Linux suspend state to TISCI LPM. */
 	switch (pm_suspend_target_state) {
 	case PM_SUSPEND_MEM:
+		/* S2MEM is not supported by the firmware. */
+		if (!(info->fw_caps & MSG_FLAG_CAPS_LPM_DEEP_SLEEP))
+			return 0;
+		/* S2MEM can't continue if the LPM firmware is not loaded. */
+		if (!info->lpm_firmware_loaded)
+			return -EINVAL;
 		mode = TISCI_MSG_VALUE_SLEEP_MODE_DEEP_SLEEP;
-		ret = 0;
 		break;
 	default:
 		/*
@@ -3584,17 +3590,20 @@ static int __maybe_unused ti_sci_prepare_system_suspend(struct ti_sci_info *info
 		 * specific suspend mode.
 		 */
 		return 0;
+	}
 
-	ret = ti_sci_cmd_prepare_sleep(&info->handle, mode, info->mem_ctx_lo,
-				       info->mem_ctx_hi, 0);
-
-	return ret;
+	return ti_sci_cmd_prepare_sleep(&info->handle, mode,
+					(u32)(info->ctx_mem_addr & 0xffffffff),
+					(u32)((u64)info->ctx_mem_addr >> 32), 0);
+#else
+	return 0;
+#endif
 }
 
 static int __maybe_unused ti_sci_suspend(struct device *dev)
 {
 	struct ti_sci_info *info = dev_get_drvdata(dev);
-	int ret = 0;
+	int ret;
 
 	ret = ti_sci_prepare_system_suspend(info);
 	if (ret)
@@ -3606,7 +3615,7 @@ static int __maybe_unused ti_sci_suspend(struct device *dev)
 	 */
 	ti_sci_set_is_suspending(info, true);
 
-	return ret;
+	return 0;
 }
 
 static int __maybe_unused ti_sci_resume(struct device *dev)
