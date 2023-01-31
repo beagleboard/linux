@@ -10,6 +10,7 @@
 
 #include <linux/bitmap.h>
 #include <linux/debugfs.h>
+#include <linux/dma-mapping.h>
 #include <linux/export.h>
 #include <linux/firmware.h>
 #include <linux/io.h>
@@ -27,6 +28,9 @@
 #include <linux/reboot.h>
 
 #include "ti_sci.h"
+
+/* Low power mode memory context size */
+#define LPM_CTX_MEM_SIZE 0x80000
 
 /* List of all TI SCI devices active in system */
 static LIST_HEAD(ti_sci_list);
@@ -102,8 +106,9 @@ struct ti_sci_desc {
  * @minfo:	Message info
  * @node:	list head
  * @host_id:	Host ID
- * @mem_ctx_lo: Low word of address used for low power context memory
- * @mem_ctx_hi: High word of address used for low power context memory
+ * @ctx_mem_addr: Low power context memory phys address
+ * @ctx_mem_buf: Low power context memory buffer
+ * @fw_caps:	FW/SoC low power capabilities
  * @users:	Number of users of this instance
  * @is_suspending: Flag set to indicate in suspend path.
  * @lpm_firmware_loaded: Flag to indicate if LPM firmware has been loaded
@@ -127,8 +132,9 @@ struct ti_sci_info {
 	struct ti_sci_xfers_info minfo;
 	struct list_head node;
 	u8 host_id;
-	u32 mem_ctx_lo;
-	u32 mem_ctx_hi;
+	dma_addr_t ctx_mem_addr;
+	void *ctx_mem_buf;
+	u64 fw_caps;
 	/* protected by ti_sci_list_mutex */
 	int users;
 	bool is_suspending;
@@ -3652,10 +3658,13 @@ static int ti_sci_init_suspend(struct platform_device *pdev, struct ti_sci_info 
 	struct resource *res;
 	int ret;
 
-	rmem_np = of_parse_phandle(dev->of_node, "ti,ctx-memory-region", 0);
-	if (!rmem_np) {
-		dev_warn(dev, "ti,ctx-memory-region is required for suspend but not provided.\n");
-		return -EINVAL;
+	dma_set_mask_and_coherent(dev, DMA_BIT_MASK(64));
+	info->ctx_mem_buf = dma_alloc_coherent(info->dev, LPM_CTX_MEM_SIZE,
+					       &info->ctx_mem_addr,
+					       GFP_KERNEL);
+	if (!info->ctx_mem_buf) {
+		dev_err(info->dev, "Failed to allocate LPM context memory\n");
+		return -ENOMEM;
 	}
 
 	rmem = of_reserved_mem_lookup(rmem_np);
@@ -3850,21 +3859,13 @@ static int ti_sci_probe(struct platform_device *pdev)
 	}
 
 	/*
-	 * Attempt to call prepare_sleep, this will be NAK'd if suspend is not
-	 * supported by firmware in use, in which case we will not attempt to
-	 * init suspend.
+	 * Check if the firmware supports any optional low power modes
+	 * and initialize them if present. Old revisions of TIFS (< 08.04)
+	 * will NACK the request.
 	 */
-	ret = ti_sci_cmd_prepare_sleep(&info->handle, 0, info->mem_ctx_lo,
-				       info->mem_ctx_hi, 0);
-	if (!ret) {
-		ret = ti_sci_init_suspend(pdev, info);
-		if (ret)
-			dev_warn(dev,
-				 "ti_sci_init_suspend failed, mem suspend will be non-functional.\n");
-	}
-
-	/* Suspend is an optional feature, reset return value and continue. */
-	ret = 0;
+	ret = ti_sci_msg_cmd_query_fw_caps(&info->handle, &info->fw_caps);
+	if (!ret && (info->fw_caps & MSG_MASK_CAPS_LPM))
+		ti_sci_init_suspend(pdev, info);
 
 	dev_info(dev, "ABI: %d.%d (firmware rev 0x%04x '%s')\n",
 		 info->handle.version.abi_major, info->handle.version.abi_minor,
@@ -3913,6 +3914,10 @@ static int ti_sci_remove(struct platform_device *pdev)
 		mbox_free_channel(info->chan_rx);
 	}
 
+	if (info->ctx_mem_buf)
+		dma_free_coherent(info->dev, LPM_CTX_MEM_SIZE,
+				  info->ctx_mem_buf,
+				  info->ctx_mem_addr);
 	return ret;
 }
 
