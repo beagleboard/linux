@@ -27,10 +27,6 @@
 	};
 };
 
-&dmsc {
-	ti,ctx-memory-region = <&lpm_ctx_ddr>;
-};
-
 &crypto {
 	status = "disabled";
 };
