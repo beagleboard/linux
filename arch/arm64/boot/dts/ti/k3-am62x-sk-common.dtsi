@@ -618,6 +618,10 @@
 	ti,vbus-divider;
 };
 
+&usbss1 {
+	ti,vbus-divider;
+};
+
 &usb0 {
 	#address-cells = <1>;
 	#size-cells = <0>;
