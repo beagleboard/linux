@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /**
- * DT Overlay for OV5640 Camera on I2C bus interfaced to CSI2 with AM68-SK board.
+ * LI OV5640 MIPI Camera module.
  *
  * Copyright (C) 2022 Texas Instruments Incorporated - https://www.ti.com/
  */
@@ -59,7 +59,7 @@
 				compatible = "ovti,ov5640";
 				reg = <0x3c>;
 
-				reset-gpios = <&exp1 12 GPIO_ACTIVE_LOW>;
+				powerdown-gpios = <&exp1 12 GPIO_ACTIVE_LOW>;
 
 				/* MCU_CLKOUT0 WKUP_GPIO0_11 (F25) */
 				clocks = <&k3_clks 157 221>;

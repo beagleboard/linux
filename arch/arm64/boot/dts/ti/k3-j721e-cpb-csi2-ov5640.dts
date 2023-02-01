@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
+ * LI OV5640 MIPI Camera module.
+ *
  * Copyright (C) 2021 Texas Instruments Incorporated - http://www.ti.com/
  */
 
@@ -32,7 +34,7 @@
 
 		clocks = <&clk_ov5640_fixed>;
 		clock-names = "xclk";
-		reset-gpios = <&exp5 0 GPIO_ACTIVE_LOW>;
+		powerdown-gpios = <&exp5 0 GPIO_ACTIVE_LOW>;
 
 		port {
 			csi2_cam0: endpoint {
