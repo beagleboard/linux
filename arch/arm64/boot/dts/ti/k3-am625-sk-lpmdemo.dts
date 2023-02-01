@@ -41,18 +41,6 @@
 	/delete-property/ clocks;
 };
 
-&main_spi0 {
-	status = "disabled";
-};
-
-&main_spi1 {
-	status = "disabled";
-};
-
-&main_spi2 {
-	status = "disabled";
-};
-
 &sdhci2 {
 	status = "disabled";
 };
