@@ -41,15 +41,6 @@
 	/delete-property/ clocks;
 };
 
-/*
- * FIXME: Check explicitly if this is still needed.
- * Regular SK dts does not have this, while the
- * LPMDEMO seems to be adding it for some reason
- */
-&usbss1 {
-	ti,vbus-divider;
-};
-
 &dss {
 	status = "disabled";
 };
