@@ -41,10 +41,6 @@
 	/delete-property/ clocks;
 };
 
-&sdhci2 {
-	status = "disabled";
-};
-
 /*
  * FIXME: Check explicitly if this is still needed.
  * Regular SK dts does not have this, while the
@@ -67,16 +63,6 @@
 };
 
 &cbass_mcu {
-	status = "disabled";
-};
-
-/* regulator-5 */
-&wlan_lten {
-	status = "disabled";
-};
-
-/* regulator-6 */
-&wlan_en {
 	status = "disabled";
 };
 
