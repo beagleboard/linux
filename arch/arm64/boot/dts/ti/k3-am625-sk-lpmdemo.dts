@@ -78,30 +78,9 @@
 	status = "disabled";
 };
 
-&main_rti0 {
-	status = "disabled";
-};
-
-&main_rti1 {
-	status = "disabled";
-};
-
-&main_rti2 {
-	status = "disabled";
-};
-
-&main_rti3 {
-	status = "disabled";
-};
-
-&main_rti15 {
-	status = "disabled";
-};
-
 &cbass_mcu {
 	status = "disabled";
 };
-
 
 /* regulator-5 */
 &wlan_lten {
