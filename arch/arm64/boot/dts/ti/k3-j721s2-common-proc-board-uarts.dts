@@ -1,0 +1,58 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * DT Overlay File for extending mcu uart 0 and wkup uart 0 support to kernel
+ * for J721S2 SOC
+ *
+ * Copyright (C) 2023 Texas Instruments Incorporated - https://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/pinctrl/k3.h>
+
+/ {
+	fragment@4 {
+		target-path = "/";
+		__overlay__ {
+			aliases {
+				serial0 = "/bus@100000/bus@28380000/serial@42300000";
+				serial1 = "/bus@100000/bus@28380000/serial@40a00000";
+			};
+		};
+	};
+};
+
+&wkup_pmx0{
+	mcu_uart0_pins_default: mcu-uart0-pins-default {
+		pinctrl-single,pins = <
+			J721S2_WKUP_IOPAD(0x0f8, PIN_INPUT, 0) /* (B24) WKUP_GPIO0_14.MCU_UART0_CTSn */
+			J721S2_WKUP_IOPAD(0x0fc, PIN_OUTPUT, 0) /* (D25) WKUP_GPIO0_15.MCU_UART0_RTSn */
+			J721S2_WKUP_IOPAD(0x0f4, PIN_INPUT, 0) /* (C24) WKUP_GPIO0_13.MCU_UART0_RXD */
+			J721S2_WKUP_IOPAD(0x0f0, PIN_OUTPUT, 0) /* (C25) WKUP_GPIO0_12.MCU_UART0_TXD */
+		>;
+	};
+};
+
+&mcu_uart0 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&mcu_uart0_pins_default>;
+};
+
+&wkup_pmx0 {
+	wkup_uart0_pins_default: wkup-uart0-pins-default {
+		pinctrl-single,pins = <
+			J721S2_WKUP_IOPAD(0x0d8, PIN_INPUT, 0) /* (E25) WKUP_GPIO0_6.WKUP_UART0_CTSn */
+			J721S2_WKUP_IOPAD(0x0dc, PIN_OUTPUT, 0) /* (F28) WKUP_GPIO0_7.WKUP_UART0_RTSn */
+			J721S2_WKUP_IOPAD(0x0b0, PIN_INPUT, 0) /* (D28) WKUP_UART0_RXD */
+			J721S2_WKUP_IOPAD(0x0b4, PIN_OUTPUT, 0) /* (D27) WKUP_UART0_TXD */
+		>;
+	};
+};
+
+&wkup_uart0 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&wkup_uart0_pins_default>;
+};
