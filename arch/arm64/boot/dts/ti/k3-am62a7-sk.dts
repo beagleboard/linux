@@ -90,25 +90,24 @@
 		};
 
 		edgeai_rtos_ipc_memory_region: edgeai-rtos-ipc-memory-region {
-			reg = <0x00 0xa0000000 0x00 0x00300000>;
-			alignment = <0x1000>;
+			reg = <0x00 0xa0000000 0x00 0x01000000>;
 			no-map;
 		};
 
-		edgeai_memory_region: edgeai-dma-memory@a0300000 {
+		edgeai_memory_region: edgeai-dma-memory@a1000000 {
 			compatible = "shared-dma-pool";
-			reg = <0x00 0xa0300000 0x00 0x02000000>;
+			reg = <0x00 0xa1000000 0x00 0x02000000>;
 			no-map;
 		};
 
 		edgeai_shared_region: edgeai_shared-memories {
 			compatible = "dma-heap-carveout";
-			reg = <0x00 0xa2300000 0x00 0x0c000000>;
+			reg = <0x00 0xa3000000 0x00 0x0b000000>;
 		};
 
-		edgeai_core_heaps: edgeai-core-heap-memory@ae300000 {
+		edgeai_core_heaps: edgeai-core-heap-memory@ae000000 {
 			compatible = "shared-dma-pool";
-			reg = <0x00 0xae300000 0x00 0x12000000>;
+			reg = <0x00 0xae000000 0x00 0x12000000>;
 			no-map;
 		};
 	};
