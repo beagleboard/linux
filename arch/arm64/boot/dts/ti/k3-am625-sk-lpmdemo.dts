@@ -45,6 +45,10 @@
 	status = "disabled";
 };
 
+&dss {
+	status = "disabled";
+};
+
 &cbass_mcu {
 	status = "disabled";
 };
