@@ -1,0 +1,62 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * DT Overlay File for extending mcu uart 0 and wkup uart 0 support to kernel
+ * for J721E SOC
+ *
+ * Copyright (C) 2023 Texas Instruments Incorporated - https://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/pinctrl/k3.h>
+
+/ {
+	fragment@5 {
+		target-path = "/";
+		__overlay__ {
+			aliases {
+				serial0 = "/bus@100000/bus@28380000/serial@42300000";
+				serial1 = "/bus@100000/bus@28380000/serial@40a00000";
+			};
+		};
+	};
+};
+
+&wkup_pmx0{
+	mcu_uart0_pins_default: mcu-uart0-pins-default {
+		pinctrl-single,pins = <
+			J721E_WKUP_IOPAD(0xe8, PIN_INPUT, 0) /* (H29) WKUP_GPIO0_14.MCU_UART0_CTSn */
+			J721E_WKUP_IOPAD(0xec, PIN_OUTPUT, 0) /* (J27) WKUP_GPIO0_15.MCU_UART0_RTSn */
+			J721E_WKUP_IOPAD(0xe4, PIN_INPUT, 0) /* (H28) WKUP_GPIO0_13.MCU_UART0_RXD */
+			J721E_WKUP_IOPAD(0xe0, PIN_OUTPUT, 0) /* (G29) WKUP_GPIO0_12.MCU_UART0_TXD */
+		>;
+	};
+};
+
+&mcu_uart0 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&mcu_uart0_pins_default>;
+};
+
+&wkup_pmx0 {
+    wkup_uart0_pins_default: wkup-uart0-pins-default {
+		pinctrl-single,pins = <
+			J721E_WKUP_IOPAD(0xc8, PIN_INPUT, 0) /* (F29) WKUP_GPIO0_6.WKUP_UART0_CTSn */
+			J721E_WKUP_IOPAD(0xcc, PIN_OUTPUT, 0) /* (G28) WKUP_GPIO0_7.WKUP_UART0_RTSn */
+			J721E_WKUP_IOPAD(0xa0, PIN_INPUT, 0) /* (J29) WKUP_UART0_RXD */
+			J721E_WKUP_IOPAD(0xa4, PIN_OUTPUT, 0) /* (J28) WKUP_UART0_TXD */
+		>;
+	};
+};
+
+&wkup_uart0 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&wkup_uart0_pins_default>;
+};
+
+&gpio_keys {
+    pinctrl-0 = <&sw10_button_pins_default>;
+};
