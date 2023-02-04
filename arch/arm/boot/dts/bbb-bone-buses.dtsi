@@ -1,0 +1,315 @@
+// SPDX-License-Identifier: GPL-2.0-only
+
+/*
+ * TODO needs to be merged into am335x-bbb-bone-buses.dtsi and
+ * tested with BeagleBone Green Wireless (which uses wifi over
+ * the P8/P9 header).. RCNEE 20221118
+ */
+
+/*
+ * Copyright (C) 2020 Deepak Khatri <deepaklorkhatri7@gmail.com>
+ * See Cape Interface Spec page for more info on Bone Buses
+ * https://elinux.org/Beagleboard:BeagleBone_cape_interface_spec
+ */
+
+#include <dt-bindings/board/am335x-bone-pins.h>
+#include <dt-bindings/gpio/gpio.h>
+#include "am335x-bone-common-univ.dtsi"
+
+/********/
+/* LEDs */
+/********/
+&{/} {
+	leds {
+		pinctrl-names = "default";
+		compatible = "gpio-leds";
+
+		/* macro: BONE_LED(<headerpin>) */
+		#define BONE_LED(PX_YY)\
+			bone_led_##PX_YY##: led_##PX_YY {\
+				status = "disabled";\
+				linux,default-trigger = "default-off";\
+				gpios = <gpio_##PX_YY GPIO_ACTIVE_HIGH>;\
+			};
+
+		BONE_LED(P8_03)
+		BONE_LED(P8_04)
+		BONE_LED(P8_05)
+		BONE_LED(P8_06)
+		BONE_LED(P8_07)
+		BONE_LED(P8_08)
+		BONE_LED(P8_09)
+		BONE_LED(P8_10)
+		BONE_LED(P8_11)
+		BONE_LED(P8_12)
+		BONE_LED(P8_13)
+		BONE_LED(P8_14)
+		BONE_LED(P8_15)
+		BONE_LED(P8_16)
+		BONE_LED(P8_17)
+		BONE_LED(P8_18)
+		BONE_LED(P8_19)
+		BONE_LED(P8_20)
+		BONE_LED(P8_21)
+		BONE_LED(P8_22)
+		BONE_LED(P8_23)
+		BONE_LED(P8_24)
+		BONE_LED(P8_25)
+		BONE_LED(P8_26)
+		BONE_LED(P8_27)
+		BONE_LED(P8_28)
+		BONE_LED(P8_29)
+		BONE_LED(P8_30)
+		BONE_LED(P8_31)
+		BONE_LED(P8_32)
+		BONE_LED(P8_33)
+		BONE_LED(P8_34)
+		BONE_LED(P8_35)
+		BONE_LED(P8_36)
+		BONE_LED(P8_37)
+		BONE_LED(P8_38)
+		BONE_LED(P8_39)
+		BONE_LED(P8_40)
+		BONE_LED(P8_41)
+		BONE_LED(P8_42)
+		BONE_LED(P8_43)
+		BONE_LED(P8_44)
+		BONE_LED(P8_45)
+		BONE_LED(P8_46)
+
+		/*P9 header Bone LEDs*/
+		BONE_LED(P9_11)
+		BONE_LED(P9_12)
+		BONE_LED(P9_13)
+		BONE_LED(P9_14)
+		BONE_LED(P9_15)
+		BONE_LED(P9_16)
+		BONE_LED(P9_17)
+		BONE_LED(P9_18)
+		BONE_LED(P9_19)
+		BONE_LED(P9_20)
+		BONE_LED(P9_21)
+		BONE_LED(P9_22)
+		BONE_LED(P9_23)
+		BONE_LED(P9_24)
+		BONE_LED(P9_25)
+		BONE_LED(P9_26)
+		BONE_LED(P9_27)
+		BONE_LED(P9_28)
+		BONE_LED(P9_29)
+		BONE_LED(P9_30)
+		BONE_LED(P9_31)
+
+		BONE_LED(P9_41)
+		BONE_LED(P9_91)
+		BONE_LED(P9_42)
+		BONE_LED(P9_92)
+
+		BONE_LED(A15)
+	};
+};
+
+// For dummy refrence when peripheral is not available.
+&{/} {
+	not_available: not_available {
+		// Use &not_available when required.
+		// This node is responsible to create these entries,
+		// /sys/firmware/devicetree/base/__symbols__/not_available
+		// /sys/firmware/devicetree/base/not_available
+	};
+};
+
+// For compatible bone pinmuxing
+bone_pinmux: &am33xx_pinmux {
+
+};
+
+// UARTs
+bone_uart_1: &uart1 {
+	symlink = "bone/uart/1";
+};
+
+bone_uart_2: &uart2 {
+	symlink = "bone/uart/2";
+};
+
+bone_uart_3: &uart3 {
+	symlink = "bone/uart/3";
+};
+
+bone_uart_4: &uart4 {
+	symlink = "bone/uart/4";
+};
+
+bone_uart_5: &uart5 {
+	symlink = "bone/uart/5";
+};
+
+// I2Cs
+bone_i2c_1: &i2c1 {
+	symlink = "bone/i2c/1";
+};
+
+bone_i2c_2: &i2c2 {
+	// Already in use for cape EEPROM reading.
+	symlink = "bone/i2c/2";
+};
+
+// use only when bone_i2c_2 is not in use
+bone_i2c_2a: &i2c2 {
+	symlink = "bone/i2c/2a";
+};
+
+// use only when bone_i2c_1 is not in use
+bone_i2c_3: &i2c1 {
+	symlink = "bone/i2c/3";
+};
+
+// gpmc:
+bone_gpmc: &gpmc {
+
+};
+
+// SPIs
+bone_spi_0: &spi0 {
+
+};
+
+bone_spi_1: &spi1 {
+
+};
+
+// PWMs
+bone_pwm_0: &ehrpwm0 {
+
+};
+
+bone_pwm_1: &ehrpwm1 {
+
+};
+
+bone_pwm_2: &ehrpwm2 {
+
+};
+
+// CAN
+bone_can_0: &dcan0 {
+
+};
+
+bone_can_1: &dcan1 {
+
+};
+
+// PWM_TIMERs
+bone_timer_0: &timer6 {
+
+};
+
+bone_timer_1: &timer4 {
+
+};
+
+bone_timer_2: &timer7 {
+
+};
+
+bone_timer_3: &not_available {
+	// Not available on BBBWl/BBB
+};
+
+bone_timer_4: &timer5 {
+
+};
+
+bone_timer_5: &not_available {
+	// Not available on BBBWL/BBB
+};
+
+// McASP
+bone_mcasp_0: &mcasp0 {
+    serial-dir = <  /* 0: INACTIVE, 1: TX, 2: RX */
+		2 0 1 0
+		0 0 0 0
+		0 0 0 0
+		0 0 0 0
+	>;
+};
+
+// eQEP
+bone_eqep_0: &eqep0{
+
+};
+
+bone_eqep_1: &eqep1{
+
+};
+
+bone_eqep_2: &eqep2{
+
+};
+
+// ADC
+bone_adc: &tscadc {
+	adc {
+		ti,adc-channels = <0 1 2 3 4 5 6 7>;
+		ti,chan-step-avg = <16 16 16 16 16 16 16 16>;
+		ti,chan-step-opendelay = <0x98 0x98 0x98 0x98 0x98 0x98 0x98 0x98>;
+		ti,chan-step-sampledelay = <0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x0>;
+	};
+};
+
+// Enable all pwmss
+&epwmss0 {
+	status = "okay";
+};
+
+&epwmss1 {
+	status = "okay";
+};
+
+&epwmss2 {
+	status = "okay";
+};
+
+// spi_gpio (bit banged SPI)
+&{/} {
+	// For CTAG SW 8ch overlay
+	bone_spi_gpio_ad193x: bone_spi_gpio_ad193x {
+		status = "disabled";
+		compatible = "spi-gpio";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		sck-gpios = <gpio_P8_32 GPIO_ACTIVE_HIGH>;
+		mosi-gpios = <gpio_P8_33 GPIO_ACTIVE_HIGH>;
+		miso-gpios = <gpio_P8_14 GPIO_ACTIVE_HIGH>;
+		cs-gpios = <gpio_P8_17 GPIO_ACTIVE_HIGH>;
+		num-chipselects = <1>;
+
+		ad193x: ad193x@0{
+			compatible = "analog,ad1938";
+			reset-gpio = <gpio_P8_34 GPIO_ACTIVE_HIGH>;
+			reg = <0>; //corresponds to cs
+			spi-max-frequency = <100000>;
+		};
+	};
+};
+
+// // Bone sound
+// &ocp {
+//         clk_mcasp0_fixed: clk_mcasp0_fixed {
+//                 #clock-cells = <0>;
+//                 compatible = "fixed-clock";
+//                 clock-frequeny = <24576000>;
+//         };
+//         clk_mcasp0: clk_mcasp0 {
+//                 #clock-cells = <0>;
+//                 compatible = "gpio-gate-clock";
+//                 clocks = <&clk_mcasp0_fixed>;
+//                 enable-gpios = <&gpio1 27 GPIO_ACTIVE_HIGH>;
+//         };
+// 	bone_sound: bone_sound {
+// 		bb-device = <0>; //BBB/BBG
+// 	};
+// };
