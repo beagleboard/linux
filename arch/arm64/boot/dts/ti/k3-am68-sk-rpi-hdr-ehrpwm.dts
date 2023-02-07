@@ -1,0 +1,65 @@
+// SPDX-License-Identifier: GPL-2.0
+/**
+ * DT Overlay for enabling EHRPWMs on RPi expansion header on AM68 SK board.
+ *
+ * Copyright (C) 2023 Texas Instruments Incorporated - https://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/pinctrl/k3.h>
+
+&main_pmx0 {
+	rpi_header_gpio0_pins_default: rpi-header-gpio0-pins-default {
+		pinctrl-single,pins = <
+			J721S2_IOPAD(0x0a8, PIN_INPUT, 7) /* (U24)  MCASP0_AXR14.GPIO0_42 */
+			J721S2_IOPAD(0x090, PIN_INPUT, 7) /* (W24) MCASP0_AXR8.GPIO0_36 */
+			J721S2_IOPAD(0x0bc, PIN_INPUT, 7) /* (V28)  MCASP1_AFSX.GPIO0_47 */
+			J721S2_IOPAD(0x06c, PIN_INPUT, 7) /* (V26)  MCAN1_TX.GPIO0_27 */
+			J721S2_IOPAD(0x004, PIN_INPUT, 7) /* (W25)  MCAN12_TX.GPIO0_1 */
+			J721S2_IOPAD(0x008, PIN_INPUT, 7) /* (AC24) MCAN12_RX.GPI0_2 */
+			J721S2_IOPAD(0x0b8, PIN_INPUT, 7) /* (AA24) MCASP1_ACLKX.GPIO0_46 */
+			J721S2_IOPAD(0x00c, PIN_INPUT, 7) /* (AE28) MCAN13_TX.GPIO0_3 */
+			J721S2_IOPAD(0x034, PIN_INPUT, 7) /* (AD24) PMIC_WAKE0.GPIO0_13 */
+			J721S2_IOPAD(0x0c0, PIN_INPUT, 7) /* (T28)  MCASP1_AXR0.GPIO0_48 */
+			J721S2_IOPAD(0x0b4, PIN_INPUT, 7) /* (U25)  MCASP1_AXR4.GPIO0_45 */
+		>;
+	};
+
+	rpi_header_ehrpwm0_pins_default: rpi-header-ehrpwm0-pins-default {
+		pinctrl-single,pins = <
+			J721S2_IOPAD(0x0cc, PIN_INPUT, 5) /* (AE27) SPI0_CS0.GPIO0_51.EHRPWM0_A */
+		>;
+	};
+
+	rpi_header_ehrpwm3_pins_default: rpi-header-ehrpwm3-pins-default {
+		pinctrl-single,pins = <
+			J721S2_IOPAD(0x08c, PIN_INPUT, 9) /* (T25)  RGMII1_TD0.GPIO0_35.EHRPWM3_A */
+		>;
+	};
+
+	rpi_header_ehrpwm4_pins_default: rpi-header-ehrpwm4-pins-default {
+		pinctrl-single,pins = <
+			J721S2_IOPAD(0x0a4, PIN_INPUT, 9) /* (T23)  RGMII1_RD2.GPIO0_41.EHRPWM4_A */
+		>;
+	};
+};
+
+&main_ehrpwm0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&rpi_header_ehrpwm0_pins_default>;
+	status = "okay";
+};
+
+&main_ehrpwm3 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&rpi_header_ehrpwm3_pins_default>;
+	status = "okay";
+};
+
+&main_ehrpwm4 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&rpi_header_ehrpwm4_pins_default>;
+	status = "okay";
+};
