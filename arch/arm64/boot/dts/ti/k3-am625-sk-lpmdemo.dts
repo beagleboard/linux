@@ -41,10 +41,6 @@
 	/delete-property/ clocks;
 };
 
-&dss {
-	status = "disabled";
-};
-
 &ti_csi2rx0 {
 	status = "disabled";
 };
@@ -54,17 +50,5 @@
 };
 
 &cbass_mcu {
-	status = "disabled";
-};
-
-&hdmi_mstrclk {
-	status = "disabled";
-};
-
-&hdmi {
-	status = "disabled";
-};
-
-&sii9022 {
 	status = "disabled";
 };
