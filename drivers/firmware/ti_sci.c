@@ -10,6 +10,7 @@
 
 #include <linux/bitmap.h>
 #include <linux/debugfs.h>
+#include <linux/dma-mapping.h>
 #include <linux/export.h>
 #include <linux/firmware.h>
 #include <linux/io.h>
@@ -18,7 +19,6 @@
 #include <linux/mailbox_client.h>
 #include <linux/module.h>
 #include <linux/of_device.h>
-#include <linux/of_reserved_mem.h>
 #include <linux/semaphore.h>
 #include <linux/slab.h>
 #include <linux/soc/ti/ti-msgmgr.h>
@@ -27,6 +27,9 @@
 #include <linux/reboot.h>
 
 #include "ti_sci.h"
+
+/* Low power mode memory context size */
+#define LPM_CTX_MEM_SIZE 0x80000
 
 /* List of all TI SCI devices active in system */
 static LIST_HEAD(ti_sci_list);
@@ -102,8 +105,9 @@ struct ti_sci_desc {
  * @minfo:	Message info
  * @node:	list head
  * @host_id:	Host ID
- * @mem_ctx_lo: Low word of address used for low power context memory
- * @mem_ctx_hi: High word of address used for low power context memory
+ * @ctx_mem_addr: Low power context memory phys address
+ * @ctx_mem_buf: Low power context memory buffer
+ * @fw_caps:	FW/SoC low power capabilities
  * @users:	Number of users of this instance
  * @is_suspending: Flag set to indicate in suspend path.
  * @lpm_firmware_loaded: Flag to indicate if LPM firmware has been loaded
@@ -127,8 +131,9 @@ struct ti_sci_info {
 	struct ti_sci_xfers_info minfo;
 	struct list_head node;
 	u8 host_id;
-	u32 mem_ctx_lo;
-	u32 mem_ctx_hi;
+	dma_addr_t ctx_mem_addr;
+	void *ctx_mem_buf;
+	u64 fw_caps;
 	/* protected by ti_sci_list_mutex */
 	int users;
 	bool is_suspending;
@@ -1743,6 +1748,173 @@ fail:
 	return ret;
 }
 
+/**
+ * ti_sci_msg_cmd_query_fw_caps() - Get the FW/SoC capabilities
+ * @handle:		Pointer to TI SCI handle
+ * @fw_caps:		Each bit in fw_caps indicating one FW/SOC capability
+ *
+ * Return: 0 if all went well, else returns appropriate error value.
+ */
+static int ti_sci_msg_cmd_query_fw_caps(const struct ti_sci_handle *handle,
+					u64 *fw_caps)
+{
+	struct ti_sci_info *info;
+	struct ti_sci_xfer *xfer;
+	struct ti_sci_msg_resp_query_fw_caps *resp;
+	struct device *dev;
+	int ret = 0;
+
+	if (IS_ERR(handle))
+		return PTR_ERR(handle);
+	if (!handle)
+		return -EINVAL;
+
+	info = handle_to_ti_sci_info(handle);
+	dev = info->dev;
+
+	xfer = ti_sci_get_one_xfer(info, TI_SCI_MSG_QUERY_FW_CAPS,
+				   TI_SCI_FLAG_REQ_ACK_ON_PROCESSED,
+				   sizeof(struct ti_sci_msg_hdr),
+				   sizeof(*resp));
+	if (IS_ERR(xfer)) {
+		ret = PTR_ERR(xfer);
+		dev_err(dev, "Message alloc failed(%d)\n", ret);
+		return ret;
+	}
+
+	ret = ti_sci_do_xfer(info, xfer);
+	if (ret) {
+		dev_err(dev, "Mbox send fail %d\n", ret);
+		goto fail;
+	}
+
+	resp = (struct ti_sci_msg_resp_query_fw_caps *)xfer->xfer_buf;
+
+	if (!ti_sci_is_response_ack(resp)) {
+		ret = -ENODEV;
+		goto fail;
+	}
+
+	if (fw_caps)
+		*fw_caps = resp->fw_caps;
+
+fail:
+	ti_sci_put_one_xfer(&info->minfo, xfer);
+
+	return ret;
+}
+
+/**
+ * ti_sci_msg_cmd_lpm_wake_reason() - Get the wakeup source from LPM
+ * @handle:		Pointer to TI SCI handle
+ * @source:		The wakeup source that woke the SoC from LPM
+ * @timestamp:		Timestamp of the wakeup event
+ *
+ * Return: 0 if all went well, else returns appropriate error value.
+ */
+static int ti_sci_msg_cmd_lpm_wake_reason(const struct ti_sci_handle *handle,
+					  u32 *source, u64 *timestamp)
+{
+	struct ti_sci_info *info;
+	struct ti_sci_xfer *xfer;
+	struct ti_sci_msg_resp_lpm_wake_reason *resp;
+	struct device *dev;
+	int ret = 0;
+
+	if (IS_ERR(handle))
+		return PTR_ERR(handle);
+	if (!handle)
+		return -EINVAL;
+
+	info = handle_to_ti_sci_info(handle);
+	dev = info->dev;
+
+	xfer = ti_sci_get_one_xfer(info, TI_SCI_MSG_LPM_WAKE_REASON,
+				   TI_SCI_FLAG_REQ_ACK_ON_PROCESSED,
+				   sizeof(struct ti_sci_msg_hdr),
+				   sizeof(*resp));
+	if (IS_ERR(xfer)) {
+		ret = PTR_ERR(xfer);
+		dev_err(dev, "Message alloc failed(%d)\n", ret);
+		return ret;
+	}
+
+	ret = ti_sci_do_xfer(info, xfer);
+	if (ret) {
+		dev_err(dev, "Mbox send fail %d\n", ret);
+		goto fail;
+	}
+
+	resp = (struct ti_sci_msg_resp_lpm_wake_reason *)xfer->xfer_buf;
+
+	if (!ti_sci_is_response_ack(resp)) {
+		ret = -ENODEV;
+		goto fail;
+	}
+
+	if (source)
+		*source = resp->wake_source;
+	if (timestamp)
+		*timestamp = resp->wake_timestamp;
+
+fail:
+	ti_sci_put_one_xfer(&info->minfo, xfer);
+
+	return ret;
+}
+
+/**
+ * ti_sci_cmd_set_io_isolation() - Enable IO isolation in LPM
+ * @handle:		Pointer to TI SCI handle
+ * @state:		The desired state of the IO isolation
+ *
+ * Return: 0 if all went well, else returns appropriate error value.
+ */
+static int ti_sci_cmd_set_io_isolation(const struct ti_sci_handle *handle,
+				       u8 state)
+{
+	struct ti_sci_info *info;
+	struct ti_sci_msg_req_set_io_isolation *req;
+	struct ti_sci_msg_hdr *resp;
+	struct ti_sci_xfer *xfer;
+	struct device *dev;
+	int ret = 0;
+
+	if (IS_ERR(handle))
+		return PTR_ERR(handle);
+	if (!handle)
+		return -EINVAL;
+
+	info = handle_to_ti_sci_info(handle);
+	dev = info->dev;
+
+	xfer = ti_sci_get_one_xfer(info, TI_SCI_MSG_SET_IO_ISOLATION,
+				   TI_SCI_FLAG_REQ_ACK_ON_PROCESSED,
+				   sizeof(*req), sizeof(*resp));
+	if (IS_ERR(xfer)) {
+		ret = PTR_ERR(xfer);
+		dev_err(dev, "Message alloc failed(%d)\n", ret);
+		return ret;
+	}
+	req = (struct ti_sci_msg_req_set_io_isolation *)xfer->xfer_buf;
+	req->state = state;
+
+	ret = ti_sci_do_xfer(info, xfer);
+	if (ret) {
+		dev_err(dev, "Mbox send fail %d\n", ret);
+		goto fail;
+	}
+
+	resp = (struct ti_sci_msg_hdr *)xfer->xfer_buf;
+
+	ret = ti_sci_is_response_ack(resp) ? 0 : -ENODEV;
+
+fail:
+	ti_sci_put_one_xfer(&info->minfo, xfer);
+
+	return ret;
+}
+
 static int ti_sci_cmd_core_reboot(const struct ti_sci_handle *handle)
 {
 	struct ti_sci_info *info;
@@ -1855,7 +2027,7 @@ static int ti_sci_get_resource_range(const struct ti_sci_handle *handle,
 		desc->num = resp->range_num;
 		desc->start_sec = resp->range_start_sec;
 		desc->num_sec = resp->range_num_sec;
-	};
+	}
 
 fail:
 	ti_sci_put_one_xfer(&info->minfo, xfer);
@@ -2926,6 +3098,8 @@ static void ti_sci_setup_ops(struct ti_sci_info *info)
 	cops->get_freq = ti_sci_cmd_clk_get_freq;
 
 	pmops->prepare_sleep = ti_sci_cmd_prepare_sleep;
+	pmops->lpm_wake_reason = ti_sci_msg_cmd_lpm_wake_reason;
+	pmops->set_io_isolation = ti_sci_cmd_set_io_isolation;
 
 	rm_core_ops->get_range = ti_sci_cmd_get_resource_range;
 	rm_core_ops->get_range_from_shost =
@@ -3176,7 +3350,7 @@ u16 ti_sci_get_free_resource(struct ti_sci_resource *res)
 
 		free_bit = find_first_zero_bit(desc->res_map, res_count);
 		if (free_bit != res_count) {
-			set_bit(free_bit, desc->res_map);
+			__set_bit(free_bit, desc->res_map);
 			raw_spin_unlock_irqrestore(&res->lock, flags);
 
 			if (desc->num && free_bit < desc->num)
@@ -3207,10 +3381,10 @@ void ti_sci_release_resource(struct ti_sci_resource *res, u16 id)
 
 		if (desc->num && desc->start <= id &&
 		    (desc->start + desc->num) > id)
-			clear_bit(id - desc->start, desc->res_map);
+			__clear_bit(id - desc->start, desc->res_map);
 		else if (desc->num_sec && desc->start_sec <= id &&
 			 (desc->start_sec + desc->num_sec) > id)
-			clear_bit(id - desc->start_sec, desc->res_map);
+			__clear_bit(id - desc->start_sec, desc->res_map);
 	}
 	raw_spin_unlock_irqrestore(&res->lock, flags);
 }
@@ -3281,9 +3455,8 @@ devm_ti_sci_get_resource_sets(const struct ti_sci_handle *handle,
 
 		valid_set = true;
 		res_count = res->desc[i].num + res->desc[i].num_sec;
-		res->desc[i].res_map =
-			devm_kzalloc(dev, BITS_TO_LONGS(res_count) *
-				     sizeof(*res->desc[i].res_map), GFP_KERNEL);
+		res->desc[i].res_map = devm_bitmap_zalloc(dev, res_count,
+							  GFP_KERNEL);
 		if (!res->desc[i].res_map)
 			return ERR_PTR(-ENOMEM);
 	}
@@ -3370,15 +3543,18 @@ static int ti_sci_load_lpm_firmware(struct device *dev, struct ti_sci_info *info
 
 	/* If no firmware name is set, do not attempt to load. */
 	if (!info->lpm_firmware_name)
-		return 0;
+		return -EINVAL;
 
-	if (request_firmware_direct(&firmware, info->lpm_firmware_name, dev)) {
+	ret = request_firmware_direct(&firmware, info->lpm_firmware_name, dev);
+	if (ret) {
 		dev_warn(dev, "Cannot load %s\n", info->lpm_firmware_name);
-		return -ENODEV;
+		return ret;
 	}
 
-	if (firmware->size > info->lpm_region_size)
+	if (firmware->size > info->lpm_region_size) {
+		release_firmware(firmware);
 		return -ENOMEM;
+	}
 
 	memcpy_toio(info->lpm_region, firmware->data, firmware->size);
 
@@ -3394,40 +3570,44 @@ static void ti_sci_set_is_suspending(struct ti_sci_info *info, bool is_suspendin
 
 static int __maybe_unused ti_sci_prepare_system_suspend(struct ti_sci_info *info)
 {
-	int ret = -EINVAL;
-	int mode;
-#ifdef CONFIG_SUSPEND
+#if IS_ENABLED(CONFIG_SUSPEND)
+	u8 mode;
+
+	/* Map and validate the target Linux suspend state to TISCI LPM. */
 	switch (pm_suspend_target_state) {
 	case PM_SUSPEND_MEM:
+		/* S2MEM is not supported by the firmware. */
+		if (!(info->fw_caps & MSG_FLAG_CAPS_LPM_DEEP_SLEEP))
+			return 0;
+		/* S2MEM can't continue if the LPM firmware is not loaded. */
+		if (!info->lpm_firmware_loaded)
+			return -EINVAL;
 		mode = TISCI_MSG_VALUE_SLEEP_MODE_DEEP_SLEEP;
-		ret = 0;
 		break;
 	default:
-		ret = -EINVAL;
-	}
-#endif
-	/*
-	 * Do not fail if we don't have action to take for a
-	 * specific suspend mode.
-	 */
-	if (ret)
+		/*
+		 * Do not fail if we don't have action to take for a
+		 * specific suspend mode.
+		 */
 		return 0;
+	}
 
-	ret = ti_sci_cmd_prepare_sleep(&info->handle, mode, info->mem_ctx_lo,
-				       info->mem_ctx_hi, 0);
-
-	return ret;
+	return ti_sci_cmd_prepare_sleep(&info->handle, mode,
+					(u32)(info->ctx_mem_addr & 0xffffffff),
+					(u32)((u64)info->ctx_mem_addr >> 32), 0);
+#else
+	return 0;
+#endif
 }
 
 static int __maybe_unused ti_sci_suspend(struct device *dev)
 {
 	struct ti_sci_info *info = dev_get_drvdata(dev);
-	int ret = 0;
+	int ret;
 
 	ret = ti_sci_prepare_system_suspend(info);
 	if (ret)
 		return ret;
-
 	/*
 	 * We must switch operation to polled mode now as drivers and the genpd
 	 * layer may make late TI SCI calls to change clock and device states
@@ -3435,7 +3615,7 @@ static int __maybe_unused ti_sci_suspend(struct device *dev)
 	 */
 	ti_sci_set_is_suspending(info, true);
 
-	return ret;
+	return 0;
 }
 
 static int __maybe_unused ti_sci_resume(struct device *dev)
@@ -3453,67 +3633,60 @@ static int tisci_pm_handler(struct notifier_block *nb, unsigned long pm_event,
 			    void *unused)
 {
 	struct ti_sci_info *info = pm_nb_to_ti_sci_info(nb);
-	int ret = NOTIFY_DONE;
+	int ret;
 
-	switch (pm_event) {
-	case PM_SUSPEND_PREPARE:
-		if (!info->lpm_firmware_loaded) {
-			ret = ti_sci_load_lpm_firmware(info->dev, info);
-			if (ret) {
-				dev_err(info->dev,
-					"Failed to load low power mode firmware, suspend is non functional (%d)\n",
-					ret);
-				ret = NOTIFY_BAD;
-			} else {
-				info->lpm_firmware_loaded = true;
-			}
-		}
+	/* Load the LPM firmware on PM_SUSPEND_PREPARE if not loaded yet */
+	if (pm_event != PM_SUSPEND_PREPARE || info->lpm_firmware_loaded)
+		return NOTIFY_DONE;
 
-		break;
+	ret = ti_sci_load_lpm_firmware(info->dev, info);
+	if (ret) {
+		dev_err(info->dev, "Failed to load LPM firmware (%d)\n", ret);
+		return NOTIFY_BAD;
 	}
 
-	return ret;
+	info->lpm_firmware_loaded = true;
+
+	return NOTIFY_OK;
 }
 
-static int ti_sci_init_suspend(struct platform_device *pdev, struct ti_sci_info *info)
+static int ti_sci_init_suspend(struct platform_device *pdev,
+			       struct ti_sci_info *info)
 {
 	struct device *dev = &pdev->dev;
-	struct device_node *rmem_np;
-	struct reserved_mem *rmem;
 	struct resource *res;
 	int ret;
 
-	rmem_np = of_parse_phandle(dev->of_node, "ti,ctx-memory-region", 0);
-	if (!rmem_np) {
-		dev_warn(dev, "ti,ctx-memory-region is required for suspend but not provided.\n");
-		return -EINVAL;
+	dma_set_mask_and_coherent(dev, DMA_BIT_MASK(64));
+	info->ctx_mem_buf = dma_alloc_coherent(info->dev, LPM_CTX_MEM_SIZE,
+					       &info->ctx_mem_addr,
+					       GFP_KERNEL);
+	if (!info->ctx_mem_buf) {
+		dev_err(info->dev, "Failed to allocate LPM context memory\n");
+		return -ENOMEM;
 	}
-
-	rmem = of_reserved_mem_lookup(rmem_np);
-	of_node_put(rmem_np);
-	if (!rmem)
-		return -EINVAL;
-
-	info->mem_ctx_lo = (rmem->base & 0xFFFFFFFF);
-	info->mem_ctx_hi = (rmem->base >> 32);
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "lpm");
 	if (!res) {
 		dev_warn(dev,
 			 "lpm region is required for suspend but not provided.\n");
-		return -EINVAL;
+		ret = -EINVAL;
+		goto err;
 	}
 
 	info->lpm_region = devm_ioremap_resource(dev, res);
-	if (IS_ERR(info->lpm_region))
-		return PTR_ERR(info->lpm_region);
+	if (IS_ERR(info->lpm_region)) {
+		ret = PTR_ERR(info->lpm_region);
+		goto err;
+	}
 	info->lpm_region_size = resource_size(res);
 
-	if (of_property_read_string(dev->of_node, "ti,lpm-firmware-name",
+	if (of_property_read_string(dev->of_node, "firmware-name",
 				    &info->lpm_firmware_name)) {
 		dev_warn(dev,
-			 "ti,lpm-firmware-name is required for suspend but not provided.\n");
-		return -EINVAL;
+			 "firmware-name is required for suspend but not provided.\n");
+		ret = -EINVAL;
+		goto err;
 	}
 
 	info->pm_nb.notifier_call = tisci_pm_handler;
@@ -3521,11 +3694,16 @@ static int ti_sci_init_suspend(struct platform_device *pdev, struct ti_sci_info 
 
 	ret = register_pm_notifier(&info->pm_nb);
 	if (ret) {
-		dev_err(dev, "pm_notifier registration fail(%d)\n", ret);
-		return ret;
+		dev_err(dev, "pm_notifier registration fail (%d)\n", ret);
+		goto err;
 	}
 
 	return 0;
+err:
+	dma_free_coherent(info->dev, LPM_CTX_MEM_SIZE,
+			  info->ctx_mem_buf,
+			  info->ctx_mem_addr);
+	return ret;
 }
 
 /* Description for K2G */
@@ -3616,13 +3794,11 @@ static int ti_sci_probe(struct platform_device *pdev)
 	if (!minfo->xfer_block)
 		return -ENOMEM;
 
-	minfo->xfer_alloc_table = devm_kcalloc(dev,
-					       BITS_TO_LONGS(desc->max_msgs),
-					       sizeof(unsigned long),
-					       GFP_KERNEL);
+	minfo->xfer_alloc_table = devm_bitmap_zalloc(dev,
+						     desc->max_msgs,
+						     GFP_KERNEL);
 	if (!minfo->xfer_alloc_table)
 		return -ENOMEM;
-	bitmap_zero(minfo->xfer_alloc_table, desc->max_msgs);
 
 	/* Pre-initialize the buffer pointer to pre-allocated buffers */
 	for (i = 0, xfer = minfo->xfer_block; i < desc->max_msgs; i++, xfer++) {
@@ -3676,26 +3852,18 @@ static int ti_sci_probe(struct platform_device *pdev)
 		ret = register_restart_handler(&info->nb);
 		if (ret) {
 			dev_err(dev, "reboot registration fail(%d)\n", ret);
-			return ret;
+			goto out;
 		}
 	}
 
 	/*
-	 * Attempt to call prepare_sleep, this will be NAK'd if suspend is not
-	 * supported by firmware in use, in which case we will not attempt to
-	 * init suspend.
+	 * Check if the firmware supports any optional low power modes
+	 * and initialize them if present. Old revisions of TIFS (< 08.04)
+	 * will NACK the request.
 	 */
-	ret = ti_sci_cmd_prepare_sleep(&info->handle, 0, info->mem_ctx_lo,
-				       info->mem_ctx_hi, 0);
-	if (!ret) {
-		ret = ti_sci_init_suspend(pdev, info);
-		if (ret)
-			dev_warn(dev,
-				 "ti_sci_init_suspend failed, mem suspend will be non-functional.\n");
-	}
-
-	/* Suspend is an optional feature, reset return value and continue. */
-	ret = 0;
+	ret = ti_sci_msg_cmd_query_fw_caps(&info->handle, &info->fw_caps);
+	if (!ret && (info->fw_caps & MSG_MASK_CAPS_LPM))
+		ti_sci_init_suspend(pdev, info);
 
 	dev_info(dev, "ABI: %d.%d (firmware rev 0x%04x '%s')\n",
 		 info->handle.version.abi_major, info->handle.version.abi_minor,
@@ -3726,6 +3894,9 @@ static int ti_sci_remove(struct platform_device *pdev)
 
 	info = platform_get_drvdata(pdev);
 
+	if (info->pm_nb.notifier_call)
+		unregister_pm_notifier(&info->pm_nb);
+
 	if (info->nb.notifier_call)
 		unregister_restart_handler(&info->nb);
 
@@ -3744,6 +3915,10 @@ static int ti_sci_remove(struct platform_device *pdev)
 		mbox_free_channel(info->chan_rx);
 	}
 
+	if (info->ctx_mem_buf)
+		dma_free_coherent(info->dev, LPM_CTX_MEM_SIZE,
+				  info->ctx_mem_buf,
+				  info->ctx_mem_addr);
 	return ret;
 }
 
