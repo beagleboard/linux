@@ -897,6 +897,41 @@ static int k3_m4_rproc_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static int __maybe_unused k3_m4_rproc_suspend(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct k3_m4_rproc *kproc = platform_get_drvdata(pdev);
+
+	rproc_shutdown(kproc->rproc);
+
+	kproc->rproc->state = RPROC_SUSPENDED;
+
+	return 0;
+}
+
+static int __maybe_unused k3_m4_rproc_resume(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct k3_m4_rproc *kproc = platform_get_drvdata(pdev);
+	int ret = 0;
+
+	if (kproc->rproc->state == RPROC_OFFLINE)
+		goto out;
+
+	if (kproc->rproc->state != RPROC_SUSPENDED) {
+		ret = -EBUSY;
+		goto out;
+	}
+
+	rproc_boot(kproc->rproc);
+	kproc->rproc->state = RPROC_RUNNING;
+out:
+	return 0;
+}
+
+static SIMPLE_DEV_PM_OPS(k3_m4_rproc_pm_ops, k3_m4_rproc_suspend,
+			 k3_m4_rproc_resume);
+
 static const struct k3_m4_mem_data am64_m4_mems[] = {
 	{ .name = "iram", .dev_addr = 0x0 },
 	{ .name = "dram", .dev_addr = 0x30000 },
@@ -920,6 +955,7 @@ static struct platform_driver k3_m4_rproc_driver = {
 	.remove	= k3_m4_rproc_remove,
 	.driver	= {
 		.name = "k3-m4-rproc",
+		.pm = &k3_m4_rproc_pm_ops,
 		.of_match_table = k3_m4_of_match,
 	},
 };
