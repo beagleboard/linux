@@ -134,7 +134,7 @@
 		regulator-min-microvolt = <3300000>;
 		regulator-max-microvolt = <3300000>;
 		pinctrl-names = "default";
-		gpio = <&exp1 4 GPIO_ACTIVE_HIGH>;     /*P0 - DP0_3V3 _EN */
+		gpio = <&exp2 2 GPIO_ACTIVE_HIGH>;     /*P0 - DP0_3V3 _EN */
 		enable-active-high;
 	};
 
@@ -176,7 +176,7 @@
 		compatible = "ti,tfp410";
 
 		/* HDMI_PDn */
-		powerdown-gpios = <&exp1 2 GPIO_ACTIVE_LOW>;
+		powerdown-gpios = <&exp2 0 GPIO_ACTIVE_LOW>;
 
 		port@0 {
 			reg = <0>;
@@ -468,12 +468,10 @@
 		reg = <0x21>;
 		gpio-controller;
 		#gpio-cells = <2>;
-		gpio-line-names = "CSI_VIO_SEL", "CSI_SEL_FPC_EXPn", "HDMI_PDn",
-				  "HDMI_LS_OE", "DP0_3V3 _EN", "BOARDID_EEPROM_WP",
-				  "CAN_STB", " ", "GPIO_uSD_PWR_EN", "eDP_ENABLE",
-				  "IO_EXP_PCIe1_M.2_RTSz", "IO_EXP_MCU_RGMII_RST#",
-				  "IO_EXP_CSI2_EXP_RSTz", " ", "CSI0_B_GPIO1",
-				  "CSI1_B_GPIO1";
+		gpio-line-names = " ", " ", " ", " ", " ",
+				  "BOARDID_EEPROM_WP", "CAN_STB", " ",
+				  "GPIO_uSD_PWR_EN", " ", "IO_EXP_PCIe1_M.2_RTSz",
+				  "IO_EXP_MCU_RGMII_RST#", " ", " ", " ", " ";
 	};
 };
 
@@ -515,6 +513,15 @@
 	/* i2c1 is used for DVI DDC, so we need to use 100kHz */
 	clock-frequency = <100000>;
 
+	exp2: gpio@20 {
+		compatible = "ti,tca6408";
+		reg = <0x20>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		gpio-line-names = "HDMI_PDn","HDMI_LS_OE",
+				"DP0_3V3_EN","eDP_ENABLE";
+	};
+
 	dsi_edp_bridge: dsi-edp-bridge@2c {
 		compatible = "ti,sn65dsi86";
 		reg = <0x2c>;
@@ -522,7 +529,7 @@
 		clock-names = "refclk";
 		clocks = <&edp0_refclk>;
 
-		enable-gpios = <&exp1 9 GPIO_ACTIVE_HIGH>;
+		enable-gpios = <&exp2 3 GPIO_ACTIVE_HIGH>;
 
 		vpll-supply = <&vsys_io_1v8>;
 		vccio-supply = <&vsys_io_1v8>;
