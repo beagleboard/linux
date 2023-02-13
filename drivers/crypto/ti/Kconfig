@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: GPL-2.0-only
+config CRYPTO_DEV_TI_MCRC64
+	tristate "Support for TI MCRC64 crc accelerators"
+	depends on ARCH_K3
+	select CRYPTO_HASH
+	help
+	  This enables support for the MCRC hw accelerator which can be found
+	  on TI SOC.

@@ -903,4 +903,6 @@ config CRYPTO_DEV_SA2UL
 	  used for crypto offload.  Select this if you want to use hardware
 	  acceleration for cryptographic algorithms on these devices.
 
+source "drivers/crypto/ti/Kconfig"
+
 endif # CRYPTO_HW
