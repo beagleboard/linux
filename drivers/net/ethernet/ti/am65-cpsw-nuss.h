@@ -96,6 +96,7 @@ struct am65_cpsw_rx_chn {
 
 #define AM65_CPSW_QUIRK_I2027_NO_TX_CSUM BIT(0)
 #define AM64_CPSW_QUIRK_CUT_THRU BIT(1)
+#define AM64_CPSW_QUIRK_DMA_RX_TDOWN_IRQ BIT(2)
 
 struct am65_cpsw_pdata {
 	u32	quirks;
