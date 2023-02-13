@@ -73,7 +73,7 @@ static const char *check[] = {
 	"khazad", "wp512", "wp384", "wp256", "tnepres", "xeta",  "fcrypt",
 	"camellia", "seed", "salsa20", "rmd128", "rmd160", "rmd256", "rmd320",
 	"lzo", "lzo-rle", "cts", "sha3-224", "sha3-256", "sha3-384",
-	"sha3-512", "streebog256", "streebog512",
+	"sha3-512", "streebog256", "streebog512", "crc64",
 	NULL
 };
 
@@ -2469,6 +2469,11 @@ static int do_test(const char *alg, u32 type, u32 mask, int m, u32 num_mb)
 		test_hash_speed("streebog512", sec,
 				generic_hash_speed_template);
 		if (mode > 300 && mode < 400) break;
+		fallthrough;
+	case 329:
+		test_hash_speed("crc64", sec, generic_hash_speed_template);
+		if (mode > 300 && mode < 400)
+			break;
 		fallthrough;
 	case 399:
 		break;
