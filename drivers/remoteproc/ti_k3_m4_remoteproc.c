@@ -6,6 +6,7 @@
  *	Hari Nagalla <hnagalla@ti.com>
  */
 
+#include <linux/delay.h>
 #include <linux/io.h>
 #include <linux/mailbox_client.h>
 #include <linux/module.h>
@@ -93,6 +94,7 @@ struct k3_m4_rproc {
 	struct mbox_chan *mbox;
 	struct mbox_client client;
 	bool ipc_only;
+	struct completion shut_comp;
 };
 
 /**
@@ -128,7 +130,11 @@ static void k3_m4_rproc_mbox_callback(struct mbox_client *client, void *data)
 		dev_err(dev, "K3 M4 rproc %s crashed\n", name);
 		break;
 	case RP_MBOX_ECHO_REPLY:
-		dev_info(dev, "received echo reply from %s\n", name);
+		dev_dbg(dev, "received echo reply from %s\n", name);
+		break;
+	case RP_MBOX_SHUTDOWN_ACK:
+		dev_dbg(dev, "received shutdown_ack from %s\n", name);
+		complete(&kproc->shut_comp);
 		break;
 	default:
 		/* silently handle all other valid messages */
@@ -357,8 +363,11 @@ put_mbox:
  */
 static int k3_m4_rproc_stop(struct rproc *rproc)
 {
+	unsigned long to = msecs_to_jiffies(3000);
 	struct k3_m4_rproc *kproc = rproc->priv;
 	struct device *dev = kproc->dev;
+	u32 msg = RP_MBOX_SHUTDOWN;
+	int ret;
 
 	if (kproc->ipc_only) {
 		dev_err(dev, "%s cannot be invoked in IPC-only mode\n",
@@ -366,7 +375,27 @@ static int k3_m4_rproc_stop(struct rproc *rproc)
 		return -EINVAL;
 	}
 
+	reinit_completion(&kproc->shut_comp);
+	ret = mbox_send_message(kproc->mbox, (void *)msg);
+	if (ret < 0) {
+		dev_err(dev, "PM mbox_send_message failed: %d\n", ret);
+		return ret;
+	}
+
+	ret = wait_for_completion_timeout(&kproc->shut_comp, to);
+	if (ret == 0) {
+		dev_err(dev, "%s : timed out waiting for rproc completion event \n", __func__);
+		return -EBUSY;
+	};
+
 	mbox_free_channel(kproc->mbox);
+
+	/* allow some time for the remote core to enter quiescent state (ex:
+	 * wfi) after sending SHUTDOWN ack. Typically, remote core is expected
+	 * to enter 'wfi' right after sending the ack.  1ms is more than
+	 * sufficient for this purpose
+	 */
+	msleep(1);
 
 	k3_m4_rproc_reset(kproc);
 
@@ -764,6 +793,8 @@ static int k3_m4_rproc_probe(struct platform_device *pdev)
 		goto put_sci;
 	}
 
+	init_completion(&kproc->shut_comp);
+
 	ret = ti_sci_proc_request(kproc->tsp);
 	if (ret < 0) {
 		dev_err(dev, "ti_sci_proc_request failed, ret = %d\n", ret);
@@ -866,6 +897,41 @@ static int k3_m4_rproc_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static int __maybe_unused k3_m4_rproc_suspend(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct k3_m4_rproc *kproc = platform_get_drvdata(pdev);
+
+	rproc_shutdown(kproc->rproc);
+
+	kproc->rproc->state = RPROC_SUSPENDED;
+
+	return 0;
+}
+
+static int __maybe_unused k3_m4_rproc_resume(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct k3_m4_rproc *kproc = platform_get_drvdata(pdev);
+	int ret = 0;
+
+	if (kproc->rproc->state == RPROC_OFFLINE)
+		goto out;
+
+	if (kproc->rproc->state != RPROC_SUSPENDED) {
+		ret = -EBUSY;
+		goto out;
+	}
+
+	rproc_boot(kproc->rproc);
+	kproc->rproc->state = RPROC_RUNNING;
+out:
+	return 0;
+}
+
+static SIMPLE_DEV_PM_OPS(k3_m4_rproc_pm_ops, k3_m4_rproc_suspend,
+			 k3_m4_rproc_resume);
+
 static const struct k3_m4_mem_data am64_m4_mems[] = {
 	{ .name = "iram", .dev_addr = 0x0 },
 	{ .name = "dram", .dev_addr = 0x30000 },
@@ -889,6 +955,7 @@ static struct platform_driver k3_m4_rproc_driver = {
 	.remove	= k3_m4_rproc_remove,
 	.driver	= {
 		.name = "k3-m4-rproc",
+		.pm = &k3_m4_rproc_pm_ops,
 		.of_match_table = k3_m4_of_match,
 	},
 };
