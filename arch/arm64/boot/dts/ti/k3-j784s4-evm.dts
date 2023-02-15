@@ -642,11 +642,6 @@
 	disable-wp;
 	vmmc-supply = <&vdd_mmc1>;
 	vqmmc-supply = <&vdd_sd_dv>;
-	/*
-	 * Disabling all the UHS modes by adding no-1-8-v property.
-	 * To re-enable UHS modes, remove the no-1-8-v property.
-	 */
-	no-1-8-v;
 };
 
 &mcu_navss {
