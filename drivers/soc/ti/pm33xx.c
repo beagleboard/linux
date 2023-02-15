@@ -304,10 +304,6 @@ static void am33xx_pm_end(void)
 	u32 val = 0;
 	struct nvmem_device *nvmem;
 
-	nvmem = devm_nvmem_device_get(&omap_rtc->dev, "omap_rtc_scratch0");
-	if (IS_ERR(nvmem))
-		return;
-
 	m3_ipc->ops->finish_low_power(m3_ipc);
 	if (rtc_only_idle) {
 		if (retrigger_irq) {
@@ -322,9 +318,9 @@ static void am33xx_pm_end(void)
 				       gic_dist_base + GIC_INT_SET_PENDING_BASE
 				       + retrigger_irq / 32 * 4);
 		}
-
-		nvmem_device_write(nvmem, RTC_SCRATCH_MAGIC_REG * 4, 4,
-				   (void *)&val);
+		nvmem = devm_nvmem_device_get(&omap_rtc->dev, "omap_rtc_scratch0");
+		if (!IS_ERR(nvmem))
+			nvmem_device_write(nvmem, RTC_SCRATCH_MAGIC_REG * 4, 4, (void *)&val);
 	}
 
 	rtc_only_idle = 0;
