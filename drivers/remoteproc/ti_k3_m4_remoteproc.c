@@ -364,7 +364,7 @@ static int k3_m4_rproc_stop(struct rproc *rproc)
 	unsigned long to = msecs_to_jiffies(3000);
 	struct k3_m4_rproc *kproc = rproc->priv;
 	struct device *dev = kproc->dev;
-	u32 msg = RP_MBOX_SHUTDOWN;
+	unsigned long msg = RP_MBOX_SHUTDOWN;
 	int ret;
 
 	if (kproc->ipc_only) {
