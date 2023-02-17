@@ -317,6 +317,8 @@ static int dwc3_ti_suspend_common(struct device *dev)
 			reg = USBSS_WAKEUP_CFG_LINESTATE_EN | USBSS_WAKEUP_CFG_OVERCURRENT_EN;
 		} else {
 			reg = USBSS_WAKEUP_CFG_ALL;
+			/* HACK: disable linestate due to spurious wake up */
+			reg &= ~USBSS_WAKEUP_CFG_LINESTATE_EN;
 		}
 		dwc3_ti_writel(data, USBSS_WAKEUP_CONFIG, reg);
 		/* clear wakeup status so we know what caused the wake up */
