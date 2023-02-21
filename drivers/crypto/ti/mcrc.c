@@ -31,6 +31,9 @@
 
 #define PSA_SIGREGL(ch) ((0x6 + (4 * ((ch) - 1))) << 4) /* Signature register */
 
+#define MCRC_ALG_MASK 0x8000000000000000
+#define MCRC_CRC64_POLY 0x000000000000001b
+
 #define MCRC_AUTOSUSPEND_DELAY	50
 
 static struct device *mcrc_k3_dev;
@@ -46,14 +49,6 @@ enum mcrc_mode {
 	MCRC_MODE_SEMI_CPU,
 	MCRC_MODE_FULL_CPU,
 	MCRC_MODE_INVALID,
-};
-
-enum mcrc_pattern {
-	MCRC_PATTERN_8BIT = 0,
-	MCRC_PATTERN_16BIT,
-	MCRC_PATTERN_32BIT,
-	MCRC_PATTERN_64BIT,
-	MCRC_PATTERN_INVALID,
 };
 
 enum mcrc_channel {
@@ -118,10 +113,11 @@ static int mcrc_reset_signature(void __iomem *regs, u32 channel)
 }
 
 static int mcrc_calculate_crc(void __iomem *regs, u32 channel,
-			      u32 pattern, const u8 *d8, size_t length)
+			      const u8 *d8, size_t length, u64 *crc64)
 {
 	void __iomem *psa_reg;
-	u64 signature;
+	u64 signature = 0, bit = 0;
+	u8 j;
 
 	if (channel <= 0 || channel >= MCRC_CHANNEL_INVALID)
 		return -EINVAL;
@@ -129,18 +125,25 @@ static int mcrc_calculate_crc(void __iomem *regs, u32 channel,
 	psa_reg = regs + PSA_SIGREGL(channel);
 
 	for (; length >= sizeof(u64); d8 += sizeof(u64), length -= sizeof(u64)) {
-		writeq_relaxed(*((u64 *)d8), psa_reg);
+		writeq_relaxed(cpu_to_be64p((u64 *)d8), psa_reg);
 		signature = readq_relaxed(psa_reg);
 	}
 
 	if (length) {
-		u64 leftover = 0;
-
-		while (length--)
-			leftover =  (*d8++) << 8  | leftover;
-		writeq_relaxed(leftover, psa_reg);
-		signature = readq_relaxed(psa_reg);
+		while (length--) {
+			for (j = 0; j < 8; j++) {
+				bit = signature & MCRC_ALG_MASK;
+				signature <<= 1;
+				if (*d8 & (0x80 >> j))
+					bit ^= MCRC_ALG_MASK;
+				if (bit)
+					signature ^= MCRC_CRC64_POLY;
+			}
+			d8++;
+		}
 	}
+
+	*crc64 = signature;
 
 	return 0;
 }
@@ -199,16 +202,8 @@ static int burst_update(struct shash_desc *desc, const u8 *d8,
 	struct mcrc_desc_ctx *ctx = shash_desc_ctx(desc);
 	struct mcrc_data *dev_data = dev_get_drvdata(mcrc_k3_dev);
 
-	int ret = mcrc_calculate_crc(dev_data->regs, MCRC_CHANNEL_1,
-				     MCRC_PATTERN_64BIT, d8, length);
-	if (ret)
-		return ret;
-
-	/* Store signature result */
-	ctx->signature = readq_relaxed(dev_data->regs +
-				       PSA_SIGREGL(MCRC_CHANNEL_1));
-
-	return 0;
+	return mcrc_calculate_crc(dev_data->regs, MCRC_CHANNEL_1,
+				  d8, length, &ctx->signature);
 }
 
 static int mcrc_update(struct shash_desc *desc, const u8 *d8,
