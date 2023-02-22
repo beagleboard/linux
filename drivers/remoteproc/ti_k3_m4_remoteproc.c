@@ -330,7 +330,6 @@ static int k3_m4_rproc_start(struct rproc *rproc)
 {
 	struct k3_m4_rproc *kproc = rproc->priv;
 	struct device *dev = kproc->dev;
-	u32 boot_addr;
 	int ret;
 
 	if (kproc->ipc_only) {
@@ -343,7 +342,6 @@ static int k3_m4_rproc_start(struct rproc *rproc)
 	if (ret)
 		return ret;
 
-	boot_addr = rproc->bootaddr;
 	ret = k3_m4_rproc_release(kproc);
 	if (ret)
 		goto put_mbox;
@@ -366,7 +364,7 @@ static int k3_m4_rproc_stop(struct rproc *rproc)
 	unsigned long to = msecs_to_jiffies(3000);
 	struct k3_m4_rproc *kproc = rproc->priv;
 	struct device *dev = kproc->dev;
-	u32 msg = RP_MBOX_SHUTDOWN;
+	unsigned long msg = RP_MBOX_SHUTDOWN;
 	int ret;
 
 	if (kproc->ipc_only) {
@@ -913,7 +911,7 @@ static int __maybe_unused k3_m4_rproc_resume(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct k3_m4_rproc *kproc = platform_get_drvdata(pdev);
-	int ret = 0;
+	int ret;
 
 	if (kproc->rproc->state == RPROC_OFFLINE)
 		goto out;
