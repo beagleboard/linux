@@ -103,33 +103,23 @@ static void icssg_config_mii_init_switch(struct prueth_emac *emac)
 	struct prueth *prueth = emac->prueth;
 	struct regmap *mii_rt = prueth->mii_rt;
 	int mii = prueth_emac_slice(emac);
-	u32 rxcfg_reg, txcfg_reg, pcnt_reg;
-	u32 rxcfg, txcfg;
+	u32 txcfg_reg, pcnt_reg;
+	u32 txcfg;
 
-	rxcfg_reg = (mii == ICSS_MII0) ? PRUSS_MII_RT_RXCFG0 :
-				       PRUSS_MII_RT_RXCFG1;
 	txcfg_reg = (mii == ICSS_MII0) ? PRUSS_MII_RT_TXCFG0 :
 				       PRUSS_MII_RT_TXCFG1;
 	pcnt_reg = (mii == ICSS_MII0) ? PRUSS_MII_RT_RX_PCNT0 :
 				       PRUSS_MII_RT_RX_PCNT1;
 
-	rxcfg =	PRUSS_MII_RT_RXCFG_RX_ENABLE |
-		PRUSS_MII_RT_RXCFG_RX_L2_EN |
-		PRUSS_MII_RT_RXCFG_RX_L2_EOF_SCLR_DIS;
-
 	txcfg = PRUSS_MII_RT_TXCFG_TX_ENABLE |
 		PRUSS_MII_RT_TXCFG_TX_AUTO_PREAMBLE |
 		PRUSS_MII_RT_TXCFG_TX_IPG_WIRE_CLK_EN;
-
-	if (mii == ICSS_MII1)
-		rxcfg |= PRUSS_MII_RT_RXCFG_RX_MUX_SEL;
 
 	if (emac->phy_if == PHY_INTERFACE_MODE_MII && mii == ICSS_MII1)
 		txcfg |= PRUSS_MII_RT_TXCFG_TX_MUX_SEL;
 	else if (emac->phy_if != PHY_INTERFACE_MODE_MII && mii == ICSS_MII0)
 		txcfg |= PRUSS_MII_RT_TXCFG_TX_MUX_SEL;
 
-	regmap_write(mii_rt, rxcfg_reg, rxcfg);
 	regmap_write(mii_rt, txcfg_reg, txcfg);
 	regmap_write(mii_rt, pcnt_reg, 0x1);
 }
@@ -139,21 +129,15 @@ static void icssg_config_mii_init(struct prueth_emac *emac)
 	struct prueth *prueth = emac->prueth;
 	struct regmap *mii_rt = prueth->mii_rt;
 	int slice = prueth_emac_slice(emac);
-	u32 rxcfg_reg, txcfg_reg, pcnt_reg;
-	u32 rxcfg, txcfg;
+	u32 txcfg_reg, pcnt_reg;
+	u32 txcfg;
 
-	rxcfg_reg = (slice == ICSS_MII0) ? PRUSS_MII_RT_RXCFG0 :
-				       PRUSS_MII_RT_RXCFG1;
 	txcfg_reg = (slice == ICSS_MII0) ? PRUSS_MII_RT_TXCFG0 :
 				       PRUSS_MII_RT_TXCFG1;
 	pcnt_reg = (slice == ICSS_MII0) ? PRUSS_MII_RT_RX_PCNT0 :
 				       PRUSS_MII_RT_RX_PCNT1;
 
-	rxcfg = MII_RXCFG_DEFAULT;
 	txcfg = MII_TXCFG_DEFAULT;
-
-	if (slice == ICSS_MII1)
-		rxcfg |= PRUSS_MII_RT_RXCFG_RX_MUX_SEL;
 
 	/* In MII mode TX lines swapped inside ICSSG, so TX_MUX_SEL cfg need
 	 * to be swapped also comparing to RGMII mode. TODO: errata?
@@ -163,7 +147,6 @@ static void icssg_config_mii_init(struct prueth_emac *emac)
 	else if (emac->phy_if != PHY_INTERFACE_MODE_MII && slice == ICSS_MII1)
 		txcfg |= PRUSS_MII_RT_TXCFG_TX_MUX_SEL;
 
-	regmap_write(mii_rt, rxcfg_reg, rxcfg);
 	regmap_write(mii_rt, txcfg_reg, txcfg);
 	regmap_write(mii_rt, pcnt_reg, 0x1);
 }
