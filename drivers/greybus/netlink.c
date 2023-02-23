@@ -140,7 +140,7 @@ static int message_send(struct gb_host_device *hd, u16 cport_id,
 
 	retval = genlmsg_unicast(&init_net, skb, GB_NL_PID);
 	if (retval)
-		goto err_cancel;
+		return retval;
 
 	greybus_message_sent(hd, message, 0);
 
