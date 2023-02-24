@@ -1,0 +1,13 @@
+image: robertcnelson/debian-bullseye-slim-linux-compile:latest
+
+build:
+  tags:
+    - docker-amd64
+  stage: build
+  script:
+    - ./jenkins_build.sh
+  artifacts:
+    expire_in: 2 weeks
+    name: "$CI_PROJECT_NAME-$CI_COMMIT_BRANCH-$CI_JOB_ID"
+    paths:
+      - "linux-image*.deb"
