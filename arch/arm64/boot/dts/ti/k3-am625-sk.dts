@@ -122,7 +122,7 @@
 };
 
 &ospi0 {
-	flash@0 {
+	spi_nor_flash: flash@0 {
 		compatible = "jedec,spi-nor";
 		reg = <0x0>;
 		spi-tx-bus-width = <8>;
