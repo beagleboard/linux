@@ -301,12 +301,9 @@ int hci_uart_register_device(struct hci_uart *hu,
 
 	serdev_device_set_client_ops(hu->serdev, &hci_serdev_client_ops);
 
-	if (percpu_init_rwsem(&hu->proto_lock))
-		return -ENOMEM;
-
 	err = serdev_device_open(hu->serdev);
 	if (err)
-		goto err_rwsem;
+		return err;
 
 	err = p->open(hu);
 	if (err)
@@ -330,6 +327,7 @@ int hci_uart_register_device(struct hci_uart *hu,
 
 	INIT_WORK(&hu->init_ready, hci_uart_init_work);
 	INIT_WORK(&hu->write_work, hci_uart_write_work);
+	percpu_init_rwsem(&hu->proto_lock);
 
 	/* Only when vendor specific setup callback is provided, consider
 	 * the manufacturer information valid. This avoids filling in the
@@ -376,8 +374,6 @@ err_alloc:
 	p->close(hu);
 err_open:
 	serdev_device_close(hu->serdev);
-err_rwsem:
-	percpu_free_rwsem(&hu->proto_lock);
 	return err;
 }
 EXPORT_SYMBOL_GPL(hci_uart_register_device);
@@ -399,6 +395,5 @@ void hci_uart_unregister_device(struct hci_uart *hu)
 		clear_bit(HCI_UART_PROTO_READY, &hu->flags);
 		serdev_device_close(hu->serdev);
 	}
-	percpu_free_rwsem(&hu->proto_lock);
 }
 EXPORT_SYMBOL_GPL(hci_uart_unregister_device);
