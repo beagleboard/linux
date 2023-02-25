@@ -22,7 +22,6 @@ int ieee80211_aes_gmac(struct crypto_aead *tfm, const u8 *aad, u8 *nonce,
 	struct aead_request *aead_req;
 	int reqsize = sizeof(*aead_req) + crypto_aead_reqsize(tfm);
 	const __le16 *fc;
-	int ret;
 
 	if (data_len < GMAC_MIC_LEN)
 		return -EINVAL;
@@ -60,10 +59,10 @@ int ieee80211_aes_gmac(struct crypto_aead *tfm, const u8 *aad, u8 *nonce,
 	aead_request_set_crypt(aead_req, sg, sg, 0, iv);
 	aead_request_set_ad(aead_req, GMAC_AAD_LEN + data_len);
 
-	ret = crypto_aead_encrypt(aead_req);
+	crypto_aead_encrypt(aead_req);
 	kfree_sensitive(aead_req);
 
-	return ret;
+	return 0;
 }
 
 struct crypto_aead *ieee80211_aes_gmac_key_setup(const u8 key[],
