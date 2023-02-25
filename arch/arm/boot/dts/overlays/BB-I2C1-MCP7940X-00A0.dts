@@ -1,0 +1,81 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright (C) 2015 Robert Nelson <robertcnelson@gmail.com>
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/pinctrl/am33xx.h>
+#include <dt-bindings/gpio/gpio.h>
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+ */
+&{/chosen} {
+	overlays {
+		BB-I2C1-MCP7940X-00A0.kernel = __TIMESTAMP__;
+	};
+};
+
+/*
+ * Free up the pins used by the cape from the pinmux helpers.
+ */
+&ocp {
+	P9_17_pinmux { status = "disabled"; };	/* spi0_d1.i2c1_sda */
+	P9_18_pinmux { status = "disabled"; };	/* spi0_cs0.i2c1_scl */
+	P8_26_pinmux { status = "disabled"; };	/* rtc: gpio1_29 */
+};
+
+&{/} {
+	aliases {
+		rtc0 = &extrtc;
+		/* find /sys/firmware/devicetree/ | grep rtc@ */
+		rtc1 = "/ocp/interconnect@44c00000/segment@200000/target-module@3e000/rtc@0";
+	};
+
+	gpio_keys {
+		compatible = "gpio-keys";
+		pinctrl-names = "default";
+		pinctrl-0 = <&bb_gpio1_29_pins>;
+
+		rtc_mfp@1 {
+			label = "rtc_mfp";
+			gpios = <&gpio1 29 GPIO_ACTIVE_HIGH>;
+			linux,code = <143>; /* System Wake Up */
+			gpio-key,wakeup;
+		};
+	};
+};
+
+&am33xx_pinmux {
+	bb_gpio1_29_pins: pinmux_bb_gpio1_29_pins {
+		pinctrl-single,pins = <
+			AM33XX_PADCONF(AM335X_PIN_GPMC_CSN0, PIN_INPUT, MUX_MODE7) /* gpmc_csn0.gpio1_29 */
+		>;
+	};
+
+	bb_i2c1_pins: pinmux_bb_i2c1_pins {
+		pinctrl-single,pins = <
+			AM33XX_PADCONF(AM335X_PIN_SPI0_D1, SLEWCTRL_SLOW | PIN_INPUT_PULLUP, MUX_MODE2)		/* spi0_d1.i2c1_sda */
+			AM33XX_PADCONF(AM335X_PIN_SPI0_CS0, SLEWCTRL_SLOW | PIN_INPUT_PULLUP, MUX_MODE2)	/* spi0_cs0.i2c1_scl */
+		>;
+	};
+};
+
+&i2c1 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&bb_i2c1_pins>;
+
+	clock-frequency = <100000>;
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	extrtc: mcp7940x@68 {
+		status = "okay";
+		compatible = "microchip,mcp7940x";
+		reg = <0x68>;
+	};
+};
