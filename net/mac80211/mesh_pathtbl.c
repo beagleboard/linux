@@ -60,10 +60,7 @@ static struct mesh_table *mesh_table_alloc(void)
 	atomic_set(&newtbl->entries,  0);
 	spin_lock_init(&newtbl->gates_lock);
 	spin_lock_init(&newtbl->walk_lock);
-	if (rhashtable_init(&newtbl->rhead, &mesh_rht_params)) {
-		kfree(newtbl);
-		return NULL;
-	}
+	rhashtable_init(&newtbl->rhead, &mesh_rht_params);
 
 	return newtbl;
 }
@@ -718,7 +715,7 @@ int mesh_path_send_to_gates(struct mesh_path *mpath)
 void mesh_path_discard_frame(struct ieee80211_sub_if_data *sdata,
 			     struct sk_buff *skb)
 {
-	ieee80211_free_txskb(&sdata->local->hw, skb);
+	kfree_skb(skb);
 	sdata->u.mesh.mshstats.dropped_frames_no_route++;
 }
 
