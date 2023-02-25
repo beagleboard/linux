@@ -1,0 +1,40 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright (C) 2020 - 2022 Deepak Khatri <lorforlinux@beagleboard.org>
+ *
+ * See Cape Interface Spec page for more info on Bone Buses
+ * https://docs.beagleboard.org/0.0/boards/capes/cape-interface-spec.html#beaglebone-cape-interface-spec
+ *
+ * Virtual cape for LED on P8_03
+ * Supports BBB, BBBWL, BBAI, and BBAI-64
+ *
+ */
+
+/dts-v1/;
+/plugin/;
+
+&{/chosen} {
+	overlays {
+		BONE-LED_P8_03 = __TIMESTAMP__;
+	};
+};
+
+/*
+ * Update the default pinmux of the pins.
+ */
+
+&ocp {
+	P8_03_pinmux { pinctrl-0 = <&P8_03_gpio_pin>;};
+};
+
+/*
+ * Easy LED control through sysfs (/sys/class/leds/) using gpio-leds driver
+ */
+
+&bone_led_P8_03 {
+    status = "okay";
+    // access: sys/class/leds/led_P8_03
+    label = "led_P8_03";
+    linux,default-trigger = "heartbeat";
+    default-state = "on";
+};

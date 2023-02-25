@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /**
- * DT Overlay for OV5640 Camera on I2C bus interfaced to CSI2 with J721E-EAIK board.
+ * LI OV5640 MIPI Camera module.
  *
  * Copyright (C) 2021 Texas Instruments Incorporated - https://www.ti.com/
  */
@@ -54,7 +54,7 @@
 
 				pinctrl-names = "default";
 				pinctrl-0 = <&csi2_exp_reset_pins_default>;
-				reset-gpios = <&main_gpio0 79 GPIO_ACTIVE_LOW>;
+				powerdown-gpios = <&main_gpio0 79 GPIO_ACTIVE_LOW>;
 
 				/* C_AUDIO_REFCLK3 -> RGMII6_RXC (W26) */
 				clocks = <&k3_clks 157 371>;
