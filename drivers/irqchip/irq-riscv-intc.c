@@ -30,6 +30,7 @@ static asmlinkage void riscv_intc_irq(struct pt_regs *regs)
 #define MATCH_DCACHE_CVAL1 0x0240000b
 #define MASK_DCACHE_CVAL1 0xfff07fff
 
+	pagefault_disable();
 	if ((epc & 0x7f) != 4)
 		goto out;
 
@@ -47,6 +48,7 @@ static asmlinkage void riscv_intc_irq(struct pt_regs *regs)
 
 	instruction_pointer_set(regs, epc - 4);
 out:
+	pagefault_enable();
 	if (unlikely(cause >= BITS_PER_LONG))
 		panic("unexpected interrupt cause");
 

@@ -477,6 +477,12 @@
 #define CPR_I2S1_SRC_SEL_24M                   (0x1U << AUDIOSYS_I2S1_SRC_SEL_POS)
 #define CPR_I2S1_SRC_SEL_AUDIO_DIVCLK1         (0x2U << AUDIOSYS_I2S1_SRC_SEL_POS)
 
+#define CPR_I2S2_SRC_SEL_POS                   (8U)
+#define CPR_I2S2_SRC_SEL_MSK                   (0x3U << CPR_I2S2_SRC_SEL_POS)
+#define CPR_I2S2_SRC_SEL(X)                    (X << CPR_I2S2_SRC_SEL_POS)
+#define CPR_I2S2_SRC_SEL_24M                   (0x1U << AUDIOSYS_I2S2_SRC_SEL_POS)
+#define CPR_I2S2_SRC_SEL_AUDIO_DIVCLK1         (0x2U << AUDIOSYS_I2S2_SRC_SEL_POS)
+
 struct light_i2s_priv {
 	void __iomem *base;
 	phys_addr_t phys;

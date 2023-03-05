@@ -1,0 +1,89 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * Copyright (C) 2021-2022 Alibaba Group Holding Limited.
+ */
+
+/dts-v1/;
+
+#include "fire-emu.dts"
+
+&sdhci0 {
+	status = "okay";
+};
+
+&usb3_drd {
+	status = "okay";
+};
+
+&usb {
+	status = "okay";
+};
+
+&spi0 {
+	num-cs = <1>;
+	cs-gpios = <&gpio2_porta 15 0>; // GPIO_ACTIVE_HIGH: 0
+	rx-sample-delay-ns = <10>;
+	status = "okay";
+
+	spi_norflash@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "winbond,w25q64jwm", "jedec,spi-nor";
+		reg = <0>;
+		spi-max-frequency = <50000000>;
+		w25q,fast-read;
+		status = "okay";
+	};
+
+	spidev@1 {
+		compatible = "spidev";
+		#address-cells = <0x1>;
+		#size-cells = <0x1>;
+		reg = <0x1>;
+		spi-max-frequency = <50000000>;
+	};
+};
+
+&qspi0 {
+	num-cs = <1>;
+	cs-gpios = <&gpio2_porta 3 0>;
+	rx-sample-dly = <4>;
+	status = "okay";
+
+	spi-flash@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "spi-nand";
+		spi-max-frequency = <100000000>;
+		spi-tx-bus-width = <4>;
+		spi-rx-bus-width = <4>;
+		reg = <0>;
+
+		partition@0 {
+			label = "ubi1";
+			reg = <0x00000000 0x08000000>;
+		};
+	};
+};
+
+&qspi1 {
+	num-cs = <1>;
+	cs-gpios = <&gpio0_porta 1 0>;
+	status = "okay";
+
+	spi-flash@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "spi-nand";
+		spi-max-frequency = <66000000>;
+		spi-tx-bus-width = <4>;
+		spi-rx-bus-width = <4>;
+		reg = <0>;
+
+		partition@0 {
+			label = "ubi2";
+			reg = <0x00000000 0x08000000>;
+		};
+	};
+};
+

@@ -179,9 +179,10 @@ machine_crash_shutdown(struct pt_regs *regs)
 {
 	local_irq_disable();
 
+#ifdef CONFIG_SMP
 	/* shutdown non-crashing cpus */
 	crash_smp_send_stop();
-
+#endif
 	crash_save_cpu(regs, smp_processor_id());
 	machine_kexec_mask_interrupts();
 
@@ -211,8 +212,10 @@ machine_kexec(struct kimage *image)
 	void *control_code_buffer = page_address(image->control_code_page);
 	riscv_kexec_method kexec_method = NULL;
 
+#ifdef CONFIG_SMP
 	WARN(smp_crash_stop_failed(),
 		"Some CPUs may be stale, kdump will be unreliable.\n");
+#endif
 
 	if (image->type != KEXEC_TYPE_CRASH)
 		kexec_method = control_code_buffer;

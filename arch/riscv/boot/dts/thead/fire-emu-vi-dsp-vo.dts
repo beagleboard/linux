@@ -1,0 +1,57 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * Copyright (C) 2021-2022 Alibaba Group Holding Limited.
+ */
+
+/dts-v1/;
+
+#include "fire-emu.dts"
+
+&c910_1 {
+	status = "okay";
+};
+
+&vi_pre {
+	status = "okay";
+};
+
+&dewarp {
+	status = "okay";
+};
+
+&xtensa_dsp {
+	status = "okay";
+};
+
+&xtensa_dsp0 {
+	status = "okay";
+};
+
+&xtensa_dsp1 {
+	status = "okay";
+};
+
+&vosys_reg {
+	status = "okay";
+};
+
+&display_subsystem {
+	status = "okay";
+};
+
+&dpu {
+	status = "okay";
+};
+
+&hdmi_tx {
+	status = "okay";
+};
+
+&dsi0 {
+	status = "okay";
+};
+
+&dpu_enc0 {
+	status = "okay";
+};
+

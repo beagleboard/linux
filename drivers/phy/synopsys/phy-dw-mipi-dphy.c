@@ -473,7 +473,7 @@ static int dw_dphy_get_pll_cfg(struct dw_dphy *dphy,
 
 	vco_div = 1 << (range->vco_range >> 4);
 	fout = fout * vco_div;
-	pr_info("%s: vco_div = %u\n", __func__, vco_div);
+	pr_debug("%s: vco_div = %u\n", __func__, vco_div);
 
 	n_min = DIV_ROUND_UP_ULL(fin, FIN_DIV_N_FREQ_MAX * 1000);
 	n_max = DIV_ROUND_UP_ULL(fin, FIN_DIV_N_FREQ_MIN * 1000);

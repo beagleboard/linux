@@ -23,7 +23,6 @@
 
 	aliases {
 		ethernet0 = &gmac0;
-		ethernet1 = &gmac1;
 		gpio0 = &gpio0;
 		gpio1 = &gpio1;
 		gpio2 = &gpio2;
@@ -93,7 +92,7 @@
 		};
 	};
 
-	thermal-zones {
+	thermal_zones: thermal-zones {
 		cpu-thermal-zone {
 			polling-delay-passive = <250>;
 			polling-delay = <2000>;
@@ -166,8 +165,6 @@
 				 <&clk CPU_PLL0_FOUTPOSTDIV>;
 			clock-names = "c910_cclk", "c910_cclk_i0",
 				      "cpu_pll1_foutpostdiv", "cpu_pll0_foutpostdiv";
-			dvdd-supply = <&dvdd_cpu_reg>;
-			dvddm-supply = <&dvddm_cpu_reg>;
 
 			cpu0_intc: interrupt-controller {
 				#interrupt-cells = <1>;
@@ -178,7 +175,7 @@
 		c910_1: cpu@1 {
 			device_type = "cpu";
 			reg = <1>;
-			status = "okay";
+			status = "disabled";
 			compatible = "riscv";
 			riscv,isa = "rv64imafdcvsu";
 			mmu-type = "riscv,sv39";
@@ -212,8 +209,6 @@
 				 <&clk CPU_PLL0_FOUTPOSTDIV>;
 			clock-names = "c910_cclk", "c910_cclk_i0",
 				      "cpu_pll1_foutpostdiv", "cpu_pll0_foutpostdiv";
-			dvdd-supply = <&dvdd_cpu_reg>;
-			dvddm-supply = <&dvddm_cpu_reg>;
 
 			cpu1_intc: interrupt-controller {
 				#interrupt-cells = <1>;
@@ -224,7 +219,7 @@
 		c910_2: cpu@2 {
 			device_type = "cpu";
 			reg = <2>;
-			status = "okay";
+			status = "disabled";
 			compatible = "riscv";
 			riscv,isa = "rv64imafdcvsu";
 			mmu-type = "riscv,sv39";
@@ -258,8 +253,6 @@
 				 <&clk CPU_PLL0_FOUTPOSTDIV>;
 			clock-names = "c910_cclk", "c910_cclk_i0",
 				      "cpu_pll1_foutpostdiv", "cpu_pll0_foutpostdiv";
-			dvdd-supply = <&dvdd_cpu_reg>;
-			dvddm-supply = <&dvddm_cpu_reg>;
 
 			cpu2_intc: interrupt-controller {
 				#interrupt-cells = <1>;
@@ -270,7 +263,7 @@
 		c910_3: cpu@3 {
 			device_type = "cpu";
 			reg = <3>;
-			status = "okay";
+			status = "disabled";
 			compatible = "riscv";
 			riscv,isa = "rv64imafdcvsu";
 			mmu-type = "riscv,sv39";
@@ -304,8 +297,6 @@
 				 <&clk CPU_PLL0_FOUTPOSTDIV>;
 			clock-names = "c910_cclk", "c910_cclk_i0",
 				      "cpu_pll1_foutpostdiv", "cpu_pll0_foutpostdiv";
-			dvdd-supply = <&dvdd_cpu_reg>;
-			dvddm-supply = <&dvddm_cpu_reg>;
 
 			cpu3_intc: interrupt-controller {
 				#interrupt-cells = <1>;
@@ -315,7 +306,7 @@
 		};
 	};
 
-	display-subsystem {
+	display_subsystem: display-subsystem {
 		compatible = "verisilicon,display-subsystem";
 		ports = <&dpu_disp0>, <&dpu_disp1>;
 		status = "disabled";
@@ -421,7 +412,7 @@
 			dummy_clock_apb: apb-clock@0 {
 				compatible = "fixed-clock";
 				reg = <0>;	/* Not address, just for index */
-				clock-frequency = <62500000>;
+				clock-frequency = <50000000>;
 				clock-output-names = "dummy_clock_apb";
 				#clock-cells = <0>;
 			};
@@ -469,7 +460,7 @@
 			dummy_clock_dphy_ref: dphy-ref-clock@7 {
 				compatible = "fixed-clock";
 				reg = <7>;      /* Not address, just for index */
-				clock-frequency = <24000000>;
+				clock-frequency = <40000000>;
 				clock-output-names = "dummy_clock_dphy_ref";
 				#clock-cells = <0>;
 			};
@@ -477,7 +468,7 @@
 			dummy_clock_dphy_cfg: dphy-cfg-clock@8 {
 				compatible = "fixed-clock";
 				reg = <8>;      /* Not address, just for index */
-				clock-frequency = <24000000>;
+				clock-frequency = <40000000>;
 				clock-output-names = "dummy_clock_dphy_cfg";
 				#clock-cells = <0>;
 			};
@@ -485,7 +476,7 @@
 			dummy_clock_dpu_pixel0: dpu-pixel-clock@9 {
 				compatible = "fixed-clock";
 				reg = <9>;
-				clock-frequency = <72000000>;
+				clock-frequency = <25200000>;
 				clock-output-names = "dummy_clock_dpu_pixel0";
 				#clock-cells = <0>;
 			};
@@ -493,7 +484,7 @@
 			dummy_clock_dpu_pixel1: dpu-pixel-clock@10 {
 				compatible = "fixed-clock";
 				reg = <10>;
-				clock-frequency = <74250000>;
+				clock-frequency = <25200000>;
 				clock-output-names = "dummy_clock_dpu_pixel1";
 				#clock-cells = <0>;
 			};
@@ -525,7 +516,7 @@
 			dummy_clock_eip: eip-clock@14 {
 				compatible = "fixed-clock";
 				reg = <14>;	/* Not address, just for index */
-				clock-frequency = <400000000>;
+				clock-frequency = <30000000>;
 				clock-output-names = "dummy_clock_eip";
 				#clock-cells = <0>;
 			};
@@ -533,7 +524,7 @@
 			dummy_clock_spi: spi-clock@15 {
 				compatible = "fixed-clock";
 				reg = <15>;	/* Not address, just for index */
-				clock-frequency = <396000000>;
+				clock-frequency = <50000000>;
 				clock-output-names = "dummy_clock_spi";
 				#clock-cells = <0>;
 			};
@@ -541,7 +532,7 @@
 			dummy_clock_qspi: spi-clock@16 {
 				compatible = "fixed-clock";
 				reg = <15>;	/* Not address, just for index */
-				clock-frequency = <792000000>;
+				clock-frequency = <50000000>;
 				clock-output-names = "dummy_clock_qspi";
 				#clock-cells = <0>;
 			};
@@ -549,7 +540,7 @@
 			dummy_gmac_ahb: gmac-ahb-clock@16 {
 				compatible = "fixed-clock";
 				reg = <16>;
-				clock-frequency = <250000000>;
+				clock-frequency = <50000000>;
 				clock-output-names = "dummy_gmac_ahb";
 				#clock-cells = <0>;
 			};
@@ -557,7 +548,7 @@
 			dummy_clock_gmac: gmac-clock@17 {
 				compatible = "fixed-clock";
 				reg = <17>;
-				clock-frequency = <500000000>;
+				clock-frequency = <50000000>;
 				clock-output-names = "dummy_clock_gmac";
 				#clock-cells = <0>;
 			};
@@ -565,7 +556,7 @@
 			dummy_clock_sdhci: sdhci-clock@18 {
 				compatible = "fixed-clock";
 				reg = <18>;	/* Not address, just for index */
-				clock-frequency = <198000000>;
+				clock-frequency = <50000000>;
 				clock-output-names = "dummy_clock_sdhci";
 				#clock-cells = <0>;
 			};
@@ -573,22 +564,36 @@
 			dummy_clock_aonsys_clk: aonsys-clk-clock@19 {
 				compatible = "fixed-clock";
 				reg = <19>;	/* Not address, just for index */
-				clock-frequency = <73728000>;
+				clock-frequency = <24000000>;
 				clock-output-names = "dummy_clock_aonsys_clk";
 				#clock-cells = <0>;
 			};
 
-			dummy_clock_uart_sclk: uart-sclk-clock@20 {
+			dummy_clock_uart: uart-sclk-clock@20 {
 				compatible = "fixed-clock";
 				reg = <20>;	/* Not address, just for index */
-				clock-frequency = <100000000>;
-				clock-output-names = "dummy_clock_uart_sclk";
+				clock-frequency = <50000000>;
+				clock-output-names = "dummy_clock_uart";
 				#clock-cells = <0>;
 			};
 
 			dummy_clock_visys: visys-dummy-clock@21 {
 				compatible = "fixed-clock";
 				reg = <21>;
+				clock-frequency = <24000000>;
+				#clock-cells = <0>;
+			};
+
+			dummy_clock_vipre: vipre-dummy-clock@22 {
+				compatible = "fixed-clock";
+				reg = <22>;
+				clock-frequency = <13000000>;
+				#clock-cells = <0>;
+			};
+
+			dummy_clock_vpsys: vpsys-dummy-clock@23 {
+				compatible = "fixed-clock";
+				reg = <23>;
 				clock-frequency = <24000000>;
 				#clock-cells = <0>;
 			};
@@ -644,9 +649,6 @@
 				reg = <0xb0 6>;
 			};
 
-			gmac1_mac_address: mac-address@184 {
-				reg = <0xb8 6>;
-			};
 		};
 
 		misc_sysreg: misc_sysreg@ffec02c000 {
@@ -797,9 +799,8 @@
 			compatible = "thead,pwm-light";
 			reg = <0xff 0xec01c000 0x0 0x4000>;
 			#pwm-cells = <2>;
-			clocks = <&clk CLKGEN_PWM_PCLK>,
-			         <&clk CLKGEN_PWM_CCLK>;
-			clock-names = "pclk", "cclk";
+			clocks = <&dummy_clock_apb>;
+			clock-names = "pwm";
 			pinctrl-names = "default";
 			pinctrl-0 = <&pinctrl_pwm>;
 		};
@@ -809,7 +810,7 @@
 			reg = <0xff 0xefc32000 0x0 0x14>;
 			clocks = <&dummy_clock_apb>;
 			clock-names = "timer";
-			clock-frequency = <62500000>;
+			clock-frequency = <50000000>;
 			interrupts = <16>;
 			interrupt-parent = <&intc>;
 			status = "okay";
@@ -820,7 +821,7 @@
 			reg = <0xff 0xefc32014 0x0 0x14>;
 			clocks = <&dummy_clock_apb>;
 			clock-names = "timer";
-			clock-frequency = <62500000>;
+			clock-frequency = <50000000>;
 			interrupts = <17>;
 			interrupt-parent = <&intc>;
 			status = "okay";
@@ -831,7 +832,7 @@
 			reg = <0xff 0xefc32028 0x0 0x14>;
 			clocks = <&dummy_clock_apb>;
 			clock-names = "timer";
-			clock-frequency = <62500000>;
+			clock-frequency = <50000000>;
 			interrupts = <18>;
 			interrupt-parent = <&intc>;
 			status = "disabled";
@@ -842,7 +843,7 @@
 			reg = <0xff 0xefc3203c 0x0 0x14>;
 			clocks = <&dummy_clock_apb>;
 			clock-names = "timer";
-			clock-frequency = <62500000>;
+			clock-frequency = <50000000>;
 			interrupts = <19>;
 			interrupt-parent = <&intc>;
 			status = "disabled";
@@ -851,7 +852,7 @@
 		padctrl_aosys: padctrl-aosys@fffff4a000 {
 			compatible = "thead,light-fm-aon-pinctrl";
 			reg = <0xff 0xfff4a000 0x0 0x2000>;
-			status = "okay";
+			status = "disabled";
 		};
 
 		timer4: timer@ffffc33000 {
@@ -859,7 +860,7 @@
 			reg = <0xff 0xffc33000 0x0 0x14>;
 			clocks = <&dummy_clock_apb>;
 			clock-names = "timer";
-			clock-frequency = <62500000>;
+			clock-frequency = <50000000>;
 			interrupts = <20>;
 			interrupt-parent = <&intc>;
 			status = "disabled";
@@ -870,7 +871,7 @@
 			reg = <0xff 0xffc33014 0x0 0x14>;
 			clocks = <&dummy_clock_apb>;
 			clock-names = "timer";
-			clock-frequency = <62500000>;
+			clock-frequency = <50000000>;
 			interrupts = <21>;
 			interrupt-parent = <&intc>;
 			status = "disabled";
@@ -881,7 +882,7 @@
 			reg = <0xff 0xffc33028 0x0 0x14>;
 			clocks = <&dummy_clock_apb>;
 			clock-names = "timer";
-			clock-frequency = <62500000>;
+			clock-frequency = <50000000>;
 			interrupts = <22>;
 			interrupt-parent = <&intc>;
 			status = "disabled";
@@ -892,7 +893,7 @@
 			reg = <0xff 0xffc3303c 0x0 0x14>;
 			clocks = <&dummy_clock_apb>;
 			clock-names = "timer";
-			clock-frequency = <62500000>;
+			clock-frequency = <50000000>;
 			interrupts = <23>;
 			interrupt-parent = <&intc>;
 			status = "disabled";
@@ -903,7 +904,7 @@
 			reg = <0xff 0xe7014000 0x0 0x4000>;
 			interrupt-parent = <&intc>;
 			interrupts = <36>;
-			clocks = <&clk CLKGEN_UART0_SCLK>;
+			clocks = <&dummy_clock_uart>;
 			clock-names = "baudclk";
 			reg-shift = <2>;
 			reg-io-width = <4>;
@@ -916,7 +917,7 @@
 			reg = <0xff 0xe7f00000 0x0 0x4000>;
 			interrupt-parent = <&intc>;
 			interrupts = <37>;
-			clocks = <&clk CLKGEN_UART1_SCLK>;
+			clocks = <&dummy_clock_uart>;
 			clock-names = "baudclk";
 			reg-shift = <2>;
 			reg-io-width = <4>;
@@ -929,7 +930,7 @@
 			reg = <0xff 0xec010000 0x0 0x4000>;
 			interrupt-parent = <&intc>;
 			interrupts = <38>;
-			clocks = <&clk CLKGEN_UART2_SCLK>;
+			clocks = <&dummy_clock_uart>;
 			clock-names = "baudclk";
 			reg-shift = <2>;
 			reg-io-width = <4>;
@@ -942,7 +943,7 @@
 			reg = <0xff 0xe7f04000 0x0 0x4000>;
 			interrupt-parent = <&intc>;
 			interrupts = <39>;
-			clocks = <&clk CLKGEN_UART3_SCLK>;
+			clocks = <&dummy_clock_uart>;
 			clock-names = "baudclk";
 			reg-shift = <2>;
 			reg-io-width = <4>;
@@ -955,7 +956,7 @@
 			reg = <0xff 0xf7f08000 0x0 0x4000>;
 			interrupt-parent = <&intc>;
 			interrupts = <40>;
-			clocks = <&clk CLKGEN_UART4_SCLK>;
+			clocks = <&dummy_clock_uart>;
 			clock-names = "baudclk";
 			reg-shift = <2>;
 			reg-io-width = <4>;
@@ -968,7 +969,7 @@
 			reg = <0xff 0xf7f0c000 0x0 0x4000>;
 			interrupt-parent = <&intc>;
 			interrupts = <41>;
-			clocks = <&clk CLKGEN_UART5_SCLK>;
+			clocks = <&dummy_clock_uart>;
 			clock-names = "baudclk";
 			reg-shift = <2>;
 			reg-io-width = <4>;
@@ -1030,9 +1031,9 @@
 			interrupt-parent = <&intc>;
 			interrupts = <101>;
 			interrupt-names = "irq_2d";
-			clocks = <&vpsys_clk_gate LIGHT_VPSYS_G2D_PCLK>,
-				 <&vpsys_clk_gate LIGHT_VPSYS_G2D_ACLK>,
-				 <&vpsys_clk_gate LIGHT_VPSYS_G2D_CCLK>;
+			clocks = <&dummy_clock_vpsys>,
+				<&dummy_clock_vpsys>,
+				<&dummy_clock_vpsys>;
 			clock-names = "pclk", "aclk", "cclk";
 			status = "okay";
 		};
@@ -1046,11 +1047,11 @@
 				compatible = "thead,light-mipi-dphy";
 				regmap = <&dsi0>;
 				vosys-regmap = <&vosys_reg>;
-				clocks = <&vosys_clk_gate LIGHT_CLKGEN_MIPIDSI0_REFCLK>,
-					 <&vosys_clk_gate LIGHT_CLKGEN_MIPIDSI0_CFG_CLK>,
-					 <&vosys_clk_gate LIGHT_CLKGEN_MIPIDSI0_PCLK>,
-					 <&clk OSC_24M>,
-					 <&clk OSC_24M>;
+				clocks = <&dummy_clock_dphy_ref>,
+					<&dummy_clock_dphy_cfg>,
+					<&dummy_clock_dphy_ref>,
+					<&dummy_clock_dpu_pixel0>,
+					<&dummy_clock_dphy_cfg>;
 				clock-names = "refclk", "cfgclk", "pclk", "prefclk", "pcfgclk";
 				#phy-cells = <0>;
 			};
@@ -1060,8 +1061,8 @@
 				regmap = <&dsi0>;
 				interrupt-parent = <&intc>;
 				interrupts = <129>;
-				clocks = <&vosys_clk_gate LIGHT_CLKGEN_MIPIDSI0_PCLK>,
-					 <&vosys_clk_gate LIGHT_CLKGEN_MIPIDSI0_PIXCLK>;
+				clocks = <&dummy_clock_dphy_cfg>,
+					<&dummy_clock_dpu_pixel0>;
 				clock-names = "pclk", "pixclk";
 				phys = <&dphy_0>;
 				phy-names = "dphy";
@@ -1079,11 +1080,11 @@
 				compatible = "thead,light-mipi-dphy";
 				regmap = <&dsi1>;
 				vosys-regmap = <&vosys_reg>;
-				clocks = <&vosys_clk_gate LIGHT_CLKGEN_MIPIDSI1_REFCLK>,
-					 <&vosys_clk_gate LIGHT_CLKGEN_MIPIDSI1_CFG_CLK>,
-					 <&vosys_clk_gate LIGHT_CLKGEN_MIPIDSI1_PCLK>,
-					 <&clk OSC_24M>,
-					 <&clk OSC_24M>;
+				clocks = <&dummy_clock_dphy_ref>,
+					<&dummy_clock_dphy_cfg>,
+					<&dummy_clock_dphy_ref>,
+					<&dummy_clock_dpu_pixel1>,
+					<&dummy_clock_dphy_cfg>;
 				clock-names = "refclk", "cfgclk", "pclk", "prefclk", "pcfgclk";
 				#phy-cells = <0>;
 			};
@@ -1093,8 +1094,8 @@
 				regmap = <&dsi1>;
 				interrupt-parent = <&intc>;
 				interrupts = <129>;
-				clocks = <&vosys_clk_gate LIGHT_CLKGEN_MIPIDSI1_PCLK>,
-					 <&vosys_clk_gate LIGHT_CLKGEN_MIPIDSI1_PIXCLK>;
+				clocks = <&dummy_clock_dphy_cfg>,
+					<&dummy_clock_dpu_pixel1>;
 				clock-names = "pclk", "pixclk";
 				phys = <&dphy_1>;
 				phy-names = "dphy";
@@ -1114,11 +1115,11 @@
 			reg = <0xff 0xef540000 0x0 0x40000>;
 			interrupt-parent = <&intc>;
 			interrupts = <111>;
-			clocks = <&vosys_clk_gate LIGHT_CLKGEN_HDMI_PCLK>,
-				 <&vosys_clk_gate LIGHT_CLKGEN_HDMI_SFR_CLK>,
-				 <&vosys_clk_gate LIGHT_CLKGEN_HDMI_CEC_CLK>,
-				 <&vosys_clk_gate LIGHT_CLKGEN_HDMI_PIXCLK>,
-				 <&vosys_clk_gate LIGHT_CLKGEN_HDMI_I2S_CLK>;
+			clocks = <&dummy_clock_dpu_pixel0>,
+				<&dummy_clock_dpu_pixel0>,
+				<&dummy_clock_dpu_pixel0>,
+				<&dummy_clock_dpu_pixel0>,
+				<&dummy_clock_dpu_pixel0>;
 			clock-names = "iahb", "isfr", "cec", "pixclk", "i2s";
 			reg-io-width = <4>;
 			phy_version = <301>;
@@ -1135,19 +1136,19 @@
 			      <0xff 0xef630010 0x0 0x60>;
 			interrupt-parent = <&intc>;
 			interrupts = <93>;
-			clocks = <&vosys_clk_gate LIGHT_CLKGEN_DPU_CCLK>,
-				 <&vosys_clk_gate LIGHT_CLKGEN_DPU_PIXCLK0>,
-				 <&vosys_clk_gate LIGHT_CLKGEN_DPU_PIXCLK1>,
-				 <&vosys_clk_gate LIGHT_CLKGEN_DPU_ACLK>,
-				 <&vosys_clk_gate LIGHT_CLKGEN_DPU_HCLK>,
-				 <&clk DPU0_PLL_DIV_CLK>,
-				 <&clk DPU1_PLL_DIV_CLK>,
-				 <&clk DPU0_PLL_FOUTPOSTDIV>,
-				 <&clk DPU1_PLL_FOUTPOSTDIV>;
+			clocks = <&dummy_clock_dpu_pixel0>,
+				<&dummy_clock_dpu_pixel0>,
+				<&dummy_clock_dpu_pixel0>,
+				<&dummy_clock_dpu_pixel0>,
+				<&dummy_clock_dpu_pixel0>,
+				<&dummy_clock_dpu_pixel0>,
+				<&dummy_clock_dpu_pixel0>,
+				<&dummy_clock_dpu_pixel0>,
+				<&dummy_clock_dpu_pixel0>;
 			clock-names = "core_clk", "pix_clk0", "pix_clk1",
-				      "axi_clk", "cfg_clk", "pixclk0",
-				      "pixclk1", "dpu0_pll_foutpostdiv",
-				      "dpu1_pll_foutpostdiv";
+						"axi_clk", "cfg_clk", "pixclk0",
+						"pixclk1", "dpu0_pll_foutpostdiv",
+						"dpu1_pll_foutpostdiv";
 			status = "disabled";
 
 			dpu_disp0: port@0 {
@@ -1172,7 +1173,7 @@
 			reg = <0xff 0xefc30000 0x0 0x1000>;
 			interrupt-parent = <&intc>;
 			interrupts = <24>;
-			clocks = <&clk CLKGEN_WDT0_PCLK>;
+			clocks = <&dummy_clock_apb>;
 			clock-names = "tclk";
 			resets = <&rst LIGHT_RESET_WDT0>; 
 			status = "okay";
@@ -1183,7 +1184,7 @@
 			reg = <0xff 0xefc31000 0x0 0x1000>;
 			interrupt-parent = <&intc>;
 			interrupts = <25>;
-			clocks = <&clk CLKGEN_WDT1_PCLK>;
+			clocks = <&dummy_clock_apb>;
 			clock-names = "tclk";
 			resets = <&rst LIGHT_RESET_WDT1>; 
 			status = "okay";
@@ -1221,7 +1222,7 @@
 				dma-mask = <0xf 0xffffffff>;
 				snps,usb3_lpm_capable;
 				snps,usb_sofitpsync;
-				status = "okay";
+				status = "disabled";
 			};
 		};
 
@@ -1323,31 +1324,12 @@
 			interrupt-parent = <&intc>;
 			interrupts = <66>;
 			interrupt-names = "macirq";
-			clocks = <&clk CLKGEN_GMAC0_CCLK>;
+			clocks = <&dummy_clock_gmac>;
 			clock-names = "gmac_pll_clk";
 			snps,pbl = <32>;
 			snps,fixed-burst;
 			snps,axi-config = <&stmmac_axi_setup>;
 			nvmem-cells = <&gmac0_mac_address>;
-			nvmem-cell-names = "mac-address";
-		};
-
-		gmac1: ethernet@ffe7060000 {
-			compatible = "thead,light-dwmac";
-			reg = <0xff 0xe7060000 0x0 0x2000
-			       0xff 0xec00401c 0x0 0x4
-			       0xff 0xec004020 0x0 0x4
-			       0xff 0xec004000 0x0 0x1c>;
-			reg-names = "gmac", "phy_if_reg", "txclk_dir_reg", "clk_mgr_reg";
-			interrupt-parent = <&intc>;
-			interrupts = <67>;
-			interrupt-names = "macirq";
-			clocks = <&clk CLKGEN_GMAC1_CCLK>;
-			clock-names = "gmac_pll_clk";
-			snps,pbl = <32>;
-			snps,fixed-burst;
-			snps,axi-config = <&stmmac_axi_setup>;
-			nvmem-cells = <&gmac1_mac_address>;
 			nvmem-cell-names = "mac-address";
 		};
 
@@ -1397,11 +1379,11 @@
 		    interrupts = <102>;
 		    interrupt-names = "gpuirq";
 			vosys-regmap = <&vosys_reg>;
-			power-domains = <&pd LIGHT_AON_GPU_PD>;
-            clocks = <&vosys_clk_gate LIGHT_CLKGEN_GPU_CORE_CLK>,
-                     <&vosys_clk_gate LIGHT_CLKGEN_GPU_CFG_ACLK>;
-            clock-names = "cclk", "aclk";
-		    gpu_clk_rate = <18000000>;
+			//power-domains = <&pd LIGHT_AON_GPU_PD>;
+            clocks = <&dummy_clock_gpu>,
+					<&dummy_clock_gpu>;
+		    clock-names = "cclk", "aclk";
+			gpu_clk_rate = <18000000>;
 		    dma-mask = <0xf 0xffffffff>;
 		    status = "disabled";
 		};
@@ -1411,10 +1393,10 @@
 			reg = <0xff 0xecc00000 0x0 0x8000>;
 			interrupt-parent = <&intc>;
 			interrupts = <131>;
-			power-domains = <&pd LIGHT_AON_VDEC_PD>;
-			clocks = <&vpsys_clk_gate LIGHT_VPSYS_VDEC_ACLK>,
-				<&vpsys_clk_gate LIGHT_VPSYS_VDEC_CCLK>,
-				<&vpsys_clk_gate LIGHT_VPSYS_VDEC_PCLK>;
+			//power-domains = <&pd LIGHT_AON_VDEC_PD>;
+			clocks = <&dummy_clock_vpsys>,
+				<&dummy_clock_vpsys>,
+				<&dummy_clock_vpsys>;
 			clock-names = "aclk", "cclk", "pclk";
 			status = "disabled";
 		};
@@ -1424,10 +1406,10 @@
 			reg = <0xff 0xecc10000 0x0 0x8000>;
 			interrupt-parent = <&intc>;
 			interrupts = <133>;
-			power-domains = <&pd LIGHT_AON_VENC_PD>;
-			clocks = <&vpsys_clk_gate LIGHT_VPSYS_VENC_ACLK>,
-				<&vpsys_clk_gate LIGHT_VPSYS_VENC_CCLK>,
-				<&vpsys_clk_gate LIGHT_VPSYS_VENC_PCLK>;
+			//power-domains = <&pd LIGHT_AON_VENC_PD>;
+			clocks = <&dummy_clock_vpsys>,
+				<&dummy_clock_vpsys>,
+				<&dummy_clock_vpsys>;
 			clock-names = "aclk", "cclk", "pclk";
 			status = "disabled";
 		};
@@ -1443,7 +1425,7 @@
 		vidmem: vidmem@ffecc08000 {
 			compatible = "thead,light-vidmem";
 			reg = <0xff 0xecc08000 0x0 0x1000>;
-			status = "disabled";
+			status = "okay";
 		};
 
 		light_i2s: light_i2s@ffe7034000 {
@@ -1532,7 +1514,7 @@
 		    reg-names = "common", "ts", "pd", "vm";
 		    clocks = <&dummy_clock_aonsys_clk>;
 		    #thermal-sensor-cells = <1>;
-		    status = "okay";
+		    status = "disabled";
 		};
 
 		i2c0: i2c@ffe7f20000 {
@@ -1660,10 +1642,10 @@
 			reg = <0xff 0xe4100000 0x0 0x10000>;
 			interrupt-parent = <&intc>;
 			interrupts = <117>,<118>;
-			clocks =  <&visys_clk_gate LIGHT_CLKGEN_ISP0_ACLK>,
-			          <&visys_clk_gate LIGHT_CLKGEN_ISP0_HCLK>,
-				  <&visys_clk_gate LIGHT_CLKGEN_ISP0_PIXELCLK>,
-				  <&visys_clk_gate LIGHT_CLKGEN_ISP0_CLK>;
+			clocks =  <&dummy_clock_visys>,
+				<&dummy_clock_visys>,
+				<&dummy_clock_visys>,
+				<&dummy_clock_visys>;
 			clock-names = "aclk", "hclk", "isp0_pclk", "cclk";
 			status = "disabled";
 		};
@@ -1673,11 +1655,11 @@
 			reg = <0xff 0xe4110000 0x0 0x10000>;
 			interrupt-parent = <&intc>;
 			interrupts = <120>,<121>;
-			clocks = <&visys_clk_gate LIGHT_CLKGEN_ISP0_ACLK>,
-			         <&visys_clk_gate LIGHT_CLKGEN_ISP0_HCLK>,
-				 <&visys_clk_gate LIGHT_CLKGEN_ISP0_PIXELCLK>,
-				 <&visys_clk_gate LIGHT_CLKGEN_ISP1_CLK>,
-				 <&visys_clk_gate LIGHT_CLKGEN_ISP1_PIXELCLK>;
+			clocks = <&dummy_clock_visys>,
+					<&dummy_clock_visys>,
+					<&dummy_clock_visys>,
+					<&dummy_clock_visys>,
+					<&dummy_clock_visys>;
 			clock-names = "aclk", "hclk", "isp0_pclk", "cclk", "isp1_pclk";
 			status = "disabled";
 		};
@@ -1687,9 +1669,9 @@
 			reg = <0xff 0xe4120000 0x0 0x10000>;
 			interrupt-parent = <&intc>;
 			interrupts = <123>,<124>;
-			clocks = <&visys_clk_gate LIGHT_CLKGEN_ISP_RY_ACLK>,
-			         <&visys_clk_gate LIGHT_CLKGEN_ISP_RY_HCLK>,
-				 <&visys_clk_gate LIGHT_CLKGEN_ISP_RY_CCLK>;
+			clocks = <&dummy_clock_visys>,
+					<&dummy_clock_visys>,
+					<&dummy_clock_visys>;
 			clock-names = "aclk", "hclk", "cclk";
 			status = "disabled";
 		};
@@ -1699,10 +1681,10 @@
 			reg = <0xff 0xe4130000 0x0 0x10000>;
 			interrupt-parent = <&intc>;
 			interrupts = <98>,<99>;
-			clocks = <&visys_clk_gate LIGHT_CLKGEN_DW200_ACLK>,
-			         <&visys_clk_gate LIGHT_CLKGEN_DW200_HCLK>,
-				 <&visys_clk_gate LIGHT_CLKGEN_DW200_CLK_VSE>,
-				 <&visys_clk_gate LIGHT_CLKGEN_DW200_CLK_DWE>;
+			clocks = <&dummy_clock_visys>,
+					<&dummy_clock_visys>,
+					<&dummy_clock_visys>,
+					<&dummy_clock_visys>;
 			clock-names = "aclk", "hclk", "vseclk", "dweclk";
 			status = "disabled";
 		};
@@ -1738,10 +1720,10 @@
 		    interrupts = <128>;
 		    dphyglueiftester = <0x180>;
 		    sysreg_mipi_csi_ctrl = <0x140>;
-		    clocks = <&visys_clk_gate LIGHT_CLKGEN_MIPI_CSI0_PCLK>,
-		             <&visys_clk_gate LIGHT_CLKGEN_MIPI_CSI0_PIXCLK>,
-		             <&visys_clk_gate LIGHT_CLKGEN_MIPI_CSI0_CFG_CLK>;
-		    clock-names = "pclk", "pixclk", "cfg_clk";
+		    clocks = <&dummy_clock_visys>,
+					<&dummy_clock_visys>,
+					<&dummy_clock_visys>;
+			clock-names = "pclk", "pixclk", "cfg_clk";
 		    phy_name = "CSI_4LANE";
 		    status = "disabled";
 		};
@@ -1761,10 +1743,10 @@
 		    sysreg_mipi_csi_ctrl = <0x148>;
 		    visys-regmap = <&visys_reg>;
 		    csia-regmap = <&csia_reg>;
-		    clocks = <&visys_clk_gate LIGHT_CLKGEN_MIPI_CSI1_PCLK>,
-		             <&visys_clk_gate LIGHT_CLKGEN_MIPI_CSI1_PIXCLK>,
-		             <&visys_clk_gate LIGHT_CLKGEN_MIPI_CSI1_CFG_CLK>;
-		    clock-names = "pclk", "pixclk", "cfg_clk";
+		    clocks = <&dummy_clock_visys>,
+					<&dummy_clock_visys>,
+					<&dummy_clock_visys>;
+			clock-names = "pclk", "pixclk", "cfg_clk";
 		    phy_name = "CSI_B";
 		    status = "disabled";
 		};
@@ -1776,10 +1758,10 @@
 		    interrupts = <127>;
 		    dphyglueiftester = <0x184>;
 		    sysreg_mipi_csi_ctrl = <0x144>;
-		    clocks = <&visys_clk_gate LIGHT_CLKGEN_MIPI_CSI2_PCLK>,
-		             <&visys_clk_gate LIGHT_CLKGEN_MIPI_CSI2_PIXCLK>,
-		             <&visys_clk_gate LIGHT_CLKGEN_MIPI_CSI2_CFG_CLK>;
-		    clock-names = "pclk", "pixclk", "cfg_clk";
+		    clocks = <&dummy_clock_visys>,
+					<&dummy_clock_visys>,
+					<&dummy_clock_visys>;
+			clock-names = "pclk", "pixclk", "cfg_clk";
 		    phy_name = "CSI_A";
 		    status = "disabled";
 		};
@@ -1808,9 +1790,9 @@
 			reg = <0xff 0xe4030000 0x0 0x1000>;
 			interrupt-parent = <&intc>;
 			interrupts = <134>;
-			clocks = <&visys_clk_gate LIGHT_CLKGEN_VIPRE_ACLK>,
-			         <&visys_clk_gate LIGHT_CLKGEN_VIPRE_PCLK>,
-				 <&visys_clk_gate LIGHT_CLKGEN_VIPRE_PIXELCLK>;
+			clocks = <&dummy_clock_vipre>,
+					<&dummy_clock_vipre>,
+					<&dummy_clock_vipre>;
 			clock-names ="aclk", "pclk", "pixclk";
 			status = "disabled";
 		};
@@ -2016,11 +1998,6 @@
 			};
 		};
 
-		pmp: pmp@ffdc020000 {
-			compatible = "pmp";
-			reg = <0xff 0xdc020000 0x0 0x1000>;
-		};
-
 		mrvbr: mrvbr@ffff018050 {
 			compatible = "mrvbr";
 			reg = <0xff 0xff019050 0x0 0x1000>;
@@ -2056,6 +2033,7 @@
 		       clock-names = "ipg";
 		       icu_cpu_id = <0>;
 		       #mbox-cells = <2>;
+		       status = "disabled";
 		};
 
 		trng: rng@ffff300000 {

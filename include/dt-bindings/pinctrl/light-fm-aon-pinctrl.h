@@ -43,4 +43,36 @@
 #define FM_AUDIO_PA29			45
 #define FM_AUDIO_PA30			46
 
+#define FM_AUDIO_CFG_PA0			25
+#define FM_AUDIO_CFG_PA1			26
+#define FM_AUDIO_CFG_PA2			27
+#define FM_AUDIO_CFG_PA3			28
+#define FM_AUDIO_CFG_PA4			29
+#define FM_AUDIO_CFG_PA5			30
+#define FM_AUDIO_CFG_PA6			31
+#define FM_AUDIO_CFG_PA7			32
+#define FM_AUDIO_CFG_PA8			33
+#define FM_AUDIO_CFG_PA9			34
+#define FM_AUDIO_CFG_PA10			35
+#define FM_AUDIO_CFG_PA11			36
+#define FM_AUDIO_CFG_PA12			37
+#define FM_AUDIO_CFG_PA13			38
+#define FM_AUDIO_CFG_PA14			39
+#define FM_AUDIO_CFG_PA15			40
+#define FM_AUDIO_CFG_PA16			41
+#define FM_AUDIO_CFG_PA17			42
+#define FM_AUDIO_CFG_PA18			43
+#define FM_AUDIO_CFG_PA19			44
+#define FM_AUDIO_CFG_PA20			45
+#define FM_AUDIO_CFG_PA21			46
+#define FM_AUDIO_CFG_PA22			47
+#define FM_AUDIO_CFG_PA23			48
+#define FM_AUDIO_CFG_PA24			49
+#define FM_AUDIO_CFG_PA25			50
+#define FM_AUDIO_CFG_PA26			51
+#define FM_AUDIO_CFG_PA27			52
+#define FM_AUDIO_CFG_PA28			53
+#define FM_AUDIO_CFG_PA29			54
+#define FM_AUDIO_CFG_PA30			55
+
 #endif	/* _LIGHT_FM_AUDIO_PINCTRL_H */

@@ -635,6 +635,7 @@ static struct phy_driver realtek_drvs[] = {
 		.name		= "RTL8211F Gigabit Ethernet",
 		.config_init	= &rtl8211f_config_init,
 		.ack_interrupt	= &rtl8211f_ack_interrupt,
+		.read_status	= rtlgen_read_status,
 		.config_intr	= &rtl8211f_config_intr,
 		.suspend	= genphy_suspend,
 		.resume		= rtl821x_resume,

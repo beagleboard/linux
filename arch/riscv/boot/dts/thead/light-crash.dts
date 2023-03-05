@@ -327,7 +327,7 @@
                irq-gpios = <&gpio1_porta 8 0>;
                reset-gpios = <&gpio1_porta 7 0>;
                AVDD28-supply = <&reg_tp_pwr_en>;
-               touchscreen-size-x = <720>;
+               touchscreen-size-x = <800>;
                touchscreen-size-y = <1280>;
        };
 

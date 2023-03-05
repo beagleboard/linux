@@ -1,0 +1,27 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * Copyright (C) 2022 Alibaba Group Holding Limited.
+ */
+
+#include "light-lpi4a-ref.dts"
+
+/ {
+	model = "T-HEAD Light Lichee Pi 4A configuration for 4GB DDR board";
+	compatible = "thead,light-val", "thead,light-lpi4a", "thead,light";
+
+	memory@0 {
+		device_type = "memory";
+		reg = <0x0 0x00000000 0x1 0x00000000>;
+	};
+};
+
+&cmamem {
+	alloc-ranges = <0 0xe4000000 0 0x14000000>; // [0xE400_0000 ~ 0xF800_0000]
+};
+
+&usb_1 {
+	hubswitch-gpio = <&ao_gpio_porta 4 0>;
+	vbus-supply = <&soc_vbus_en_reg>;
+	hub1v2-supply = <&reg_usb_hub_vdd1v2>;
+	hub5v-supply = <&reg_usb_hub_vcc5v>;
+};

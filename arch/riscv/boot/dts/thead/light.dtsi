@@ -34,6 +34,7 @@
 		i2c3 = &i2c3;
 		i2c4 = &i2c4;
 		audio_i2c0 = &audio_i2c0;
+		audio_i2c1 = &audio_i2c1;
 		mmc0 = &emmc;
 		mmc1 = &sdhci0;
 		serial0 = &uart0;
@@ -1534,6 +1535,26 @@
 			status = "disabled";
 		};
 
+		i2s2: audio_i2s2@0xffcb016000 {
+			#sound-dai-cells = <1>;
+			compatible = "light,light-i2s";
+			reg = <0xff 0xcb016000 0x0 0x1000>;
+			audio-pin-regmap = <&audio_ioctrl>;
+			audio-cpr-regmap = <&audio_cpr>;
+			pinctrl-names = "default";
+			light,mode = "i2s-master";
+			light,sel = "i2s2";
+			interrupt-parent = <&intc>;
+			interrupts = <176>;
+			dmas = <&dmac2 13>, <&dmac2 12>;
+			dma-names = "tx", "rx";
+			light,dma_maxburst = <4>;
+			#dma-cells = <1>;
+			clocks = <&dummy_clock_apb>;
+			clock-names = "pclk";
+			status = "disabled";
+		};
+
 		i2s3: audio_i2s3@0xffcb017000 {
 			#sound-dai-cells = <1>;
 			compatible = "light,light-i2s";
@@ -1680,6 +1701,27 @@
 			fp_lcnt = /bits/ 16 <0x1a>;
 			hs_hcnt = /bits/ 16 <0x5>;
 			hs_lcnt = /bits/ 16 <0x15>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+
+		audio_i2c1: i2c@0xffcb01b000 {
+			compatible = "snps,designware-i2c";
+			reg = <0xff 0xcb01b000 0x0 0x1000>;
+			interrupt-parent = <&intc>;
+			interrupts = <183>;
+			clocks = <&dummy_clock_apb>;
+			clock-frequency = <100000>;
+			ss_hcnt = /bits/ 16 <0x82>;
+			ss_lcnt = /bits/ 16 <0x78>;
+			fs_hcnt = /bits/ 16 <0x37>;
+			fs_lcnt = /bits/ 16 <0x42>;
+			fp_hcnt = /bits/ 16 <0x14>;
+			fp_lcnt = /bits/ 16 <0x1a>;
+			hs_hcnt = /bits/ 16 <0x5>;
+			hs_lcnt = /bits/ 16 <0x15>;
+			status = "disabled";
+
 			#address-cells = <1>;
 			#size-cells = <0>;
 		};

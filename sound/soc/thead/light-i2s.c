@@ -39,6 +39,7 @@
 #define AP_I2S		"ap_i2s"
 #define AUDIO_I2S0	"i2s0"
 #define AUDIO_I2S1	"i2s1"
+#define AUDIO_I2S2	"i2s2"
 #define AUDIO_I2S3	"i2s3"
 
 #define LIGHT_I2S_DMABUF_SIZE     (64 * 1024)
@@ -87,6 +88,14 @@ static void light_i2s_set_div_sclk(struct light_i2s_priv *chip, u32 sample_rate,
 				div = AUDIO_IIS_SRC0_CLK / IIS_MCLK_SEL;
 			} else {
 				light_audio_cpr_set(chip, CPR_PERI_CLK_SEL_REG, CPR_I2S1_SRC_SEL_MSK, CPR_I2S1_SRC_SEL(2));
+				div = AUDIO_IIS_SRC1_CLK / IIS_MCLK_SEL;
+			}
+		} else if (!strcmp(chip->name, AUDIO_I2S2)) {
+			if (!i2s_src_clk) {
+				light_audio_cpr_set(chip, CPR_PERI_CLK_SEL_REG, CPR_I2S2_SRC_SEL_MSK, CPR_I2S2_SRC_SEL(0));
+				div = AUDIO_IIS_SRC0_CLK / IIS_MCLK_SEL;
+			} else {
+				light_audio_cpr_set(chip, CPR_PERI_CLK_SEL_REG, CPR_I2S2_SRC_SEL_MSK, CPR_I2S2_SRC_SEL(2));
 				div = AUDIO_IIS_SRC1_CLK / IIS_MCLK_SEL;
 			}
 		} else if (!strcmp(chip->name, AUDIO_I2S3)) {
@@ -552,19 +561,26 @@ static int light_audio_pinctrl(struct device *dev)
 	struct light_i2s_priv *i2s_priv = dev_get_drvdata(dev);
 
 	if (!strcmp(i2s_priv->name, AUDIO_I2S0)) {
-		light_audio_pinconf_set(i2s_priv->dev, FM_AUDIO_PA6, 0x4);
-		light_audio_pinconf_set(i2s_priv->dev, FM_AUDIO_PA7, 0x4);
-		light_audio_pinconf_set(i2s_priv->dev, FM_AUDIO_PA9, 0x8);
-		light_audio_pinconf_set(i2s_priv->dev, FM_AUDIO_PA10, 0x8);
-		light_audio_pinconf_set(i2s_priv->dev, FM_AUDIO_PA11, 0x8);
-		light_audio_pinconf_set(i2s_priv->dev, FM_AUDIO_PA12, 0x8);
+		light_audio_pinconf_set(i2s_priv->dev, FM_AUDIO_CFG_PA6, 0x4);
+		light_audio_pinconf_set(i2s_priv->dev, FM_AUDIO_CFG_PA7, 0x4);
+		light_audio_pinconf_set(i2s_priv->dev, FM_AUDIO_CFG_PA9, 0x8);
+		light_audio_pinconf_set(i2s_priv->dev, FM_AUDIO_CFG_PA10, 0x8);
+		light_audio_pinconf_set(i2s_priv->dev, FM_AUDIO_CFG_PA11, 0x8);
+		light_audio_pinconf_set(i2s_priv->dev, FM_AUDIO_CFG_PA12, 0x8);
 	} else if (!strcmp(i2s_priv->name, AUDIO_I2S1)) {
-		light_audio_pinconf_set(i2s_priv->dev, FM_AUDIO_PA6, 0x4);
-		light_audio_pinconf_set(i2s_priv->dev, FM_AUDIO_PA7, 0x4);
-		light_audio_pinconf_set(i2s_priv->dev, FM_AUDIO_PA13, 0x8);
-		light_audio_pinconf_set(i2s_priv->dev, FM_AUDIO_PA14, 0x8);
-		light_audio_pinconf_set(i2s_priv->dev, FM_AUDIO_PA15, 0x8);
-		light_audio_pinconf_set(i2s_priv->dev, FM_AUDIO_PA17, 0x8);
+		light_audio_pinconf_set(i2s_priv->dev, FM_AUDIO_CFG_PA6, 0x4);
+		light_audio_pinconf_set(i2s_priv->dev, FM_AUDIO_CFG_PA7, 0x4);
+		light_audio_pinconf_set(i2s_priv->dev, FM_AUDIO_CFG_PA13, 0x8);
+		light_audio_pinconf_set(i2s_priv->dev, FM_AUDIO_CFG_PA14, 0x8);
+		light_audio_pinconf_set(i2s_priv->dev, FM_AUDIO_CFG_PA15, 0x8);
+		light_audio_pinconf_set(i2s_priv->dev, FM_AUDIO_CFG_PA17, 0x8);
+	} else if (!strcmp(i2s_priv->name, AUDIO_I2S2)) {
+		light_audio_pinconf_set(i2s_priv->dev, FM_AUDIO_CFG_PA6, 0x5);
+		light_audio_pinconf_set(i2s_priv->dev, FM_AUDIO_CFG_PA7, 0x5);
+		light_audio_pinconf_set(i2s_priv->dev, FM_AUDIO_CFG_PA18, 0x8);
+		light_audio_pinconf_set(i2s_priv->dev, FM_AUDIO_CFG_PA19, 0x8);
+		light_audio_pinconf_set(i2s_priv->dev, FM_AUDIO_CFG_PA21, 0x8);
+		light_audio_pinconf_set(i2s_priv->dev, FM_AUDIO_CFG_PA22, 0x8);
 	}
 
 	return 0;
@@ -656,7 +672,7 @@ static int light_audio_i2s_probe(struct platform_device *pdev)
                 return PTR_ERR(i2s_priv->regmap);
         }
 
-	if (!strcmp(i2s_priv->name, AUDIO_I2S0) || !strcmp(i2s_priv->name, AUDIO_I2S1)) {
+	if (!strcmp(i2s_priv->name, AUDIO_I2S0) || !strcmp(i2s_priv->name, AUDIO_I2S1) || !strcmp(i2s_priv->name, AUDIO_I2S2)) {
 		i2s_priv->audio_pin_regmap = syscon_regmap_lookup_by_phandle(np, "audio-pin-regmap");
 		if (IS_ERR(i2s_priv->audio_pin_regmap)) {
 			dev_err(&pdev->dev, "cannot find regmap for audio system register\n");
@@ -700,7 +716,7 @@ static int light_audio_i2s_probe(struct platform_device *pdev)
 	if (!strcmp(i2s_priv->name, AP_I2S)) {
 		i2s_priv->dma_params_tx.addr = res->start + I2S_DR;
 		i2s_priv->dma_params_rx.addr = res->start + I2S_DR1;
-	} else if (!strcmp(i2s_priv->name, AUDIO_I2S0) || !strcmp(i2s_priv->name, AUDIO_I2S1)) {
+	} else if (!strcmp(i2s_priv->name, AUDIO_I2S0) || !strcmp(i2s_priv->name, AUDIO_I2S1) || !strcmp(i2s_priv->name, AUDIO_I2S2)) {
 		i2s_priv->dma_params_tx.addr = res->start + I2S_DR;
 		i2s_priv->dma_params_rx.addr = res->start + I2S_DR;
 	} else if (!strcmp(i2s_priv->name, AUDIO_I2S3)) {

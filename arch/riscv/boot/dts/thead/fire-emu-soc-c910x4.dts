@@ -1,0 +1,19 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * Copyright (C) 2021-2022 Alibaba Group Holding Limited.
+ */
+
+#include "fire-emu.dts"
+
+&c910_1 {
+	status = "okay";
+};
+
+&c910_2 {
+	status = "okay";
+};
+
+&c910_3 {
+	status = "okay";
+};
+

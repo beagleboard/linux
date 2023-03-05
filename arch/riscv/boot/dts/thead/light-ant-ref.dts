@@ -578,7 +578,7 @@
                irq-gpios = <&gpio1_porta 8 0>;
                reset-gpios = <&gpio1_porta 7 0>;
                AVDD28-supply = <&reg_tp_pwr_en>;
-               touchscreen-size-x = <720>;
+               touchscreen-size-x = <800>;
                touchscreen-size-y = <1280>;
        };
 
@@ -2048,18 +2048,11 @@
 			path_type = "SENSOR_1920X1088_30FPS_RAW12_LINER";
 			skip_init = <1>;
 		};
-		sensor1 {
-			subdev_name = "vivcam";
-			idx = <6>; //gc02m1b
-			csi_idx = <1>; //<1>=CSI2_B
-			mode_idx = <0>;
-			path_type = "SENSOR_1600x1200_RAW10_LINER";
-			skip_init = <1>;
+		dma {
+				path_type = "VIPRE_CSI1_ISP0";
 		};
 	};
-    dma {
-			path_type = "VIPRE_CSI1_ISP0";
-    };
+
 };
 
 &video13{

@@ -1,0 +1,107 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * Copyright (C) 2021-2022 Alibaba Group Holding Limited.
+ */
+
+/dts-v1/;
+
+#include "fire-emu.dts"
+
+&gpu {
+	status = "okay";
+};
+
+&vosys_reg {
+	status = "okay";
+};
+
+&display_subsystem {
+	status = "okay";
+};
+
+&dpu_enc0 {
+	status = "okay";
+
+	ports {
+		/* output */
+		port@1 {
+			reg = <1>;
+
+			enc0_out: endpoint {
+				remote-endpoint = <&dsi0_in>;
+			};
+		};
+	};
+};
+
+&dpu {
+	status = "okay";
+};
+
+
+&dsi0 {
+	status = "okay";
+};
+
+&dhost_0 {
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+
+			dsi0_in: endpoint {
+				remote-endpoint = <&enc0_out>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+
+			dsi0_out: endpoint {
+				remote-endpoint = <&panel0_in>;
+			};
+		};
+	};
+
+	panel0@0 {
+		compatible = "hlt,hpk070h275";
+		reg = <0>;
+
+		port {
+			panel0_in: endpoint {
+				remote-endpoint = <&dsi0_out>;
+			};
+		};
+	};
+};
+
+&aon {
+	status = "okay";
+};
+
+&mbox_910t {
+	status = "okay";
+};
+
+&mbox_910t_client1 {
+	status = "okay";
+};
+
+&mbox_910t_client2 {
+	status = "okay";
+};
+
+&dmac1 {
+	status = "okay";
+};
+
+&lightsound {
+	status = "okay";
+};
+
+&dmac2 {
+    status = "disabled";
+};
+

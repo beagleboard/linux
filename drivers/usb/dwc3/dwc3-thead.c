@@ -14,6 +14,8 @@
 #include <linux/kernel.h>
 #include <linux/extcon.h>
 #include <linux/of_platform.h>
+#include <linux/gpio/consumer.h>
+#include <linux/regulator/consumer.h>
 #include <linux/mfd/syscon.h>
 #include <linux/regmap.h>
 #include <linux/platform_device.h>
@@ -82,6 +84,11 @@ struct dwc3_thead {
 	struct extcon_dev	*host_edev;
 	struct notifier_block	vbus_nb;
 	struct notifier_block	host_nb;
+
+	struct gpio_desc	*hubswitch;
+	struct regulator	*hub1v2;
+	struct regulator	*hub5v;
+	struct regulator	*vbus;
 
 	enum usb_dr_mode	mode;
 	bool			is_suspended;
@@ -247,6 +254,28 @@ static int dwc3_thead_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, thead);
 	thead->dev = &pdev->dev;
+
+	thead->hubswitch = devm_gpiod_get(dev, "hubswitch", GPIOD_OUT_HIGH);
+	if (IS_ERR(thead->hubswitch))
+		dev_dbg(dev, "no need to get hubswitch GPIO\n");
+
+	thead->vbus = devm_regulator_get(dev, "vbus");
+	if (IS_ERR(thead->vbus))
+		dev_dbg(dev, "no need to get vbus\n");
+	else
+		regulator_enable(thead->vbus);
+
+	thead->hub1v2 = devm_regulator_get(dev, "hub1v2");
+	if (IS_ERR(thead->hub1v2))
+		dev_dbg(dev, "no need to set hub1v2\n");
+	else
+		regulator_enable(thead->hub1v2);
+
+	thead->hub5v = devm_regulator_get(dev, "hub5v");
+	if (IS_ERR(thead->hub5v))
+		dev_dbg(dev, "no need to set hub5v\n");
+	else
+		regulator_enable(thead->hub5v);
 
 	thead->misc_sysreg = syscon_regmap_lookup_by_phandle(np, "usb3-misc-regmap");
 	if (IS_ERR(thead->misc_sysreg))

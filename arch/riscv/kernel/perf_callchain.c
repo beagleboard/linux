@@ -75,13 +75,13 @@ void perf_callchain_user(struct perf_callchain_entry_ctx *entry,
 		fp = user_backtrace(entry, fp, 0);
 }
 
-bool fill_callchain(unsigned long pc, void *entry)
+bool fill_callchain(unsigned long pc, unsigned long regs, void *entry)
 {
 	return perf_callchain_store(entry, pc) == 0;
 }
 
 void notrace walk_stackframe(struct task_struct *task,
-	struct pt_regs *regs, bool (*fn)(unsigned long, void *), void *arg);
+	struct pt_regs *regs, bool (*fn)(unsigned long, unsigned long, void *), void *arg);
 void perf_callchain_kernel(struct perf_callchain_entry_ctx *entry,
 			   struct pt_regs *regs)
 {

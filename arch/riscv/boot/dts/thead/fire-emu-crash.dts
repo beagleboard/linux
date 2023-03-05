@@ -8,7 +8,7 @@
 &aon {
 	aon_reg_dialog: light-dialog-reg {
 		compatible = "thead,light-dialog-pmic";
-		status = "okay";
+		status = "disabled";
 
 		dvdd_cpu_reg: appcpu_dvdd {
 			regulator-name = "appcpu_dvdd";

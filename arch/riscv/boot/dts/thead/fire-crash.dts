@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (C) 2021 Alibaba Group Holding Limited.
+ * Copyright (C) 2021-2022 Alibaba Group Holding Limited.
  */
 
 /dts-v1/;
@@ -9,8 +9,9 @@
 #include <dt-bindings/input/linux-event-codes.h>
 #include <dt-bindings/gpio/gpio.h>
 #include "light-vi-devices.dtsi"
+
 / {
-	model = "T-HEAD Fire emu board";
+	model = "T-HEAD fire fpga board";
 	compatible = "thead,fire-emu", "thead,fire";
 
 	chosen {
@@ -120,10 +121,6 @@
 			is_default_region;
 		};
 
-		iopmp_fce: IOPMP_FCE {
-			is_default_region;
-		};
-
 		iopmp0_dpu: IOPMP0_DPU {
 			bypass_en;
 		};
@@ -192,23 +189,6 @@
 		status = "okay";
 	};
 
-	reg_vref_1v8: regulator-adc-verf {
-			compatible = "regulator-fixed";
-			regulator-name = "vref-1v8";
-			regulator-min-microvolt = <1800000>;
-			regulator-max-microvolt = <1800000>;
-	status = "okay";
-	};
-
-        reg_tp_pwr_en: regulator-pwr-en {
-                compatible = "regulator-fixed";
-                regulator-name = "PWR_EN";
-                regulator-min-microvolt = <2800000>;
-                regulator-max-microvolt = <2800000>;
-                gpio = <&gpio1_porta 12 1>;
-                enable-active-high;
-                regulator-always-on;
-        };
 
 	wcn_wifi: wireless-wlan {
 		compatible = "wlan-platdata";
@@ -217,33 +197,33 @@
 		keep_wifi_power_on;
 		pinctrl-names = "default";
 		wifi_chip_type = "rtl8723ds";
-		WIFI,poweren_gpio = <&gpio2_porta 29 0>;
-		WIFI,reset_n = <&gpio2_porta 24 0>;
-		status = "okay";
+		WIFI,poweren_gpio = <&gpio2_porta 26 0>;
+		WIFI,reset_n = <&gpio2_porta 28 0>;
+		status = "disabled";
 	};
 
 	wcn_bt: wireless-bluetooth {
 		compatible = "bluetooth-platdata";
 		pinctrl-names = "default", "rts_gpio";
-		BT,power_gpio    = <&gpio2_porta 25 0>;
-		status = "okay";
+		BT,power_gpio    = <&gpio2_porta 29 0>;
+		status = "disabled";
 	};
 
-	gpio-keys {
+	gpio_keys: gpio_keys{
 		compatible = "gpio-keys";
-		pinctrl-0 = <&pinctrl_volume>;
 		pinctrl-names = "default";
+		status = "disabled";
 		key-volumedown {
 			label = "Volume Down Key";
-			linux,code = <KEY_VOLUMEDOWN>;
-			debounce-interval = <1>;
-			gpios = <&ao_gpio_porta 11 0x1>;
+			linux,code = <KEY_1>;
+			debounce-interval = <2>;
+			gpios = <&ao_gpio_porta 4 GPIO_ACTIVE_LOW>;
 		};
 		key-volumeup {
 			label = "Volume Up Key";
-			linux,code = <KEY_VOLUMEUP>;
-			debounce-interval = <1>;
-			gpios = <&ao_gpio_porta 10 0x1>;
+			linux,code = <KEY_2>;
+			debounce-interval = <2>;
+			gpios = <&ao_gpio_porta 5 GPIO_ACTIVE_LOW>;
 		};
 	};
 
@@ -251,20 +231,27 @@
 		compatible = "thead,light-aon";
 		mbox-names = "aon";
 		mboxes = <&mbox_910t 1 0>;
-		status = "okay";
+		status = "disabled";
 
 		pd: light-aon-pd {
 			compatible = "thead,light-aon-pd";
 			#power-domain-cells = <1>;
+			status = "disabled";
+		};
+
+		aon_reg_dialog: light-dialog-reg {
+			compatible = "thead,light-dialog-pmic";
+			status = "disabled";
 		};
 
 		c910_cpufreq {
 			compatible = "thead,light-mpw-cpufreq";
-			status = "okay";
+			status = "disabled";
 		};
 
 		test: light-aon-test {
 			compatible = "thead,light-aon-test";
+			status = "disabled";
 		};
 	};
 };
@@ -278,60 +265,73 @@
 		reg = <0x0 0x1a000000 0 0x4000000>;
 		no-map;
 	};
+	dsp0_mem: memory@20000000 {			/**0x2000_0000~0x2040_0000 4M**/
+		reg = <0x0 0x20000000 0x0 0x00280000	/* DSP FW code&data section 2.5M*/
+		       0x0 0x20280000 0x0 0x00001000	/* DSP communication area 4K*/
+		       0x0 0x20281000 0x0 0x00007000	/* Panic/log page 28K */
+		       0x0 0x20288000 0x0 0x00178000>;	/* DSP shared memory 1.5M-32K*/
+		no-map;
+	};
+	dsp1_mem: memory@20400000 {			/**0x2040_0000~0x2080_0000 4M**/
+		reg = <0x0 0x20400000 0x0 0x00280000	/* DSP FW code&data section */
+		       0x0 0x20680000 0x0 0x00001000	/* DSP communication area */
+		       0x0 0x20681000 0x0 0x00007000	/* Panic/log page*/
+		       0x0 0x20688000 0x0 0x00178000>;	/* DSP shared memory */
+		no-map;
+	};
+    vi_mem: framebuffer@0f800000 {
+		reg = <0x0 0x0F800000 0x0 0x05400000	/* vi_mem_pool_region[0]  84 MB (default) */
+		       0x0 0x14C00000 0x0 0x01D00000	/* vi_mem_pool_region[1]  29 MB */
+		       0x0 0x16900000 0x0 0x03200000>;	/* vi_mem_pool_region[2]  50 MB */
+		no-map;
+	};
+	facelib_mem: memory@22000000 {
+		reg = <0x0 0x22000000 0x0 0x10000000>;
+		no-map;
+	};
 
-	dsp0_mem: memory@20000000 {             /**0x2000_0000~0x2040_0000 4M**/
-		reg = <0x0 0x20000000 0x0 0x00280000   /* DSP FW code&data section 2.5M*/ 
-               0x0 0x20280000 0x0 0x00001000   /* DSP communication area 4K*/ 
-               0x0 0x20281000 0x0 0x00007000  /* Panic/log page 28K */
-               0x0 0x20288000 0x0 0x00178000>;  /* DSP shared memory 1.5M-32K*/
-		no-map;
-	};
-    dsp1_mem: memory@20400000 {             /**0x2040_0000~0x2080_0000 4M**/
-        reg = <0x0 0x20400000 0x0 0x00280000  /* DSP FW code&data section */ 
-               0x0 0x20680000 0x0 0x00001000 /* DSP communication area */
-               0x0 0x20681000 0x0 0x00007000    /* Panic/log page*/ 
-               0x0 0x20688000 0x0 0x00178000>;  /* DSP shared memory */
-        no-map;
-    };
-	vi_mem: framebuffer@10000000 {
-		reg = <0x0 0x10000000 0x0 0x02C00000	/* vi_mem_pool_region[0]  44 MB (default) */
-		       0x0 0x12C00000 0x0 0x01D00000	/* vi_mem_pool_region[1]  29 MB */
-		       0x0 0x14900000 0x0 0x01E00000>;	/* vi_mem_pool_region[2]  30 MB */
-		no-map;
-	};
-	facelib_mem: memory@17000000 {
-		reg = <0x0 0x17000000 0 0x02000000>;
-		no-map;
-	};
 };
 
-&adc {
-	vref-supply = <&reg_vref_1v8>;
-	status = "okay";
+&clk {
+	status = "disabled";
 };
 
 &i2c0 {
-	clock-frequency = <100000>;
+	clock-frequency = <400000>;
 	status = "okay";
+
+	eeprom@50 {
+		compatible = "atmel,24c32";
+		reg = <0x50>;
+		pagesize = <32>;
+	};
+
+	codec: wm8960@1a {
+		#sound-dai-cells = <0>;
+		compatible = "wlf,wm8960";
+		reg = <0x1a>;
+		wlf,shared-lrclk;
+		wlf,hp-cfg = <3 2 3>;
+		wlf,gpio-cfg = <1 3>;
+	};
 
        touch@5d {
                #gpio-cells = <2>;
                compatible = "goodix,gt911";
+			   status = "disabled";
                reg = <0x5d>;
                interrupt-parent = <&gpio1_porta>;
                interrupts = <8 0>;
                irq-gpios = <&gpio1_porta 8 0>;
                reset-gpios = <&gpio1_porta 7 0>;
-               AVDD28-supply = <&reg_tp_pwr_en>;
-               touchscreen-size-x = <720>;
+               touchscreen-size-x = <800>;
                touchscreen-size-y = <1280>;
        };
-
 };
 
 &audio_i2c0 {
         clock-frequency = <100000>;
-        status = "okay";
+        status = "disabled";
 
        es8156_audio_codec: es8156@8 {
                #sound-dai-cells = <0>;
@@ -344,25 +344,29 @@
                 compatible = "MicArray_0";
                 reg = <0x40>;
         };
-
-	audio_aw87519_pa@58 {
-		compatible = "awinic,aw87519_pa";
-		reg = <0x58>;
-		reset-gpio = <&ao_gpio4_porta 9 0x1>;
-		status = "okay";
-	};
 };
 
 &i2c1 {
-        clock-frequency = <100000>;
-        status = "okay";
+        clock-frequency = <400000>;
+        status = "disabled";
+        touch1@5d {
+                #gpio-cells = <2>;
+                compatible = "goodix,gt911";
+                reg = <0x5d>;
+                interrupt-parent = <&gpio1_porta>;
+                interrupts = <12 0>;
+                irq-gpios = <&gpio1_porta 12 0>;
+                reset-gpios = <&gpio1_porta 11 0>;
+                touchscreen-size-x = <800>;
+                touchscreen-size-y = <1280>;
+        };
 };
 
 &spi0 {
 	num-cs = <1>;
 	cs-gpios = <&gpio2_porta 15 0>; // GPIO_ACTIVE_HIGH: 0
 	rx-sample-delay-ns = <10>;
-	status = "disabled";
+	status = "okay";
 
 	spi_norflash@0 {
 		#address-cells = <1>;
@@ -371,6 +375,7 @@
 		reg = <0>;
 		spi-max-frequency = <50000000>;
 		w25q,fast-read;
+		status = "disabled";
 	};
 
 	spidev@1 {
@@ -380,12 +385,6 @@
 		reg = <0x1>;
 		spi-max-frequency = <50000000>;
 	};
-};
-
-&uart0 {
-	clocks = <&dummy_clock_uart_sclk>;
-	clock-names = "baudclk";
-	clock-frequency = <100000000>;
 };
 
 &qspi0 {
@@ -411,17 +410,23 @@
 };
 
 &qspi1 {
-	compatible = "snps,dw-apb-ssi";
 	num-cs = <1>;
 	cs-gpios = <&gpio0_porta 1 0>;
 	status = "disabled";
 
-	spidev@0 {
-		compatible = "spidev";
-		#address-cells = <0x1>;
-		#size-cells = <0x1>;
-		reg = <0x0>;
-		spi-max-frequency = <50000000>;
+	spi-flash@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "spi-nand";
+		spi-max-frequency = <66000000>;
+		spi-tx-bus-width = <4>;
+		spi-rx-bus-width = <4>;
+		reg = <0>;
+
+		partition@0 {
+			label = "ubi2";
+			reg = <0x00000000 0x08000000>;
+		};
 	};
 };
 
@@ -445,14 +450,6 @@
 			reg = <0x2>;
 		};
 	};
-};
-
-&gmac1 {
-	phy-mode = "rgmii-id";
-	rx-clk-delay = <0x00>; /* for RGMII */
-	tx-clk-delay = <0x00>; /* for RGMII */
-	phy-handle = <&phy_88E1111_1>;
-	status = "okay";
 };
 
 &emmc {
@@ -489,7 +486,7 @@
 	cap-sd-highspeed;
 	keep-power-in-suspend;
 	wakeup-source;
-	status = "okay";
+	status = "disabled";
 };
 
 &padctrl0_apsys { /* right-pinctrl */
@@ -541,6 +538,7 @@
 			pinctrl_pwm: pwmgrp {
 				thead,pins = <
 					FM_GPIO3_2	0x1	0x208	/* pwm0 */
+					FM_GPIO3_3	0x1	0x208	/* pwm1 */
 				>;
 			};
 		};
@@ -593,57 +591,41 @@
 		};
 };
 
-&padctrl_aosys {
-	light-aon-padctrl {
-			/*
-			 * Pin Configuration Node:
-			 * Format: <pin_id mux_node config>
-			 */
-
-			pinctrl_audiopa1: audiopa1_grp {
-				thead,pins = <
-					FM_AUDIO_PA1	0x3	0x72
-				>;
-			};
-
-			pinctrl_audiopa2: audiopa2_grp {
-				thead,pins = <
-					FM_AUDIO_PA2	0x0	0x72
-				>;
-			};
-
-			pinctrl_volume: volume_grp {
-				thead,pins = <
-					FM_AOGPIO_11  0x0     0x208
-					FM_AOGPIO_10  0x3     0x208
-				>;
-			};
+&i2c2 {
+    clock-frequency = <400000>;
+	status = "okay";
+	eeprom@50 {
+		compatible = "atmel,24c32";
+		reg = <0x50>;
+		pagesize = <32>;
 	};
 };
 
-&i2c0 {
-	clock-frequency = <400000>;
-	status = "okay";
-};
-
-&i2c1 {
-	clock-frequency = <400000>;
-	status = "okay";
-};
-
-&i2c2 {
-	clock-frequency = <400000>;
-	status = "okay";
-};
-
 &i2c3 {
-	clock-frequency = <400000>;
+    clock-frequency = <400000>;
 	status = "okay";
+	eeprom@50 {
+		compatible = "atmel,24c32";
+		reg = <0x50>;
+		pagesize = <32>;
+	};
 };
 
 &i2c4 {
-	clock-frequency = <400000>;
+    clock-frequency = <400000>;
 	status = "okay";
+	eeprom@50 {
+		compatible = "atmel,24c32";
+		reg = <0x50>;
+		pagesize = <32>;
+	};
+
+	pcal6408ahk_a: gpio@20 {
+		compatible = "nxp,pcal9554b";
+		reg = <0x20>;
+		gpio-controller;
+		#gpio-cells = <2>;
+	};
 };
 
 &isp0 {
@@ -691,6 +673,7 @@
 };
 
 &vi_pre {
+	//vi_pre_irq_en = <1>;
 	status = "disabled";
 };
 
@@ -700,18 +683,20 @@
 
 &xtensa_dsp0 {
 	status = "disabled";
+    memory-region = <&dsp0_mem>;
 };
 
-&xtensa_dsp1 {
-	status = "disabled";
+&xtensa_dsp1{
+    status = "disabled";
+    memory-region = <&dsp1_mem>;
 };
 
 &vvcam_flash_led0{
-       status = "disabled";
-};
-
-
-&vvcam_sensor0 {
+    flash_led_name = "aw36413_aw36515";
+	floodlight_i2c_bus = /bits/ 8 <2>;
+	floodlight_en_pin = <&gpio1_porta 25 0>;
+	//projection_i2c_bus = /bits/ 8 <2>;
+	flash_led_touch_pin = <&gpio1_porta 27 0>; //flash led touch pin
 	status = "disabled";
 };
 
@@ -851,19 +836,19 @@
 };
 
 &light_i2s {
-        status = "okay";
+        status = "disabled";
 };
 
 &i2s0 {
-        status = "okay";
+        status = "disabled";
 };
 
 &i2s1 {
-        status = "okay";
+        status = "disabled";
 };
 
 &i2s3 {
-        status = "okay";
+        status = "disabled";
 };
 
 &khvhost {

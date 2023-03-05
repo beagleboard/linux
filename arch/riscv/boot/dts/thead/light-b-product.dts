@@ -591,7 +591,7 @@
                irq-gpios = <&gpio1_porta 8 0>;
                reset-gpios = <&gpio1_porta 7 0>;
                AVDD28-supply = <&reg_tp_pwr_en>;
-               touchscreen-size-x = <720>;
+               touchscreen-size-x = <800>;
                touchscreen-size-y = <1280>;
        };
 
@@ -1054,6 +1054,9 @@
 	DVDD12_SCAN-supply = <&soc_dvdd12_scan_reg>;
 	AVDD28_SCAN-supply = <&soc_avdd28_scan_en_reg>;
 	i2c_bus = /bits/ 8 <4>;
+    i2c_reg_width = /bits/ 8 <2>;
+    i2c_data_width = /bits/ 8 <1>;
+    i2c_addr = /bits/ 8 <0x30>;
 	status = "okay";
 };
 
