@@ -1,0 +1,15 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * DT Overlay for disabling bcfserial serdev device.
+ *
+ * Copyright (C) 2022 Texas Instruments Incorporated - https://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+
+&main_uart6 {
+	bcfserial {
+		status = "disabled";
+	};
+};
