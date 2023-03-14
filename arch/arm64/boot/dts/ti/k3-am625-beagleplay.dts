@@ -781,6 +781,11 @@
 	};
 };
 
+&mcu_rti0 {
+      /* Tightly coupled to M4F */
+      status = "disabled";
+};
+
 &mcu_m4fss {
 	status = "disabled";
 };
