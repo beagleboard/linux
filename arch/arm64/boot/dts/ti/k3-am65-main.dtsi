@@ -719,6 +719,7 @@
 		interrupts = <GIC_SPI 340 IRQ_TYPE_EDGE_RISING>;
 		msi-map = <0x0 &gic_its 0x0 0x10000>;
 		device_type = "pci";
+		status = "disabled";
 	};
 
 	pcie0_ep: pcie-ep@5500000 {
@@ -732,6 +733,7 @@
 		max-link-speed = <2>;
 		dma-coherent;
 		interrupts = <GIC_SPI 340 IRQ_TYPE_EDGE_RISING>;
+		status = "disabled";
 	};
 
 	pcie1_rc: pcie@5600000 {
@@ -752,6 +754,7 @@
 		interrupts = <GIC_SPI 355 IRQ_TYPE_EDGE_RISING>;
 		msi-map = <0x0 &gic_its 0x10000 0x10000>;
 		device_type = "pci";
+		status = "disabled";
 	};
 
 	pcie1_ep: pcie-ep@5600000 {
@@ -765,6 +768,7 @@
 		max-link-speed = <2>;
 		dma-coherent;
 		interrupts = <GIC_SPI 355 IRQ_TYPE_EDGE_RISING>;
+		status = "disabled";
 	};
 
 	mcasp0: mcasp@2b00000 {
