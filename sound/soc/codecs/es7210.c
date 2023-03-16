@@ -100,7 +100,7 @@
 #define RATIO_128  0x01
 #define RATIO_64  0x41 /* mclk from bclk pin */
 
-#define ES7210_MCLK_LRCK_RATIO   RATIO_768
+#define ES7210_MCLK_LRCK_RATIO   RATIO_64
 
 struct i2c_client *i2c_clt1[ADC_DEV_MAXNUM];
 
@@ -162,6 +162,9 @@ static const struct es7210_reg_config es7210_tdm_reg_fmt_cfg[] = {
 };
 static const struct es7210_reg_config es7210_tdm_reg_common_cfg2[] = {
         { 0x40, 0xC3 },
+        { 0x14, 0x3C },
+        { 0x15, 0x3C },
+        { 0x17, 0x00 },
         { 0x41, 0x70 },
         { 0x42, 0x70 },
         { 0x43, 0x1E },
@@ -299,7 +302,9 @@ static void es7210_tdm_init_codec(u8 mode)
                         es7210_tdm_reg_common_cfg1[cnt].reg_v);
         }
         if(DOUBLESPEED)
-                es7210_multi_chips_update_bits(ES7210_MODE_CFG_REG08, 0x02, 0x02);
+                es7210_multi_chips_write(ES7210_MODE_CFG_REG08, 0x16);
+        else
+                es7210_multi_chips_write(ES7210_MODE_CFG_REG08, 0x14);
 
         switch (mode) {
         case ES7210_TDM_1LRCK_DSPA:
@@ -319,7 +324,7 @@ static void es7210_tdm_init_codec(u8 mode)
                 */
                 for (cnt = 0; cnt < ADC_DEV_MAXNUM; cnt++) {
                         es7210_write(ES7210_SDP_CFG1_REG11,
-                                     0x73, i2c_clt1[cnt]);
+                                     0x83, i2c_clt1[cnt]);
                         es7210_write(ES7210_SDP_CFG2_REG12,
                                      0x01, i2c_clt1[cnt]);
                 }
@@ -380,7 +385,7 @@ static void es7210_tdm_init_codec(u8 mode)
                 */
                 for (cnt = 0; cnt < ADC_DEV_MAXNUM; cnt++) {
                         es7210_write(ES7210_SDP_CFG1_REG11,
-                                     0x73, i2c_clt1[cnt]);
+                                     0x83, i2c_clt1[cnt]);
                 }
                 for (cnt = 0; cnt < ADC_DEV_MAXNUM; cnt++) {
                         if (cnt == 0) {
@@ -486,6 +491,9 @@ static void es7210_tdm_init_codec(u8 mode)
                         es7210_tdm_reg_common_cfg2[cnt].reg_addr,
                         es7210_tdm_reg_common_cfg2[cnt].reg_v);
         }
+        es7210_multi_chips_write(0x4, 0x00);
+        es7210_multi_chips_write(0x5, 0x40);
+
         switch (mode) {
         case ES7210_TDM_1LRCK_DSPA:
         case ES7210_TDM_1LRCK_DSPB:

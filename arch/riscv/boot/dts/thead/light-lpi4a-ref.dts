@@ -1413,7 +1413,7 @@
                 reg = <1>;
                 format = "i2s";
                 cpu {
-                        sound-dai = <&i2s1 1>;
+                        sound-dai = <&i2s1 0>;
                 };
                 codec {
                         sound-dai = <&es7210_audio_codec>;

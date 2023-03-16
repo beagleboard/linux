@@ -568,11 +568,11 @@ static int light_audio_pinctrl(struct device *dev)
 		light_audio_pinconf_set(i2s_priv->dev, FM_AUDIO_CFG_PA11, 0x8);
 		light_audio_pinconf_set(i2s_priv->dev, FM_AUDIO_CFG_PA12, 0x8);
 	} else if (!strcmp(i2s_priv->name, AUDIO_I2S1)) {
-		light_audio_pinconf_set(i2s_priv->dev, FM_AUDIO_CFG_PA6, 0x4);
-		light_audio_pinconf_set(i2s_priv->dev, FM_AUDIO_CFG_PA7, 0x4);
-		light_audio_pinconf_set(i2s_priv->dev, FM_AUDIO_CFG_PA13, 0x8);
+		light_audio_pinconf_set(i2s_priv->dev, FM_AUDIO_CFG_PA29, 0x5);
+		light_audio_pinconf_set(i2s_priv->dev, FM_AUDIO_CFG_PA30, 0x5);
 		light_audio_pinconf_set(i2s_priv->dev, FM_AUDIO_CFG_PA14, 0x8);
 		light_audio_pinconf_set(i2s_priv->dev, FM_AUDIO_CFG_PA15, 0x8);
+		light_audio_pinconf_set(i2s_priv->dev, FM_AUDIO_CFG_PA16, 0x8);
 		light_audio_pinconf_set(i2s_priv->dev, FM_AUDIO_CFG_PA17, 0x8);
 	} else if (!strcmp(i2s_priv->name, AUDIO_I2S2)) {
 		light_audio_pinconf_set(i2s_priv->dev, FM_AUDIO_CFG_PA6, 0x5);
