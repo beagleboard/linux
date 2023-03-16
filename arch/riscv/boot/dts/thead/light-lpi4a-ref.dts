@@ -281,7 +281,6 @@
 			regulator-name = "soc_aud_3v3_en";
 			regulator-min-microvolt = <3300000>;
 			regulator-max-microvolt = <3300000>;
-			gpio = <&pcal6408ahk_a 1 1>;
 			enable-active-high;
 			regulator-always-on;
 		};
@@ -291,7 +290,6 @@
 			regulator-name = "soc_aud_1v8_en";
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
-			gpio = <&pcal6408ahk_a 0 1>;
 			enable-active-high;
 			regulator-always-on;
 		};
@@ -622,23 +620,15 @@
 	audio_aw87519_pa@58 {
 		compatible = "awinic,aw87519_pa";
 		reg = <0x58>;
-		reset-gpio = <&pcal6408ahk_a 2 0x1>;
 		status = "okay";
 	};
 
 	audio_aw87519_pa1@5b {
 		compatible = "awinic,aw87519_pa";
 		reg = <0x5b>;
-		reset-gpio = <&pcal6408ahk_a 3 0x1>;
 		status = "disabled";
 	};
 
-	pcal6408ahk_a: gpio@20 {
-		compatible = "nxp,pca9557";
-		reg = <0x18>;
-		gpio-controller;
-		#gpio-cells = <2>;
-	};
 };
 
 &audio_i2c1 {
@@ -662,14 +652,12 @@
 	audio_aw87519_pa2@58 {
 		compatible = "awinic,aw87519_pa";
 		reg = <0x58>;
-		reset-gpio = <&pcal6408ahk_a 4 0x1>;
 		status = "disabled";
 	};
 
 	audio_aw87519_pa3@5b {
 		compatible = "awinic,aw87519_pa";
 		reg = <0x5b>;
-		reset-gpio = <&pcal6408ahk_a 5 0x1>;
 		status = "disabled";
 	};
 };
