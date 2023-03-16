@@ -634,8 +634,8 @@
 	};
 
 	pcal6408ahk_a: gpio@20 {
-		compatible = "nxp,pcal9554b";
-		reg = <0x20>;
+		compatible = "nxp,pca9557";
+		reg = <0x18>;
 		gpio-controller;
 		#gpio-cells = <2>;
 	};
@@ -938,8 +938,8 @@
 	status = "okay";
 
 	pcal6408ahk_b: gpio@20 {
-		compatible = "nxp,pcal9554b";
-		reg = <0x20>;
+		compatible = "nxp,pca9557";
+		reg = <0x18>;
 		gpio-controller;
 		#gpio-cells = <2>;
 	};
@@ -950,8 +950,8 @@
 	status = "okay";
 
 	pcal6408ahk_c: gpio@20 {
-		compatible = "nxp,pcal9554b";
-		reg = <0x20>;
+		compatible = "nxp,pca9557";
+		reg = <0x18>;
 		gpio-controller;
 		#gpio-cells = <2>;
 	};
@@ -967,8 +967,8 @@
 	status = "okay";
 
 	pcal6408ahk_d: gpio@20 {
-		compatible = "nxp,pcal9554b";
-		reg = <0x20>;
+		compatible = "nxp,pca9557";
+		reg = <0x18>;
 		gpio-controller;
 		#gpio-cells = <2>;
 	};
