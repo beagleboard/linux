@@ -1,0 +1,104 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/net/ti,cpsw-virt-mac.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: TI J721E VIRT CPSWxg Ethernet mac
+
+maintainers:
+  - Siddharth Vadapalli <s-vadapalli@ti.com>
+
+description: |
+  This document defines the bindings for the Virtual Mac thin client Linux
+  driver that utilizes Remoteproc Framework to communicate and exchange
+  network data with the EthSwitch Firmware running on the R-Core.
+
+properties:
+  compatible:
+    const: ti,j721e-cpsw-virt-mac
+
+  dma-coherent: true
+
+  dmas:
+    maxItems: 9
+
+  dma-names:
+    items:
+      - const: tx0
+      - const: tx1
+      - const: tx2
+      - const: tx3
+      - const: tx4
+      - const: tx5
+      - const: tx6
+      - const: tx7
+      - const: rx
+
+  ti,psil-base:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    description: |
+      CPSWxg NUSS PSI-L endpoint thread ID base of the UDMA-P
+      channels. The PSI-L endpoint node thread configuration
+      subnodes must be present with ti,psil-configX naming
+      convention, where X is the thread ID offset.
+
+  ti,remote-name:
+    $ref: /schemas/types.yaml#/definitions/string
+    description: |
+      Name of the connected rpmsg-kdrv device represented
+      by Eth switch FW running on one of the R5F cores.
+    items:
+      - enum:
+          - mpu_1_0_ethswitch-device-0
+          - mpu_1_0_ethmac-device-1
+
+  virt-emac-port:
+    type: object
+    properties:
+
+      ti,label:
+        $ref: /schemas/types.yaml#/definitions/string
+        description: |
+          Describes the label associated with this port.
+        items:
+          - const: virt-port
+
+      local-mac-address: true
+
+required:
+  - compatible
+  - dmas
+  - dma-names
+  - ti,psil-base
+  - ti,remote-name
+  - virt-emac-port
+
+additionalProperties: false
+
+examples:
+  - |
+    cpsw9g_virt_mac: main-r5fss-cpsw9g-virt-mac0 {
+            compatible = "ti,j721e-cpsw-virt-mac";
+            dma-coherent;
+            ti,psil-base = <0x4a00>;
+            ti,remote-name = "mpu_1_0_ethswitch-device-0";
+
+            dmas = <&main_udmap 0xca00>,
+                   <&main_udmap 0xca01>,
+                   <&main_udmap 0xca02>,
+                   <&main_udmap 0xca03>,
+                   <&main_udmap 0xca04>,
+                   <&main_udmap 0xca05>,
+                   <&main_udmap 0xca06>,
+                   <&main_udmap 0xca07>,
+                   <&main_udmap 0x4a00>;
+            dma-names = "tx0", "tx1", "tx2", "tx3",
+                        "tx4", "tx5", "tx6", "tx7",
+                        "rx";
+
+            virt-emac-port {
+                    ti,label = "virt-port";
+                    /* local-mac-address = [0 0 0 0 0 0]; */
+            };
+    };
