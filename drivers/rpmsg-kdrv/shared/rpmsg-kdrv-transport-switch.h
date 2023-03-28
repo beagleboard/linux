@@ -41,7 +41,12 @@ enum rpmsg_kdrv_ethswitch_message_type {
 	RPMSG_KDRV_TP_ETHSWITCH_PING_REQUEST = 0x14,
 	RPMSG_KDRV_TP_ETHSWITCH_S2C_NOTIFY = 0x15,
 	RPMSG_KDRV_TP_ETHSWITCH_C2S_NOTIFY = 0x16,
-	RPMSG_KDRV_TP_ETHSWITCH_MAX = 0x17,
+	RPMSG_KDRV_TP_ETHSWITCH_REGISTER_ETHTYPE = 0x17,
+	RPMSG_KDRV_TP_ETHSWITCH_UNREGISTER_ETHTYPE = 0x18,
+	RPMSG_KDRV_TP_ETHSWITCH_REGISTER_REMOTETIMER = 0x19,
+	RPMSG_KDRV_TP_ETHSWITCH_UNREGISTER_REMOTETIMER = 0x1A,
+	RPMSG_KDRV_TP_ETHSWITCH_SET_PROMISC_MODE = 0x1B,
+	RPMSG_KDRV_TP_ETHSWITCH_MAX = 0x1C,
 };
 
 /**
@@ -139,6 +144,8 @@ struct rpmsg_kdrv_ethswitch_attach_req {
  * @rx_mtu: MTU of rx packets
  * @tx_mtu: MTU of tx packet per priority
  * @features: supported features mask
+ * @mac_only_port: 1-relative MAC port number for ports in MAC-only mode, 0
+ *                 for switch ports.
  *
  * Attach client response msg received as response to client attach request
  * @RPMSG_KDRV_TP_ETHSWITCH_ATTACH. The @id and @core_key should be used to
@@ -154,6 +161,8 @@ struct rpmsg_kdrv_ethswitch_attach_resp {
 	u32 tx_mtu[RPMSG_KDRV_TP_ETHSWITCH_PRIORITY_NUM];
 	u32 features;
 #define RPMSG_KDRV_TP_ETHSWITCH_FEATURE_TXCSUM BIT(0)
+#define RPMSG_KDRV_ETHSWITCH_FEATURE_MAC_ONLY BIT(2)
+	u32 mac_only_port;
 } __packed;
 
 /**
@@ -183,6 +192,8 @@ struct rpmsg_kdrv_ethswitch_attach_extended_req {
  * @alloc_flow_idx: RX UDMA flow ID
  * @tx_cpsw_psil_dst_id: PSI-L dest thread id
  * @mac_address: default eth MAC address assigned to this client
+ * @mac_only_port: 1-relative MAC port number for ports in MAC-only mode, 0
+ *                 for switch ports.
  *
  * Extended attach response msg received as response to client extended attach
  * request @RPMSG_KDRV_TP_ETHSWITCH_ATTACH_EXT. The @id and @core_key should be
@@ -202,6 +213,7 @@ struct rpmsg_kdrv_ethswitch_attach_extended_resp {
 	u32 alloc_flow_idx;
 	u32 tx_cpsw_psil_dst_id;
 	u8 mac_address[ETH_ALEN];
+	u32 mac_only_port;
 } __packed;
 
 /**
@@ -512,6 +524,31 @@ struct rpmsg_kdrv_ethswitch_c2s_notify {
 	u8 notifyid;
 	u32 notify_info_len;
 	u8 notify_info[RPMSG_KDRV_TP_ETHSWITCH_MESSAGE_DATA_LEN];
+} __packed;
+
+/**
+ * struct rpmsg_kdrv_ethswitch_set_promisc_mode_req - set promiscuous mode
+ *
+ * @header: msg header
+ * @info: common request msg data
+ * @enable: promiscuous mode (enable or disable)
+ *
+ * Client message @RPMSG_KDRV_TP_ETHSWITCH_SET_PROMISC_MODE is sent to change
+ * the promiscuous mode.
+ */
+struct rpmsg_kdrv_ethswitch_set_promisc_mode_req {
+	struct rpmsg_kdrv_ethswitch_msg_header header;
+	struct rpmsg_kdrv_ethswitch_common_req_info info;
+	u32 enable;
+} __packed;
+
+/**
+ * Set promiscuous mode response msg received as response to client's mode change
+ * request @RPMSG_KDRV_TP_ETHSWITCH_SET_PROMISC_MODE.
+ * The @info.status field is @RPMSG_KDRV_TP_ETHSWITCH_CMDSTATUS_OK on success.
+ */
+struct rpmsg_kdrv_ethswitch_set_promisc_mode_resp {
+	struct rpmsg_kdrv_ethswitch_common_resp_info info;
 } __packed;
 
 /**
