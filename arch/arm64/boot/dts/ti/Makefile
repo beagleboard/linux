@@ -29,6 +29,8 @@ dtb-$(CONFIG_ARCH_K3) += k3-am654-base-board.dtb
 
 # Boards with J7200 SoC
 dtb-$(CONFIG_ARCH_K3) += k3-j7200-common-proc-board.dtb
+dtb-$(CONFIG_ARCH_K3) += k3-j7200-common-proc-board.dtb
+dtb-$(CONFIG_ARCH_K3) += k3-j7200-evm-virt-mac-client.dtbo
 
 # Boards with J721e SoC
 dtb-$(CONFIG_ARCH_K3) += k3-j721e-common-proc-board.dtb
@@ -43,4 +45,5 @@ dtb-$(CONFIG_ARCH_K3) += k3-am69-sk.dtb
 dtb-$(CONFIG_ARCH_K3) += k3-j784s4-evm.dtb
 
 #Enable support for device-tree overlays
+DTC_FLAGS_k3-j7200-common-proc-board += -@
 DTC_FLAGS_k3-j721e-common-proc-board += -@
