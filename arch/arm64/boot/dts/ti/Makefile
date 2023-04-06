@@ -28,8 +28,8 @@ dtb-$(CONFIG_ARCH_K3) += k3-am6548-iot2050-advanced-pg2.dtb
 dtb-$(CONFIG_ARCH_K3) += k3-am654-base-board.dtb
 
 # Boards with J7200 SoC
-dtb-$(CONFIG_ARCH_K3) += k3-j7200-common-proc-board.dtb
-dtb-$(CONFIG_ARCH_K3) += k3-j7200-common-proc-board.dtb
+k3-j7200-evm-dtbs := k3-j7200-common-proc-board.dtb k3-j7200-evm-quad-port-eth-exp.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-j7200-evm.dtb
 dtb-$(CONFIG_ARCH_K3) += k3-j7200-evm-virt-mac-client.dtbo
 
 # Boards with J721e SoC
