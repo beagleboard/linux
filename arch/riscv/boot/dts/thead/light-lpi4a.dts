@@ -6,17 +6,17 @@
 #include "light-lpi4a-ref.dts"
 
 / {
-	model = "T-HEAD Light Lichee Pi 4A configuration for 4GB DDR board";
+	model = "T-HEAD Light Lichee Pi 4A configuration for 8GB DDR board";
 	compatible = "thead,light-val", "thead,light-lpi4a", "thead,light";
 
 	memory@0 {
 		device_type = "memory";
-		reg = <0x0 0x00000000 0x1 0x00000000>;
+		reg = <0x0 0x00000000 0x2 0x00000000>;
 	};
 };
 
 &cmamem {
-	alloc-ranges = <0 0xe4000000 0 0x14000000>; // [0xE400_0000 ~ 0xF800_0000]
+	alloc-ranges = <0x1 0xe4000000 0 0x14000000>; // [0x1E400_0000 ~ 0x1F800_0000]
 };
 
 &usb_1 {
