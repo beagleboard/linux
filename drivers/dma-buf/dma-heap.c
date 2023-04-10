@@ -323,4 +323,4 @@ static int dma_heap_init(void)
 
 	return 0;
 }
-subsys_initcall(dma_heap_init);
+core_initcall(dma_heap_init);
