@@ -2976,7 +2976,7 @@ static int hub_port_reset(struct usb_hub *hub, int port1,
 		delay = HUB_LONG_RESET_TIME;
 	}
 
-	dev_err(&port_dev->dev, "Cannot enable. Maybe the USB cable is bad?\n");
+	dev_info(&port_dev->dev, "Cannot enable. Maybe the USB cable is bad?\n");
 
 done:
 	if (status == 0) {
@@ -5533,7 +5533,7 @@ static void port_event(struct usb_hub *hub, int port1)
 				USB_PORT_FEAT_C_PORT_LINK_STATE);
 	}
 	if (portchange & USB_PORT_STAT_C_CONFIG_ERROR) {
-		dev_warn(&port_dev->dev, "config error\n");
+		dev_info(&port_dev->dev, "config error\n");
 		usb_clear_port_feature(hdev, port1,
 				USB_PORT_FEAT_C_PORT_CONFIG_ERROR);
 	}
