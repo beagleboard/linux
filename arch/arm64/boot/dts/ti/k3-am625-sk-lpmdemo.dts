@@ -1,0 +1,51 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * AM625 SK LPM dts file
+ * This file is intended to be a configuration for the AM625 SK board which
+ * has just the peripherals that have been tested to work with low power mode.
+ * We inherit from the regular AM625 SK dts file and explicitly override the
+ * nodes for peripherals that are not currently tested. Eventually, this
+ * should converge to the regular dts file and this file can then be removed.
+ *
+ * Copyright (C) 2021-2023 Texas Instruments Incorporated - https://www.ti.com/
+ */
+
+#include "k3-am625-sk.dts"
+
+/ {
+	firmware {
+		optee {
+			status = "disabled";
+		};
+	};
+};
+
+&dmsc {
+	reg-names = "lpm";
+	reg = <0x00 0x78000000 0x00 0x8000>;
+	firmware-name = "ti-sysfw/ti-fs-stub-firmware-am62x-gp-signed.bin";
+};
+
+&main_mcan0 {
+	status = "disabled";
+};
+
+&crypto {
+	status = "disabled";
+};
+
+&usbss0 {
+	status = "disabled";
+};
+
+&usbss1 {
+	status = "disabled";
+};
+
+&cbass_mcu {
+	status = "disabled";
+};
+
+&ospi0 {
+	status = "disabled";
+};
