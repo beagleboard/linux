@@ -10,6 +10,7 @@
 
 #include <linux/bitmap.h>
 #include <linux/debugfs.h>
+#include <linux/dma-mapping.h>
 #include <linux/export.h>
 #include <linux/io.h>
 #include <linux/iopoll.h>
@@ -24,6 +25,9 @@
 #include <linux/reboot.h>
 
 #include "ti_sci.h"
+
+/* Low power mode memory context size */
+#define LPM_CTX_MEM_SIZE 0x80000
 
 /* List of all TI SCI devices active in system */
 static LIST_HEAD(ti_sci_list);
@@ -96,6 +100,9 @@ struct ti_sci_desc {
  * @minfo:	Message info
  * @node:	list head
  * @host_id:	Host ID
+ * @ctx_mem_addr: Low power context memory phys address
+ * @ctx_mem_buf: Low power context memory buffer
+ * @fw_caps:	FW/SoC low power capabilities
  * @users:	Number of users of this instance
  * @is_suspending: Flag set to indicate in suspend path.
  */
@@ -114,6 +121,9 @@ struct ti_sci_info {
 	struct ti_sci_xfers_info minfo;
 	struct list_head node;
 	u8 host_id;
+	dma_addr_t ctx_mem_addr;
+	void *ctx_mem_buf;
+	u64 fw_caps;
 	/* protected by ti_sci_list_mutex */
 	int users;
 	bool is_suspending;
@@ -3542,6 +3552,25 @@ static int ti_sci_resume(struct device *dev)
 
 static DEFINE_SIMPLE_DEV_PM_OPS(ti_sci_pm_ops, ti_sci_suspend, ti_sci_resume);
 
+static int ti_sci_init_suspend(struct platform_device *pdev,
+			       struct ti_sci_info *info)
+{
+	struct device *dev = &pdev->dev;
+
+	dma_set_mask_and_coherent(dev, DMA_BIT_MASK(64));
+	info->ctx_mem_buf = dma_alloc_attrs(info->dev, LPM_CTX_MEM_SIZE,
+					    &info->ctx_mem_addr,
+					    GFP_KERNEL,
+					    DMA_ATTR_NO_KERNEL_MAPPING |
+					    DMA_ATTR_FORCE_CONTIGUOUS);
+	if (!info->ctx_mem_buf) {
+		dev_err(info->dev, "Failed to allocate LPM context memory\n");
+		return -ENOMEM;
+	}
+
+	return 0;
+}
+
 /* Description for K2G */
 static const struct ti_sci_desc ti_sci_pmmc_k2g_desc = {
 	.default_host_id = 2,
@@ -3694,6 +3723,15 @@ static int ti_sci_probe(struct platform_device *pdev)
 		}
 	}
 
+	/*
+	 * Check if the firmware supports any optional low power modes
+	 * and initialize them if present. Old revisions of TIFS (< 08.04)
+	 * will NACK the request.
+	 */
+	ret = ti_sci_msg_cmd_query_fw_caps(&info->handle, &info->fw_caps);
+	if (!ret && (info->fw_caps & MSG_MASK_CAPS_LPM))
+		ti_sci_init_suspend(pdev, info);
+
 	dev_info(dev, "ABI: %d.%d (firmware rev 0x%04x '%s')\n",
 		 info->handle.version.abi_major, info->handle.version.abi_minor,
 		 info->handle.version.firmware_revision,
@@ -3741,6 +3779,10 @@ static int ti_sci_remove(struct platform_device *pdev)
 		mbox_free_channel(info->chan_rx);
 	}
 
+	if (info->ctx_mem_buf)
+		dma_free_coherent(info->dev, LPM_CTX_MEM_SIZE,
+				  info->ctx_mem_buf,
+				  info->ctx_mem_addr);
 	return ret;
 }
 
