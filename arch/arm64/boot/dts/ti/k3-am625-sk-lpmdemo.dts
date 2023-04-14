@@ -46,6 +46,3 @@
 	status = "disabled";
 };
 
-&ospi0 {
-	status = "disabled";
-};
