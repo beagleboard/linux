@@ -1198,6 +1198,7 @@ static void spinand_mtd_resume(struct mtd_info *mtd)
 	struct spinand_device *spinand = mtd_to_spinand(mtd);
 	int ret;
 
+	spinand->protocol = SPINAND_1S_1S_1S;
 	ret = spinand_reset_op(spinand);
 	if (ret)
 		return;
@@ -1224,6 +1225,7 @@ static int spinand_init(struct spinand_device *spinand)
 	if (!spinand->scratchbuf)
 		return -ENOMEM;
 
+	spinand->protocol = SPINAND_1S_1S_1S;
 	ret = spinand_detect(spinand);
 	if (ret)
 		goto err_free_bufs;
