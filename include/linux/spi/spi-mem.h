@@ -20,11 +20,27 @@
 		.nbytes = 1,					\
 	}
 
+#define SPI_MEM_OP_CMD_DTR(__nbytes, __opcode, __buswidth)	\
+	{							\
+		.nbytes = __nbytes,				\
+		.opcode = __opcode,				\
+		.buswidth = __buswidth,				\
+		.dtr = 1,					\
+	}
+
 #define SPI_MEM_OP_ADDR(__nbytes, __val, __buswidth)		\
 	{							\
 		.nbytes = __nbytes,				\
 		.val = __val,					\
 		.buswidth = __buswidth,				\
+	}
+
+#define SPI_MEM_OP_ADDR_DTR(__nbytes, __val, __buswidth)	\
+	{							\
+		.nbytes = __nbytes,				\
+		.val = __val,					\
+		.buswidth = __buswidth,				\
+		.dtr = 1,					\
 	}
 
 #define SPI_MEM_OP_NO_ADDR	{ }
@@ -33,6 +49,13 @@
 	{							\
 		.nbytes = __nbytes,				\
 		.buswidth = __buswidth,				\
+	}
+
+#define SPI_MEM_OP_DUMMY_DTR(__nbytes, __buswidth)		\
+	{							\
+		.nbytes = __nbytes,				\
+		.buswidth = __buswidth,				\
+		.dtr = 1,					\
 	}
 
 #define SPI_MEM_OP_NO_DUMMY	{ }
@@ -45,12 +68,30 @@
 		.buswidth = __buswidth,				\
 	}
 
+#define SPI_MEM_OP_DATA_IN_DTR(__nbytes, __buf, __buswidth)	\
+	{							\
+		.dir = SPI_MEM_DATA_IN,				\
+		.nbytes = __nbytes,				\
+		.buf.in = __buf,				\
+		.buswidth = __buswidth,				\
+		.dtr = 1,					\
+	}
+
 #define SPI_MEM_OP_DATA_OUT(__nbytes, __buf, __buswidth)	\
 	{							\
 		.dir = SPI_MEM_DATA_OUT,			\
 		.nbytes = __nbytes,				\
 		.buf.out = __buf,				\
 		.buswidth = __buswidth,				\
+	}
+
+#define SPI_MEM_OP_DATA_OUT_DTR(__nbytes, __buf, __buswidth)	\
+	{							\
+		.dir = SPI_MEM_DATA_OUT,			\
+		.nbytes = __nbytes,				\
+		.buf.out = __buf,				\
+		.buswidth = __buswidth,				\
+		.dtr = 1,					\
 	}
 
 #define SPI_MEM_OP_NO_DATA	{ }
