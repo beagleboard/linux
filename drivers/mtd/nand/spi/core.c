@@ -1110,6 +1110,81 @@ spinand_select_ctrl_ops_variant(struct spinand_device *spinand,
 	return NULL;
 }
 
+static bool spinand_op_is_octal_dtr(const struct spi_mem_op *op)
+{
+	return  op->cmd.buswidth == 8 && op->cmd.dtr &&
+		op->addr.buswidth == 8 && op->addr.dtr &&
+		op->data.buswidth == 8 && op->data.dtr;
+}
+
+static int spinand_init_octal_dtr_enable(struct spinand_device *spinand)
+{
+	struct device *dev = &spinand->spimem->spi->dev;
+	const struct spinand_ctrl_ops *octal_dtr_ctrl_ops;
+	int ret;
+
+	if (!(spinand->flags & SPINAND_HAS_OCTAL_DTR_BIT))
+		return 0;
+
+	if (!(spinand_op_is_octal_dtr(spinand->data_ops.read_cache) &&
+	      spinand_op_is_octal_dtr(spinand->data_ops.write_cache) &&
+	      spinand_op_is_octal_dtr(spinand->data_ops.update_cache)))
+		return 0;
+
+	octal_dtr_ctrl_ops = spinand_select_ctrl_ops_variant(spinand,
+					spinand->desc_entry->ctrl_ops_variants,
+					SPINAND_8D_8D_8D);
+
+	if (!octal_dtr_ctrl_ops)
+		return 0;
+
+	if (!spinand->manufacturer->ops->change_mode) {
+		dev_dbg(dev,
+			"Missing ->change_mode(), unable to switch mode\n");
+		return -EINVAL;
+	}
+
+	ret = spinand->manufacturer->ops->change_mode(spinand,
+						      SPINAND_8D_8D_8D);
+	if (ret) {
+		dev_err(dev,
+			"Failed to enable Octal DTR SPI mode (err = %d)\n",
+			ret);
+		return ret;
+	}
+
+	spinand->protocol = SPINAND_8D_8D_8D;
+	spinand->ctrl_ops = octal_dtr_ctrl_ops;
+
+	dev_dbg(dev,
+		"%s SPI NAND switched to Octal DTR SPI (8D-8D-8D) mode\n",
+		spinand->manufacturer->name);
+	return 0;
+}
+
+static int spinand_init_octal_dtr_disable(struct spinand_device *spinand)
+{
+	struct device *dev = &spinand->spimem->spi->dev;
+	int ret;
+
+	if (!spinand->manufacturer->ops->change_mode)
+		return -EINVAL;
+
+	ret = spinand->manufacturer->ops->change_mode(spinand,
+						      SPINAND_1S_1S_1S);
+
+	if (ret) {
+		dev_err(dev,
+			"Failed to disable Octal DTR SPI mode (err = %d)\n",
+			ret);
+		return ret;
+	}
+
+	spinand->protocol = SPINAND_1S_1S_1S;
+	spinand->ctrl_ops = &spinand_default_ctrl_ops;
+	return 0;
+}
+
 /**
  * spinand_match_and_init() - Try to find a match between a device ID and an
  *			      entry in a spinand_info table
@@ -1245,6 +1320,10 @@ static int spinand_init_flash(struct spinand_device *spinand)
 		if (ret)
 			break;
 	}
+
+	ret = spinand_init_octal_dtr_enable(spinand);
+	if (ret)
+		return ret;
 
 	if (ret)
 		spinand_manufacturer_cleanup(spinand);
