@@ -459,6 +459,14 @@
 		status = "disabled";
 	};
 
+	gpu: gpu@fd00000 {
+		compatible = "ti,am62-pvr", "img,pvr-axe116m";
+		reg = <0x00 0x0fd00000 0x00 0x20000>;
+		interrupts = <GIC_SPI 86 IRQ_TYPE_LEVEL_HIGH>;
+		power-domains = <&k3_pds 187 TI_SCI_PD_EXCLUSIVE>;
+		clocks = <&k3_clks 187 0>;
+	};
+
 	usbss0: dwc3-usb@f900000 {
 		compatible = "ti,am62-usb";
 		reg = <0x00 0x0f900000 0x00 0x800>;
