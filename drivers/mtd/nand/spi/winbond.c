@@ -242,8 +242,33 @@ static int winbond_spinand_octal_dtr_disable(struct spinand_device *spinand)
 	return 0;
 }
 
+static int winbond_change_spi_mode(struct spinand_device *spinand,
+				   const enum spinand_protocol protocol)
+{
+	if (spinand->protocol == protocol)
+		return 0;
+
+	switch (spinand->protocol) {
+	case SPINAND_1S_1S_1S:
+		if (protocol == SPINAND_8D_8D_8D)
+			return winbond_spinand_octal_dtr_enable(spinand);
+		break;
+
+	case SPINAND_8D_8D_8D:
+		if (protocol == SPINAND_1S_1S_1S)
+			return winbond_spinand_octal_dtr_disable(spinand);
+		break;
+
+	default:
+		return -EOPNOTSUPP;
+	}
+
+	return -EOPNOTSUPP;
+}
+
 static const struct spinand_manufacturer_ops winbond_spinand_manuf_ops = {
 	.init = winbond_spinand_init,
+	.change_mode = winbond_change_spi_mode,
 };
 
 const struct spinand_manufacturer winbond_spinand_manufacturer = {
