@@ -358,6 +358,35 @@ struct spinand_op_variants {
 			sizeof(struct spi_mem_op),			\
 	}
 
+struct spinand_ctrl_ops {
+	const struct {
+		struct spi_mem_op reset;
+		struct spi_mem_op get_feature;
+		struct spi_mem_op set_feature;
+		struct spi_mem_op write_enable;
+		struct spi_mem_op block_erase;
+		struct spi_mem_op page_read;
+		struct spi_mem_op program_execute;
+	} ops;
+	const enum spinand_protocol protocol;
+};
+
+#define SPINAND_CTRL_OPS(__protocol, __reset, __get_feature, __set_feature,	\
+			 __write_enable, __block_erase, __page_read,		\
+			 __program_execute)					\
+	{									\
+		.ops = {							\
+			.reset = __reset,					\
+			.get_feature = __get_feature,				\
+			.set_feature = __set_feature,				\
+			.write_enable = __write_enable,				\
+			.block_erase = __block_erase,				\
+			.page_read = __page_read,				\
+			.program_execute = __program_execute,			\
+		},								\
+		.protocol = __protocol,						\
+	}
+
 /**
  * spinand_ecc_info - description of the on-die ECC implemented by a SPI NAND
  *		      chip
@@ -472,6 +501,8 @@ struct spinand_dirmap {
  * @data_ops.read_cache: read cache op template
  * @data_ops.write_cache: write cache op template
  * @data_ops.update_cache: update cache op template
+ * @ctrl_ops: various SPI mem op templates for handling the flash device, i.e.
+ *	      non page-read/write ops.
  * @select_target: select a specific target/die. Usually called before sending
  *		   a command addressing a page or an eraseblock embedded in
  *		   this die. Only required if your chip exposes several dies
@@ -501,6 +532,8 @@ struct spinand_device {
 		const struct spi_mem_op *write_cache;
 		const struct spi_mem_op *update_cache;
 	} data_ops;
+
+	const struct spinand_ctrl_ops *ctrl_ops;
 
 	struct spinand_dirmap *dirmaps;
 
