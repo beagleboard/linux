@@ -538,6 +538,8 @@ struct spinand_dirmap {
  *		passed in spi_mem_op be DMA-able, so we can't based the bufs on
  *		the stack
  * @manufacturer: SPI NAND manufacturer information
+ * @desc_entry: pointer to device description entry in the manufacturer's
+ *		spinand_info tables
  * @priv: manufacturer private data
  */
 struct spinand_device {
@@ -570,6 +572,7 @@ struct spinand_device {
 	u8 *oobbuf;
 	u8 *scratchbuf;
 	const struct spinand_manufacturer *manufacturer;
+	const struct spinand_info *desc_entry;
 	void *priv;
 };
 
