@@ -393,10 +393,10 @@ struct spinand_ondie_ecc_conf {
  * @memorg: memory organization
  * @eccreq: ECC requirements
  * @eccinfo: on-die ECC info
- * @op_variants: operations variants
- * @op_variants.read_cache: variants of the read-cache operation
- * @op_variants.write_cache: variants of the write-cache operation
- * @op_variants.update_cache: variants of the update-cache operation
+ * @data_ops_variants: operations variants for page read/writes
+ * @data_ops_variants.read_cache: variants of the read-cache operation
+ * @data_ops_variants.write_cache: variants of the write-cache operation
+ * @data_ops_variants.update_cache: variants of the update-cache operation
  * @select_target: function used to select a target/die. Required only for
  *		   multi-die chips
  *
@@ -414,7 +414,7 @@ struct spinand_info {
 		const struct spinand_op_variants *read_cache;
 		const struct spinand_op_variants *write_cache;
 		const struct spinand_op_variants *update_cache;
-	} op_variants;
+	} data_ops_variants;
 	int (*select_target)(struct spinand_device *spinand,
 			     unsigned int target);
 };
@@ -442,14 +442,14 @@ struct spinand_info {
 #define SPINAND_SELECT_TARGET(__func)					\
 	.select_target = __func,
 
-#define SPINAND_INFO(__model, __id, __memorg, __eccreq, __op_variants,	\
-		     __flags, ...)					\
+#define SPINAND_INFO(__model, __id, __memorg, __eccreq,			\
+		     __data_ops_variants, __flags, ...)			\
 	{								\
 		.model = __model,					\
 		.devid = __id,						\
 		.memorg = __memorg,					\
 		.eccreq = __eccreq,					\
-		.op_variants = __op_variants,				\
+		.data_ops_variants = __data_ops_variants,		\
 		.flags = __flags,					\
 		__VA_ARGS__						\
 	}
@@ -468,10 +468,10 @@ struct spinand_dirmap {
  * @lock: lock used to serialize accesses to the NAND
  * @id: NAND ID as returned by READ_ID
  * @flags: NAND flags
- * @op_templates: various SPI mem op templates
- * @op_templates.read_cache: read cache op template
- * @op_templates.write_cache: write cache op template
- * @op_templates.update_cache: update cache op template
+ * @data_ops: various SPI mem op templates for reading and writing on pages
+ * @data_ops.read_cache: read cache op template
+ * @data_ops.write_cache: write cache op template
+ * @data_ops.update_cache: update cache op template
  * @select_target: select a specific target/die. Usually called before sending
  *		   a command addressing a page or an eraseblock embedded in
  *		   this die. Only required if your chip exposes several dies
@@ -500,7 +500,7 @@ struct spinand_device {
 		const struct spi_mem_op *read_cache;
 		const struct spi_mem_op *write_cache;
 		const struct spi_mem_op *update_cache;
-	} op_templates;
+	} data_ops;
 
 	struct spinand_dirmap *dirmaps;
 
