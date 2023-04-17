@@ -387,6 +387,18 @@ struct spinand_ctrl_ops {
 		.protocol = __protocol,						\
 	}
 
+struct spinand_ctrl_ops_variants {
+	const struct spinand_ctrl_ops *ctrl_ops_list;
+	unsigned int nvariants;
+};
+
+#define SPINAND_CTRL_OPS_VARIANTS(name, ...)					\
+	const struct spinand_ctrl_ops_variants name = {				\
+		.ctrl_ops_list = (struct spinand_ctrl_ops[]){ __VA_ARGS__ },	\
+		.nvariants = sizeof((struct spinand_ctrl_ops[]){ __VA_ARGS__ })/\
+			     sizeof(struct spinand_ctrl_ops),			\
+	}
+
 /**
  * spinand_ecc_info - description of the on-die ECC implemented by a SPI NAND
  *		      chip
@@ -444,6 +456,8 @@ struct spinand_info {
 		const struct spinand_op_variants *write_cache;
 		const struct spinand_op_variants *update_cache;
 	} data_ops_variants;
+
+	const struct spinand_ctrl_ops_variants *ctrl_ops_variants;
 	int (*select_target)(struct spinand_device *spinand,
 			     unsigned int target);
 };
@@ -461,6 +475,9 @@ struct spinand_info {
 		.write_cache = __write,					\
 		.update_cache = __update,				\
 	}
+
+#define SPINAND_INFO_CTRL_OPS_VARIANTS(__ctrl_ops_variants)		\
+	.ctrl_ops_variants = __ctrl_ops_variants
 
 #define SPINAND_ECCINFO(__ooblayout, __get_status)			\
 	.eccinfo = {							\

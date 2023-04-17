@@ -1074,6 +1074,42 @@ spinand_select_data_op_variant(struct spinand_device *spinand,
 	return NULL;
 }
 
+static const struct spinand_ctrl_ops *
+spinand_select_ctrl_ops_variant(struct spinand_device *spinand,
+				const struct spinand_ctrl_ops_variants *variants,
+				const enum spinand_protocol protocol)
+{
+	unsigned int i;
+
+	for (i = 0; i < variants->nvariants; i++) {
+		const struct spinand_ctrl_ops *ctrl_ops =
+			&variants->ctrl_ops_list[i];
+
+		if (ctrl_ops->protocol != protocol)
+			continue;
+
+		if (!spi_mem_supports_op(spinand->spimem,
+					 &ctrl_ops->ops.reset) ||
+		    !spi_mem_supports_op(spinand->spimem,
+					 &ctrl_ops->ops.get_feature) ||
+		    !spi_mem_supports_op(spinand->spimem,
+					 &ctrl_ops->ops.set_feature) ||
+		    !spi_mem_supports_op(spinand->spimem,
+					 &ctrl_ops->ops.write_enable) ||
+		    !spi_mem_supports_op(spinand->spimem,
+					 &ctrl_ops->ops.block_erase) ||
+		    !spi_mem_supports_op(spinand->spimem,
+					 &ctrl_ops->ops.page_read) ||
+		    !spi_mem_supports_op(spinand->spimem,
+					 &ctrl_ops->ops.program_execute))
+			continue;
+
+		return ctrl_ops;
+	}
+
+	return NULL;
+}
+
 /**
  * spinand_match_and_init() - Try to find a match between a device ID and an
  *			      entry in a spinand_info table
