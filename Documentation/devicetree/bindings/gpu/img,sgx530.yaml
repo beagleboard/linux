@@ -1,0 +1,48 @@
+# SPDX-License-Identifier: GPL-2.0-only
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/gpu/img,sgx530.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Imagination SGX530 3D Graphics Processing Unit
+
+maintainers:
+  - Andrew Davis <afd@ti.com>
+
+description: |
+  SGX530 is a 3D Graphics Processing Unit from Imagination Technologies.
+  SGX is codename for 5th generation / Series 5 of PowerVR chipset family.
+
+properties:
+  $nodename:
+    pattern: '^gpu@[a-f0-9]+$'
+
+  compatible:
+    items:
+      - enum:
+          - ti,omap3530-sgx530 # TI OMAP35x
+          - ti,omap3630-sgx530 # TI OMAP36x
+          - ti,am3352-sgx530 # TI AM33x
+          - ti,am4376-sgx530 # TI AM43x
+      - const: img,sgx530
+
+  reg:
+    maxItems: 1
+
+  interrupts:
+    maxItems: 1
+
+required:
+  - compatible
+  - reg
+  - interrupts
+
+examples:
+  - |
+    gpu@56000000 {
+      compatible = "ti,am4376-sgx530", "img,sgx530";
+      reg = <0x56000000 0x10000>;
+      interrupts = <GIC_SPI 37 IRQ_TYPE_LEVEL_HIGH>;
+    };
+
+...

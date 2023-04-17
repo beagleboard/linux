@@ -1,0 +1,46 @@
+# SPDX-License-Identifier: GPL-2.0-only
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/gpu/img,sgx540.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Imagination SGX540 3D Graphics Processing Unit
+
+maintainers:
+  - Andrew Davis <afd@ti.com>
+
+description: |
+  SGX540 is a 3D Graphics Processing Unit from Imagination Technologies.
+  SGX is codename for 5th generation / Series 5 of PowerVR chipset family.
+
+properties:
+  $nodename:
+    pattern: '^gpu@[a-f0-9]+$'
+
+  compatible:
+    items:
+      - enum:
+          - ti,omap4430-sgx540 # TI OMAP443x
+          - ti,omap4460-sgx540 # TI OMAP446x
+      - const: img,sgx540
+
+  reg:
+    maxItems: 1
+
+  interrupts:
+    maxItems: 1
+
+required:
+  - compatible
+  - reg
+  - interrupts
+
+examples:
+  - |
+    gpu@0 {
+       compatible = "ti,omap4-sgx540", "img,sgx540";
+       reg = <0x0 0x2000000>; /* 32MB */
+       interrupts = <GIC_SPI 21 IRQ_TYPE_LEVEL_HIGH>;
+    };
+
+...
