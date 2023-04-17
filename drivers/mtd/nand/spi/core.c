@@ -947,6 +947,16 @@ static const struct spinand_manufacturer *spinand_manufacturers[] = {
 	&xtx_spinand_manufacturer,
 };
 
+static const struct spinand_ctrl_ops spinand_default_ctrl_ops =
+			SPINAND_CTRL_OPS(SPINAND_1S_1S_1S,
+					 SPINAND_RESET_OP,
+					 SPINAND_GET_FEATURE_OP(0, NULL),
+					 SPINAND_SET_FEATURE_OP(0, NULL),
+					 SPINAND_WR_EN_DIS_OP(true),
+					 SPINAND_BLK_ERASE_OP(0),
+					 SPINAND_PAGE_READ_OP(0),
+					 SPINAND_PROG_EXEC_OP(0));
+
 static int spinand_manufacturer_match(struct spinand_device *spinand,
 				      enum spinand_readid_method rdid_method)
 {
@@ -1199,6 +1209,8 @@ static void spinand_mtd_resume(struct mtd_info *mtd)
 	int ret;
 
 	spinand->protocol = SPINAND_1S_1S_1S;
+	spinand->ctrl_ops = &spinand_default_ctrl_ops;
+
 	ret = spinand_reset_op(spinand);
 	if (ret)
 		return;
@@ -1226,6 +1238,8 @@ static int spinand_init(struct spinand_device *spinand)
 		return -ENOMEM;
 
 	spinand->protocol = SPINAND_1S_1S_1S;
+	spinand->ctrl_ops = &spinand_default_ctrl_ops;
+
 	ret = spinand_detect(spinand);
 	if (ret)
 		goto err_free_bufs;
