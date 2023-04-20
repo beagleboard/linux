@@ -742,6 +742,24 @@
 	phy-handle = <&phy0>;
 };
 
+&ti_csi2rx0 {
+	status = "okay";
+	/* MIPI-CSI Connector */
+};
+
+&ti_csi2rx1 {
+	status = "okay";
+	/* MIPI-CSI Connector */
+};
+
+&dphy0 {
+	status = "okay";
+};
+
+&dphy1 {
+	status = "okay";
+};
+
 &dss {
 	pinctrl-names = "default";
 	pinctrl-0 = <&dss_vout0_pins_default>;

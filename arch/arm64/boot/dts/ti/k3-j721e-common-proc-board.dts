@@ -904,3 +904,21 @@
 	pinctrl-0 = <&main_mcan2_pins_default>;
 	phys = <&transceiver4>;
 };
+
+&ti_csi2rx0 {
+	status = "okay";
+	/* MIPI-CSI Connector */
+};
+
+&ti_csi2rx1 {
+	status = "okay";
+	/* MIPI-CSI Connector */
+};
+
+&dphy0 {
+	status = "okay";
+};
+
+&dphy1 {
+	status = "okay";
+};
