@@ -1,0 +1,142 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * RPi Camera V2.1 (Sony IMX219) Camera module on RPI camera connector.
+ *
+ * Copyright (C) 2023 Texas Instruments Incorporated - https://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include "k3-pinctrl.h"
+
+&{/} {
+	clk_imx219_fixed: imx219-xclk {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <24000000>;
+	};
+};
+
+&main_pmx0 {
+	main_rpi_cam0_reset_pins_default: main-rpi-cam0-reset-pins-default {
+		pinctrl-single,pins = <
+			J721E_IOPAD(0x1D4, PIN_OUTPUT, 7) /* (Y3) SPI1_CS0 */
+		>;
+	};
+
+	main_rpi_cam1_reset_pins_default: main-rpi-cam1-reset-pins-default {
+		pinctrl-single,pins = <
+			J721E_IOPAD(0x1E0, PIN_OUTPUT, 7) /* (Y5) SPI1_D0 */
+		>;
+	};
+
+	main_csi_mux_sel2_pins_default: main-csi-mux-sel2-pins-default {
+		pinctrl-single,pins = <
+			J721E_IOPAD(0x164, PIN_OUTPUT, 7) /* (V29) RGMII5_TD2 */
+		>;
+	};
+};
+
+&main_gpio0 {
+	csi-mux-hog {
+		/* CSI_MUX_SEL_2 */
+		gpio-hog;
+		gpios = <88 GPIO_ACTIVE_HIGH>;
+		output-high;
+		line-name = "CSI_MUX_SEL_2";
+	};
+};
+
+&main_i2c3 {
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	i2c-switch@70 {
+		compatible = "nxp,pca9543";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0x70>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&main_csi_mux_sel2_pins_default>;
+
+		i2c-alias-pool = /bits/ 16 <0x10 0x11>;
+
+		/* CAM0 I2C */
+		cam0_i2c: i2c@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+
+			imx219_0: imx219_0@10 {
+				compatible = "sony,imx219";
+				reg = <0x10>;
+				clocks = <&clk_imx219_fixed>;
+				clock-names = "xclk";
+				pinctrl-names = "default";
+				pinctrl-0 = <&main_rpi_cam0_reset_pins_default>;
+				reset-gpios = <&main_gpio0 116 GPIO_ACTIVE_HIGH>;
+
+				port {
+					csi2_cam0: endpoint {
+						remote-endpoint = <&csi2rx0_in_sensor>;
+						link-frequencies = /bits/ 64 <456000000>;
+						clock-lanes = <0>;
+						data-lanes = <1 2>;
+					};
+				};
+			};
+		};
+
+		/* CAM1 I2C */
+		cam1_i2c: i2c@1 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <1>;
+
+			imx219_1: imx219_1@10 {
+				compatible = "sony,imx219";
+				reg = <0x10>;
+				clocks = <&clk_imx219_fixed>;
+				clock-names = "xclk";
+				pinctrl-names = "default";
+				pinctrl-0 = <&main_rpi_cam1_reset_pins_default>;
+				reset-gpios = <&main_gpio0 119 GPIO_ACTIVE_HIGH>;
+
+				port {
+					csi2_cam1: endpoint {
+						remote-endpoint = <&csi2rx1_in_sensor>;
+						link-frequencies = /bits/ 64 <456000000>;
+						clock-lanes = <0>;
+						data-lanes = <1 2>;
+					};
+				};
+			};
+		};
+	};
+};
+
+&csi0_port0 {
+	status = "okay";
+
+	csi2rx0_in_sensor: endpoint {
+		remote-endpoint = <&csi2_cam0>;
+		bus-type = <4>; /* CSI2 DPHY */
+		clock-lanes = <0>;
+		data-lanes = <1 2>;
+	};
+};
+
+&csi1_port0 {
+	status = "okay";
+
+	csi2rx1_in_sensor: endpoint {
+		remote-endpoint = <&csi2_cam1>;
+		bus-type = <4>; /* CSI2 DPHY. */
+		clock-lanes = <0>;
+		data-lanes = <1 2>;
+	};
+};
