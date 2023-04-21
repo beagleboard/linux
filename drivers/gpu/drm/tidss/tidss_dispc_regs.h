@@ -232,12 +232,16 @@ enum dispc_common_regs {
  * CTRLMMR0P1_OLDI_DAT0_IO_CTRL to CTRLMMR0P1_OLDI_CLK_IO_CTRL
  * register range.
  */
-#define OLDI_DAT0_IO_CTRL			0x00
-#define OLDI_DAT1_IO_CTRL			0x04
-#define OLDI_DAT2_IO_CTRL			0x08
-#define OLDI_DAT3_IO_CTRL			0x0C
-#define OLDI_CLK_IO_CTRL			0x10
 
-#define OLDI_PWRDN_TX				BIT(8)
+/* -- For AM65X OLDI TX -- */
+/* Register offsets */
+#define AM65X_OLDI_DAT0_IO_CTRL			0x00
+#define AM65X_OLDI_DAT1_IO_CTRL			0x04
+#define AM65X_OLDI_DAT2_IO_CTRL			0x08
+#define AM65X_OLDI_DAT3_IO_CTRL			0x0C
+#define AM65X_OLDI_CLK_IO_CTRL			0x10
+
+/* Power control bits */
+#define AM65X_OLDI_PWRDN_TX			BIT(8)
 
 #endif /* __TIDSS_DISPC_REGS_H */

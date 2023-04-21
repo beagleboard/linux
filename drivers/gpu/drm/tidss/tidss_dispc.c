@@ -893,21 +893,29 @@ int dispc_vp_bus_check(struct dispc_device *dispc, u32 vp_idx,
 
 static void dispc_oldi_tx_power(struct dispc_device *dispc, bool power)
 {
-	u32 val = power ? 0 : OLDI_PWRDN_TX;
+	u32 val;
 
 	if (WARN_ON(!dispc->oldi_io_ctrl))
 		return;
 
-	regmap_update_bits(dispc->oldi_io_ctrl, OLDI_DAT0_IO_CTRL,
-			   OLDI_PWRDN_TX, val);
-	regmap_update_bits(dispc->oldi_io_ctrl, OLDI_DAT1_IO_CTRL,
-			   OLDI_PWRDN_TX, val);
-	regmap_update_bits(dispc->oldi_io_ctrl, OLDI_DAT2_IO_CTRL,
-			   OLDI_PWRDN_TX, val);
-	regmap_update_bits(dispc->oldi_io_ctrl, OLDI_DAT3_IO_CTRL,
-			   OLDI_PWRDN_TX, val);
-	regmap_update_bits(dispc->oldi_io_ctrl, OLDI_CLK_IO_CTRL,
-			   OLDI_PWRDN_TX, val);
+	switch (dispc->feat->subrev) {
+	case DISPC_AM65X:
+		val = power ? 0 : AM65X_OLDI_PWRDN_TX;
+
+		regmap_update_bits(dispc->oldi_io_ctrl, AM65X_OLDI_DAT0_IO_CTRL,
+				   AM65X_OLDI_PWRDN_TX, val);
+		regmap_update_bits(dispc->oldi_io_ctrl, AM65X_OLDI_DAT1_IO_CTRL,
+				   AM65X_OLDI_PWRDN_TX, val);
+		regmap_update_bits(dispc->oldi_io_ctrl, AM65X_OLDI_DAT2_IO_CTRL,
+				   AM65X_OLDI_PWRDN_TX, val);
+		regmap_update_bits(dispc->oldi_io_ctrl, AM65X_OLDI_DAT3_IO_CTRL,
+				   AM65X_OLDI_PWRDN_TX, val);
+		regmap_update_bits(dispc->oldi_io_ctrl, AM65X_OLDI_CLK_IO_CTRL,
+				   AM65X_OLDI_PWRDN_TX, val);
+
+	default:
+		break;
+	}
 }
 
 static void dispc_set_num_datalines(struct dispc_device *dispc, u32 vp_idx,
