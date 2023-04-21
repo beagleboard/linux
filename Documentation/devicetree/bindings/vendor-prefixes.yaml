@@ -745,6 +745,8 @@ patternProperties:
     description: LSI Corp. (LSI Logic)
   "^lwn,.*":
     description: Liebherr-Werk Nenzing GmbH
+  "^lincolntech,.*":
+    description: Lincoln Technology Solutions
   "^lxa,.*":
     description: Linux Automation GmbH
   "^m5stack,.*":
@@ -807,6 +809,8 @@ patternProperties:
     description: Microsoft Corporation
   "^microsys,.*":
     description: MicroSys Electronics GmbH
+  "^microtips,.*":
+    description: Microtips Technology USA
   "^mikroe,.*":
     description: MikroElektronika d.o.o.
   "^mikrotik,.*":
