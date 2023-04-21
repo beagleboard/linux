@@ -151,6 +151,78 @@ static const struct ti_csi2rx_fmt formats[] = {
 		.csi_dt			= MIPI_CSI2_DT_YUV422_8B,
 		.bpp			= 16,
 		.size			= SHIM_DMACNTX_SIZE_8,
+	}, {
+		.fourcc			= V4L2_PIX_FMT_SBGGR8,
+		.code			= MEDIA_BUS_FMT_SBGGR8_1X8,
+		.csi_dt			= MIPI_CSI2_DT_RAW8,
+		.bpp			= 8,
+		.size			= SHIM_DMACNTX_SIZE_8,
+	}, {
+		.fourcc			= V4L2_PIX_FMT_SGBRG8,
+		.code			= MEDIA_BUS_FMT_SGBRG8_1X8,
+		.csi_dt			= MIPI_CSI2_DT_RAW8,
+		.bpp			= 8,
+		.size			= SHIM_DMACNTX_SIZE_8,
+	}, {
+		.fourcc			= V4L2_PIX_FMT_SGRBG8,
+		.code			= MEDIA_BUS_FMT_SGRBG8_1X8,
+		.csi_dt			= MIPI_CSI2_DT_RAW8,
+		.bpp			= 8,
+		.size			= SHIM_DMACNTX_SIZE_8,
+	}, {
+		.fourcc			= V4L2_PIX_FMT_SRGGB8,
+		.code			= MEDIA_BUS_FMT_SRGGB8_1X8,
+		.csi_dt			= MIPI_CSI2_DT_RAW8,
+		.bpp			= 8,
+		.size			= SHIM_DMACNTX_SIZE_8,
+	}, {
+		.fourcc			= V4L2_PIX_FMT_SBGGR10,
+		.code			= MEDIA_BUS_FMT_SBGGR10_1X10,
+		.csi_dt			= MIPI_CSI2_DT_RAW10,
+		.bpp			= 16,
+		.size			= SHIM_DMACNTX_SIZE_16,
+	}, {
+		.fourcc			= V4L2_PIX_FMT_SGBRG10,
+		.code			= MEDIA_BUS_FMT_SGBRG10_1X10,
+		.csi_dt			= MIPI_CSI2_DT_RAW10,
+		.bpp			= 16,
+		.size			= SHIM_DMACNTX_SIZE_16,
+	}, {
+		.fourcc			= V4L2_PIX_FMT_SGRBG10,
+		.code			= MEDIA_BUS_FMT_SGRBG10_1X10,
+		.csi_dt			= MIPI_CSI2_DT_RAW10,
+		.bpp			= 16,
+		.size			= SHIM_DMACNTX_SIZE_16,
+	}, {
+		.fourcc			= V4L2_PIX_FMT_SRGGB10,
+		.code			= MEDIA_BUS_FMT_SRGGB10_1X10,
+		.csi_dt			= MIPI_CSI2_DT_RAW10,
+		.bpp			= 16,
+		.size			= SHIM_DMACNTX_SIZE_16,
+	}, {
+		.fourcc			= V4L2_PIX_FMT_SBGGR12,
+		.code			= MEDIA_BUS_FMT_SBGGR12_1X12,
+		.csi_dt			= MIPI_CSI2_DT_RAW12,
+		.bpp			= 16,
+		.size			= SHIM_DMACNTX_SIZE_16,
+	}, {
+		.fourcc			= V4L2_PIX_FMT_SGBRG12,
+		.code			= MEDIA_BUS_FMT_SGBRG12_1X12,
+		.csi_dt			= MIPI_CSI2_DT_RAW12,
+		.bpp			= 16,
+		.size			= SHIM_DMACNTX_SIZE_16,
+	}, {
+		.fourcc			= V4L2_PIX_FMT_SGRBG12,
+		.code			= MEDIA_BUS_FMT_SGRBG12_1X12,
+		.csi_dt			= MIPI_CSI2_DT_RAW12,
+		.bpp			= 16,
+		.size			= SHIM_DMACNTX_SIZE_16,
+	}, {
+		.fourcc			= V4L2_PIX_FMT_SRGGB12,
+		.code			= MEDIA_BUS_FMT_SRGGB12_1X12,
+		.csi_dt			= MIPI_CSI2_DT_RAW12,
+		.bpp			= 16,
+		.size			= SHIM_DMACNTX_SIZE_16,
 	},
 
 	/* More formats can be supported but they are not listed for now. */
