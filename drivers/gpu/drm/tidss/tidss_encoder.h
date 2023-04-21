@@ -12,6 +12,7 @@
 struct tidss_device;
 
 struct drm_encoder *tidss_encoder_create(struct tidss_device *tidss,
-					 u32 encoder_type, u32 possible_crtcs);
+					 u32 encoder_type, u32 possible_crtcs,
+					 u32 possible_clones);
 
 #endif

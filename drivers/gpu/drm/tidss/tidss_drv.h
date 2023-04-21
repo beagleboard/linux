@@ -18,6 +18,9 @@
  */
 #define TIDSS_MAX_OUTPUTS 4
 
+/* For DSSes with 2 OLDI TXes */
+#define TIDSS_MAX_BRIDGES_PER_PIPE	2
+
 typedef u32 dispc_irq_t;
 
 struct tidss_device {

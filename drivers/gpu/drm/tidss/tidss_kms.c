@@ -15,6 +15,7 @@
 #include <drm/drm_of.h>
 #include <drm/drm_panel.h>
 #include <drm/drm_vblank.h>
+#include <linux/of.h>
 
 #include "tidss_crtc.h"
 #include "tidss_dispc.h"
@@ -106,26 +107,137 @@ static const struct drm_mode_config_funcs mode_config_funcs = {
 	.atomic_commit = drm_atomic_helper_commit,
 };
 
+static enum dispc_oldi_modes tidss_parse_oldi_properties(struct tidss_device *tidss)
+{
+	int pixel_order;
+	enum dispc_oldi_modes oldi_mode;
+	struct device_node *oldi0_port, *oldi1_port;
+
+	/*
+	 * For dual-link / clone mode connections, the OLDI ports are expected
+	 * at port reg = 0 and 2, while for single-link cases the OLDI port is
+	 * expected only at port reg = 0.
+	 */
+	const u32 portnum_oldi0 = 0, portnum_oldi1 = 2;
+
+	oldi0_port = of_graph_get_port_by_id(tidss->dev->of_node, portnum_oldi0);
+	oldi1_port = of_graph_get_port_by_id(tidss->dev->of_node, portnum_oldi1);
+
+	if (!(oldi0_port || oldi1_port)) {
+		/* Keep OLDI TXes OFF if neither OLDI port is present. */
+		oldi_mode = OLDI_MODE_OFF;
+	} else if (oldi0_port && !oldi1_port) {
+		/*
+		 * OLDI0 port found, but not OLDI1 port. Setting single
+		 * link output mode.
+		 */
+		oldi_mode = OLDI_MODE_SINGLE_LINK;
+	} else if (!oldi0_port && oldi1_port) {
+		/*
+		 * The 2nd OLDI TX cannot be operated alone. This use case is
+		 * not supported in the HW. Since the pins for OLDIs 0 and 1 are
+		 * separate, one could theoretically set a clone mode over OLDIs
+		 * 0 and 1 and just simply not use the OLDI 0. This is a hacky
+		 * way to enable only OLDI TX 1 and hence is not officially
+		 * supported.
+		 */
+		dev_err(tidss->dev,
+			"%s: Single Mode over OLDI 1 is not supported in HW.\n",
+			__func__);
+		oldi_mode = OLDI_MODE_UNSUPPORTED;
+	} else {
+		/*
+		 * OLDI Ports found for both the OLDI TXes. The DSS is to be
+		 * configured in either Dual Link or Clone Mode.
+		 */
+		pixel_order = drm_of_lvds_get_dual_link_pixel_order(oldi0_port,
+								    oldi1_port);
+		switch (pixel_order) {
+		case -EINVAL:
+			/*
+			 * The dual link properties were not found in at least
+			 * one of the sink nodes. Since 2 OLDI ports are present
+			 * in the DT, it can be safely assumed that the required
+			 * configuration is Clone Mode.
+			 */
+			oldi_mode = OLDI_MODE_CLONE_SINGLE_LINK;
+			break;
+
+		case DRM_LVDS_DUAL_LINK_EVEN_ODD_PIXELS:
+			/*
+			 * Note that the OLDI TX 0 transmits the odd set of
+			 * pixels while the OLDI TX 1 transmits the even set.
+			 * This is a fixed configuration in the HW and an cannot
+			 * be change via SW.
+			 */
+			dev_err(tidss->dev,
+				"%s: EVEN-ODD Dual-Link Mode is not supported in HW.\n",
+				__func__);
+			oldi_mode = OLDI_MODE_UNSUPPORTED;
+			break;
+
+		case DRM_LVDS_DUAL_LINK_ODD_EVEN_PIXELS:
+			oldi_mode = OLDI_MODE_DUAL_LINK;
+			break;
+
+		default:
+			dev_err(tidss->dev, "%s: Unrecognized OLDI mode.\n",
+				__func__);
+			oldi_mode = OLDI_MODE_UNSUPPORTED;
+			break;
+		}
+	}
+
+	of_node_put(oldi0_port);
+	of_node_put(oldi1_port);
+
+	return oldi_mode;
+}
+
 static int tidss_dispc_modeset_init(struct tidss_device *tidss)
 {
 	struct device *dev = tidss->dev;
 	unsigned int fourccs_len;
 	const u32 *fourccs = dispc_plane_formats(tidss->dispc, &fourccs_len);
-	unsigned int i;
+	unsigned int i, j;
 
 	struct pipe {
 		u32 vp_idx;
-		struct drm_bridge *bridge;
+		struct drm_bridge *bridge[TIDSS_MAX_BRIDGES_PER_PIPE];
 		u32 enc_type;
+		u32 num_bridges;
 	};
 
 	const struct dispc_features *feat = tidss->feat;
 	u32 num_outputs = feat->num_outputs;
 	u32 max_planes = feat->num_planes;
 
-	struct pipe pipes[TIDSS_MAX_VPS];
+	struct pipe pipes[TIDSS_MAX_VPS] = {0};
+
 	u32 num_pipes = 0;
 	u32 crtc_mask;
+	enum dispc_oldi_modes oldi_mode = OLDI_MODE_UNAVAILABLE;
+	u32 num_oldi = 0;
+	u32 num_encoders = 0;
+	u32 oldi_pipe_index = 0;
+
+	if (feat->has_oldi) {
+		oldi_mode = tidss_parse_oldi_properties(tidss);
+
+		if ((oldi_mode == OLDI_MODE_DUAL_LINK ||
+		     oldi_mode == OLDI_MODE_CLONE_SINGLE_LINK) &&
+		    feat->subrev == DISPC_AM65X) {
+			dev_err(dev,
+				"%s: am65x-dss does not support this OLDI mode.\n",
+				__func__);
+			oldi_mode = OLDI_MODE_UNSUPPORTED;
+		}
+	}
+
+	if (oldi_mode == OLDI_MODE_UNSUPPORTED)
+		return -EINVAL;
+
+	dispc_set_oldi_mode(tidss->dispc, oldi_mode);
 
 	/* first find all the connected panels & bridges */
 
@@ -181,10 +293,74 @@ static int tidss_dispc_modeset_init(struct tidss_device *tidss)
 			}
 		}
 
-		pipes[num_pipes].vp_idx = feat->output_source_vp[i];
-		pipes[num_pipes].bridge = bridge;
-		pipes[num_pipes].enc_type = enc_type;
-		num_pipes++;
+		if (feat->output_type[i] == DISPC_OUTPUT_OLDI) {
+			switch (oldi_mode) {
+			case OLDI_MODE_OFF:
+				dev_dbg(dev, "OLDI disconnected on port %d\n", i);
+				continue;
+
+			case OLDI_MODE_DUAL_LINK:
+				/*
+				 * The 2nd OLDI port of a dual-link sink does
+				 * not require a separate bridge entity.
+				 */
+				if (num_oldi > 0) {
+					drm_panel_bridge_remove(bridge);
+					continue;
+				}
+
+				fallthrough;
+
+			case OLDI_MODE_CLONE_SINGLE_LINK:
+			case OLDI_MODE_SINGLE_LINK:
+				/*
+				 * Setting up pipe parameters when 1st OLDI
+				 * port is detected.
+				 */
+				if (num_oldi == 0) {
+					pipes[num_pipes].vp_idx = feat->output_source_vp[i];
+					pipes[num_pipes].enc_type = enc_type;
+
+					/*
+					 * Saving the pipe index in case its
+					 * required for 2nd OLDI Port.
+					 */
+					oldi_pipe_index = num_pipes;
+
+					/*
+					 * Incrememnt num_pipe when 1st oldi
+					 * port is discovered. For the 2nd OLDI
+					 * port, num_pipe need not be
+					 * incremented because the 2nd
+					 * Encoder-to-Bridge connection will
+					 * still be the part of the first OLDI
+					 * Port pipe.
+					 */
+					num_pipes++;
+				}
+
+				/*
+				 * Bridge is required to be added only if the
+				 * detected port is the first OLDI port (of any
+				 * mode) or a subsequent port in Clone Mode.
+				 */
+				pipes[oldi_pipe_index].bridge[num_oldi] = bridge;
+				pipes[oldi_pipe_index].num_bridges++;
+				num_oldi++;
+				break;
+
+			case OLDI_MODE_UNAVAILABLE:
+			default:
+				dev_dbg(dev, "OLDI unavailable on this device.\n");
+				break;
+			}
+		} else {
+			pipes[num_pipes].vp_idx = feat->output_source_vp[i];
+			pipes[num_pipes].bridge[0] = bridge;
+			pipes[num_pipes].num_bridges++;
+			pipes[num_pipes].enc_type = enc_type;
+			num_pipes++;
+		}
 	}
 
 	/* all planes can be on any crtc */
@@ -196,6 +372,7 @@ static int tidss_dispc_modeset_init(struct tidss_device *tidss)
 		struct tidss_plane *tplane;
 		struct tidss_crtc *tcrtc;
 		struct drm_encoder *enc;
+		u32 possible_clones = 0;
 		u32 hw_plane_id = feat->vid_order[tidss->num_planes];
 		int ret;
 
@@ -218,16 +395,23 @@ static int tidss_dispc_modeset_init(struct tidss_device *tidss)
 
 		tidss->crtcs[tidss->num_crtcs++] = &tcrtc->crtc;
 
-		enc = tidss_encoder_create(tidss, pipes[i].enc_type,
-					   1 << tcrtc->crtc.index);
-		if (IS_ERR(enc)) {
-			dev_err(tidss->dev, "encoder create failed\n");
-			return PTR_ERR(enc);
-		}
+		possible_clones = (((1 << pipes[i].num_bridges) - 1)
+				   << num_encoders);
 
-		ret = drm_bridge_attach(enc, pipes[i].bridge, NULL, 0);
-		if (ret)
-			return ret;
+		for (j = 0; j < pipes[i].num_bridges; j++) {
+			enc = tidss_encoder_create(tidss, pipes[i].enc_type,
+						   1 << tcrtc->crtc.index,
+						   possible_clones);
+			if (IS_ERR(enc)) {
+				dev_err(tidss->dev, "encoder create failed\n");
+				return PTR_ERR(enc);
+			}
+
+			ret = drm_bridge_attach(enc, pipes[i].bridge[j], NULL, 0);
+			if (ret)
+				return ret;
+		}
+		num_encoders += pipes[i].num_bridges;
 	}
 
 	/* create overlay planes of the leftover planes */

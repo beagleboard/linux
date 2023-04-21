@@ -88,6 +88,8 @@ const struct dispc_features dispc_k2g_feats = {
 
 	.subrev = DISPC_K2G,
 
+	.has_oldi = false,
+
 	.common = "common",
 
 	.common_regs = tidss_k2g_common_regs,
@@ -166,6 +168,8 @@ const struct dispc_features dispc_am65x_feats = {
 	},
 
 	.subrev = DISPC_AM65X,
+
+	.has_oldi = true,
 
 	.common = "common",
 	.common_regs = tidss_am65x_common_regs,
@@ -259,6 +263,8 @@ const struct dispc_features dispc_j721e_feats = {
 
 	.subrev = DISPC_J721E,
 
+	.has_oldi = false,
+
 	.common = "common_m",
 	.common_regs = tidss_j721e_common_regs,
 
@@ -310,6 +316,8 @@ struct dispc_device {
 	bool is_enabled;
 
 	struct dss_vp_data vp_data[TIDSS_MAX_VPS];
+
+	enum dispc_oldi_modes oldi_mode;
 
 	u32 *fourccs;
 	u32 num_fourccs;
@@ -936,8 +944,8 @@ static void dispc_enable_oldi(struct dispc_device *dispc, u32 vp_idx,
 	int count = 0;
 
 	/*
-	 * For the moment DUALMODESYNC, MASTERSLAVE, MODE, and SRC
-	 * bits of DISPC_VP_DSS_OLDI_CFG are set statically to 0.
+	 * For the moment MASTERSLAVE, and SRC bits of DISPC_VP_DSS_OLDI_CFG are
+	 * always set to 0.
 	 */
 
 	if (fmt->data_width == 24)
@@ -953,6 +961,26 @@ static void dispc_enable_oldi(struct dispc_device *dispc, u32 vp_idx,
 	oldi_cfg |= BIT(12); /* SOFTRST */
 
 	oldi_cfg |= BIT(0); /* ENABLE */
+
+	switch (dispc->oldi_mode) {
+	case OLDI_MODE_SINGLE_LINK:
+		/* All configuration is done for this mode.  */
+		break;
+
+	case OLDI_MODE_CLONE_SINGLE_LINK:
+		oldi_cfg |= BIT(5); /* CLONE MODE */
+		break;
+
+	case OLDI_MODE_DUAL_LINK:
+		oldi_cfg |= BIT(11); /* DUALMODESYNC */
+		oldi_cfg |= BIT(3); /* data-mapping field also indicates dual-link mode */
+		break;
+
+	default:
+		dev_warn(dispc->dev, "%s: Incorrect oldi mode. Returning.\n",
+			 __func__);
+		return;
+	}
 
 	dispc_vp_write(dispc, vp_idx, DISPC_VP_DSS_OLDI_CFG, oldi_cfg);
 
@@ -1929,6 +1957,12 @@ const u32 *dispc_plane_formats(struct dispc_device *dispc, unsigned int *len)
 	return dispc->fourccs;
 }
 
+void dispc_set_oldi_mode(struct dispc_device *dispc,
+			 enum dispc_oldi_modes oldi_mode)
+{
+	dispc->oldi_mode = oldi_mode;
+}
+
 static s32 pixinc(int pixels, u8 ps)
 {
 	if (pixels == 1)
@@ -2607,7 +2641,7 @@ int dispc_runtime_resume(struct dispc_device *dispc)
 		REG_GET(dispc, DSS_SYSSTATUS, 2, 2),
 		REG_GET(dispc, DSS_SYSSTATUS, 3, 3));
 
-	if (dispc->feat->subrev == DISPC_AM65X)
+	if (dispc->feat->has_oldi)
 		dev_dbg(dispc->dev, "OLDI RESETDONE %d,%d,%d\n",
 			REG_GET(dispc, DSS_SYSSTATUS, 5, 5),
 			REG_GET(dispc, DSS_SYSSTATUS, 6, 6),
@@ -2648,7 +2682,7 @@ static int dispc_iomap_resource(struct platform_device *pdev, const char *name,
 	return 0;
 }
 
-static int dispc_init_am65x_oldi_io_ctrl(struct device *dev,
+static int dispc_init_am6xx_oldi_io_ctrl(struct device *dev,
 					 struct dispc_device *dispc)
 {
 	dispc->oldi_io_ctrl =
@@ -2785,8 +2819,8 @@ int dispc_init(struct tidss_device *tidss)
 		dispc->vp_data[i].gamma_table = gamma_table;
 	}
 
-	if (feat->subrev == DISPC_AM65X) {
-		r = dispc_init_am65x_oldi_io_ctrl(dev, dispc);
+	if (feat->has_oldi) {
+		r = dispc_init_am6xx_oldi_io_ctrl(dev, dispc);
 		if (r)
 			return r;
 	}

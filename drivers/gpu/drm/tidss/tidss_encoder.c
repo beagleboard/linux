@@ -70,7 +70,8 @@ static const struct drm_encoder_funcs encoder_funcs = {
 };
 
 struct drm_encoder *tidss_encoder_create(struct tidss_device *tidss,
-					 u32 encoder_type, u32 possible_crtcs)
+					 u32 encoder_type, u32 possible_crtcs,
+					 u32 possible_clones)
 {
 	struct drm_encoder *enc;
 	int ret;
@@ -80,6 +81,7 @@ struct drm_encoder *tidss_encoder_create(struct tidss_device *tidss,
 		return ERR_PTR(-ENOMEM);
 
 	enc->possible_crtcs = possible_crtcs;
+	enc->possible_clones = possible_clones;
 
 	ret = drm_encoder_init(&tidss->ddev, enc, &encoder_funcs,
 			       encoder_type, NULL);

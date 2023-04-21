@@ -63,6 +63,15 @@ enum dispc_dss_subrevision {
 	DISPC_J721E,
 };
 
+enum dispc_oldi_modes {
+	OLDI_MODE_SINGLE_LINK,		/* Single output over OLDI 0. */
+	OLDI_MODE_CLONE_SINGLE_LINK,	/* Cloned output over OLDI 0 and 1. */
+	OLDI_MODE_DUAL_LINK,		/* Combined output over OLDI 0 and 1. */
+	OLDI_MODE_OFF,			/* OLDI TXes not connected in OF. */
+	OLDI_MODE_UNSUPPORTED,		/* Unsupported OLDI configuration in OF. */
+	OLDI_MODE_UNAVAILABLE,		/* OLDI TXes not available in SoC. */
+};
+
 struct dispc_features {
 	int min_pclk_khz;
 	int max_pclk_khz[DISPC_OUTPUT_TYPES_MAX];
@@ -70,6 +79,8 @@ struct dispc_features {
 	struct dispc_features_scaling scaling;
 
 	enum dispc_dss_subrevision subrev;
+
+	bool has_oldi;
 
 	const char *common;
 	const u16 *common_regs;
@@ -129,6 +140,7 @@ int dispc_plane_setup(struct dispc_device *dispc, u32 hw_plane,
 		      const struct drm_plane_state *state, u32 vp_idx);
 int dispc_plane_enable(struct dispc_device *dispc, u32 hw_plane, bool enable);
 const u32 *dispc_plane_formats(struct dispc_device *dispc, unsigned int *len);
+void dispc_set_oldi_mode(struct dispc_device *dispc, enum dispc_oldi_modes oldi_mode);
 
 int dispc_init(struct tidss_device *tidss);
 void dispc_remove(struct tidss_device *tidss);
