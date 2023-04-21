@@ -31,7 +31,7 @@ static int tidss_plane_atomic_check(struct drm_plane *plane,
 	const struct drm_format_info *finfo;
 	struct drm_crtc_state *crtc_state;
 	u32 hw_plane = tplane->hw_plane_id;
-	u32 hw_videoport;
+	u32 vp_idx;
 	int ret;
 
 	dev_dbg(ddev->dev, "%s\n", __func__);
@@ -95,10 +95,10 @@ static int tidss_plane_atomic_check(struct drm_plane *plane,
 	if (!new_plane_state->visible)
 		return 0;
 
-	hw_videoport = to_tidss_crtc(new_plane_state->crtc)->hw_videoport;
+	vp_idx = to_tidss_crtc(new_plane_state->crtc)->vp_idx;
 
 	ret = dispc_plane_check(tidss->dispc, hw_plane, new_plane_state,
-				hw_videoport);
+				vp_idx);
 	if (ret)
 		return ret;
 
@@ -113,7 +113,7 @@ static void tidss_plane_atomic_update(struct drm_plane *plane,
 	struct tidss_plane *tplane = to_tidss_plane(plane);
 	struct drm_plane_state *new_state = drm_atomic_get_new_plane_state(state,
 									   plane);
-	u32 hw_videoport;
+	u32 vp_idx;
 	int ret;
 
 	dev_dbg(ddev->dev, "%s\n", __func__);
@@ -123,10 +123,10 @@ static void tidss_plane_atomic_update(struct drm_plane *plane,
 		return;
 	}
 
-	hw_videoport = to_tidss_crtc(new_state->crtc)->hw_videoport;
+	vp_idx = to_tidss_crtc(new_state->crtc)->vp_idx;
 
 	ret = dispc_plane_setup(tidss->dispc, tplane->hw_plane_id,
-				new_state, hw_videoport);
+				new_state, vp_idx);
 
 	if (ret) {
 		dev_err(plane->dev->dev, "%s: Failed to setup plane %d\n",

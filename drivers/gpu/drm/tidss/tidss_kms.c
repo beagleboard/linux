@@ -114,7 +114,7 @@ static int tidss_dispc_modeset_init(struct tidss_device *tidss)
 	unsigned int i;
 
 	struct pipe {
-		u32 hw_videoport;
+		u32 vp_idx;
 		struct drm_bridge *bridge;
 		u32 enc_type;
 	};
@@ -181,7 +181,7 @@ static int tidss_dispc_modeset_init(struct tidss_device *tidss)
 			}
 		}
 
-		pipes[num_pipes].hw_videoport = i;
+		pipes[num_pipes].vp_idx = i;
 		pipes[num_pipes].bridge = bridge;
 		pipes[num_pipes].enc_type = enc_type;
 		num_pipes++;
@@ -209,7 +209,7 @@ static int tidss_dispc_modeset_init(struct tidss_device *tidss)
 
 		tidss->planes[tidss->num_planes++] = &tplane->plane;
 
-		tcrtc = tidss_crtc_create(tidss, pipes[i].hw_videoport,
+		tcrtc = tidss_crtc_create(tidss, pipes[i].vp_idx,
 					  &tplane->plane);
 		if (IS_ERR(tcrtc)) {
 			dev_err(tidss->dev, "crtc create failed\n");

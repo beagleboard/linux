@@ -92,40 +92,37 @@ extern const struct dispc_features dispc_j721e_feats;
 void dispc_set_irqenable(struct dispc_device *dispc, dispc_irq_t mask);
 dispc_irq_t dispc_read_and_clear_irqstatus(struct dispc_device *dispc);
 
-void dispc_ovr_set_plane(struct dispc_device *dispc, u32 hw_plane,
-			 u32 hw_videoport, u32 x, u32 y, u32 layer);
-void dispc_ovr_enable_layer(struct dispc_device *dispc,
-			    u32 hw_videoport, u32 layer, bool enable);
+void dispc_ovr_set_plane(struct dispc_device *dispc, u32 hw_plane, u32 vp_idx,
+			 u32 x, u32 y, u32 layer);
+void dispc_ovr_enable_layer(struct dispc_device *dispc, u32 vp_idx,
+			    u32 layer, bool enable);
 
-void dispc_vp_prepare(struct dispc_device *dispc, u32 hw_videoport,
+void dispc_vp_prepare(struct dispc_device *dispc, u32 vp_idx,
 		      const struct drm_crtc_state *state);
-void dispc_vp_enable(struct dispc_device *dispc, u32 hw_videoport,
+void dispc_vp_enable(struct dispc_device *dispc, u32 vp_idx,
 		     const struct drm_crtc_state *state);
-void dispc_vp_disable(struct dispc_device *dispc, u32 hw_videoport);
-void dispc_vp_unprepare(struct dispc_device *dispc, u32 hw_videoport);
-bool dispc_vp_go_busy(struct dispc_device *dispc, u32 hw_videoport);
-void dispc_vp_go(struct dispc_device *dispc, u32 hw_videoport);
-int dispc_vp_bus_check(struct dispc_device *dispc, u32 hw_videoport,
+void dispc_vp_disable(struct dispc_device *dispc, u32 vp_idx);
+void dispc_vp_unprepare(struct dispc_device *dispc, u32 vp_idx);
+bool dispc_vp_go_busy(struct dispc_device *dispc, u32 vp_idx);
+void dispc_vp_go(struct dispc_device *dispc, u32 vp_idx);
+int dispc_vp_bus_check(struct dispc_device *dispc, u32 vp_idx,
 		       const struct drm_crtc_state *state);
-enum drm_mode_status dispc_vp_mode_valid(struct dispc_device *dispc,
-					 u32 hw_videoport,
+enum drm_mode_status dispc_vp_mode_valid(struct dispc_device *dispc, u32 vp_idx,
 					 const struct drm_display_mode *mode);
-int dispc_vp_enable_clk(struct dispc_device *dispc, u32 hw_videoport);
-void dispc_vp_disable_clk(struct dispc_device *dispc, u32 hw_videoport);
-int dispc_vp_set_clk_rate(struct dispc_device *dispc, u32 hw_videoport,
+int dispc_vp_enable_clk(struct dispc_device *dispc, u32 vp_idx);
+void dispc_vp_disable_clk(struct dispc_device *dispc, u32 vp_idx);
+int dispc_vp_set_clk_rate(struct dispc_device *dispc, u32 vp_idx,
 			  unsigned long rate);
-void dispc_vp_setup(struct dispc_device *dispc, u32 hw_videoport,
+void dispc_vp_setup(struct dispc_device *dispc, u32 vp_idx,
 		    const struct drm_crtc_state *state, bool newmodeset);
 
 int dispc_runtime_suspend(struct dispc_device *dispc);
 int dispc_runtime_resume(struct dispc_device *dispc);
 
 int dispc_plane_check(struct dispc_device *dispc, u32 hw_plane,
-		      const struct drm_plane_state *state,
-		      u32 hw_videoport);
+		      const struct drm_plane_state *state, u32 vp_idx);
 int dispc_plane_setup(struct dispc_device *dispc, u32 hw_plane,
-		      const struct drm_plane_state *state,
-		      u32 hw_videoport);
+		      const struct drm_plane_state *state, u32 vp_idx);
 int dispc_plane_enable(struct dispc_device *dispc, u32 hw_plane, bool enable);
 const u32 *dispc_plane_formats(struct dispc_device *dispc, unsigned int *len);
 

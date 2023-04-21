@@ -35,7 +35,7 @@ static void tidss_crtc_finish_page_flip(struct tidss_crtc *tcrtc)
 	 * So there is a small change that the driver sets GO bit after VFP, but
 	 * before vblank, and we have to check for that case here.
 	 */
-	busy = dispc_vp_go_busy(tidss->dispc, tcrtc->hw_videoport);
+	busy = dispc_vp_go_busy(tidss->dispc, tcrtc->vp_idx);
 	if (busy) {
 		spin_unlock_irqrestore(&ddev->event_lock, flags);
 		return;
@@ -77,7 +77,7 @@ void tidss_crtc_error_irq(struct drm_crtc *crtc, u64 irqstatus)
 	struct tidss_crtc *tcrtc = to_tidss_crtc(crtc);
 
 	dev_err_ratelimited(crtc->dev->dev, "CRTC%u SYNC LOST: (irq %llx)\n",
-			    tcrtc->hw_videoport, irqstatus);
+			    tcrtc->vp_idx, irqstatus);
 }
 
 /* drm_crtc_helper_funcs */
@@ -91,7 +91,7 @@ static int tidss_crtc_atomic_check(struct drm_crtc *crtc,
 	struct tidss_device *tidss = to_tidss(ddev);
 	struct dispc_device *dispc = tidss->dispc;
 	struct tidss_crtc *tcrtc = to_tidss_crtc(crtc);
-	u32 hw_videoport = tcrtc->hw_videoport;
+	u32 vp_idx = tcrtc->vp_idx;
 	const struct drm_display_mode *mode;
 	enum drm_mode_status ok;
 
@@ -102,14 +102,14 @@ static int tidss_crtc_atomic_check(struct drm_crtc *crtc,
 
 	mode = &crtc_state->adjusted_mode;
 
-	ok = dispc_vp_mode_valid(dispc, hw_videoport, mode);
+	ok = dispc_vp_mode_valid(dispc, vp_idx, mode);
 	if (ok != MODE_OK) {
 		dev_dbg(ddev->dev, "%s: bad mode: %ux%u pclk %u kHz\n",
 			__func__, mode->hdisplay, mode->vdisplay, mode->clock);
 		return -EINVAL;
 	}
 
-	return dispc_vp_bus_check(dispc, hw_videoport, crtc_state);
+	return dispc_vp_bus_check(dispc, vp_idx, crtc_state);
 }
 
 /*
@@ -151,11 +151,11 @@ static void tidss_crtc_position_planes(struct tidss_device *tidss,
 			struct tidss_plane *tplane = to_tidss_plane(plane);
 
 			dispc_ovr_set_plane(tidss->dispc, tplane->hw_plane_id,
-					    tcrtc->hw_videoport,
+					    tcrtc->vp_idx,
 					    pstate->crtc_x, pstate->crtc_y,
 					    layer);
 		}
-		dispc_ovr_enable_layer(tidss->dispc, tcrtc->hw_videoport, layer,
+		dispc_ovr_enable_layer(tidss->dispc, tcrtc->vp_idx, layer,
 				       layer_active);
 	}
 }
@@ -187,7 +187,7 @@ static void tidss_crtc_atomic_flush(struct drm_crtc *crtc,
 		return;
 
 	/* If the GO bit is stuck we better quit here. */
-	if (WARN_ON(dispc_vp_go_busy(tidss->dispc, tcrtc->hw_videoport)))
+	if (WARN_ON(dispc_vp_go_busy(tidss->dispc, tcrtc->vp_idx)))
 		return;
 
 	/* We should have event if CRTC is enabled through out this commit. */
@@ -195,7 +195,7 @@ static void tidss_crtc_atomic_flush(struct drm_crtc *crtc,
 		return;
 
 	/* Write vp properties to HW if needed. */
-	dispc_vp_setup(tidss->dispc, tcrtc->hw_videoport, crtc->state, false);
+	dispc_vp_setup(tidss->dispc, tcrtc->vp_idx, crtc->state, false);
 
 	/* Update plane positions if needed. */
 	tidss_crtc_position_planes(tidss, crtc, old_crtc_state, false);
@@ -203,7 +203,7 @@ static void tidss_crtc_atomic_flush(struct drm_crtc *crtc,
 	WARN_ON(drm_crtc_vblank_get(crtc) != 0);
 
 	spin_lock_irqsave(&ddev->event_lock, flags);
-	dispc_vp_go(tidss->dispc, tcrtc->hw_videoport);
+	dispc_vp_go(tidss->dispc, tcrtc->vp_idx);
 
 	WARN_ON(tcrtc->event);
 
@@ -229,24 +229,24 @@ static void tidss_crtc_atomic_enable(struct drm_crtc *crtc,
 
 	tidss_runtime_get(tidss);
 
-	r = dispc_vp_set_clk_rate(tidss->dispc, tcrtc->hw_videoport,
+	r = dispc_vp_set_clk_rate(tidss->dispc, tcrtc->vp_idx,
 				  mode->clock * 1000);
 	if (r != 0)
 		return;
 
-	r = dispc_vp_enable_clk(tidss->dispc, tcrtc->hw_videoport);
+	r = dispc_vp_enable_clk(tidss->dispc, tcrtc->vp_idx);
 	if (r != 0)
 		return;
 
-	dispc_vp_setup(tidss->dispc, tcrtc->hw_videoport, crtc->state, true);
+	dispc_vp_setup(tidss->dispc, tcrtc->vp_idx, crtc->state, true);
 	tidss_crtc_position_planes(tidss, crtc, old_state, true);
 
 	/* Turn vertical blanking interrupt reporting on. */
 	drm_crtc_vblank_on(crtc);
 
-	dispc_vp_prepare(tidss->dispc, tcrtc->hw_videoport, crtc->state);
+	dispc_vp_prepare(tidss->dispc, tcrtc->vp_idx, crtc->state);
 
-	dispc_vp_enable(tidss->dispc, tcrtc->hw_videoport, crtc->state);
+	dispc_vp_enable(tidss->dispc, tcrtc->vp_idx, crtc->state);
 
 	spin_lock_irqsave(&ddev->event_lock, flags);
 
@@ -270,14 +270,14 @@ static void tidss_crtc_atomic_disable(struct drm_crtc *crtc,
 
 	reinit_completion(&tcrtc->framedone_completion);
 
-	dispc_vp_disable(tidss->dispc, tcrtc->hw_videoport);
+	dispc_vp_disable(tidss->dispc, tcrtc->vp_idx);
 
 	if (!wait_for_completion_timeout(&tcrtc->framedone_completion,
 					 msecs_to_jiffies(500)))
 		dev_err(tidss->dev, "Timeout waiting for framedone on crtc %d",
-			tcrtc->hw_videoport);
+			tcrtc->vp_idx);
 
-	dispc_vp_unprepare(tidss->dispc, tcrtc->hw_videoport);
+	dispc_vp_unprepare(tidss->dispc, tcrtc->vp_idx);
 
 	spin_lock_irqsave(&ddev->event_lock, flags);
 	if (crtc->state->event) {
@@ -288,7 +288,7 @@ static void tidss_crtc_atomic_disable(struct drm_crtc *crtc,
 
 	drm_crtc_vblank_off(crtc);
 
-	dispc_vp_disable_clk(tidss->dispc, tcrtc->hw_videoport);
+	dispc_vp_disable_clk(tidss->dispc, tcrtc->vp_idx);
 
 	tidss_runtime_put(tidss);
 }
@@ -301,7 +301,7 @@ enum drm_mode_status tidss_crtc_mode_valid(struct drm_crtc *crtc,
 	struct drm_device *ddev = crtc->dev;
 	struct tidss_device *tidss = to_tidss(ddev);
 
-	return dispc_vp_mode_valid(tidss->dispc, tcrtc->hw_videoport, mode);
+	return dispc_vp_mode_valid(tidss->dispc, tcrtc->vp_idx, mode);
 }
 
 static const struct drm_crtc_helper_funcs tidss_crtc_helper_funcs = {
@@ -402,7 +402,7 @@ static const struct drm_crtc_funcs tidss_crtc_funcs = {
 };
 
 struct tidss_crtc *tidss_crtc_create(struct tidss_device *tidss,
-				     u32 hw_videoport,
+				     u32 vp_idx,
 				     struct drm_plane *primary)
 {
 	struct tidss_crtc *tcrtc;
@@ -415,7 +415,7 @@ struct tidss_crtc *tidss_crtc_create(struct tidss_device *tidss,
 	if (!tcrtc)
 		return ERR_PTR(-ENOMEM);
 
-	tcrtc->hw_videoport = hw_videoport;
+	tcrtc->vp_idx = vp_idx;
 	init_completion(&tcrtc->framedone_completion);
 
 	crtc =  &tcrtc->crtc;
