@@ -27,11 +27,15 @@
 #define SHIM_DMACNTX(i)			(0x20 + ((i) * 0x20))
 #define SHIM_DMACNTX_EN			BIT(31)
 #define SHIM_DMACNTX_YUV422		GENMASK(27, 26)
+#define SHIM_DMACNTX_SIZE		GENMASK(21, 20)
 #define SHIM_DMACNTX_FMT		GENMASK(5, 0)
 #define SHIM_DMACNTX_UYVY		0
 #define SHIM_DMACNTX_VYUY		1
 #define SHIM_DMACNTX_YUYV		2
 #define SHIM_DMACNTX_YVYU		3
+#define SHIM_DMACNTX_SIZE_8		0
+#define SHIM_DMACNTX_SIZE_16		1
+#define SHIM_DMACNTX_SIZE_32		2
 
 #define SHIM_PSI_CFG0(i)		(0x24 + ((i) * 0x20))
 #define SHIM_PSI_CFG0_SRC_TAG		GENMASK(15, 0)
@@ -59,6 +63,7 @@ struct ti_csi2rx_fmt {
 	u32				code;	/* Mbus code. */
 	u32				csi_dt;	/* CSI Data type. */
 	u8				bpp;	/* Bits per pixel. */
+	u8				size;	/* Data size shift when unpacking. */
 };
 
 struct ti_csi2rx_buffer {
@@ -125,21 +130,25 @@ static const struct ti_csi2rx_fmt formats[] = {
 		.code			= MEDIA_BUS_FMT_YUYV8_1X16,
 		.csi_dt			= MIPI_CSI2_DT_YUV422_8B,
 		.bpp			= 16,
+		.size			= SHIM_DMACNTX_SIZE_8,
 	}, {
 		.fourcc			= V4L2_PIX_FMT_UYVY,
 		.code			= MEDIA_BUS_FMT_UYVY8_1X16,
 		.csi_dt			= MIPI_CSI2_DT_YUV422_8B,
 		.bpp			= 16,
+		.size			= SHIM_DMACNTX_SIZE_8,
 	}, {
 		.fourcc			= V4L2_PIX_FMT_YVYU,
 		.code			= MEDIA_BUS_FMT_YVYU8_1X16,
 		.csi_dt			= MIPI_CSI2_DT_YUV422_8B,
 		.bpp			= 16,
+		.size			= SHIM_DMACNTX_SIZE_8,
 	}, {
 		.fourcc			= V4L2_PIX_FMT_VYUY,
 		.code			= MEDIA_BUS_FMT_VYUY8_1X16,
 		.csi_dt			= MIPI_CSI2_DT_YUV422_8B,
 		.bpp			= 16,
+		.size			= SHIM_DMACNTX_SIZE_8,
 	},
 
 	/* More formats can be supported but they are not listed for now. */
@@ -470,6 +479,8 @@ static void ti_csi2rx_setup_shim(struct ti_csi2rx_ctx *ctx)
 		/* Ignore if not YUV 4:2:2 */
 		break;
 	}
+
+	reg |= FIELD_PREP(SHIM_DMACNTX_SIZE, fmt->size);
 
 	writel(reg, csi->shim + SHIM_DMACNTX(ctx->idx));
 
