@@ -24,7 +24,7 @@
 #define SHIM_CNTL			0x10
 #define SHIM_CNTL_PIX_RST		BIT(0)
 
-#define SHIM_DMACNTX			0x20
+#define SHIM_DMACNTX(i)			(0x20 + ((i) * 0x20))
 #define SHIM_DMACNTX_EN			BIT(31)
 #define SHIM_DMACNTX_YUV422		GENMASK(27, 26)
 #define SHIM_DMACNTX_FMT		GENMASK(5, 0)
@@ -33,7 +33,7 @@
 #define SHIM_DMACNTX_YUYV		2
 #define SHIM_DMACNTX_YVYU		3
 
-#define SHIM_PSI_CFG0			0x24
+#define SHIM_PSI_CFG0(i)		(0x24 + ((i) * 0x20))
 #define SHIM_PSI_CFG0_SRC_TAG		GENMASK(15, 0)
 #define SHIM_PSI_CFG0_DST_TAG		GENMASK(31, 16)
 
@@ -418,10 +418,6 @@ static void ti_csi2rx_setup_shim(struct ti_csi2rx_ctx *ctx)
 		return;
 	}
 
-	/* De-assert the pixel interface reset. */
-	reg = SHIM_CNTL_PIX_RST;
-	writel(reg, csi->shim + SHIM_CNTL);
-
 	reg = SHIM_DMACNTX_EN;
 	reg |= FIELD_PREP(SHIM_DMACNTX_FMT, fmt->csi_dt);
 
@@ -453,11 +449,11 @@ static void ti_csi2rx_setup_shim(struct ti_csi2rx_ctx *ctx)
 		break;
 	}
 
-	writel(reg, csi->shim + SHIM_DMACNTX);
+	writel(reg, csi->shim + SHIM_DMACNTX(ctx->idx));
 
 	reg = FIELD_PREP(SHIM_PSI_CFG0_SRC_TAG, 0) |
 	      FIELD_PREP(SHIM_PSI_CFG0_DST_TAG, 0);
-	writel(reg, csi->shim + SHIM_PSI_CFG0);
+	writel(reg, csi->shim + SHIM_PSI_CFG0(ctx->idx));
 }
 
 static void ti_csi2rx_dma_callback(void *param)
@@ -665,7 +661,7 @@ static int ti_csi2rx_start_streaming(struct vb2_queue *vq, unsigned int count)
 
 err_dma:
 	dmaengine_terminate_sync(ctx->dma.chan);
-	writel(0, csi->shim + SHIM_DMACNTX);
+	writel(0, csi->shim + SHIM_DMACNTX(ctx->idx));
 err_pipeline:
 	video_device_pipeline_stop(&ctx->vdev);
 err:
@@ -685,13 +681,11 @@ static void ti_csi2rx_stop_streaming(struct vb2_queue *vq)
 	if (ret)
 		dev_err(csi->dev, "Failed to stop subdev stream\n");
 
-	writel(0, csi->shim + SHIM_CNTL);
-
 	ret = dmaengine_terminate_sync(ctx->dma.chan);
 	if (ret)
 		dev_err(csi->dev, "Failed to stop DMA: %d\n", ret);
 
-	writel(0, csi->shim + SHIM_DMACNTX);
+	writel(0, csi->shim + SHIM_DMACNTX(ctx->idx));
 
 	ti_csi2rx_cleanup_buffers(ctx, VB2_BUF_STATE_ERROR);
 }
@@ -945,6 +939,7 @@ static int ti_csi2rx_probe(struct platform_device *pdev)
 	struct ti_csi2rx_dev *csi;
 	struct resource *res;
 	int ret, i;
+	unsigned int reg;
 
 	csi = devm_kzalloc(&pdev->dev, sizeof(*csi), GFP_KERNEL);
 	if (!csi)
@@ -982,6 +977,10 @@ static int ti_csi2rx_probe(struct platform_device *pdev)
 		goto cleanup_subdev;
 	}
 
+	/* De-assert the pixel interface reset. */
+	reg = SHIM_CNTL_PIX_RST;
+	writel(reg, csi->shim + SHIM_CNTL);
+
 	return 0;
 
 cleanup_subdev:
@@ -1011,6 +1010,9 @@ static int ti_csi2rx_remove(struct platform_device *pdev)
 
 	ti_csi2rx_cleanup_subdev(csi);
 	ti_csi2rx_cleanup_v4l2(csi);
+
+	/* Assert the pixel reset. */
+	writel(0, csi->shim + SHIM_CNTL);
 
 	return 0;
 }
