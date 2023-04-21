@@ -9,8 +9,14 @@
 
 #include <linux/spinlock.h>
 
-#define TIDSS_MAX_PORTS 4
+#define TIDSS_MAX_VPS 4
 #define TIDSS_MAX_PLANES 4
+
+/*
+ * This is not dependent on the number of VPs.
+ * For example, some SoCs have 2 VPs but 3 outputs coming out.
+ */
+#define TIDSS_MAX_OUTPUTS 4
 
 typedef u32 dispc_irq_t;
 
@@ -22,7 +28,7 @@ struct tidss_device {
 	struct dispc_device *dispc;
 
 	unsigned int num_crtcs;
-	struct drm_crtc *crtcs[TIDSS_MAX_PORTS];
+	struct drm_crtc *crtcs[TIDSS_MAX_VPS];
 
 	unsigned int num_planes;
 	struct drm_plane *planes[TIDSS_MAX_PLANES];

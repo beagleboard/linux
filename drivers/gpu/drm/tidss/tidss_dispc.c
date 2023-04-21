@@ -61,7 +61,7 @@ const struct dispc_features dispc_k2g_feats = {
 	.min_pclk_khz = 4375,
 
 	.max_pclk_khz = {
-		[DISPC_VP_DPI] = 150000,
+		[DISPC_OUTPUT_DPI] = 150000,
 	},
 
 	/*
@@ -96,7 +96,6 @@ const struct dispc_features dispc_k2g_feats = {
 	.vp_name = { "vp1" },
 	.ovr_name = { "ovr1" },
 	.vpclk_name =  { "vp1" },
-	.vp_bus_type = { DISPC_VP_DPI },
 
 	.vp_feat = { .color = {
 			.has_ctm = true,
@@ -109,6 +108,10 @@ const struct dispc_features dispc_k2g_feats = {
 	.vid_name = { "vid1" },
 	.vid_lite = { false },
 	.vid_order = { 0 },
+
+	.num_outputs = 1,
+	.output_type = { DISPC_OUTPUT_DPI, },
+	.output_source_vp = { 0, },
 };
 
 static const u16 tidss_am65x_common_regs[DISPC_COMMON_REG_TABLE_LEN] = {
@@ -140,8 +143,8 @@ static const u16 tidss_am65x_common_regs[DISPC_COMMON_REG_TABLE_LEN] = {
 
 const struct dispc_features dispc_am65x_feats = {
 	.max_pclk_khz = {
-		[DISPC_VP_DPI] = 165000,
-		[DISPC_VP_OLDI] = 165000,
+		[DISPC_OUTPUT_DPI] = 165000,
+		[DISPC_OUTPUT_OLDI] = 165000,
 	},
 
 	.scaling = {
@@ -171,7 +174,6 @@ const struct dispc_features dispc_am65x_feats = {
 	.vp_name = { "vp1", "vp2" },
 	.ovr_name = { "ovr1", "ovr2" },
 	.vpclk_name =  { "vp1", "vp2" },
-	.vp_bus_type = { DISPC_VP_OLDI, DISPC_VP_DPI },
 
 	.vp_feat = { .color = {
 			.has_ctm = true,
@@ -185,6 +187,10 @@ const struct dispc_features dispc_am65x_feats = {
 	.vid_name = { "vid", "vidl1" },
 	.vid_lite = { false, true, },
 	.vid_order = { 1, 0 },
+
+	.num_outputs = 2,
+	.output_type = { DISPC_OUTPUT_OLDI, DISPC_OUTPUT_DPI, },
+	.output_source_vp = { 0, 1, },
 };
 
 static const u16 tidss_j721e_common_regs[DISPC_COMMON_REG_TABLE_LEN] = {
@@ -229,8 +235,8 @@ static const u16 tidss_j721e_common_regs[DISPC_COMMON_REG_TABLE_LEN] = {
 
 const struct dispc_features dispc_j721e_feats = {
 	.max_pclk_khz = {
-		[DISPC_VP_DPI] = 170000,
-		[DISPC_VP_INTERNAL] = 600000,
+		[DISPC_OUTPUT_DPI] = 170000,
+		[DISPC_OUTPUT_INTERNAL] = 600000,
 	},
 
 	.scaling = {
@@ -260,9 +266,6 @@ const struct dispc_features dispc_j721e_feats = {
 	.vp_name = { "vp1", "vp2", "vp3", "vp4" },
 	.ovr_name = { "ovr1", "ovr2", "ovr3", "ovr4" },
 	.vpclk_name = { "vp1", "vp2", "vp3", "vp4" },
-	/* Currently hard coded VP routing (see dispc_initial_config()) */
-	.vp_bus_type =	{ DISPC_VP_INTERNAL, DISPC_VP_DPI,
-			  DISPC_VP_INTERNAL, DISPC_VP_DPI, },
 	.vp_feat = { .color = {
 			.has_ctm = true,
 			.gamma_size = 1024,
@@ -273,6 +276,12 @@ const struct dispc_features dispc_j721e_feats = {
 	.vid_name = { "vid1", "vidl1", "vid2", "vidl2" },
 	.vid_lite = { 0, 1, 0, 1, },
 	.vid_order = { 1, 3, 0, 2 },
+
+	.num_outputs = 4,
+	/* Currently hard coded VP routing (see dispc_initial_config()) */
+	.output_type = { DISPC_OUTPUT_INTERNAL, DISPC_OUTPUT_DPI,
+			 DISPC_OUTPUT_INTERNAL, DISPC_OUTPUT_DPI, },
+	.output_source_vp = { 0, 1, 2, 3, },
 };
 
 static const u16 *dispc_common_regmap;
@@ -287,12 +296,12 @@ struct dispc_device {
 
 	void __iomem *base_common;
 	void __iomem *base_vid[TIDSS_MAX_PLANES];
-	void __iomem *base_ovr[TIDSS_MAX_PORTS];
-	void __iomem *base_vp[TIDSS_MAX_PORTS];
+	void __iomem *base_ovr[TIDSS_MAX_VPS];
+	void __iomem *base_vp[TIDSS_MAX_VPS];
 
 	struct regmap *oldi_io_ctrl;
 
-	struct clk *vp_clk[TIDSS_MAX_PORTS];
+	struct clk *vp_clk[TIDSS_MAX_VPS];
 
 	const struct dispc_features *feat;
 
@@ -300,7 +309,7 @@ struct dispc_device {
 
 	bool is_enabled;
 
-	struct dss_vp_data vp_data[TIDSS_MAX_PORTS];
+	struct dss_vp_data vp_data[TIDSS_MAX_VPS];
 
 	u32 *fourccs;
 	u32 num_fourccs;
@@ -442,6 +451,18 @@ static void OVR_REG_FLD_MOD(struct dispc_device *dispc, u32 ovr, u32 idx,
 	dispc_ovr_write(dispc, ovr, idx,
 			FLD_MOD(dispc_ovr_read(dispc, ovr, idx),
 				val, start, end));
+}
+
+enum dispc_output_type dispc_get_output_type(struct dispc_device *dispc,
+					     u32 vp_idx)
+{
+	u32 i;
+
+	for (i = 0; i < dispc->feat->num_outputs; i++)
+		if (dispc->feat->output_source_vp[i] == vp_idx)
+			return dispc->feat->output_type[i];
+
+	return DISPC_OUTPUT_DPI;
 }
 
 static dispc_irq_t dispc_vp_irq_from_raw(u32 stat, u32 vp_idx)
@@ -842,6 +863,7 @@ int dispc_vp_bus_check(struct dispc_device *dispc, u32 vp_idx,
 {
 	const struct tidss_crtc_state *tstate = to_tidss_crtc_state(state);
 	const struct dispc_bus_format *fmt;
+	enum dispc_output_type output_type;
 
 	fmt = dispc_vp_find_bus_fmt(dispc, vp_idx, tstate->bus_format,
 				    tstate->bus_flags);
@@ -851,8 +873,8 @@ int dispc_vp_bus_check(struct dispc_device *dispc, u32 vp_idx,
 		return -EINVAL;
 	}
 
-	if (dispc->feat->vp_bus_type[vp_idx] != DISPC_VP_OLDI &&
-	    fmt->is_oldi_fmt) {
+	output_type = dispc_get_output_type(dispc, vp_idx);
+	if (output_type != DISPC_OUTPUT_OLDI && fmt->is_oldi_fmt) {
 		dev_dbg(dispc->dev, "%s: %s is not OLDI-port\n",
 			__func__, dispc->feat->vp_name[vp_idx]);
 		return -EINVAL;
@@ -948,6 +970,7 @@ void dispc_vp_prepare(struct dispc_device *dispc, u32 vp_idx,
 {
 	const struct tidss_crtc_state *tstate = to_tidss_crtc_state(state);
 	const struct dispc_bus_format *fmt;
+	enum dispc_output_type output_type;
 
 	fmt = dispc_vp_find_bus_fmt(dispc, vp_idx, tstate->bus_format,
 				    tstate->bus_flags);
@@ -955,7 +978,8 @@ void dispc_vp_prepare(struct dispc_device *dispc, u32 vp_idx,
 	if (WARN_ON(!fmt))
 		return;
 
-	if (dispc->feat->vp_bus_type[vp_idx] == DISPC_VP_OLDI) {
+	output_type = dispc_get_output_type(dispc, vp_idx);
+	if (output_type == DISPC_OUTPUT_OLDI) {
 		dispc_oldi_tx_power(dispc, true);
 
 		dispc_enable_oldi(dispc, vp_idx, fmt);
@@ -970,6 +994,7 @@ void dispc_vp_enable(struct dispc_device *dispc, u32 vp_idx,
 	bool align, onoff, rf, ieo, ipc, ihs, ivs;
 	const struct dispc_bus_format *fmt;
 	u32 hsw, hfp, hbp, vsw, vfp, vbp;
+	enum dispc_output_type output_type;
 
 	fmt = dispc_vp_find_bus_fmt(dispc, vp_idx, tstate->bus_format,
 				    tstate->bus_flags);
@@ -1014,7 +1039,8 @@ void dispc_vp_enable(struct dispc_device *dispc, u32 vp_idx,
 	align = true;
 
 	/* always use DE_HIGH for OLDI */
-	if (dispc->feat->vp_bus_type[vp_idx] == DISPC_VP_OLDI)
+	output_type = dispc_get_output_type(dispc, vp_idx);
+	if (output_type == DISPC_OUTPUT_OLDI)
 		ieo = false;
 
 	dispc_vp_write(dispc, vp_idx, DISPC_VP_POL_FREQ,
@@ -1040,7 +1066,10 @@ void dispc_vp_disable(struct dispc_device *dispc, u32 vp_idx)
 
 void dispc_vp_unprepare(struct dispc_device *dispc, u32 vp_idx)
 {
-	if (dispc->feat->vp_bus_type[vp_idx] == DISPC_VP_OLDI) {
+	enum dispc_output_type output_type;
+
+	output_type = dispc_get_output_type(dispc, vp_idx);
+	if (output_type == DISPC_OUTPUT_OLDI) {
 		dispc_vp_write(dispc, vp_idx, DISPC_VP_DSS_OLDI_CFG, 0);
 
 		dispc_oldi_tx_power(dispc, false);
@@ -1115,12 +1144,12 @@ enum drm_mode_status dispc_vp_mode_valid(struct dispc_device *dispc, u32 vp_idx,
 					 const struct drm_display_mode *mode)
 {
 	u32 hsw, hfp, hbp, vsw, vfp, vbp;
-	enum dispc_vp_bus_type bus_type;
+	enum dispc_output_type output_type;
 	int max_pclk;
 
-	bus_type = dispc->feat->vp_bus_type[vp_idx];
+	output_type = dispc_get_output_type(dispc, vp_idx);
 
-	max_pclk = dispc->feat->max_pclk_khz[bus_type];
+	max_pclk = dispc->feat->max_pclk_khz[output_type];
 
 	if (WARN_ON(max_pclk == 0))
 		return MODE_BAD;

@@ -50,11 +50,11 @@ struct dispc_errata {
 	bool i2000; /* DSS Does Not Support YUV Pixel Data Formats */
 };
 
-enum dispc_vp_bus_type {
-	DISPC_VP_DPI,		/* DPI output */
-	DISPC_VP_OLDI,		/* OLDI (LVDS) output */
-	DISPC_VP_INTERNAL,	/* SoC internal routing */
-	DISPC_VP_MAX_BUS_TYPE,
+enum dispc_output_type {
+	DISPC_OUTPUT_DPI,		/* DPI output */
+	DISPC_OUTPUT_OLDI,		/* OLDI (LVDS) output */
+	DISPC_OUTPUT_INTERNAL,		/* SoC internal routing */
+	DISPC_OUTPUT_TYPES_MAX,
 };
 
 enum dispc_dss_subrevision {
@@ -65,7 +65,7 @@ enum dispc_dss_subrevision {
 
 struct dispc_features {
 	int min_pclk_khz;
-	int max_pclk_khz[DISPC_VP_MAX_BUS_TYPE];
+	int max_pclk_khz[DISPC_OUTPUT_TYPES_MAX];
 
 	struct dispc_features_scaling scaling;
 
@@ -74,21 +74,25 @@ struct dispc_features {
 	const char *common;
 	const u16 *common_regs;
 	u32 num_vps;
-	const char *vp_name[TIDSS_MAX_PORTS]; /* Should match dt reg names */
-	const char *ovr_name[TIDSS_MAX_PORTS]; /* Should match dt reg names */
-	const char *vpclk_name[TIDSS_MAX_PORTS]; /* Should match dt clk names */
-	const enum dispc_vp_bus_type vp_bus_type[TIDSS_MAX_PORTS];
+	const char *vp_name[TIDSS_MAX_VPS]; /* Should match dt reg names */
+	const char *ovr_name[TIDSS_MAX_VPS]; /* Should match dt reg names */
+	const char *vpclk_name[TIDSS_MAX_VPS]; /* Should match dt clk names */
 	struct tidss_vp_feat vp_feat;
 	u32 num_planes;
 	const char *vid_name[TIDSS_MAX_PLANES]; /* Should match dt reg names */
 	bool vid_lite[TIDSS_MAX_PLANES];
 	u32 vid_order[TIDSS_MAX_PLANES];
+	u32 num_outputs;
+	const enum dispc_output_type output_type[TIDSS_MAX_OUTPUTS];
+	u32 output_source_vp[TIDSS_MAX_OUTPUTS];
 };
 
 extern const struct dispc_features dispc_k2g_feats;
 extern const struct dispc_features dispc_am65x_feats;
 extern const struct dispc_features dispc_j721e_feats;
 
+enum dispc_output_type dispc_get_output_type(struct dispc_device *dispc,
+					     u32 vp_idx);
 void dispc_set_irqenable(struct dispc_device *dispc, dispc_irq_t mask);
 dispc_irq_t dispc_read_and_clear_irqstatus(struct dispc_device *dispc);
 

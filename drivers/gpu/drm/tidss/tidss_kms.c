@@ -120,16 +120,16 @@ static int tidss_dispc_modeset_init(struct tidss_device *tidss)
 	};
 
 	const struct dispc_features *feat = tidss->feat;
-	u32 max_vps = feat->num_vps;
+	u32 num_outputs = feat->num_outputs;
 	u32 max_planes = feat->num_planes;
 
-	struct pipe pipes[TIDSS_MAX_PORTS];
+	struct pipe pipes[TIDSS_MAX_VPS];
 	u32 num_pipes = 0;
 	u32 crtc_mask;
 
 	/* first find all the connected panels & bridges */
 
-	for (i = 0; i < max_vps; i++) {
+	for (i = 0; i < num_outputs; i++) {
 		struct drm_panel *panel;
 		struct drm_bridge *bridge;
 		u32 enc_type = DRM_MODE_ENCODER_NONE;
@@ -150,12 +150,12 @@ static int tidss_dispc_modeset_init(struct tidss_device *tidss)
 
 			dev_dbg(dev, "Setting up panel for port %d\n", i);
 
-			switch (feat->vp_bus_type[i]) {
-			case DISPC_VP_OLDI:
+			switch (feat->output_type[i]) {
+			case DISPC_OUTPUT_OLDI:
 				enc_type = DRM_MODE_ENCODER_LVDS;
 				conn_type = DRM_MODE_CONNECTOR_LVDS;
 				break;
-			case DISPC_VP_DPI:
+			case DISPC_OUTPUT_DPI:
 				enc_type = DRM_MODE_ENCODER_DPI;
 				conn_type = DRM_MODE_CONNECTOR_DPI;
 				break;
@@ -181,7 +181,7 @@ static int tidss_dispc_modeset_init(struct tidss_device *tidss)
 			}
 		}
 
-		pipes[num_pipes].vp_idx = i;
+		pipes[num_pipes].vp_idx = feat->output_source_vp[i];
 		pipes[num_pipes].bridge = bridge;
 		pipes[num_pipes].enc_type = enc_type;
 		num_pipes++;

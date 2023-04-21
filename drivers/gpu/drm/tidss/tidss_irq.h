@@ -35,7 +35,7 @@
 
 #define DSS_IRQ_VP_BIT_N(ch, bit)	(4 + 4 * (ch) + (bit))
 #define DSS_IRQ_PLANE_BIT_N(plane, bit) \
-	(DSS_IRQ_VP_BIT_N(TIDSS_MAX_PORTS, 0) + 1 * (plane) + (bit))
+	(DSS_IRQ_VP_BIT_N(TIDSS_MAX_VPS, 0) + 1 * (plane) + (bit))
 
 #define DSS_IRQ_VP_BIT(ch, bit)	BIT(DSS_IRQ_VP_BIT_N((ch), (bit)))
 #define DSS_IRQ_PLANE_BIT(plane, bit) \
