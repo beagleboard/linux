@@ -950,12 +950,53 @@ int dispc_vp_bus_check(struct dispc_device *dispc, u32 vp_idx,
 
 static void dispc_oldi_tx_power(struct dispc_device *dispc, bool power)
 {
-	u32 val;
+	u32 val = 0;
 
 	if (WARN_ON(!dispc->oldi_io_ctrl))
 		return;
 
+	/*
+	 * The power control bits are Active Low, and remain powered off by
+	 * default. That is, the bits are set to 1. To power on the OLDI TXes,
+	 * the bits must be cleared to 0. Since there are cases where not all
+	 * OLDI TXes are being used, the power logic selectively powers them
+	 * on.
+	 * Setting the variable 'val' to particular bit masks, makes sure that
+	 * the unrequired OLDI TXes remain powered off.
+	 */
 	switch (dispc->feat->subrev) {
+	case DISPC_AM625:
+		if (power) {
+			switch (dispc->oldi_mode) {
+			case OLDI_MODE_SINGLE_LINK:
+				/* Power down OLDI TX 1 */
+				val = AM625_OLDI1_PWRDN_TX;
+				break;
+
+			case OLDI_MODE_CLONE_SINGLE_LINK:
+			case OLDI_MODE_DUAL_LINK:
+				/* No Power down */
+				val = 0;
+				break;
+
+			default:
+				/* Power down both OLDI TXes and LVDS Bandgap */
+				val = AM625_OLDI0_PWRDN_TX | AM625_OLDI1_PWRDN_TX |
+				      AM625_OLDI_PWRDN_BG;
+				break;
+			}
+
+		} else {
+			/* Power down both OLDI TXes and LVDS Bandgap */
+			val = AM625_OLDI0_PWRDN_TX | AM625_OLDI1_PWRDN_TX |
+			      AM625_OLDI_PWRDN_BG;
+		}
+
+		regmap_update_bits(dispc->oldi_io_ctrl, AM625_OLDI_PD_CTRL,
+				   AM625_OLDI0_PWRDN_TX | AM625_OLDI1_PWRDN_TX |
+				   AM625_OLDI_PWRDN_BG, val);
+		break;
+
 	case DISPC_AM65X:
 		val = power ? 0 : AM65X_OLDI_PWRDN_TX;
 
