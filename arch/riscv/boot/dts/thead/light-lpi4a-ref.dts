@@ -1330,6 +1330,21 @@
 	};
 };
 
+&dpu_enc0 {
+       status = "okay";
+
+       ports {
+               /* output */
+               port@1 {
+                       reg = <1>;
+
+                       enc0_out: endpoint {
+                               remote-endpoint = <&dsi0_in>;
+                       };
+               };
+       };
+};
+
 &dpu_enc1 {
         ports {
                 /delete-node/ port@0;
@@ -1380,6 +1395,48 @@
 			};
 		};
 	};
+};
+
+&dsi0 {
+        status = "okay";
+};
+
+&dhost_0 {
+       ports {
+               #address-cells = <1>;
+               #size-cells = <0>;
+
+               port@0 {
+                       reg = <0>;
+
+                       dsi0_in: endpoint {
+                               remote-endpoint = <&enc0_out>;
+                       };
+               };
+
+               port@1 {
+                       reg = <1>;
+
+                       dsi0_out: endpoint {
+                               remote-endpoint = <&panel0_in>;
+                       };
+               };
+       };
+
+       panel0@0 {
+               compatible = "himax,hx8394";
+               reg = <0>;
+               backlight = <&lcd0_backlight>;
+               reset-gpio = <&pcal6408ahk_d 7 1>; /* active low */
+               hsvcc-supply = <&soc_vdd18_lcd0_en_reg>;
+               vspn3v3-supply = <&soc_vdd33_lcd0_en_reg>;
+
+               port {
+                       panel0_in: endpoint {
+                               remote-endpoint = <&dsi0_out>;
+                       };
+               };
+       };
 };
 
 &disp1_out {
