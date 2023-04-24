@@ -19,6 +19,7 @@
 	aliases {
 		serial2 = &main_uart0;
 		mmc1 = &sdhci1;
+		ethernet0 = &cpsw_port1;
 	};
 
 	chosen {
