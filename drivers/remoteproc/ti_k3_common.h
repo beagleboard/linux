@@ -2,11 +2,15 @@
 /*
  * TI K3 Remote Processor(s) driver common code
  *
- * Refactored from ti_k3_dsp_remoteproc.c.
+ * Refactored from ti_k3_dsp_remoteproc.c and ti_k3_m4_remoteproc.c.
  *
  * ti_k3_dsp_remoteproc.c:
  * Copyright (C) 2018-2022 Texas Instruments Incorporated - https://www.ti.com/
  *	Suman Anna <s-anna@ti.com>
+ *
+ * ti_k3_m4_remoteproc.c:
+ * Copyright (C) 2021 Texas Instruments Incorporated - https://www.ti.com/
+ *	Hari Nagalla <hnagalla@ti.com>
  */
 
 #ifndef REMOTEPROC_TI_K3_COMMON_H
@@ -83,6 +87,7 @@ struct k3_rproc {
 	u32 ti_sci_id;
 	struct mbox_chan *mbox;
 	struct mbox_client client;
+	bool ipc_only;
 };
 
 void k3_rproc_kick(struct rproc *rproc, int vqid);
