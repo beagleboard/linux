@@ -183,35 +183,38 @@ struct bspp_parser_functions {
 
 static struct bspp_parser_functions parser_fxns[VDEC_STD_MAX] = {
 	/* VDEC_STD_UNDEFINED */
-	{ NULL, NULL },
+	{ .set_parser_config = NULL, .determine_unit_type = NULL },
 	/* VDEC_STD_MPEG2 */
-	{ NULL, NULL },
+	{ .set_parser_config = NULL, .determine_unit_type = NULL },
 	/* VDEC_STD_MPEG4 */
-	{ NULL, NULL },
+	{ .set_parser_config = NULL, .determine_unit_type = NULL },
 	/* VDEC_STD_H263 */
-	{ NULL, NULL },
+	{ .set_parser_config = NULL, .determine_unit_type = NULL },
 	/* VDEC_STD_H264 */
-	{ bspp_h264_set_parser_config, bspp_h264_determine_unittype },
+	{ .set_parser_config = bspp_h264_set_parser_config,
+		.determine_unit_type = bspp_h264_determine_unittype },
 	/* VDEC_STD_VC1 */
-	{ NULL, NULL },
+	{ .set_parser_config = NULL, .determine_unit_type = NULL },
 	/* VDEC_STD_AVS */
-	{ NULL, NULL },
+	{ .set_parser_config = NULL, .determine_unit_type = NULL },
 	/* VDEC_STD_REAL */
-	{ NULL, NULL },
+	{ .set_parser_config = NULL, .determine_unit_type = NULL },
 	/* VDEC_STD_JPEG */
 #ifdef HAS_JPEG
-	{ bspp_jpeg_setparser_config, bspp_jpeg_determine_unit_type },
+	{ .set_parser_config = bspp_jpeg_setparser_config,
+		.determine_unit_type = bspp_jpeg_determine_unit_type },
 #else
-	{ NULL, NULL },
+	{ .set_parser_config = NULL, .determine_unit_type = NULL },
 #endif
 	/* VDEC_STD_VP6 */
-	{ NULL, NULL },
+	{ .set_parser_config = NULL, .determine_unit_type = NULL },
 	/* VDEC_STD_VP8 */
-	{ NULL, NULL },
+	{ .set_parser_config = NULL, .determine_unit_type = NULL },
 	/* VDEC_STD_SORENSON */
-	{ NULL, NULL },
+	{ .set_parser_config = NULL, .determine_unit_type = NULL },
 	/* VDEC_STD_HEVC */
-	{ bspp_hevc_set_parser_config, bspp_hevc_determine_unittype },
+	{ .set_parser_config = bspp_hevc_set_parser_config,
+		.determine_unit_type = bspp_hevc_determine_unittype },
 };
 
 /*
