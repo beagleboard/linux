@@ -268,6 +268,7 @@ struct vxd_dev {
 	struct platform_device *plat_dev;
 	struct v4l2_m2m_dev *m2m_dev;
 	struct mutex  *mutex; /* Per device mutex */
+	struct mutex  *mutex_queue; /* Mutex for ioctl synchronization on queue */
 	int module_irq;
 	void __iomem *reg_base;
 	struct vxd_core_props props;
