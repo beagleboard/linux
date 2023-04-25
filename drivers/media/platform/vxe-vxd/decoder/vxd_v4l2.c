@@ -824,6 +824,7 @@ static int vxd_dec_start_streaming(struct vb2_queue *vq, unsigned int count)
 			return ret;
 		}
 		ctx->core_streaming = TRUE;
+		ctx->aborting = 0;
 	}
 
 	return 0;
@@ -840,6 +841,11 @@ static void vxd_dec_stop_streaming(struct vb2_queue *vq)
 		ctx->dst_streaming = FALSE;
 	else
 		ctx->src_streaming = FALSE;
+
+	if (!ctx->stream_created) {
+		vxd_dec_return_all_buffers(ctx, vq, VB2_BUF_STATE_ERROR);
+		return;
+	}
 
 	if (ctx->core_streaming) {
 		core_stream_stop(ctx->res_str_id);
@@ -1042,9 +1048,38 @@ static int vxd_dec_release(struct file *file)
 	struct bspp_ddbuf_array_info *fw_pps = ctx->fw_pps;
 	int i, ret = 0;
 	struct vxd_dec_q_data *s_q_data;
+	struct list_head *list;
+	struct list_head *temp;
+	struct vxd_buffer *buf = NULL;
 
 	s_q_data = &ctx->q_data[Q_DATA_SRC];
+	if (ctx->core_streaming) {
+		core_stream_stop(ctx->res_str_id);
+		ctx->core_streaming = FALSE;
 
+		core_stream_flush(ctx->res_str_id, TRUE);
+	}
+
+	list_for_each(list, &ctx->out_buffers) {
+		buf = list_entry(list, struct vxd_buffer, list);
+		core_stream_unmap_buf_sg(buf->buf_map_id);
+		buf->mapped = FALSE;
+		__list_del_entry(&buf->list);
+	}
+
+	list_for_each_safe(list, temp, &ctx->reuse_queue) {
+		buf = list_entry(list, struct vxd_buffer, list);
+		core_stream_unmap_buf_sg(buf->buf_map_id);
+		buf->mapped = FALSE;
+		__list_del_entry(&buf->list);
+	}
+
+	list_for_each(list, &ctx->cap_buffers) {
+		buf = list_entry(list, struct vxd_buffer, list);
+		core_stream_unmap_buf_sg(buf->buf_map_id);
+		buf->mapped = FALSE;
+		__list_del_entry(&buf->list);
+	}
 	if (ctx->stream_created) {
 		bspp_stream_destroy(ctx->bspp_context);
 
