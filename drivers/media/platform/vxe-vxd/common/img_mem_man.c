@@ -288,7 +288,7 @@ static int _img_mem_alloc(void *device, struct mem_ctx *ctx,
 
 	*buffer_new = buffer;
 
-	dev_dbg(device, "%s heap %p ctx %p created buffer %d (%p) actual_size %zu\n",
+	dev_dbg(device, "%s heap %p ctx %p created buffer %d (%p) actual_size %lu\n",
 		__func__, heap, ctx, buffer->id, buffer, buffer->actual_size);
 	return 0;
 
@@ -307,7 +307,7 @@ int img_mem_alloc(void *device, struct mem_ctx *ctx, int heap_id,
 	struct buffer *buffer;
 	int ret;
 
-	dev_dbg(device, "%s heap %d ctx %p size %zu\n", __func__, heap_id,
+	dev_dbg(device, "%s heap %d ctx %p size %lu\n", __func__, heap_id,
 		ctx, size);
 
 	ret = mutex_lock_interruptible_nested(mem_man->mutex, SUBCLASS_IMGMEM);
@@ -331,7 +331,7 @@ int img_mem_alloc(void *device, struct mem_ctx *ctx, int heap_id,
 	*buf_id = buffer->id;
 	mutex_unlock(mem_man->mutex);
 
-	dev_dbg(device, "%s heap %d ctx %p created buffer %d (%p) size %zu\n",
+	dev_dbg(device, "%s heap %d ctx %p created buffer %d (%p) size %lu\n",
 		__func__, heap_id, ctx, *buf_id, buffer, size);
 	return ret;
 }
@@ -370,7 +370,7 @@ static int _img_mem_import(void *device, struct mem_ctx *ctx,
 
 	*buffer_new = buffer;
 
-	dev_dbg(device, "%s ctx %p created buffer %d (%p) actual_size %zu\n",
+	dev_dbg(device, "%s ctx %p created buffer %d (%p) actual_size %lu\n",
 		__func__, ctx, buffer->id, buffer, buffer->actual_size);
 	return 0;
 
@@ -386,7 +386,7 @@ int img_mem_import(void *device, struct mem_ctx *ctx,
 	struct buffer *buffer;
 	int ret;
 
-	dev_dbg(device, "%s ctx %p size %zu\n", __func__, ctx, size);
+	dev_dbg(device, "%s ctx %p size %lu\n", __func__, ctx, size);
 
 	ret = mutex_lock_interruptible_nested(mem_man->mutex, SUBCLASS_IMGMEM);
 	if (ret)
@@ -401,7 +401,7 @@ int img_mem_import(void *device, struct mem_ctx *ctx,
 	*buf_id = buffer->id;
 	mutex_unlock(mem_man->mutex);
 
-	dev_dbg(device, "%s ctx %p created buffer %d (%p) size %zu\n",
+	dev_dbg(device, "%s ctx %p created buffer %d (%p) size %lu\n",
 		__func__, ctx, *buf_id, buffer, size);
 	return ret;
 }
@@ -423,7 +423,7 @@ static void _img_mem_free(struct buffer *buffer)
 
 		map = list_first_entry(&buffer->mappings,
 				       struct mmu_ctx_mapping, buffer_entry);
-		dev_warn(dev, "%s: found mapping for buffer %d (size %zu)\n",
+		dev_warn(dev, "%s: found mapping for buffer %d (size %lu)\n",
 			 __func__, map->buffer->id, map->buffer->actual_size);
 
 		_img_mmu_unmap(map);
@@ -788,7 +788,7 @@ static void _img_mmu_ctx_destroy(struct mmu_ctx *ctx)
 				       struct mmu_ctx_mapping, mmu_ctx_entry);
 #ifdef DEBUG_DECODER_DRIVER
 		dev_info(ctx->device,
-			 "%s: found mapped buffer %d (size %zu)\n",
+			 "%s: found mapped buffer %d (size %lu)\n",
 			 __func__, map->buffer->id, map->buffer->request_size);
 #endif
 
@@ -840,7 +840,7 @@ int img_mmu_map_sg(struct mmu_ctx *mmu_ctx, struct mem_ctx *mem_ctx,
 		ret = -EINVAL;
 		goto error;
 	}
-	dev_dbg(mmu_ctx->device, "%s buffer %d 0x%p size %zu virt_addr %#x\n",
+	dev_dbg(mmu_ctx->device, "%s buffer %d 0x%p size %lu virt_addr %#x\n",
 		__func__, buff_id, buffer, buffer->request_size, virt_addr);
 
 	heap_alloc.virt_addr = virt_addr;
@@ -912,7 +912,7 @@ int img_mmu_map(struct mmu_ctx *mmu_ctx, struct mem_ctx *mem_ctx,
 		ret = -EINVAL;
 		goto error;
 	}
-	dev_dbg(mmu_ctx->device, "%s buffer %d 0x%p size %zu virt_addr %#x\n",
+	dev_dbg(mmu_ctx->device, "%s buffer %d 0x%p size %lu virt_addr %#x\n",
 		__func__, buff_id, buffer, buffer->request_size, virt_addr);
 
 	heap_alloc.virt_addr = virt_addr;
