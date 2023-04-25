@@ -301,6 +301,20 @@ static irqreturn_t hard_isrcb(int irq, void *dev_id)
 	return vxd_handle_irq(&pdev->dev);
 }
 
+static struct vxd_mapping *find_mapping(unsigned int buf_map_id, struct list_head *head)
+{
+	struct list_head *list;
+	struct vxd_mapping *mapping = NULL;
+
+	list_for_each(list, head) {
+		mapping = list_entry(list, struct vxd_mapping, list);
+		if (mapping->buf_map_id == buf_map_id)
+			break;
+		mapping = NULL;
+	}
+	return mapping;
+}
+
 static struct vxd_buffer *find_buffer(unsigned int buf_map_id, struct list_head *head)
 {
 	struct list_head *list;
@@ -395,6 +409,7 @@ static void vxd_return_resource(void *ctx_handle, enum vxd_cb_type type,
 	struct vxd_return *res;
 	struct vxd_buffer *buf = NULL;
 	struct vb2_v4l2_buffer *vb;
+	struct vxd_mapping *mapping = NULL;
 	struct vxd_dec_ctx *ctx = (struct vxd_dec_ctx *)ctx_handle;
 	struct v4l2_event event = {};
 	struct device *dev = ctx->dev->dev;
@@ -447,7 +462,7 @@ static void vxd_return_resource(void *ctx_handle, enum vxd_cb_type type,
 				buf_map_id);
 			break;
 		}
-		buf->reuse = FALSE;
+		buf->mapping->reuse = FALSE;
 		buf->buffer.vb.field = V4L2_FIELD_NONE;
 		q_data = get_q_data(ctx, buf->buffer.vb.vb2_buf.vb2_queue->type);
 		if (!q_data)
@@ -462,20 +477,19 @@ static void vxd_return_resource(void *ctx_handle, enum vxd_cb_type type,
 	case VXD_CB_PICT_RELEASE:
 		buf = find_buffer(buf_map_id, &ctx->reuse_queue);
 		if (buf) {
-			buf->reuse = TRUE;
+			buf->mapping->reuse = TRUE;
 			list_move_tail(&buf->list, &ctx->cap_buffers);
 
 			v4l2_m2m_buf_queue(ctx->fh.m2m_ctx, &buf->buffer.vb);
 			break;
 		}
-		buf = find_buffer(buf_map_id, &ctx->cap_buffers);
-		if (!buf) {
+		mapping = find_mapping(buf_map_id, &ctx->cap_mappings);
+		if (!mapping) {
 			dev_err(dev, "Could not locate buf_map_id=0x%x in CAPTURE buffers list\n",
 				buf_map_id);
-
 			break;
 		}
-		buf->reuse = TRUE;
+		mapping->reuse = TRUE;
 
 		break;
 	case VXD_CB_PICT_END:
@@ -615,6 +629,9 @@ static int vxd_dec_buf_prepare(struct vb2_buffer *vb)
 	int nents = 0;
 	int size = 0;
 	int plane, num_planes, ret = 0;
+	unsigned long dma_addr;
+	struct vxd_mapping *mapping;
+	struct list_head *list;
 	struct vxd_buffer *buf =
 		container_of(vb, struct vxd_buffer, buffer.vb.vb2_buf);
 
@@ -633,8 +650,38 @@ static int vxd_dec_buf_prepare(struct vb2_buffer *vb)
 		}
 	}
 
-	if (buf->mapped)
+	if (buf->mapped && !V4L2_TYPE_IS_OUTPUT(vb->type)) {
+#ifdef CAPTURE_CONTIG_ALLOC
+		dma_addr = vb2_dma_contig_plane_dma_addr(vb, 0);
+#else
+		sgt = vb2_dma_sg_plane_desc(vb, 0);
+		if (!sgt)
+			return -EFAULT;
+
+		dma_addr = sg_phys(img_mmu_get_sgl(sgt));
+#endif
+		if (buf->buf_info.dma_addr != dma_addr) {
+			list_for_each(list, &ctx->cap_mappings) {
+				mapping = list_entry(list, struct vxd_mapping, list);
+				if (dma_addr == mapping->dma_addr)
+					break;
+
+				mapping = NULL;
+			}
+			if (mapping) {
+				/* skip the mapping, buf update buf_map_id */
+				buf->buf_info.dma_addr = mapping->dma_addr;
+				buf->buf_map_id = mapping->buf_map_id;
+				buf->buf_info.cpu_linear_addr = vb2_plane_vaddr(vb, 0);
+				buf->mapping = mapping;
+				return 0;
+			}
+		} else {
+			return 0;
+		}
+	} else if (buf->mapped) {
 		return 0;
+	}
 
 	buf->buf_info.cpu_linear_addr = vb2_plane_vaddr(vb, 0);
 	buf->buf_info.buf_size = vb2_plane_size(vb, 0);
@@ -646,6 +693,7 @@ static int vxd_dec_buf_prepare(struct vb2_buffer *vb)
 	}
 
 	if (V4L2_TYPE_IS_OUTPUT(vb->type)) {
+		buf->buf_info.dma_addr = sg_phys(img_mmu_get_sgl(sgt));
 		ret = core_stream_map_buf_sg(ctx->res_str_id,
 					     VDEC_BUFTYPE_BITSTREAM,
 					     &buf->buf_info, sgt,
@@ -667,6 +715,11 @@ static int vxd_dec_buf_prepare(struct vb2_buffer *vb)
 
 		list_add_tail(&buf->list, &ctx->out_buffers);
 	} else {
+#ifdef CAPTURE_CONTIG_ALLOC
+		buf->buf_info.dma_addr = vb2_dma_contig_plane_dma_addr(vb, 0);
+#else
+		buf->buf_info.dma_addr = sg_phys(img_mmu_get_sgl(sgt));
+#endif
 		/* Create a single sgt from the plane(s) */
 		sgt_new = kmalloc(sizeof(*sgt_new), GFP_KERNEL);
 		if (!sgt_new)
@@ -731,10 +784,19 @@ static int vxd_dec_buf_prepare(struct vb2_buffer *vb)
 			dev_err(dev, "CAPTURE core_stream_map_buf_sg failed\n");
 			return ret;
 		}
-		list_add_tail(&buf->list, &ctx->cap_buffers);
+		if (buf->mapped == FALSE)
+			list_add_tail(&buf->list, &ctx->cap_buffers);
+
+		/* Add this to the mappings */
+		mapping = kzalloc(sizeof(*mapping), GFP_KERNEL);
+
+		mapping->reuse = TRUE;
+		mapping->dma_addr = buf->buf_info.dma_addr;
+		mapping->buf_map_id = buf->buf_map_id;
+		list_add_tail(&mapping->list, &ctx->cap_mappings);
+		buf->mapping = mapping;
 	}
 	buf->mapped = TRUE;
-	buf->reuse = TRUE;
 
 	return 0;
 }
@@ -752,7 +814,7 @@ static void vxd_dec_buf_queue(struct vb2_buffer *vb)
 		v4l2_m2m_buf_queue(ctx->fh.m2m_ctx, vbuf);
 	} else {
 		mutex_lock_nested(ctx->mutex, SUBCLASS_VXD_V4L2);
-		if (buf->reuse) {
+		if (buf->mapping->reuse) {
 			mutex_unlock(ctx->mutex);
 			if (ctx->flag_last) {
 				q_data = get_q_data(ctx, V4L2_BUF_TYPE_VIDEO_CAPTURE);
@@ -830,6 +892,7 @@ static void vxd_dec_stop_streaming(struct vb2_queue *vq)
 	struct list_head *list;
 	struct list_head *temp;
 	struct vxd_buffer *buf = NULL;
+	struct vxd_mapping *mapping = NULL;
 
 	if (V4L2_TYPE_IS_OUTPUT(vq->type))
 		ctx->dst_streaming = FALSE;
@@ -847,7 +910,6 @@ static void vxd_dec_stop_streaming(struct vb2_queue *vq)
 
 		core_stream_flush(ctx->res_str_id, TRUE);
 	}
-
 	/* unmap all the output and capture plane buffers */
 	if (V4L2_TYPE_IS_OUTPUT(vq->type)) {
 		list_for_each(list, &ctx->out_buffers) {
@@ -863,11 +925,10 @@ static void vxd_dec_stop_streaming(struct vb2_queue *vq)
 			v4l2_m2m_buf_queue(ctx->fh.m2m_ctx, &buf->buffer.vb);
 		}
 
-		list_for_each(list, &ctx->cap_buffers) {
-			buf = list_entry(list, struct vxd_buffer, list);
-			core_stream_unmap_buf_sg(buf->buf_map_id);
-			buf->mapped = FALSE;
-			__list_del_entry(&buf->list);
+		list_for_each(list, &ctx->cap_mappings) {
+			mapping = list_entry(list, struct vxd_mapping, list);
+			core_stream_unmap_buf_sg(mapping->buf_map_id);
+			__list_del_entry(&mapping->list);
 		}
 	}
 
@@ -1018,6 +1079,7 @@ static int vxd_dec_open(struct file *file)
 	INIT_LIST_HEAD(&ctx->return_queue);
 	INIT_LIST_HEAD(&ctx->out_buffers);
 	INIT_LIST_HEAD(&ctx->cap_buffers);
+	INIT_LIST_HEAD(&ctx->cap_mappings);
 
 	mutex_unlock(vxd->mutex);
 
@@ -1046,6 +1108,7 @@ static int vxd_dec_release(struct file *file)
 	struct list_head *list;
 	struct list_head *temp;
 	struct vxd_buffer *buf = NULL;
+	struct vxd_mapping *mapping = NULL;
 
 	s_q_data = &ctx->q_data[Q_DATA_SRC];
 	if (ctx->core_streaming) {
@@ -1069,11 +1132,10 @@ static int vxd_dec_release(struct file *file)
 		__list_del_entry(&buf->list);
 	}
 
-	list_for_each(list, &ctx->cap_buffers) {
-		buf = list_entry(list, struct vxd_buffer, list);
-		core_stream_unmap_buf_sg(buf->buf_map_id);
-		buf->mapped = FALSE;
-		__list_del_entry(&buf->list);
+	list_for_each(list, &ctx->cap_mappings) {
+		mapping = list_entry(list, struct vxd_mapping, list);
+		core_stream_unmap_buf_sg(mapping->buf_map_id);
+		__list_del_entry(&mapping->list);
 	}
 	if (ctx->stream_created) {
 		bspp_stream_destroy(ctx->bspp_context);

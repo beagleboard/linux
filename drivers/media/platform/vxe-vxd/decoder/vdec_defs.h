@@ -484,6 +484,7 @@ struct vdec_buf_info {
 	enum sys_emem_attrib mem_attrib;
 	void *buf_alloc_handle;
 	void *buf_map_handle;
+	unsigned long  dma_addr;
 };
 
 #ifdef HAS_JPEG
