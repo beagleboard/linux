@@ -314,7 +314,7 @@ static void device_run(void *priv)
 			dev_err(dev, "Failed to reserve source slot %d\n",
 				ret);
 		ret = topaz_send_source_frame(ctx->topaz_str_context, &buf->src_frame,
-					      ctx->frame_num, (unsigned long long)ctx);
+					      ctx->frame_num, (unsigned long)ctx);
 		if (ret)
 			dev_err(dev, "Failed to send source frame %d\n",
 				ret);
@@ -1808,7 +1808,7 @@ static int vxe_enc_probe(struct platform_device *pdev)
 
 	vxe->ctx = ctx;
 
-	ret = topazdd_init((unsigned long long)vxe->reg_base, res->end - res->start + 1,
+	ret = topazdd_init((unsigned long)vxe->reg_base, res->end - res->start + 1,
 			   (MMU_USE_MMU_FLAG | MMU_EXTENDED_ADDR_FLAG),
 			   ctx, vxe->drv_ctx.ptd, &vxe->topaz_dev_ctx);
 	if (ret)

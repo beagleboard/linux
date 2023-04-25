@@ -761,7 +761,7 @@ void handle_encoder_firmware_response(struct img_writeback_msg *wb_msg, void *pr
 static inline void populate_firmware_message(struct vidio_ddbufinfo *dest, unsigned int dest_offset,
 					     struct vidio_ddbufinfo *src, unsigned int src_offset)
 {
-	*(unsigned int *)((unsigned long long)dest->cpu_virt + dest_offset) =
+	*(unsigned int *)((unsigned long)dest->cpu_virt + dest_offset) =
 		src->dev_virt + src_offset;
 }
 

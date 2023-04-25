@@ -22,20 +22,20 @@
 
 /* Write to the register */
 #define VXE_WR_REG32(base, offs, val) \
-	(iowrite32((val), (void *)((offs) + (unsigned long long)(base))))
+	(iowrite32((val), (void *)((offs) + (unsigned long)(base))))
 
 /* Read the register */
 #define VXE_RD_REG32(base, offs) \
 	(ioread32((void *)((base) + (offs))))
 
 #define VXE_POLL_REG32_ISEQ(base, offs, val, mask, cnt) \
-	(ioreg32_poll_iseq((unsigned long long)(base) + (offs), val, mask, cnt))
+	(ioreg32_poll_iseq((unsigned long)(base) + (offs), val, mask, cnt))
 
 #define REG_BASE_HOST                   0x00000000
 #define REG_OFFSET_TOPAZ_MTX            0x00000800
 #define REG_START_TOPAZ_MTX_HOST        (REG_BASE_HOST + REG_OFFSET_TOPAZ_MTX)
 
-static inline int ioreg32_poll_iseq(unsigned long long addr,
+static inline int ioreg32_poll_iseq(unsigned long addr,
 				    unsigned int req_val, unsigned int mask, unsigned int cnt)
 {
 	unsigned int count, val;
