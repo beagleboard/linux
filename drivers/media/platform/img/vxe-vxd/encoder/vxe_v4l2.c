@@ -1935,7 +1935,7 @@ static int vxe_enc_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static const struct platform_driver vxe_enc_driver = {
+static struct platform_driver vxe_enc_driver = {
 	.probe = vxe_enc_probe,
 	.remove = vxe_enc_remove,
 	.driver = {

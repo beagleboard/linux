@@ -779,6 +779,7 @@ static int vdeckm_get_message(const void *hndl_vxd, const enum hwctrl_msgid msgi
 	return result;
 }
 
+#ifdef DEBUG_DECODER_DRIVER
 static void hwctrl_dump_state(struct vxd_states *prev_state,
 			      struct vxd_states *cur_state,
 			      unsigned char pipe_minus1)
@@ -825,6 +826,7 @@ static void hwctrl_dump_state(struct vxd_states *prev_state,
 		cur_state->fw_state.pipe_state[pipe_minus1].acheck_point
 		[VDECFW_CHECKPOINT_PICTURE_STARTED]);
 }
+#endif
 
 static unsigned int hwctrl_calculate_load(struct bspp_pict_hdr_info *pict_hdr_info)
 {
