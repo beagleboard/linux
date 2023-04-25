@@ -308,6 +308,8 @@ static struct vxd_mapping *find_mapping(unsigned int buf_map_id, struct list_hea
 
 	list_for_each(list, head) {
 		mapping = list_entry(list, struct vxd_mapping, list);
+		if (!mapping)
+			continue;
 		if (mapping->buf_map_id == buf_map_id)
 			break;
 		mapping = NULL;
@@ -322,6 +324,8 @@ static struct vxd_buffer *find_buffer(unsigned int buf_map_id, struct list_head 
 
 	list_for_each(list, head) {
 		buf = list_entry(list, struct vxd_buffer, list);
+		if (!buf)
+			continue;
 		if (buf->buf_map_id == buf_map_id)
 			break;
 		buf = NULL;
@@ -867,9 +871,9 @@ static int vxd_dec_start_streaming(struct vb2_queue *vq, unsigned int count)
 	struct vxd_dec_ctx *ctx = vb2_get_drv_priv(vq);
 
 	if (V4L2_TYPE_IS_OUTPUT(vq->type))
-		ctx->dst_streaming = TRUE;
-	else
 		ctx->src_streaming = TRUE;
+	else
+		ctx->dst_streaming = TRUE;
 
 	if (ctx->dst_streaming && ctx->src_streaming && !ctx->core_streaming) {
 		if (!ctx->stream_configured) {
@@ -900,9 +904,9 @@ static void vxd_dec_stop_streaming(struct vb2_queue *vq)
 	struct vxd_mapping *mapping = NULL;
 
 	if (V4L2_TYPE_IS_OUTPUT(vq->type))
-		ctx->dst_streaming = FALSE;
-	else
 		ctx->src_streaming = FALSE;
+	else
+		ctx->dst_streaming = FALSE;
 
 	if (!ctx->stream_created) {
 		vxd_dec_return_all_buffers(ctx, vq, VB2_BUF_STATE_ERROR);
@@ -928,6 +932,11 @@ static void vxd_dec_stop_streaming(struct vb2_queue *vq)
 			buf = list_entry(list, struct vxd_buffer, list);
 			list_move_tail(&buf->list, &ctx->cap_buffers);
 			v4l2_m2m_buf_queue(ctx->fh.m2m_ctx, &buf->buffer.vb);
+		}
+
+		list_for_each(list, &ctx->cap_buffers) {
+			buf = list_entry(list, struct vxd_buffer, list);
+			__list_del_entry(&buf->list);
 		}
 
 		list_for_each(list, &ctx->cap_mappings) {
@@ -1127,6 +1136,11 @@ static int vxd_dec_release(struct file *file)
 		buf = list_entry(list, struct vxd_buffer, list);
 		core_stream_unmap_buf_sg(buf->buf_map_id);
 		buf->mapped = FALSE;
+		__list_del_entry(&buf->list);
+	}
+
+	list_for_each(list, &ctx->cap_buffers) {
+		buf = list_entry(list, struct vxd_buffer, list);
 		__list_del_entry(&buf->list);
 	}
 
