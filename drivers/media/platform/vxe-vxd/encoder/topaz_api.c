@@ -623,13 +623,17 @@ int topaz_process_message(struct topaz_stream_context *str_ctx, struct mtx_tohos
 					(void *)(feedback_struct->coded_package->coded_buffer[0]),
 					feedback_struct->bytes_coded, video->frames_encoded);
 
-			if (feedback_struct->src_frame)
-				/* Send callback for coded_buffer ready */
-				global_topaz_core_context->vxe_str_processed_cb(str_ctx->vxe_ctx,
-					VXE_CB_SRC_FRAME_RELEASE,
-					(void *)(feedback_struct->src_frame),
-					0, 0);
-
+			if (!str_ctx->vxe_ctx->eos) {
+				if (feedback_struct->src_frame) {
+					/* Send callback for src ready */
+					global_topaz_core_context->vxe_str_processed_cb(
+						str_ctx->vxe_ctx,
+						VXE_CB_SRC_FRAME_RELEASE,
+						(void *)(feedback_struct
+								 ->src_frame),
+						0, 0);
+				}
+			}
 			if (video->flush_at_frame > 0 &&
 			    video->frames_encoded >= video->flush_at_frame)
 				feedback_struct->last_frame_encoded = TRUE;
@@ -755,7 +759,9 @@ void handle_encoder_firmware_response(struct img_writeback_msg *wb_msg, void *pr
 		tohost_msg.command_data_buf = NULL;
 	}
 
+	mutex_lock_nested(str_ctx->vxe_ctx->mutex, SUBCLASS_VXE_V4L2);
 	topaz_process_message(str_ctx, tohost_msg);
+	mutex_unlock(str_ctx->vxe_ctx->mutex);
 }
 
 static inline void populate_firmware_message(struct vidio_ddbufinfo *dest, unsigned int dest_offset,
@@ -2918,7 +2924,7 @@ int topaz_encode_frame(void *topaz_str_ctx)
 		/* Set bit 20 to 1 to inform FW that we are using the line counter feature */
 		encode_cmd_data |= F_ENCODE(1, MTX_MSG_ENCODE_USE_LINE_COUNTER);
 
-	topaz_insert_command_with_sync(enc, (enum mtx_cmd_id)
+	topaz_insert_command(enc, (enum mtx_cmd_id)
 				       (MTX_CMDID_ENCODE_FRAME | MTX_CMDID_WB_INTERRUPT),
 		encode_cmd_data);
 

@@ -232,10 +232,12 @@ static void vxe_return_resource(void *ctx_handle, enum vxe_cb_type type,
 
 		v4l2_m2m_buf_done(&buf->buffer.vb, VB2_BUF_STATE_DONE);
 
-		if (coded_frm_cnt == ctx->last_frame_num)
+		if ((coded_frm_cnt == ctx->last_frame_num) && (coded_frm_cnt != 0)) {
 			vxe_eos(ctx);
-
-		v4l2_m2m_job_finish(ctx->dev->m2m_dev, ctx->fh.m2m_ctx);
+			ctx->eos = TRUE;
+		}
+		if (ctx->frames_encoding < 2)
+			v4l2_m2m_job_finish(ctx->dev->m2m_dev, ctx->fh.m2m_ctx);
 		break;
 	case VXE_CB_SRC_FRAME_RELEASE:
 		if (!img_buf_ref)
@@ -354,7 +356,7 @@ static int job_ready(void *priv)
 	if (((topaz_query_empty_source_slots(ctx->topaz_str_context) > 0) &&
 	     (v4l2_m2m_num_src_bufs_ready(ctx->fh.m2m_ctx) > 0)) &&
 	    ((topaz_query_empty_coded_slots(ctx->topaz_str_context) > 0) &&
-	    (v4l2_m2m_num_dst_bufs_ready(ctx->fh.m2m_ctx) > 0)))
+	    (v4l2_m2m_num_dst_bufs_ready(ctx->fh.m2m_ctx) > 0)) && ctx->core_streaming)
 		return 1;
 
 	/*
@@ -362,14 +364,15 @@ static int job_ready(void *priv)
 	 * that coded buffers are available
 	 */
 	if (ctx->eos && (v4l2_m2m_num_dst_bufs_ready(ctx->fh.m2m_ctx) > 0) &&
-	    (topaz_query_empty_coded_slots(ctx->topaz_str_context) > 0))
+	    (topaz_query_empty_coded_slots(ctx->topaz_str_context) > 0) && ctx->core_streaming)
 		return 1;
 
 	/*
 	 * Since we're allowing device_run for both submissions and actual
 	 * encodes, say job ready if buffers are ready in fw
 	 */
-	if (ctx->available_source_frames > 0 && ctx->available_coded_packages > 0)
+	if (ctx->available_source_frames > 0 && ctx->available_coded_packages > 0
+			&& ctx->core_streaming)
 		return 1;
 
 	return 0;
@@ -378,6 +381,9 @@ static int job_ready(void *priv)
 static void job_abort(void *priv)
 {
 	/* TODO: stub */
+	struct vxe_enc_ctx *ctx = priv;
+
+	ctx->core_streaming = FALSE;
 }
 
 static const struct v4l2_m2m_ops m2m_ops = {
@@ -598,6 +604,7 @@ static int vxe_start_streaming(struct vb2_queue *vq, unsigned int count)
 {
 	struct vxe_enc_ctx *ctx = vb2_get_drv_priv(vq);
 	struct vxe_enc_q_data *queue;
+	ctx->core_streaming = TRUE;
 
 	queue = get_queue(ctx, vq->type);
 	queue->streaming = TRUE;
@@ -610,20 +617,28 @@ static void vxe_stop_streaming(struct vb2_queue *vq)
 	struct vxe_enc_ctx *ctx = vb2_get_drv_priv(vq);
 	struct device *dev = ctx->dev->dev;
 	struct vb2_v4l2_buffer *vb;
+	struct vxe_enc_q_data *queue;
 
+	queue = get_queue(ctx, vq->type);
 	/* Unmap all buffers in v4l2 from mmu */
-	while (v4l2_m2m_num_dst_bufs_ready(ctx->fh.m2m_ctx)) {
-		vb = v4l2_m2m_dst_buf_remove(ctx->fh.m2m_ctx);
-		if (!vb)
-			dev_err(dev, "Next dst buffer is null\n");
-		v4l2_m2m_buf_done(vb, VB2_BUF_STATE_ERROR);
+	mutex_lock_nested(ctx->mutex, SUBCLASS_VXE_V4L2);
+	ctx->core_streaming = FALSE;
+	if (!V4L2_TYPE_IS_OUTPUT(queue->fmt->type)) {
+		while (v4l2_m2m_num_dst_bufs_ready(ctx->fh.m2m_ctx)) {
+			vb = v4l2_m2m_dst_buf_remove(ctx->fh.m2m_ctx);
+			if (!vb)
+				dev_err(dev, "Next dst buffer is null\n");
+			v4l2_m2m_buf_done(vb, VB2_BUF_STATE_ERROR);
+		}
+	} else {
+		while (v4l2_m2m_num_src_bufs_ready(ctx->fh.m2m_ctx)) {
+			vb = v4l2_m2m_src_buf_remove(ctx->fh.m2m_ctx);
+			if (!vb)
+				dev_err(dev, "Next dst buffer is null\n");
+			v4l2_m2m_buf_done(vb, VB2_BUF_STATE_ERROR);
+		}
 	}
-	while (v4l2_m2m_num_src_bufs_ready(ctx->fh.m2m_ctx)) {
-		vb = v4l2_m2m_src_buf_remove(ctx->fh.m2m_ctx);
-		if (!vb)
-			dev_err(dev, "Next dst buffer is null\n");
-		v4l2_m2m_buf_done(vb, VB2_BUF_STATE_ERROR);
-	}
+	mutex_unlock(ctx->mutex);
 }
 
 static const struct vb2_ops vxe_video_ops = {
@@ -1242,8 +1257,9 @@ static int vxe_cmd(struct file *file, void *fh, struct v4l2_encoder_cmd *cmd)
 		 * Buffers are still in firmware for encode. Tell topaz
 		 * that last frame sent is last frame in stream
 		 */
-		topaz_end_of_stream(ctx->topaz_str_context, ctx->frame_num + 1);
-		ctx->last_frame_num = ctx->frame_num + 1;
+		topaz_end_of_stream(ctx->topaz_str_context, ctx->frame_num);
+		ctx->last_frame_num = ctx->frame_num;
+		mutex_unlock((struct mutex *)ctx->mutex);
 	} else {
 		/* All buffers are encoded, so issue dummy stream end */
 		mutex_unlock((struct mutex *)ctx->mutex);
