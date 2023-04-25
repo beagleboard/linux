@@ -4330,7 +4330,6 @@ static int decoder_picture_decoded(struct dec_str_ctx *dec_str_ctx,
 #ifdef DEBUG_DECODER_DRIVER
 		pr_info("EOS reached\n");
 #endif
-
 		ret = dec_str_ctx->str_processed_cb((void *)dec_str_ctx->usr_int_data,
 				VXD_CB_STR_END, NULL);
 		VDEC_ASSERT(ret == IMG_SUCCESS);
@@ -4375,7 +4374,7 @@ int decoder_service_firmware_response(void *dec_str_ctx_arg, unsigned int *msg,
 
 	pr_debug("%s : process firmware response\n", __func__);
 	ret = hwctrl_process_msg(dec_core_ctx->hw_ctx, msg_flags, msg, &dec_pict);
-	VDEC_ASSERT(ret == IMG_SUCCESS);
+	VDEC_ASSERT((ret == IMG_SUCCESS) | (ret == IMG_ERROR_FATAL));
 	if (ret != IMG_SUCCESS)
 		return ret;
 

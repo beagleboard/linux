@@ -423,7 +423,7 @@ static void core_fw_response_cb(int res_str_id, unsigned int *msg, unsigned int 
 
 	ret = decoder_service_firmware_response(core_str_ctx->dd_str_ctx->dec_ctx,
 						msg, msg_size, msg_flags);
-	VDEC_ASSERT(ret == IMG_SUCCESS);
+	VDEC_ASSERT((ret == IMG_SUCCESS) | (ret == IMG_ERROR_FATAL));
 	if (ret != IMG_SUCCESS)
 		pr_err("decoder_service_firmware_response failed\n");
 }
