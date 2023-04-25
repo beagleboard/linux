@@ -1,0 +1,779 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * VXD PVDEC registers header file
+ *
+ * Copyright (c) Imagination Technologies Ltd.
+ * Copyright (c) 2021 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * Authors:
+ *	Angela Stegmaier <angelabaker@ti.com>
+ *
+ * Re-written for upstreamimg
+ *	Sidraya Jayagond <sidraya.bj@pathpartnertech.com>
+ *	Prashanth Kumar Amai <prashanth.ka@pathpartnertech.com>
+ */
+
+#ifndef VXD_PVDEC_REGS_H
+#define VXD_PVDEC_REGS_H
+
+/* ************************* VXD-specific values *************************** */
+/* 0x10 for code, 0x18 for data. */
+#define PVDEC_MTX_CORE_MEM 0x18
+/* Iteration time out counter for MTX I/0. */
+#define PVDEC_TIMEOUT_COUNTER 1000
+/* Partial frame notification timer divider. */
+#define PVDEC_PFNT_DIV 0
+/* Value returned by register reads when HW enters invalid state (FPGA) */
+#define PVDEC_INVALID_HW_STATE 0x000dead1
+
+/* Default core clock for pvdec */
+#define PVDEC_CLK_MHZ_DEFAULT 200
+
+/* Offsets of registers groups within VXD. */
+#define PVDEC_PROC_OFFSET 0x0000
+/* 0x34c: Skip DMA registers when running against CSIM (vritual platform) */
+#define PVDEC_PROC_SIZE 0x34C  /* 0x3FF */
+
+#define PVDEC_CORE_OFFSET 0x0400
+#define PVDEC_CORE_SIZE 0x3FF
+
+#define MTX_CORE_OFFSET PVDEC_PROC_OFFSET
+#define MTX_CORE_SIZE PVDEC_PROC_SIZE
+
+#define VIDEO_BUS4_MMU_OFFSET 0x1000
+#define VIDEO_BUS4_MMU_SIZE 0x1FF
+
+#define IMG_VIDEO_BUS4_MMU_OFFSET VIDEO_BUS4_MMU_OFFSET
+#define IMG_VIDEO_BUS4_MMU_SIZE VIDEO_BUS4_MMU_SIZE
+
+#define VLR_OFFSET 0x2000
+#define VLR_SIZE 0x1000
+
+/* PVDEC_ENTROPY defined in uapi/vxd_pvdec.h */
+
+#define PVDEC_PIXEL_OFFSET 0x4000
+#define PVDEC_PIXEL_SIZE 0x1FF
+
+/* PVDEC_VEC_BE defined in uapi/vxd_pvdec.h */
+
+/* MSVDX_VEC defined in uapi/vxd_pvdec.h */
+
+#define MSVDX_VDMC_OFFSET 0x6800
+#define MSVDX_VDMC_SIZE 0x7F
+
+#define DMAC_OFFSET 0x6A00
+#define DMAC_SIZE 0x1FF
+
+#define PVDEC_TEST_OFFSET 0xFF00
+#define PVDEC_TEST_SIZE 0xFF
+
+/* *********************** firmware specific values ************************* */
+
+/* layout of COMMS RAM */
+
+#define PVDEC_FW_COMMS_HDR_SIZE 0x38
+
+#define PVDEC_FW_STATUS_OFFSET 0x00
+#define PVDEC_FW_TASK_STATUS_OFFSET 0x04
+#define PVDEC_FW_ID_OFFSET 0x08
+#define PVDEC_FW_MTXPC_OFFSET 0x0c
+#define PVDEC_FW_MSG_COUNTER_OFFSET 0x10
+#define PVDEC_FW_SIGNATURE_OFFSET 0x14
+#define PVDEC_FW_TO_HOST_BUF_CONF_OFFSET 0x18
+#define PVDEC_FW_TO_HOST_RD_IDX_OFFSET 0x1c
+#define PVDEC_FW_TO_HOST_WR_IDX_OFFSET 0x20
+#define PVDEC_FW_TO_MTX_BUF_CONF_OFFSET 0x24
+#define PVDEC_FW_TO_MTX_RD_IDX_OFFSET 0x28
+#define PVDEC_FW_FLAGS_OFFSET 0x2c
+#define PVDEC_FW_TO_MTX_WR_IDX_OFFSET 0x30
+#define PVDEC_FW_STATE_BUF_CFG_OFFSET 0x34
+
+/* firmware status */
+
+#define PVDEC_FW_STATUS_PANIC  0x2
+#define PVDEC_FW_STATUS_ASSERT 0x3
+#define PVDEC_FW_STATUS_SO     0x8
+
+/* firmware flags */
+
+#define PVDEC_FWFLAG_BIG_TO_HOST_BUFFER 0x00000002
+#define PVDEC_FWFLAG_FORCE_FS_FLOW 0x00000004
+#define PVDEC_FWFLAG_DISABLE_WATCHDOGS 0x00000008
+#define PVDEC_FWFLAG_DISABLE_AUTONOMOUS_RESET 0x00000040
+#define PVDEC_FWFLAG_DISABLE_IDLE_GPIO 0x00002000
+#define PVDEC_FWFLAG_ENABLE_ERROR_CONCEALMENT 0x00100000
+#define PVDEC_FWFLAG_DISABLE_GENC_FLUSHING 0x00800000
+#define PVDEC_FWFLAG_FAKE_COMPLETION 0x20000000
+#define PVDEC_FWFLAG_DISABLE_COREWDT_TIMERS 0x01000000
+
+/* firmware message header */
+
+#define PVDEC_FW_DEVA_GENMSG_OFFSET 0
+
+#define PVDEC_FW_DEVA_GENMSG_MSG_ID_MASK 0xFFFF0000
+#define PVDEC_FW_DEVA_GENMSG_MSG_ID_SHIFT 16
+
+#define PVDEC_FW_DEVA_GENMSG_MSG_TYPE_MASK 0xFF00
+#define PVDEC_FW_DEVA_GENMSG_MSG_TYPE_SHIFT 8
+
+#define PVDEC_FW_DEVA_GENMSG_NOT_LAST_MSG_MASK 0x80
+#define PVDEC_FW_DEVA_GENMSG_NOT_LAST_MSG_SHIFT 7
+
+#define PVDEC_FW_DEVA_GENMSG_MSG_SIZE_MASK 0x7F
+#define PVDEC_FW_DEVA_GENMSG_MSG_SIZE_SHIFT 0
+
+/* firmware init message */
+
+#define PVDEC_FW_DEVA_INIT_MSG_WRDS 9
+
+#define PVDEC_FW_DEVA_INIT_RENDEC_ADDR0_OFFSET 0xC
+
+#define PVDEC_FW_DEVA_INIT_RENDEC_SIZE0_OFFSET 0x10
+#define PVDEC_FW_DEVA_INIT_RENDEC_SIZE0_MASK 0xFFFF
+#define PVDEC_FW_DEVA_INIT_RENDEC_SIZE0_SHIFT 0
+
+#define PVDEC_FW_DEVA_INIT_HEVC_CFG_OFFSET 0x14
+#define PVDEC_FW_DEVA_INIT_HEVC_CFG_MAX_H_FOR_PIPE_WAIT_MASK 0xFFFF0000
+#define PVDEC_FW_DEVA_INIT_HEVC_CFG_MAX_H_FOR_PIPE_WAIT_SHIFT 16
+#define PVDEC_FW_DEVA_INIT_HEVC_CFG_MIN_H_FOR_DUAL_PIPE_MASK 0xFFFF
+#define PVDEC_FW_DEVA_INIT_HEVC_CFG_MIN_H_FOR_DUAL_PIPE_SHIFT 0
+
+#define PVDEC_FW_DEVA_INIT_SIG_SELECT_OFFSET 0x18
+
+#define PVDEC_FW_DEVA_INIT_DBG_DELAYS_OFFSET 0x1C
+
+#define PVDEC_FW_DEVA_INIT_PFNT_DIV_OFFSET 0x20
+#define PVDEC_FW_DEVA_INIT_PFNT_DIV_MASK 0xFFFF0000
+#define PVDEC_FW_DEVA_INIT_PFNT_DIV_SHIFT 16
+
+#define PVDEC_FW_DEVA_INIT_FWWDT_MS_OFFSET 0x20
+#define PVDEC_FW_DEVA_INIT_FWWDT_MS_MASK 0xFFFF
+#define PVDEC_FW_DEVA_INIT_FWWDT_MS_SHIFT 0
+
+/* firmware message types */
+#define PVDEC_FW_MSG_TYPE_PADDING 0
+#define PVDEC_FW_MSG_TYPE_INIT 0x80
+
+/* miscellaneous */
+
+#define PVDEC_FW_READY_SIG 0xa5a5a5a5
+
+#define PVDEC_FW_COM_BUF_SIZE(cfg) ((cfg) & 0x0000ffff)
+#define PVDEC_FW_COM_BUF_OFF(cfg) (((cfg) & 0xffff0000) >> 16)
+
+/*
+ * Timer divider calculation macro.
+ * NOTE: The Timer divider is only 8bit field
+ * so we set it for 2MHz timer base to cover wider
+ * range of core frequencies on real platforms (freq > 255MHz)
+ */
+#define PVDEC_CALC_TIMER_DIV(val) (((val) - 1) / 2)
+
+#define MTX_CORE_STATUS_ELEMENTS 4
+
+#define PVDEC_CORE_MEMSTALLER_ELEMENTS 7
+
+/* ********************** PVDEC_CORE registers group ************************ */
+
+/* register PVDEC_SOFT_RESET */
+#define PVDEC_CORE_PVDEC_SOFT_RST_OFFSET 0x0000
+
+#define PVDEC_CORE_PVDEC_SOFT_RST_PVDEC_PIXEL_PROC_SOFT_RST_MASK 0xFF000000
+#define PVDEC_CORE_PVDEC_SOFT_RST_PVDEC_PIXEL_PROC_SOFT_RST_SHIFT 24
+
+#define PVDEC_CORE_PVDEC_SOFT_RST_PVDEC_ENTROPY_SOFT_RST_MASK 0x00FF0000
+#define PVDEC_CORE_PVDEC_SOFT_RST_PVDEC_ENTROPY_SOFT_RST_SHIFT 16
+
+#define PVDEC_CORE_PVDEC_SOFT_RST_PVDEC_MMU_SOFT_RST_MASK 0x00000002
+#define PVDEC_CORE_PVDEC_SOFT_RST_PVDEC_MMU_SOFT_RST_SHIFT 1
+
+#define PVDEC_CORE_PVDEC_SOFT_RST_PVDEC_SOFT_RST_MASK 0x00000001
+#define PVDEC_CORE_PVDEC_SOFT_RST_PVDEC_SOFT_RST_SHIFT 0
+
+/* register PVDEC_HOST_INTERRUPT_STATUS */
+#define PVDEC_CORE_PVDEC_INT_STAT_OFFSET 0x0010
+
+#define PVDEC_CORE_PVDEC_INT_STAT_HOST_SYS_WDT_MASK 0x10000000
+#define PVDEC_CORE_PVDEC_INT_STAT_HOST_SYS_WDT_SHIFT 28
+
+#define PVDEC_CORE_PVDEC_INT_STAT_HOST_READ_TIMEOUT_PROC_IRQ_MASK 0x08000000
+#define PVDEC_CORE_PVDEC_INT_STAT_HOST_READ_TIMEOUT_PROC_IRQ_SHIFT 27
+
+#define PVDEC_CORE_PVDEC_INT_STAT_HOST_COMMAND_TIMEOUT_PROC_IRQ_MASK 0x04000000
+#define PVDEC_CORE_PVDEC_INT_STAT_HOST_COMMAND_TIMEOUT_PROC_IRQ_SHIFT 26
+
+#define PVDEC_CORE_PVDEC_INT_STAT_HOST_READ_TIMEOUT_HOST_IRQ_MASK 0x02000000
+#define PVDEC_CORE_PVDEC_INT_STAT_HOST_READ_TIMEOUT_HOST_IRQ_SHIFT 25
+
+#define PVDEC_CORE_PVDEC_INT_STAT_HOST_COMMAND_TIMEOUT_HOST_IRQ_MASK 0x01000000
+#define PVDEC_CORE_PVDEC_INT_STAT_HOST_COMMAND_TIMEOUT_HOST_IRQ_SHIFT 24
+
+#define PVDEC_CORE_PVDEC_INT_STAT_HOST_PROC_GPIO_IRQ_MASK 0x00200000
+#define PVDEC_CORE_PVDEC_INT_STAT_HOST_PROC_GPIO_IRQ_SHIFT 21
+
+#define PVDEC_CORE_PVDEC_INT_STAT_HOST_PROC_IRQ_MASK 0x00100000
+#define PVDEC_CORE_PVDEC_INT_STAT_HOST_PROC_IRQ_SHIFT 20
+
+#define PVDEC_CORE_PVDEC_INT_STAT_HOST_MMU_FAULT_IRQ_MASK 0x00010000
+#define PVDEC_CORE_PVDEC_INT_STAT_HOST_MMU_FAULT_IRQ_SHIFT 16
+
+#define PVDEC_CORE_PVDEC_INT_STAT_HOST_PIXEL_PROCESSING_IRQ_MASK 0x0000FF00
+#define PVDEC_CORE_PVDEC_INT_STAT_HOST_PIXEL_PROCESSING_IRQ_SHIFT 8
+
+#define PVDEC_CORE_PVDEC_INT_STAT_HOST_ENTROPY_PIPE_IRQ_MASK 0x000000FF
+#define PVDEC_CORE_PVDEC_INT_STAT_HOST_ENTROPY_PIPE_IRQ_SHIFT 0
+
+/* register PVDEC_INTERRUPT_CLEAR */
+#define PVDEC_CORE_PVDEC_INT_CLEAR_OFFSET 0x0014
+
+#define PVDEC_CORE_PVDEC_INT_CLEAR_IRQ_CLEAR_MASK 0xFFFF0000
+#define PVDEC_CORE_PVDEC_INT_CLEAR_IRQ_CLEAR_SHIFT 16
+
+/* register PVDEC_HOST_INTERRUPT_ENABLE */
+#define PVDEC_CORE_PVDEC_HOST_INT_ENA_OFFSET 0x0018
+
+#define PVDEC_CORE_PVDEC_HOST_INT_ENA_HOST_IRQ_ENABLE_MASK 0xFFFF0000
+#define PVDEC_CORE_PVDEC_HOST_INT_ENA_HOST_IRQ_ENABLE_SHIFT 16
+
+/* Register PVDEC_MAN_CLK_ENABLE */
+#define PVDEC_CORE_PVDEC_MAN_CLK_ENA_OFFSET 0x0040
+
+#define PVDEC_CORE_PVDEC_MAN_CLK_ENA_PIXEL_PROC_MAN_CLK_ENA_MASK 0xFF000000
+#define PVDEC_CORE_PVDEC_MAN_CLK_ENA_PIXEL_PROC_MAN_CLK_ENA_SHIFT 24
+
+#define PVDEC_CORE_PVDEC_MAN_CLK_ENA_ENTROPY_PIPE_MAN_CLK_ENA_MASK 0x00FF0000
+#define PVDEC_CORE_PVDEC_MAN_CLK_ENA_ENTROPY_PIPE_MAN_CLK_ENA_SHIFT 16
+
+#define PVDEC_CORE_PVDEC_MAN_CLK_ENA_MEM_MAN_CLK_ENA_MASK 0x00000100
+#define PVDEC_CORE_PVDEC_MAN_CLK_ENA_MEM_MAN_CLK_ENA_SHIFT 8
+
+#define PVDEC_CORE_PVDEC_MAN_CLK_ENA_PVDEC_REG_MAN_CLK_ENA_MASK 0x00000010
+#define PVDEC_CORE_PVDEC_MAN_CLK_ENA_PVDEC_REG_MAN_CLK_ENA_SHIFT 4
+
+#define PVDEC_CORE_PVDEC_MAN_CLK_ENA_PROC_MAN_CLK_ENA_MASK 0x00000002
+#define PVDEC_CORE_PVDEC_MAN_CLK_ENA_PROC_MAN_CLK_ENA_SHIFT 1
+
+#define PVDEC_CORE_PVDEC_MAN_CLK_ENA_CORE_MAN_CLK_ENA_MASK 0x00000001
+#define PVDEC_CORE_PVDEC_MAN_CLK_ENA_CORE_MAN_CLK_ENA_SHIFT 0
+
+/* register PVDEC_HOST_PIPE_SELECT */
+#define PVDEC_CORE_PVDEC_HOST_PIPE_SELECT_OFFSET 0x0060
+
+#define PVDEC_CORE_PVDEC_HOST_PIPE_SELECT_PIPE_SEL_MASK 0x0000000F
+#define PVDEC_CORE_PVDEC_HOST_PIPE_SELECT_PIPE_SEL_SHIFT 0
+
+/* register PROC_DEBUG */
+#define PVDEC_CORE_PROC_DEBUG_OFFSET 0x0100
+
+#define PVDEC_CORE_PROC_DEBUG_MTX_LAST_RAM_BANK_SIZE_MASK 0xFF000000
+#define PVDEC_CORE_PROC_DEBUG_MTX_LAST_RAM_BANK_SIZE_SHIFT 24
+
+#define PVDEC_CORE_PROC_DEBUG_MTX_RAM_BANK_SIZE_MASK 0x000F0000
+#define PVDEC_CORE_PROC_DEBUG_MTX_RAM_BANK_SIZE_SHIFT 16
+
+#define PVDEC_CORE_PROC_DEBUG_MTX_RAM_BANKS_MASK 0x00000F00
+#define PVDEC_CORE_PROC_DEBUG_MTX_RAM_BANKS_SHIFT 8
+
+#define PVDEC_CORE_PROC_DEBUG_MTX_RAM_NEW_REPRESENTATION_MASK 0x00000080
+#define PVDEC_CORE_PROC_DEBUG_MTX_RAM_NEW_REPRESENTATION_SHIFT 7
+
+#define PVDEC_CORE_PROC_DEBUG_PROC_DBG_GPIO_OUT_MASK 0x00000018
+#define PVDEC_CORE_PROC_DEBUG_PROC_DBG_GPIO_OUT_SHIFT 3
+
+#define PVDEC_CORE_PROC_DEBUG_PROC_DBG_IS_SLAVE_MASK 0x00000004
+#define PVDEC_CORE_PROC_DEBUG_PROC_DBG_IS_SLAVE_SHIFT 2
+
+#define PVDEC_CORE_PROC_DEBUG_PROC_DBG_GPIO_IN_MASK 0x00000003
+#define PVDEC_CORE_PROC_DEBUG_PROC_DBG_GPIO_IN_SHIFT 0
+
+/* register PROC_DMAC_CONTROL */
+#define PVDEC_CORE_PROC_DMAC_CONTROL_OFFSET 0x0104
+
+#define PVDEC_CORE_PROC_DMAC_CONTROL_BOOT_ON_DMA_CH0_MASK 0x80000000
+#define PVDEC_CORE_PROC_DMAC_CONTROL_BOOT_ON_DMA_CH0_SHIFT 31
+
+/* register PROC_DEBUG_FIFO */
+#define PVDEC_CORE_PROC_DBG_FIFO_OFFSET 0x0108
+
+#define PVDEC_CORE_PROC_DBG_FIFO_PROC_DBG_FIFO_MASK 0xFFFFFFFF
+#define PVDEC_CORE_PROC_DBG_FIFO_PROC_DBG_FIFO_SHIFT 0
+
+/* register PROC_DEBUG_FIFO_CTRL_0 */
+#define PVDEC_CORE_PROC_DBG_FIFO_CTRL0_OFFSET 0x010C
+
+#define PVDEC_CORE_PROC_DBG_FIFO_CTRL0_PROC_DBG_FIFO_COUNT_MASK 0xFFFF0000
+#define PVDEC_CORE_PROC_DBG_FIFO_CTRL0_PROC_DBG_FIFO_COUNT_SHIFT 16
+
+#define PVDEC_CORE_PROC_DBG_FIFO_CTRL0_PROC_DBG_FIFO_SIZE_MASK 0x0000FFFF
+#define PVDEC_CORE_PROC_DBG_FIFO_CTRL0_PROC_DBG_FIFO_SIZE_SHIFT 0
+
+/* register PVDEC_CORE_ID */
+#define PVDEC_CORE_PVDEC_CORE_ID_OFFSET 0x0230
+
+#define PVDEC_CORE_PVDEC_CORE_ID_GROUP_ID_MASK 0xFF000000
+#define PVDEC_CORE_PVDEC_CORE_ID_GROUP_ID_SHIFT 24
+
+#define PVDEC_CORE_PVDEC_CORE_ID_CORE_ID_MASK 0x00FF0000
+#define PVDEC_CORE_PVDEC_CORE_ID_CORE_ID_SHIFT 16
+
+#define PVDEC_CORE_PVDEC_CORE_ID_PVDEC_CORE_CONFIG_MASK 0x0000FFFF
+#define PVDEC_CORE_PVDEC_CORE_ID_PVDEC_CORE_CONFIG_SHIFT 0
+
+#define PVDEC_CORE_PVDEC_CORE_ID_ENT_PIPES_MASK 0x0000000F
+#define PVDEC_CORE_PVDEC_CORE_ID_ENT_PIPES_SHIFT 0
+
+#define PVDEC_CORE_PVDEC_CORE_ID_PIX_PIPES_MASK 0x000000F0
+#define PVDEC_CORE_PVDEC_CORE_ID_PIX_PIPES_SHIFT 4
+
+/* register PVDEC_CORE_REV */
+#define PVDEC_CORE_PVDEC_CORE_REV_OFFSET 0x0240
+
+#define PVDEC_CORE_PVDEC_CORE_REV_PVDEC_DESIGNER_MASK 0xFF000000
+#define PVDEC_CORE_PVDEC_CORE_REV_PVDEC_DESIGNER_SHIFT 24
+
+#define PVDEC_CORE_PVDEC_CORE_REV_PVDEC_MAJOR_REV_MASK 0x00FF0000
+#define PVDEC_CORE_PVDEC_CORE_REV_PVDEC_MAJOR_REV_SHIFT 16
+
+#define PVDEC_CORE_PVDEC_CORE_REV_PVDEC_MINOR_REV_MASK 0x0000FF00
+#define PVDEC_CORE_PVDEC_CORE_REV_PVDEC_MINOR_REV_SHIFT 8
+
+#define PVDEC_CORE_PVDEC_CORE_REV_PVDEC_MAINT_REV_MASK 0x000000FF
+#define PVDEC_CORE_PVDEC_CORE_REV_PVDEC_MAINT_REV_SHIFT 0
+
+/* *********************** MTX_CORE registers group ************************* */
+
+/* register MTX_ENABLE  */
+#define MTX_CORE_MTX_ENABLE_OFFSET 0x0000
+
+/* register MTX_SYSC_TXTIMER. Note: it's not defined in PVDEC TRM. */
+#define MTX_CORE_MTX_SYSC_TXTIMER_OFFSET 0x0010
+
+/* register MTX_KICKI */
+#define MTX_CORE_MTX_KICKI_OFFSET 0x0088
+
+#define MTX_CORE_MTX_KICKI_MTX_KICKI_MASK 0x0000FFFF
+#define MTX_CORE_MTX_KICKI_MTX_KICKI_SHIFT 0
+
+/* register MTX_FAULT0 */
+#define MTX_CORE_MTX_FAULT0_OFFSET 0x0090
+
+/* register MTX_REGISTER_READ_WRITE_DATA */
+#define MTX_CORE_MTX_REG_READ_WRITE_DATA_OFFSET 0x00F8
+
+/* register MTX_REGISTER_READ_WRITE_REQUEST */
+#define MTX_CORE_MTX_REG_READ_WRITE_REQUEST_OFFSET 0x00FC
+
+#define MTX_CORE_MTX_REG_READ_WRITE_REQUEST_MTX_DREADY_MASK 0x80000000
+#define MTX_CORE_MTX_REG_READ_WRITE_REQUEST_MTX_DREADY_SHIFT 31
+
+#define MTX_CORE_MTX_REG_READ_WRITE_REQUEST_MTX_RNW_MASK 0x00010000
+#define MTX_CORE_MTX_REG_READ_WRITE_REQUEST_MTX_RNW_SHIFT 16
+
+#define MTX_CORE_MTX_REG_READ_WRITE_REQUEST_MTX_RSPECIFIER_MASK 0x00000070
+#define MTX_CORE_MTX_REG_READ_WRITE_REQUEST_MTX_RSPECIFIER_SHIFT 4
+
+#define MTX_CORE_MTX_REG_READ_WRITE_REQUEST_MTX_USPECIFIER_MASK 0x0000000F
+#define MTX_CORE_MTX_REG_READ_WRITE_REQUEST_MTX_USPECIFIER_SHIFT 0
+
+/* register MTX_RAM_ACCESS_DATA_EXCHANGE */
+#define MTX_CORE_MTX_RAM_ACCESS_DATA_EXCHANGE_OFFSET 0x0100
+
+/* register MTX_RAM_ACCESS_DATA_TRANSFER */
+#define MTX_CORE_MTX_RAM_ACCESS_DATA_TRANSFER_OFFSET 0x0104
+
+/* register MTX_RAM_ACCESS_CONTROL */
+#define MTX_CORE_MTX_RAM_ACCESS_CONTROL_OFFSET 0x0108
+
+#define MTX_CORE_MTX_RAM_ACCESS_CONTROL_MTX_MCMID_MASK 0x0FF00000
+#define MTX_CORE_MTX_RAM_ACCESS_CONTROL_MTX_MCMID_SHIFT 20
+
+#define MTX_CORE_MTX_RAM_ACCESS_CONTROL_MTX_MCM_ADDR_MASK 0x000FFFFC
+#define MTX_CORE_MTX_RAM_ACCESS_CONTROL_MTX_MCM_ADDR_SHIFT 2
+
+#define MTX_CORE_MTX_RAM_ACCESS_CONTROL_MTX_MCMAI_MASK 0x00000002
+#define MTX_CORE_MTX_RAM_ACCESS_CONTROL_MTX_MCMAI_SHIFT 1
+
+#define MTX_CORE_MTX_RAM_ACCESS_CONTROL_MTX_MCMR_MASK 0x00000001
+#define MTX_CORE_MTX_RAM_ACCESS_CONTROL_MTX_MCMR_SHIFT 0
+
+/* register MTX_RAM_ACCESS_STATUS */
+#define MTX_CORE_MTX_RAM_ACCESS_STATUS_OFFSET 0x010C
+
+#define MTX_CORE_MTX_RAM_ACCESS_STATUS_MTX_MTX_MCM_STAT_MASK 0x00000001
+#define MTX_CORE_MTX_RAM_ACCESS_STATUS_MTX_MTX_MCM_STAT_SHIFT 0
+
+/* register MTX_SOFT_RESET */
+#define MTX_CORE_MTX_SOFT_RESET_OFFSET 0x0200
+
+#define MTX_CORE_MTX_SOFT_RESET_MTX_RESET_MASK 0x00000001
+#define MTX_CORE_MTX_SOFT_RESET_MTX_RESET_SHIFT 0
+
+/* register MTX_SYSC_TIMERDIV */
+#define MTX_CORE_MTX_SYSC_TIMERDIV_OFFSET 0x0208
+
+#define MTX_CORE_MTX_SYSC_TIMERDIV_TIMER_EN_MASK 0x00010000
+#define MTX_CORE_MTX_SYSC_TIMERDIV_TIMER_EN_SHIFT 16
+
+#define MTX_CORE_MTX_SYSC_TIMERDIV_TIMER_DIV_MASK 0x000000FF
+#define MTX_CORE_MTX_SYSC_TIMERDIV_TIMER_DIV_SHIFT 0
+
+/* register MTX_SYSC_CDMAA */
+#define MTX_CORE_MTX_SYSC_CDMAA_OFFSET 0x0344
+
+#define MTX_CORE_MTX_SYSC_CDMAA_CDMAA_ADDRESS_MASK 0x03FFFFFC
+#define MTX_CORE_MTX_SYSC_CDMAA_CDMAA_ADDRESS_SHIFT 2
+
+/* register MTX_SYSC_CDMAC */
+#define MTX_CORE_MTX_SYSC_CDMAC_OFFSET 0x0340
+
+#define MTX_CORE_MTX_SYSC_CDMAC_BURSTSIZE_MASK 0x07000000
+#define MTX_CORE_MTX_SYSC_CDMAC_BURSTSIZE_SHIFT 24
+
+#define MTX_CORE_MTX_SYSC_CDMAC_RNW_MASK 0x00020000
+#define MTX_CORE_MTX_SYSC_CDMAC_RNW_SHIFT 17
+
+#define MTX_CORE_MTX_SYSC_CDMAC_ENABLE_MASK 0x00010000
+#define MTX_CORE_MTX_SYSC_CDMAC_ENABLE_SHIFT 16
+
+#define MTX_CORE_MTX_SYSC_CDMAC_LENGTH_MASK 0x0000FFFF
+#define MTX_CORE_MTX_SYSC_CDMAC_LENGTH_SHIFT 0
+
+/* register MTX_SYSC_CDMAT */
+#define MTX_CORE_MTX_SYSC_CDMAT_OFFSET 0x0350
+
+/* ****************** IMG_VIDEO_BUS4_MMU registers group ******************** */
+
+/* register MMU_CONTROL0_ */
+#define IMG_VIDEO_BUS4_MMU_MMU_CONTROL0_USE_TILE_STRIDE_PER_CTX_MASK 0x00010000
+#define IMG_VIDEO_BUS4_MMU_MMU_CONTROL0_USE_TILE_STRIDE_PER_CTX_SHIFT 16
+
+#define IMG_VIDEO_BUS4_MMU_MMU_ADDRESS_CONTROL_MMU_ENA_EXT_ADDR_MASK 0x00000010
+#define IMG_VIDEO_BUS4_MMU_MMU_ADDRESS_CONTROL_MMU_ENA_EXT_ADDR_SHIFT 4
+
+#define IMG_VIDEO_BUS4_MMU_MMU_ADDRESS_CONTROL_UPPER_ADDR_FIXED_MASK 0x00FF0000
+#define IMG_VIDEO_BUS4_MMU_MMU_ADDRESS_CONTROL_UPPER_ADDR_FIXED_SHIFT 16
+
+#define IMG_VIDEO_BUS4_MMU_MMU_MEM_EXT_OUTSTANDING_READ_WORDS_MASK 0x0000FFFF
+#define IMG_VIDEO_BUS4_MMU_MMU_MEM_EXT_OUTSTANDING_READ_WORDS_SHIFT 0
+
+/* *************************** MMU-related values ************************** */
+
+/* MMU page size */
+
+enum {
+	VXD_MMU_SOFT_PAGE_SIZE_PAGE_64K    = 0x4,
+	VXD_MMU_SOFT_PAGE_SIZE_PAGE_16K    = 0x2,
+	VXD_MMU_SOFT_PAGE_SIZE_PAGE_4K     = 0x0,
+	VXD_MMU_SOFT_PAGE_SIZE_FORCE32BITS = 0x7FFFFFFFU
+};
+
+/* MMU PTD entry flags */
+enum {
+	VXD_MMU_PTD_FLAG_NONE            = 0x0,
+	VXD_MMU_PTD_FLAG_VALID           = 0x1,
+	VXD_MMU_PTD_FLAG_WRITE_ONLY      = 0x2,
+	VXD_MMU_PTD_FLAG_READ_ONLY       = 0x4,
+	VXD_MMU_PTD_FLAG_CACHE_COHERENCY = 0x8,
+	VXD_MMU_PTD_FLAG_FORCE32BITS     = 0x7FFFFFFFU
+};
+
+/* ********************* PVDEC_PIXEL registers group *********************** */
+
+/* register PVDEC_PIXEL_PIXEL_CONTROL_0 */
+#define PVDEC_PIXEL_PIXEL_CONTROL_0_OFFSET 0x0004
+
+#define PVDEC_PIXEL_PIXEL_CONTROL_0_DMAC_CH_SEL_FOR_MTX_MASK 0x0000000E
+#define PVDEC_PIXEL_PIXEL_CONTROL_0_DMAC_CH_SEL_FOR_MTX_SHIFT 1
+
+#define PVDEC_PIXEL_PIXEL_CONTROL_0_PROC_DMAC_CH0_SEL_MASK 0x00000001
+#define PVDEC_PIXEL_PIXEL_CONTROL_0_PROC_DMAC_CH0_SEL_SHIFT 0
+
+/* register PVDEC_PIXEL_MAN_CLK_ENABLE */
+#define PVDEC_PIXEL_PIXEL_MAN_CLK_ENA_OFFSET 0x0020
+
+#define PVDEC_PIXEL_PIXEL_MAN_CLK_ENA_PIXEL_REG_MAN_CLK_ENA_MASK 0x00020000
+#define PVDEC_PIXEL_PIXEL_MAN_CLK_ENA_PIXEL_REG_MAN_CLK_ENA_SHIFT 17
+
+#define PVDEC_PIXEL_PIXEL_MAN_CLK_ENA_PIXEL_DMAC_MAN_CLK_ENA_MASK 0x00010000
+#define PVDEC_PIXEL_PIXEL_MAN_CLK_ENA_PIXEL_DMAC_MAN_CLK_ENA_SHIFT 16
+
+/* register PIXEL_PIPE_CONFIG */
+#define PVDEC_PIXEL_PIXEL_PIPE_CONFIG_OFFSET 0x00C0
+
+/* register PIXEL_MISC_CONFIG */
+#define PVDEC_PIXEL_PIXEL_MISC_CONFIG_OFFSET 0x00C4
+
+/* register MAX_FRAME_CONFIG */
+#define PVDEC_PIXEL_MAX_FRAME_CONFIG_OFFSET 0x00C8
+
+/* ********************* PVDEC_ENTROPY registers group ********************* */
+
+/* Register PVDEC_ENTROPY_MAN_CLK_ENABLE */
+#define PVDEC_ENTROPY_ENTROPY_MAN_CLK_ENA_OFFSET 0x0020
+
+/* Register PVDEC_ENTROPY_LAST_LAST_MB */
+#define PVDEC_ENTROPY_ENTROPY_LAST_MB_OFFSET 0x00BC
+
+/* ********************* PVDEC_VEC_BE registers group ********************** */
+
+/* Register PVDEC_VEC_BE_VEC_BE_STATUS */
+#define PVDEC_VEC_BE_VEC_BE_STATUS_OFFSET 0x0018
+
+/* ********************* MSVDX_VEC registers group ************************* */
+
+/* Register MSVDX_VEC_VEC_ENTDEC_INFORMATION */
+#define MSVDX_VEC_VEC_ENTDEC_INFORMATION_OFFSET 0x00AC
+
+/* ********************* MSVDX_VDMC registers group ************************ */
+
+/* Register MSVDX_VDMC_VDMC_MACROBLOCK_NUMBER */
+#define MSVDX_VDMC_VDMC_MACROBLOCK_NUMBER_OFFSET 0x0048
+
+/* ************************** DMAC registers group ************************* */
+
+/* register DMAC_SETUP */
+#define DMAC_DMAC_SETUP_OFFSET 0x0000
+#define DMAC_DMAC_SETUP_STRIDE 32
+#define DMAC_DMAC_SETUP_NO_ENTRIES 6
+
+/* register DMAC_COUNT */
+#define DMAC_DMAC_COUNT_OFFSET 0x0004
+#define DMAC_DMAC_COUNT_STRIDE 32
+#define DMAC_DMAC_COUNT_NO_ENTRIES 6
+
+#define DMAC_DMAC_COUNT_LIST_IEN_MASK 0x80000000
+#define DMAC_DMAC_COUNT_LIST_IEN_SHIFT 31
+
+#define DMAC_DMAC_COUNT_BSWAP_MASK 0x40000000
+#define DMAC_DMAC_COUNT_BSWAP_SHIFT 30
+
+#define DMAC_DMAC_COUNT_TRANSFER_IEN_MASK 0x20000000
+#define DMAC_DMAC_COUNT_TRANSFER_IEN_SHIFT 29
+
+#define DMAC_DMAC_COUNT_PW_MASK 0x18000000
+#define DMAC_DMAC_COUNT_PW_SHIFT 27
+
+#define DMAC_DMAC_COUNT_DIR_MASK 0x04000000
+#define DMAC_DMAC_COUNT_DIR_SHIFT 26
+
+#define DMAC_DMAC_COUNT_PI_MASK 0x03000000
+#define DMAC_DMAC_COUNT_PI_SHIFT 24
+
+#define DMAC_DMAC_COUNT_LIST_FIN_CTL_MASK 0x00400000
+#define DMAC_DMAC_COUNT_LIST_FIN_CTL_SHIFT 22
+
+#define DMAC_DMAC_COUNT_DREQ_MASK 0x00100000
+#define DMAC_DMAC_COUNT_DREQ_SHIFT 20
+
+#define DMAC_DMAC_COUNT_SRST_MASK 0x00080000
+#define DMAC_DMAC_COUNT_SRST_SHIFT 19
+
+#define DMAC_DMAC_COUNT_LIST_EN_MASK 0x00040000
+#define DMAC_DMAC_COUNT_LIST_EN_SHIFT 18
+
+#define DMAC_DMAC_COUNT_ENABLE_2D_MODE_MASK 0x00020000
+#define DMAC_DMAC_COUNT_ENABLE_2D_MODE_SHIFT 17
+
+#define DMAC_DMAC_COUNT_EN_MASK 0x00010000
+#define DMAC_DMAC_COUNT_EN_SHIFT 16
+
+#define DMAC_DMAC_COUNT_CNT_MASK 0x0000FFFF
+#define DMAC_DMAC_COUNT_CNT_SHIFT 0
+
+/* register DMAC_PERIPH */
+#define DMAC_DMAC_PERIPH_OFFSET 0x0008
+#define DMAC_DMAC_PERIPH_STRIDE 32
+#define DMAC_DMAC_PERIPH_NO_ENTRIES 6
+
+#define DMAC_DMAC_PERIPH_ACC_DEL_MASK 0xE0000000
+#define DMAC_DMAC_PERIPH_ACC_DEL_SHIFT 29
+
+#define DMAC_DMAC_PERIPH_INCR_MASK 0x08000000
+#define DMAC_DMAC_PERIPH_INCR_SHIFT 27
+
+#define DMAC_DMAC_PERIPH_BURST_MASK 0x07000000
+#define DMAC_DMAC_PERIPH_BURST_SHIFT 24
+
+#define DMAC_DMAC_PERIPH_EXT_BURST_MASK 0x000F0000
+#define DMAC_DMAC_PERIPH_EXT_BURST_SHIFT 16
+
+#define DMAC_DMAC_PERIPH_EXT_SA_MASK 0x0000000F
+#define DMAC_DMAC_PERIPH_EXT_SA_SHIFT 0
+
+/* register DMAC_IRQ_STAT */
+#define DMAC_DMAC_IRQ_STAT_OFFSET 0x000C
+#define DMAC_DMAC_IRQ_STAT_STRIDE 32
+#define DMAC_DMAC_IRQ_STAT_NO_ENTRIES 6
+
+/* register DMAC_PERIPHERAL_ADDR */
+#define DMAC_DMAC_PERIPH_ADDR_OFFSET 0x0014
+#define DMAC_DMAC_PERIPH_ADDR_STRIDE 32
+#define DMAC_DMAC_PERIPH_ADDR_NO_ENTRIES 6
+
+#define DMAC_DMAC_PERIPH_ADDR_ADDR_MASK 0x007FFFFF
+#define DMAC_DMAC_PERIPH_ADDR_ADDR_SHIFT 0
+
+/* register DMAC_PER_HOLD */
+#define DMAC_DMAC_PER_HOLD_OFFSET 0x0018
+#define DMAC_DMAC_PER_HOLD_STRIDE 32
+#define DMAC_DMAC_PER_HOLD_NO_ENTRIES 6
+
+#define DMAC_DMAC_PER_HOLD_PER_HOLD_MASK 0x0000001F
+#define DMAC_DMAC_PER_HOLD_PER_HOLD_SHIFT 0
+
+#define DMAC_DMAC_SOFT_RESET_OFFSET 0x00C0
+
+/* ************************** DMAC-related values *************************** */
+
+/*
+ * This type defines whether the peripheral address is static or
+ * auto-incremented. (see the TRM "Transfer Sequence Linked-list - INCR")
+ */
+enum {
+	DMAC_INCR_OFF         = 0, /* No action, no increment. */
+	DMAC_INCR_ON          = 1, /* Generate address increment. */
+	DMAC_INCR_FORCE32BITS = 0x7FFFFFFFU
+};
+
+/* Burst size settings (see the TRM "Transfer Sequence Linked-list - BURST"). */
+enum {
+	DMAC_BURST_0           = 0x0, /* burst size of 0 */
+	DMAC_BURST_1           = 0x1, /* burst size of 1 */
+	DMAC_BURST_2           = 0x2, /* burst size of 2 */
+	DMAC_BURST_3           = 0x3, /* burst size of 3 */
+	DMAC_BURST_4           = 0x4, /* burst size of 4 */
+	DMAC_BURST_5           = 0x5, /* burst size of 5 */
+	DMAC_BURST_6           = 0x6, /* burst size of 6 */
+	DMAC_BURST_7           = 0x7, /* burst size of 7 */
+	DMAC_BURST_8           = 0x8, /* burst size of 8 */
+	DMAC_BURST_FORCE32BITS = 0x7FFFFFFFU
+};
+
+/*
+ * Extended burst size settings (see TRM "Transfer Sequence Linked-list -
+ * EXT_BURST").
+ */
+enum {
+	DMAC_EXT_BURST_0           = 0x0, /* no extension */
+	DMAC_EXT_BURST_1           = 0x1, /* extension of 8 */
+	DMAC_EXT_BURST_2           = 0x2, /* extension of 16 */
+	DMAC_EXT_BURST_3           = 0x3, /* extension of 24 */
+	DMAC_EXT_BURST_4           = 0x4, /* extension of 32 */
+	DMAC_EXT_BURST_5           = 0x5, /* extension of 40 */
+	DMAC_EXT_BURST_6           = 0x6, /* extension of 48 */
+	DMAC_EXT_BURST_7           = 0x7, /* extension of 56 */
+	DMAC_EXT_BURST_8           = 0x8, /* extension of 64 */
+	DMAC_EXT_BURST_9           = 0x9, /* extension of 72 */
+	DMAC_EXT_BURST_10          = 0xa, /* extension of 80 */
+	DMAC_EXT_BURST_11          = 0xb, /* extension of 88 */
+	DMAC_EXT_BURST_12          = 0xc, /* extension of 96 */
+	DMAC_EXT_BURST_13          = 0xd, /* extension of 104 */
+	DMAC_EXT_BURST_14          = 0xe, /* extension of 112 */
+	DMAC_EXT_BURST_15          = 0xf, /* extension of 120 */
+	DMAC_EXT_BURST_FORCE32BITS = 0x7FFFFFFFU
+};
+
+/* Transfer direction. */
+enum {
+	DMAC_MEM_TO_VXD         = 0x0,
+	DMAC_VXD_TO_MEM         = 0x1,
+	DMAC_VXD_TO_FORCE32BITS = 0x7FFFFFFFU
+};
+
+/* How much to increment the peripheral address. */
+enum {
+	DMAC_PI_1           = 0x2, /* increment by 1 */
+	DMAC_PI_2           = 0x1, /* increment by 2 */
+	DMAC_PI_4           = 0x0, /* increment by 4 */
+	DMAC_PI_FORCE32BITS = 0x7FFFFFFFU
+};
+
+/* Peripheral width settings (see TRM "Transfer Sequence Linked-list - PW"). */
+enum {
+	DMAC_PWIDTH_32_BIT      = 0x0, /* Peripheral width 32-bit. */
+	DMAC_PWIDTH_16_BIT      = 0x1, /* Peripheral width 16-bit. */
+	DMAC_PWIDTH_8_BIT       = 0x2, /* Peripheral width 8-bit. */
+	DMAC_PWIDTH_FORCE32BITS = 0x7FFFFFFFU
+};
+
+/* ******************************* macros ********************************** */
+
+#ifdef PVDEC_SINGLETHREADED_IO
+/* Write to the register */
+#define VXD_WR_REG_ABS(base, addr, val) \
+	({ spin_lock_irqsave(&pvdec_irq_lock, pvdec_irq_flags); \
+	   iowrite32((val), (addr) + (base)); \
+	   spin_unlock_irqrestore(&pvdec_irq_lock, (unsigned long)pvdec_irq_flags); })
+
+/* Read the register */
+#define VXD_RD_REG_ABS(base, addr) \
+	({ unsigned int reg; \
+	   spin_lock_irqsave(&pvdec_irq_lock, pvdec_irq_flags); \
+	   reg = ioread32((addr) + (base)); \
+	   spin_unlock_irqrestore(&pvdec_irq_lock, (unsigned long)pvdec_irq_flags); \
+	   reg; })
+#else /* ndef PVDEC_SINGLETHREADED_IO */
+
+/* Write to the register */
+#define VXD_WR_REG_ABS(base, addr, val) \
+	(iowrite32((val), (addr) + (base)))
+
+/* Read the register */
+#define VXD_RD_REG_ABS(base, addr) \
+	(ioread32((addr) + (base)))
+
+#endif
+
+/* Get offset of a register */
+#define VXD_GET_REG_OFF(group, reg) \
+	(group ## _OFFSET + group ## _ ## reg ## _OFFSET)
+
+/* Get offset of a repated register */
+#define VXD_GET_RPT_REG_OFF(group, reg, index) \
+	(VXD_GET_REG_OFF(group, reg) + ((index) * group ## _ ## reg ## _STRIDE))
+
+/* Extract field from a register */
+#define VXD_RD_REG_FIELD(val, group, reg, field) \
+	(((val) & group ## _ ## reg ## _ ## field ## _MASK) >> \
+	 group ## _ ## reg ## _ ## field ## _SHIFT)
+
+/* Shift provided value by number of bits relevant to register specification */
+#define VXD_ENC_REG_FIELD(group, reg, field, val) \
+	((unsigned int)(val) << (group ## _ ## reg ## _ ## field ## _SHIFT))
+
+/* Update the field in a register */
+#define VXD_WR_REG_FIELD(reg_val, group, reg, field, val) \
+	(((reg_val) & ~(group ## _ ## reg ## _ ## field ## _MASK)) | \
+	 (VXD_ENC_REG_FIELD(group, reg, field, val) & \
+	  (group ## _ ## reg ## _ ## field ## _MASK)))
+
+/* Write to a register */
+#define VXD_WR_REG(base, group, reg, val) \
+	VXD_WR_REG_ABS(base, VXD_GET_REG_OFF(group, reg), val)
+
+/* Write to a repeated register */
+#define VXD_WR_RPT_REG(base, group, reg, val, index) \
+	VXD_WR_REG_ABS(base, VXD_GET_RPT_REG_OFF(group, reg, index), val)
+
+/* Read a register */
+#define VXD_RD_REG(base, group, reg) \
+	VXD_RD_REG_ABS(base, VXD_GET_REG_OFF(group, reg))
+
+/* Read a repeated register */
+#define VXD_RD_RPT_REG(base, group, reg, index) \
+	VXD_RD_REG_ABS(base, VXD_GET_RPT_REG_OFF(group, reg, index))
+
+/* Insert word into the message buffer */
+#define VXD_WR_MSG_WRD(buf, msg_type, wrd, val) \
+	(((unsigned int *)buf)[(msg_type ## _ ## wrd ## _OFFSET) / sizeof(unsigned int)] = \
+		 val)
+
+/* Get a word from the message buffer */
+#define VXD_RD_MSG_WRD(buf, msg_type, wrd) \
+	(((unsigned int *)buf)[(msg_type ## _ ## wrd ## _OFFSET) / sizeof(unsigned int)])
+
+/* Get offset for pipe register */
+#define VXD_GET_PIPE_OFF(num_pipes, pipe) \
+	((num_pipes) > 1 ? ((pipe) << 16) : 0)
+
+#endif /* VXD_PVDEC_REGS_H */
