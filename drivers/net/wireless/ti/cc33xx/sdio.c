@@ -476,13 +476,13 @@ static int wl1271_probe(struct sdio_func *func,
 		dev_info(glue->dev, "Using GPIO as IRQ\n");
 
 		BUG_ON(irqd_get_trigger_type(irq_get_irq_data(gpio_irq))
-			 != IRQF_TRIGGER_HIGH);
+			 != IRQF_TRIGGER_RISING);
 
 		irq_set_status_flags(gpio_irq, IRQ_NOAUTOEN);
 
 		ret = request_threaded_irq(
 			gpio_irq, gpio_irq_hard_handler, gpio_irq_thread_handler,
-			IRQF_TRIGGER_HIGH|IRQF_ONESHOT, glue->core->name, func);
+			IRQF_TRIGGER_RISING, glue->core->name, func);
 		if (ret) {
 			dev_err(glue->dev, "can't register GPIO IRQ handler\n");
 			goto out_dev_put;

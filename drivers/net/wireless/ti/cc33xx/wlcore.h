@@ -552,9 +552,9 @@ struct core_fw_status
     u8   txResultQueueIndex;
     u8   reserved1[3];
     u8   txResultQueue[TX_RESULT_QUEUE_SIZE];
-    unsigned long  link_ps_bitmap;                     /* A bitmap (where each bit represents a single HLID) to indicate PS/Active mode of the link */
-    unsigned long  link_fast_bitmap;                   /* A bitmap (where each bit represents a single HLID) to indicate if the station is in Fast mode */
-    unsigned long  link_suspend_bitmap;                /* A bitmap (where each bit represents a single HLID) to indicate if a links is suspended/aboout to be suspended*/
+    u32  link_ps_bitmap;                     /* A bitmap (where each bit represents a single HLID) to indicate PS/Active mode of the link */
+    u32  link_fast_bitmap;                   /* A bitmap (where each bit represents a single HLID) to indicate if the station is in Fast mode */
+    u32  link_suspend_bitmap;                /* A bitmap (where each bit represents a single HLID) to indicate if a links is suspended/aboout to be suspended*/
     u8      TxFlowControlAcThreshold;           /* Host TX Flow Control descriptor per AC threshold */
     u8      tx_ps_threshold;                    /* Host TX Flow Control descriptor PS link threshold */
     u8      tx_suspend_threshold;               /* Host TX Flow Control descriptor Suspended link threshold */

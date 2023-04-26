@@ -618,18 +618,18 @@ static bool wl18xx_lnk_high_prio(struct wl1271 *wl, u8 hlid,
 
 	u8 thold;
 	struct core_fw_status * core_fw_status = &wl->core_status->fwInfo;
-	unsigned long suspend_bitmap;
-
-
+	unsigned long suspend_bitmap, fast_bitmap, ps_bitmap;
+	suspend_bitmap = le32_to_cpu((unsigned long) core_fw_status->link_suspend_bitmap);
+	fast_bitmap = le32_to_cpu((unsigned long) core_fw_status->link_fast_bitmap);
+	ps_bitmap = le32_to_cpu((unsigned long) core_fw_status->link_ps_bitmap);
 
 	    /* suspended links are never high priority */
-	    suspend_bitmap = le32_to_cpu(core_fw_status->link_suspend_bitmap);
 	    if (test_bit(hlid, &suspend_bitmap))
 	        return false;
 
 	    /* the priority thresholds are taken from FW */
-	    if (test_bit(hlid, &core_fw_status->link_fast_bitmap) &&
-	        !test_bit(hlid, &core_fw_status->link_ps_bitmap))
+		if (test_bit(hlid, &fast_bitmap) &&
+		 !test_bit(hlid, &ps_bitmap))
 	        thold = core_fw_status->tx_fast_link_prio_threshold;
 	    else
 	        thold = core_fw_status->tx_slow_link_prio_threshold;
@@ -642,13 +642,15 @@ static bool wl18xx_lnk_low_prio(struct wl1271 *wl, u8 hlid,
 {
 	u8 thold;
 	struct core_fw_status *core_fw_status = &wl->core_status->fwInfo;
-	unsigned long suspend_bitmap;
+	unsigned long suspend_bitmap, fast_bitmap, ps_bitmap;
+	suspend_bitmap = le32_to_cpu((unsigned long) core_fw_status->link_suspend_bitmap);
+	fast_bitmap = le32_to_cpu((unsigned long) core_fw_status->link_fast_bitmap);
+	ps_bitmap = le32_to_cpu((unsigned long) core_fw_status->link_ps_bitmap);
 
-	suspend_bitmap = le32_to_cpu(core_fw_status->link_suspend_bitmap);
 	if (test_bit(hlid, &suspend_bitmap))
 		thold = core_fw_status->tx_suspend_threshold;
-	else if (test_bit(hlid, &core_fw_status->link_fast_bitmap) &&
-		 !test_bit(hlid, &core_fw_status->link_ps_bitmap))
+	else if (test_bit(hlid, &fast_bitmap) &&
+		 !test_bit(hlid, &ps_bitmap))
 		thold = core_fw_status->tx_fast_stop_threshold;
 	else
 		thold = core_fw_status->tx_slow_stop_threshold;

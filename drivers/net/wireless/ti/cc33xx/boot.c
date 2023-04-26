@@ -167,8 +167,13 @@ static int wait_for_boot_irq(struct wl1271 *wl,
 	int ret; 
 	u32 pending_irqs;
 	struct cc33xx_fw_download *fw_download;
+	struct platform_device *pdev = wl->pdev;
+	struct wlcore_platdev_data *pdev_data = dev_get_platdata(&pdev->dev);
 
 	fw_download = wl->fw_download;
+
+	msleep(100);
+	pdev_data->irq_handler(pdev);
 
 	ret = wait_for_completion_interruptible_timeout(
 			&fw_download->wait_on_irq, msecs_to_jiffies(timeout));
