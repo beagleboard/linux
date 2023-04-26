@@ -157,8 +157,10 @@
 		mbox-names = "rx", "tx";
 		mboxes= <&secure_proxy_main 12>,
 			<&secure_proxy_main 13>;
-		reg-names = "debug_messages";
-		reg = <0x00 0x44043000 0x00 0xfe0>;
+		reg-names = "debug_messages", "lpm";
+		reg = <0x00 0x44043000 0x00 0xfe0>,
+		      <0x00 0x78000000 0x00 0x8000>;
+		firmware-name = "ti-sysfw/ti-fs-stub-firmware-am62x-gp-signed.bin";
 
 		k3_pds: power-controller {
 			compatible = "ti,sci-pm-domain";
