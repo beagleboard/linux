@@ -45,6 +45,4 @@ hci_uart-$(CONFIG_BT_HCIUART_BCM)	+= hci_bcm.o
 hci_uart-$(CONFIG_BT_HCIUART_QCA)	+= hci_qca.o
 hci_uart-$(CONFIG_BT_HCIUART_AG6XX)	+= hci_ag6xx.o
 hci_uart-$(CONFIG_BT_HCIUART_MRVL)	+= hci_mrvl.o
-hci_uart-y += rtk_coex.o
-hci_uart-$(CONFIG_BT_HCIUART_RTL3WIRE) += hci_rtk_h5.o
 hci_uart-objs				:= $(hci_uart-y)

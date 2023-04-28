@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 /*
  *
  *  Bluetooth HCI UART driver
@@ -5,49 +6,11 @@
  *  Copyright (C) 2000-2001  Qualcomm Incorporated
  *  Copyright (C) 2002-2003  Maxim Krasnyansky <maxk@qualcomm.com>
  *  Copyright (C) 2004-2005  Marcel Holtmann <marcel@holtmann.org>
- *
- *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
- *
  */
-#include <linux/version.h>
-#include <net/bluetooth/bluetooth.h>
-#include <net/bluetooth/hci_core.h>
-
-/* #define HCI_VERSION_CODE KERNEL_VERSION(3, 14, 41) */
-#define HCI_VERSION_CODE LINUX_VERSION_CODE
 
 #ifndef N_HCI
 #define N_HCI	15
 #endif
-
-#ifndef CONFIG_BT_HCIUART_H4
-#define CONFIG_BT_HCIUART_H4
-#endif
-
-#define BTCOEX
-
-/* Send host sleep notification to Controller */
-#define WOBT_NOTIFY		0	/* 1  enable; 0  disable */
-
-/* Send LE whitelist only for Background scan parameters */
-#define WOBT_NOTIFY_BG_SCAN_LE_WHITELIST_ONLY	(0 * WOBT_NOTIFY)	/* 1  enable; 0  disable */
-
-/* RTKBT Power-on Whitelist for sideband wake-up by LE Advertising from Remote.
-* Note that it's necessary to apply TV FW Patch. */
-#define RTKBT_TV_POWERON_WHITELIST	(0 * WOBT_NOTIFY)	/* 1  enable; 0  disable */
 
 /* Ioctls */
 #define HCIUARTSETPROTO		_IOW('U', 200, int)
@@ -57,7 +20,7 @@
 #define HCIUARTGETFLAGS		_IOR('U', 204, int)
 
 /* UART protocols */
-#define HCI_UART_MAX_PROTO	6
+#define HCI_UART_MAX_PROTO	12
 
 #define HCI_UART_H4	0
 #define HCI_UART_BCSP	1
@@ -65,6 +28,12 @@
 #define HCI_UART_H4DS	3
 #define HCI_UART_LL	4
 #define HCI_UART_ATH3K	5
+#define HCI_UART_INTEL	6
+#define HCI_UART_BCM	7
+#define HCI_UART_QCA	8
+#define HCI_UART_AG6XX	9
+#define HCI_UART_NOKIA	10
+#define HCI_UART_MRVL	11
 
 #define HCI_UART_RAW_DEVICE	0
 #define HCI_UART_RESET_ON_INIT	1
@@ -74,42 +43,46 @@
 #define HCI_UART_VND_DETECT	5
 
 struct hci_uart;
+struct serdev_device;
 
 struct hci_uart_proto {
 	unsigned int id;
+	const char *name;
+	unsigned int manufacturer;
+	unsigned int init_speed;
+	unsigned int oper_speed;
 	int (*open)(struct hci_uart *hu);
 	int (*close)(struct hci_uart *hu);
 	int (*flush)(struct hci_uart *hu);
-	int (*recv)(struct hci_uart *hu, void *data, int len);
+	int (*setup)(struct hci_uart *hu);
+	int (*set_baudrate)(struct hci_uart *hu, unsigned int speed);
+	int (*recv)(struct hci_uart *hu, const void *data, int len);
 	int (*enqueue)(struct hci_uart *hu, struct sk_buff *skb);
 	struct sk_buff *(*dequeue)(struct hci_uart *hu);
 };
 
 struct hci_uart {
 	struct tty_struct	*tty;
+	struct serdev_device	*serdev;
 	struct hci_dev		*hdev;
 	unsigned long		flags;
 	unsigned long		hdev_flags;
 
+	struct work_struct	init_ready;
 	struct work_struct	write_work;
-	struct workqueue_struct *hci_uart_wq;
 
-	struct hci_uart_proto	*proto;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 7, 0)
-	struct percpu_rw_semaphore proto_lock; /* Stop work for proto close */
-#else
-	struct rw_semaphore proto_lock;
-#endif
+	const struct hci_uart_proto *proto;
+	struct percpu_rw_semaphore proto_lock;	/* Stop work for proto close */
 	void			*priv;
-
-	struct semaphore tx_sem;	/* semaphore for tx */
 
 	struct sk_buff		*tx_skb;
 	unsigned long		tx_state;
 
-#if WOBT_NOTIFY
-	struct notifier_block pm_notify_block;
-#endif
+	unsigned int init_speed;
+	unsigned int oper_speed;
+
+	u8			alignment;
+	u8			padding;
 };
 
 /* HCI_UART proto flag bits */
@@ -121,20 +94,108 @@ struct hci_uart {
 #define HCI_UART_SENDING	1
 #define HCI_UART_TX_WAKEUP	2
 
-extern int hci_uart_register_proto(struct hci_uart_proto *p);
-extern int hci_uart_unregister_proto(struct hci_uart_proto *p);
-extern int hci_uart_tx_wakeup(struct hci_uart *hu);
+int hci_uart_register_proto(const struct hci_uart_proto *p);
+int hci_uart_unregister_proto(const struct hci_uart_proto *p);
+int hci_uart_register_device(struct hci_uart *hu, const struct hci_uart_proto *p);
+void hci_uart_unregister_device(struct hci_uart *hu);
+
+int hci_uart_tx_wakeup(struct hci_uart *hu);
+int hci_uart_wait_until_sent(struct hci_uart *hu);
+int hci_uart_init_ready(struct hci_uart *hu);
+void hci_uart_init_work(struct work_struct *work);
+void hci_uart_set_baudrate(struct hci_uart *hu, unsigned int speed);
+bool hci_uart_has_flow_control(struct hci_uart *hu);
+void hci_uart_set_flow_control(struct hci_uart *hu, bool enable);
+void hci_uart_set_speeds(struct hci_uart *hu, unsigned int init_speed,
+			 unsigned int oper_speed);
 
 #ifdef CONFIG_BT_HCIUART_H4
-extern int h4_init(void);
-extern int h4_deinit(void);
+int h4_init(void);
+int h4_deinit(void);
+
+struct h4_recv_pkt {
+	u8  type;	/* Packet type */
+	u8  hlen;	/* Header length */
+	u8  loff;	/* Data length offset in header */
+	u8  lsize;	/* Data length field size */
+	u16 maxlen;	/* Max overall packet length */
+	int (*recv)(struct hci_dev *hdev, struct sk_buff *skb);
+};
+
+#define H4_RECV_ACL \
+	.type = HCI_ACLDATA_PKT, \
+	.hlen = HCI_ACL_HDR_SIZE, \
+	.loff = 2, \
+	.lsize = 2, \
+	.maxlen = HCI_MAX_FRAME_SIZE \
+
+#define H4_RECV_SCO \
+	.type = HCI_SCODATA_PKT, \
+	.hlen = HCI_SCO_HDR_SIZE, \
+	.loff = 2, \
+	.lsize = 1, \
+	.maxlen = HCI_MAX_SCO_SIZE
+
+#define H4_RECV_EVENT \
+	.type = HCI_EVENT_PKT, \
+	.hlen = HCI_EVENT_HDR_SIZE, \
+	.loff = 1, \
+	.lsize = 1, \
+	.maxlen = HCI_MAX_EVENT_SIZE
+
+#define H4_RECV_ISO \
+	.type = HCI_ISODATA_PKT, \
+	.hlen = HCI_ISO_HDR_SIZE, \
+	.loff = 2, \
+	.lsize = 2, \
+	.maxlen = HCI_MAX_FRAME_SIZE \
+
+struct sk_buff *h4_recv_buf(struct hci_dev *hdev, struct sk_buff *skb,
+			    const unsigned char *buffer, int count,
+			    const struct h4_recv_pkt *pkts, int pkts_count);
 #endif
 
-extern int h5_init(void);
-extern int h5_deinit(void);
+#ifdef CONFIG_BT_HCIUART_BCSP
+int bcsp_init(void);
+int bcsp_deinit(void);
+#endif
 
-#if HCI_VERSION_CODE < KERNEL_VERSION(3, 13, 0)
-extern int hci_uart_send_frame(struct sk_buff *skb);
-#else
-extern int hci_uart_send_frame(struct hci_dev *hdev, struct sk_buff *skb);
+#ifdef CONFIG_BT_HCIUART_LL
+int ll_init(void);
+int ll_deinit(void);
+#endif
+
+#ifdef CONFIG_BT_HCIUART_ATH3K
+int ath_init(void);
+int ath_deinit(void);
+#endif
+
+#ifdef CONFIG_BT_HCIUART_3WIRE
+int h5_init(void);
+int h5_deinit(void);
+#endif
+
+#ifdef CONFIG_BT_HCIUART_INTEL
+int intel_init(void);
+int intel_deinit(void);
+#endif
+
+#ifdef CONFIG_BT_HCIUART_BCM
+int bcm_init(void);
+int bcm_deinit(void);
+#endif
+
+#ifdef CONFIG_BT_HCIUART_QCA
+int qca_init(void);
+int qca_deinit(void);
+#endif
+
+#ifdef CONFIG_BT_HCIUART_AG6XX
+int ag6xx_init(void);
+int ag6xx_deinit(void);
+#endif
+
+#ifdef CONFIG_BT_HCIUART_MRVL
+int mrvl_init(void);
+int mrvl_deinit(void);
 #endif

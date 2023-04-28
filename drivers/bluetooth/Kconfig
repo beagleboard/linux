@@ -115,14 +115,6 @@ config BT_HCIUART_H4
 
 	  Say Y here to compile support for HCI UART (H4) protocol.
 
-config BT_HCIUART_RTL3WIRE
-	bool "Realtek Three-wire UART (H5) protocol support"
-	depends on BT_HCIUART
-	help
-		Realtek Three-wire UART (H5) transport layer makes it possible
-		to use Realtek Bluetooth controller with Three-wire UART.
-		Say Y here to compile support for Realtek Three-wire UART.
-
 config BT_HCIUART_NOKIA
 	tristate "UART Nokia H4+ protocol support"
 	depends on BT_HCIUART

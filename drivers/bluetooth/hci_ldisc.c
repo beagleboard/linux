@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  *
  *  Bluetooth HCI UART driver
@@ -5,25 +6,10 @@
  *  Copyright (C) 2000-2001  Qualcomm Incorporated
  *  Copyright (C) 2002-2003  Maxim Krasnyansky <maxk@qualcomm.com>
  *  Copyright (C) 2004-2005  Marcel Holtmann <marcel@holtmann.org>
- *
- *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
- *
  */
 
 #include <linux/module.h>
+
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/types.h>
@@ -31,6 +17,7 @@
 #include <linux/interrupt.h>
 #include <linux/ptrace.h>
 #include <linux/poll.h>
+
 #include <linux/slab.h>
 #include <linux/tty.h>
 #include <linux/errno.h>
@@ -38,51 +25,21 @@
 #include <linux/signal.h>
 #include <linux/ioctl.h>
 #include <linux/skbuff.h>
-#include <linux/version.h>
+#include <linux/firmware.h>
+#include <linux/serdev.h>
+
 #include <net/bluetooth/bluetooth.h>
 #include <net/bluetooth/hci_core.h>
 
+#include "btintel.h"
+#include "btbcm.h"
 #include "hci_uart.h"
 
-#define NEW_TX_SCHED_POLICY
+#define VERSION "2.3"
 
-#if WOBT_NOTIFY
-#include <linux/suspend.h>
-#endif
+static const struct hci_uart_proto *hup[HCI_UART_MAX_PROTO];
 
-#ifdef BTCOEX
-#include "rtk_coex.h"
-#endif
-
-#define VERSION "2.2.0c90be4.20211102-175223"
-
-#if HCI_VERSION_CODE > KERNEL_VERSION(3, 4, 0)
-#define GET_DRV_DATA(x)		hci_get_drvdata(x)
-#else
-#define GET_DRV_DATA(x)		(struct hci_uart *)(x->driver_data)
-#endif
-
-#define SEMWAIT_TIMEOUT		50
-
-#if WOBT_NOTIFY
-struct hci_rsp_read_local {
-	__u8     status;
-	__u8     hci_ver;
-	__le16   hci_rev;
-	__u8     lmp_ver;
-	__le16   manufacturer;
-	__le16   lmp_subver;
-} __packed;
-#endif
-
-#if HCI_VERSION_CODE < KERNEL_VERSION(3, 4, 0)
-static int reset = 0;
-#endif
-
-static struct hci_uart_proto *hup[HCI_UART_MAX_PROTO];
-static int hci_uart_flush(struct hci_dev *hdev);
-
-int hci_uart_register_proto(struct hci_uart_proto *p)
+int hci_uart_register_proto(const struct hci_uart_proto *p)
 {
 	if (p->id >= HCI_UART_MAX_PROTO)
 		return -EINVAL;
@@ -92,10 +49,12 @@ int hci_uart_register_proto(struct hci_uart_proto *p)
 
 	hup[p->id] = p;
 
+	BT_INFO("HCI UART protocol %s registered", p->name);
+
 	return 0;
 }
 
-int hci_uart_unregister_proto(struct hci_uart_proto *p)
+int hci_uart_unregister_proto(const struct hci_uart_proto *p)
 {
 	if (p->id >= HCI_UART_MAX_PROTO)
 		return -EINVAL;
@@ -108,7 +67,7 @@ int hci_uart_unregister_proto(struct hci_uart_proto *p)
 	return 0;
 }
 
-static struct hci_uart_proto *hci_uart_get_proto(unsigned int id)
+static const struct hci_uart_proto *hci_uart_get_proto(unsigned int id)
 {
 	if (id >= HCI_UART_MAX_PROTO)
 		return NULL;
@@ -136,79 +95,17 @@ static inline void hci_uart_tx_complete(struct hci_uart *hu, int pkt_type)
 	}
 }
 
-static inline void hci_proto_read_lock(struct hci_uart *hu)
-{
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 7, 0)
-	percpu_down_read(&hu->proto_lock);
-#else
-	down_read(&hu->proto_lock);
-#endif
-}
-
-static inline int hci_proto_read_trylock(struct hci_uart *hu)
-{
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 7, 0)
-	return percpu_down_read_trylock(&hu->proto_lock);
-#else
-	return down_read_trylock(&hu->proto_lock);
-#endif
-}
-
-static inline void hci_proto_read_unlock(struct hci_uart *hu)
-{
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 7, 0)
-	percpu_up_read(&hu->proto_lock);
-#else
-	up_read(&hu->proto_lock);
-#endif
-}
-
-static inline void hci_proto_write_lock(struct hci_uart *hu)
-{
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 7, 0)
-	percpu_down_write(&hu->proto_lock);
-#else
-	down_write(&hu->proto_lock);
-#endif
-}
-
-static inline void hci_proto_write_unlock(struct hci_uart *hu)
-{
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 7, 0)
-	percpu_up_write(&hu->proto_lock);
-#else
-	up_write(&hu->proto_lock);
-#endif
-}
-
-static inline int hci_proto_init_rwlock(struct hci_uart *hu)
-{
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 7, 0)
-	return percpu_init_rwsem(&hu->proto_lock);
-#else
-	init_rwsem(&hu->proto_lock);
-	return 0;
-#endif
-}
-
-static inline void hci_proto_free_rwlock(struct hci_uart *hu)
-{
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 7, 0)
-	percpu_free_rwsem(&hu->proto_lock);
-#endif
-}
-
 static inline struct sk_buff *hci_uart_dequeue(struct hci_uart *hu)
 {
 	struct sk_buff *skb = hu->tx_skb;
 
 	if (!skb) {
-		hci_proto_read_lock(hu);
+		percpu_down_read(&hu->proto_lock);
 
 		if (test_bit(HCI_UART_PROTO_READY, &hu->flags))
 			skb = hu->proto->dequeue(hu);
 
-		hci_proto_read_unlock(hu);
+		percpu_up_read(&hu->proto_lock);
 	} else {
 		hu->tx_skb = NULL;
 	}
@@ -216,60 +113,34 @@ static inline struct sk_buff *hci_uart_dequeue(struct hci_uart *hu)
 	return skb;
 }
 
-/* This may be called in an IRQ context */
 int hci_uart_tx_wakeup(struct hci_uart *hu)
 {
-	/* If acquiring lock fails we assume the tty is being closed because
-	 * that is the only time the write lock is acquired. If, however,
-	 * at some point in the future the write lock is also acquired in
-	 * other situations, then this must be revisited.
+	/* This may be called in an IRQ context, so we can't sleep. Therefore
+	 * we try to acquire the lock only, and if that fails we assume the
+	 * tty is being closed because that is the only time the write lock is
+	 * acquired. If, however, at some point in the future the write lock
+	 * is also acquired in other situations, then this must be revisited.
 	 */
-	if (!hci_proto_read_trylock(hu))
+	if (!percpu_down_read_trylock(&hu->proto_lock))
 		return 0;
 
-	/* proto_lock is locked */
 	if (!test_bit(HCI_UART_PROTO_READY, &hu->flags))
 		goto no_schedule;
 
-#ifdef NEW_TX_SCHED_POLICY
 	set_bit(HCI_UART_TX_WAKEUP, &hu->tx_state);
 	if (test_and_set_bit(HCI_UART_SENDING, &hu->tx_state))
 		goto no_schedule;
-#else
-	if (in_interrupt() || in_atomic()) {
-		if (test_and_set_bit(HCI_UART_SENDING, &hu->tx_state)) {
-			set_bit(HCI_UART_TX_WAKEUP, &hu->tx_state);
-			goto no_schedule;
-		}
-	} else {
-		/* NOTE: proto_lock can't be spin lock, because it may
-		 * schedule here. Schedule is not allowed while atomic
-		 */
-		if (down_timeout(&hu->tx_sem,
-				 msecs_to_jiffies(SEMWAIT_TIMEOUT)) == -ETIME) {
-			pr_warn("%s: Something went wrong with wait\n",
-				__func__);
-			goto no_schedule;
-		}
-		/* semaphore is locked */
-		if (test_and_set_bit(HCI_UART_SENDING, &hu->tx_state)) {
-			set_bit(HCI_UART_TX_WAKEUP, &hu->tx_state);
-			up(&hu->tx_sem);
-			goto no_schedule;
-		}
-		up(&hu->tx_sem);
-	}
-#endif
 
 	BT_DBG("");
 
 	schedule_work(&hu->write_work);
 
 no_schedule:
-	hci_proto_read_unlock(hu);
+	percpu_up_read(&hu->proto_lock);
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(hci_uart_tx_wakeup);
 
 static void hci_uart_write_work(struct work_struct *work)
 {
@@ -282,7 +153,7 @@ static void hci_uart_write_work(struct work_struct *work)
 	 * and error value ?
 	 */
 
- restart:
+restart:
 	clear_bit(HCI_UART_TX_WAKEUP, &hu->tx_state);
 
 	while ((skb = hci_uart_dequeue(hu))) {
@@ -298,33 +169,84 @@ static void hci_uart_write_work(struct work_struct *work)
 			break;
 		}
 
-		hci_uart_tx_complete(hu, bt_cb(skb)->pkt_type);
+		hci_uart_tx_complete(hu, hci_skb_pkt_type(skb));
 		kfree_skb(skb);
 	}
 
-#ifdef NEW_TX_SCHED_POLICY
 	clear_bit(HCI_UART_SENDING, &hu->tx_state);
 	if (test_bit(HCI_UART_TX_WAKEUP, &hu->tx_state))
 		goto restart;
-#else
-	if (down_timeout(&hu->tx_sem, msecs_to_jiffies(SEMWAIT_TIMEOUT))) {
-		pr_warn("%s: Something went wrong with wait\n", __func__);
-		goto restart;
-	}
-	/* semaphore is locked */
-	if (test_bit(HCI_UART_TX_WAKEUP, &hu->tx_state)) {
-		up(&hu->tx_sem);
-		goto restart;
+
+	wake_up_bit(&hu->tx_state, HCI_UART_SENDING);
+}
+
+void hci_uart_init_work(struct work_struct *work)
+{
+	struct hci_uart *hu = container_of(work, struct hci_uart, init_ready);
+	int err;
+	struct hci_dev *hdev;
+
+	if (!test_and_clear_bit(HCI_UART_INIT_PENDING, &hu->hdev_flags))
+		return;
+
+	err = hci_register_dev(hu->hdev);
+	if (err < 0) {
+		BT_ERR("Can't register HCI device");
+		clear_bit(HCI_UART_PROTO_READY, &hu->flags);
+		hu->proto->close(hu);
+		hdev = hu->hdev;
+		hu->hdev = NULL;
+		hci_free_dev(hdev);
+		return;
 	}
 
-	clear_bit(HCI_UART_SENDING, &hu->tx_state);
-	up(&hu->tx_sem);
-#endif
+	set_bit(HCI_UART_REGISTERED, &hu->flags);
+}
 
-	return;
+int hci_uart_init_ready(struct hci_uart *hu)
+{
+	if (!test_bit(HCI_UART_INIT_PENDING, &hu->hdev_flags))
+		return -EALREADY;
+
+	schedule_work(&hu->init_ready);
+
+	return 0;
+}
+
+int hci_uart_wait_until_sent(struct hci_uart *hu)
+{
+	return wait_on_bit_timeout(&hu->tx_state, HCI_UART_SENDING,
+				   TASK_INTERRUPTIBLE,
+				   msecs_to_jiffies(2000));
 }
 
 /* ------- Interface to HCI layer ------ */
+/* Reset device */
+static int hci_uart_flush(struct hci_dev *hdev)
+{
+	struct hci_uart *hu  = hci_get_drvdata(hdev);
+	struct tty_struct *tty = hu->tty;
+
+	BT_DBG("hdev %p tty %p", hdev, tty);
+
+	if (hu->tx_skb) {
+		kfree_skb(hu->tx_skb); hu->tx_skb = NULL;
+	}
+
+	/* Flush any pending characters in the driver and discipline. */
+	tty_ldisc_flush(tty);
+	tty_driver_flush_buffer(tty);
+
+	percpu_down_read(&hu->proto_lock);
+
+	if (test_bit(HCI_UART_PROTO_READY, &hu->flags))
+		hu->proto->flush(hu);
+
+	percpu_up_read(&hu->proto_lock);
+
+	return 0;
+}
+
 /* Initialize device */
 static int hci_uart_open(struct hci_dev *hdev)
 {
@@ -333,499 +255,218 @@ static int hci_uart_open(struct hci_dev *hdev)
 	/* Undo clearing this from hci_uart_close() */
 	hdev->flush = hci_uart_flush;
 
-#if HCI_VERSION_CODE < KERNEL_VERSION(4, 4, 0)
-	set_bit(HCI_RUNNING, &hdev->flags);
-#endif
-
-#ifdef BTCOEX
-	rtk_btcoex_open(hdev);
-#endif
-
 	return 0;
-}
-
-/* static void hci_flush_sync(struct hci_dev *hdev)
- * {
- * #if HCI_VERSION_CODE >= KERNEL_VERSION(3, 10, 0)
- * 	u8 buf[2] = { 0, 0 };
- * 	struct sk_buff *skb;
- * 
- * 	BT_INFO("hci flush sync");
- * 
- * 	set_bit(HCI_INIT, &hdev->flags);
- * 	skb = __hci_cmd_sync(hdev, 0xfc19, 2, buf, msecs_to_jiffies(2000));
- * 	clear_bit(HCI_INIT, &hdev->flags);
- * 
- * 	if (IS_ERR(skb)) {
- * 		BT_ERR("command 0xfc19 tx failed (%ld)\n", PTR_ERR(skb));
- * 		return;
- * 	}
- * 
- * 	if (skb->len == 1)
- * 		BT_INFO("hci flush sync status %u", skb->data[0]);
- * 
- * 	kfree_skb(skb);
- * #endif
- * }
- */
-
-static int __hci_uart_flush(struct hci_dev *hdev, u8 sync)
-{
-	struct hci_uart *hu = GET_DRV_DATA(hdev);	//(struct hci_uart *) hdev->driver_data;
-	struct tty_struct *tty = hu->tty;
-
-	BT_INFO("%s: hdev %p tty %p", __func__, hdev, tty);
-
-	/* Make sure all HCI packets has been transmitted */
-	/* if (sync && test_bit(HCI_RUNNING, &hdev->flags))
-	 * 	hci_flush_sync(hdev);
-	 */
-
-	if (hu->tx_skb) {
-		kfree_skb(hu->tx_skb);
-		hu->tx_skb = NULL;
-	}
-
-	/* Flush any pending characters in the driver and discipline. */
-	/* tty_ldisc_flush(tty);
-	 * tty_driver_flush_buffer(tty);
-	 */
-	/* Don't flush the tty. Sometime, the hdev is closed abnormally.
-	 * There may be cmd complete event in rx buf or the sent ack in tx buf.
-	 * tty flush will result in hciX: command 0xXXXX tx timeout
-	 */
-	tty_wait_until_sent(tty, msecs_to_jiffies(500));
-
-	hci_proto_read_lock(hu);
-
-	if (test_bit(HCI_UART_PROTO_READY, &hu->flags))
-		hu->proto->flush(hu);
-
-	hci_proto_read_unlock(hu);
-
-	return 0;
-}
-
-/* Reset device */
-static int hci_uart_flush(struct hci_dev *hdev)
-{
-	return __hci_uart_flush(hdev, 1);
 }
 
 /* Close device */
 static int hci_uart_close(struct hci_dev *hdev)
 {
-	BT_INFO("%s: hdev %p", __func__, hdev);
+	BT_DBG("hdev %p", hdev);
 
-	/* When in kernel 4.4.0 and greater, the HCI_RUNNING bit is
-	 * cleared in hci_dev_do_close(). */
-#if HCI_VERSION_CODE < KERNEL_VERSION(4, 4, 0)
-	if (!test_and_clear_bit(HCI_RUNNING, &hdev->flags))
-		return 0;
-#else
-	if (test_bit(HCI_RUNNING, &hdev->flags))
-		BT_ERR("HCI_RUNNING is not cleared before.");
-#endif
-
-	if (test_bit(HCI_RUNNING, &hdev->flags))
-		__hci_uart_flush(hdev, 0);
-	else
-		__hci_uart_flush(hdev, 1);
-
+	hci_uart_flush(hdev);
 	hdev->flush = NULL;
-
-#ifdef BTCOEX
-	rtk_btcoex_close();
-#endif
-
 	return 0;
 }
 
 /* Send frames from HCI layer */
-#if HCI_VERSION_CODE < KERNEL_VERSION(3, 13, 0)
-int hci_uart_send_frame(struct sk_buff *skb)
-#else
-int hci_uart_send_frame(struct hci_dev *hdev, struct sk_buff *skb)
-#endif
+static int hci_uart_send_frame(struct hci_dev *hdev, struct sk_buff *skb)
 {
-#if HCI_VERSION_CODE < KERNEL_VERSION(3, 13, 0)
-	struct hci_dev *hdev = (struct hci_dev *)skb->dev;
-#endif
-	struct hci_uart *hu;
+	struct hci_uart *hu = hci_get_drvdata(hdev);
 
-	if (!hdev) {
-		BT_ERR("Frame for unknown device (hdev=NULL)");
-		return -ENODEV;
-	}
-
-#if HCI_VERSION_CODE < KERNEL_VERSION(4, 4, 0)
-	if (!test_bit(HCI_RUNNING, &hdev->flags))
-		return -EBUSY;
-#endif
-
-	hu = GET_DRV_DATA(hdev);	//(struct hci_uart *) hdev->driver_data;
-
-	BT_DBG("%s: type %d len %d", hdev->name, bt_cb(skb)->pkt_type,
+	BT_DBG("%s: type %d len %d", hdev->name, hci_skb_pkt_type(skb),
 	       skb->len);
 
-#ifdef BTCOEX
-	if (bt_cb(skb)->pkt_type == HCI_COMMAND_PKT)
-		rtk_btcoex_parse_cmd(skb->data, skb->len);
-	if (bt_cb(skb)->pkt_type == HCI_ACLDATA_PKT)
-		rtk_btcoex_parse_l2cap_data_tx(skb->data, skb->len);
-#endif
-
-	hci_proto_read_lock(hu);
+	percpu_down_read(&hu->proto_lock);
 
 	if (!test_bit(HCI_UART_PROTO_READY, &hu->flags)) {
-		hci_proto_read_unlock(hu);
+		percpu_up_read(&hu->proto_lock);
 		return -EUNATCH;
 	}
 
 	hu->proto->enqueue(hu, skb);
-	hci_proto_read_unlock(hu);
+	percpu_up_read(&hu->proto_lock);
 
 	hci_uart_tx_wakeup(hu);
 
 	return 0;
 }
 
-#if HCI_VERSION_CODE < KERNEL_VERSION(3, 4, 0)
-static void hci_uart_destruct(struct hci_dev *hdev)
+/* Check the underlying device or tty has flow control support */
+bool hci_uart_has_flow_control(struct hci_uart *hu)
 {
-	if (!hdev)
+	/* serdev nodes check if the needed operations are present */
+	if (hu->serdev)
+		return true;
+
+	if (hu->tty->driver->ops->tiocmget && hu->tty->driver->ops->tiocmset)
+		return true;
+
+	return false;
+}
+
+/* Flow control or un-flow control the device */
+void hci_uart_set_flow_control(struct hci_uart *hu, bool enable)
+{
+	struct tty_struct *tty = hu->tty;
+	struct ktermios ktermios;
+	int status;
+	unsigned int set = 0;
+	unsigned int clear = 0;
+
+	if (hu->serdev) {
+		serdev_device_set_flow_control(hu->serdev, !enable);
+		serdev_device_set_rts(hu->serdev, !enable);
 		return;
-
-	BT_DBG("%s", hdev->name);
-	kfree(hdev->driver_data);
-}
-#endif
-
-#if WOBT_NOTIFY
-static int hci_uart_async_send(struct hci_uart *hu, u16 opcode,
-			       u32 plen, const void *param)
-{
-	int len = HCI_COMMAND_HDR_SIZE + plen;
-	struct hci_command_hdr *hdr;
-	struct sk_buff *skb;
-
-	skb = bt_skb_alloc(len, GFP_ATOMIC);
-	if (!skb)
-		return -ENOMEM;
-
-	hdr = (struct hci_command_hdr *)skb_put(skb, HCI_COMMAND_HDR_SIZE);
-	hdr->opcode = cpu_to_le16(opcode);
-	hdr->plen   = plen;
-
-	if (plen)
-		memcpy(skb_put(skb, plen), param, plen);
-
-	BT_INFO("rtl: skb len %d", skb->len);
-
-	bt_cb(skb)->pkt_type = HCI_COMMAND_PKT;
-
-#if HCI_VERSION_CODE >= KERNEL_VERSION(3, 18, 0)
-#if HCI_VERSION_CODE < KERNEL_VERSION(4, 4, 0)
-	bt_cb(skb)->opcode = opcode;
-#else
-	bt_cb(skb)->hci.opcode = opcode;
-#endif
-#endif
-
-	/* Stand-alone HCI commands must be flagged as
-	 * single-command requests.
-	 */
-#if HCI_VERSION_CODE >= KERNEL_VERSION(3, 10, 0)
-#if HCI_VERSION_CODE < KERNEL_VERSION(4, 4, 0)
-	bt_cb(skb)->req.start = true;
-#else
-
-#if HCI_VERSION_CODE < KERNEL_VERSION(4, 5, 0)
-	bt_cb(skb)->hci.req_start = true;
-#else
-
-	bt_cb(skb)->hci.req_flags |= HCI_REQ_START;
-#endif
-#endif /* 4.4.0 */
-#endif /* 3.10.0 */
-
-#if HCI_VERSION_CODE < KERNEL_VERSION(3, 13, 0)
-	hci_uart_send_frame(skb);
-#else
-	hci_uart_send_frame(hu->hdev, skb);
-#endif
-
-	/* hci_proto_read_lock(hu);
-
-	 * if (!test_bit(HCI_UART_PROTO_READY, &hu->flags)) {
-	 * 	hci_proto_read_unlock(hu);
-	 * 	BT_ERR("rtl send: proto not ready");
-	 * 	return -EUNATCH;
-	 * }
-
-	 * hu->proto->enqueue(hu, skb);
-	 * hci_proto_read_unlock(hu);
-
-	 * hci_uart_tx_wakeup(hu);
-	 */
-
-	return 0;
-}
-
-static int rtl_read_local_version(struct hci_dev *hdev, u8 *hci_ver,
-				  u16 *hci_rev, u16 *lmp_subver)
-{
-	struct hci_rsp_read_local *ver;
-	struct sk_buff *skb;
-
-	skb = __hci_cmd_sync(hdev, 0x1001, 0, NULL, HCI_INIT_TIMEOUT);
-	if (IS_ERR(skb)) {
-		BT_ERR("rtl: Could not read lmp subversion");
-		return PTR_ERR(skb);
 	}
 
-	if (skb->len != sizeof(struct hci_rsp_read_local)) {
-		BT_ERR("%s: rtl: Local version length mismatch", hdev->name);
-		kfree_skb(skb);
-		return -EIO;
-	}
+	if (enable) {
+		/* Disable hardware flow control */
+		ktermios = tty->termios;
+		ktermios.c_cflag &= ~CRTSCTS;
+		status = tty_set_termios(tty, &ktermios);
+		BT_DBG("Disabling hardware flow control: %s",
+		       status ? "failed" : "success");
 
-	ver = (struct hci_rsp_read_local *)skb->data;
-	*hci_ver = ver->hci_ver;
-	*hci_rev = le16_to_cpu(ver->hci_rev);
-	*lmp_subver = le16_to_cpu(ver->lmp_subver);
+		/* Clear RTS to prevent the device from sending */
+		/* Most UARTs need OUT2 to enable interrupts */
+		status = tty->driver->ops->tiocmget(tty);
+		BT_DBG("Current tiocm 0x%x", status);
 
-	kfree_skb(skb);
-
-	return 0;
-}
-
-#if RTKBT_TV_POWERON_WHITELIST
-static int rtkbt_lookup_le_device_poweron_whitelist(struct hci_uart *hu)
-{
-	struct hci_conn_params *p;
-	u8 *params;
-	int result = 0;
-
-	hci_dev_lock(hu->hdev);
-	list_for_each_entry(p, &hu->hdev->le_conn_params, list) {
-#if 0 // for debug message
-		BT_INFO("%s(): auto_connect = %d", __FUNCTION__, p->auto_connect);
-		BT_INFO("%s(): addr_type = 0x%02x", __FUNCTION__, p->addr_type);
-		BT_INFO("%s(): addr=%02x:%02x:%02x:%02x:%02x:%02x", __FUNCTION__,
-                                p->addr.b[5], p->addr.b[4], p->addr.b[3],
-                                p->addr.b[2], p->addr.b[1], p->addr.b[0]);
-#endif
-		if ( p->auto_connect == HCI_AUTO_CONN_ALWAYS &&
-			p->addr_type == ADDR_LE_DEV_PUBLIC ) {
-
-			BT_INFO("%s(): Set RTKBT LE Power-on Whitelist for "
-				"%02x:%02x:%02x:%02x:%02x:%02x", __FUNCTION__,
-                                p->addr.b[5], p->addr.b[4], p->addr.b[3],
-                                p->addr.b[2], p->addr.b[1], p->addr.b[0]);
-
-			params = kzalloc(8, GFP_ATOMIC);
-			if (!params) {
-				BT_ERR("Can't allocate memory for params");
-				return -ENOMEM;
-			}
-
-			params[0] = 0x00;
-			params[1] = p->addr.b[0];
-			params[2] = p->addr.b[1];
-			params[3] = p->addr.b[2];
-			params[4] = p->addr.b[3];
-			params[5] = p->addr.b[4];
-			params[6] = p->addr.b[5];
-
-			result = hci_uart_async_send(hu, 0xfc7b, 7, params);
-			if (result)
-				BT_ERR("rtl: Command failed for power-on whitelist");
-
-			msleep(500);
-
-			kfree(params);
-		}
-	}
-	hci_dev_unlock(hu->hdev);
-
-	return result;
-}
-#endif
-
-static int rtkbt_notify_suspend(struct hci_uart *hu)
-{
-	struct hci_conn *conn;
-	struct sk_buff *rx_skb;
-	u8 params_suspend_notify[1] = { 0x01 };
-	u8 event_params[6] = { 0x05, 0x04, 0x00, 0x10, 0x00, 0x13 };
-	int result = 0;
-
-	result = hci_uart_async_send(hu, 0xfc28, 1, params_suspend_notify);
-	if (result)
-		BT_ERR("Realtek suspend h5-bt failed");
-
-	msleep(500);
-
-	hci_dev_lock(hu->hdev);
-
-	conn = hci_conn_hash_lookup_state(hu->hdev, LE_LINK, BT_CONNECTED);
-	if (conn && (conn->state == BT_CONNECTED)){
-		rx_skb = alloc_skb(6, GFP_ATOMIC);
-		if (!rx_skb)
-			return -1;
-
-		event_params[3] = (u8)(conn->handle);
-		event_params[4] = (u8)(conn->handle >> 8);
-		hci_skb_pkt_type(rx_skb) = HCI_EVENT_PKT;
-		skb_put_data(rx_skb, event_params, 6);
-
-		BT_INFO("Send Disconnect Complete EVENT to upper stack");
-		hci_recv_frame(hu->hdev, rx_skb);
-	}
-
-	hci_dev_unlock(hu->hdev);
-
-	return result;
-}
-
-static void le_scan_disable(struct hci_uart *hu)
-{
-#if HCI_VERSION_CODE >= KERNEL_VERSION(4, 19, 0)
-	if (use_ext_scan(hu->hdev)) {
-		u8 ext_enable_cp[6] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-
-		hci_uart_async_send(hu, HCI_OP_LE_SET_EXT_SCAN_ENABLE, 6, ext_enable_cp);
+		set &= ~(TIOCM_OUT2 | TIOCM_RTS);
+		clear = ~set;
+		set &= TIOCM_DTR | TIOCM_RTS | TIOCM_OUT1 |
+		       TIOCM_OUT2 | TIOCM_LOOP;
+		clear &= TIOCM_DTR | TIOCM_RTS | TIOCM_OUT1 |
+			 TIOCM_OUT2 | TIOCM_LOOP;
+		status = tty->driver->ops->tiocmset(tty, set, clear);
+		BT_DBG("Clearing RTS: %s", status ? "failed" : "success");
 	} else {
-		u8 enable_cp[2] = {0x00, 0x00};
+		/* Set RTS to allow the device to send again */
+		status = tty->driver->ops->tiocmget(tty);
+		BT_DBG("Current tiocm 0x%x", status);
 
-		hci_uart_async_send(hu, HCI_OP_LE_SET_SCAN_ENABLE, 2, enable_cp);
+		set |= (TIOCM_OUT2 | TIOCM_RTS);
+		clear = ~set;
+		set &= TIOCM_DTR | TIOCM_RTS | TIOCM_OUT1 |
+		       TIOCM_OUT2 | TIOCM_LOOP;
+		clear &= TIOCM_DTR | TIOCM_RTS | TIOCM_OUT1 |
+			 TIOCM_OUT2 | TIOCM_LOOP;
+		status = tty->driver->ops->tiocmset(tty, set, clear);
+		BT_DBG("Setting RTS: %s", status ? "failed" : "success");
+
+		/* Re-enable hardware flow control */
+		ktermios = tty->termios;
+		ktermios.c_cflag |= CRTSCTS;
+		status = tty_set_termios(tty, &ktermios);
+		BT_DBG("Enabling hardware flow control: %s",
+		       status ? "failed" : "success");
 	}
-#else
-	u8 enable_cp[2] = {0x00, 0x00};
-
-	hci_uart_async_send(hu, HCI_OP_LE_SET_SCAN_ENABLE, 2, enable_cp);
-#endif
-
-	return;
 }
 
-static void le_scan_restart(struct hci_uart *hu)
+void hci_uart_set_speeds(struct hci_uart *hu, unsigned int init_speed,
+			 unsigned int oper_speed)
 {
-	int result;
-#if HCI_VERSION_CODE >= KERNEL_VERSION(4, 19, 0)
-	if (use_ext_scan(hu->hdev)) {
-		u8 ext_enable_cp[6] = { 0x01, 0x01, 0x00, 0x00, 0x00, 0x00};
-
-		BT_INFO("LE Extended Scan Restart...");
-		le_scan_disable(hu);
-		result = hci_uart_async_send(hu, HCI_OP_LE_SET_EXT_SCAN_ENABLE, 6, ext_enable_cp);
-		if (result)
-			BT_ERR("LE Extended Scan Restart: Failed");
-		} else {
-			u8 enable_cp[2] = {0x01, 0x01};
-
-			BT_INFO("LE Scan Restart...");
-			le_scan_disable(hu);
-			result = hci_uart_async_send(hu, HCI_OP_LE_SET_SCAN_ENABLE, 2, enable_cp);
-			if (result)
-				BT_ERR("LE Scan Restart: Failed");
-		}
-#else
-		u8 enable_cp[2] = {0x01, 0x01};
-
-		BT_INFO("LE Scan Restart");
-		le_scan_disable(hu);
-		result = hci_uart_async_send(hu, HCI_OP_LE_SET_SCAN_ENABLE, 2, enable_cp);
-		if (result)
-			BT_ERR("LE Scan Restart: Failed");
-#endif
-	return;
+	hu->init_speed = init_speed;
+	hu->oper_speed = oper_speed;
 }
 
-static bool le_aoto_conn_always_exist(struct hci_uart *hu)
+void hci_uart_set_baudrate(struct hci_uart *hu, unsigned int speed)
 {
-	struct hci_conn_params *p;
-	bool ret = false;
+	struct tty_struct *tty = hu->tty;
+	struct ktermios ktermios;
 
-	hci_dev_lock(hu->hdev);
-	list_for_each_entry(p, &hu->hdev->le_conn_params, list) {
-		if ( p->auto_connect == HCI_AUTO_CONN_ALWAYS &&
-			p->addr_type == ADDR_LE_DEV_PUBLIC ) {
+	ktermios = tty->termios;
+	ktermios.c_cflag &= ~CBAUD;
+	tty_termios_encode_baud_rate(&ktermios, speed, speed);
 
-			ret = true;
-		}
+	/* tty_set_termios() return not checked as it is always 0 */
+	tty_set_termios(tty, &ktermios);
+
+	BT_DBG("%s: New tty speeds: %d/%d", hu->hdev->name,
+	       tty->termios.c_ispeed, tty->termios.c_ospeed);
+}
+
+static int hci_uart_setup(struct hci_dev *hdev)
+{
+	struct hci_uart *hu = hci_get_drvdata(hdev);
+	struct hci_rp_read_local_version *ver;
+	struct sk_buff *skb;
+	unsigned int speed;
+	int err;
+
+	/* Init speed if any */
+	if (hu->init_speed)
+		speed = hu->init_speed;
+	else if (hu->proto->init_speed)
+		speed = hu->proto->init_speed;
+	else
+		speed = 0;
+
+	if (speed)
+		hci_uart_set_baudrate(hu, speed);
+
+	/* Operational speed if any */
+	if (hu->oper_speed)
+		speed = hu->oper_speed;
+	else if (hu->proto->oper_speed)
+		speed = hu->proto->oper_speed;
+	else
+		speed = 0;
+
+	if (hu->proto->set_baudrate && speed) {
+		err = hu->proto->set_baudrate(hu, speed);
+		if (!err)
+			hci_uart_set_baudrate(hu, speed);
 	}
-	hci_dev_unlock(hu->hdev);
 
-	return ret;
-}
+	if (hu->proto->setup)
+		return hu->proto->setup(hu);
 
-static int hci_uart_pm_notifier(struct notifier_block *b, unsigned long v, void *d)
-{
-	int result;
-	struct hci_uart *hu = container_of(b, struct hci_uart, pm_notify_block);
-	u8 hci_ver = 0;
-	u16 hci_rev = 0;
-	u16 lmp_subver = 0;
-#if WOBT_NOTIFY_BG_SCAN_LE_WHITELIST_ONLY
-	u8 params_bg_scan[5] = { 0x60, 0x01, 0x10, 0x00, 0x01 };
-#endif
+	if (!test_bit(HCI_UART_VND_DETECT, &hu->hdev_flags))
+		return 0;
 
-	BT_INFO("%s: %lu", __func__, v);
-	switch (v) {
-	case PM_SUSPEND_PREPARE:
-		BT_INFO("rtl: bt suspending");
-#if WOBT_NOTIFY_BG_SCAN_LE_WHITELIST_ONLY
-		/* Send set back ground scan parameters to Controller for power-on mode */
-		result = hci_uart_async_send(hu, 0xfc7a, 5, params_bg_scan);
-		if (result)
-			BT_ERR("Realtek bg-scan h5-bt failed");
-		/* FIXME: Ensure the above vendor command is sent to Controller
-		 * and we received the h5 ack from Controller
-		 * */
-		 msleep(500);
+	skb = __hci_cmd_sync(hdev, HCI_OP_READ_LOCAL_VERSION, 0, NULL,
+			     HCI_INIT_TIMEOUT);
+	if (IS_ERR(skb)) {
+		BT_ERR("%s: Reading local version information failed (%ld)",
+		       hdev->name, PTR_ERR(skb));
+		return 0;
+	}
 
-#endif
+	if (skb->len != sizeof(*ver)) {
+		BT_ERR("%s: Event length mismatch for version information",
+		       hdev->name);
+		goto done;
+	}
 
-#if RTKBT_TV_POWERON_WHITELIST
-		result = rtkbt_lookup_le_device_poweron_whitelist(hu);
-		if (result < 0) {
-			BT_ERR("rtkbt_lookup_le_device_poweron_whitelist error: %d", result);
-		}
-#endif
+	ver = (struct hci_rp_read_local_version *)skb->data;
 
-		result = rtkbt_notify_suspend(hu);
-		if (result < 0) {
-			BT_ERR("rtkbt_notify_suspend error: %d", result);
-		}
-
+	switch (le16_to_cpu(ver->manufacturer)) {
+#ifdef CONFIG_BT_HCIUART_INTEL
+	case 2:
+		hdev->set_bdaddr = btintel_set_bdaddr;
+		btintel_check_bdaddr(hdev);
 		break;
-	case PM_POST_SUSPEND:
-		result = rtl_read_local_version(hu->hdev, &hci_ver, &hci_rev,
-						&lmp_subver);
-		if (result)
-			break;
-		BT_INFO("rtl resume: hci ver %u, hci rev %04x, lmp subver %04x",
-			hci_ver, hci_rev, lmp_subver);
-
-		if (le_aoto_conn_always_exist(hu))
-			le_scan_restart(hu);
-
+#endif
+#ifdef CONFIG_BT_HCIUART_BCM
+	case 15:
+		hdev->set_bdaddr = btbcm_set_bdaddr;
+		btbcm_check_bdaddr(hdev);
 		break;
+#endif
 	default:
-		BT_INFO("Caught msg %lu other than SUSPEND_PREPARE", v);
 		break;
 	}
 
+done:
+	kfree_skb(skb);
 	return 0;
 }
-#endif
 
 /* ------ LDISC part ------ */
 /* hci_uart_tty_open
  *
- * Called when line discipline changed to HCI_UART.
+ *     Called when line discipline changed to HCI_UART.
  *
  * Arguments:
  *     tty    pointer to tty info structure
@@ -834,25 +475,9 @@ static int hci_uart_pm_notifier(struct notifier_block *b, unsigned long v, void 
  */
 static int hci_uart_tty_open(struct tty_struct *tty)
 {
-	struct hci_uart *hu = (void *)tty->disc_data;
+	struct hci_uart *hu;
 
 	BT_DBG("tty %p", tty);
-
-	/* But nothing ensures disc_data to be NULL. And since ld->ops->open
-	 * shall be called only once, we do not need the check at all.
-	 * So remove it.
-	 *
-	 * Note that this is not an issue now, but n_tty will start using the
-	 * disc_data pointer and this invalid 'if' would trigger then rendering
-	 * TTYs over BT unusable.
-	 */
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 8, 0)
-	/* FIXME: This btw is bogus, nothing requires the old ldisc to clear
-	 * the pointer
-	 */
-	if (hu)
-		return -EEXIST;
-#endif
 
 	/* Error if the tty has no write op instead of leaving an exploitable
 	 * hole
@@ -860,7 +485,8 @@ static int hci_uart_tty_open(struct tty_struct *tty)
 	if (tty->ops->write == NULL)
 		return -EOPNOTSUPP;
 
-	if (!(hu = kzalloc(sizeof(struct hci_uart), GFP_KERNEL))) {
+	hu = kzalloc(sizeof(struct hci_uart), GFP_KERNEL);
+	if (!hu) {
 		BT_ERR("Can't allocate control structure");
 		return -ENFILE;
 	}
@@ -869,39 +495,32 @@ static int hci_uart_tty_open(struct tty_struct *tty)
 	hu->tty = tty;
 	tty->receive_room = 65536;
 
+	/* disable alignment support by default */
+	hu->alignment = 1;
+	hu->padding = 0;
+
+	INIT_WORK(&hu->init_ready, hci_uart_init_work);
 	INIT_WORK(&hu->write_work, hci_uart_write_work);
 
-	hci_proto_init_rwlock(hu);
-	sema_init(&hu->tx_sem, 1);
+	percpu_init_rwsem(&hu->proto_lock);
 
-	/* Flush any pending characters in the driver and line discipline. */
-
-	/* FIXME: why is this needed. Note don't use ldisc_ref here as the
-	   open path is before the ldisc is referencable */
-
-	if (tty->ldisc->ops->flush_buffer)
-		tty->ldisc->ops->flush_buffer(tty);
+	/* Flush any pending characters in the driver */
 	tty_driver_flush_buffer(tty);
-
-#if WOBT_NOTIFY
-	hu->pm_notify_block.notifier_call = hci_uart_pm_notifier;
-	register_pm_notifier(&hu->pm_notify_block);
-#endif
 
 	return 0;
 }
 
 /* hci_uart_tty_close()
  *
- * Called when the line discipline is changed to something
- * else, the tty is closed, or the tty detects a hangup.
+ *    Called when the line discipline is changed to something
+ *    else, the tty is closed, or the tty detects a hangup.
  */
 static void hci_uart_tty_close(struct tty_struct *tty)
 {
-	struct hci_uart *hu = (void *)tty->disc_data;
+	struct hci_uart *hu = tty->disc_data;
 	struct hci_dev *hdev;
 
-	BT_INFO("%s: tty %p", __func__, tty);
+	BT_DBG("tty %p", tty);
 
 	/* Detach from the tty */
 	tty->disc_data = NULL;
@@ -914,10 +533,11 @@ static void hci_uart_tty_close(struct tty_struct *tty)
 		hci_uart_close(hdev);
 
 	if (test_bit(HCI_UART_PROTO_READY, &hu->flags)) {
-		hci_proto_write_lock(hu);
+		percpu_down_write(&hu->proto_lock);
 		clear_bit(HCI_UART_PROTO_READY, &hu->flags);
-		hci_proto_write_unlock(hu);
+		percpu_up_write(&hu->proto_lock);
 
+		cancel_work_sync(&hu->init_ready);
 		cancel_work_sync(&hu->write_work);
 
 		if (hdev) {
@@ -929,25 +549,22 @@ static void hci_uart_tty_close(struct tty_struct *tty)
 	}
 	clear_bit(HCI_UART_PROTO_SET, &hu->flags);
 
-	hci_proto_free_rwlock(hu);
-#if WOBT_NOTIFY
-	unregister_pm_notifier(&hu->pm_notify_block);
-#endif
+	percpu_free_rwsem(&hu->proto_lock);
 
 	kfree(hu);
 }
 
 /* hci_uart_tty_wakeup()
  *
- * Callback for transmit wakeup. Called when low level
- * device driver can accept more send data.
+ *    Callback for transmit wakeup. Called when low level
+ *    device driver can accept more send data.
  *
  * Arguments:        tty    pointer to associated tty instance data
  * Return Value:    None
  */
 static void hci_uart_tty_wakeup(struct tty_struct *tty)
 {
-	struct hci_uart *hu = (void *)tty->disc_data;
+	struct hci_uart *hu = tty->disc_data;
 
 	BT_DBG("");
 
@@ -965,8 +582,8 @@ static void hci_uart_tty_wakeup(struct tty_struct *tty)
 
 /* hci_uart_tty_receive()
  *
- * Called by tty low level driver when receive data is
- * available.
+ *     Called by tty low level driver when receive data is
+ *     available.
  *
  * Arguments:  tty          pointer to tty isntance data
  *             data         pointer to received data
@@ -975,33 +592,26 @@ static void hci_uart_tty_wakeup(struct tty_struct *tty)
  *
  * Return Value:    None
  */
-static void hci_uart_tty_receive(struct tty_struct *tty, const u8 * data,
+static void hci_uart_tty_receive(struct tty_struct *tty, const u8 *data,
 				 char *flags, int count)
 {
-	struct hci_uart *hu = (void *)tty->disc_data;
-	int (*proto_receive)(struct hci_uart *hu, void *data, int len);
+	struct hci_uart *hu = tty->disc_data;
 
 	if (!hu || tty != hu->tty)
 		return;
 
-	hci_proto_read_lock(hu);
+	percpu_down_read(&hu->proto_lock);
 
 	if (!test_bit(HCI_UART_PROTO_READY, &hu->flags)) {
-		hci_proto_read_unlock(hu);
+		percpu_up_read(&hu->proto_lock);
 		return;
 	}
 
-	proto_receive = hu->proto->recv;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 0, 0)
-	proto_receive(hu, (void *)data, count);
-	hci_proto_read_unlock(hu);
-#else
-	hci_proto_read_unlock(hu);
 	/* It does not need a lock here as it is already protected by a mutex in
 	 * tty caller
 	 */
-	proto_receive(hu, (void *)data, count);
-#endif
+	hu->proto->recv(hu, data, count);
+	percpu_up_read(&hu->proto_lock);
 
 	if (hu->hdev)
 		hu->hdev->stat.byte_rx += count;
@@ -1012,8 +622,9 @@ static void hci_uart_tty_receive(struct tty_struct *tty, const u8 * data,
 static int hci_uart_register_dev(struct hci_uart *hu)
 {
 	struct hci_dev *hdev;
+	int err;
 
-	BT_INFO("hci_uart_register_dev");
+	BT_DBG("");
 
 	/* Initialize and register HCI device */
 	hdev = hci_alloc_dev();
@@ -1024,124 +635,91 @@ static int hci_uart_register_dev(struct hci_uart *hu)
 
 	hu->hdev = hdev;
 
-#if HCI_VERSION_CODE > KERNEL_VERSION(2, 6, 33)
 	hdev->bus = HCI_UART;
-#else
-	hdev->type = HCI_UART;
-#endif
-
-#if HCI_VERSION_CODE >= KERNEL_VERSION(3, 4, 0)
 	hci_set_drvdata(hdev, hu);
-#else
-	hdev->driver_data = hu;
-#endif
 
-	hdev->open = hci_uart_open;
+	/* Only when vendor specific setup callback is provided, consider
+	 * the manufacturer information valid. This avoids filling in the
+	 * value for Ericsson when nothing is specified.
+	 */
+	if (hu->proto->setup)
+		hdev->manufacturer = hu->proto->manufacturer;
+
+	hdev->open  = hci_uart_open;
 	hdev->close = hci_uart_close;
 	hdev->flush = hci_uart_flush;
-	hdev->send = hci_uart_send_frame;
-
-	/* NOTE: No hdev->setup setting for Realtek BTUART because
-	 * the download procedure is done with rtk_hciattach in userspace
-	 * before this function called in hci_uart_set_proto()
-	 */
-
+	hdev->send  = hci_uart_send_frame;
+	hdev->setup = hci_uart_setup;
 	SET_HCIDEV_DEV(hdev, hu->tty->dev);
 
-#if HCI_VERSION_CODE < KERNEL_VERSION(3, 4, 0)
-	hdev->destruct = hci_uart_destruct;
-	hdev->owner = THIS_MODULE;
-#endif
-
-#if HCI_VERSION_CODE < KERNEL_VERSION(3, 4, 0)
-	if (!reset)
-		set_bit(HCI_QUIRK_NO_RESET, &hdev->quirks);
-#endif
-
-#if HCI_VERSION_CODE >= KERNEL_VERSION(2, 6, 36)
 	if (test_bit(HCI_UART_RAW_DEVICE, &hu->hdev_flags))
 		set_bit(HCI_QUIRK_RAW_DEVICE, &hdev->quirks);
-#endif
 
-#if HCI_VERSION_CODE >= KERNEL_VERSION(3, 17, 0)
 	if (test_bit(HCI_UART_EXT_CONFIG, &hu->hdev_flags))
 		set_bit(HCI_QUIRK_EXTERNAL_CONFIG, &hdev->quirks);
-#endif
 
-#if HCI_VERSION_CODE >= KERNEL_VERSION(3, 4, 0)
 	if (!test_bit(HCI_UART_RESET_ON_INIT, &hu->hdev_flags))
-#if HCI_VERSION_CODE >= KERNEL_VERSION(3, 6, 0)
 		set_bit(HCI_QUIRK_RESET_ON_CLOSE, &hdev->quirks);
-#else
-		set_bit(HCI_QUIRK_NO_RESET, &hdev->quirks);
-#endif
-#endif
 
-#if HCI_VERSION_CODE >= KERNEL_VERSION(3, 4, 0)
 	if (test_bit(HCI_UART_CREATE_AMP, &hu->hdev_flags))
 		hdev->dev_type = HCI_AMP;
 	else
-#if HCI_VERSION_CODE < KERNEL_VERSION(4, 8, 0)
-		hdev->dev_type = HCI_BREDR;
-#else
 		hdev->dev_type = HCI_PRIMARY;
-#endif
-#endif
 
-#if HCI_VERSION_CODE >= KERNEL_VERSION(4, 1, 0)
-	set_bit(HCI_QUIRK_SIMULTANEOUS_DISCOVERY, &hdev->quirks);
-#endif
+	/* Only call open() for the protocol after hdev is fully initialized as
+	 * open() (or a timer/workqueue it starts) may attempt to reference it.
+	 */
+	err = hu->proto->open(hu);
+	if (err) {
+		hu->hdev = NULL;
+		hci_free_dev(hdev);
+		return err;
+	}
+
+	if (test_bit(HCI_UART_INIT_PENDING, &hu->hdev_flags))
+		return 0;
 
 	if (hci_register_dev(hdev) < 0) {
 		BT_ERR("Can't register HCI device");
+		hu->proto->close(hu);
+		hu->hdev = NULL;
 		hci_free_dev(hdev);
 		return -ENODEV;
 	}
 
 	set_bit(HCI_UART_REGISTERED, &hu->flags);
 
-#ifdef BTCOEX
-	rtk_btcoex_probe(hdev);
-#endif
-
 	return 0;
 }
 
 static int hci_uart_set_proto(struct hci_uart *hu, int id)
 {
-	struct hci_uart_proto *p;
+	const struct hci_uart_proto *p;
 	int err;
 
 	p = hci_uart_get_proto(id);
 	if (!p)
 		return -EPROTONOSUPPORT;
 
-	err = p->open(hu);
-	if (err)
-		return err;
-
 	hu->proto = p;
-	set_bit(HCI_UART_PROTO_READY, &hu->flags);
 
-	/* Initialize and register HCI dev */
 	err = hci_uart_register_dev(hu);
 	if (err) {
-		clear_bit(HCI_UART_PROTO_READY, &hu->flags);
-		p->close(hu);
 		return err;
 	}
 
+	set_bit(HCI_UART_PROTO_READY, &hu->flags);
 	return 0;
 }
 
-#if HCI_VERSION_CODE >= KERNEL_VERSION(3, 17, 0)
 static int hci_uart_set_flags(struct hci_uart *hu, unsigned long flags)
 {
-	/* TODO: Add HCI_UART_INIT_PENDING, HCI_UART_VND_DETECT check  */
 	unsigned long valid_flags = BIT(HCI_UART_RAW_DEVICE) |
 				    BIT(HCI_UART_RESET_ON_INIT) |
 				    BIT(HCI_UART_CREATE_AMP) |
-				    BIT(HCI_UART_EXT_CONFIG);
+				    BIT(HCI_UART_INIT_PENDING) |
+				    BIT(HCI_UART_EXT_CONFIG) |
+				    BIT(HCI_UART_VND_DETECT);
 
 	if (flags & ~valid_flags)
 		return -EINVAL;
@@ -1150,7 +728,6 @@ static int hci_uart_set_flags(struct hci_uart *hu, unsigned long flags)
 
 	return 0;
 }
-#endif
 
 /* hci_uart_tty_ioctl()
  *
@@ -1168,7 +745,7 @@ static int hci_uart_set_flags(struct hci_uart *hu, unsigned long flags)
 static int hci_uart_tty_ioctl(struct tty_struct *tty, struct file *file,
 			      unsigned int cmd, unsigned long arg)
 {
-	struct hci_uart *hu = (void *)tty->disc_data;
+	struct hci_uart *hu = tty->disc_data;
 	int err = 0;
 
 	BT_DBG("");
@@ -1181,43 +758,41 @@ static int hci_uart_tty_ioctl(struct tty_struct *tty, struct file *file,
 	case HCIUARTSETPROTO:
 		if (!test_and_set_bit(HCI_UART_PROTO_SET, &hu->flags)) {
 			err = hci_uart_set_proto(hu, arg);
-			if (err) {
+			if (err)
 				clear_bit(HCI_UART_PROTO_SET, &hu->flags);
-				return err;
-			}
 		} else
-			return -EBUSY;
+			err = -EBUSY;
 		break;
 
 	case HCIUARTGETPROTO:
 		if (test_bit(HCI_UART_PROTO_SET, &hu->flags))
-			return hu->proto->id;
-		return -EUNATCH;
+			err = hu->proto->id;
+		else
+			err = -EUNATCH;
+		break;
 
 	case HCIUARTGETDEVICE:
 		if (test_bit(HCI_UART_REGISTERED, &hu->flags))
-			return hu->hdev->id;
-		return -EUNATCH;
+			err = hu->hdev->id;
+		else
+			err = -EUNATCH;
+		break;
 
 	case HCIUARTSETFLAGS:
 		if (test_bit(HCI_UART_PROTO_SET, &hu->flags))
-			return -EBUSY;
-#if HCI_VERSION_CODE >= KERNEL_VERSION(3, 17, 0)
-		err = hci_uart_set_flags(hu, arg);
-		if (err)
-			return err;
-#else
-		hu->hdev_flags = arg;
-#endif
+			err = -EBUSY;
+		else
+			err = hci_uart_set_flags(hu, arg);
 		break;
 
 	case HCIUARTGETFLAGS:
-		return hu->hdev_flags;
+		err = hu->hdev_flags;
+		break;
 
 	default:
 		err = n_tty_ioctl_helper(tty, file, cmd, arg);
 		break;
-	};
+	}
 
 	return err;
 }
@@ -1225,16 +800,9 @@ static int hci_uart_tty_ioctl(struct tty_struct *tty, struct file *file,
 /*
  * We don't provide read/write/poll interface for user space.
  */
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 20) && \
-  ((LINUX_VERSION_CODE <  KERNEL_VERSION(5, 11, 0)) || \
-  (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 11, 3)))
 static ssize_t hci_uart_tty_read(struct tty_struct *tty, struct file *file,
 				 unsigned char *buf, size_t nr,
 				 void **cookie, unsigned long offset)
-#else
-static ssize_t hci_uart_tty_read(struct tty_struct *tty, struct file *file,
-				 unsigned char __user * buf, size_t nr)
-#endif
 {
 	return 0;
 }
@@ -1245,27 +813,25 @@ static ssize_t hci_uart_tty_write(struct tty_struct *tty, struct file *file,
 	return 0;
 }
 
-static unsigned int hci_uart_tty_poll(struct tty_struct *tty,
-				      struct file *filp, poll_table * wait)
+static __poll_t hci_uart_tty_poll(struct tty_struct *tty,
+				      struct file *filp, poll_table *wait)
 {
 	return 0;
 }
 
 static struct tty_ldisc_ops hci_uart_ldisc = {
-	.owner          = THIS_MODULE,
-	.magic          = TTY_LDISC_MAGIC,
-	.name           = "n_hci",
-	.open           = hci_uart_tty_open,
-	.close          = hci_uart_tty_close,
-	.read           = hci_uart_tty_read,
-	.write          = hci_uart_tty_write,
-	.ioctl          = hci_uart_tty_ioctl,
-#if HCI_VERSION_CODE >= KERNEL_VERSION(4, 20, 0)
-	.compat_ioctl   = hci_uart_tty_ioctl,
-#endif
-	.poll           = hci_uart_tty_poll,
-	.receive_buf    = hci_uart_tty_receive,
-	.write_wakeup   = hci_uart_tty_wakeup,
+	.owner		= THIS_MODULE,
+	.magic		= TTY_LDISC_MAGIC,
+	.name		= "n_hci",
+	.open		= hci_uart_tty_open,
+	.close		= hci_uart_tty_close,
+	.read		= hci_uart_tty_read,
+	.write		= hci_uart_tty_write,
+	.ioctl		= hci_uart_tty_ioctl,
+	.compat_ioctl	= hci_uart_tty_ioctl,
+	.poll		= hci_uart_tty_poll,
+	.receive_buf	= hci_uart_tty_receive,
+	.write_wakeup	= hci_uart_tty_wakeup,
 };
 
 static int __init hci_uart_init(void)
@@ -1275,18 +841,41 @@ static int __init hci_uart_init(void)
 	BT_INFO("HCI UART driver ver %s", VERSION);
 
 	/* Register the tty discipline */
-	if ((err = tty_register_ldisc(N_HCI, &hci_uart_ldisc))) {
+	err = tty_register_ldisc(N_HCI, &hci_uart_ldisc);
+	if (err) {
 		BT_ERR("HCI line discipline registration failed. (%d)", err);
 		return err;
 	}
+
 #ifdef CONFIG_BT_HCIUART_H4
 	h4_init();
 #endif
-	/* Add realtek h5 support */
+#ifdef CONFIG_BT_HCIUART_BCSP
+	bcsp_init();
+#endif
+#ifdef CONFIG_BT_HCIUART_LL
+	ll_init();
+#endif
+#ifdef CONFIG_BT_HCIUART_ATH3K
+	ath_init();
+#endif
+#ifdef CONFIG_BT_HCIUART_3WIRE
 	h5_init();
-
-#ifdef BTCOEX
-	rtk_btcoex_init();
+#endif
+#ifdef CONFIG_BT_HCIUART_INTEL
+	intel_init();
+#endif
+#ifdef CONFIG_BT_HCIUART_BCM
+	bcm_init();
+#endif
+#ifdef CONFIG_BT_HCIUART_QCA
+	qca_init();
+#endif
+#ifdef CONFIG_BT_HCIUART_AG6XX
+	ag6xx_init();
+#endif
+#ifdef CONFIG_BT_HCIUART_MRVL
+	mrvl_init();
 #endif
 
 	return 0;
@@ -1299,24 +888,42 @@ static void __exit hci_uart_exit(void)
 #ifdef CONFIG_BT_HCIUART_H4
 	h4_deinit();
 #endif
+#ifdef CONFIG_BT_HCIUART_BCSP
+	bcsp_deinit();
+#endif
+#ifdef CONFIG_BT_HCIUART_LL
+	ll_deinit();
+#endif
+#ifdef CONFIG_BT_HCIUART_ATH3K
+	ath_deinit();
+#endif
+#ifdef CONFIG_BT_HCIUART_3WIRE
 	h5_deinit();
+#endif
+#ifdef CONFIG_BT_HCIUART_INTEL
+	intel_deinit();
+#endif
+#ifdef CONFIG_BT_HCIUART_BCM
+	bcm_deinit();
+#endif
+#ifdef CONFIG_BT_HCIUART_QCA
+	qca_deinit();
+#endif
+#ifdef CONFIG_BT_HCIUART_AG6XX
+	ag6xx_deinit();
+#endif
+#ifdef CONFIG_BT_HCIUART_MRVL
+	mrvl_deinit();
+#endif
 
 	/* Release tty registration of line discipline */
-	if ((err = tty_unregister_ldisc(N_HCI)))
+	err = tty_unregister_ldisc(N_HCI);
+	if (err)
 		BT_ERR("Can't unregister HCI line discipline (%d)", err);
-
-#ifdef BTCOEX
-	rtk_btcoex_exit();
-#endif
 }
 
 module_init(hci_uart_init);
 module_exit(hci_uart_exit);
-
-#if HCI_VERSION_CODE < KERNEL_VERSION(3, 4, 0)
-module_param(reset, bool, 0644);
-MODULE_PARM_DESC(reset, "Send HCI reset command on initialization");
-#endif
 
 MODULE_AUTHOR("Marcel Holtmann <marcel@holtmann.org>");
 MODULE_DESCRIPTION("Bluetooth HCI UART driver ver " VERSION);
