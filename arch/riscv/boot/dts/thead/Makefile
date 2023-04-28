@@ -1,4 +1,9 @@
 # SPDX-License-Identifier: GPL-2.0
+
+ifeq ($(CONFIG_OF_OVERLAY),y)
+DTC_FLAGS += -@
+endif
+
 dtb-$(CONFIG_SOC_THEAD) += ice.dtb
 dtb-$(CONFIG_SOC_THEAD) += light-fm-emu.dtb light_mpw.dtb
 dtb-$(CONFIG_SOC_THEAD) += light-fm-emu-npu-fce.dtb
