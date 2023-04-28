@@ -6,6 +6,7 @@
 #include <dt-bindings/pinctrl/light-fm-left-pinctrl.h>
 #include <dt-bindings/pinctrl/light-fm-right-pinctrl.h>
 #include <dt-bindings/pinctrl/light-fm-aon-pinctrl.h>
+#include <dt-bindings/pinctrl/light.h>
 #include <dt-bindings/clock/light-fm-ap-clock.h>
 #include <dt-bindings/clock/light-vpsys.h>
 #include <dt-bindings/clock/light-vosys.h>
@@ -795,6 +796,7 @@
 		};
 
 		pwm: pwm@ffec01c000 {
+			status = "disabled";
 			compatible = "thead,pwm-light";
 			reg = <0xff 0xec01c000 0x0 0x4000>;
 			#pwm-cells = <2>;
@@ -1002,6 +1004,7 @@
 		};
 
 		qspi0: spi@ffea000000 {
+			status = "disabled";
 			compatible = "snps,dw-apb-ssi-quad";
 			reg = <0xff 0xea000000 0x0 0x1000>;
 			pinctrl-names = "default";
@@ -1014,6 +1017,7 @@
 		};
 
 		qspi1: spi@fff8000000 {
+			status = "disabled";
 			compatible = "snps,dw-apb-ssi-quad";
 			reg = <0xff 0xf8000000 0x0 0x1000>;
 			pinctrl-names = "default";

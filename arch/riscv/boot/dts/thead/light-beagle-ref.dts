@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright (C) 2021 Alibaba Group Holding Limited.
+ * Copyright (C) 2022 BeagleBoard.org - https://beagleboard.org/
+ * Copyright (C) 2022 Deepak Khatri <lorforlinux@beagleboard.org>
  */
 
 /dts-v1/;
@@ -25,11 +27,54 @@
 
 	leds {
 		compatible = "gpio-leds";
-		status = "disabled";
-		led0 {
-			label = "SYS_STATUS";
-			gpios = <&gpio1_porta 15 0>;	/* GPIO_ACTIVE_HIGH: 0 */
-			default-state = "off";
+		pinctrl-names = "default";
+		pinctrl-0 = <&led_pins_default &pinctrl_bt>;
+
+		led-0 {
+			label = "beaglebone:green:usr0";
+			gpios = <&ao_gpio4_porta 8 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "heartbeat";
+			//function = LED_FUNCTION_HEARTBEAT;
+		};
+
+		led-1 {
+			label = "beaglebone:green:usr1";
+			gpios = <&ao_gpio4_porta 9 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "mmc0";
+			//function = LED_FUNCTION_DISK_ACTIVITY;
+		};
+
+		led-2 {
+			label = "beaglebone:green:usr2";
+			gpios = <&ao_gpio4_porta 10 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "cpu";
+			//function = LED_FUNCTION_CPU;
+		};
+
+		led-3 {
+			label = "beaglebone:green:usr3";
+			gpios = <&ao_gpio4_porta 11 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "mmc1";
+			//function = LED_FUNCTION_DISK_ACTIVITY;
+		};
+
+		led-4 {
+			label = "beaglebone:green:usr4";
+			gpios = <&ao_gpio4_porta 12 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "netdev";
+			//function = LED_FUNCTION_WLAN;
+		};
+
+		led-5 {
+			label = "shutdown-gpios";
+			gpios = <&gpio2_porta 28 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+		};
+
+		led-6 {
+			label = "device-wakeup-gpios";
+			gpios = <&gpio2_porta 29 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
 		};
 	};
 
@@ -204,58 +249,7 @@
 			regulator-name = "vref-1v8";
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
-	status = "okay";
-	};
-
-        reg_tp_pwr_en: regulator-pwr-en {
-                compatible = "regulator-fixed";
-                regulator-name = "PWR_EN";
-                regulator-min-microvolt = <2800000>;
-                regulator-max-microvolt = <2800000>;
-                gpio = <&gpio1_porta 12 1>;
-                enable-active-high;
-                regulator-always-on;
-        };
-
-/*
-	wcn_wifi: wireless-wlan {
-		compatible = "wlan-platdata";
-		clock-names = "clk_wifi";
-		ref-clock-frequency = <24000000>;
-		keep_wifi_power_on;
-		pinctrl-names = "default";
-		wifi_chip_type = "rtl8723ds";
-		WIFI,poweren_gpio = <&gpio2_porta 29 0>;
-		WIFI,reset_n = <&gpio2_porta 22 0>;
 		status = "okay";
-	};
-
-	wcn_bt: wireless-bluetooth {
-		compatible = "bluetooth-platdata";
-		pinctrl-names = "default", "rts_gpio";
-		BT,power_gpio    = <&gpio2_porta 29 0>;
-		status = "okay";
-	};
-*/
-
-	gpio-keys {
-		compatible = "gpio-keys";
-		pinctrl-0 = <&pinctrl_volume>;
-		pinctrl-names = "default";
-		key-volumedown {
-			label = "Volume Down Key";
-			linux,code = <KEY_VOLUMEDOWN>;
-			debounce-interval = <1>;
-			gpios = <&gpio1_porta 19 0x1>;
-		};
-/*
-		key-volumeup {
-			label = "Volume Up Key";
-			linux,code = <KEY_VOLUMEUP>;
-			debounce-interval = <1>;
-			gpios = <&gpio2_porta 25 0x1>;
-		};
-*/
 	};
 
 	aon: aon {
@@ -289,44 +283,6 @@
 			regulator-always-on;
 		};
 
-		soc_vdd_3v3_en_reg: soc_vdd_3v3_en {
-			compatible = "regulator-fixed";
-			regulator-name = "soc_vdd_3v3_en";
-			regulator-min-microvolt = <3300000>;
-			regulator-max-microvolt = <3300000>;
-			gpio = <&gpio0_porta 30 1>;
-			enable-active-high;
-			regulator-always-on;
-		};
-
-		soc_lcd0_bias_en_reg: soc_lcd0_bias_en {
-			compatible = "regulator-fixed";
-			regulator-name = "soc_lcd0_bias_en";
-			regulator-min-microvolt = <5700000>;
-			regulator-max-microvolt = <5700000>;
-			gpio = <&gpio1_porta 10 1>;
-			enable-active-high;
-		};
-
-		soc_vdd18_lcd0_en_reg: soc_lcd0_en {
-			compatible = "regulator-fixed";
-			regulator-name = "soc_lcd0_en";
-			regulator-min-microvolt = <1800000>;
-			regulator-max-microvolt = <1800000>;
-			gpio = <&gpio1_porta 9 1>;
-			enable-active-high;
-		};
-
-		soc_vdd5v_se_en_reg: soc_vdd5v_se_en {
-			compatible = "regulator-fixed";
-			regulator-name = "soc_vdd5v_se_en";
-			regulator-min-microvolt = <5000000>;
-			regulator-max-microvolt = <5000000>;
-			gpio = <&gpio2_porta 14 1>;
-			enable-active-high;
-			regulator-always-on;
-		};
-
 		soc_wcn33_en_reg: soc_wcn33_en {
 			compatible = "regulator-fixed";
 			regulator-name = "soc_wcn33_en";
@@ -345,61 +301,6 @@
 			gpio = <&gpio2_porta 28 1>;
 			enable-active-high;
 			regulator-always-on;
-		};
-
-
-        	soc_avdd28_rgb_reg: soc_avdd28_rgb {
-			compatible = "regulator-fixed";
-			regulator-name = "soc_avdd28_rgb";
-			regulator-min-microvolt = <2800000>;
-			regulator-max-microvolt = <2800000>;
-			gpio = <&gpio1_porta 15 1>;
-			enable-active-high;
-		};
-
-        	soc_dovdd18_rgb_reg: soc_dovdd18_rgb {
-			compatible = "regulator-fixed";
-			regulator-name = "soc_dovdd18_rgb";
-			regulator-min-microvolt = <2800000>;
-			regulator-max-microvolt = <2800000>;
-			gpio = <&gpio1_porta 13 1>;
-			enable-active-high;
-		};
-
-        	soc_dvdd12_rgb_reg: soc_dvdd12_rgb {
-			compatible = "regulator-fixed";
-			regulator-name = "soc_dvdd12_rgb";
-			regulator-min-microvolt = <2800000>;
-			regulator-max-microvolt = <2800000>;
-			gpio = <&gpio1_porta 14 1>;
-			enable-active-high;
-		};
-
-        	soc_avdd25_ir_reg: soc_avdd25_ir {
-			compatible = "regulator-fixed";
-			regulator-name = "soc_avdd25_ir";
-			regulator-min-microvolt = <2500000>;
-			regulator-max-microvolt = <2500000>;
-			gpio = <&gpio0_porta 28 1>;
-			enable-active-high;
-		};
-
-        	soc_dovdd18_ir_reg: soc_dovdd18_ir {
-			compatible = "regulator-fixed";
-			regulator-name = "soc_dovdd18_ir";
-			regulator-min-microvolt = <1800000>;
-			regulator-max-microvolt = <1800000>;
-			gpio = <&gpio1_porta 13 1>;
-			enable-active-high;
-		};
-
-        	soc_dvdd12_ir_reg: soc_dvdd12_ir {
-			compatible = "regulator-fixed";
-			regulator-name = "soc_dvdd12_ir";
-			regulator-min-microvolt = <1200000>;
-			regulator-max-microvolt = <1200000>;
-			gpio = <&gpio0_porta 29 1>;
-			enable-active-high;
 		};
 
 		aon_reg_dialog: light-dialog-reg {
@@ -613,10 +514,11 @@
 		w25q,fast-read;
 	};
 
-	spidev@1 {
-		compatible = "spidev";
+	channel@1 {
+		compatible = "rohm,dh2228fv";
+		//symlink = "bone/spi/0.1";
 		#address-cells = <0x1>;
-		#size-cells = <0x1>;
+		#size-cells = <0x0>;
 		reg = <0x1>;
 		spi-max-frequency = <50000000>;
 	};
@@ -624,6 +526,25 @@
 
 &uart0 {
 	clock-frequency = <100000000>;
+};
+
+&uart4 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_uart4>;
+	symlink = "bone/uart/bluetooth";
+	uart-has-rtscts;
+	status = "okay";
+
+	//bluetooth {
+	//	// WIP: AP6203BM: BCM43013
+	//	compatible = "brcm,bcm4330-bt";
+	//	pinctrl-names = "default";
+	//	pinctrl-0 = <&pinctrl_bt>;
+	//	max-speed = <3000000>;
+	//	shutdown-gpios = <&gpio2_porta 28 GPIO_ACTIVE_HIGH>;
+	//	device-wakeup-gpios = <&gpio2_porta 29 GPIO_ACTIVE_HIGH>;
+	//	host-wakeup-gpios = <&gpio2_porta 30 GPIO_ACTIVE_HIGH>;
+	//};
 };
 
 &qspi0 {
@@ -652,10 +573,11 @@
 	compatible = "snps,dw-apb-ssi";
 	num-cs = <1>;
 	cs-gpios = <&gpio0_porta 1 0>;
-	status = "okay";
+	status = "disabled";
 
-	spidev@0 {
-		compatible = "spidev";
+	channel@0 {
+		compatible = "rohm,dh2228fv";
+		//symlink = "bone/spi/1.1";
 		#address-cells = <0x1>;
 		#size-cells = <0x1>;
 		reg = <0x0>;
@@ -732,7 +654,7 @@
 };
 
 &padctrl0_apsys { /* right-pinctrl */
-	light-evb-padctrl0 {
+	light_padctrl0: light-evb-padctrl0 {
 			/*
 			 * Pin Configuration Node:
 			 * Format: <pin_id mux_node config>
@@ -781,12 +703,20 @@
 				thead,pins = <
 					FM_GPIO3_2	0x1	0x208	/* pwm0 */
 				>;
-			};
 		};
+
+		pinctrl_bt: btgrp {
+			thead,pins = <
+				FM_SDIO1_WPRTN  0x3	0x72
+				FM_SDIO1_DETN   0x3	0x72
+				FM_GPIO2_30     0x0	0x72
+			>;
+		};
+	};
 };
 
 &padctrl1_apsys { /* left-pinctrl */
-	light-evb-padctrl1 {
+	light_padctrl1: light-evb-padctrl1 {
 			/*
 			 * Pin Configuration Node:
 			 * Format: <pin_id mux_node config>
@@ -825,18 +755,24 @@
 					FM_QSPI1_D2_WP		0x1	0x238
 					FM_QSPI1_D3_HOLD	0x1	0x238
 				>;
-			};
-
-			pinctrl_volume: volume_grp {
-				thead,pins = <
-					FM_CLK_OUT_2  0x3     0x208
-				>;
-			};
 		};
+	};
 };
 
+/*
+	PIN      ,        0x0,   0x1,  0x2,     0x3,   0x4,  0x5
+	AUDIO_PA8,  AUDIO_PA8,  NULL, NULL, GPIO4_8,  NULL, NULL
+	AUDIO_PA9,  AUDIO_PA9,  NULL, NULL, GPIO4_9,  NULL, NULL
+	AUDIO_PA10, AUDIO_PA10, NULL, NULL, GPIO4_10, NULL, NULL
+	AUDIO_PA11, AUDIO_PA11, NULL, NULL, GPIO4_11, NULL, NULL
+	AUDIO_PA12, AUDIO_PA12, NULL, NULL, GPIO4_12, NULL, NULL
+*/
+
+#define FM_AUDIO_PA8_AUDIO_PA8 0x00
+#define FM_AUDIO_PA8_GPIO 0x03
+
 &padctrl_aosys {
-	light-aon-padctrl {
+	light_padctrl: light-aon-padctrl {
 			/*
 			 * Pin Configuration Node:
 			 * Format: <pin_id mux_node config>
@@ -854,12 +790,26 @@
 				>;
 			};
 
+		led_pins_default: leds0_grp {
+			thead,pins = <
+				FM_AUDIO_PA8	0x3	0x72
+				FM_AUDIO_PA9	0x3	0x72
+				FM_AUDIO_PA10	0x3	0x72
+				FM_AUDIO_PA11	0x3	0x72
+				FM_AUDIO_PA12	0x3	0x72
+			>;
+		};
 	};
 };
 
 &i2c0 {
     clock-frequency = <400000>;
 	status = "okay";
+
+	eeprom@50 {
+		compatible = "atmel,24c32";
+		reg = <0x50>;
+	};
 };
 
 &i2c1 {
@@ -953,40 +903,6 @@
     flash_led_touch_pin = <&gpio1_porta 27 0>; //flash led touch pin
     io-channels = <&adc 2>;
     io-channel-names = "projection_adc";
-    status = "okay";
-};
-
-&vvcam_sensor0 {
-	sensor_name = "SC2310";
-	sensor_regulators = "DOVDD18_RGB", "DVDD12_RGB", "AVDD28_RGB";
-	sensor_regulator_timing_us = <70 50 20>;
-	sensor_pdn = <&gpio1_porta 21 0>; //powerdown pin / shutdown pin 
-	sensor_rst = <&gpio1_porta 16 0>;
-	sensor_pdn_delay_us = <4000>; //powerdown pin / shutdown pin actived till I2C ready
-	DOVDD18_RGB-supply = <&soc_dovdd18_rgb_reg>;
-	DVDD12_RGB-supply = <&soc_dvdd12_rgb_reg>;
-	AVDD28_RGB-supply = <&soc_avdd28_rgb_reg>;
-    i2c_reg_width = /bits/ 8 <2>;
-    i2c_data_width = /bits/ 8 <1>;
-    i2c_addr = /bits/ 8 <0x30>;
-	i2c_bus = /bits/ 8 <3>;
-	status = "okay";
-};
-
-&vvcam_sensor1 {
-    sensor_name = "SC132GS";
-    sensor_regulators = "DOVDD18_IR", "DVDD12_IR", "AVDD25_IR";
-    sensor_regulator_timing_us = <70 1000 2000>;
-    i2c_addr = /bits/ 8 <0x31>;
-    sensor_pdn = <&gpio1_porta 28 0>; //powerdown pin / shutdown pin 
-    sensor_rst = <&gpio1_porta 24 0>;
-	sensor_pdn_delay_us = <2000>; //powerdown pin / shutdown pin actived till I2C ready
-    DOVDD18_IR-supply = <&soc_dovdd18_ir_reg>;
-    DVDD12_IR-supply = <&soc_dvdd12_ir_reg>;
-    AVDD25_IR-supply = <&soc_avdd25_ir_reg>;
-    i2c_reg_width = /bits/ 8 <2>;
-    i2c_data_width = /bits/ 8 <1>;
-    i2c_bus = /bits/ 8 <2>;
     status = "okay";
 };
 
@@ -2286,7 +2202,7 @@
 };
 
 &light_i2s {
-        status = "okay";
+        status = "disabled";
 };
 
 &i2s0 {
@@ -2308,12 +2224,14 @@
 			300000	650000
 			800000	700000
 			1500000	800000
+			1848000	1000000
 		>;
 		light,dvddm-operating-points = <
 			/* kHz   uV */
 			300000	800000
 			800000	800000
 			1500000	800000
+			1848000	1000000
 		>;
 	};
 	c910_1: cpu@1 {
@@ -2322,12 +2240,14 @@
 			300000	650000
 			800000	700000
 			1500000	800000
+			1848000	1000000
 		>;
 		light,dvddm-operating-points = <
 			/* kHz   uV */
 			300000	800000
 			800000	800000
 			1500000	800000
+			1848000	1000000
 		>;
 	};
 	c910_2: cpu@2 {
@@ -2337,12 +2257,14 @@
 			300000	650000
 			800000	700000
 			1500000	800000
+			1848000	1000000
 		>;
 		light,dvddm-operating-points = <
 			/* kHz   uV */
 			300000	800000
 			800000	800000
 			1500000	800000
+			1848000	1000000
 		>;
 	};
 	c910_3: cpu@3 {
@@ -2352,12 +2274,14 @@
 			300000	650000
 			800000	700000
 			1500000	800000
+			1848000	1000000
 		>;
 		light,dvddm-operating-points = <
 			/* kHz   uV */
 			300000	800000
 			800000	800000
 			1500000	800000
+			1848000	1000000
 		>;
 	};
 };

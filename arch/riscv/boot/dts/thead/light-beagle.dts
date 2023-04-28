@@ -8,7 +8,6 @@
 #include "light-beagle-ref.dts"
 
 / {
-
 	bcmdhd_wlan {
 		compatible = "android,bcmdhd_wlan";
 
@@ -713,3 +712,5 @@ video12: tuningtool
 		};
 	};
 };
+
+#include "light-beagle-bone-buses.dtsi"
