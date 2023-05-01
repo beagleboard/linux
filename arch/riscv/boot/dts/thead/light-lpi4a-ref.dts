@@ -191,6 +191,13 @@
 		status = "okay";
 	};
 
+	fan: pwm-fan {
+		compatible = "pwm-fan";
+		#cooling-cells = <2>;
+		pwms = <&pwm 1 1000000 0>;
+		cooling-levels = <0 64 192 255>;
+	};
+
 	reg_vref_1v8: regulator-adc-verf {
 			compatible = "regulator-fixed";
 			regulator-name = "vref-1v8";
@@ -553,6 +560,48 @@
 
 		test: light-aon-test {
 			compatible = "thead,light-aon-test";
+		};
+	};
+
+	thermal-zones {
+		cpu-thermal-zone {
+			trips {
+				fan_config0: fan-trip0 {
+					temperature = <40000>;
+					hysteresis = <5000>;
+					type = "active";
+				};
+
+				fan_config1: fan-trip1 {
+					temperature = <50000>;
+					hysteresis = <5000>;
+					type = "active";
+				};
+
+				fan_config2: fan-trip2 {
+					temperature = <60000>;
+					hysteresis = <5000>;
+					type = "active";
+				};
+			};
+
+			cooling-maps {
+				fan-on {
+					trip = <&fan_config0>;
+					cooling-device =
+						<&fan 1 1>;
+				};
+				fan-faster {
+					trip = <&fan_config1>;
+					cooling-device =
+						<&fan 2 2>;
+				};
+				fan-full {
+					trip = <&fan_config2>;
+					cooling-device =
+						<&fan 3 3>;
+				};
+			};
 		};
 	};
 
