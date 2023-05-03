@@ -11,6 +11,14 @@
 
 #define OPLOCK_WAIT_TIME	(35 * HZ)
 
+#ifdef CONFIG_SMB_INSECURE_SERVER
+/* SMB Oplock levels */
+#define OPLOCK_NONE      0
+#define OPLOCK_EXCLUSIVE 1
+#define OPLOCK_BATCH     2
+#define OPLOCK_READ      3  /* level 2 oplock */
+#endif
+
 /* SMB2 Oplock levels */
 #define SMB2_OPLOCK_LEVEL_NONE          0x00
 #define SMB2_OPLOCK_LEVEL_II            0x01
@@ -69,6 +77,9 @@ struct oplock_info {
 	atomic_t		refcount;
 	__u16                   Tid;
 	bool			is_lease;
+#ifdef CONFIG_SMB_INSECURE_SERVER
+	bool			is_smb2;
+#endif
 	bool			open_trunc;	/* truncate on open */
 	struct lease		*o_lease;
 	struct list_head        interim_list;

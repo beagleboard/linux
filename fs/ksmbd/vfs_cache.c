@@ -5,6 +5,10 @@
  */
 
 #include <linux/fs.h>
+#include <linux/version.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
+#include <linux/filelock.h>
+#endif
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
 
@@ -327,7 +331,9 @@ static void __ksmbd_close_fd(struct ksmbd_file_table *ft, struct ksmbd_file *fp)
 		locks_free_lock(smb_lock->fl);
 		kfree(smb_lock);
 	}
-
+#ifdef CONFIG_SMB_INSECURE_SERVER
+	kfree(fp->filename);
+#endif
 	if (ksmbd_stream_fd(fp))
 		kfree(fp->stream.name);
 	kmem_cache_free(filp_cache, fp);
@@ -364,12 +370,11 @@ static void __put_fd_final(struct ksmbd_work *work, struct ksmbd_file *fp)
 
 static void set_close_state_blocked_works(struct ksmbd_file *fp)
 {
-	struct ksmbd_work *cancel_work, *ctmp;
+	struct ksmbd_work *cancel_work;
 
 	spin_lock(&fp->f_lock);
-	list_for_each_entry_safe(cancel_work, ctmp, &fp->blocked_works,
+	list_for_each_entry(cancel_work, &fp->blocked_works,
 				 fp_entry) {
-		list_del(&cancel_work->fp_entry);
 		cancel_work->state = KSMBD_WORK_CLOSED;
 		cancel_work->cancel_fn(cancel_work->cancel_argv);
 	}
@@ -483,6 +488,36 @@ struct ksmbd_file *ksmbd_lookup_fd_cguid(char *cguid)
 	return fp;
 }
 
+#ifdef CONFIG_SMB_INSECURE_SERVER
+struct ksmbd_file *ksmbd_lookup_fd_filename(struct ksmbd_work *work, char *filename)
+{
+	struct ksmbd_file	*fp = NULL;
+	unsigned int		id;
+	char			*pathname;
+
+	pathname = kmalloc(PATH_MAX, GFP_KERNEL);
+	if (!pathname)
+		return NULL;
+
+	read_lock(&work->sess->file_table.lock);
+	idr_for_each_entry(work->sess->file_table.idr, fp, id) {
+		char *path = d_path(&fp->filp->f_path, pathname, PATH_MAX);
+
+		if (IS_ERR(path))
+			break;
+
+		if (!strcmp(path, filename)) {
+			fp = ksmbd_fp_get(fp);
+			break;
+		}
+	}
+	read_unlock(&work->sess->file_table.lock);
+
+	kfree(pathname);
+	return fp;
+}
+#endif
+
 struct ksmbd_file *ksmbd_lookup_fd_inode(struct inode *inode)
 {
 	struct ksmbd_file	*lfp;
@@ -530,7 +565,13 @@ static int __open_id(struct ksmbd_file_table *ft, struct ksmbd_file *fp,
 
 	idr_preload(GFP_KERNEL);
 	write_lock(&ft->lock);
+#ifdef CONFIG_SMB_INSECURE_SERVER
+	ret = idr_alloc_cyclic(ft->idr, fp, 0,
+			       IS_SMB2(fp->conn) ? INT_MAX - 1 : 0xFFFF,
+			       GFP_NOWAIT);
+#else
 	ret = idr_alloc_cyclic(ft->idr, fp, 0, INT_MAX - 1, GFP_NOWAIT);
+#endif
 	if (ret >= 0) {
 		id = ret;
 		ret = 0;
@@ -664,6 +705,22 @@ void ksmbd_free_global_file_table(void)
 	}
 
 	ksmbd_destroy_file_table(&global_ft);
+}
+
+int ksmbd_file_table_flush(struct ksmbd_work *work)
+{
+	struct ksmbd_file	*fp = NULL;
+	unsigned int		id;
+	int			ret;
+
+	read_lock(&work->sess->file_table.lock);
+	idr_for_each_entry(work->sess->file_table.idr, fp, id) {
+		ret = ksmbd_vfs_fsync(work, fp->volatile_id, KSMBD_NO_FID);
+		if (ret)
+			break;
+	}
+	read_unlock(&work->sess->file_table.lock);
+	return ret;
 }
 
 int ksmbd_init_file_table(struct ksmbd_file_table *ft)

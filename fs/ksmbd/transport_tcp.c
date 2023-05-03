@@ -48,27 +48,55 @@ static struct interface *alloc_iface(char *ifname);
 
 static inline void ksmbd_tcp_nodelay(struct socket *sock)
 {
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 8, 0)
+	int val = 1;
+
+	kernel_setsockopt(sock, SOL_TCP, TCP_NODELAY, (char *)&val,
+			  sizeof(val));
+#else
 	tcp_sock_set_nodelay(sock->sk);
+#endif
 }
 
 static inline void ksmbd_tcp_reuseaddr(struct socket *sock)
 {
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 8, 0)
+	int val = 1;
+
+	kernel_setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (char *)&val,
+			  sizeof(val));
+#else
 	sock_set_reuseaddr(sock->sk);
+#endif
 }
 
 static inline void ksmbd_tcp_rcv_timeout(struct socket *sock, s64 secs)
 {
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 8, 0)
+	struct __kernel_old_timeval tv = { .tv_sec = secs, .tv_usec = 0 };
+
+	kernel_setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO_OLD, (char *)&tv,
+			  sizeof(tv));
+#else
 	lock_sock(sock->sk);
 	if (secs && secs < MAX_SCHEDULE_TIMEOUT / HZ - 1)
 		sock->sk->sk_rcvtimeo = secs * HZ;
 	else
 		sock->sk->sk_rcvtimeo = MAX_SCHEDULE_TIMEOUT;
 	release_sock(sock->sk);
+#endif
 }
 
 static inline void ksmbd_tcp_snd_timeout(struct socket *sock, s64 secs)
 {
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 8, 0)
+	struct __kernel_old_timeval tv = { .tv_sec = secs, .tv_usec = 0 };
+
+	kernel_setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO_OLD, (char *)&tv,
+			  sizeof(tv));
+#else
 	sock_set_sndtimeo(sock->sk, secs);
+#endif
 }
 
 static struct tcp_transport *alloc_transport(struct socket *client_sk)
@@ -193,12 +221,12 @@ static int ksmbd_tcp_new_connection(struct socket *client_sk)
 	}
 
 	csin = KSMBD_TCP_PEER_SOCKADDR(KSMBD_TRANS(t)->conn);
+
 	if (kernel_getpeername(client_sk, csin) < 0) {
 		pr_err("client ip resolution failed\n");
 		rc = -EINVAL;
 		goto out_error;
 	}
-
 	KSMBD_TRANS(t)->handler = kthread_run(ksmbd_conn_handler_loop,
 					      KSMBD_TRANS(t)->conn,
 					      "ksmbd:%u",
@@ -291,16 +319,18 @@ static int ksmbd_tcp_run_kthread(struct interface *iface)
 
 /**
  * ksmbd_tcp_readv() - read data from socket in given iovec
- * @t:		TCP transport instance
- * @iov_orig:	base IO vector
- * @nr_segs:	number of segments in base iov
- * @to_read:	number of bytes to read from socket
+ * @t:			TCP transport instance
+ * @iov_orig:		base IO vector
+ * @nr_segs:		number of segments in base iov
+ * @to_read:		number of bytes to read from socket
+ * @max_retries:	maximum retry count
  *
  * Return:	on success return number of bytes read from socket,
  *		otherwise return error number
  */
 static int ksmbd_tcp_readv(struct tcp_transport *t, struct kvec *iov_orig,
-			   unsigned int nr_segs, unsigned int to_read)
+			   unsigned int nr_segs, unsigned int to_read,
+			   int max_retries)
 {
 	int length = 0;
 	int total_read;
@@ -308,7 +338,6 @@ static int ksmbd_tcp_readv(struct tcp_transport *t, struct kvec *iov_orig,
 	struct msghdr ksmbd_msg;
 	struct kvec *iov;
 	struct ksmbd_conn *conn = KSMBD_TRANS(t)->conn;
-	int max_retry = 2;
 
 	iov = get_conn_iovec(t, nr_segs);
 	if (!iov)
@@ -335,14 +364,23 @@ static int ksmbd_tcp_readv(struct tcp_transport *t, struct kvec *iov_orig,
 		} else if (conn->status == KSMBD_SESS_NEED_RECONNECT) {
 			total_read = -EAGAIN;
 			break;
-		} else if ((length == -ERESTARTSYS || length == -EAGAIN) &&
-			   max_retry) {
+		} else if (length == -ERESTARTSYS || length == -EAGAIN) {
+			/*
+			 * If max_retries is negative, Allow unlimited
+			 * retries to keep connection with inactive sessions.
+			 */
+			if (max_retries == 0) {
+				total_read = length;
+				break;
+			} else if (max_retries > 0) {
+				max_retries--;
+			}
+
 			usleep_range(1000, 2000);
 			length = 0;
-			max_retry--;
 			continue;
 		} else if (length <= 0) {
-			total_read = -EAGAIN;
+			total_read = length;
 			break;
 		}
 	}
@@ -358,14 +396,15 @@ static int ksmbd_tcp_readv(struct tcp_transport *t, struct kvec *iov_orig,
  * Return:	on success return number of bytes read from socket,
  *		otherwise return error number
  */
-static int ksmbd_tcp_read(struct ksmbd_transport *t, char *buf, unsigned int to_read)
+static int ksmbd_tcp_read(struct ksmbd_transport *t, char *buf,
+			  unsigned int to_read, int max_retries)
 {
 	struct kvec iov;
 
 	iov.iov_base = buf;
 	iov.iov_len = to_read;
 
-	return ksmbd_tcp_readv(TCP_TRANS(t), &iov, 1, to_read);
+	return ksmbd_tcp_readv(TCP_TRANS(t), &iov, 1, to_read, max_retries);
 }
 
 static int ksmbd_tcp_writev(struct ksmbd_transport *t, struct kvec *iov,
@@ -439,11 +478,23 @@ static int create_socket(struct interface *iface)
 	ksmbd_tcp_nodelay(ksmbd_socket);
 	ksmbd_tcp_reuseaddr(ksmbd_socket);
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 8, 0)
+	ret = kernel_setsockopt(ksmbd_socket,
+				SOL_SOCKET,
+				SO_BINDTODEVICE,
+				iface->name,
+				strlen(iface->name));
+#else
 	ret = sock_setsockopt(ksmbd_socket,
 			      SOL_SOCKET,
 			      SO_BINDTODEVICE,
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 9, 0)
+			      (char __user *)iface->name,
+#else
 			      KERNEL_SOCKPTR(iface->name),
+#endif
 			      strlen(iface->name));
+#endif
 	if (ret != -ENODEV && ret < 0) {
 		pr_err("Failed to set SO_BINDTODEVICE: %d\n", ret);
 		goto out_error;
@@ -495,7 +546,7 @@ static int ksmbd_netdev_event(struct notifier_block *nb, unsigned long event,
 
 	switch (event) {
 	case NETDEV_UP:
-		if (netif_is_bridge_port(netdev))
+		if (netdev->priv_flags & IFF_BRIDGE_PORT)
 			return NOTIFY_OK;
 
 		list_for_each_entry(iface, &iface_list, entry) {
@@ -604,7 +655,7 @@ int ksmbd_tcp_set_interfaces(char *ifc_list, int ifc_list_sz)
 
 		rtnl_lock();
 		for_each_netdev(&init_net, netdev) {
-			if (netif_is_bridge_port(netdev))
+			if (netdev->priv_flags & IFF_BRIDGE_PORT)
 				continue;
 			if (!alloc_iface(kstrdup(netdev->name, GFP_KERNEL)))
 				return -ENOMEM;

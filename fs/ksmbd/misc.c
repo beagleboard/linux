@@ -5,6 +5,7 @@
  */
 
 #include <linux/kernel.h>
+#include <linux/version.h>
 #include <linux/xattr.h>
 #include <linux/fs.h>
 #include <linux/unicode.h>
@@ -283,6 +284,7 @@ char *ksmbd_extract_sharename(struct unicode_map *um, const char *treename)
  *
  * Return:	converted name on success, otherwise NULL
  */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0)
 char *convert_to_unix_name(struct ksmbd_share_config *share, const char *name)
 {
 	int no_slash = 0, name_len, path_len;
@@ -308,6 +310,111 @@ char *convert_to_unix_name(struct ksmbd_share_config *share, const char *name)
 	new_name[path_len] = 0x00;
 	return new_name;
 }
+#else
+static char *normalize_path(const char *path)
+{
+	size_t path_len, remain_path_len, out_path_len;
+	char *out_path, *out_next;
+	int i, pre_dotdot_cnt = 0, slash_cnt = 0;
+	bool is_last;
+
+	path_len = strlen(path);
+	remain_path_len = path_len;
+
+	out_path = kzalloc(path_len + 2, GFP_KERNEL);
+	if (!out_path)
+		return ERR_PTR(-ENOMEM);
+	out_path_len = 0;
+	out_next = out_path;
+
+	do {
+		const char *name = path + path_len - remain_path_len;
+		char *next = strchrnul(name, '/');
+		size_t name_len = next - name;
+
+		is_last = !next[0];
+		if (name_len == 2 && name[0] == '.' && name[1] == '.') {
+			pre_dotdot_cnt++;
+			/* handle the case that path ends with "/.." */
+			if (is_last)
+				goto follow_dotdot;
+		} else {
+			if (pre_dotdot_cnt) {
+follow_dotdot:
+				slash_cnt = 0;
+				for (i = out_path_len - 1; i >= 0; i--) {
+					if (out_path[i] == '/' &&
+					    ++slash_cnt == pre_dotdot_cnt + 1)
+						break;
+				}
+
+				if (i < 0 &&
+				    slash_cnt != pre_dotdot_cnt) {
+					kfree(out_path);
+					return ERR_PTR(-EINVAL);
+				}
+
+				out_next = &out_path[i+1];
+				*out_next = '\0';
+				out_path_len = i + 1;
+
+			}
+
+			if (name_len != 0 &&
+			    !(name_len == 1 && name[0] == '.') &&
+			    !(name_len == 2 && name[0] == '.' && name[1] == '.')) {
+				next[0] = '\0';
+				sprintf(out_next, "%s/", name);
+				out_next += name_len + 1;
+				out_path_len += name_len + 1;
+				if (!is_last)
+					next[0] = '/';
+			}
+			pre_dotdot_cnt = 0;
+		}
+
+		remain_path_len -= name_len + 1;
+	} while (!is_last);
+
+	if (out_path_len > 0)
+		out_path[out_path_len-1] = '\0';
+	return out_path;
+}
+
+char *convert_to_unix_name(struct ksmbd_share_config *share, const char *name)
+{
+	int no_slash = 0, name_len, path_len;
+	char *new_name, *norm_name;
+
+	if (name[0] == '/')
+		name++;
+
+	norm_name = normalize_path(name);
+	if (IS_ERR(norm_name))
+		return norm_name;
+
+	path_len = share->path_sz;
+	name_len = strlen(norm_name);
+	new_name = kmalloc(path_len + name_len + 2, GFP_KERNEL);
+	if (!new_name) {
+		kfree(norm_name);
+		return new_name;
+	}
+
+	memcpy(new_name, share->path, path_len);
+	if (new_name[path_len - 1] != '/') {
+		new_name[path_len] = '/';
+		no_slash = 1;
+	}
+
+	memcpy(new_name + path_len + no_slash, norm_name, name_len);
+	path_len += name_len + no_slash;
+	new_name[path_len] = 0x00;
+	kfree(norm_name);
+
+	return new_name;
+}
+#endif
 
 char *ksmbd_convert_dir_info_name(struct ksmbd_dir_info *d_info,
 				  const struct nls_table *local_nls,
