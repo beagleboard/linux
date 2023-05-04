@@ -20,8 +20,8 @@ properties:
   compatible:
     items:
       - enum:
-          - ti,omap4430-sgx540 # TI OMAP443x
-          - ti,omap4460-sgx540 # TI OMAP446x
+          - ti,omap4430-sgx540  # TI OMAP443x
+          - ti,omap4460-sgx540  # TI OMAP446x
       - const: img,sgx540
 
   reg:
@@ -35,10 +35,15 @@ required:
   - reg
   - interrupts
 
+additionalProperties: false
+
 examples:
   - |
+    #include <dt-bindings/interrupt-controller/irq.h>
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+    #include <dt-bindings/soc/ti,sci_pm_domain.h>
     gpu@0 {
-       compatible = "ti,omap4-sgx540", "img,sgx540";
+       compatible = "ti,omap4430-sgx540", "img,sgx540";
        reg = <0x0 0x2000000>; /* 32MB */
        interrupts = <GIC_SPI 21 IRQ_TYPE_LEVEL_HIGH>;
     };

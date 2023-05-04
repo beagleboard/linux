@@ -20,10 +20,10 @@ properties:
   compatible:
     items:
       - enum:
-          - ti,omap3530-sgx530 # TI OMAP35x
-          - ti,omap3630-sgx530 # TI OMAP36x
-          - ti,am3352-sgx530 # TI AM33x
-          - ti,am4376-sgx530 # TI AM43x
+          - ti,omap3530-sgx530  # TI OMAP35x
+          - ti,omap3630-sgx530  # TI OMAP36x
+          - ti,am3352-sgx530  # TI AM33x
+          - ti,am4376-sgx530  # TI AM43x
       - const: img,sgx530
 
   reg:
@@ -37,8 +37,13 @@ required:
   - reg
   - interrupts
 
+additionalProperties: false
+
 examples:
   - |
+    #include <dt-bindings/interrupt-controller/irq.h>
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+    #include <dt-bindings/soc/ti,sci_pm_domain.h>
     gpu@56000000 {
       compatible = "ti,am4376-sgx530", "img,sgx530";
       reg = <0x56000000 0x10000>;

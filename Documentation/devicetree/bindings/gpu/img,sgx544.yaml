@@ -20,10 +20,10 @@ properties:
   compatible:
     items:
       - enum:
-          - ti,omap4470-sgx544 # TI OMAP447x
-          - ti,omap5432-sgx544 # TI OMAP543x
-          - ti,dra7-sgx544 # TI DRA7xx / AM57x
-          - ti,am654-sgx544 # TI AM654
+          - ti,omap4470-sgx544  # TI OMAP447x
+          - ti,omap5432-sgx544  # TI OMAP543x
+          - ti,dra7-sgx544  # TI DRA7xx / AM57x
+          - ti,am654-sgx544  # TI AM654
       - const: img,sgx544
 
   reg:
@@ -32,10 +32,15 @@ properties:
   interrupts:
     maxItems: 1
 
+  power-domains:
+    maxItems: 1
+
 required:
   - compatible
   - reg
   - interrupts
+
+additionalProperties: false
 
 allOf:
   - if:
@@ -46,17 +51,24 @@ allOf:
     then:
       properties:
         power-domains:
-          maxItems: 1
+          minItems: 1
       required:
         - power-domains
 
 examples:
   - |
-    gpu: gpu@7000000 {
-      compatible = "ti,am654-sgx544", "img,sgx544";
-      reg = <0x0 0x7000000 0x0 0x10000>;
-      interrupts = <GIC_SPI 162 IRQ_TYPE_LEVEL_HIGH>;
-      power-domains = <&k3_pds 65 TI_SCI_PD_EXCLUSIVE>;
+    #include <dt-bindings/interrupt-controller/irq.h>
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+    #include <dt-bindings/soc/ti,sci_pm_domain.h>
+    bus {
+      #address-cells = <2>;
+      #size-cells = <2>;
+      gpu: gpu@7000000 {
+        compatible = "ti,am654-sgx544", "img,sgx544";
+        reg = <0x0 0x7000000 0x0 0x10000>;
+        interrupts = <GIC_SPI 162 IRQ_TYPE_LEVEL_HIGH>;
+        power-domains = <&k3_pds 65 TI_SCI_PD_EXCLUSIVE>;
+      };
     };
 
 ...
