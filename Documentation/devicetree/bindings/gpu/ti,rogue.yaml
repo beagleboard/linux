@@ -44,17 +44,8 @@ properties:
   clocks:
     maxItems: 1
 
-  clock-names:
-    maxItems: 1
-
   power-domains:
-    minItems: 1
-    maxItems: 2
-
-  power-domain-names:
-    items:
-      - const: gpu_0
-      - const: gpucore_0
+    maxItems: 1
 
 required:
   - compatible
@@ -73,22 +64,17 @@ allOf:
             enum:
               - ti,j721s2-pvr
               - ti,j721e-pvr
-    then:
-      properties:
-        power-domains:
-          minItems: 2
-      required:
-        - power-domain-names
-  - if:
-      properties:
-        compatible:
-          contains:
-            enum:
               - ti,am62-pvr
     then:
       properties:
+        reg:
+          minItems: 1
+        interrupts:
+          minItems: 1
+        clocks:
+          minItems: 1
         power-domains:
-          maxItems: 1
+          minItems: 1
 
 examples:
   - |
@@ -120,9 +106,7 @@ examples:
             compatible = "ti,j721s2-pvr", "img,pvr-bxs64";
             reg = <0x4e 0x20000000 0x00 0x80000>;
             interrupts = <GIC_SPI 24 IRQ_TYPE_LEVEL_HIGH>;
-            power-domains = <&k3_pds 130 TI_SCI_PD_EXCLUSIVE>,
-                            <&k3_pds 373 TI_SCI_PD_EXCLUSIVE>;
-            power-domain-names = "gpu_0", "gpucore_0";
+            power-domains = <&k3_pds 373 TI_SCI_PD_EXCLUSIVE>;
             clocks = <&k3_clks 130 1>;
         };
     };
@@ -139,9 +123,7 @@ examples:
             compatible = "ti,j721e-pvr", "img,pvr-ge8430";
             reg = <0x4e 0x20000000 0x00 0x80000>;
             interrupts = <GIC_SPI 24 IRQ_TYPE_LEVEL_HIGH>;
-            power-domains = <&k3_pds 125 TI_SCI_PD_EXCLUSIVE>,
-                            <&k3_pds 126 TI_SCI_PD_EXCLUSIVE>;
-            power-domain-names = "gpu_0", "gpucore_0";
+            power-domains = <&k3_pds 126 TI_SCI_PD_EXCLUSIVE>;
             clocks = <&k3_clks 125 0>;
         };
     };
