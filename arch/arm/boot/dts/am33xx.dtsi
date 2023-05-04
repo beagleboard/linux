@@ -633,6 +633,13 @@
 			 * Closed source PowerVR driver, no child device
 			 * binding or driver in mainline
 			 */
+			gpu: gpu@0 {
+				compatible = "ti,am3352-sgx530", "img,sgx530";
+				reg = <0x0 0x10000>;
+				interrupts = <37>;
+				clocks = <&gfx_fck_div_ck>;
+				clock-names = "fclk";
+			};
 		};
 	};
 };

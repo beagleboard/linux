@@ -2,29 +2,33 @@
 /*
  * Copyright (C) 2012 Texas Instruments Incorporated - https://www.ti.com/
  */
-/dts-v1/;
 
-#include "am33xx.dtsi"
-#include "am335x-bone-common.dtsi"
-#include "am335x-boneblack-common.dtsi"
-#include "am335x-boneblack-hdmi.dtsi"
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/pinctrl/am33xx.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 
-/ {
-	model = "TI AM335x BeagleBone Black Wireless";
-	compatible = "ti,am335x-bone-black-wireless", "ti,am335x-bone-black", "ti,am335x-bone", "ti,am33xx";
-
-	chosen {
-		base_dtb = "am335x-boneblack-wireless.dts";
-		base_dtb_timestamp = __TIMESTAMP__;
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+ */
+&{/chosen} {
+	overlays {
+		BB-BBBW-WL1835-00A0.kernel = __TIMESTAMP__;
 	};
+};
+
+&{/} {
+	model = "TI AM335x BeagleBone Black Wireless";
+	compatible = "ti,am335x-bone-black", "ti,am335x-bone", "ti,am33xx";
 
 	wlan_en_reg: fixedregulator@2 {
 		compatible = "regulator-fixed";
 		regulator-name = "wlan-en-regulator";
 		regulator-min-microvolt = <1800000>;
 		regulator-max-microvolt = <1800000>;
-		startup-delay-us = <70000>;
+		startup-delay-us= <70000>;
 
 		/* WL_EN */
 		gpio = <&gpio3 9 0>;
@@ -68,7 +72,7 @@
 	};
 };
 
-&mac_sw {
+&mac {
 	status = "disabled";
 };
 
