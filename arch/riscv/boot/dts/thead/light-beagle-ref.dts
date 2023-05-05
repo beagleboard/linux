@@ -12,8 +12,8 @@
 #include <dt-bindings/gpio/gpio.h>
 #include "light-vi-devices.dtsi"
 / {
-	model = "T-HEAD Light val board";
-	compatible = "thead,light-val", "thead,light";
+	model = "BeagleBoard.org BeagleV-Ahead";
+	compatible = "beagle,light", "thead,light-val", "thead,light";
 
 	memory@0 {
 		device_type = "memory";
