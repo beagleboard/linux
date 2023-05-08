@@ -158,6 +158,7 @@
 			&P8_44_gpio_pin
 			&P8_45_gpio_pin
 			&P8_46_gpio_pin
+
 			&P9_11_gpio_pin
 			&P9_12_gpio_pin
 			&P9_13_gpio_pin
@@ -181,6 +182,18 @@
 			&P9_31_gpio_pin
 			&P9_41_gpio_pin
 			&P9_42_gpio_pin
+
+			&mb_pwm_gpio_pin
+			&mb_rst_gpio_pin
+			&mb_int_gpio_pin
+			&mb_rxd_gpio_pin
+			&mb_txd_gpio_pin
+			&mb_cs_gpio_pin
+			&mb_sck_gpio_pin
+			&mb_mosi_gpio_pin
+			&mb_miso_gpio_pin
+			&mb_scl_gpio_pin
+			&mb_sda_gpio_pin
 		>;
 	};
 };
