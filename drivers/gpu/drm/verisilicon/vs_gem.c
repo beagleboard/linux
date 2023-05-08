@@ -100,8 +100,7 @@ static int vs_gem_alloc_buf(struct vs_gem_object *vs_obj)
         return 0;
     }
 
-    vs_obj->dma_attrs = DMA_ATTR_WRITE_COMBINE
-               | DMA_ATTR_NO_KERNEL_MAPPING;
+    vs_obj->dma_attrs = DMA_ATTR_WRITE_COMBINE;
 
     if (!is_iommu_enabled(dev))
         vs_obj->dma_attrs |= DMA_ATTR_FORCE_CONTIGUOUS;
