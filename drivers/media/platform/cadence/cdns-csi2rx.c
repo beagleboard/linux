@@ -263,9 +263,8 @@ static int csi2rx_configure_external_dphy(struct csi2rx_priv *csi2rx)
 	s64 link_freq;
 	int ret;
 
-	state = v4l2_subdev_lock_and_get_active_state(&csi2rx->subdev);
+	state = v4l2_subdev_get_locked_active_state(&csi2rx->subdev);
 	framefmt = v4l2_subdev_state_get_stream_format(state, CSI2RX_PAD_SINK, 0);
-	v4l2_subdev_unlock_state(state);
 
 	if (framefmt) {
 		fmt = csi2rx_get_fmt_by_code(framefmt->code);
@@ -298,17 +297,9 @@ static int csi2rx_configure_external_dphy(struct csi2rx_priv *csi2rx)
 static int csi2rx_start(struct csi2rx_priv *csi2rx)
 {
 	unsigned int i;
-	struct media_pad *remote_pad;
 	unsigned long lanes_used = 0;
 	u32 reg;
 	int ret;
-
-	remote_pad = media_pad_remote_pad_first(&csi2rx->pads[CSI2RX_PAD_SINK]);
-	if (!remote_pad) {
-		dev_err(csi2rx->dev,
-			"Failed to find connected source\n");
-		return -ENODEV;
-	}
 
 	ret = clk_prepare_enable(csi2rx->p_clk);
 	if (ret)
@@ -385,17 +376,10 @@ static int csi2rx_start(struct csi2rx_priv *csi2rx)
 	if (ret)
 		goto err_disable_pixclk;
 
-	ret = v4l2_subdev_enable_streams(csi2rx->source_subdev,
-					 remote_pad->index, BIT(0));
-	if (ret)
-		goto err_disable_sysclk;
-
 	clk_disable_unprepare(csi2rx->p_clk);
 
 	return 0;
 
-err_disable_sysclk:
-	clk_disable_unprepare(csi2rx->sys_clk);
 err_disable_pixclk:
 	for (; i > 0; i--)
 		clk_disable_unprepare(csi2rx->pixel_clk[i - 1]);
@@ -412,7 +396,6 @@ err_disable_pclk:
 
 static void csi2rx_stop(struct csi2rx_priv *csi2rx)
 {
-	struct media_pad *remote_pad;
 	unsigned int i;
 	u32 val;
 	int ret;
@@ -437,13 +420,6 @@ static void csi2rx_stop(struct csi2rx_priv *csi2rx)
 
 	clk_disable_unprepare(csi2rx->p_clk);
 
-	remote_pad = media_pad_remote_pad_first(&csi2rx->pads[CSI2RX_PAD_SINK]);
-	if (!remote_pad ||
-	    v4l2_subdev_disable_streams(csi2rx->source_subdev,
-					remote_pad->index, BIT(0))) {
-		dev_warn(csi2rx->dev, "Couldn't disable our subdev\n");
-	}
-
 	if (csi2rx->dphy) {
 		writel(0, csi2rx->base + CSI2RX_DPHY_LANE_CTRL_REG);
 
@@ -452,48 +428,98 @@ static void csi2rx_stop(struct csi2rx_priv *csi2rx)
 	}
 }
 
-static int csi2rx_s_stream(struct v4l2_subdev *subdev, int enable)
+static int csi2rx_enable_streams(struct v4l2_subdev *subdev,
+				 struct v4l2_subdev_state *state, u32 pad,
+				 u64 streams_mask)
 {
 	struct csi2rx_priv *csi2rx = v4l2_subdev_to_csi2rx(subdev);
-	int ret = 0;
+	struct media_pad *remote_pad;
+	u64 sink_streams;
+	int ret;
 
-	if (enable) {
-		ret = pm_runtime_resume_and_get(csi2rx->dev);
-		if (ret < 0)
-			return ret;
+	remote_pad = media_pad_remote_pad_first(&csi2rx->pads[CSI2RX_PAD_SINK]);
+	if (!remote_pad) {
+		dev_err(csi2rx->dev,
+			"Failed to find connected source\n");
+		return -ENODEV;
+	}
+
+	ret = pm_runtime_resume_and_get(csi2rx->dev);
+	if (ret < 0)
+		return ret;
+
+	sink_streams = v4l2_subdev_state_xlate_streams(state,
+						       CSI2RX_PAD_SOURCE_STREAM0,
+						       CSI2RX_PAD_SINK,
+						       &streams_mask);
+
+	mutex_lock(&csi2rx->lock);
+	/*
+	 * If we're not the first users, there's no need to
+	 * enable the whole controller.
+	 */
+	if (!csi2rx->count) {
+		ret = csi2rx_start(csi2rx);
+		if (ret)
+			goto err_stream_start;
+	}
+
+	/* Start streaming on the source */
+	ret = v4l2_subdev_enable_streams(csi2rx->source_subdev, remote_pad->index,
+					 sink_streams);
+	if (ret) {
+		dev_err(csi2rx->dev,
+			"Failed to start streams %#llx on subdev\n",
+			sink_streams);
+		goto err_subdev_enable;
+	}
+
+	csi2rx->count++;
+	mutex_unlock(&csi2rx->lock);
+
+	return 0;
+
+err_subdev_enable:
+	if (!csi2rx->count)
+		csi2rx_stop(csi2rx);
+err_stream_start:
+	mutex_unlock(&csi2rx->lock);
+	pm_runtime_put(csi2rx->dev);
+	return ret;
+}
+
+static int csi2rx_disable_streams(struct v4l2_subdev *subdev,
+				  struct v4l2_subdev_state *state, u32 pad,
+				  u64 streams_mask)
+{
+	struct csi2rx_priv *csi2rx = v4l2_subdev_to_csi2rx(subdev);
+	struct media_pad *remote_pad;
+	u64 sink_streams;
+
+	sink_streams = v4l2_subdev_state_xlate_streams(state,
+						       CSI2RX_PAD_SOURCE_STREAM0,
+						       CSI2RX_PAD_SINK,
+						       &streams_mask);
+
+	remote_pad = media_pad_remote_pad_first(&csi2rx->pads[CSI2RX_PAD_SINK]);
+	if (!remote_pad ||
+	    v4l2_subdev_disable_streams(csi2rx->source_subdev,
+					remote_pad->index, sink_streams)) {
+		dev_err(csi2rx->dev, "Couldn't disable our subdev\n");
 	}
 
 	mutex_lock(&csi2rx->lock);
-
-	if (enable) {
-		/*
-		 * If we're not the first users, there's no need to
-		 * enable the whole controller.
-		 */
-		if (!csi2rx->count) {
-			ret = csi2rx_start(csi2rx);
-			if (ret) {
-				pm_runtime_put(csi2rx->dev);
-				goto out;
-			}
-		}
-
-		csi2rx->count++;
-	} else {
-		csi2rx->count--;
-
-		/*
-		 * Let the last user turn off the lights.
-		 */
-		if (!csi2rx->count)
-			csi2rx_stop(csi2rx);
-
-		pm_runtime_put(csi2rx->dev);
-	}
-
-out:
+	csi2rx->count--;
+	/*
+	 * Let the last user turn off the lights.
+	 */
+	if (!csi2rx->count)
+		csi2rx_stop(csi2rx);
 	mutex_unlock(&csi2rx->lock);
-	return ret;
+
+	pm_runtime_put(csi2rx->dev);
+
+	return 0;
 }
 
 static int _csi2rx_set_routing(struct v4l2_subdev *subdev,
@@ -609,19 +635,16 @@ static int csi2rx_get_frame_desc(struct v4l2_subdev *subdev, unsigned int pad,
 }
 
 static const struct v4l2_subdev_pad_ops csi2rx_pad_ops = {
-	.get_fmt	= v4l2_subdev_get_fmt,
-	.set_fmt	= csi2rx_set_fmt,
-	.init_cfg	= csi2rx_init_cfg,
-	.get_frame_desc = csi2rx_get_frame_desc,
-	.set_routing	= csi2rx_set_routing,
-};
-
-static const struct v4l2_subdev_video_ops csi2rx_video_ops = {
-	.s_stream	= csi2rx_s_stream,
+	.get_fmt		= v4l2_subdev_get_fmt,
+	.set_fmt		= csi2rx_set_fmt,
+	.init_cfg		= csi2rx_init_cfg,
+	.get_frame_desc		= csi2rx_get_frame_desc,
+	.set_routing		= csi2rx_set_routing,
+	.enable_streams		= csi2rx_enable_streams,
+	.disable_streams	= csi2rx_disable_streams,
 };
 
 static const struct v4l2_subdev_ops csi2rx_subdev_ops = {
-	.video		= &csi2rx_video_ops,
 	.pad		= &csi2rx_pad_ops,
 };
 
