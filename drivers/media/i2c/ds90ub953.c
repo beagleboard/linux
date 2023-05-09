@@ -37,7 +37,7 @@
 #define UB953_REG_RESET_CTL_DIGITAL_RESET_0	BIT(0)
 
 #define UB953_REG_GENERAL_CFG			0x02
-#define UB953_REG_GENERAL_CFG_CONT_CLK		BIT(6)
+#define UB953_REG_GENERAL_CFG_CONT_CLK_SHIFT	6
 #define UB953_REG_GENERAL_CFG_CSI_LANE_SEL_SHIFT	4
 #define UB953_REG_GENERAL_CFG_CSI_LANE_SEL_MASK	GENMASK(5, 4)
 #define UB953_REG_GENERAL_CFG_CRC_TX_GEN_ENABLE	BIT(1)
@@ -136,6 +136,7 @@ struct ub953_data {
 	struct regmap		*regmap;
 
 	u32			num_data_lanes;
+	bool			clk_cont;
 
 	struct gpio_chip	gpio_chip;
 
@@ -1121,8 +1122,6 @@ static int ub953_parse_dt(struct ub953_data *priv)
 
 	ret = fwnode_property_count_u32(ep_fwnode, "data-lanes");
 
-	fwnode_handle_put(ep_fwnode);
-
 	if (ret < 0)
 		return dev_err_probe(dev, ret,
 				     "failed to parse property 'data-lanes'\n");
@@ -1133,6 +1132,10 @@ static int ub953_parse_dt(struct ub953_data *priv)
 
 	priv->num_data_lanes = ret;
 
+	priv->clk_cont = !fwnode_property_read_bool(ep_fwnode,
+						    "clock-noncontinuous");
+
+	fwnode_handle_put(ep_fwnode);
 	return 0;
 }
 
@@ -1189,13 +1192,12 @@ static int ub953_hw_init(struct ub953_data *priv)
 
 	dev_dbg(dev, "i2c strap setting %s V\n",
 		(v & UB953_REG_GENERAL_CFG_I2C_STRAP_MODE) ? "1.8" : "3.3");
-
 	ret = ub953_i2c_master_init(priv);
 	if (ret)
 		return dev_err_probe(dev, ret, "i2c init failed\n");
 
 	ub953_write(priv, UB953_REG_GENERAL_CFG,
-		    UB953_REG_GENERAL_CFG_CONT_CLK |
+		    (priv->clk_cont << UB953_REG_GENERAL_CFG_CONT_CLK_SHIFT) |
 		    ((priv->num_data_lanes - 1) << UB953_REG_GENERAL_CFG_CSI_LANE_SEL_SHIFT) |
 		    UB953_REG_GENERAL_CFG_CRC_TX_GEN_ENABLE);
 
