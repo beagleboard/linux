@@ -480,7 +480,7 @@ static int csi2rx_set_fmt(struct v4l2_subdev *subdev,
 			  struct v4l2_subdev_format *format)
 {
 	struct csi2rx_priv *csi2rx = v4l2_subdev_to_csi2rx(subdev);
-	struct v4l2_mbus_framefmt *framefmt;
+	struct v4l2_mbus_framefmt *sinkfmt, *srcfmt;
 
 	/* No transcoding, source and sink formats must match. */
 	if (format->pad != CSI2RX_PAD_SINK)
@@ -491,13 +491,19 @@ static int csi2rx_set_fmt(struct v4l2_subdev *subdev,
 
 	format->format.field = V4L2_FIELD_NONE;
 
-	framefmt = csi2rx_get_pad_format(csi2rx, state, format->pad,
-					 format->which);
-	if (!framefmt)
+	sinkfmt = csi2rx_get_pad_format(csi2rx, state, format->pad,
+					format->which);
+	if (!sinkfmt)
+		return -EINVAL;
+
+	srcfmt = csi2rx_get_pad_format(csi2rx, state, CSI2RX_PAD_SOURCE_STREAM0,
+				       format->which);
+	if (!srcfmt)
 		return -EINVAL;
 
 	mutex_lock(&csi2rx->lock);
-	*framefmt = format->format;
+	*sinkfmt = format->format;
+	*srcfmt = format->format;
 	mutex_unlock(&csi2rx->lock);
 
 	return 0;
