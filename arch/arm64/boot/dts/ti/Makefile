@@ -19,10 +19,17 @@ dtb-$(CONFIG_ARCH_K3) += k3-am62-lp-sk.dtb
 dtb-$(CONFIG_ARCH_K3) += k3-am62-lp-sk-microtips-mf101hie-panel.dtbo
 
 # Boards with AM62Ax SoC
-dtb-$(CONFIG_ARCH_K3) += k3-am62a7-sk.dtb
-dtb-$(CONFIG_ARCH_K3) += k3-am62a7-sk-csi2-imx219.dtbo
+k3-am62a7-sk-csi2-imx219-dtbs := k3-am62a7-sk.dtb k3-am62a7-sk-csi2-imx219.dtbo
+k3-am62a7-sk-fusion-imx390-dtbs := k3-am62a7-sk.dtb \
+				   k3-am62a7-sk-fusion.dtbo \
+				   k3-fpdlink-imx390-rcm-0-0.dtbo
+k3-am62a7-sk-fusion-ov2312-dtbs := k3-am62a7-sk.dtb \
+				   k3-am62a7-sk-fusion.dtbo \
+				   k3-fpdlink-ov2312-0-0.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-am62a7-sk-csi2-imx219.dtb
 dtb-$(CONFIG_ARCH_K3) += k3-am62a7-sk-ethernet-dc01.dtbo
-dtb-$(CONFIG_ARCH_K3) += k3-am62a7-sk-fusion.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-am62a7-sk-fusion-imx390.dtb
+dtb-$(CONFIG_ARCH_K3) += k3-am62a7-sk-fusion-ov2312.dtb
 
 # Boards with AM64x SoC
 dtb-$(CONFIG_ARCH_K3) += k3-am642-evm.dtb
