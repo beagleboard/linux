@@ -372,7 +372,7 @@ static int ti_csi2rx_enum_framesizes(struct file *file, void *fh,
 	u8 bpp;
 
 	fmt = find_format_by_pix(fsize->pixel_format);
-	if (!fmt)
+	if (!fmt || fsize->index != 0)
 		return -EINVAL;
 
 	bpp = ALIGN(fmt->bpp, 8);
