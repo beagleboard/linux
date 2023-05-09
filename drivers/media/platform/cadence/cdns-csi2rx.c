@@ -96,7 +96,6 @@ struct csi2rx_priv {
 	struct v4l2_subdev		subdev;
 	struct v4l2_async_notifier	notifier;
 	struct media_pad		pads[CSI2RX_PAD_MAX];
-	struct v4l2_mbus_framefmt	fmt;
 
 	/* Remote source */
 	struct v4l2_subdev		*source_subdev;
@@ -258,11 +257,22 @@ static int csi2rx_configure_external_dphy(struct csi2rx_priv *csi2rx)
 {
 	union phy_configure_opts opts = { };
 	struct phy_configure_opts_mipi_dphy *cfg = &opts.mipi_dphy;
+	struct v4l2_mbus_framefmt *framefmt;
+	struct v4l2_subdev_state *state;
 	const struct csi2rx_fmt *fmt;
 	s64 link_freq;
 	int ret;
 
-	fmt = csi2rx_get_fmt_by_code(csi2rx->fmt.code);
+	state = v4l2_subdev_lock_and_get_active_state(&csi2rx->subdev);
+	framefmt = v4l2_subdev_state_get_stream_format(state, CSI2RX_PAD_SINK, 0);
+	v4l2_subdev_unlock_state(state);
+
+	if (framefmt) {
+		fmt = csi2rx_get_fmt_by_code(framefmt->code);
+	} else {
+		dev_err(csi2rx->dev, "Did not find active sink format\n");
+		fmt = &formats[0];
+	}
 
 	link_freq = v4l2_get_link_freq(csi2rx->source_subdev->ctrl_handler,
 				       fmt->bpp, 2 * csi2rx->num_lanes);
@@ -486,38 +496,48 @@ out:
 	return ret;
 }
 
-static struct v4l2_mbus_framefmt *
-csi2rx_get_pad_format(struct csi2rx_priv *csi2rx,
-		      struct v4l2_subdev_state *state,
-		      unsigned int pad, u32 which)
+static int _csi2rx_set_routing(struct v4l2_subdev *subdev,
+			       struct v4l2_subdev_state *state,
+			       struct v4l2_subdev_krouting *routing)
 {
-	switch (which) {
-	case V4L2_SUBDEV_FORMAT_TRY:
-		return v4l2_subdev_get_try_format(&csi2rx->subdev, state, pad);
-	case V4L2_SUBDEV_FORMAT_ACTIVE:
-		return &csi2rx->fmt;
-	default:
-		return NULL;
-	}
-}
+	static const struct v4l2_mbus_framefmt format = {
+		.width = 640,
+		.height = 480,
+		.code = MEDIA_BUS_FMT_UYVY8_1X16,
+		.field = V4L2_FIELD_NONE,
+		.colorspace = V4L2_COLORSPACE_SRGB,
+		.ycbcr_enc = V4L2_YCBCR_ENC_601,
+		.quantization = V4L2_QUANTIZATION_LIM_RANGE,
+		.xfer_func = V4L2_XFER_FUNC_SRGB,
+	};
+	int ret;
 
-static int csi2rx_get_fmt(struct v4l2_subdev *subdev,
-			  struct v4l2_subdev_state *state,
-			  struct v4l2_subdev_format *format)
-{
-	struct csi2rx_priv *csi2rx = v4l2_subdev_to_csi2rx(subdev);
-	struct v4l2_mbus_framefmt *framefmt;
-
-	framefmt = csi2rx_get_pad_format(csi2rx, state, format->pad,
-					 format->which);
-	if (!framefmt)
+	if (routing->num_routes > V4L2_FRAME_DESC_ENTRY_MAX)
 		return -EINVAL;
 
-	mutex_lock(&csi2rx->lock);
-	format->format = *framefmt;
-	mutex_unlock(&csi2rx->lock);
+	ret = v4l2_subdev_routing_validate(subdev, routing,
+					   V4L2_SUBDEV_ROUTING_ONLY_1_TO_1);
+	if (ret)
+		return ret;
+
+	ret = v4l2_subdev_set_routing_with_fmt(subdev, state, routing, &format);
+	if (ret)
+		return ret;
 
 	return 0;
+}
+
+static int csi2rx_set_routing(struct v4l2_subdev *subdev,
+			      struct v4l2_subdev_state *state,
+			      enum v4l2_subdev_format_whence which,
+			      struct v4l2_subdev_krouting *routing)
+{
+	struct csi2rx_priv *csi2rx = v4l2_subdev_to_csi2rx(subdev);
+
+	if (which == V4L2_SUBDEV_FORMAT_ACTIVE && csi2rx->count)
+		return -EBUSY;
+
+	return _csi2rx_set_routing(subdev, state, routing);
 }
 
 static int csi2rx_set_fmt(struct v4l2_subdev *subdev,
@@ -525,31 +545,36 @@ static int csi2rx_set_fmt(struct v4l2_subdev *subdev,
 			  struct v4l2_subdev_format *format)
 {
 	struct csi2rx_priv *csi2rx = v4l2_subdev_to_csi2rx(subdev);
-	struct v4l2_mbus_framefmt *sinkfmt, *srcfmt;
+	struct v4l2_mbus_framefmt *fmt;
+
+	if (format->which == V4L2_SUBDEV_FORMAT_ACTIVE && csi2rx->count)
+		return -EBUSY;
 
 	/* No transcoding, source and sink formats must match. */
-	if (format->pad != CSI2RX_PAD_SINK)
-		return csi2rx_get_fmt(subdev, state, format);
-
+	if (format->pad >= CSI2RX_PAD_SOURCE_STREAM0)
+		return v4l2_subdev_get_fmt(subdev, state, format);
+	/*
+	 * Default to the first format if the requested media bus code isn't
+	 * supported.
+	 */
 	if (!csi2rx_get_fmt_by_code(format->format.code))
 		format->format.code = formats[0].code;
 
-	format->format.field = V4L2_FIELD_NONE;
-
-	sinkfmt = csi2rx_get_pad_format(csi2rx, state, format->pad,
-					format->which);
-	if (!sinkfmt)
+	/* Set sink format */
+	fmt = v4l2_subdev_state_get_stream_format(state, format->pad,
+						  format->stream);
+	if (!fmt)
 		return -EINVAL;
 
-	srcfmt = csi2rx_get_pad_format(csi2rx, state, CSI2RX_PAD_SOURCE_STREAM0,
-				       format->which);
-	if (!srcfmt)
+	*fmt = format->format;
+
+	/* Propagate to source format */
+	fmt = v4l2_subdev_state_get_opposite_stream_format(state, format->pad,
+							   format->stream);
+	if (!fmt)
 		return -EINVAL;
 
-	mutex_lock(&csi2rx->lock);
-	*sinkfmt = format->format;
-	*srcfmt = format->format;
-	mutex_unlock(&csi2rx->lock);
+	*fmt = format->format;
 
 	return 0;
 }
@@ -557,23 +582,22 @@ static int csi2rx_set_fmt(struct v4l2_subdev *subdev,
 static int csi2rx_init_cfg(struct v4l2_subdev *subdev,
 			   struct v4l2_subdev_state *state)
 {
-	struct v4l2_subdev_format format = {
-		.which = state ? V4L2_SUBDEV_FORMAT_TRY
-			: V4L2_SUBDEV_FORMAT_ACTIVE,
-		.pad = CSI2RX_PAD_SINK,
-		.format = {
-			.width = 640,
-			.height = 480,
-			.code = MEDIA_BUS_FMT_UYVY8_1X16,
-			.field = V4L2_FIELD_NONE,
-			.colorspace = V4L2_COLORSPACE_SRGB,
-			.ycbcr_enc = V4L2_YCBCR_ENC_601,
-			.quantization = V4L2_QUANTIZATION_LIM_RANGE,
-			.xfer_func = V4L2_XFER_FUNC_SRGB,
+	struct v4l2_subdev_route routes[] = {
+		{
+			.sink_pad = CSI2RX_PAD_SINK,
+			.sink_stream = 0,
+			.source_pad = CSI2RX_PAD_SOURCE_STREAM0,
+			.source_stream = 0,
+			.flags = V4L2_SUBDEV_ROUTE_FL_ACTIVE,
 		},
 	};
 
-	return csi2rx_set_fmt(subdev, state, &format);
+	struct v4l2_subdev_krouting routing = {
+		.num_routes = ARRAY_SIZE(routes),
+		.routes = routes,
+	};
+
+	return _csi2rx_set_routing(subdev, state, &routing);
 }
 
 static int csi2rx_get_frame_desc(struct v4l2_subdev *subdev, unsigned int pad,
@@ -585,10 +609,11 @@ static int csi2rx_get_frame_desc(struct v4l2_subdev *subdev, unsigned int pad,
 }
 
 static const struct v4l2_subdev_pad_ops csi2rx_pad_ops = {
-	.get_fmt	= csi2rx_get_fmt,
+	.get_fmt	= v4l2_subdev_get_fmt,
 	.set_fmt	= csi2rx_set_fmt,
 	.init_cfg	= csi2rx_init_cfg,
 	.get_frame_desc = csi2rx_get_frame_desc,
+	.set_routing	= csi2rx_set_routing,
 };
 
 static const struct v4l2_subdev_video_ops csi2rx_video_ops = {
@@ -825,7 +850,8 @@ static int csi2rx_probe(struct platform_device *pdev)
 	csi2rx->pads[CSI2RX_PAD_SINK].flags = MEDIA_PAD_FL_SINK;
 	for (i = CSI2RX_PAD_SOURCE_STREAM0; i < CSI2RX_PAD_MAX; i++)
 		csi2rx->pads[i].flags = MEDIA_PAD_FL_SOURCE;
-	csi2rx->subdev.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
+	csi2rx->subdev.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE |
+		V4L2_SUBDEV_FL_STREAMS;
 	csi2rx->subdev.entity.ops = &csi2rx_media_ops;
 
 	ret = media_entity_pads_init(&csi2rx->subdev.entity, CSI2RX_PAD_MAX,
@@ -833,14 +859,14 @@ static int csi2rx_probe(struct platform_device *pdev)
 	if (ret)
 		goto err_cleanup;
 
-	ret = csi2rx_init_cfg(&csi2rx->subdev, NULL);
+	ret = v4l2_subdev_init_finalize(&csi2rx->subdev);
 	if (ret)
 		goto err_cleanup;
 
 	pm_runtime_enable(csi2rx->dev);
 	ret = v4l2_async_register_subdev(&csi2rx->subdev);
 	if (ret < 0)
-		goto pm_disable;
+		goto err_free_subdev;
 
 	dev_info(&pdev->dev,
 		 "Probed CSI2RX with %u/%u lanes, %u streams, %s D-PHY\n",
@@ -850,8 +876,9 @@ static int csi2rx_probe(struct platform_device *pdev)
 
 	return 0;
 
-pm_disable:
+err_free_subdev:
 	pm_runtime_disable(csi2rx->dev);
+	v4l2_subdev_cleanup(&csi2rx->subdev);
 err_cleanup:
 	v4l2_async_nf_unregister(&csi2rx->notifier);
 	v4l2_async_nf_cleanup(&csi2rx->notifier);
@@ -868,6 +895,7 @@ static int csi2rx_remove(struct platform_device *pdev)
 	v4l2_async_nf_unregister(&csi2rx->notifier);
 	v4l2_async_nf_cleanup(&csi2rx->notifier);
 	v4l2_async_unregister_subdev(&csi2rx->subdev);
+	v4l2_subdev_cleanup(&csi2rx->subdev);
 	media_entity_cleanup(&csi2rx->subdev.entity);
 	pm_runtime_disable(csi2rx->dev);
 	kfree(csi2rx);
