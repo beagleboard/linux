@@ -977,6 +977,40 @@ static inline struct ti_csi2rx_dev *to_csi2rx_dev(struct v4l2_subdev *sd)
 	return container_of(sd, struct ti_csi2rx_dev, subdev);
 }
 
+static int ti_csi2rx_sd_set_fmt(struct v4l2_subdev *sd,
+				struct v4l2_subdev_state *state,
+				struct v4l2_subdev_format *format)
+{
+	struct v4l2_mbus_framefmt *fmt;
+	int ret = 0;
+
+	/* No transcoding, don't allow setting source fmt */
+	if (format->pad >= TI_CSI2RX_PAD_FIRST_SOURCE)
+		return v4l2_subdev_get_fmt(sd, state, format);
+
+	if (!find_format_by_code(format->format.code))
+		format->format.code = formats[0].code;
+
+	fmt = v4l2_subdev_state_get_stream_format(state, format->pad,
+						  format->stream);
+	if (!fmt) {
+		ret = -EINVAL;
+		goto out;
+	}
+	*fmt = format->format;
+
+	fmt = v4l2_subdev_state_get_opposite_stream_format(state, format->pad,
+							   format->stream);
+	if (!fmt) {
+		ret = -EINVAL;
+		goto out;
+	}
+	*fmt = format->format;
+
+out:
+	return ret;
+}
+
 static int _ti_csi2rx_sd_set_routing(struct v4l2_subdev *sd,
 				     struct v4l2_subdev_state *state,
 				     struct v4l2_subdev_krouting *routing)
@@ -1075,6 +1109,8 @@ static const struct v4l2_subdev_video_ops ti_csi2rx_subdev_video_ops = {
 static const struct v4l2_subdev_pad_ops ti_csi2rx_subdev_pad_ops = {
 	.init_cfg = ti_csi2rx_sd_init_cfg,
 	.set_routing = ti_csi2rx_sd_set_routing,
+	.get_fmt = v4l2_subdev_get_fmt,
+	.set_fmt = ti_csi2rx_sd_set_fmt,
 };
 
 static const struct v4l2_subdev_ops ti_csi2rx_subdev_ops = {
