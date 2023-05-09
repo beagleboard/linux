@@ -59,6 +59,12 @@ dtb-$(CONFIG_ARCH_K3) += k3-j721s2-common-proc-board.dtb
 dtb-$(CONFIG_ARCH_K3) += k3-am69-sk.dtb
 dtb-$(CONFIG_ARCH_K3) += k3-j784s4-evm.dtb
 
+# FPDLink Sensors
+dtb-$(CONFIG_ARCH_K3) += k3-fpdlink-imx390-rcm-0-0.dtbo \
+			 k3-fpdlink-imx390-rcm-0-1.dtbo \
+			 k3-fpdlink-imx390-rcm-0-2.dtbo \
+			 k3-fpdlink-imx390-rcm-0-3.dtbo
+
 #Enable support for device-tree overlays
 DTC_FLAGS_k3-am62-lp-sk += -@
 DTC_FLAGS_k3-am625-sk += -@
