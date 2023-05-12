@@ -1,0 +1,19 @@
+image: robertcnelson/debian-bullseye-slim-linux-compile:latest
+
+build:
+  tags:
+    - docker-amd64
+  stage: build
+  script:
+    - CORES=$(getconf _NPROCESSORS_ONLN)
+    - export CC=/usr/bin/aarch64-linux-gnu-
+    - make ARCH=arm64 CROSS_COMPILE=${CC} clean
+    - make ARCH=arm64 CROSS_COMPILE=${CC} bb.org_defconfig
+    - echo "make -j${CORES} ARCH=arm64 KBUILD_DEBARCH=arm64 CROSS_COMPILE=${CC} KDEB_SOURCENAME=linux-upstream KDEB_COMPRESS=xz bindeb-pkg"
+    - make -j${CORES} ARCH=arm64 KBUILD_DEBARCH=arm64 KDEB_PKGVERSION=1xross CROSS_COMPILE=${CC} KDEB_SOURCENAME=linux-upstream KDEB_COMPRESS=xz bindeb-pkg
+    - mv ../*.deb ./
+  artifacts:
+    expire_in: 5 days
+    name: "$CI_PROJECT_NAME-$CI_COMMIT_BRANCH-$CI_JOB_ID"
+    paths:
+      - "linux-image*.deb"
