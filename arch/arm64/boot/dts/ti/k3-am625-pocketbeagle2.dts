@@ -1,0 +1,649 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * https://beagleboard.org/pocketbeagle2
+ *
+ * Copyright (C) 2023 Texas Instruments Incorporated - https://www.ti.com/
+ * Copyright (C) 2023 Robert Nelson, BeagleBoard.org Foundation
+ */
+
+/dts-v1/;
+
+#include <dt-bindings/leds/common.h>
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/input.h>
+#include "k3-am625.dtsi"
+
+/ {
+	compatible =  "beagle,am625-pocketbeagle2", "ti,am625";
+	model = "BeagleBoard.org PocketBeagle2";
+
+	aliases {
+		gpio0 = &main_gpio0;
+		gpio1 = &main_gpio1;
+		gpio2 = &mcu_gpio0;
+		i2c0 = &main_i2c0;
+		i2c1 = &main_i2c1;
+		i2c2 = &main_i2c2;
+		i2c3 = &main_i2c3;
+		i2c4 = &wkup_i2c0;
+		i2c5 = &mcu_i2c0;
+		mmc0 = &sdhci0;
+		mmc1 = &sdhci1;
+		rtc0 = &wkup_rtc0;
+		serial0 = &wkup_uart0;
+		serial1 = &mcu_uart0;
+		serial2 = &main_uart0;
+		serial3 = &main_uart5;
+		serial4 = &main_uart6;
+		usb0 = &usb0;
+		usb1 = &usb1;
+	};
+
+	chosen {
+		stdout-path = "serial2:115200n8";
+	};
+
+	/* Dual CPU variant */
+	cpus {
+		cpu-map {
+			cluster0 {
+				/delete-node/ core2;
+				/delete-node/ core3;
+			};
+		};
+		/delete-node/ cpu@2;
+		/delete-node/ cpu@3;
+	};
+
+	memory@80000000 {
+		device_type = "memory";
+		/* 512MB RAM */
+		reg = <0x00000000 0x80000000 0x00000000 0x20000000>;
+	};
+
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		rtos_ipc_memory_region: ipc-memories@9c800000 {
+			compatible = "shared-dma-pool";
+			reg = <0x00 0x9c800000 0x00 0x00300000>;
+			no-map;
+		};
+
+		mcu_m4fss_dma_memory_region: m4f-dma-memory@9cb00000 {
+			compatible = "shared-dma-pool";
+			reg = <0x00 0x9cb00000 0x00 0x100000>;
+			no-map;
+		};
+
+		mcu_m4fss_memory_region: m4f-memory@9cc00000 {
+			compatible = "shared-dma-pool";
+			reg = <0x00 0x9cc00000 0x00 0xd00000>;
+			no-map;
+		};
+
+		wkup_r5fss0_core0_dma_memory_region: r5f-dma-memory@9d900000 {
+			compatible = "shared-dma-pool";
+			reg = <0x00 0x9d900000 0x00 0x00100000>;
+			no-map;
+		};
+
+		wkup_r5fss0_core0_memory_region: r5f-memory@9da00000 {
+			compatible = "shared-dma-pool";
+			reg = <0x00 0x9da00000 0x00 0x00d00000>;
+			no-map;
+		};
+
+		lpm_ctx_ddr: lpm-memory@9e700000 {
+			reg = <0x00 0x9e700000 0x00 0x80000>;
+			alignment = <0x1000>;
+		};
+
+		secure_tfa_ddr: tfa@9e780000 {
+			reg = <0x00 0x9e780000 0x00 0x80000>;
+			alignment = <0x1000>;
+			no-map;
+		};
+
+		secure_ddr: optee@9e800000 {
+			reg = <0x00 0x9e800000 0x00 0x01800000>; /* for OP-TEE */
+			alignment = <0x1000>;
+			no-map;
+		};
+	};
+
+	vsys_5v0: regulator-1 {
+		compatible = "regulator-fixed";
+		regulator-name = "vsys_5v0";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		regulator-always-on;
+		regulator-boot-on;
+	};
+
+	vdd_3v3: regulator-2 {
+		/* output of TLV62595DMQR-U12 */
+		compatible = "regulator-fixed";
+		regulator-name = "vdd_3v3";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		vin-supply = <&vsys_5v0>;
+		regulator-always-on;
+		regulator-boot-on;
+	};
+
+	vdd_3v3_sd: regulator-3 {
+		/* output of TPS22918DBVR-U8 */
+		pinctrl-names = "default";
+		pinctrl-0 = <&vdd_3v3_sd_pins_default>;
+
+		compatible = "regulator-fixed";
+		regulator-name = "vdd_3v3_sd";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		enable-active-high;
+		regulator-always-on;
+		vin-supply = <&vdd_3v3>;
+		gpio = <&main_gpio0 0 GPIO_ACTIVE_HIGH>;
+	};
+
+	vdd_sd_dv: regulator-4 {
+		compatible = "regulator-gpio";
+		regulator-name = "sd_hs200_switch";
+		pinctrl-names = "default";
+		pinctrl-0 = <&vdd_sd_dv_pins_default>;
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-boot-on;
+		vin-supply = <&vdd_3v3>;
+		gpios = <&main_gpio1 49 GPIO_ACTIVE_HIGH>;
+		states = <1800000 0x0>,
+			 <3300000 0x1>;
+	};
+
+	leds {
+		compatible = "gpio-leds";
+
+		led-0 {
+			label = "beaglebone:green:usr0";
+			gpios = <&main_gpio0 3 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "heartbeat";
+			function = LED_FUNCTION_HEARTBEAT;
+			default-state = "off";
+		};
+
+		led-1 {
+			label = "beaglebone:green:usr1";
+			gpios = <&main_gpio0 4 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "disk-activity";
+			function = LED_FUNCTION_DISK_ACTIVITY;
+			default-state = "keep";
+		};
+
+		led-2 {
+			label = "beaglebone:green:usr2";
+			gpios = <&main_gpio0 5 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "cpu";
+			function = LED_FUNCTION_CPU;
+		};
+
+		led-3 {
+			label = "beaglebone:green:usr3";
+			gpios = <&main_gpio0 6 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "lan";
+			function = LED_FUNCTION_LAN;
+		};
+
+		led-4 {
+			label = "beaglebone:green:usr4";
+			gpios = <&main_gpio0 9 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "wlan";
+			function = LED_FUNCTION_WLAN;
+		};
+	};
+
+	gpio_keys: gpio-keys {
+		compatible = "gpio-keys";
+		autorepeat;
+		pinctrl-names = "default";
+		pinctrl-0 = <&usr_button_pins_default>;
+
+		usr: usr {
+			label = "User Key";
+			linux,code = <BTN_0>;
+			gpios = <&main_gpio0 18 GPIO_ACTIVE_LOW>;
+		};
+
+	};
+};
+
+
+&main_pmx0 {
+	gpio0_pins_default: gpio0-pins-default {
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x000c, PIN_INPUT, 7) /* (E25) OSPI0_D0.GPIO0_3 */
+			AM62X_IOPAD(0x0010, PIN_INPUT, 7) /* (G24) OSPI0_D1.GPIO0_4 */
+			AM62X_IOPAD(0x0014, PIN_INPUT, 7) /* (F25) OSPI0_D2.GPIO0_5 */
+			AM62X_IOPAD(0x0018, PIN_INPUT, 7) /* (F24) OSPI0_D3.GPIO0_6 */
+			AM62X_IOPAD(0x002c, PIN_INPUT, 7) /* (F23) OSPI0_CSn0.GPIO0_11 */
+			AM62X_IOPAD(0x00a4, PIN_INPUT, 7) /* (M22) GPMC0_DIR.GPIO0_40 */
+		>;
+	};
+
+	vdd_sd_dv_pins_default: vdd-sd-pins-default {
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x0244, PIN_OUTPUT, 7) /* (C17) MMC1_SDWP.GPIO1_49 */
+		>;
+	};
+
+	usr_button_pins_default: usr-button-pins-default {
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x0048, PIN_INPUT, 7) /* (N25) GPMC0_AD3.GPIO0_18 */
+		>;
+	};
+
+	local_i2c_pins_default: local-i2c-pins-default {
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x01e0, PIN_INPUT_PULLUP, 0) /* (B16) I2C0_SCL */
+			AM62X_IOPAD(0x01e4, PIN_INPUT_PULLUP, 0) /* (A16) I2C0_SDA */
+		>;
+	};
+
+	emmc_pins_default: emmc-pins-default {
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x0220, PIN_INPUT, 0) /* (Y3) MMC0_CMD */
+			AM62X_IOPAD(0x0218, PIN_INPUT, 0) /* (AB1) MMC0_CLK */
+			AM62X_IOPAD(0x0214, PIN_INPUT, 0) /* (AA2) MMC0_DAT0 */
+			AM62X_IOPAD(0x0210, PIN_INPUT, 0) /* (AA1) MMC0_DAT1 */
+			AM62X_IOPAD(0x020c, PIN_INPUT, 0) /* (AA3) MMC0_DAT2 */
+			AM62X_IOPAD(0x0208, PIN_INPUT, 0) /* (Y4) MMC0_DAT3 */
+			AM62X_IOPAD(0x0204, PIN_INPUT, 0) /* (AB2) MMC0_DAT4 */
+			AM62X_IOPAD(0x0200, PIN_INPUT, 0) /* (AC1) MMC0_DAT5 */
+			AM62X_IOPAD(0x01fc, PIN_INPUT, 0) /* (AD2) MMC0_DAT6 */
+			AM62X_IOPAD(0x01f8, PIN_INPUT, 0) /* (AC2) MMC0_DAT7 */
+		>;
+	};
+
+	vdd_3v3_sd_pins_default: vdd-3v3-sd-pins-default {
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x0000, PIN_OUTPUT, 7) /* (H24) OSPI0_CLK.GPIO0_0 */
+		>;
+	};
+
+	sd_pins_default: sd-pins-default {
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x023c, PIN_INPUT, 0) /* (A21) MMC1_CMD */
+			AM62X_IOPAD(0x0234, PIN_INPUT, 0) /* (B22) MMC1_CLK */
+			AM62X_IOPAD(0x0230, PIN_INPUT, 0) /* (A22) MMC1_DAT0 */
+			AM62X_IOPAD(0x022c, PIN_INPUT, 0) /* (B21) MMC1_DAT1 */
+			AM62X_IOPAD(0x0228, PIN_INPUT, 0) /* (C21) MMC1_DAT2 */
+			AM62X_IOPAD(0x0224, PIN_INPUT, 0) /* (D22) MMC1_DAT3 */
+			AM62X_IOPAD(0x0240, PIN_INPUT, 7) /* (D17) MMC1_SDCD.GPIO1_48 */
+		>;
+	};
+
+	console_pins_default: console-pins-default {
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x01c8, PIN_INPUT, 0) /* (D14) UART0_RXD */
+			AM62X_IOPAD(0x01cc, PIN_OUTPUT, 0) /* (E14) UART0_TXD */
+		>;
+	};
+
+	pmic_irq_pins_default: pmic-irq-pins-default {
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x01f4, PIN_INPUT_PULLUP, 0) /* (D16) EXTINTn */
+		>;
+	};
+};
+
+&mcu_pmx0 {
+	i2c_pmic_pins_default: i2c-pmic-pins-default {
+		pinctrl-single,pins = <
+			AM62X_MCU_IOPAD(0x004c, PIN_INPUT_PULLUP, 0) /* (B9) WKUP_I2C0_SCL */
+			AM62X_MCU_IOPAD(0x0050, PIN_INPUT_PULLUP, 0) /* (A9) WKUP_I2C0_SDA */
+		>;
+	};
+};
+
+&a53_opp_table {
+		/* Requires VDD_CORE to be at 0.85V, but we cannot do voltage scale */
+		opp-1400000000 {
+			opp-hz = /bits/ 64 <1400000000>;
+			opp-supported-hw = <0x01 0x0004>;
+		};
+};
+
+/* cbass_main */
+/* cbass_wkup */
+
+&wkup_i2c0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c_pmic_pins_default>;
+	clock-frequency = <400000>;
+
+	/* Should have been on main_i2c such that we have common bootloader */
+	tps65219: pmic@30 {
+		compatible = "ti,tps65219";
+		reg = <0x30>;
+		buck1-supply = <&vsys_5v0>;
+		buck2-supply = <&vsys_5v0>;
+		buck3-supply = <&vsys_5v0>;
+		ldo1-supply = <&vdd_3v3>;
+		ldo2-supply = <&buck2_reg>;
+		ldo3-supply = <&vdd_3v3>;
+		ldo4-supply = <&vdd_3v3>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&pmic_irq_pins_default>;
+		interrupt-parent = <&gic500>;
+		interrupts = <GIC_SPI 224 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+
+		system-power-controller;
+		wakeup-source;
+		power-button;
+
+		regulators {
+			buck1_reg: buck1 {
+				regulator-name = "VDD_CORE";
+				regulator-min-microvolt = <850000>;
+				regulator-max-microvolt = <850000>;
+				regulator-boot-on;
+				regulator-always-on;
+			};
+
+			buck2_reg: buck2 {
+				regulator-name = "VDD_1V8";
+				regulator-min-microvolt = <1800000>;
+				regulator-max-microvolt = <1800000>;
+				regulator-boot-on;
+				regulator-always-on;
+			};
+
+			buck3_reg: buck3 {
+				regulator-name = "VDD_1V2";
+				regulator-min-microvolt = <1200000>;
+				regulator-max-microvolt = <1200000>;
+				regulator-boot-on;
+				regulator-always-on;
+			};
+
+			ldo1_reg: ldo1 {
+				/*
+				 * Regulator is left as is unused, vdd_sd
+				 * is controlled via GPIO with bypass config
+				 * as per the NVM configuration
+				 */
+				regulator-name = "VDD_SD_3V3";
+				regulator-min-microvolt = <3300000>;
+				regulator-max-microvolt = <3300000>;
+				regulator-allow-bypass;
+				regulator-boot-on;
+				regulator-always-on;
+			};
+
+			ldo2_reg: ldo2 {
+				regulator-name = "VDDA_0V85";
+				regulator-min-microvolt = <850000>;
+				regulator-max-microvolt = <850000>;
+				regulator-boot-on;
+				regulator-always-on;
+			};
+
+			ldo3_reg: ldo3 {
+				regulator-name = "VDDA_1V8";
+				regulator-min-microvolt = <1800000>;
+				regulator-max-microvolt = <1800000>;
+				regulator-boot-on;
+				regulator-always-on;
+			};
+
+			ldo4_reg: ldo4 {
+				regulator-name = "VDD_2V5";
+				regulator-min-microvolt = <2500000>;
+				regulator-max-microvolt = <2500000>;
+				regulator-boot-on;
+				regulator-always-on;
+			};
+		};
+	};
+};
+
+&wkup_uart0 {
+	status = "disabled";
+};
+
+&mcu_i2c0 {
+	status =  "disabled";
+};
+
+&mcu_uart0 {
+	status = "disabled";
+};
+
+&mcu_spi0 {
+	status = "disabled";
+};
+
+&mcu_spi1 {
+	status = "disabled";
+};
+
+&mcu_m4fss {
+	status = "disabled";
+};
+
+&fss {
+	status = "disabled";
+};
+
+&main_mcan0 {
+	status = "disabled";
+};
+
+&crypto {
+	status = "disabled";
+};
+
+&dss {
+	status = "disabled";
+};
+
+
+&usbss0 {
+	ti,vbus-divider;
+};
+
+&usb0 {
+	dr_mode = "peripheral";
+};
+
+&usb1 {
+	status = "disabled";
+};
+
+&cpsw3g {
+	status = "disabled";
+};
+
+&main_gpio0 {
+	/* XXX: FIXME PLEASE */
+	pinctrl-names = "default";
+	pinctrl-0 = <&gpio0_pins_default>;
+	gpio-line-names = "BL_EN_3V3", "SPE_PO_EN", "RTC_INT",	/* 0-2 */
+		"USR0", "USR1", "USR2", "USR3", "", "", "USR4",	/* 3-9 */
+		"EEPROM_WP",					/* 10 */
+		"CSI2_CAMERA_GPIO1", "CSI2_CAMERA_GPIO2",	/* 11-12 */
+		"CC1352P7_BOOT", "CC1352P7_RSTN", "", "", "",	/* 13-17 */
+		"USR_BUTTON", "", "", "", "", "", "", "", "",	/* 18-26 */
+		"", "", "", "", "", "", "", "", "", "HDMI_INT",	/* 27-36 */
+		"", "VDD_WLAN_EN", "", "", "WL_IRQ", "GBE_INTN",/* 37-42 */
+		"", "", "", "", "", "", "", "", "", "", "", "",	/* 43-54 */
+		"", "", "", "", "", "", "", "", "", "", "", "", /* 55-66 */
+		"", "", "", "", "", "", "", "", "", "", "", "", /* 67-78 */
+		"", "", "", "", "", "",				/* 79-84 */
+		"BITBANG_MDIO_DATA", "BITBANG_MDIO_CLK";	/* 85-86 */
+};
+
+&main_gpio1 {
+	/* XXX: FIXME PLEASE */
+	gpio-line-names = "", "", "", "", "",			/* 0-4 */
+		"", "", "",					/* 5-7 */
+		"", "",						/* 8-9 */
+		"MIKROBUS_GPIO1_10", "MIKROBUS_GPIO1_11",	/* 10-11 */
+		"MIKROBUS_GPIO1_12", "MIKROBUS_W1_GPIO0",	/* 12-13 */
+		"MIKROBUS_GPIO1_14",				/* 14 */
+		"", "", "", "", "VDD_3V3_SD", "", "",		/* 15-21 */
+		"MIKROBUS_GPIO1_22", "MIKROBUS_GPIO1_23",	/* 22-23 */
+		"MIKROBUS_GPIO1_24", "MIKROBUS_GPIO1_25",	/* 24-25 */
+		"", "", "", "", "", "", "", "", "", "", "", "",	/* 26-37 */
+		"", "", "", "", "", "", "", "", "", "",		/* 38-47 */
+		"SD_CD", "SD_VOLT_SEL", "", "", "", "", "", "",	/* 48-55 */
+		"", "", "", "", "", "", "", "", "", "", "", "", /* 56-67 */
+		"", "", "", "", "", "", "", "", "", "", "", "", /* 68-79 */
+		"", "", "", "", "", "", "", "";			/* 80-87 */
+};
+
+&main_i2c0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&local_i2c_pins_default>;
+	clock-frequency = <400000>;
+
+	eeprom@50 {
+		compatible = "atmel,24c32";
+		reg = <0x50>;
+	};
+};
+
+&main_i2c1 {
+	status = "disabled";
+};
+
+&main_i2c2 {
+	status = "disabled";
+};
+
+&main_i2c3 {
+	status = "disabled";
+};
+
+&mailbox0_cluster0 {
+	mbox_m4_0: mbox-m4-0 {
+		ti,mbox-rx = <0 0 0>;
+		ti,mbox-tx = <1 0 0>;
+	};
+};
+
+&mcasp0 {
+	status = "disabled";
+};
+
+&mcasp1 {
+	status = "disabled";
+};
+
+&mcasp2 {
+	status = "disabled";
+};
+
+&sdhci0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&emmc_pins_default>;
+	ti,driver-strength-ohm = <50>;
+	disable-wp;
+};
+
+&sdhci1 {
+	/* SD/MMC */
+	pinctrl-names = "default";
+	pinctrl-0 = <&sd_pins_default>;
+
+	vmmc-supply = <&vdd_3v3_sd>;
+	vqmmc-supply = <&vdd_sd_dv>;
+	ti,driver-strength-ohm = <50>;
+	disable-wp;
+	cd-gpios = <&main_gpio1 48 GPIO_ACTIVE_LOW>;
+	cd-debounce-delay-ms = <100>;
+	ti,fails-without-test-cd;
+};
+
+&sdhci2 {
+	status = "disabled";
+};
+
+&epwm0 {
+	status = "disabled";
+};
+
+&epwm1 {
+	status = "disabled";
+};
+
+&epwm2 {
+	status = "disabled";
+};
+
+&ecap0_pwm {
+	status = "disabled";
+};
+
+&ecap1_pwm {
+	status = "disabled";
+};
+
+&ecap2_pwm {
+	status = "disabled";
+};
+
+&main_uart0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&console_pins_default>;
+};
+
+&main_uart1 {
+	/* Main UART1 is used by TIFS firmware */
+	status = "reserved";
+};
+
+&main_uart2 {
+	status = "disabled";
+};
+
+&main_uart3 {
+	status = "disabled";
+};
+
+&main_uart4 {
+	status = "disabled";
+};
+
+&main_uart5 {
+	status = "disabled";
+};
+
+&main_uart6 {
+	status = "disabled";
+};
+
+&main_spi0 {
+	status = "disabled";
+};
+
+&main_spi1 {
+	status = "disabled";
+};
+
+&main_spi2 {
+	status = "disabled";
+};
+
+&dphy0 {
+       status = "disabled";
+};
+
+&ti_csi2rx0 {
+      status = "disabled";
+};
