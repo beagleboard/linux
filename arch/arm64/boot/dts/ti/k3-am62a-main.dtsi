@@ -847,6 +847,14 @@
 		};
 	};
 
+	vpu: video-codec@30210000 {
+		compatible = "cnm,cm521c-vpu";
+		reg = <0x00 0x30210000 0x00 0x10000>;
+		clocks = <&k3_clks 204 2>;
+		clock-names = "vcodec";
+		power-domains = <&k3_pds 204 TI_SCI_PD_EXCLUSIVE>;
+	};
+
 	c7x_0: dsp@7e000000 {
 		compatible = "ti,am62a-c7xv-dsp";
 		reg = <0x00 0x7e000000 0x00 0x00100000>;
