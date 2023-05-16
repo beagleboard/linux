@@ -227,9 +227,9 @@ static int wave5_vpu_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	/* physical addresses limited to 32 bits */
-	dma_set_mask(&pdev->dev, DMA_BIT_MASK(32));
-	dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(32));
+	/* physical addresses limited to 48  bits */
+	dma_set_mask(&pdev->dev, DMA_BIT_MASK(48));
+	dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(48));
 
 	dev = devm_kzalloc(&pdev->dev, sizeof(*dev), GFP_KERNEL);
 	if (!dev)
@@ -281,6 +281,7 @@ static int wave5_vpu_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "wave5_vdi_init, fail: %d\n", ret);
 		goto err_clk_dis;
 	}
+	dev->ext_addr = ((dev->common_mem.daddr >> 32) & 0xFFFF);
 	dev->product = wave5_vpu_get_product_id(dev);
 
 	dev->irq = platform_get_irq(pdev, 0);
