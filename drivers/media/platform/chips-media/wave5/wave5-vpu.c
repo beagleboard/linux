@@ -27,6 +27,9 @@ struct wave5_match_data {
 	const char *fw_name;
 };
 
+static int vpu_poll_interval = 5;
+module_param(vpu_poll_interval, int, 0644);
+
 int wave5_vpu_wait_interrupt(struct vpu_instance *inst, unsigned int timeout)
 {
 	int ret;
@@ -127,6 +130,50 @@ static irqreturn_t wave5_vpu_irq_thread(int irq, void *dev_id)
 	}
 
 	return IRQ_HANDLED;
+}
+
+static void wave5_vpu_irq_work_fn(struct kthread_work *work)
+{
+	struct vpu_device *dev = container_of(work, struct vpu_device, work);
+	struct vpu_instance *inst;
+	int irq_status, ret;
+	u32 val;
+
+	list_for_each_entry(inst, &dev->instances, list) {
+		while (kfifo_len(&inst->irq_status)) {
+			struct vpu_instance *curr;
+
+			curr = v4l2_m2m_get_curr_priv(inst->v4l2_m2m_dev);
+			if (curr) {
+				inst->ops->finish_process(inst);
+			} else {
+				ret = kfifo_out(&inst->irq_status, &irq_status, sizeof(int));
+				if (!ret)
+					break;
+
+				val = wave5_vdi_readl(dev, W5_VPU_VINT_REASON_USR);
+				val &= ~irq_status;
+				wave5_vdi_write_register(dev, W5_VPU_VINT_REASON_USR, val);
+				complete(&inst->irq_done);
+			}
+		}
+	}
+}
+
+static enum hrtimer_restart wave5_vpu_timer_callback(struct hrtimer *timer)
+{
+	irqreturn_t ret;
+	struct vpu_device *dev =
+			container_of(timer, struct vpu_device, hrtimer);
+
+	ret = wave5_vpu_irq(0, dev);
+
+	if (ret == IRQ_WAKE_THREAD)
+		kthread_queue_work(dev->worker, &dev->work);
+
+	hrtimer_forward_now(timer, ns_to_ktime(vpu_poll_interval * NSEC_PER_MSEC));
+
+	return HRTIMER_RESTART;
 }
 
 static int wave5_vpu_load_firmware(struct device *dev, const char *fw_name)
@@ -236,6 +283,28 @@ static int wave5_vpu_probe(struct platform_device *pdev)
 	}
 	dev->product = wave5_vpu_get_product_id(dev);
 
+	dev->irq = platform_get_irq(pdev, 0);
+	if (dev->irq < 0) {
+		dev_err(&pdev->dev, "failed to get irq resource, falling back to polling\n");
+		hrtimer_init(&dev->hrtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL_PINNED);
+		dev->hrtimer.function = &wave5_vpu_timer_callback;
+		dev->worker = kthread_create_worker(0, "vpu_irq_thread");
+		if (IS_ERR(dev->worker)) {
+			dev_err(&pdev->dev, "failed to create vpu irq worker\n");
+			ret = PTR_ERR(dev->worker);
+			goto err_vdi_release;
+		}
+		dev->vpu_poll_interval = vpu_poll_interval;
+		kthread_init_work(&dev->work, wave5_vpu_irq_work_fn);
+	} else {
+		ret = devm_request_threaded_irq(&pdev->dev, dev->irq, wave5_vpu_irq,
+						wave5_vpu_irq_thread, 0, "vpu_irq", dev);
+		if (ret) {
+			dev_err(&pdev->dev, "Register interrupt handler, fail: %d\n", ret);
+			goto err_vdi_release;
+		}
+	}
+
 	INIT_LIST_HEAD(&dev->instances);
 	ret = v4l2_device_register(&pdev->dev, &dev->v4l2_dev);
 	if (ret) {
@@ -258,19 +327,6 @@ static int wave5_vpu_probe(struct platform_device *pdev)
 		}
 	}
 
-	dev->irq = platform_get_irq(pdev, 0);
-	if (dev->irq < 0) {
-		dev_err(&pdev->dev, "failed to get irq resource\n");
-		ret = -ENXIO;
-		goto err_enc_unreg;
-	}
-
-	ret = devm_request_threaded_irq(&pdev->dev, dev->irq, wave5_vpu_irq,
-					wave5_vpu_irq_thread, 0, "vpu_irq", dev);
-	if (ret) {
-		dev_err(&pdev->dev, "Register interrupt handler, fail: %d\n", ret);
-		goto err_enc_unreg;
-	}
 
 	ret = wave5_vpu_load_firmware(&pdev->dev, match_data->fw_name);
 	if (ret) {
@@ -305,6 +361,11 @@ err_put_node:
 static int wave5_vpu_remove(struct platform_device *pdev)
 {
 	struct vpu_device *dev = dev_get_drvdata(&pdev->dev);
+
+	if (dev->irq < 0) {
+		kthread_destroy_worker(dev->worker);
+		hrtimer_cancel(&dev->hrtimer);
+	}
 
 	clk_bulk_disable_unprepare(dev->num_clks, dev->clks);
 	wave5_vpu_enc_unregister_device(dev);
