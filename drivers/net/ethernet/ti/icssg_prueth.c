@@ -120,10 +120,18 @@ static void prueth_xmit_free(struct prueth_tx_chn *tx_chn,
 {
 	struct cppi5_host_desc_t *first_desc, *next_desc;
 	dma_addr_t buf_dma, next_desc_dma;
+	struct prueth_swdata *swdata;
 	u32 buf_dma_len;
 
 	first_desc = desc;
 	next_desc = first_desc;
+
+	swdata = cppi5_hdesc_get_swdata(desc);
+	if (swdata->type == PRUETH_SWDATA_PAGE) {
+		page_pool_recycle_direct(swdata->rx_chn->pg_pool,
+					 swdata->data.page);
+		goto free_desc;
+	}
 
 	cppi5_hdesc_get_obuf(first_desc, &buf_dma, &buf_dma_len);
 	k3_udma_glue_tx_cppi5_to_dma_addr(tx_chn->tx_chn, &buf_dma);
@@ -148,6 +156,7 @@ static void prueth_xmit_free(struct prueth_tx_chn *tx_chn,
 		k3_cppi_desc_pool_free(tx_chn->desc_pool, next_desc);
 	}
 
+free_desc:
 	k3_cppi_desc_pool_free(tx_chn->desc_pool, first_desc);
 }
 
@@ -159,10 +168,11 @@ static int emac_tx_complete_packets(struct prueth_emac *emac, int chn,
 	struct netdev_queue *netif_txq;
 	struct prueth_tx_chn *tx_chn;
 	unsigned int total_bytes = 0;
+	struct prueth_swdata *swdata;
+	struct xdp_frame *xdpf;
 	struct sk_buff *skb;
 	dma_addr_t desc_dma;
 	int res, num_tx = 0;
-	struct prueth_swdata *swdata;
 
 	tx_chn = &emac->tx_chns[chn];
 
@@ -182,20 +192,29 @@ static int emac_tx_complete_packets(struct prueth_emac *emac, int chn,
 						     desc_dma);
 		swdata = cppi5_hdesc_get_swdata(desc_tx);
 
-		if (swdata->type != PRUETH_SWDATA_SKB) {
+		switch (swdata->type) {
+		case PRUETH_SWDATA_SKB:
+			skb = swdata->data.skb;
+			ndev->stats.tx_bytes += skb->len;
+			ndev->stats.tx_packets++;
+			total_bytes += skb->len;
+			napi_consume_skb(skb, budget);
+			break;
+		case PRUETH_SWDATA_XDPF:
+			xdpf = swdata->data.xdpf;
+			ndev->stats.tx_bytes += xdpf->len;
+			ndev->stats.tx_packets++;
+			total_bytes += xdpf->len;
+			xdp_return_frame(xdpf);
+			break;
+		default:
 			netdev_err(ndev, "tx_complete: invalid swdata type %d\n", swdata->type);
+			prueth_xmit_free(tx_chn, desc_tx);
 			budget++;
 			continue;
 		}
 
-		skb = swdata->data.skb;
 		prueth_xmit_free(tx_chn, desc_tx);
-
-		ndev = skb->dev;
-		ndev->stats.tx_packets++;
-		ndev->stats.tx_bytes += skb->len;
-		total_bytes += skb->len;
-		napi_consume_skb(skb, budget);
 		num_tx++;
 		budget--;
 	}
@@ -482,6 +501,7 @@ static int prueth_dma_rx_push_mapped(struct prueth_emac *emac,
 	swdata = cppi5_hdesc_get_swdata(desc_rx);
 	swdata->type = PRUETH_SWDATA_PAGE;
 	swdata->data.page = page;
+	swdata->rx_chn = rx_chn;
 
 	return k3_udma_glue_push_rx_chn(rx_chn->rx_chn, 0,
 					desc_rx, desc_dma);
@@ -526,7 +546,10 @@ static unsigned int prueth_rxbuf_total_len(unsigned int len)
 	return SKB_DATA_ALIGN(len);
 }
 
-static int emac_rx_packet(struct prueth_emac *emac, u32 flow_id)
+static int emac_run_xdp(struct prueth_emac *emac, struct xdp_buff *xdp,
+			struct page *page);
+
+static int emac_rx_packet(struct prueth_emac *emac, u32 flow_id, int *xdp_state)
 {
 	struct prueth_rx_chn *rx_chn = &emac->rx_chns;
 	u32 buf_dma_len, pkt_len, port_id = 0;
@@ -537,10 +560,12 @@ static int emac_rx_packet(struct prueth_emac *emac, u32 flow_id)
 	struct page *page, *new_page;
 	struct page_pool *pool;
 	struct sk_buff *skb;
+	struct xdp_buff xdp;
 	u32 *psdata;
 	void *pa;
 	int ret;
 
+	*xdp_state = 0;
 	pool = rx_chn->pg_pool;
 	ret = k3_udma_glue_pop_rx_chn(rx_chn->rx_chn, flow_id, &desc_dma);
 	if (ret) {
@@ -585,8 +610,24 @@ static int emac_rx_packet(struct prueth_emac *emac, u32 flow_id)
 		goto requeue;
 	}
 
-	/* prepare skb and send to n/w stack */
 	pa = page_address(page);
+	if (emac->xdp_prog) {
+		/* xdp_init_buff(&xdp, PAGE_SIZE, rx_chn->xdp_rxq); */
+		xdp.frame_sz = PAGE_SIZE;
+		xdp.rxq = &rx_chn->xdp_rxq;
+
+		/* xdp_prepare_buff(&xdp, pa, PRUETH_HEADROOM, pkt_len, false); */
+		xdp.data_hard_start = pa;
+		xdp.data = pa + PRUETH_HEADROOM;
+		xdp.data_end = xdp.data + pkt_len;
+		xdp.data_meta = xdp.data + 1;
+
+		*xdp_state = emac_run_xdp(emac, &xdp, page);
+		if (*xdp_state != ICSSG_XDP_PASS)
+			goto requeue;
+	}
+
+	/* prepare skb and send to n/w stack */
 	skb = build_skb(pa, prueth_rxbuf_total_len(pkt_len));
 	if (!skb) {
 		ndev->stats.rx_dropped++;
@@ -903,15 +944,26 @@ static void prueth_tx_cleanup(void *data, dma_addr_t desc_dma)
 	struct prueth_tx_chn *tx_chn = data;
 	struct cppi5_host_desc_t *desc_tx;
 	struct prueth_swdata *swdata;
+	struct xdp_frame *xdpf;
 	struct sk_buff *skb;
 
 	desc_tx = k3_cppi_desc_pool_dma2virt(tx_chn->desc_pool, desc_dma);
 	swdata = cppi5_hdesc_get_swdata(desc_tx);
-	skb = swdata->data.skb;
-	prueth_xmit_free(tx_chn, desc_tx);
 
-	if (swdata->type == PRUETH_SWDATA_SKB)
+	switch (swdata->type) {
+	case PRUETH_SWDATA_SKB:
+		skb = swdata->data.skb;
 		dev_kfree_skb_any(skb);
+		break;
+	case PRUETH_SWDATA_XDPF:
+		xdpf = swdata->data.xdpf;
+		xdp_return_frame(xdpf);
+		break;
+	default:
+		break;
+	}
+
+	prueth_xmit_free(tx_chn, desc_tx);
 }
 
 static irqreturn_t prueth_tx_ts_irq(int irq, void *dev_id)
@@ -1137,12 +1189,15 @@ static int emac_napi_rx_poll(struct napi_struct *napi_rx, int budget)
 	int num_rx = 0;
 	int cur_budget;
 	int ret;
+	int xdp_state;
+	int xdp_state_or = 0;
 
 	while (flow--) {
 		cur_budget = budget - num_rx;
 
 		while (cur_budget--) {
-			ret = emac_rx_packet(emac, flow);
+			ret = emac_rx_packet(emac, flow, &xdp_state);
+			xdp_state_or |= xdp_state;
 			if (ret)
 				break;
 			num_rx++;
@@ -1151,6 +1206,9 @@ static int emac_napi_rx_poll(struct napi_struct *napi_rx, int budget)
 		if (num_rx >= budget)
 			break;
 	}
+
+	if (xdp_state_or & ICSSG_XDP_REDIR)
+		xdp_do_flush();
 
 	if (num_rx < budget) {
 		napi_complete(napi_rx);
@@ -1436,6 +1494,33 @@ const struct icss_iep_clockops prueth_iep_clockops = {
 	.perout_enable = prueth_perout_enable,
 };
 
+static int prueth_create_xdp_rxqs(struct prueth_emac *emac)
+{
+	struct xdp_rxq_info *rxq = &emac->rx_chns.xdp_rxq;
+	struct page_pool *pool = emac->rx_chns.pg_pool;
+	int ret;
+
+	ret = xdp_rxq_info_reg(rxq, emac->ndev, 0, rxq->napi_id);
+	if (ret)
+		return ret;
+
+	ret = xdp_rxq_info_reg_mem_model(rxq, MEM_TYPE_PAGE_POOL, pool);
+	if (ret)
+		xdp_rxq_info_unreg(rxq);
+
+	return ret;
+}
+
+static void prueth_destroy_xdp_rxqs(struct prueth_emac *emac)
+{
+	struct xdp_rxq_info *rxq = &emac->rx_chns.xdp_rxq;
+
+	if (!xdp_rxq_info_is_reg(rxq))
+		return;
+
+	xdp_rxq_info_unreg(rxq);
+}
+
 /**
  * emac_ndo_open - EMAC device open
  * @ndev: network adapter device
@@ -1523,6 +1608,10 @@ static int emac_ndo_open(struct net_device *ndev)
 	/* Prepare RX */
 	ret = prueth_prepare_rx_chan(emac, &emac->rx_chns, PRUETH_MAX_PKT_SIZE);
 	if (ret)
+		goto destroy_xdp_rxqs;
+
+	ret = prueth_create_xdp_rxqs(emac);
+	if (ret)
 		goto free_rx_ts_irq;
 
 	ret = k3_udma_glue_enable_rx_chn(emac->rx_chns.rx_chn);
@@ -1571,6 +1660,8 @@ reset_tx_chan:
 	prueth_reset_tx_chan(emac, i, false);
 reset_rx_chn:
 	prueth_reset_rx_chan(&emac->rx_chns, max_rx_flows, false);
+destroy_xdp_rxqs:
+	prueth_destroy_xdp_rxqs(emac);
 free_rx_ts_irq:
 	free_irq(emac->tx_ts_irq, emac);
 stop:
@@ -1631,6 +1722,8 @@ static int emac_ndo_stop(struct net_device *ndev)
 	k3_udma_glue_tdown_rx_chn(emac->rx_chns.rx_chn, true);
 
 	prueth_reset_rx_chan(&emac->rx_chns, max_rx_flows, true);
+
+	prueth_destroy_xdp_rxqs(emac);
 
 	napi_disable(&emac->napi_rx);
 
@@ -1799,6 +1892,228 @@ static struct devlink_port *emac_ndo_get_devlink_port(struct net_device *ndev)
 	return &emac->devlink_port;
 }
 
+/**
+ * emac_xmit_xdp_frame - transmits an XDP frame
+ * @emac: emac device
+ * @xdpf: data to transmit
+ * @page: page from page pool if already DMA mapped
+ * @q_idx: queue id
+ **/
+static int emac_xmit_xdp_frame(struct prueth_emac *emac,
+			       struct xdp_frame *xdpf,
+			       struct page *page,
+			       unsigned int q_idx)
+{
+	struct cppi5_host_desc_t *first_desc;
+	struct net_device *ndev = emac->ndev;
+	struct prueth_tx_chn *tx_chn;
+	dma_addr_t desc_dma, buf_dma;
+	struct prueth_swdata *swdata;
+	u32 *epib;
+	int ret;
+
+	void *data = xdpf->data;
+	u32 pkt_len = xdpf->len;
+
+	if (q_idx >= PRUETH_MAX_TX_QUEUES) {
+		netdev_err(ndev, "xdp tx: invalid q_id %d\n", q_idx);
+		return ICSSG_XDP_CONSUMED;	/* drop */
+	}
+
+	tx_chn = &emac->tx_chns[q_idx];
+
+	if (page) { /* already DMA mapped by page_pool */
+		buf_dma = page_pool_get_dma_addr(page);
+		buf_dma += xdpf->headroom + sizeof(struct xdp_frame);
+	} else { /* Map the linear buffer */
+		buf_dma = dma_map_single(tx_chn->dma_dev, data, pkt_len, DMA_TO_DEVICE);
+		if (dma_mapping_error(tx_chn->dma_dev, buf_dma)) {
+			netdev_err(ndev, "xdp tx: failed to map data buffer\n");
+			return ICSSG_XDP_CONSUMED;	/* drop */
+		}
+	}
+
+	first_desc = k3_cppi_desc_pool_alloc(tx_chn->desc_pool);
+	if (!first_desc) {
+		netdev_dbg(ndev, "xdp tx: failed to allocate descriptor\n");
+		if (!page)
+			dma_unmap_single(tx_chn->dma_dev, buf_dma, pkt_len, DMA_TO_DEVICE);
+		return ICSSG_XDP_CONSUMED;	/* drop */
+	}
+
+	cppi5_hdesc_init(first_desc, CPPI5_INFO0_HDESC_EPIB_PRESENT,
+			 PRUETH_NAV_PS_DATA_SIZE);
+	cppi5_hdesc_set_pkttype(first_desc, 0);
+	epib = first_desc->epib;
+	epib[0] = 0;
+	epib[1] = 0;
+
+	/* set dst tag to indicate internal qid at the firmware which is at
+	 * bit8..bit15. bit0..bit7 indicates port num for directed
+	 * packets in case of switch mode operation
+	 */
+	cppi5_desc_set_tags_ids(&first_desc->hdr, 0, (emac->port_id | (q_idx << 8)));
+	k3_udma_glue_tx_dma_to_cppi5_addr(tx_chn->tx_chn, &buf_dma);
+	cppi5_hdesc_attach_buf(first_desc, buf_dma, pkt_len, buf_dma, pkt_len);
+	swdata = cppi5_hdesc_get_swdata(first_desc);
+	if (page) {
+		swdata->type = PRUETH_SWDATA_PAGE;
+		swdata->data.page = page;
+		/* we assume page came from RX channel page pool */
+		swdata->rx_chn = &emac->rx_chns;
+	} else {
+		swdata->type = PRUETH_SWDATA_XDPF;
+		swdata->data.xdpf = xdpf;
+	}
+
+	cppi5_hdesc_set_pktlen(first_desc, pkt_len);
+	desc_dma = k3_cppi_desc_pool_virt2dma(tx_chn->desc_pool, first_desc);
+
+	ret = k3_udma_glue_push_tx_chn(tx_chn->tx_chn, first_desc, desc_dma);
+	if (ret) {
+		netdev_err(ndev, "xdp tx: push failed: %d\n", ret);
+		goto drop_free_descs;
+	}
+
+	return ICSSG_XDP_TX;
+
+drop_free_descs:
+	prueth_xmit_free(tx_chn, first_desc);
+	return ICSSG_XDP_CONSUMED;
+}
+
+/**
+ * emac_xdp_xmit - Implements ndo_xdp_xmit
+ * @dev: netdev
+ * @n: number of frames
+ * @frames: array of XDP buffer pointers
+ * @flags: XDP extra info
+ *
+ * Returns number of frames successfully sent. Failed frames
+ * will be free'ed by XDP core.
+ *
+ * For error cases, a negative errno code is returned and no-frames
+ * are transmitted (caller must handle freeing frames).
+ **/
+static int emac_xdp_xmit(struct net_device *dev, int n, struct xdp_frame **frames,
+			 u32 flags)
+{
+	struct prueth_emac *emac = netdev_priv(dev);
+	unsigned int q_idx;
+	int nxmit = 0;
+	int i;
+
+	q_idx = smp_processor_id();
+
+	if (unlikely(flags & ~XDP_XMIT_FLAGS_MASK))
+		return -EINVAL;
+
+	for (i = 0; i < n; i++) {
+		struct xdp_frame *xdpf = frames[i];
+		int err;
+
+		err = emac_xmit_xdp_frame(emac, xdpf, NULL, q_idx);
+		if (err != ICSSG_XDP_TX)
+			break;
+		nxmit++;
+	}
+
+	return nxmit;
+}
+
+/**
+ * emac_run_xdp - run an XDP program
+ * @emac: emac device
+ * @xdp: XDP buffer containing the frame
+ * @page: page with RX data if already DMA mapped
+ **/
+static int emac_run_xdp(struct prueth_emac *emac, struct xdp_buff *xdp,
+			struct page *page)
+{
+	int err, result = ICSSG_XDP_PASS;
+	struct bpf_prog *xdp_prog;
+	struct xdp_frame *xdpf;
+	u32 act;
+	int q_idx;
+
+	xdp_prog = READ_ONCE(emac->xdp_prog);
+
+	if (!xdp_prog)
+		return result;
+
+	act = bpf_prog_run_xdp(xdp_prog, xdp);
+	switch (act) {
+	case XDP_PASS:
+		break;
+	case XDP_TX:
+		/* Send packet to TX ring for immediate transmission */
+		xdpf = xdp_convert_buff_to_frame(xdp);
+		if (unlikely(!xdpf))
+			goto drop;
+
+		q_idx = smp_processor_id();
+		result = emac_xmit_xdp_frame(emac, xdpf, page, q_idx);
+		if (result == ICSSG_XDP_CONSUMED)
+			goto drop;
+		break;
+	case XDP_REDIRECT:
+		err = xdp_do_redirect(emac->ndev, xdp, xdp_prog);
+		if (err)
+			goto drop;
+		result = ICSSG_XDP_REDIR;
+		break;
+	default:
+		bpf_warn_invalid_xdp_action(emac->ndev, xdp_prog, act);
+		fallthrough;
+	case XDP_ABORTED:
+drop:
+		trace_xdp_exception(emac->ndev, xdp_prog, act);
+		fallthrough; /* handle aborts by dropping packet */
+	case XDP_DROP:
+		result = ICSSG_XDP_CONSUMED;
+		page_pool_recycle_direct(emac->rx_chns.pg_pool, page);
+		break;
+	}
+
+	return result;
+}
+
+/**
+ * emac_xdp_setup - add/remove an XDP program
+ * @emac: emac device
+ * @prog: XDP program
+ **/
+static int emac_xdp_setup(struct prueth_emac *emac, struct netdev_bpf *bpf)
+{
+	struct bpf_prog *prog = bpf->prog;
+
+	if (!emac->xdpi.prog && !prog)
+		return 0;
+
+	WRITE_ONCE(emac->xdp_prog, prog);
+
+	xdp_attachment_setup(&emac->xdpi, bpf);
+
+	return 0;
+}
+
+/**
+ * emac_ndo_bpf - implements ndo_bpf for icssg_prueth
+ * @ndev: network adapter device
+ * @xdp: XDP command
+ **/
+static int emac_ndo_bpf(struct net_device *ndev, struct netdev_bpf *bpf)
+{
+	struct prueth_emac *emac = netdev_priv(ndev);
+
+	switch (bpf->command) {
+	case XDP_SETUP_PROG:
+		return emac_xdp_setup(emac, bpf);
+	default:
+		return -EINVAL;
+	}
+}
+
 static const struct net_device_ops emac_netdev_ops = {
 	.ndo_open = emac_ndo_open,
 	.ndo_stop = emac_ndo_stop,
@@ -1810,6 +2125,8 @@ static const struct net_device_ops emac_netdev_ops = {
 	.ndo_do_ioctl = emac_ndo_ioctl,
 	.ndo_get_devlink_port = emac_ndo_get_devlink_port,
 	.ndo_setup_tc = icssg_qos_ndo_setup_tc,
+	.ndo_bpf = emac_ndo_bpf,
+	.ndo_xdp_xmit = emac_xdp_xmit,
 };
 
 /* get emac_port corresponding to eth_node name */
