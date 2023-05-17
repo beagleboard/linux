@@ -1418,6 +1418,8 @@ static int emac_ndo_open(struct net_device *ndev)
 		napi_enable(&emac->tx_chns[i].napi_tx);
 	napi_enable(&emac->napi_rx);
 
+	icssg_qos_init(ndev);
+
 	/* start PHY */
 	phy_start(ndev->phydev);
 
@@ -1680,6 +1682,7 @@ static const struct net_device_ops emac_netdev_ops = {
 	.ndo_set_rx_mode = emac_ndo_set_rx_mode,
 	.ndo_do_ioctl = emac_ndo_ioctl,
 	.ndo_get_devlink_port = emac_ndo_get_devlink_port,
+	.ndo_setup_tc = icssg_qos_ndo_setup_tc,
 };
 
 /* get emac_port corresponding to eth_node name */
