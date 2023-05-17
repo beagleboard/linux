@@ -327,6 +327,52 @@ static void emac_get_channels(struct net_device *ndev,
 	ch->tx_count = emac->tx_ch_num;
 }
 
+/* TODO : This is temporary until a formal ethtool interface become available
+ * in LKML to configure IET FPE.
+ */
+static u32 emac_get_ethtool_priv_flags(struct net_device *ndev)
+{
+	struct prueth_emac *emac = netdev_priv(ndev);
+	struct prueth_qos_iet *iet = &emac->qos.iet;
+	u32 priv_flags = 0;
+
+	/* Port specific flags */
+	if (iet->fpe_configured)
+		priv_flags |= EMAC_PRIV_IET_FRAME_PREEMPTION;
+	if (iet->mac_verify_configured)
+		priv_flags |= EMAC_PRIV_IET_MAC_VERIFY;
+
+	return priv_flags;
+}
+
+static int emac_set_ethtool_priv_flags(struct net_device *ndev, u32 flags)
+{
+	struct prueth_emac *emac = netdev_priv(ndev);
+	struct prueth_qos_iet *iet = &emac->qos.iet;
+	int iet_fpe, mac_verify;
+
+	iet_fpe = !!(flags & EMAC_PRIV_IET_FRAME_PREEMPTION);
+	mac_verify = !!(flags & EMAC_PRIV_IET_MAC_VERIFY);
+
+	if (netif_running(ndev))
+		return -EBUSY;
+
+	if (emac->tx_ch_num < 2 && iet_fpe) {
+		netdev_err(ndev, "IET fpe needs at least 2 h/w queues\n");
+		return -EINVAL;
+	}
+
+	if (mac_verify && (!iet->fpe_configured && !iet_fpe)) {
+		netdev_err(ndev, "Enable IET FPE for IET MAC verify\n");
+		return -EINVAL;
+	}
+
+	iet->fpe_configured = iet_fpe;
+	iet->mac_verify_configured = mac_verify;
+
+	return 0;
+}
+
 const struct ethtool_ops icssg_ethtool_ops = {
 	.get_drvinfo = emac_get_drvinfo,
 	.get_msglevel = emac_get_msglevel,
@@ -335,6 +381,8 @@ const struct ethtool_ops icssg_ethtool_ops = {
 	.get_ethtool_stats = emac_get_ethtool_stats,
 	.get_strings = emac_get_strings,
 	.get_ts_info = emac_get_ts_info,
+	.get_priv_flags = emac_get_ethtool_priv_flags,
+	.set_priv_flags = emac_set_ethtool_priv_flags,
 	.get_channels = emac_get_channels,
 	.set_channels = emac_set_channels,
 	.get_link_ksettings = emac_get_link_ksettings,
