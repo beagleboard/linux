@@ -14,7 +14,7 @@
 
 #include "icssg_prueth.h"
 #include "icssg_switchdev.h"
-#include "icss_mii_rt.h"
+#include "icssg_mii_rt.h"
 
 struct prueth_switchdev_event_work {
 	struct work_struct work;

@@ -570,6 +570,8 @@ static int emac_rx_packet(struct prueth_emac *emac, u32 flow_id)
 	} else {
 		/* send the filled skb up the n/w stack */
 		skb_put(skb, pkt_len);
+		if (emac->prueth->is_switch_mode)
+			skb->offload_fwd_mark = emac->offload_fwd_mark;
 		skb->protocol = eth_type_trans(skb, ndev);
 		napi_gro_receive(&emac->napi_rx, skb);
 		ndev->stats.rx_bytes += pkt_len;
@@ -895,6 +897,19 @@ struct icssg_firmwares {
 	char *txpru;
 };
 
+static struct icssg_firmwares icssg_switch_firmwares[] = {
+	{
+		.pru = "ti-pruss/am65x-sr2-pru0-prusw-fw.elf",
+		.rtu = "ti-pruss/am65x-sr2-rtu0-prusw-fw.elf",
+		.txpru = "ti-pruss/am65x-sr2-txpru0-prusw-fw.elf",
+	},
+	{
+		.pru = "ti-pruss/am65x-sr2-pru1-prusw-fw.elf",
+		.rtu = "ti-pruss/am65x-sr2-rtu1-prusw-fw.elf",
+		.txpru = "ti-pruss/am65x-sr2-txpru1-prusw-fw.elf",
+	}
+};
+
 static struct icssg_firmwares icssg_emac_firmwares[] = {
 	{
 		.pru = "ti-pruss/am65x-sr2-pru0-prueth-fw.elf",
@@ -914,7 +929,10 @@ static int prueth_emac_start(struct prueth *prueth, struct prueth_emac *emac)
 	struct device *dev = prueth->dev;
 	int slice, ret;
 
-	firmwares = icssg_emac_firmwares;
+	if (prueth->is_switch_mode)
+		firmwares = icssg_switch_firmwares;
+	else
+		firmwares = icssg_emac_firmwares;
 
 	slice = prueth_emac_slice(emac);
 	if (slice < 0) {
@@ -1405,6 +1423,19 @@ static int emac_ndo_open(struct net_device *ndev)
 
 	prueth->emacs_initialized++;
 
+	if (prueth->is_switch_mode) {
+		icssg_fdb_add_del(emac, eth_stp_addr, prueth->default_vlan,
+				  ICSSG_FDB_ENTRY_P0_MEMBERSHIP |
+				  ICSSG_FDB_ENTRY_P1_MEMBERSHIP |
+				  ICSSG_FDB_ENTRY_P2_MEMBERSHIP |
+				  ICSSG_FDB_ENTRY_BLOCK,
+				  true);
+		icssg_vtbl_modify(emac, emac->port_vlan, BIT(emac->port_id),
+				  BIT(emac->port_id), true);
+		icssg_set_pvid(emac->prueth, emac->port_vlan, emac->port_id);
+		emac_set_port_state(emac, ICSSG_EMAC_PORT_VLAN_AWARE_ENABLE);
+	}
+
 	return 0;
 
 reset_tx_chan:
@@ -1632,6 +1663,13 @@ static int emac_ndo_ioctl(struct net_device *ndev, struct ifreq *ifr, int cmd)
 	return phy_do_ioctl(ndev, ifr, cmd);
 }
 
+static struct devlink_port *emac_ndo_get_devlink_port(struct net_device *ndev)
+{
+	struct prueth_emac *emac = netdev_priv(ndev);
+
+	return &emac->devlink_port;
+}
+
 static const struct net_device_ops emac_netdev_ops = {
 	.ndo_open = emac_ndo_open,
 	.ndo_stop = emac_ndo_stop,
@@ -1641,6 +1679,7 @@ static const struct net_device_ops emac_netdev_ops = {
 	.ndo_tx_timeout = emac_ndo_tx_timeout,
 	.ndo_set_rx_mode = emac_ndo_set_rx_mode,
 	.ndo_do_ioctl = emac_ndo_ioctl,
+	.ndo_get_devlink_port = emac_ndo_get_devlink_port,
 };
 
 /* get emac_port corresponding to eth_node name */
@@ -1905,6 +1944,308 @@ static void prueth_put_cores(struct prueth *prueth, int slice)
 		pru_rproc_put(prueth->pru[slice]);
 }
 
+static void prueth_offload_fwd_mark_update(struct prueth *prueth)
+{
+	int set_val = 0;
+	int i;
+
+	if (prueth->br_members == (PRUETH_PORT_MII0 | PRUETH_PORT_MII1))
+		set_val = 1;
+
+	dev_dbg(prueth->dev, "set offload_fwd_mark %d\n", set_val);
+
+	for (i = PRUETH_MAC0; i < PRUETH_NUM_MACS; i++) {
+		struct prueth_emac *emac = prueth->emac[i];
+
+		if (!emac || !emac->ndev)
+			continue;
+
+		emac->offload_fwd_mark = set_val;
+	}
+}
+
+bool prueth_dev_check(const struct net_device *ndev)
+{
+	if (ndev->netdev_ops == &emac_netdev_ops && netif_running(ndev)) {
+		struct prueth_emac *emac = netdev_priv(ndev);
+
+		return emac->prueth->is_switch_mode;
+	}
+
+	return false;
+}
+
+static int prueth_netdevice_port_link(struct net_device *ndev, struct net_device *br_ndev)
+{
+	struct prueth_emac *emac = netdev_priv(ndev);
+	struct prueth *prueth = emac->prueth;
+
+	if (!prueth->is_switch_mode)
+		return NOTIFY_DONE;
+
+	if (!prueth->br_members) {
+		prueth->hw_bridge_dev = br_ndev;
+	} else {
+		/* This is adding the port to a second bridge, this is
+		 * unsupported
+		 */
+		if (prueth->hw_bridge_dev != br_ndev)
+			return -EOPNOTSUPP;
+	}
+
+	prueth->br_members |= BIT(emac->port_id);
+
+	prueth_offload_fwd_mark_update(prueth);
+
+	return NOTIFY_DONE;
+}
+
+static void prueth_netdevice_port_unlink(struct net_device *ndev)
+{
+	struct prueth_emac *emac = netdev_priv(ndev);
+	struct prueth *prueth = emac->prueth;
+
+	prueth->br_members &= ~BIT(emac->port_id);
+
+	prueth_offload_fwd_mark_update(prueth);
+
+	if (!prueth->br_members)
+		prueth->hw_bridge_dev = NULL;
+}
+
+/* netdev notifier */
+static int prueth_netdevice_event(struct notifier_block *unused,
+				  unsigned long event, void *ptr)
+{
+	struct net_device *ndev = netdev_notifier_info_to_dev(ptr);
+	struct netdev_notifier_changeupper_info *info;
+	int ret = NOTIFY_DONE;
+
+	if (ndev->netdev_ops != &emac_netdev_ops)
+		return NOTIFY_DONE;
+
+	switch (event) {
+	case NETDEV_CHANGEUPPER:
+		info = ptr;
+
+		if (netif_is_bridge_master(info->upper_dev)) {
+			if (info->linking)
+				ret = prueth_netdevice_port_link(ndev, info->upper_dev);
+			else
+				prueth_netdevice_port_unlink(ndev);
+		}
+		break;
+	default:
+		return NOTIFY_DONE;
+	}
+
+	return notifier_from_errno(ret);
+}
+
+static int prueth_register_notifiers(struct prueth *prueth)
+{
+	int ret = 0;
+
+	prueth->prueth_netdevice_nb.notifier_call = &prueth_netdevice_event;
+	ret = register_netdevice_notifier(&prueth->prueth_netdevice_nb);
+	if (ret) {
+		dev_err(prueth->dev, "can't register netdevice notifier\n");
+		return ret;
+	}
+
+	ret = prueth_switchdev_register_notifiers(prueth);
+	if (ret)
+		unregister_netdevice_notifier(&prueth->prueth_netdevice_nb);
+
+	return ret;
+}
+
+static void prueth_unregister_notifiers(struct prueth *prueth)
+{
+	prueth_switchdev_unregister_notifiers(prueth);
+	unregister_netdevice_notifier(&prueth->prueth_netdevice_nb);
+}
+
+static const struct devlink_ops prueth_devlink_ops = {};
+
+static int prueth_dl_switch_mode_get(struct devlink *dl, u32 id,
+				     struct devlink_param_gset_ctx *ctx)
+{
+	struct prueth_devlink *dl_priv = devlink_priv(dl);
+	struct prueth *prueth = dl_priv->prueth;
+
+	dev_dbg(prueth->dev, "%s id:%u\n", __func__, id);
+
+	if (id != PRUETH_DL_PARAM_SWITCH_MODE)
+		return -EOPNOTSUPP;
+
+	ctx->val.vbool = prueth->is_switch_mode;
+
+	return 0;
+}
+
+static int prueth_dl_switch_mode_set(struct devlink *dl, u32 id,
+				     struct devlink_param_gset_ctx *ctx)
+{
+	struct prueth_devlink *dl_priv = devlink_priv(dl);
+	struct prueth *prueth = dl_priv->prueth;
+	bool switch_en = ctx->val.vbool;
+	int i;
+
+	dev_dbg(prueth->dev, "%s id:%u\n", __func__, id);
+
+	if (id != PRUETH_DL_PARAM_SWITCH_MODE)
+		return -EOPNOTSUPP;
+
+	if (switch_en == prueth->is_switch_mode)
+		return 0;
+
+	if (!switch_en && prueth->br_members) {
+		dev_err(prueth->dev, "Remove ports from bridge before disabling switch mode\n");
+		return -EINVAL;
+	}
+
+	rtnl_lock();
+
+	prueth->default_vlan = 1;
+	prueth->is_switch_mode = switch_en;
+
+	for (i = PRUETH_MAC0; i < PRUETH_NUM_MACS; i++) {
+		struct net_device *sl_ndev = prueth->emac[i]->ndev;
+
+		if (!sl_ndev || !netif_running(sl_ndev))
+			continue;
+
+		dev_err(prueth->dev, "Cannot switch modes when i/f are up\n");
+		goto exit;
+	}
+
+	for (i = PRUETH_MAC0; i < PRUETH_NUM_MACS; i++) {
+		struct net_device *sl_ndev = prueth->emac[i]->ndev;
+		struct prueth_emac *emac;
+
+		if (!sl_ndev)
+			continue;
+
+		emac = netdev_priv(sl_ndev);
+		if (switch_en)
+			emac->port_vlan = prueth->default_vlan;
+		else
+			emac->port_vlan = 0;
+	}
+
+	dev_info(prueth->dev, "Enabling %s mode\n",
+		 switch_en ? "switch" : "Dual EMAC");
+
+exit:
+	rtnl_unlock();
+
+	return 0;
+}
+
+static const struct devlink_param prueth_devlink_params[] = {
+	DEVLINK_PARAM_DRIVER(PRUETH_DL_PARAM_SWITCH_MODE, "switch_mode",
+			     DEVLINK_PARAM_TYPE_BOOL,
+			     BIT(DEVLINK_PARAM_CMODE_RUNTIME),
+			     prueth_dl_switch_mode_get,
+			     prueth_dl_switch_mode_set, NULL),
+};
+
+static void prueth_unregister_devlink_ports(struct prueth *prueth)
+{
+	struct devlink_port *dl_port;
+	struct prueth_emac *emac;
+	int i;
+
+	for (i = PRUETH_MAC0; i < PRUETH_NUM_MACS; i++) {
+		emac = prueth->emac[i];
+		if (!emac)
+			continue;
+
+		dl_port = &emac->devlink_port;
+
+		if (dl_port->registered)
+			devlink_port_unregister(dl_port);
+	}
+}
+
+static int prueth_register_devlink(struct prueth *prueth)
+{
+	struct devlink_port_attrs attrs = {};
+	struct prueth_devlink *dl_priv;
+	struct device *dev = prueth->dev;
+	struct devlink_port *dl_port;
+	struct prueth_emac *emac;
+	int ret = 0;
+	int i;
+
+	prueth->devlink =
+		devlink_alloc(&prueth_devlink_ops, sizeof(*dl_priv), dev);
+	if (!prueth->devlink)
+		return -ENOMEM;
+
+	dl_priv = devlink_priv(prueth->devlink);
+	dl_priv->prueth = prueth;
+
+	/* Provide devlink hook to switch mode when multiple external ports
+	 * are present NUSS switchdev driver is enabled.
+	 */
+	if (prueth->is_switchmode_supported) {
+		ret = devlink_params_register(prueth->devlink,
+					      prueth_devlink_params,
+					      ARRAY_SIZE(prueth_devlink_params));
+		if (ret) {
+			dev_err(dev, "devlink params reg fail ret:%d\n", ret);
+			goto dl_unreg;
+		}
+	}
+
+	for (i = PRUETH_MAC0; i < PRUETH_NUM_MACS; i++) {
+		emac = prueth->emac[i];
+		if (!emac)
+			continue;
+
+		dl_port = &emac->devlink_port;
+
+		attrs.flavour = DEVLINK_PORT_FLAVOUR_PHYSICAL;
+		attrs.phys.port_number = emac->port_id;
+		attrs.switch_id.id_len = sizeof(resource_size_t);
+		memcpy(attrs.switch_id.id, prueth->switch_id, attrs.switch_id.id_len);
+		devlink_port_attrs_set(dl_port, &attrs);
+
+		ret = devlink_port_register(prueth->devlink, dl_port, emac->port_id);
+		if (ret) {
+			dev_err(dev, "devlink_port reg fail for port %d, ret:%d\n",
+				emac->port_id, ret);
+			goto dl_port_unreg;
+		}
+	}
+
+	devlink_register(prueth->devlink);
+	return ret;
+
+dl_port_unreg:
+	prueth_unregister_devlink_ports(prueth);
+dl_unreg:
+	devlink_free(prueth->devlink);
+
+	return ret;
+}
+
+static void prueth_unregister_devlink(struct prueth *prueth)
+{
+	devlink_unregister(prueth->devlink);
+
+	if (prueth->is_switchmode_supported) {
+		devlink_params_unregister(prueth->devlink, prueth_devlink_params,
+					  ARRAY_SIZE(prueth_devlink_params));
+	}
+
+	prueth_unregister_devlink_ports(prueth);
+	devlink_unregister(prueth->devlink);
+	devlink_free(prueth->devlink);
+}
+
 static const struct of_device_id prueth_dt_match[];
 
 static int prueth_probe(struct platform_device *pdev)
@@ -2037,6 +2378,10 @@ static int prueth_probe(struct platform_device *pdev)
 	}
 
 	msmc_ram_size = MSMC_RAM_SIZE;
+	prueth->is_switchmode_supported = prueth->pdata.switch_mode;
+	if (prueth->is_switchmode_supported)
+		msmc_ram_size = MSMC_RAM_SIZE_SWITCH_MODE;
+
 
 	/* NOTE: FW bug needs buffer base to be 64KB aligned */
 	prueth->msmcram.va =
@@ -2109,6 +2454,10 @@ static int prueth_probe(struct platform_device *pdev)
 		prueth->emac[PRUETH_MAC1]->iep = prueth->iep0;
 	}
 
+	ret = prueth_register_devlink(prueth);
+	if (ret)
+		goto netdev_exit;
+
 	/* register the network devices */
 	if (eth0_node) {
 		ret = register_netdev(prueth->emac[PRUETH_MAC0]->ndev);
@@ -2117,6 +2466,8 @@ static int prueth_probe(struct platform_device *pdev)
 			goto netdev_exit;
 		}
 
+		devlink_port_type_eth_set(&prueth->emac[PRUETH_MAC0]->devlink_port,
+					  prueth->emac[PRUETH_MAC0]->ndev);
 		prueth->registered_netdevs[PRUETH_MAC0] = prueth->emac[PRUETH_MAC0]->ndev;
 
 		emac_phy_connect(prueth->emac[PRUETH_MAC0]);
@@ -2130,9 +2481,19 @@ static int prueth_probe(struct platform_device *pdev)
 			goto netdev_unregister;
 		}
 
+		devlink_port_type_eth_set(&prueth->emac[PRUETH_MAC1]->devlink_port,
+					  prueth->emac[PRUETH_MAC1]->ndev);
 		prueth->registered_netdevs[PRUETH_MAC1] = prueth->emac[PRUETH_MAC1]->ndev;
 		emac_phy_connect(prueth->emac[PRUETH_MAC1]);
 		phy_attached_info(prueth->emac[PRUETH_MAC1]->ndev->phydev);
+	}
+
+	if (prueth->is_switchmode_supported) {
+		ret = prueth_register_notifiers(prueth);
+		if (ret)
+			goto netdev_unregister;
+
+		sprintf(prueth->switch_id, "%s", dev_name(dev));
 	}
 
 	dev_info(dev, "TI PRU ethernet driver initialized: %s EMAC mode\n",
@@ -2196,6 +2557,8 @@ static int prueth_remove(struct platform_device *pdev)
 	struct device_node *eth_node;
 	int i;
 
+	prueth_unregister_notifiers(prueth);
+
 	for (i = 0; i < PRUETH_NUM_MACS; i++) {
 		if (!prueth->registered_netdevs[i])
 			continue;
@@ -2204,6 +2567,7 @@ static int prueth_remove(struct platform_device *pdev)
 		prueth->emac[i]->ndev->phydev = NULL;
 		unregister_netdev(prueth->registered_netdevs[i]);
 	}
+	prueth_unregister_devlink(prueth);
 
 	for (i = 0; i < PRUETH_NUM_MACS; i++) {
 		eth_node = prueth->eth_node[i];
@@ -2295,10 +2659,12 @@ static const struct dev_pm_ops prueth_dev_pm_ops = {
 static const struct prueth_pdata am654_icssg_pdata = {
 	.fdqring_mode = K3_RINGACC_RING_MODE_MESSAGE,
 	.quirk_10m_link_issue = 1,
+	.switch_mode = 1,
 };
 
 static const struct prueth_pdata am64x_icssg_pdata = {
 	.fdqring_mode = K3_RINGACC_RING_MODE_RING,
+	.switch_mode = 1,
 };
 
 static const struct of_device_id prueth_dt_match[] = {

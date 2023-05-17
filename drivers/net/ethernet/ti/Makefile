@@ -33,5 +33,5 @@ obj-$(CONFIG_TI_RDEV_ETH_SWITCH_VIRT_EMAC) += ti-j721e-cpsw-virt-mac.o
 ti-j721e-cpsw-virt-mac-y := j721e-cpsw-virt-mac.o k3-cppi-desc-pool.o
 
 obj-$(CONFIG_TI_ICSSG_PRUETH) += icssg-prueth.o
-icssg-prueth-y := icssg_prueth.o icssg_classifier.o icssg_ethtool.o icssg_queues.o icssg_config.o k3-cppi-desc-pool.o icssg_mii_cfg.o
+icssg-prueth-y := icssg_prueth.o icssg_classifier.o icssg_ethtool.o icssg_queues.o icssg_config.o k3-cppi-desc-pool.o icssg_mii_cfg.o icssg_switchdev.o
 obj-$(CONFIG_TI_ICSS_IEP) += icss_iep.o
