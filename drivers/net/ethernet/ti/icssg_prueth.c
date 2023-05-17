@@ -1057,6 +1057,12 @@ static void emac_adjust_link(struct net_device *ndev)
 		} else {
 			emac_set_port_state(emac, ICSSG_EMAC_PORT_DISABLE);
 		}
+
+		if (emac->link) {
+			icssg_qos_link_up(ndev);
+		} else {
+			icssg_qos_link_down(ndev);
+		}
 	}
 
 	if (emac->link) {
