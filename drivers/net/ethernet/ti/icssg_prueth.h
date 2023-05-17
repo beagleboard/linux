@@ -33,6 +33,7 @@
 #include <linux/dma/k3-udma-glue.h>
 
 #include <net/devlink.h>
+#include <net/page_pool.h>
 
 #include "icssg_config.h"
 #include "icss_iep.h"
@@ -109,6 +110,7 @@ struct prueth_rx_chn {
 	u32 descs_num;
 	unsigned int irq[ICSSG_MAX_RFLOWS];	/* separate irq per flow */
 	char name[32];
+	struct page_pool *pg_pool;
 };
 
 enum prueth_devlink_param_id {
@@ -185,6 +187,10 @@ struct prueth_emac {
 	struct delayed_work stats_work;
 	u64 stats[ICSSG_NUM_STATS];
 };
+
+/* The buf includes headroom compatible with both skb and xdpf */
+#define PRUETH_HEADROOM_NA (max(XDP_PACKET_HEADROOM, NET_SKB_PAD) + NET_IP_ALIGN)
+#define PRUETH_HEADROOM  ALIGN(PRUETH_HEADROOM_NA, sizeof(long))
 
 /**
  * struct prueth_pdata - PRUeth platform data
