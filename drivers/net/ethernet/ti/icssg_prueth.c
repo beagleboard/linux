@@ -2066,13 +2066,20 @@ static int prueth_probe(struct platform_device *pdev)
 		goto free_pool;
 	}
 
+	if (prueth->pdata.quirk_10m_link_issue) {
+		/* Enable IEP1 for FW in 64bit mode as W/A for 10M FD link detect issue under TX
+		 * traffic.
+		 */
+		icss_iep_init_fw(prueth->iep1);
+	}
+
 	/* setup netdev interfaces */
 	if (eth0_node) {
 		ret = prueth_netdev_init(prueth, eth0_node);
 		if (ret) {
 			dev_err_probe(dev, ret, "netdev init %s failed\n",
 				      eth0_node->name);
-			goto netdev_exit;
+			goto exit_iep;
 		}
 		prueth->emac[PRUETH_MAC0]->iep = prueth->iep0;
 	}
@@ -2143,6 +2150,10 @@ netdev_exit:
 		prueth_netdev_exit(prueth, eth_node);
 	}
 
+exit_iep:
+	if (prueth->pdata.quirk_10m_link_issue)
+		icss_iep_exit_fw(prueth->iep1);
+
 free_pool:
 	gen_pool_free(prueth->sram_pool,
 		      (unsigned long)prueth->msmcram.va, msmc_ram_size);
@@ -2187,6 +2198,9 @@ static int prueth_remove(struct platform_device *pdev)
 
 		prueth_netdev_exit(prueth, eth_node);
 	}
+
+	if (prueth->pdata.quirk_10m_link_issue)
+		icss_iep_exit_fw(prueth->iep1);
 
 	icss_iep_put(prueth->iep1);
 	icss_iep_put(prueth->iep0);
