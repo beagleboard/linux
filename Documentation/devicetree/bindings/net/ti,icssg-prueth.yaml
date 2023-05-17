@@ -20,6 +20,7 @@ properties:
   compatible:
     enum:
       - ti,am654-icssg-prueth  # for AM65x SoC family
+      - ti,am642-icssg-prueth  # for AM64x SoC family
 
   sram:
     $ref: /schemas/types.yaml#/definitions/phandle
