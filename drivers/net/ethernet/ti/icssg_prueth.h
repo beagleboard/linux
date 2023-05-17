@@ -122,6 +122,24 @@ struct prueth_devlink {
 	struct prueth *prueth;
 };
 
+enum prueth_swdata_type {
+	PRUETH_SWDATA_INVALID = 0,
+	PRUETH_SWDATA_SKB,
+	PRUETH_SWDATA_PAGE,
+	PRUETH_SWDATA_CMD,
+};
+
+union prueth_data {
+	struct sk_buff *skb;
+	struct page *page;
+	u32 cmd;
+};
+
+struct prueth_swdata {
+	union prueth_data data;
+	enum prueth_swdata_type type;
+};
+
 /* There are 4 Tx DMA channels, but the highest priority is CH3 (thread 3)
  * and lower three are lower priority channels or threads.
  */

@@ -162,7 +162,7 @@ static int emac_tx_complete_packets(struct prueth_emac *emac, int chn,
 	struct sk_buff *skb;
 	dma_addr_t desc_dma;
 	int res, num_tx = 0;
-	void **swdata;
+	struct prueth_swdata *swdata;
 
 	tx_chn = &emac->tx_chns[chn];
 
@@ -182,7 +182,13 @@ static int emac_tx_complete_packets(struct prueth_emac *emac, int chn,
 						     desc_dma);
 		swdata = cppi5_hdesc_get_swdata(desc_tx);
 
-		skb = *(swdata);
+		if (swdata->type != PRUETH_SWDATA_SKB) {
+			netdev_err(ndev, "tx_complete: invalid swdata type %d\n", swdata->type);
+			budget++;
+			continue;
+		}
+
+		skb = swdata->data.skb;
 		prueth_xmit_free(tx_chn, desc_tx);
 
 		ndev = skb->dev;
@@ -456,9 +462,9 @@ static int prueth_dma_rx_push_mapped(struct prueth_emac *emac,
 {
 	struct net_device *ndev = emac->ndev;
 	struct cppi5_host_desc_t *desc_rx;
+	struct prueth_swdata *swdata;
 	dma_addr_t desc_dma;
 	dma_addr_t buf_dma;
-	void **swdata;
 
 	buf_dma = page_pool_get_dma_addr(page) + PRUETH_HEADROOM;
 	desc_rx = k3_cppi_desc_pool_alloc(rx_chn->desc_pool);
@@ -474,7 +480,8 @@ static int prueth_dma_rx_push_mapped(struct prueth_emac *emac,
 	cppi5_hdesc_attach_buf(desc_rx, buf_dma, buf_len, buf_dma, buf_len);
 
 	swdata = cppi5_hdesc_get_swdata(desc_rx);
-	*swdata = page;
+	swdata->type = PRUETH_SWDATA_PAGE;
+	swdata->data.page = page;
 
 	return k3_udma_glue_push_rx_chn(rx_chn->rx_chn, 0,
 					desc_rx, desc_dma);
@@ -526,10 +533,10 @@ static int emac_rx_packet(struct prueth_emac *emac, u32 flow_id)
 	struct net_device *ndev = emac->ndev;
 	struct cppi5_host_desc_t *desc_rx;
 	dma_addr_t desc_dma, buf_dma;
+	struct prueth_swdata *swdata;
 	struct page *page, *new_page;
 	struct page_pool *pool;
 	struct sk_buff *skb;
-	void **swdata;
 	u32 *psdata;
 	void *pa;
 	int ret;
@@ -548,7 +555,11 @@ static int emac_rx_packet(struct prueth_emac *emac, u32 flow_id)
 	desc_rx = k3_cppi_desc_pool_dma2virt(rx_chn->desc_pool, desc_dma);
 
 	swdata = cppi5_hdesc_get_swdata(desc_rx);
-	page = *swdata;
+	if (swdata->type != PRUETH_SWDATA_PAGE) {
+		netdev_err(ndev, "rx_pkt: invliad swdata->type %d\n", swdata->type);
+		return 0;
+	}
+	page = swdata->data.page;
 
 	cppi5_hdesc_get_obuf(desc_rx, &buf_dma, &buf_dma_len);
 	k3_udma_glue_rx_cppi5_to_dma_addr(rx_chn->rx_chn, &buf_dma);
@@ -619,16 +630,18 @@ static void prueth_rx_cleanup(void *data, dma_addr_t desc_dma)
 {
 	struct prueth_rx_chn *rx_chn = data;
 	struct cppi5_host_desc_t *desc_rx;
+	struct prueth_swdata *swdata;
 	struct page_pool *pool;
 	struct page *page;
-	void **swdata;
 
 	pool = rx_chn->pg_pool;
 
 	desc_rx = k3_cppi_desc_pool_dma2virt(rx_chn->desc_pool, desc_dma);
 	swdata = cppi5_hdesc_get_swdata(desc_rx);
-	page = *swdata;
-	page_pool_recycle_direct(pool, page);
+	if (swdata->type == PRUETH_SWDATA_PAGE) {
+		page = swdata->data.page;
+		page_pool_recycle_direct(pool, page);
+	}
 	k3_cppi_desc_pool_free(rx_chn->desc_pool, desc_rx);
 }
 
@@ -732,12 +745,12 @@ static enum netdev_tx emac_ndo_start_xmit(struct sk_buff *skb, struct net_device
 	struct netdev_queue *netif_txq;
 	struct prueth_tx_chn *tx_chn;
 	dma_addr_t desc_dma, buf_dma;
+	struct prueth_swdata *swdata;
 	int i, ret = 0, q_idx;
 	bool in_tx_ts = 0;
-	void **swdata;
+	int tx_ts_cookie;
 	u32 pkt_len;
 	u32 *epib;
-	int tx_ts_cookie;
 
 	pkt_len = skb_headlen(skb);
 	q_idx = skb_get_queue_mapping(skb);
@@ -788,7 +801,8 @@ static enum netdev_tx emac_ndo_start_xmit(struct sk_buff *skb, struct net_device
 	k3_udma_glue_tx_dma_to_cppi5_addr(tx_chn->tx_chn, &buf_dma);
 	cppi5_hdesc_attach_buf(first_desc, buf_dma, pkt_len, buf_dma, pkt_len);
 	swdata = cppi5_hdesc_get_swdata(first_desc);
-	*swdata = skb;
+	swdata->type = PRUETH_SWDATA_SKB;
+	swdata->data.skb = skb;
 
 	if (!skb_is_nonlinear(skb))
 		goto tx_push;
@@ -888,15 +902,16 @@ static void prueth_tx_cleanup(void *data, dma_addr_t desc_dma)
 {
 	struct prueth_tx_chn *tx_chn = data;
 	struct cppi5_host_desc_t *desc_tx;
+	struct prueth_swdata *swdata;
 	struct sk_buff *skb;
-	void **swdata;
 
 	desc_tx = k3_cppi_desc_pool_dma2virt(tx_chn->desc_pool, desc_dma);
 	swdata = cppi5_hdesc_get_swdata(desc_tx);
-	skb = *(swdata);
+	skb = swdata->data.skb;
 	prueth_xmit_free(tx_chn, desc_tx);
 
-	dev_kfree_skb_any(skb);
+	if (swdata->type == PRUETH_SWDATA_SKB)
+		dev_kfree_skb_any(skb);
 }
 
 static irqreturn_t prueth_tx_ts_irq(int irq, void *dev_id)
@@ -1169,14 +1184,14 @@ static struct page_pool *prueth_create_page_pool(struct prueth_emac *emac,
 static struct page *prueth_get_page_from_rx_chn(struct prueth_rx_chn *chn)
 {
 	struct cppi5_host_desc_t *desc_rx;
+	struct prueth_swdata *swdata;
 	dma_addr_t desc_dma;
 	struct page *page;
-	void **swdata;
 
 	k3_udma_glue_pop_rx_chn(chn->rx_chn, 0, &desc_dma);
 	desc_rx = k3_cppi_desc_pool_dma2virt(chn->desc_pool, desc_dma);
 	swdata = cppi5_hdesc_get_swdata(desc_rx);
-	page = *swdata;
+	page = swdata->data.page;
 
 	return page;
 }
@@ -2380,6 +2395,12 @@ static int prueth_probe(struct platform_device *pdev)
 	int i, ret;
 
 	np = dev->of_node;
+
+	if (sizeof(struct prueth_swdata) > PRUETH_NAV_SW_DATA_SIZE) {
+		dev_err(dev, "insufficient SW_DATA size: %d vs %ld\n",
+			PRUETH_NAV_SW_DATA_SIZE, sizeof(struct prueth_swdata));
+		return -ENOMEM;
+	}
 
 	match = of_match_device(prueth_dt_match, dev);
 	if (!match)
