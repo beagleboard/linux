@@ -47,6 +47,9 @@
 
 #define ICSSG_MAX_RFLOWS	8	/* per slice */
 
+/* Number of ICSSG related stats */
+#define ICSSG_NUM_STATS 64
+
 /* Firmware status codes */
 #define ICSS_HS_FW_READY 0x55555555
 #define ICSS_HS_FW_DEAD 0xDEAD0000	/* lower 16 bits contain error code */
@@ -179,6 +182,8 @@ struct prueth_emac {
 
 	struct prueth_qos qos;
 	struct work_struct ts_work;
+	struct delayed_work stats_work;
+	u64 stats[ICSSG_NUM_STATS];
 };
 
 /**
@@ -324,4 +329,5 @@ void icssg_set_pvid(struct prueth *prueth, u8 vid, u8 port);
 	container_of(pnapi, struct prueth_tx_chn, napi_tx)
 
 u64 prueth_iep_gettime(void *clockops_data, struct ptp_system_timestamp *sts);
+void emac_stats_work_handler(struct work_struct *work);
 #endif /* __NET_TI_ICSSG_PRUETH_H */
