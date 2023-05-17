@@ -1,0 +1,43 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright (C) 2013 CircuitCo
+ * Virtual cape for UART4 on connector pins P9.13 P9.11
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/pinctrl/am33xx.h>
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+ */
+&{/chosen} {
+	overlays {
+		BB-UART4-00A0.kernel = __TIMESTAMP__;
+	};
+};
+
+/*
+ * Free up the pins used by the cape from the pinmux helpers.
+ */
+&ocp {
+	P9_13_pinmux { status = "disabled"; };	/* P9_13: uart4_txd */
+	P9_11_pinmux { status = "disabled"; };	/* P9_11: uart4_rxd */
+};
+
+&am33xx_pinmux {
+	bb_uart4_pins: pinmux_bb_uart4_pins {
+		pinctrl-single,pins = <
+			AM33XX_PADCONF(AM335X_PIN_GPMC_WPN, PIN_OUTPUT, MUX_MODE6)	/* P9_13 gpmc_wpn.uart4_txd_mux2 */
+			AM33XX_PADCONF(AM335X_PIN_GPMC_WAIT0, PIN_INPUT, MUX_MODE6)	/* P9_13 gpmc_wait0.uart4_rxd_mux2 */
+		>;
+	};
+};
+
+&uart4 {
+	/* sudo agetty 115200 ttyS4 */
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&bb_uart4_pins>;
+};

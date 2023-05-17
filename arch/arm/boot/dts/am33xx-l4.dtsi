@@ -302,7 +302,7 @@
 				am33xx_pinmux: pinmux@800 {
 					compatible = "pinctrl-single";
 					reg = <0x800 0x238>;
-					#pinctrl-cells = <2>;
+					#pinctrl-cells = <1>;
 					pinctrl-single,register-width = <32>;
 					pinctrl-single,function-mask = <0x7f>;
 				};
@@ -854,7 +854,7 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 			ranges = <0x0 0x300000 0x80000>;
-			status = "disabled";
+			status = "okay";
 
 			pruss: pruss@0 {
 				compatible = "ti,am3356-pruss";
