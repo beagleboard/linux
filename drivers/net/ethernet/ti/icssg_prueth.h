@@ -35,6 +35,7 @@
 #include <net/devlink.h>
 
 #include "icssg_config.h"
+#include "icss_iep.h"
 #include "icssg_switch_map.h"
 
 #define ICSS_SLICE0	0
@@ -106,6 +107,10 @@ struct prueth_rx_chn {
 	char name[32];
 };
 
+enum prueth_state_flags {
+	__STATE_TX_TS_IN_PROGRESS,
+};
+
 /* There are 4 Tx DMA channels, but the highest priority is CH3 (thread 3)
  * and lower three are lower priority channels or threads.
  */
@@ -128,6 +133,9 @@ struct prueth_emac {
 	struct device_node *phy_node;
 	phy_interface_t phy_if;
 	enum prueth_port port_id;
+	struct icss_iep *iep;
+	unsigned int rx_ts_enabled : 1;
+	unsigned int tx_ts_enabled : 1;
 
 	/* DMA related */
 	struct prueth_tx_chn tx_chns[PRUETH_MAX_TX_QUEUES];
@@ -140,6 +148,14 @@ struct prueth_emac {
 	spinlock_t lock;	/* serialize access */
 
 	unsigned long state;
+	/* TX HW Timestamping */
+	u32 tx_ts_cookie;
+	struct sk_buff *tx_ts_skb;
+	int tx_ts_irq;
+
+	u8 cmd_seq;
+	/* shutdown related */
+	u32 cmd_data[4];
 	struct completion cmd_complete;
 	/* Mutex to serialize access to firmware command interface */
 	struct mutex cmd_lock;
@@ -182,6 +198,8 @@ struct prueth_pdata {
  * @pdata: pointer to platform data for ICSSG driver
  * @icssg_hwcmdseq: seq counter or HWQ messages
  * @emacs_initialized: num of EMACs/ext ports that are up/running
+ * @iep0: pointer to IEP0 device
+ * @iep1: pointer to IEP1 device
  */
 struct prueth {
 	struct device *dev;
@@ -205,8 +223,16 @@ struct prueth {
 	struct platform_device *pdev;
 	struct prueth_pdata pdata;
 	u8 icssg_hwcmdseq;
-
 	int emacs_initialized;
+	struct icss_iep *iep0;
+	struct icss_iep *iep1;
+};
+
+struct emac_tx_ts_response {
+	u32 reserved[2];
+	u32 cookie;
+	u32 lo_ts;
+	u32 hi_ts;
 };
 
 /* Classifier helpers */
