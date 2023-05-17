@@ -451,5 +451,19 @@ void icssg_config_set_speed(struct prueth_emac *emac)
 		return;
 	}
 
+	if (emac->duplex == DUPLEX_HALF)
+		fw_speed |= FW_LINK_SPEED_HD;
+
 	writeb(fw_speed, emac->dram.va + PORT_LINK_SPEED_OFFSET);
+}
+
+void icssg_config_half_duplex(struct prueth_emac *emac)
+{
+	u32 val;
+
+	if (!emac->half_duplex)
+		return;
+
+	val = get_random_u32();
+	writel(val, emac->dram.va + HD_RAND_SEED_OFFSET);
 }
