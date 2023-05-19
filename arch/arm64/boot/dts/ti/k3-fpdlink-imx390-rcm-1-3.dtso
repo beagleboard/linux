@@ -11,7 +11,7 @@
 
 #include <dt-bindings/gpio/gpio.h>
 
-&ds90ub960_0_ports {
+&ds90ub960_1_ports {
 	#address-cells = <1>;
 	#size-cells = <0>;
 
@@ -25,13 +25,13 @@
 	};
 };
 
-&ds90ub960_0_links {
+&ds90ub960_1_links {
 	#address-cells = <1>;
 	#size-cells = <0>;
 
 	link@3 {
 		reg = <3>;
-		i2c-alias = <0x47>;
+		i2c-alias = <0x57>;
 
 		ti,rx-mode = <3>;
 

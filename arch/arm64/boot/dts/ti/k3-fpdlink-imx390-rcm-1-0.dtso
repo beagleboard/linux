@@ -11,13 +11,13 @@
 
 #include <dt-bindings/gpio/gpio.h>
 
-&ds90ub960_0_ports {
+&ds90ub960_1_ports {
 	#address-cells = <1>;
 	#size-cells = <0>;
 
-	/* FPDLink RX 3 */
-	port@3 {
-		reg = <3>;
+	/* FPDLink RX 0 */
+	port@0 {
+		reg = <0>;
 
 		ub960_fpd3_1_in: endpoint {
 			remote-endpoint = <&ub953_1_out>;
@@ -25,13 +25,13 @@
 	};
 };
 
-&ds90ub960_0_links {
+&ds90ub960_1_links {
 	#address-cells = <1>;
 	#size-cells = <0>;
 
-	link@3 {
-		reg = <3>;
-		i2c-alias = <0x47>;
+	link@0 {
+		reg = <0>;
+		i2c-alias = <0x54>;
 
 		ti,rx-mode = <3>;
 

@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * IMX390 FPD-Link 3 Camera Module
+ * https://www.d3engineering.co/product/designcore-d3rcm-imx390-953-rugged-camera-module/
+ *
  * Copyright (c) 2023 Texas Instruments Incorporated - http://www.ti.com/
  */
 
