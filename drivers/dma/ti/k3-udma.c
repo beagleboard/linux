@@ -4308,6 +4308,15 @@ static struct udma_match_data j721e_mcu_data = {
 	},
 };
 
+static struct udma_soc_data j721s2_bcdma_soc_data = {
+	.oes = {
+		.bcdma_tchan_data = 0x800,
+		.bcdma_tchan_ring = 0xa00,
+		.bcdma_rchan_data = 0xe00,
+		.bcdma_rchan_ring = 0x1000,
+	},
+};
+
 static struct udma_soc_data am62a_dmss_csi_soc_data = {
 	.oes = {
 		.bcdma_rchan_data = 0xe00,
@@ -4326,6 +4335,19 @@ static struct udma_match_data am62a_bcdma_csirx_data = {
 	},
 	.soc_data = &am62a_dmss_csi_soc_data,
 	.order_id = 8,
+};
+
+static struct udma_match_data j721s2_bcdma_data = {
+	.type = DMA_TYPE_BCDMA,
+	.psil_base = 0x2000,
+	.enable_memcpy_support = false,
+	.burst_size = {
+		TI_SCI_RM_UDMAP_CHAN_BURST_SIZE_64_BYTES, /* Normal Channels */
+		0, /* No H Channels */
+		0, /* No UH Channels */
+	},
+	.soc_data = &j721s2_bcdma_soc_data,
+	.order_id = 15,
 };
 
 static struct udma_match_data am64_bcdma_data = {
@@ -4380,6 +4402,10 @@ static const struct of_device_id udma_of_match[] = {
 	{
 		.compatible = "ti,am62a-dmss-bcdma-csirx",
 		.data = &am62a_bcdma_csirx_data,
+	},
+	{
+		.compatible = "ti,j721s2-dmss-bcdma-csi",
+		.data = &j721s2_bcdma_data,
 	},
 	{ /* Sentinel */ },
 };
