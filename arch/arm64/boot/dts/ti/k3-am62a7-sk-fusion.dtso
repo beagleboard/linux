@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * DT Overlay for Fusion (FPD-Link III) board on SK-AM62A
+ * https://svtronics.com/portfolio/evm577pfusion-v1-0-fusion/
+ *
  * Copyright (C) 2023 Texas Instruments Incorporated - http://www.ti.com/
  */
 
