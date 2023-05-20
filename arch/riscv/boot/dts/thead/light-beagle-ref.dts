@@ -28,7 +28,7 @@
 	leds {
 		compatible = "gpio-leds";
 		pinctrl-names = "default";
-		pinctrl-0 = <&led_pins_default &pinctrl_bt>;
+		pinctrl-0 = <&led_pins_default>;
 
 		led-0 {
 			label = "beaglebone:green:usr0";
@@ -63,18 +63,6 @@
 			gpios = <&ao_gpio4_porta 12 GPIO_ACTIVE_HIGH>;
 			linux,default-trigger = "netdev";
 			//function = LED_FUNCTION_WLAN;
-		};
-
-		led-5 {
-			label = "shutdown-gpios";
-			gpios = <&gpio2_porta 28 GPIO_ACTIVE_HIGH>;
-			default-state = "on";
-		};
-
-		led-6 {
-			label = "device-wakeup-gpios";
-			gpios = <&gpio2_porta 29 GPIO_ACTIVE_HIGH>;
-			default-state = "on";
 		};
 	};
 
@@ -279,26 +267,6 @@
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
 			gpio = <&ao_gpio_porta 8 1>;
-			enable-active-high;
-			regulator-always-on;
-		};
-
-		soc_wcn33_en_reg: soc_wcn33_en {
-			compatible = "regulator-fixed";
-			regulator-name = "soc_wcn33_en";
-			regulator-min-microvolt = <3300000>;
-			regulator-max-microvolt = <3300000>;
-			gpio = <&gpio2_porta 29 1>;
-			enable-active-high;
-			regulator-always-on;
-		};
-
-		soc_vbus_en_reg: soc_vbus_en {
-			compatible = "regulator-fixed";
-			regulator-name = "soc_vbus_en";
-			regulator-min-microvolt = <3300000>;
-			regulator-max-microvolt = <3300000>;
-			gpio = <&gpio2_porta 28 1>;
 			enable-active-high;
 			regulator-always-on;
 		};

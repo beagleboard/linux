@@ -109,6 +109,11 @@
 #define gpio_mb_scl  &gpio0_porta 18
 #define gpio_mb_sda  &gpio0_porta 19
 
+// AP6203BM
+#define gpio_bt_shutdown &gpio2_porta 28
+#define gpio_bt_device_wakeup &gpio2_porta 29
+#define gpio_bt_host_wakeup &gpio2_porta 30
+
 /*
 * padctrl macros
 *
@@ -202,6 +207,11 @@
 #define padctrl_mb_scl  &light_padctrl1
 #define padctrl_mb_sda  &light_padctrl1
 
+// AM6203BM
+#define padctrl_bt_shutdown &light_padctrl0
+#define padctrl_bt_device_wakeup &light_padctrl0
+#define padctrl_bt_host_wakeup &light_padctrl0
+
 /*
 * Cape compatibility PinMuxing macros
 */
@@ -289,5 +299,10 @@
 #define mb_mosi(muxmode, config) FM_SPI_MOSI muxmode config
 #define mb_scl(muxmode, config)  FM_GPIO0_18 muxmode config
 #define mb_sda(muxmode, config)  FM_GPIO0_19 muxmode config
+
+// AM6203BM
+#define bt_shutdown(muxmode, config) FM_SDIO1_WPRTN muxmode config
+#define bt_device_wakeup(muxmode, config) FM_SDIO1_DETN muxmode config
+#define bt_host_wakeup(muxmode, config) FM_GPIO2_30 muxmode config
 
 #endif
