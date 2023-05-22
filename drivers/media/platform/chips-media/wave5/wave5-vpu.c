@@ -390,7 +390,7 @@ static const struct wave5_match_data wave521_data = {
 
 static const struct wave5_match_data wave521c_data = {
 	.flags = WAVE5_IS_ENC | WAVE5_IS_DEC,
-	.fw_name = "wave521c_codec_fw.bin",
+	.fw_name = "cnm/wave521c_codec_fw.bin",
 };
 
 static const struct wave5_match_data default_match_data = {
