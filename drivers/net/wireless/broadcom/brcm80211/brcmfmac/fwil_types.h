@@ -59,6 +59,8 @@
 #define BRCMF_SCANTYPE_PASSIVE		1
 
 #define BRCMF_WSEC_MAX_PSK_LEN		32
+#define BRCMF_WSEC_PMK_LEN_SUITEB_192   48
+#define BRCMF_WSEC_MAX_PMK_LEN		64	/* SUITE-B-192's PMK is 48 bytes */
 #define	BRCMF_WSEC_PASSPHRASE		BIT(0)
 
 #define BRCMF_WSEC_MAX_SAE_PASSWORD_LEN 128
@@ -135,8 +137,21 @@
 /* Link Down indication in WoWL mode: */
 #define BRCMF_WOWL_LINKDOWN		(1 << 31)
 
-#define BRCMF_WOWL_MAXPATTERNS		8
+#define BRCMF_WOWL_MAXPATTERNS		16
 #define BRCMF_WOWL_MAXPATTERNSIZE	128
+
+enum {
+	BRCMF_UNICAST_FILTER_NUM = 0,
+	BRCMF_BROADCAST_FILTER_NUM,
+	BRCMF_MULTICAST4_FILTER_NUM,
+	BRCMF_MULTICAST6_FILTER_NUM,
+	BRCMF_MDNS_FILTER_NUM,
+	BRCMF_ARP_FILTER_NUM,
+	BRCMF_BROADCAST_ARP_FILTER_NUM,
+	MAX_PKT_FILTER_COUNT
+};
+
+#define MAX_PKTFILTER_PATTERN_SIZE		16
 
 #define BRCMF_COUNTRY_BUF_SZ		4
 #define BRCMF_ANT_MAX			4
@@ -169,6 +184,11 @@
 
 #define BRCMF_HE_CAP_MCS_MAP_NSS_MAX	8
 
+#define BRCMF_EXTAUTH_START	1
+#define BRCMF_EXTAUTH_ABORT	2
+#define BRCMF_EXTAUTH_FAIL	3
+#define BRCMF_EXTAUTH_SUCCESS	4
+
 /* MAX_CHUNK_LEN is the maximum length for data passing to firmware in each
  * ioctl. It is relatively small because firmware has small maximum size input
  * playload restriction for ioctls.
@@ -183,6 +203,8 @@
 #define DL_END				0x0004
 
 #define DL_TYPE_CLM			2
+
+#define MAX_RSSI_LEVELS			8
 
 /* join preference types for join_pref iovar */
 enum brcmf_join_pref_types {
@@ -517,7 +539,7 @@ struct brcmf_wsec_key_le {
 struct brcmf_wsec_pmk_le {
 	__le16  key_len;
 	__le16  flags;
-	u8 key[2 * BRCMF_WSEC_MAX_PSK_LEN + 1];
+	u8 key[2 * BRCMF_WSEC_MAX_PMK_LEN + 1];
 };
 
 /**
@@ -529,6 +551,47 @@ struct brcmf_wsec_pmk_le {
 struct brcmf_wsec_sae_pwd_le {
 	__le16 key_len;
 	u8 key[BRCMF_WSEC_MAX_SAE_PASSWORD_LEN];
+};
+
+/**
+ * struct brcmf_auth_req_status_le - external auth request and status update
+ *
+ * @flags: flags for external auth status
+ * @peer_mac: peer MAC address
+ * @ssid_len: length of ssid
+ * @ssid: ssid characters
+ */
+struct brcmf_auth_req_status_le {
+	__le16 flags;
+	u8 peer_mac[ETH_ALEN];
+	__le32 ssid_len;
+	u8 ssid[IEEE80211_MAX_SSID_LEN];
+	u8 pmkid[WLAN_PMKID_LEN];
+};
+
+/**
+ * struct brcmf_mf_params_le - management frame parameters for mgmt_frame iovar
+ *
+ * @version: version of the iovar
+ * @dwell_time: dwell duration in ms
+ * @len: length of frame data
+ * @frame_control: frame control
+ * @channel: channel
+ * @da: peer MAC address
+ * @bssid: BSS network identifier
+ * @packet_id: packet identifier
+ * @data: frame data
+ */
+struct brcmf_mf_params_le {
+	__le32 version;
+	__le32 dwell_time;
+	__le16 len;
+	__le16 frame_control;
+	__le16 channel;
+	u8 da[ETH_ALEN];
+	u8 bssid[ETH_ALEN];
+	__le32 packet_id;
+	u8 data[1];
 };
 
 /* Used to get specific STA parameters */
@@ -1022,6 +1085,21 @@ struct brcmf_gscan_config {
 	u8 retry_threshold;
 	__le16  lost_ap_window;
 	struct brcmf_gscan_bucket_config bucket[1];
+};
+
+/* BRCM_E_RSSI event data */
+struct wl_event_data_rssi {
+	s32 rssi;
+	s32 snr;
+	s32 noise;
+};
+
+/** RSSI event notification configuration. */
+struct wl_rssi_event {
+	u32 rate_limit_msec;
+	u8 num_rssi_levels;
+	s8 rssi_levels[MAX_RSSI_LEVELS];
+	s8 pad[3];
 };
 
 #endif /* FWIL_TYPES_H_ */
