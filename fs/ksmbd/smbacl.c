@@ -6,10 +6,13 @@
  *   Author(s): Namjae Jeon <linkinjeon@kernel.org>
  */
 
+#include <linux/version.h>
 #include <linux/fs.h>
 #include <linux/slab.h>
 #include <linux/string.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 17, 0)
 #include <linux/mnt_idmapping.h>
+#endif
 
 #include "smbacl.h"
 #include "smb_common.h"
@@ -254,7 +257,11 @@ void id_to_sid(unsigned int cid, uint sidtype, struct smb_sid *ssid)
 	ssid->num_subauth++;
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
+static int sid_to_id(struct mnt_idmap *idmap,
+#else
 static int sid_to_id(struct user_namespace *user_ns,
+#endif
 		     struct smb_sid *psid, uint sidtype,
 		     struct smb_fattr *fattr)
 {
@@ -270,13 +277,38 @@ static int sid_to_id(struct user_namespace *user_ns,
 		return -EIO;
 	}
 
+	if (!compare_sids(psid, &sid_everyone))
+		return -EIO;
+
 	if (sidtype == SIDOWNER) {
 		kuid_t uid;
 		uid_t id;
 
 		id = le32_to_cpu(psid->sub_auth[psid->num_subauth - 1]);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 17, 0) || \
+    (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 52) && LINUX_VERSION_CODE < KERNEL_VERSION(5, 16, 0))
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 0, 0)
 		uid = KUIDT_INIT(id);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
+		uid = from_vfsuid(idmap, &init_user_ns, VFSUIDT_INIT(uid));
+#else
 		uid = from_vfsuid(user_ns, &init_user_ns, VFSUIDT_INIT(uid));
+#endif
+#else
+		uid = mapped_kuid_user(user_ns, &init_user_ns, KUIDT_INIT(id));
+#endif
+#else
+		/*
+		 * Translate raw sid into kuid in the server's user
+		 * namespace.
+		 */
+		uid = make_kuid(&init_user_ns, id);
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 12, 0)
+		/* If this is an idmapped mount, apply the idmapping. */
+		uid = kuid_from_mnt(user_ns, uid);
+#endif
+#endif
 		if (uid_valid(uid)) {
 			fattr->cf_uid = uid;
 			rc = 0;
@@ -286,8 +318,30 @@ static int sid_to_id(struct user_namespace *user_ns,
 		gid_t id;
 
 		id = le32_to_cpu(psid->sub_auth[psid->num_subauth - 1]);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 17, 0) || \
+    (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 52) && LINUX_VERSION_CODE < KERNEL_VERSION(5, 16, 0))
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 0, 0)
 		gid = KGIDT_INIT(id);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
+		gid = from_vfsgid(idmap, &init_user_ns, VFSGIDT_INIT(gid));
+#else
 		gid = from_vfsgid(user_ns, &init_user_ns, VFSGIDT_INIT(gid));
+#endif
+#else
+		gid = mapped_kgid_user(user_ns, &init_user_ns, KGIDT_INIT(id));
+#endif
+#else
+		/*
+		 * Translate raw sid into kgid in the server's user
+		 * namespace.
+		 */
+		gid = make_kgid(&init_user_ns, id);
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 12, 0)
+		/* If this is an idmapped mount, apply the idmapping. */
+		gid = kgid_from_mnt(user_ns, gid);
+#endif
+#endif
 		if (gid_valid(gid)) {
 			fattr->cf_gid = gid;
 			rc = 0;
@@ -362,7 +416,11 @@ void free_acl_state(struct posix_acl_state *state)
 	kfree(state->groups);
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
+static void parse_dacl(struct mnt_idmap *idmap,
+#else
 static void parse_dacl(struct user_namespace *user_ns,
+#endif
 		       struct smb_acl *pdacl, char *end_of_acl,
 		       struct smb_sid *pownersid, struct smb_sid *pgrpsid,
 		       struct smb_fattr *fattr)
@@ -489,7 +547,11 @@ static void parse_dacl(struct user_namespace *user_ns,
 			acl_mode = access_flags_to_mode(fattr, ppace[i]->access_req,
 							ppace[i]->type);
 			temp_fattr.cf_uid = INVALID_UID;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
+			ret = sid_to_id(idmap, &ppace[i]->sid, SIDOWNER, &temp_fattr);
+#else
 			ret = sid_to_id(user_ns, &ppace[i]->sid, SIDOWNER, &temp_fattr);
+#endif
 			if (ret || uid_eq(temp_fattr.cf_uid, INVALID_UID)) {
 				pr_err("%s: Error %d mapping Owner SID to uid\n",
 				       __func__, ret);
@@ -575,7 +637,11 @@ static void parse_dacl(struct user_namespace *user_ns,
 	free_acl_state(&default_acl_state);
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
+static void set_posix_acl_entries_dacl(struct mnt_idmap *idmap,
+#else
 static void set_posix_acl_entries_dacl(struct user_namespace *user_ns,
+#endif
 				       struct smb_ace *pndace,
 				       struct smb_fattr *fattr, u32 *num_aces,
 				       u16 *size, u32 nt_aces_num)
@@ -600,14 +666,22 @@ static void set_posix_acl_entries_dacl(struct user_namespace *user_ns,
 			uid_t uid;
 			unsigned int sid_type = SIDOWNER;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
+			uid = posix_acl_uid_translate(idmap, pace);
+#else
 			uid = posix_acl_uid_translate(user_ns, pace);
+#endif
 			if (!uid)
 				sid_type = SIDUNIX_USER;
 			id_to_sid(uid, sid_type, sid);
 		} else if (pace->e_tag == ACL_GROUP) {
 			gid_t gid;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
+			gid = posix_acl_gid_translate(idmap, pace);
+#else
 			gid = posix_acl_gid_translate(user_ns, pace);
+#endif
 			id_to_sid(gid, SIDUNIX_GROUP, sid);
 		} else if (pace->e_tag == ACL_OTHER && !nt_aces_num) {
 			smb_copy_sid(sid, &sid_everyone);
@@ -666,12 +740,20 @@ posix_default_acl:
 		if (pace->e_tag == ACL_USER) {
 			uid_t uid;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
+			uid = posix_acl_uid_translate(idmap, pace);
+#else
 			uid = posix_acl_uid_translate(user_ns, pace);
+#endif
 			id_to_sid(uid, SIDCREATOR_OWNER, sid);
 		} else if (pace->e_tag == ACL_GROUP) {
 			gid_t gid;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
+			gid = posix_acl_gid_translate(idmap, pace);
+#else
 			gid = posix_acl_gid_translate(user_ns, pace);
+#endif
 			id_to_sid(gid, SIDCREATOR_GROUP, sid);
 		} else {
 			kfree(sid);
@@ -689,7 +771,11 @@ posix_default_acl:
 	}
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
+static void set_ntacl_dacl(struct mnt_idmap *idmap,
+#else
 static void set_ntacl_dacl(struct user_namespace *user_ns,
+#endif
 			   struct smb_acl *pndacl,
 			   struct smb_acl *nt_dacl,
 			   unsigned int aces_size,
@@ -723,13 +809,21 @@ static void set_ntacl_dacl(struct user_namespace *user_ns,
 		}
 	}
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
+	set_posix_acl_entries_dacl(idmap, pndace, fattr,
+#else
 	set_posix_acl_entries_dacl(user_ns, pndace, fattr,
+#endif
 				   &num_aces, &size, nt_num_aces);
 	pndacl->num_aces = cpu_to_le32(num_aces);
 	pndacl->size = cpu_to_le16(le16_to_cpu(pndacl->size) + size);
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
+static void set_mode_dacl(struct mnt_idmap *idmap,
+#else
 static void set_mode_dacl(struct user_namespace *user_ns,
+#endif
 			  struct smb_acl *pndacl, struct smb_fattr *fattr)
 {
 	struct smb_ace *pace, *pndace;
@@ -741,7 +835,11 @@ static void set_mode_dacl(struct user_namespace *user_ns,
 	pace = pndace = (struct smb_ace *)((char *)pndacl + sizeof(struct smb_acl));
 
 	if (fattr->cf_acls) {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
+		set_posix_acl_entries_dacl(idmap, pndace, fattr,
+#else
 		set_posix_acl_entries_dacl(user_ns, pndace, fattr,
+#endif
 					   &num_aces, &size, num_aces);
 		goto out;
 	}
@@ -808,7 +906,11 @@ static int parse_sid(struct smb_sid *psid, char *end_of_acl)
 }
 
 /* Convert CIFS ACL to POSIX form */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
+int parse_sec_desc(struct mnt_idmap *idmap, struct smb_ntsd *pntsd,
+#else
 int parse_sec_desc(struct user_namespace *user_ns, struct smb_ntsd *pntsd,
+#endif
 		   int acl_len, struct smb_fattr *fattr)
 {
 	int rc = 0;
@@ -851,7 +953,11 @@ int parse_sec_desc(struct user_namespace *user_ns, struct smb_ntsd *pntsd,
 			return rc;
 		}
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
+		rc = sid_to_id(idmap, owner_sid_ptr, SIDOWNER, fattr);
+#else
 		rc = sid_to_id(user_ns, owner_sid_ptr, SIDOWNER, fattr);
+#endif
 		if (rc) {
 			pr_err("%s: Error %d mapping Owner SID to uid\n",
 			       __func__, rc);
@@ -866,7 +972,11 @@ int parse_sec_desc(struct user_namespace *user_ns, struct smb_ntsd *pntsd,
 			       __func__, rc);
 			return rc;
 		}
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
+		rc = sid_to_id(idmap, group_sid_ptr, SIDUNIX_GROUP, fattr);
+#else
 		rc = sid_to_id(user_ns, group_sid_ptr, SIDUNIX_GROUP, fattr);
+#endif
 		if (rc) {
 			pr_err("%s: Error %d mapping Group SID to gid\n",
 			       __func__, rc);
@@ -881,7 +991,11 @@ int parse_sec_desc(struct user_namespace *user_ns, struct smb_ntsd *pntsd,
 		pntsd->type |= cpu_to_le16(DACL_PROTECTED);
 
 	if (dacloffset) {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
+		parse_dacl(idmap, dacl_ptr, end_of_acl,
+#else
 		parse_dacl(user_ns, dacl_ptr, end_of_acl,
+#endif
 			   owner_sid_ptr, group_sid_ptr, fattr);
 	}
 
@@ -889,7 +1003,11 @@ int parse_sec_desc(struct user_namespace *user_ns, struct smb_ntsd *pntsd,
 }
 
 /* Convert permission bits from mode to equivalent CIFS ACL */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
+int build_sec_desc(struct mnt_idmap *idmap,
+#else
 int build_sec_desc(struct user_namespace *user_ns,
+#endif
 		   struct smb_ntsd *pntsd, struct smb_ntsd *ppntsd,
 		   int ppntsd_size, int addition_info, __u32 *secdesclen,
 		   struct smb_fattr *fattr)
@@ -950,7 +1068,11 @@ int build_sec_desc(struct user_namespace *user_ns,
 		dacl_ptr->num_aces = 0;
 
 		if (!ppntsd) {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
+			set_mode_dacl(idmap, dacl_ptr, fattr);
+#else
 			set_mode_dacl(user_ns, dacl_ptr, fattr);
+#endif
 		} else {
 			struct smb_acl *ppdacl_ptr;
 			unsigned int dacl_offset = le32_to_cpu(ppntsd->dacloffset);
@@ -966,7 +1088,11 @@ int build_sec_desc(struct user_namespace *user_ns,
 			    ppdacl_size < sizeof(struct smb_acl))
 				goto out;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
+			set_ntacl_dacl(idmap, dacl_ptr, ppdacl_ptr,
+#else
 			set_ntacl_dacl(user_ns, dacl_ptr, ppdacl_ptr,
+#endif
 				       ntacl_size - sizeof(struct smb_acl),
 				       nowner_sid_ptr, ngroup_sid_ptr,
 				       fattr);
@@ -1002,13 +1128,21 @@ int smb_inherit_dacl(struct ksmbd_conn *conn,
 	struct smb_ntsd *parent_pntsd = NULL;
 	struct smb_sid owner_sid, group_sid;
 	struct dentry *parent = path->dentry->d_parent;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
+	struct mnt_idmap *idmap = mnt_idmap(path->mnt);
+#else
 	struct user_namespace *user_ns = mnt_user_ns(path->mnt);
+#endif
 	int inherited_flags = 0, flags = 0, i, ace_cnt = 0, nt_size = 0, pdacl_size;
 	int rc = 0, num_aces, dacloffset, pntsd_type, pntsd_size, acl_len, aces_size;
 	char *aces_base;
 	bool is_dir = S_ISDIR(d_inode(path->dentry)->i_mode);
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
+	pntsd_size = ksmbd_vfs_get_sd_xattr(conn, idmap,
+#else
 	pntsd_size = ksmbd_vfs_get_sd_xattr(conn, user_ns,
+#endif
 					    parent, &parent_pntsd);
 	if (pntsd_size <= 0)
 		return -ENOENT;
@@ -1162,7 +1296,11 @@ pass:
 			pntsd_size += sizeof(struct smb_acl) + nt_size;
 		}
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
+		ksmbd_vfs_set_sd_xattr(conn, idmap,
+#else
 		ksmbd_vfs_set_sd_xattr(conn, user_ns,
+#endif
 				       path->dentry, pntsd, pntsd_size);
 		kfree(pntsd);
 	}
@@ -1190,7 +1328,11 @@ bool smb_inherit_flags(int flags, bool is_dir)
 int smb_check_perm_dacl(struct ksmbd_conn *conn, const struct path *path,
 			__le32 *pdaccess, int uid)
 {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
+	struct mnt_idmap *idmap = mnt_idmap(path->mnt);
+#else
 	struct user_namespace *user_ns = mnt_user_ns(path->mnt);
+#endif
 	struct smb_ntsd *pntsd = NULL;
 	struct smb_acl *pdacl;
 	struct posix_acl *posix_acls;
@@ -1206,7 +1348,11 @@ int smb_check_perm_dacl(struct ksmbd_conn *conn, const struct path *path,
 	unsigned short ace_size;
 
 	ksmbd_debug(SMB, "check permission using windows acl\n");
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
+	pntsd_size = ksmbd_vfs_get_sd_xattr(conn, idmap,
+#else
 	pntsd_size = ksmbd_vfs_get_sd_xattr(conn, user_ns,
+#endif
 					    path->dentry, &pntsd);
 	if (pntsd_size <= 0 || !pntsd)
 		goto err_out;
@@ -1289,16 +1435,28 @@ int smb_check_perm_dacl(struct ksmbd_conn *conn, const struct path *path,
 	}
 
 	if (IS_ENABLED(CONFIG_FS_POSIX_ACL)) {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 2, 0)
+		posix_acls = get_inode_acl(d_inode(path->dentry), ACL_TYPE_ACCESS);
+#else
 		posix_acls = get_acl(d_inode(path->dentry), ACL_TYPE_ACCESS);
+#endif
 		if (posix_acls && !found) {
 			unsigned int id = -1;
 
 			pa_entry = posix_acls->a_entries;
 			for (i = 0; i < posix_acls->a_count; i++, pa_entry++) {
 				if (pa_entry->e_tag == ACL_USER)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
+					id = posix_acl_uid_translate(idmap, pa_entry);
+#else
 					id = posix_acl_uid_translate(user_ns, pa_entry);
+#endif
 				else if (pa_entry->e_tag == ACL_GROUP)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
+					id = posix_acl_gid_translate(idmap, pa_entry);
+#else
 					id = posix_acl_gid_translate(user_ns, pa_entry);
+#endif
 				else
 					continue;
 
@@ -1360,14 +1518,22 @@ int set_info_sec(struct ksmbd_conn *conn, struct ksmbd_tree_connect *tcon,
 	int rc;
 	struct smb_fattr fattr = {{0}};
 	struct inode *inode = d_inode(path->dentry);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
+	struct mnt_idmap *idmap = mnt_idmap(path->mnt);
+#else
 	struct user_namespace *user_ns = mnt_user_ns(path->mnt);
+#endif
 	struct iattr newattrs;
 
 	fattr.cf_uid = INVALID_UID;
 	fattr.cf_gid = INVALID_GID;
 	fattr.cf_mode = inode->i_mode;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
+	rc = parse_sec_desc(idmap, pntsd, ntsd_len, &fattr);
+#else
 	rc = parse_sec_desc(user_ns, pntsd, ntsd_len, &fattr);
+#endif
 	if (rc)
 		goto out;
 
@@ -1377,24 +1543,55 @@ int set_info_sec(struct ksmbd_conn *conn, struct ksmbd_tree_connect *tcon,
 		newattrs.ia_uid = fattr.cf_uid;
 	}
 	if (!gid_eq(fattr.cf_gid, INVALID_GID)) {
+		inode->i_gid = fattr.cf_gid;
 		newattrs.ia_valid |= ATTR_GID;
 		newattrs.ia_gid = fattr.cf_gid;
 	}
 	newattrs.ia_valid |= ATTR_MODE;
 	newattrs.ia_mode = (inode->i_mode & ~0777) | (fattr.cf_mode & 0777);
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
+	ksmbd_vfs_remove_acl_xattrs(idmap, path->dentry);
+#else
 	ksmbd_vfs_remove_acl_xattrs(user_ns, path->dentry);
+#endif
 	/* Update posix acls */
 	if (IS_ENABLED(CONFIG_FS_POSIX_ACL) && fattr.cf_dacls) {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 12, 0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 2, 0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
+		rc = set_posix_acl(idmap, path->dentry,
+#else
+		rc = set_posix_acl(user_ns, path->dentry,
+#endif
+#else
 		rc = set_posix_acl(user_ns, inode,
-				   ACL_TYPE_ACCESS, fattr.cf_acls);
+#endif
+				   ACL_TYPE_ACCESS,
+				   fattr.cf_acls);
+#else
+		rc = set_posix_acl(inode, ACL_TYPE_ACCESS, fattr.cf_acls);
+#endif
 		if (rc < 0)
 			ksmbd_debug(SMB,
 				    "Set posix acl(ACL_TYPE_ACCESS) failed, rc : %d\n",
 				    rc);
 		if (S_ISDIR(inode->i_mode) && fattr.cf_dacls) {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 12, 0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 2, 0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
+			rc = set_posix_acl(idmap, path->dentry,
+#else
+			rc = set_posix_acl(user_ns, path->dentry,
+#endif
+#else
 			rc = set_posix_acl(user_ns, inode,
+#endif
 					   ACL_TYPE_DEFAULT, fattr.cf_dacls);
+#else
+			rc = set_posix_acl(inode, ACL_TYPE_DEFAULT,
+					   fattr.cf_dacls);
+#endif
 			if (rc)
 				ksmbd_debug(SMB,
 					    "Set posix acl(ACL_TYPE_DEFAULT) failed, rc : %d\n",
@@ -1403,7 +1600,15 @@ int set_info_sec(struct ksmbd_conn *conn, struct ksmbd_tree_connect *tcon,
 	}
 
 	inode_lock(inode);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 12, 0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
+	rc = notify_change(idmap, path->dentry, &newattrs, NULL);
+#else
 	rc = notify_change(user_ns, path->dentry, &newattrs, NULL);
+#endif
+#else
+	rc = notify_change(path->dentry, &newattrs, NULL);
+#endif
 	inode_unlock(inode);
 	if (rc)
 		goto out;
@@ -1414,8 +1619,13 @@ int set_info_sec(struct ksmbd_conn *conn, struct ksmbd_tree_connect *tcon,
 
 	if (test_share_config_flag(tcon->share_conf, KSMBD_SHARE_FLAG_ACL_XATTR)) {
 		/* Update WinACL in xattr */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
+		ksmbd_vfs_remove_sd_xattrs(idmap, path->dentry);
+		ksmbd_vfs_set_sd_xattr(conn, idmap,
+#else
 		ksmbd_vfs_remove_sd_xattrs(user_ns, path->dentry);
 		ksmbd_vfs_set_sd_xattr(conn, user_ns,
+#endif
 				       path->dentry, pntsd, ntsd_len);
 	}
 

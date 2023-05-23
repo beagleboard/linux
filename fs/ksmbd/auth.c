@@ -29,7 +29,6 @@
 #include "mgmt/user_config.h"
 #include "crypto_ctx.h"
 #include "transport_ipc.h"
-#include "../smbfs_common/arc4.h"
 
 /*
  * Fixed format data defining GSS header and fixed string
@@ -68,6 +67,127 @@ void ksmbd_copy_gss_neg_header(void *buf)
 {
 	memcpy(buf, NEGOTIATE_GSS_HEADER, AUTH_GSS_LENGTH);
 }
+
+static void
+str_to_key(unsigned char *str, unsigned char *key)
+{
+	int i;
+
+	key[0] = str[0] >> 1;
+	key[1] = ((str[0] & 0x01) << 6) | (str[1] >> 2);
+	key[2] = ((str[1] & 0x03) << 5) | (str[2] >> 3);
+	key[3] = ((str[2] & 0x07) << 4) | (str[3] >> 4);
+	key[4] = ((str[3] & 0x0F) << 3) | (str[4] >> 5);
+	key[5] = ((str[4] & 0x1F) << 2) | (str[5] >> 6);
+	key[6] = ((str[5] & 0x3F) << 1) | (str[6] >> 7);
+	key[7] = str[6] & 0x7F;
+	for (i = 0; i < 8; i++)
+		key[i] = (key[i] << 1);
+}
+
+static int
+smbhash(unsigned char *out, const unsigned char *in, unsigned char *key)
+{
+	unsigned char key2[8];
+	struct des_ctx ctx;
+
+	if (fips_enabled) {
+		ksmbd_debug(AUTH, "FIPS compliance enabled: DES not permitted\n");
+		return -ENOENT;
+	}
+
+	str_to_key(key, key2);
+	des_expand_key(&ctx, key2, DES_KEY_SIZE);
+	des_encrypt(&ctx, out, in);
+	memzero_explicit(&ctx, sizeof(ctx));
+	return 0;
+}
+
+static int ksmbd_enc_p24(unsigned char *p21, const unsigned char *c8, unsigned char *p24)
+{
+	int rc;
+
+	rc = smbhash(p24, c8, p21);
+	if (rc)
+		return rc;
+	rc = smbhash(p24 + 8, c8, p21 + 7);
+	if (rc)
+		return rc;
+	return smbhash(p24 + 16, c8, p21 + 14);
+}
+
+/* produce a md4 message digest from data of length n bytes */
+static int ksmbd_enc_md4(unsigned char *md4_hash, unsigned char *link_str,
+			 int link_len)
+{
+	int rc;
+	struct ksmbd_crypto_ctx *ctx;
+
+	ctx = ksmbd_crypto_ctx_find_md4();
+	if (!ctx) {
+		ksmbd_debug(AUTH, "Crypto md4 allocation error\n");
+		return -ENOMEM;
+	}
+
+	rc = crypto_shash_init(CRYPTO_MD4(ctx));
+	if (rc) {
+		ksmbd_debug(AUTH, "Could not init md4 shash\n");
+		goto out;
+	}
+
+	rc = crypto_shash_update(CRYPTO_MD4(ctx), link_str, link_len);
+	if (rc) {
+		ksmbd_debug(AUTH, "Could not update with link_str\n");
+		goto out;
+	}
+
+	rc = crypto_shash_final(CRYPTO_MD4(ctx), md4_hash);
+	if (rc)
+		ksmbd_debug(AUTH, "Could not generate md4 hash\n");
+out:
+	ksmbd_release_crypto_ctx(ctx);
+	return rc;
+}
+
+#ifdef CONFIG_SMB_INSECURE_SERVER
+static int ksmbd_enc_update_sess_key(unsigned char *md5_hash, char *nonce,
+				     char *server_challenge, int len)
+{
+	int rc;
+	struct ksmbd_crypto_ctx *ctx;
+
+	ctx = ksmbd_crypto_ctx_find_md5();
+	if (!ctx) {
+		ksmbd_debug(AUTH, "Crypto md5 allocation error\n");
+		return -ENOMEM;
+	}
+
+	rc = crypto_shash_init(CRYPTO_MD5(ctx));
+	if (rc) {
+		ksmbd_debug(AUTH, "Could not init md5 shash\n");
+		goto out;
+	}
+
+	rc = crypto_shash_update(CRYPTO_MD5(ctx), server_challenge, len);
+	if (rc) {
+		ksmbd_debug(AUTH, "Could not update with challenge\n");
+		goto out;
+	}
+
+	rc = crypto_shash_update(CRYPTO_MD5(ctx), nonce, len);
+	if (rc) {
+		ksmbd_debug(AUTH, "Could not update with nonce\n");
+		goto out;
+	}
+
+	rc = crypto_shash_final(CRYPTO_MD5(ctx), md5_hash);
+	if (rc)
+		ksmbd_debug(AUTH, "Could not generate md5 hash\n");
+out:
+	ksmbd_release_crypto_ctx(ctx);
+	return rc;
+}
+#endif
 
 /**
  * ksmbd_gen_sess_key() - function to generate session key
@@ -207,6 +327,43 @@ out:
 }
 
 /**
+ * ksmbd_auth_ntlm() - NTLM authentication handler
+ * @sess:	session of connection
+ * @pw_buf:	NTLM challenge response
+ * @passkey:	user password
+ *
+ * Return:	0 on success, error number on error
+ */
+int ksmbd_auth_ntlm(struct ksmbd_session *sess, char *pw_buf, char *cryptkey)
+{
+	int rc;
+	unsigned char p21[21];
+	char key[CIFS_AUTH_RESP_SIZE];
+
+	memset(p21, '\0', 21);
+	memcpy(p21, user_passkey(sess->user), CIFS_NTHASH_SIZE);
+	rc = ksmbd_enc_p24(p21, cryptkey, key);
+	if (rc) {
+		pr_err("password processing failed\n");
+		return rc;
+	}
+
+	ksmbd_enc_md4(sess->sess_key, user_passkey(sess->user),
+		      CIFS_SMB1_SESSKEY_SIZE);
+	memcpy(sess->sess_key + CIFS_SMB1_SESSKEY_SIZE, key,
+	       CIFS_AUTH_RESP_SIZE);
+	sess->sequence_number = 1;
+
+	if (strncmp(pw_buf, key, CIFS_AUTH_RESP_SIZE) != 0) {
+		ksmbd_debug(AUTH, "ntlmv1 authentication failed\n");
+		return -EINVAL;
+	}
+
+	ksmbd_debug(AUTH, "ntlmv1 authentication pass\n");
+	return 0;
+}
+
+/**
  * ksmbd_auth_ntlmv2() - NTLMv2 authentication handler
  * @sess:	session of connection
  * @ntlmv2:		NTLMv2 challenge response
@@ -221,20 +378,20 @@ int ksmbd_auth_ntlmv2(struct ksmbd_conn *conn, struct ksmbd_session *sess,
 {
 	char ntlmv2_hash[CIFS_ENCPWD_SIZE];
 	char ntlmv2_rsp[CIFS_HMAC_MD5_HASH_SIZE];
-	struct ksmbd_crypto_ctx *ctx;
+	struct ksmbd_crypto_ctx *ctx = NULL;
 	char *construct = NULL;
 	int rc, len;
-
-	ctx = ksmbd_crypto_ctx_find_hmacmd5();
-	if (!ctx) {
-		ksmbd_debug(AUTH, "could not crypto alloc hmacmd5\n");
-		return -ENOMEM;
-	}
 
 	rc = calc_ntlmv2_hash(conn, sess, ntlmv2_hash, domain_name);
 	if (rc) {
 		ksmbd_debug(AUTH, "could not get v2 hash rc %d\n", rc);
 		goto out;
+	}
+
+	ctx = ksmbd_crypto_ctx_find_hmacmd5();
+	if (!ctx) {
+		ksmbd_debug(AUTH, "could not crypto alloc hmacmd5\n");
+		return -ENOMEM;
 	}
 
 	rc = crypto_shash_setkey(CRYPTO_HMACMD5_TFM(ctx),
@@ -272,6 +429,8 @@ int ksmbd_auth_ntlmv2(struct ksmbd_conn *conn, struct ksmbd_session *sess,
 		ksmbd_debug(AUTH, "Could not generate md5 hash\n");
 		goto out;
 	}
+	ksmbd_release_crypto_ctx(ctx);
+	ctx = NULL;
 
 	rc = ksmbd_gen_sess_key(sess, ntlmv2_hash, ntlmv2_rsp);
 	if (rc) {
@@ -282,9 +441,109 @@ int ksmbd_auth_ntlmv2(struct ksmbd_conn *conn, struct ksmbd_session *sess,
 	if (memcmp(ntlmv2->ntlmv2_hash, ntlmv2_rsp, CIFS_HMAC_MD5_HASH_SIZE) != 0)
 		rc = -EINVAL;
 out:
-	ksmbd_release_crypto_ctx(ctx);
+	if (ctx)
+		ksmbd_release_crypto_ctx(ctx);
 	kfree(construct);
 	return rc;
+}
+
+#ifdef CONFIG_SMB_INSECURE_SERVER
+/**
+ * __ksmbd_auth_ntlmv2() - NTLM2(extended security) authentication handler
+ * @sess:	session of connection
+ * @client_nonce:	client nonce from LM response.
+ * @ntlm_resp:		ntlm response data from client.
+ *
+ * Return:	0 on success, error number on error
+ */
+static int __ksmbd_auth_ntlmv2(struct ksmbd_session *sess,
+			       char *client_nonce,
+			       char *ntlm_resp,
+			       char *cryptkey)
+{
+	char sess_key[CIFS_SMB1_SESSKEY_SIZE] = {0};
+	int rc;
+	unsigned char p21[21];
+	char key[CIFS_AUTH_RESP_SIZE];
+
+	rc = ksmbd_enc_update_sess_key(sess_key, client_nonce, cryptkey, 8);
+	if (rc) {
+		pr_err("password processing failed\n");
+		goto out;
+	}
+
+	memset(p21, '\0', 21);
+	memcpy(p21, user_passkey(sess->user), CIFS_NTHASH_SIZE);
+	rc = ksmbd_enc_p24(p21, sess_key, key);
+	if (rc) {
+		pr_err("password processing failed\n");
+		goto out;
+	}
+
+	if (memcmp(ntlm_resp, key, CIFS_AUTH_RESP_SIZE) != 0)
+		rc = -EINVAL;
+out:
+	return rc;
+}
+#endif
+
+static int cifs_arc4_setkey(struct arc4_ctx *ctx, const u8 *in_key, unsigned int key_len)
+{
+	int i, j = 0, k = 0;
+
+	ctx->x = 1;
+	ctx->y = 0;
+
+	for (i = 0; i < 256; i++)
+		ctx->S[i] = i;
+
+	for (i = 0; i < 256; i++) {
+		u32 a = ctx->S[i];
+
+		j = (j + in_key[k] + a) & 0xff;
+		ctx->S[i] = ctx->S[j];
+		ctx->S[j] = a;
+		if (++k >= key_len)
+			k = 0;
+	}
+
+	return 0;
+}
+
+static void cifs_arc4_crypt(struct arc4_ctx *ctx, u8 *out, const u8 *in, unsigned int len)
+{
+	u32 *const S = ctx->S;
+	u32 x, y, a, b;
+	u32 ty, ta, tb;
+
+	if (len == 0)
+		return;
+
+	x = ctx->x;
+	y = ctx->y;
+
+	a = S[x];
+	y = (y + a) & 0xff;
+	b = S[y];
+
+	do {
+		S[y] = a;
+		a = (a + b) & 0xff;
+		S[x] = b;
+		x = (x + 1) & 0xff;
+		ta = S[x];
+		ty = (y + ta) & 0xff;
+		tb = S[ty];
+		*out++ = *in++ ^ S[a];
+		if (--len == 0)
+			break;
+		y = ty;
+		a = ta;
+		b = tb;
+	} while (true);
+
+	ctx->x = x;
+	ctx->y = y;
 }
 
 /**
@@ -303,6 +562,10 @@ int ksmbd_decode_ntlmssp_auth_blob(struct authenticate_message *authblob,
 	char *domain_name;
 	unsigned int nt_off, dn_off;
 	unsigned short nt_len, dn_len;
+#ifdef CONFIG_SMB_INSECURE_SERVER
+	unsigned int lm_off;
+	unsigned short lm_len;
+#endif
 	int ret;
 
 	if (blob_len < sizeof(struct authenticate_message)) {
@@ -319,12 +582,33 @@ int ksmbd_decode_ntlmssp_auth_blob(struct authenticate_message *authblob,
 
 	nt_off = le32_to_cpu(authblob->NtChallengeResponse.BufferOffset);
 	nt_len = le16_to_cpu(authblob->NtChallengeResponse.Length);
+
 	dn_off = le32_to_cpu(authblob->DomainName.BufferOffset);
 	dn_len = le16_to_cpu(authblob->DomainName.Length);
 
 	if (blob_len < (u64)dn_off + dn_len || blob_len < (u64)nt_off + nt_len ||
 	    nt_len < CIFS_ENCPWD_SIZE)
 		return -EINVAL;
+
+#ifdef CONFIG_SMB_INSECURE_SERVER
+	lm_off = le32_to_cpu(authblob->LmChallengeResponse.BufferOffset);
+	lm_len = le16_to_cpu(authblob->LmChallengeResponse.Length);
+	if (blob_len < (u64)lm_off + lm_len)
+		return -EINVAL;
+
+	/* process NTLM authentication */
+	if (nt_len == CIFS_AUTH_RESP_SIZE) {
+		if (le32_to_cpu(authblob->NegotiateFlags) &
+		    NTLMSSP_NEGOTIATE_EXTENDED_SEC)
+			return __ksmbd_auth_ntlmv2(sess,
+						   (char *)authblob + lm_off,
+						   (char *)authblob + nt_off,
+						   conn->ntlmssp.cryptkey);
+		else
+			return ksmbd_auth_ntlm(sess, (char *)authblob +
+				nt_off, conn->ntlmssp.cryptkey);
+	}
+#endif
 
 	/* TODO : use domain name that imported from configuration file */
 	domain_name = smb_strndup_from_utf16((const char *)authblob + dn_off,
@@ -360,7 +644,12 @@ int ksmbd_decode_ntlmssp_auth_blob(struct authenticate_message *authblob,
 				 SMB2_NTLMV2_SESSKEY_SIZE);
 		cifs_arc4_crypt(ctx_arc4, sess->sess_key,
 				(char *)authblob + sess_key_off, sess_key_len);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0)
 		kfree_sensitive(ctx_arc4);
+#else
+		memzero_explicit((void *)ctx_arc4, sizeof(*ctx_arc4));
+		kfree(ctx_arc4);
+#endif
 	}
 
 	return ret;
@@ -554,6 +843,59 @@ int ksmbd_krb5_authenticate(struct ksmbd_session *sess, char *in_blob,
 			    int in_len, char *out_blob, int *out_len)
 {
 	return -EOPNOTSUPP;
+}
+#endif
+
+#ifdef CONFIG_SMB_INSECURE_SERVER
+/**
+ * ksmbd_sign_smb1_pdu() - function to generate SMB1 packet signing
+ * @sess:	session of connection
+ * @iov:        buffer iov array
+ * @n_vec:	number of iovecs
+ * @sig:        signature value generated for client request packet
+ *
+ */
+int ksmbd_sign_smb1_pdu(struct ksmbd_session *sess, struct kvec *iov, int n_vec,
+			char *sig)
+{
+	struct ksmbd_crypto_ctx *ctx;
+	int rc, i;
+
+	ctx = ksmbd_crypto_ctx_find_md5();
+	if (!ctx) {
+		ksmbd_debug(AUTH, "could not crypto alloc md5\n");
+		return -ENOMEM;
+	}
+
+	rc = crypto_shash_init(CRYPTO_MD5(ctx));
+	if (rc) {
+		ksmbd_debug(AUTH, "md5 init error %d\n", rc);
+		goto out;
+	}
+
+	rc = crypto_shash_update(CRYPTO_MD5(ctx), sess->sess_key, 40);
+	if (rc) {
+		ksmbd_debug(AUTH, "md5 update error %d\n", rc);
+		goto out;
+	}
+
+	for (i = 0; i < n_vec; i++) {
+		rc = crypto_shash_update(CRYPTO_MD5(ctx),
+					 iov[i].iov_base,
+					 iov[i].iov_len);
+		if (rc) {
+			ksmbd_debug(AUTH, "md5 update error %d\n", rc);
+			goto out;
+		}
+	}
+
+	rc = crypto_shash_final(CRYPTO_MD5(ctx), sig);
+	if (rc)
+		ksmbd_debug(AUTH, "md5 generation error %d\n", rc);
+
+out:
+	ksmbd_release_crypto_ctx(ctx);
+	return rc;
 }
 #endif
 

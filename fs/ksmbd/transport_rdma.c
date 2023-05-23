@@ -201,7 +201,7 @@ struct smb_direct_rdma_rw_msg {
 	struct list_head	list;
 	struct rdma_rw_ctx	rw_ctx;
 	struct sg_table		sgt;
-	struct scatterlist	sg_list[];
+	struct scatterlist	sg_list[0];
 };
 
 void init_smbd_max_io_size(unsigned int sz)
@@ -217,8 +217,8 @@ unsigned int get_smbd_max_read_write_size(void)
 
 static inline int get_buf_page_count(void *buf, int size)
 {
-	return DIV_ROUND_UP((uintptr_t)buf + size, PAGE_SIZE) -
-		(uintptr_t)buf / PAGE_SIZE;
+	return (int)(DIV_ROUND_UP((uintptr_t)buf + size, PAGE_SIZE) -
+		     (uintptr_t)buf / PAGE_SIZE);
 }
 
 static void smb_direct_destroy_pools(struct smb_direct_transport *transport);
@@ -1703,11 +1703,11 @@ static int smb_direct_init_params(struct smb_direct_transport *t,
 	int max_send_sges, max_rw_wrs, max_send_wrs;
 	unsigned int max_sge_per_wr, wrs_per_credit;
 
-	/* need 3 more sge. because a SMB_DIRECT header, SMB2 header,
-	 * SMB2 response could be mapped.
+	/* need 2 more sge. because a SMB_DIRECT header will be mapped,
+	 * and maybe a send buffer could be not page aligned.
 	 */
 	t->max_send_size = smb_direct_max_send_size;
-	max_send_sges = DIV_ROUND_UP(t->max_send_size, PAGE_SIZE) + 3;
+	max_send_sges = DIV_ROUND_UP(t->max_send_size, PAGE_SIZE) + 2;
 	if (max_send_sges > SMB_DIRECT_MAX_SEND_SGES) {
 		pr_err("max_send_size %d is too large\n", t->max_send_size);
 		return -EINVAL;
@@ -1728,8 +1728,6 @@ static int smb_direct_init_params(struct smb_direct_transport *t,
 
 	max_sge_per_wr = min_t(unsigned int, device->attrs.max_send_sge,
 			       device->attrs.max_sge_rd);
-	max_sge_per_wr = max_t(unsigned int, max_sge_per_wr,
-			       max_send_sges);
 	wrs_per_credit = max_t(unsigned int, 4,
 			       DIV_ROUND_UP(t->pages_per_rw_credit,
 					    max_sge_per_wr) + 1);
@@ -1754,6 +1752,11 @@ static int smb_direct_init_params(struct smb_direct_transport *t,
 		return -EINVAL;
 	}
 
+	if (device->attrs.max_send_sge < SMB_DIRECT_MAX_SEND_SGES) {
+		pr_err("warning: device max_send_sge = %d too small\n",
+		       device->attrs.max_send_sge);
+		return -EINVAL;
+	}
 	if (device->attrs.max_recv_sge < SMB_DIRECT_MAX_RECV_SGES) {
 		pr_err("warning: device max_recv_sge = %d too small\n",
 		       device->attrs.max_recv_sge);
@@ -1862,7 +1865,9 @@ static int smb_direct_create_qpair(struct smb_direct_transport *t,
 {
 	int ret;
 	struct ib_qp_init_attr qp_attr;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 5, 0)
 	int pages_per_rw;
+#endif
 
 	t->pd = ib_alloc_pd(t->cm_id->device, 0);
 	if (IS_ERR(t->pd)) {
@@ -1910,8 +1915,10 @@ static int smb_direct_create_qpair(struct smb_direct_transport *t,
 	t->qp = t->cm_id->qp;
 	t->cm_id->event_handler = smb_direct_cm_handler;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 5, 0)
 	pages_per_rw = DIV_ROUND_UP(t->max_rdma_rw_size, PAGE_SIZE) + 1;
 	if (pages_per_rw > t->cm_id->device->attrs.max_sgl_rd) {
+#endif
 		ret = ib_mr_pool_init(t->qp, &t->qp->rdma_mrs,
 				      t->max_rw_credits, IB_MR_TYPE_MEM_REG,
 				      t->pages_per_rw_credit, 0);
@@ -1920,8 +1927,9 @@ static int smb_direct_create_qpair(struct smb_direct_transport *t,
 			       t->max_rw_credits, t->pages_per_rw_credit);
 			goto err;
 		}
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 5, 0)
 	}
-
+#endif
 	return 0;
 err:
 	if (t->qp) {
@@ -2123,7 +2131,11 @@ err:
 	return ret;
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 8, 0)
 static int smb_direct_ib_client_add(struct ib_device *ib_dev)
+#else
+static void smb_direct_ib_client_add(struct ib_device *ib_dev)
+#endif
 {
 	struct smb_direct_device *smb_dev;
 
@@ -2133,11 +2145,19 @@ static int smb_direct_ib_client_add(struct ib_device *ib_dev)
 
 	if (!ib_dev->ops.get_netdev ||
 	    !rdma_frwr_is_supported(&ib_dev->attrs))
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 8, 0)
 		return 0;
+#else
+		return;
+#endif
 
 	smb_dev = kzalloc(sizeof(*smb_dev), GFP_KERNEL);
 	if (!smb_dev)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 8, 0)
 		return -ENOMEM;
+#else
+		return;
+#endif
 	smb_dev->ib_dev = ib_dev;
 
 	write_lock(&smb_direct_device_lock);
@@ -2145,7 +2165,11 @@ static int smb_direct_ib_client_add(struct ib_device *ib_dev)
 	write_unlock(&smb_direct_device_lock);
 
 	ksmbd_debug(RDMA, "ib device added: name %s\n", ib_dev->name);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 8, 0)
 	return 0;
+#else
+	return;
+#endif
 }
 
 static void smb_direct_ib_client_remove(struct ib_device *ib_dev,
