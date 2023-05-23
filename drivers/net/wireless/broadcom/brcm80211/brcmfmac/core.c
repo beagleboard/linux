@@ -290,7 +290,6 @@ static netdev_tx_t brcmf_netdev_start_xmit(struct sk_buff *skb,
 	struct brcmf_pub *drvr = ifp->drvr;
 	struct ethhdr *eh;
 	int head_delta;
-	unsigned int tx_bytes = skb->len;
 
 	brcmf_dbg(DATA, "Enter, bsscfgidx=%d\n", ifp->bsscfgidx);
 
@@ -365,7 +364,7 @@ done:
 		ndev->stats.tx_dropped++;
 	} else {
 		ndev->stats.tx_packets++;
-		ndev->stats.tx_bytes += tx_bytes;
+		ndev->stats.tx_bytes += skb->len;
 	}
 
 	/* Return ok: we always eat the packet */
@@ -1519,34 +1518,40 @@ void brcmf_bus_change_state(struct brcmf_bus *bus, enum brcmf_bus_state state)
 	}
 }
 
+static void brcmf_driver_register(struct work_struct *work)
+{
+#ifdef CONFIG_BRCMFMAC_SDIO
+	brcmf_sdio_register();
+#endif
+#ifdef CONFIG_BRCMFMAC_USB
+	brcmf_usb_register();
+#endif
+#ifdef CONFIG_BRCMFMAC_PCIE
+	brcmf_pcie_register();
+#endif
+}
+static DECLARE_WORK(brcmf_driver_work, brcmf_driver_register);
+
 int __init brcmf_core_init(void)
 {
-	int err;
+	if (!schedule_work(&brcmf_driver_work))
+		return -EBUSY;
 
-	err = brcmf_sdio_register();
-	if (err)
-		return err;
-
-	err = brcmf_usb_register();
-	if (err)
-		goto error_usb_register;
-
-	err = brcmf_pcie_register();
-	if (err)
-		goto error_pcie_register;
 	return 0;
-
-error_pcie_register:
-	brcmf_usb_exit();
-error_usb_register:
-	brcmf_sdio_exit();
-	return err;
 }
 
 void __exit brcmf_core_exit(void)
 {
+	cancel_work_sync(&brcmf_driver_work);
+
+#ifdef CONFIG_BRCMFMAC_SDIO
 	brcmf_sdio_exit();
+#endif
+#ifdef CONFIG_BRCMFMAC_USB
 	brcmf_usb_exit();
+#endif
+#ifdef CONFIG_BRCMFMAC_PCIE
 	brcmf_pcie_exit();
+#endif
 }
 
