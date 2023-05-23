@@ -36,6 +36,7 @@
 #include "sdio.h"
 #include "core.h"
 #include "common.h"
+#include "cfg80211.h"
 
 #define SDIOH_API_ACCESS_RETRY_LIMIT	2
 
@@ -43,9 +44,12 @@
 
 #define SDIO_FUNC1_BLOCKSIZE		64
 #define SDIO_FUNC2_BLOCKSIZE		512
-#define SDIO_4373_FUNC2_BLOCKSIZE	256
+#define SDIO_4373_FUNC2_BLOCKSIZE	128
 #define SDIO_435X_FUNC2_BLOCKSIZE	256
 #define SDIO_4329_FUNC2_BLOCKSIZE	128
+#define SDIO_89459_FUNC2_BLOCKSIZE	256
+#define SDIO_CYW55572_FUNC2_BLOCKSIZE	256
+
 /* Maximum milliseconds to wait for F2 to come up */
 #define SDIO_WAIT_F2RDY	3000
 
@@ -669,7 +673,7 @@ brcmf_sdiod_ramrw(struct brcmf_sdio_dev *sdiodev, bool write, u32 address,
 	uint dsize;
 
 	dsize = min_t(uint, SBSDIO_SB_OFT_ADDR_LIMIT, size);
-	pkt = dev_alloc_skb(dsize);
+	pkt = __dev_alloc_skb(dsize, GFP_KERNEL);
 	if (!pkt) {
 		brcmf_err("dev_alloc_skb failed: len %d\n", dsize);
 		return -EIO;
@@ -924,6 +928,15 @@ int brcmf_sdiod_probe(struct brcmf_sdio_dev *sdiodev)
 	case SDIO_DEVICE_ID_BROADCOM_4329:
 		f2_blksz = SDIO_4329_FUNC2_BLOCKSIZE;
 		break;
+	case SDIO_DEVICE_ID_BROADCOM_CYPRESS_89459:
+	case SDIO_DEVICE_ID_CYPRESS_54590:
+	case SDIO_DEVICE_ID_CYPRESS_54591:
+	case SDIO_DEVICE_ID_CYPRESS_54594:
+		f2_blksz = SDIO_89459_FUNC2_BLOCKSIZE;
+		break;
+	case SDIO_DEVICE_ID_CYPRESS_55572:
+		f2_blksz = SDIO_CYW55572_FUNC2_BLOCKSIZE;
+		break;
 	default:
 		break;
 	}
@@ -969,6 +982,9 @@ out:
 #define BRCMF_SDIO_DEVICE(dev_id)	\
 	{SDIO_DEVICE(SDIO_VENDOR_ID_BROADCOM, dev_id)}
 
+#define CYF_SDIO_DEVICE(dev_id)	\
+	{SDIO_DEVICE(SDIO_VENDOR_ID_CYPRESS, dev_id)}
+
 /* devices we support, null terminated */
 static const struct sdio_device_id brcmf_sdmmc_ids[] = {
 	BRCMF_SDIO_DEVICE(SDIO_DEVICE_ID_BROADCOM_43143),
@@ -988,9 +1004,15 @@ static const struct sdio_device_id brcmf_sdmmc_ids[] = {
 	BRCMF_SDIO_DEVICE(SDIO_DEVICE_ID_BROADCOM_4354),
 	BRCMF_SDIO_DEVICE(SDIO_DEVICE_ID_BROADCOM_4356),
 	BRCMF_SDIO_DEVICE(SDIO_DEVICE_ID_BROADCOM_4359),
+	BRCMF_SDIO_DEVICE(SDIO_DEVICE_ID_BROADCOM_CYPRESS_43439),
 	BRCMF_SDIO_DEVICE(SDIO_DEVICE_ID_BROADCOM_CYPRESS_4373),
 	BRCMF_SDIO_DEVICE(SDIO_DEVICE_ID_BROADCOM_CYPRESS_43012),
-	BRCMF_SDIO_DEVICE(SDIO_DEVICE_ID_BROADCOM_CYPRESS_89359),
+	BRCMF_SDIO_DEVICE(SDIO_DEVICE_ID_BROADCOM_CYPRESS_89459),
+	CYF_SDIO_DEVICE(SDIO_DEVICE_ID_CYPRESS_43439),
+	CYF_SDIO_DEVICE(SDIO_DEVICE_ID_CYPRESS_54590),
+	CYF_SDIO_DEVICE(SDIO_DEVICE_ID_CYPRESS_54591),
+	CYF_SDIO_DEVICE(SDIO_DEVICE_ID_CYPRESS_54594),
+	CYF_SDIO_DEVICE(SDIO_DEVICE_ID_CYPRESS_55572),
 	{ /* end: all zeroes */ }
 };
 MODULE_DEVICE_TABLE(sdio, brcmf_sdmmc_ids);
@@ -1059,6 +1081,7 @@ static int brcmf_ops_sdio_probe(struct sdio_func *func,
 	dev_set_drvdata(&func->dev, bus_if);
 	dev_set_drvdata(&sdiodev->func1->dev, bus_if);
 	sdiodev->dev = &sdiodev->func1->dev;
+	dev_set_drvdata(&sdiodev->func2->dev, bus_if);
 
 	brcmf_sdiod_change_state(sdiodev, BRCMF_SDIOD_DOWN);
 
@@ -1075,6 +1098,7 @@ static int brcmf_ops_sdio_probe(struct sdio_func *func,
 fail:
 	dev_set_drvdata(&func->dev, NULL);
 	dev_set_drvdata(&sdiodev->func1->dev, NULL);
+	dev_set_drvdata(&sdiodev->func2->dev, NULL);
 	kfree(sdiodev);
 	kfree(bus_if);
 	return err;
@@ -1129,15 +1153,27 @@ static int brcmf_ops_sdio_suspend(struct device *dev)
 	struct brcmf_bus *bus_if;
 	struct brcmf_sdio_dev *sdiodev;
 	mmc_pm_flag_t pm_caps, sdio_flags;
+	struct brcmf_cfg80211_info *config;
+	int retry = BRCMF_PM_WAIT_MAXRETRY;
 	int ret = 0;
 
 	func = container_of(dev, struct sdio_func, dev);
+	bus_if = dev_get_drvdata(dev);
+	config = bus_if->drvr->config;
+
 	brcmf_dbg(SDIO, "Enter: F%d\n", func->num);
+
+	while (retry &&
+	       config->pm_state == BRCMF_CFG80211_PM_STATE_SUSPENDING) {
+		usleep_range(10000, 20000);
+		retry--;
+	}
+	if (!retry && config->pm_state == BRCMF_CFG80211_PM_STATE_SUSPENDING)
+		brcmf_err("timed out wait for cfg80211 suspended\n");
+
 	if (func->num != 1)
 		return 0;
 
-
-	bus_if = dev_get_drvdata(dev);
 	sdiodev = bus_if->bus_priv.sdio;
 
 	pm_caps = sdio_get_host_pm_caps(func);
