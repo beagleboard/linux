@@ -21,6 +21,19 @@
 	} \
 }
 
+/* Spin at most 'ms' milliseconds with polling interval 'interval' milliseconds
+ * while 'exp' is true. Caller should explicitly test 'exp' when this completes
+ * and take appropriate error action if 'exp' is still true.
+ */
+#define SPINWAIT_MS(exp, ms, interval) { \
+	typeof(interval) interval_ = (interval); \
+	uint countdown = (ms) + (interval_ - 1U); \
+	while ((exp) && (countdown >= interval_)) { \
+		msleep(interval_); \
+		countdown -= interval_; \
+	} \
+}
+
 /* osl multi-precedence packet queue */
 #define PKTQ_LEN_DEFAULT        128	/* Max 128 packets */
 #define PKTQ_MAX_PREC           16	/* Maximum precedence levels */
