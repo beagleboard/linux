@@ -34,6 +34,7 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart2_pins>;
 	status = "okay";
+	symlink = "bone/uart/2";
 };
 
 &rtc {

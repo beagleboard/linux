@@ -1,0 +1,179 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright (C) 2020 Deepak Khatri <deepaklorkhatri7@gmail.com>
+ * Copyright (C) 2021 Robert Nelson <robertcnelson@gmail.com>
+ * See Cape Interface Spec page for more info on Bone Buses
+ * https://elinux.org/Beagleboard:BeagleBone_cape_interface_spec
+ */
+
+#include <dt-bindings/board/am335x-bone-pins.h>
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/pinctrl/am33xx.h>
+
+/********/
+/* LEDs */
+/********/
+&{/} {
+	leds {
+		pinctrl-names = "default";
+		compatible = "gpio-leds";
+
+		/* macro: BONE_LED(<headerpin>) */
+		#define BONE_LED(PX_YY)\
+			bone_led_##PX_YY##: led_##PX_YY {\
+				status = "disabled";\
+				linux,default-trigger = "default-off";\
+				gpios = <gpio_##PX_YY GPIO_ACTIVE_HIGH>;\
+			};
+
+		BONE_LED(P8_03)
+		BONE_LED(P8_04)
+		BONE_LED(P8_05)
+		BONE_LED(P8_06)
+		BONE_LED(P8_07)
+		BONE_LED(P8_08)
+		BONE_LED(P8_09)
+		BONE_LED(P8_10)
+		BONE_LED(P8_11)
+		BONE_LED(P8_12)
+		BONE_LED(P8_13)
+		BONE_LED(P8_14)
+		BONE_LED(P8_15)
+		BONE_LED(P8_16)
+		BONE_LED(P8_17)
+		BONE_LED(P8_18)
+		BONE_LED(P8_19)
+		BONE_LED(P8_20)
+		BONE_LED(P8_21)
+		BONE_LED(P8_22)
+		BONE_LED(P8_23)
+		BONE_LED(P8_24)
+		BONE_LED(P8_25)
+		BONE_LED(P8_26)
+		BONE_LED(P8_27)
+		BONE_LED(P8_28)
+		BONE_LED(P8_29)
+		BONE_LED(P8_30)
+		BONE_LED(P8_31)
+		BONE_LED(P8_32)
+		BONE_LED(P8_33)
+		BONE_LED(P8_34)
+		BONE_LED(P8_35)
+		BONE_LED(P8_36)
+		BONE_LED(P8_37)
+		BONE_LED(P8_38)
+		BONE_LED(P8_39)
+		BONE_LED(P8_40)
+		BONE_LED(P8_41)
+		BONE_LED(P8_42)
+		BONE_LED(P8_43)
+		BONE_LED(P8_44)
+		BONE_LED(P8_45)
+		BONE_LED(P8_46)
+
+		/*P9 header Bone LEDs*/
+		BONE_LED(P9_11)
+		BONE_LED(P9_12)
+		BONE_LED(P9_13)
+		BONE_LED(P9_14)
+		BONE_LED(P9_15)
+		BONE_LED(P9_16)
+		BONE_LED(P9_17)
+		BONE_LED(P9_18)
+		BONE_LED(P9_19)
+		BONE_LED(P9_20)
+		BONE_LED(P9_21)
+		BONE_LED(P9_22)
+		BONE_LED(P9_23)
+		BONE_LED(P9_24)
+		BONE_LED(P9_25)
+		BONE_LED(P9_26)
+		BONE_LED(P9_27)
+		BONE_LED(P9_28)
+		BONE_LED(P9_29)
+		BONE_LED(P9_30)
+		BONE_LED(P9_31)
+
+		BONE_LED(P9_41)
+		BONE_LED(P9_91)
+		BONE_LED(P9_42)
+		BONE_LED(P9_92)
+
+		BONE_LED(A15)
+	};
+};
+
+// For dummy refrence when peripheral is not available.
+&{/} {
+	not_available: not_available {
+		// Use &not_available when required.
+		// This node is responsible to create these entries,
+		// /sys/firmware/devicetree/base/__symbols__/not_available
+		// /sys/firmware/devicetree/base/not_available
+	};
+};
+
+// For compatible bone pinmuxing
+bone_pinmux: &am33xx_pinmux {
+	emmc_pins: pinmux_emmc_pins {
+		pinctrl-single,pins = <
+			AM33XX_PADCONF(AM335X_PIN_GPMC_CSN1, PIN_INPUT_PULLUP, MUX_MODE2) /* gpmc_csn1.mmc1_clk */
+			AM33XX_PADCONF(AM335X_PIN_GPMC_CSN2, PIN_INPUT_PULLUP, MUX_MODE2) /* gpmc_csn2.mmc1_cmd */
+			AM33XX_PADCONF(AM335X_PIN_GPMC_AD0, PIN_INPUT_PULLUP, MUX_MODE1) /* gpmc_ad0.mmc1_dat0 */
+			AM33XX_PADCONF(AM335X_PIN_GPMC_AD1, PIN_INPUT_PULLUP, MUX_MODE1) /* gpmc_ad1.mmc1_dat1 */
+			AM33XX_PADCONF(AM335X_PIN_GPMC_AD2, PIN_INPUT_PULLUP, MUX_MODE1) /* gpmc_ad2.mmc1_dat2 */
+			AM33XX_PADCONF(AM335X_PIN_GPMC_AD3, PIN_INPUT_PULLUP, MUX_MODE1) /* gpmc_ad3.mmc1_dat3 */
+			AM33XX_PADCONF(AM335X_PIN_GPMC_AD4, PIN_INPUT_PULLUP, MUX_MODE1) /* gpmc_ad4.mmc1_dat4 */
+			AM33XX_PADCONF(AM335X_PIN_GPMC_AD5, PIN_INPUT_PULLUP, MUX_MODE1) /* gpmc_ad5.mmc1_dat5 */
+			AM33XX_PADCONF(AM335X_PIN_GPMC_AD6, PIN_INPUT_PULLUP, MUX_MODE1) /* gpmc_ad6.mmc1_dat6 */
+			AM33XX_PADCONF(AM335X_PIN_GPMC_AD7, PIN_INPUT_PULLUP, MUX_MODE1) /* gpmc_ad7.mmc1_dat7 */
+		>;
+	};
+
+	nxp_hdmi_bonelt_pins: nxp_hdmi_bonelt_pins {
+		pinctrl-single,pins = <
+			AM33XX_PADCONF(AM335X_PIN_XDMA_EVENT_INTR0, PIN_OUTPUT_PULLDOWN, MUX_MODE3)
+			AM33XX_PADCONF(AM335X_PIN_LCD_DATA0, PIN_OUTPUT, MUX_MODE0)
+			AM33XX_PADCONF(AM335X_PIN_LCD_DATA1, PIN_OUTPUT, MUX_MODE0)
+			AM33XX_PADCONF(AM335X_PIN_LCD_DATA2, PIN_OUTPUT, MUX_MODE0)
+			AM33XX_PADCONF(AM335X_PIN_LCD_DATA3, PIN_OUTPUT, MUX_MODE0)
+			AM33XX_PADCONF(AM335X_PIN_LCD_DATA4, PIN_OUTPUT, MUX_MODE0)
+			AM33XX_PADCONF(AM335X_PIN_LCD_DATA5, PIN_OUTPUT, MUX_MODE0)
+			AM33XX_PADCONF(AM335X_PIN_LCD_DATA6, PIN_OUTPUT, MUX_MODE0)
+			AM33XX_PADCONF(AM335X_PIN_LCD_DATA7, PIN_OUTPUT, MUX_MODE0)
+			AM33XX_PADCONF(AM335X_PIN_LCD_DATA8, PIN_OUTPUT, MUX_MODE0)
+			AM33XX_PADCONF(AM335X_PIN_LCD_DATA9, PIN_OUTPUT, MUX_MODE0)
+			AM33XX_PADCONF(AM335X_PIN_LCD_DATA10, PIN_OUTPUT, MUX_MODE0)
+			AM33XX_PADCONF(AM335X_PIN_LCD_DATA11, PIN_OUTPUT, MUX_MODE0)
+			AM33XX_PADCONF(AM335X_PIN_LCD_DATA12, PIN_OUTPUT, MUX_MODE0)
+			AM33XX_PADCONF(AM335X_PIN_LCD_DATA13, PIN_OUTPUT, MUX_MODE0)
+			AM33XX_PADCONF(AM335X_PIN_LCD_DATA14, PIN_OUTPUT, MUX_MODE0)
+			AM33XX_PADCONF(AM335X_PIN_LCD_DATA15, PIN_OUTPUT, MUX_MODE0)
+			AM33XX_PADCONF(AM335X_PIN_LCD_VSYNC, PIN_OUTPUT_PULLDOWN, MUX_MODE0)
+			AM33XX_PADCONF(AM335X_PIN_LCD_HSYNC, PIN_OUTPUT_PULLDOWN, MUX_MODE0)
+			AM33XX_PADCONF(AM335X_PIN_LCD_PCLK, PIN_OUTPUT_PULLDOWN, MUX_MODE0)
+			AM33XX_PADCONF(AM335X_PIN_LCD_AC_BIAS_EN, PIN_OUTPUT_PULLDOWN, MUX_MODE0)
+		>;
+	};
+
+	nxp_hdmi_bonelt_off_pins: nxp_hdmi_bonelt_off_pins {
+		pinctrl-single,pins = <
+			AM33XX_PADCONF(AM335X_PIN_XDMA_EVENT_INTR0, PIN_OUTPUT_PULLDOWN, MUX_MODE3)
+		>;
+	};
+
+	mcasp0_pins: mcasp0_pins {
+		pinctrl-single,pins = <
+			AM33XX_PADCONF(AM335X_PIN_MCASP0_AHCLKX, PIN_INPUT_PULLUP, MUX_MODE0) /* mcasp0_ahcklx.mcasp0_ahclkx */
+			AM33XX_PADCONF(AM335X_PIN_MCASP0_AHCLKR, PIN_OUTPUT_PULLDOWN, MUX_MODE2) /* mcasp0_ahclkr.mcasp0_axr2*/
+			AM33XX_PADCONF(AM335X_PIN_MCASP0_FSX, PIN_OUTPUT_PULLUP, MUX_MODE0)
+			AM33XX_PADCONF(AM335X_PIN_MCASP0_ACLKX, PIN_OUTPUT_PULLDOWN, MUX_MODE0)
+			AM33XX_PADCONF(AM335X_PIN_GPMC_A11, PIN_OUTPUT_PULLDOWN, MUX_MODE7) /* gpmc_a11.GPIO1_27 */
+		>;
+	};
+};
+
+// ADC
+bone_adc: &tscadc {
+
+};
