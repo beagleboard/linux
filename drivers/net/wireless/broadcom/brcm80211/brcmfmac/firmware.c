@@ -510,7 +510,8 @@ static void brcmf_fw_free_request(struct brcmf_fw_request *req)
 	int i;
 
 	for (i = 0, item = &req->items[0]; i < req->n_items; i++, item++) {
-		if (item->type == BRCMF_FW_TYPE_BINARY)
+		if (item->type == BRCMF_FW_TYPE_BINARY ||
+		    item->type == BRCMF_FW_TYPE_TRXSE)
 			release_firmware(item->binary);
 		else if (item->type == BRCMF_FW_TYPE_NVRAM)
 			brcmf_fw_nvram_free(item->nv_data.data);
@@ -581,6 +582,7 @@ static int brcmf_fw_complete_request(const struct firmware *fw,
 		ret = brcmf_fw_request_nvram_done(fw, fwctx);
 		break;
 	case BRCMF_FW_TYPE_BINARY:
+	case BRCMF_FW_TYPE_TRXSE:
 		if (fw)
 			cur->binary = fw;
 		else
@@ -613,8 +615,11 @@ static int brcmf_fw_request_firmware(const struct firmware **fw,
 		strlcat(alt_path, fwctx->req->board_type, BRCMF_FW_NAME_LEN);
 		strlcat(alt_path, ".txt", BRCMF_FW_NAME_LEN);
 
-		ret = request_firmware(fw, alt_path, fwctx->dev);
-		if (ret == 0)
+		ret = request_firmware_direct(fw, alt_path, fwctx->dev);
+		if (ret)
+			brcmf_info("no board-specific nvram available (ret=%d), device will use %s\n",
+				   ret, cur->path);
+		else
 			return ret;
 	}
 
@@ -624,7 +629,18 @@ static int brcmf_fw_request_firmware(const struct firmware **fw,
 static void brcmf_fw_request_done(const struct firmware *fw, void *ctx)
 {
 	struct brcmf_fw *fwctx = ctx;
+	struct brcmf_fw_item *cur = &fwctx->req->items[fwctx->curpos];
+	char alt_path[BRCMF_FW_NAME_LEN];
 	int ret;
+
+	if (!fw && cur->type == BRCMF_FW_TYPE_TRXSE) {
+		strlcpy(alt_path, cur->path, BRCMF_FW_NAME_LEN);
+		/* strip 'se' from .trxse at the end */
+		alt_path[strlen(alt_path) - 2] = 0;
+		ret = request_firmware(&fw, alt_path, fwctx->dev);
+		if (!ret)
+			cur->path = alt_path;
+	}
 
 	ret = brcmf_fw_complete_request(fw, fwctx);
 

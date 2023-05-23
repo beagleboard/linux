@@ -20,6 +20,12 @@
 #include "of.h"
 #include "firmware.h"
 #include "chip.h"
+#include "defs.h"
+#include "fweh.h"
+#include <brcm_hw_ids.h>
+#include <linux/reboot.h>
+#include <linux/notifier.h>
+#include "pcie.h"
 
 MODULE_AUTHOR("Broadcom Corporation");
 MODULE_DESCRIPTION("Broadcom 802.11 wireless LAN fullmac driver.");
@@ -67,6 +73,14 @@ static int brcmf_iapp_enable;
 module_param_named(iapp, brcmf_iapp_enable, int, 0);
 MODULE_PARM_DESC(iapp, "Enable partial support for the obsoleted Inter-Access Point Protocol");
 
+static int brcmf_eap_restrict;
+module_param_named(eap_restrict, brcmf_eap_restrict, int, 0400);
+MODULE_PARM_DESC(eap_restrict, "Block non-802.1X frames until auth finished");
+
+static int brcmf_max_pm;
+module_param_named(max_pm, brcmf_max_pm, int, 0);
+MODULE_PARM_DESC(max_pm, "Use max power management mode by default");
+
 #ifdef DEBUG
 /* always succeed brcmf_bus_started() */
 static int brcmf_ignore_probe_fail;
@@ -74,8 +88,18 @@ module_param_named(ignore_probe_fail, brcmf_ignore_probe_fail, int, 0);
 MODULE_PARM_DESC(ignore_probe_fail, "always succeed probe for debugging");
 #endif
 
+static int brcmf_fw_ap_select;
+module_param_named(fw_ap_select, brcmf_fw_ap_select, int, 0400);
+MODULE_PARM_DESC(fw_ap_select, "Allow FW for AP selection");
+
 static struct brcmfmac_platform_data *brcmfmac_pdata;
 struct brcmf_mp_global_t brcmf_mp_global;
+
+static int brcmf_reboot_callback(struct notifier_block *this, unsigned long code, void *unused);
+static struct notifier_block brcmf_reboot_notifier = {
+	.notifier_call = brcmf_reboot_callback,
+	.priority = 1,
+};
 
 void brcmf_c_set_joinpref_default(struct brcmf_if *ifp)
 {
@@ -201,8 +225,10 @@ int brcmf_c_preinit_dcmds(struct brcmf_if *ifp)
 	char *clmver;
 	char *ptr;
 	s32 err;
+	struct eventmsgs_ext *eventmask_msg = NULL;
+	u8 msglen;
 
-	/* retreive mac address */
+	/* retrieve mac addresses */
 	err = brcmf_fil_iovar_data_get(ifp, "cur_etheraddr", ifp->mac_addr,
 				       sizeof(ifp->mac_addr));
 	if (err < 0) {
@@ -292,6 +318,11 @@ int brcmf_c_preinit_dcmds(struct brcmf_if *ifp)
 		brcmf_dbg(INFO, "CLM version = %s\n", clmver);
 	}
 
+	/* set apsta */
+	err = brcmf_fil_iovar_int_set(ifp, "apsta", 1);
+	if (err)
+		brcmf_info("failed setting apsta, %d\n", err);
+
 	/* set mpc */
 	err = brcmf_fil_iovar_int_set(ifp, "mpc", 1);
 	if (err) {
@@ -316,6 +347,43 @@ int brcmf_c_preinit_dcmds(struct brcmf_if *ifp)
 		goto done;
 	}
 
+	/* Enable event_msg_ext specific to 43012 chip */
+	if (bus->chip == CY_CC_43012_CHIP_ID) {
+		/* Program event_msg_ext to support event larger than 128 */
+		msglen = (roundup(BRCMF_E_LAST, NBBY) / NBBY) +
+				  EVENTMSGS_EXT_STRUCT_SIZE;
+		/* Allocate buffer for eventmask_msg */
+		eventmask_msg = kzalloc(msglen, GFP_KERNEL);
+		if (!eventmask_msg) {
+			err = -ENOMEM;
+			goto done;
+		}
+
+		/* Read the current programmed event_msgs_ext */
+		eventmask_msg->ver = EVENTMSGS_VER;
+		eventmask_msg->len = roundup(BRCMF_E_LAST, NBBY) / NBBY;
+		err = brcmf_fil_iovar_data_get(ifp, "event_msgs_ext",
+					       eventmask_msg,
+					       msglen);
+
+		/* Enable ULP event */
+		brcmf_dbg(EVENT, "enable event ULP\n");
+		setbit(eventmask_msg->mask, BRCMF_E_ULP);
+
+		/* Write updated Event mask */
+		eventmask_msg->ver = EVENTMSGS_VER;
+		eventmask_msg->command = EVENTMSGS_SET_MASK;
+		eventmask_msg->len = (roundup(BRCMF_E_LAST, NBBY) / NBBY);
+
+		err = brcmf_fil_iovar_data_set(ifp, "event_msgs_ext",
+					       eventmask_msg, msglen);
+		if (err) {
+			brcmf_err("Set event_msgs_ext error (%d)\n", err);
+			kfree(eventmask_msg);
+			goto done;
+		}
+		kfree(eventmask_msg);
+	}
 	/* Setup default scan channel time */
 	err = brcmf_fil_cmd_int_set(ifp, BRCMF_C_SET_SCAN_CHANNEL_TIME,
 				    BRCMF_DEFAULT_SCAN_CHANNEL_TIME);
@@ -336,6 +404,20 @@ int brcmf_c_preinit_dcmds(struct brcmf_if *ifp)
 
 	/* Enable tx beamforming, errors can be ignored (not supported) */
 	(void)brcmf_fil_iovar_int_set(ifp, "txbf", 1);
+	err = brcmf_fil_iovar_int_set(ifp, "chanspec", 0x1001);
+	if (err < 0)
+		bphy_err(drvr, "Initial Channel failed %d\n", err);
+	/* add unicast packet filter */
+	err = brcmf_pktfilter_add_remove(ifp->ndev,
+					 BRCMF_UNICAST_FILTER_NUM, true);
+	if (err == -BRCMF_FW_UNSUPPORTED) {
+		/* FW not support can be ignored */
+		err = 0;
+		goto done;
+	} else if (err) {
+		bphy_err(drvr, "Add unicast filter error (%d)\n", err);
+	}
+
 done:
 	return err;
 }
@@ -407,15 +489,18 @@ struct brcmf_mp_device *brcmf_get_module_param(struct device *dev,
 	if (!settings)
 		return NULL;
 
-	/* start by using the module paramaters */
+	/* start by using the module parameters */
 	settings->p2p_enable = !!brcmf_p2p_enable;
 	settings->feature_disable = brcmf_feature_disable;
 	settings->fcmode = brcmf_fcmode;
 	settings->roamoff = !!brcmf_roamoff;
 	settings->iapp = !!brcmf_iapp_enable;
+	settings->eap_restrict = !!brcmf_eap_restrict;
+	settings->default_pm = !!brcmf_max_pm ? PM_MAX : PM_FAST;
 #ifdef DEBUG
 	settings->ignore_probe_fail = !!brcmf_ignore_probe_fail;
 #endif
+	settings->fw_ap_select = !!brcmf_fw_ap_select;
 
 	if (bus_type == BRCMF_BUSTYPE_SDIO)
 		settings->bus.sdio.txglomsz = brcmf_sdiod_txglomsz;
@@ -454,13 +539,22 @@ void brcmf_release_module_param(struct brcmf_mp_device *module_param)
 	kfree(module_param);
 }
 
+static int
+brcmf_reboot_callback(struct notifier_block *this, unsigned long code, void *unused)
+{
+	brcmf_dbg(INFO, "code = %ld\n", code);
+	if (code == SYS_RESTART)
+		brcmf_core_exit();
+	return NOTIFY_DONE;
+}
+
 static int __init brcmf_common_pd_probe(struct platform_device *pdev)
 {
 	brcmf_dbg(INFO, "Enter\n");
 
 	brcmfmac_pdata = dev_get_platdata(&pdev->dev);
 
-	if (brcmfmac_pdata->power_on)
+	if (brcmfmac_pdata && brcmfmac_pdata->power_on)
 		brcmfmac_pdata->power_on();
 
 	return 0;
@@ -492,7 +586,7 @@ static int __init brcmfmac_module_init(void)
 	if (err == -ENODEV)
 		brcmf_dbg(INFO, "No platform data available.\n");
 
-	/* Initialize global module paramaters */
+	/* Initialize global module parameters */
 	brcmf_mp_attach();
 
 	/* Continue the initialization by registering the different busses */
@@ -500,6 +594,8 @@ static int __init brcmfmac_module_init(void)
 	if (err) {
 		if (brcmfmac_pdata)
 			platform_driver_unregister(&brcmf_pd);
+	} else {
+		register_reboot_notifier(&brcmf_reboot_notifier);
 	}
 
 	return err;
@@ -508,6 +604,7 @@ static int __init brcmfmac_module_init(void)
 static void __exit brcmfmac_module_exit(void)
 {
 	brcmf_core_exit();
+	unregister_reboot_notifier(&brcmf_reboot_notifier);
 	if (brcmfmac_pdata)
 		platform_driver_unregister(&brcmf_pd);
 }
