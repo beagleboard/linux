@@ -39,6 +39,7 @@ struct kvec;
 int ksmbd_crypt_message(struct ksmbd_work *work, struct kvec *iov,
 			unsigned int nvec, int enc);
 void ksmbd_copy_gss_neg_header(void *buf);
+int ksmbd_auth_ntlm(struct ksmbd_session *sess, char *pw_buf, char *cryptkey);
 int ksmbd_auth_ntlmv2(struct ksmbd_conn *conn, struct ksmbd_session *sess,
 		      struct ntlmv2_resp *ntlmv2, int blen, char *domain_name,
 		      char *cryptkey);
@@ -51,7 +52,11 @@ unsigned int
 ksmbd_build_ntlmssp_challenge_blob(struct challenge_message *chgblob,
 				   struct ksmbd_conn *conn);
 int ksmbd_krb5_authenticate(struct ksmbd_session *sess, char *in_blob,
-			    int in_len,	char *out_blob, int *out_len);
+			    int in_len, char *out_blob, int *out_len);
+#ifdef CONFIG_SMB_INSECURE_SERVER
+int ksmbd_sign_smb1_pdu(struct ksmbd_session *sess, struct kvec *iov, int n_vec,
+			char *sig);
+#endif
 int ksmbd_sign_smb2_pdu(struct ksmbd_conn *conn, char *key, struct kvec *iov,
 			int n_vec, char *sig);
 int ksmbd_sign_smb3_pdu(struct ksmbd_conn *conn, char *key, struct kvec *iov,
@@ -68,4 +73,13 @@ int ksmbd_gen_preauth_integrity_hash(struct ksmbd_conn *conn, char *buf,
 				     __u8 *pi_hash);
 int ksmbd_gen_sd_hash(struct ksmbd_conn *conn, char *sd_buf, int len,
 		      __u8 *pi_hash);
+
+#define ARC4_MIN_KEY_SIZE	1
+#define ARC4_MAX_KEY_SIZE	256
+#define ARC4_BLOCK_SIZE		1
+
+struct arc4_ctx {
+	u32 S[256];
+	u32 x, y;
+};
 #endif
