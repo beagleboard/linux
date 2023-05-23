@@ -37,7 +37,6 @@
 #define IEEE80211_AUTH_TIMEOUT_SAE	(HZ * 2)
 #define IEEE80211_AUTH_MAX_TRIES	3
 #define IEEE80211_AUTH_WAIT_ASSOC	(HZ * 5)
-#define IEEE80211_AUTH_WAIT_SAE_RETRY	(HZ * 2)
 #define IEEE80211_ASSOC_TIMEOUT		(HZ / 5)
 #define IEEE80211_ASSOC_TIMEOUT_LONG	(HZ / 2)
 #define IEEE80211_ASSOC_TIMEOUT_SHORT	(HZ / 10)
@@ -1095,6 +1094,11 @@ void ieee80211_send_nullfunc(struct ieee80211_local *local,
 	struct ieee80211_hdr_3addr *nullfunc;
 	struct ieee80211_if_managed *ifmgd = &sdata->u.mgd;
 
+	/* Don't send NDPs when STA is connected HE */
+	if (sdata->vif.type == NL80211_IFTYPE_STATION &&
+	    !(ifmgd->flags & IEEE80211_STA_DISABLE_HE))
+		return;
+
 	skb = ieee80211_nullfunc_get(&local->hw, &sdata->vif,
 		!ieee80211_hw_check(&local->hw, DOESNT_SUPPORT_QOS_NDP));
 	if (!skb)
@@ -1116,14 +1120,18 @@ void ieee80211_send_nullfunc(struct ieee80211_local *local,
 	ieee80211_tx_skb(sdata, skb);
 }
 
-void ieee80211_send_4addr_nullfunc(struct ieee80211_local *local,
-				   struct ieee80211_sub_if_data *sdata)
+static void ieee80211_send_4addr_nullfunc(struct ieee80211_local *local,
+					  struct ieee80211_sub_if_data *sdata)
 {
 	struct sk_buff *skb;
 	struct ieee80211_hdr *nullfunc;
 	__le16 fc;
 
 	if (WARN_ON(sdata->vif.type != NL80211_IFTYPE_STATION))
+		return;
+
+	/* Don't send NDPs when connected HE */
+	if (!(sdata->u.mgd.flags & IEEE80211_STA_DISABLE_HE))
 		return;
 
 	skb = dev_alloc_skb(local->hw.extra_tx_headroom + 30);
@@ -1287,11 +1295,6 @@ static void ieee80211_chswitch_post_beacon(struct ieee80211_sub_if_data *sdata)
 
 	sdata->vif.csa_active = false;
 	ifmgd->csa_waiting_bcn = false;
-	/*
-	 * If the CSA IE is still present on the beacon after the switch,
-	 * we need to consider it as a new CSA (possibly to self).
-	 */
-	ifmgd->beacon_crc_valid = false;
 
 	ret = drv_post_channel_switch(sdata);
 	if (ret) {
@@ -2494,17 +2497,10 @@ static void ieee80211_sta_tx_wmm_ac_notify(struct ieee80211_sub_if_data *sdata,
 					   u16 tx_time)
 {
 	struct ieee80211_if_managed *ifmgd = &sdata->u.mgd;
-	u16 tid;
-	int ac;
-	struct ieee80211_sta_tx_tspec *tx_tspec;
+	u16 tid = ieee80211_get_tid(hdr);
+	int ac = ieee80211_ac_from_tid(tid);
+	struct ieee80211_sta_tx_tspec *tx_tspec = &ifmgd->tx_tspec[ac];
 	unsigned long now = jiffies;
-
-	if (!ieee80211_is_data_qos(hdr->frame_control))
-		return;
-
-	tid = ieee80211_get_tid(hdr);
-	ac = ieee80211_ac_from_tid(tid);
-	tx_tspec = &ifmgd->tx_tspec[ac];
 
 	if (likely(!tx_tspec->admitted_time))
 		return;
@@ -2899,14 +2895,14 @@ static void ieee80211_auth_challenge(struct ieee80211_sub_if_data *sdata,
 {
 	struct ieee80211_local *local = sdata->local;
 	struct ieee80211_mgd_auth_data *auth_data = sdata->u.mgd.auth_data;
-	const struct element *challenge;
 	u8 *pos;
+	struct ieee802_11_elems elems;
 	u32 tx_flags = 0;
 
 	pos = mgmt->u.auth.variable;
-	challenge = cfg80211_find_elem(WLAN_EID_CHALLENGE, pos,
-				       len - (pos - (u8 *)mgmt));
-	if (!challenge)
+	ieee802_11_parse_elems(pos, len - (pos - (u8 *)mgmt), false, &elems,
+			       mgmt->bssid, auth_data->bss->bssid);
+	if (!elems.challenge)
 		return;
 	auth_data->expected_transaction = 4;
 	drv_mgd_prepare_tx(sdata->local, sdata, 0);
@@ -2914,8 +2910,7 @@ static void ieee80211_auth_challenge(struct ieee80211_sub_if_data *sdata,
 		tx_flags = IEEE80211_TX_CTL_REQ_TX_STATUS |
 			   IEEE80211_TX_INTFL_MLME_CONN_TX;
 	ieee80211_send_auth(sdata, 3, auth_data->algorithm, 0,
-			    (void *)challenge,
-			    challenge->datalen + sizeof(*challenge),
+			    elems.challenge - 2, elems.challenge_len + 2,
 			    auth_data->bss->bssid, auth_data->bss->bssid,
 			    auth_data->key, auth_data->key_len,
 			    auth_data->key_idx, tx_flags);
@@ -3001,15 +2996,8 @@ static void ieee80211_rx_mgmt_auth(struct ieee80211_sub_if_data *sdata,
 		    (status_code == WLAN_STATUS_ANTI_CLOG_REQUIRED ||
 		     (auth_transaction == 1 &&
 		      (status_code == WLAN_STATUS_SAE_HASH_TO_ELEMENT ||
-		       status_code == WLAN_STATUS_SAE_PK)))) {
-			/* waiting for userspace now */
-			ifmgd->auth_data->waiting = true;
-			ifmgd->auth_data->timeout =
-				jiffies + IEEE80211_AUTH_WAIT_SAE_RETRY;
-			ifmgd->auth_data->timeout_started = true;
-			run_again(sdata, ifmgd->auth_data->timeout);
+		       status_code == WLAN_STATUS_SAE_PK))))
 			return;
-		}
 
 		sdata_info(sdata, "%pM denied authentication (status %d)\n",
 			   mgmt->sa, status_code);
@@ -3300,7 +3288,7 @@ static bool ieee80211_assoc_success(struct ieee80211_sub_if_data *sdata,
 	}
 	capab_info = le16_to_cpu(mgmt->u.assoc_resp.capab_info);
 	ieee802_11_parse_elems(pos, len - (pos - (u8 *)mgmt), false, elems,
-			       mgmt->bssid, NULL);
+			       mgmt->bssid, assoc_data->bss->bssid);
 
 	if (elems->aid_resp)
 		aid = le16_to_cpu(elems->aid_resp->aid);
@@ -3394,7 +3382,6 @@ static bool ieee80211_assoc_success(struct ieee80211_sub_if_data *sdata,
 			sdata_info(sdata,
 				   "AP bug: VHT operation missing from AssocResp\n");
 		}
-		kfree(bss_elems.nontx_profile);
 	}
 
 	/*
@@ -3530,12 +3517,6 @@ static bool ieee80211_assoc_success(struct ieee80211_sub_if_data *sdata,
 				cbss->transmitted_bss->bssid);
 		bss_conf->bssid_indicator = cbss->max_bssid_indicator;
 		bss_conf->bssid_index = cbss->bssid_index;
-	} else {
-		bss_conf->nontransmitted = false;
-		memset(bss_conf->transmitter_bssid, 0,
-		       sizeof(bss_conf->transmitter_bssid));
-		bss_conf->bssid_indicator = 0;
-		bss_conf->bssid_index = 0;
 	}
 
 	/*
@@ -3709,7 +3690,7 @@ static void ieee80211_rx_mgmt_assoc_resp(struct ieee80211_sub_if_data *sdata,
 		return;
 
 	ieee802_11_parse_elems(pos, len - (pos - (u8 *)mgmt), false, &elems,
-			       mgmt->bssid, NULL);
+			       mgmt->bssid, assoc_data->bss->bssid);
 
 	if (status_code == WLAN_STATUS_ASSOC_REJECTED_TEMPORARILY &&
 	    elems.timeout_int &&
@@ -4033,20 +4014,15 @@ static void ieee80211_rx_mgmt_beacon(struct ieee80211_sub_if_data *sdata,
 		if (elems.mbssid_config_ie)
 			bss_conf->profile_periodicity =
 				elems.mbssid_config_ie->profile_periodicity;
-		else
-			bss_conf->profile_periodicity = 0;
 
 		if (elems.ext_capab_len >= 11 &&
 		    (elems.ext_capab[10] & WLAN_EXT_CAPA11_EMA_SUPPORT))
 			bss_conf->ema_ap = true;
-		else
-			bss_conf->ema_ap = false;
 
 		/* continue assoc process */
 		ifmgd->assoc_data->timeout = jiffies;
 		ifmgd->assoc_data->timeout_started = true;
 		run_again(sdata, ifmgd->assoc_data->timeout);
-		kfree(elems.nontx_profile);
 		return;
 	}
 
@@ -4224,7 +4200,7 @@ static void ieee80211_rx_mgmt_beacon(struct ieee80211_sub_if_data *sdata,
 		ieee80211_report_disconnect(sdata, deauth_buf,
 					    sizeof(deauth_buf), true,
 					    WLAN_REASON_DEAUTH_LEAVING);
-		goto free;
+		return;
 	}
 
 	if (sta && elems.opmode_notif)
@@ -4239,8 +4215,6 @@ static void ieee80211_rx_mgmt_beacon(struct ieee80211_sub_if_data *sdata,
 					       elems.cisco_dtpc_elem);
 
 	ieee80211_bss_info_change_notify(sdata, changed);
-free:
-	kfree(elems.nontx_profile);
 }
 
 void ieee80211_sta_rx_queued_ext(struct ieee80211_sub_if_data *sdata,
@@ -4545,10 +4519,10 @@ void ieee80211_sta_work(struct ieee80211_sub_if_data *sdata)
 
 	if (ifmgd->auth_data && ifmgd->auth_data->timeout_started &&
 	    time_after(jiffies, ifmgd->auth_data->timeout)) {
-		if (ifmgd->auth_data->done || ifmgd->auth_data->waiting) {
+		if (ifmgd->auth_data->done) {
 			/*
-			 * ok ... we waited for assoc or continuation but
-			 * userspace didn't do it, so kill the auth data
+			 * ok ... we waited for assoc but userspace didn't,
+			 * so let's just kill the auth data
 			 */
 			ieee80211_destroy_auth_data(sdata, false);
 		} else if (ieee80211_auth(sdata)) {
@@ -4686,10 +4660,7 @@ static void ieee80211_sta_conn_mon_timer(struct timer_list *t)
 		timeout = sta->rx_stats.last_rx;
 	timeout += IEEE80211_CONNECTION_IDLE_TIME;
 
-	/* If timeout is after now, then update timer to fire at
-	 * the later date, but do not actually probe at this time.
-	 */
-	if (time_is_after_jiffies(timeout)) {
+	if (time_is_before_jiffies(timeout)) {
 		mod_timer(&ifmgd->conn_mon_timer, round_jiffies_up(timeout));
 		return;
 	}
@@ -5052,7 +5023,7 @@ static int ieee80211_prep_channel(struct ieee80211_sub_if_data *sdata,
 		he_oper_ie = cfg80211_find_ext_ie(WLAN_EID_EXT_HE_OPERATION,
 						  ies->data, ies->len);
 		if (he_oper_ie &&
-		    he_oper_ie[1] >= ieee80211_he_oper_size(&he_oper_ie[3]))
+		    he_oper_ie[1] == ieee80211_he_oper_size(&he_oper_ie[3]))
 			he_oper = (void *)(he_oper_ie + 3);
 		else
 			he_oper = NULL;
@@ -5213,7 +5184,7 @@ static int ieee80211_prep_connection(struct ieee80211_sub_if_data *sdata,
 	 */
 	if (new_sta) {
 		u32 rates = 0, basic_rates = 0;
-		bool have_higher_than_11mbit = false;
+		bool have_higher_than_11mbit;
 		int min_rate = INT_MAX, min_rate_index = -1;
 		const struct cfg80211_bss_ies *ies;
 		int shift = ieee80211_vif_get_shift(&sdata->vif);
@@ -5770,16 +5741,12 @@ int ieee80211_mgd_assoc(struct ieee80211_sub_if_data *sdata,
 					      beacon_ies->data, beacon_ies->len);
 		if (elem && elem->datalen >= 3)
 			sdata->vif.bss_conf.profile_periodicity = elem->data[2];
-		else
-			sdata->vif.bss_conf.profile_periodicity = 0;
 
 		elem = cfg80211_find_elem(WLAN_EID_EXT_CAPABILITY,
 					  beacon_ies->data, beacon_ies->len);
 		if (elem && elem->datalen >= 11 &&
 		    (elem->data[10] & WLAN_EXT_CAPA11_EMA_SUPPORT))
 			sdata->vif.bss_conf.ema_ap = true;
-		else
-			sdata->vif.bss_conf.ema_ap = false;
 	} else {
 		assoc_data->timeout = jiffies;
 		assoc_data->timeout_started = true;
