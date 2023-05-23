@@ -161,7 +161,7 @@ free_desc:
 }
 
 static int emac_tx_complete_packets(struct prueth_emac *emac, int chn,
-				    int budget)
+				    int budget, bool *tdown)
 {
 	struct net_device *ndev = emac->ndev;
 	struct cppi5_host_desc_t *desc_tx;
@@ -185,6 +185,7 @@ static int emac_tx_complete_packets(struct prueth_emac *emac, int chn,
 		if (cppi5_desc_is_tdcm(desc_dma)) {
 			if (atomic_dec_and_test(&emac->tdown_cnt))
 				complete(&emac->tdown_complete);
+			*tdown = true;
 			break;
 		}
 
@@ -240,17 +241,33 @@ static int emac_tx_complete_packets(struct prueth_emac *emac, int chn,
 	return num_tx;
 }
 
+static enum hrtimer_restart emac_tx_timer_callback(struct hrtimer *timer)
+{
+	struct prueth_tx_chn *tx_chns =
+			container_of(timer, struct prueth_tx_chn, tx_hrtimer);
+
+	enable_irq(tx_chns->irq);
+	return HRTIMER_NORESTART;
+}
+
 static int emac_napi_tx_poll(struct napi_struct *napi_tx, int budget)
 {
 	struct prueth_tx_chn *tx_chn = prueth_napi_to_tx_chn(napi_tx);
 	struct prueth_emac *emac = tx_chn->emac;
+	bool tdown = false;
 	int num_tx_packets;
 
-	num_tx_packets = emac_tx_complete_packets(emac, tx_chn->id, budget);
+	num_tx_packets = emac_tx_complete_packets(emac, tx_chn->id, budget, &tdown);
 
 	if (num_tx_packets < budget) {
 		napi_complete(napi_tx);
-		enable_irq(tx_chn->irq);
+		if (unlikely(tx_chn->tx_pace_timeout_ns && !tdown)) {
+			hrtimer_start(&tx_chn->tx_hrtimer,
+				      ns_to_ktime(tx_chn->tx_pace_timeout_ns),
+				      HRTIMER_MODE_REL_PINNED);
+		} else {
+			enable_irq(tx_chn->irq);
+		}
 	}
 
 	return num_tx_packets;
@@ -276,6 +293,9 @@ static int prueth_ndev_add_tx_napi(struct prueth_emac *emac)
 
 		netif_napi_add_tx_weight(emac->ndev, &tx_chn->napi_tx,
 					 emac_napi_tx_poll, NAPI_POLL_WEIGHT);
+		hrtimer_init(&tx_chn->tx_hrtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL_PINNED);
+		tx_chn->tx_hrtimer.function = &emac_tx_timer_callback;
+
 		ret = request_irq(tx_chn->irq, prueth_tx_irq,
 				  IRQF_TRIGGER_HIGH, tx_chn->name,
 				  tx_chn);
@@ -1181,6 +1201,16 @@ static void emac_adjust_link(struct net_device *ndev)
 	}
 }
 
+static enum hrtimer_restart emac_rx_timer_callback(struct hrtimer *timer)
+{
+	struct prueth_emac *emac =
+			container_of(timer, struct prueth_emac, rx_hrtimer);
+	int rx_flow = PRUETH_RX_FLOW_DATA;
+
+	enable_irq(emac->rx_chns.irq[rx_flow]);
+	return HRTIMER_NORESTART;
+}
+
 static int emac_napi_rx_poll(struct napi_struct *napi_rx, int budget)
 {
 	struct prueth_emac *emac = prueth_napi_to_emac(napi_rx);
@@ -1212,7 +1242,13 @@ static int emac_napi_rx_poll(struct napi_struct *napi_rx, int budget)
 
 	if (num_rx < budget) {
 		napi_complete(napi_rx);
-		enable_irq(emac->rx_chns.irq[rx_flow]);
+		if (unlikely(emac->rx_pace_timeout_ns)) {
+			hrtimer_start(&emac->rx_hrtimer,
+				      ns_to_ktime(emac->rx_pace_timeout_ns),
+				      HRTIMER_MODE_REL_PINNED);
+		} else {
+			enable_irq(emac->rx_chns.irq[rx_flow]);
+		}
 	}
 
 	return num_rx;
@@ -1715,8 +1751,10 @@ static int emac_ndo_stop(struct net_device *ndev)
 		netdev_err(ndev, "tx teardown timeout\n");
 
 	prueth_reset_tx_chan(emac, emac->tx_ch_num, true);
-	for (i = 0; i < emac->tx_ch_num; i++)
+	for (i = 0; i < emac->tx_ch_num; i++) {
 		napi_disable(&emac->tx_chns[i].napi_tx);
+		hrtimer_cancel(&emac->tx_chns[i].tx_hrtimer);
+	}
 
 	max_rx_flows = PRUETH_MAX_RX_FLOWS;
 	k3_udma_glue_tdown_rx_chn(emac->rx_chns.rx_chn, true);
@@ -1726,6 +1764,7 @@ static int emac_ndo_stop(struct net_device *ndev)
 	prueth_destroy_xdp_rxqs(emac);
 
 	napi_disable(&emac->napi_rx);
+	hrtimer_cancel(&emac->rx_hrtimer);
 
 	cancel_work_sync(&emac->rx_mode_work);
 	/* stop PRUs */
@@ -2295,6 +2334,9 @@ static int prueth_netdev_init(struct prueth *prueth,
 
 	netif_napi_add(ndev, &emac->napi_rx,
 		       emac_napi_rx_poll);
+
+	hrtimer_init(&emac->rx_hrtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL_PINNED);
+	emac->rx_hrtimer.function = &emac_rx_timer_callback;
 
 	return 0;
 

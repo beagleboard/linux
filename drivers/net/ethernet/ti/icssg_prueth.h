@@ -98,6 +98,8 @@ struct prueth_tx_chn {
 	struct k3_cppi_desc_pool *desc_pool;
 	struct k3_udma_glue_tx_channel *tx_chn;
 	struct prueth_emac *emac;
+	struct hrtimer tx_hrtimer;
+	unsigned long tx_pace_timeout_ns;
 	u32 id;
 	u32 descs_num;
 	unsigned int irq;
@@ -159,6 +161,9 @@ struct prueth_swdata {
 #define ICSSG_XDP_TX             BIT(1)
 #define ICSSG_XDP_REDIR          BIT(2)
 
+/* Minimum coalesce time in usecs for both Tx and Rx */
+#define ICSSG_MIN_COALESCE_USECS 20
+
 /* data for each emac port */
 struct prueth_emac {
 	bool fw_running;
@@ -188,6 +193,10 @@ struct prueth_emac {
 	struct prueth_rx_chn rx_chns;
 	int rx_flow_id_base;
 	int tx_ch_num;
+
+	/* Interrput Pacing Related */
+	struct hrtimer rx_hrtimer;
+	unsigned long rx_pace_timeout_ns;
 
 	spinlock_t lock;	/* serialize access */
 

@@ -398,6 +398,88 @@ static int emac_set_ethtool_priv_flags(struct net_device *ndev, u32 flags)
 	return 0;
 }
 
+static int emac_get_coalesce(struct net_device *ndev, struct ethtool_coalesce *coal,
+			     struct kernel_ethtool_coalesce *kernel_coal,
+			     struct netlink_ext_ack *extack)
+{
+	struct prueth_emac *emac = netdev_priv(ndev);
+	struct prueth_tx_chn *tx_chn;
+
+	tx_chn = &emac->tx_chns[0];
+
+	coal->rx_coalesce_usecs = emac->rx_pace_timeout_ns / 1000;
+	coal->tx_coalesce_usecs = tx_chn->tx_pace_timeout_ns / 1000;
+
+	return 0;
+}
+
+static int emac_get_per_queue_coalesce(struct net_device *ndev, u32 queue,
+				       struct ethtool_coalesce *coal)
+{
+	struct prueth_emac *emac = netdev_priv(ndev);
+	struct prueth_tx_chn *tx_chn;
+
+	if (queue >= PRUETH_MAX_TX_QUEUES)
+		return -EINVAL;
+
+	tx_chn = &emac->tx_chns[queue];
+
+	coal->tx_coalesce_usecs = tx_chn->tx_pace_timeout_ns / 1000;
+
+	return 0;
+}
+
+static int emac_set_coalesce(struct net_device *ndev, struct ethtool_coalesce *coal,
+			     struct kernel_ethtool_coalesce *kernel_coal,
+			     struct netlink_ext_ack *extack)
+{
+	struct prueth_emac *emac = netdev_priv(ndev);
+	struct prueth *prueth = emac->prueth;
+	struct prueth_tx_chn *tx_chn;
+
+	tx_chn = &emac->tx_chns[0];
+
+	if (coal->rx_coalesce_usecs && coal->rx_coalesce_usecs < ICSSG_MIN_COALESCE_USECS) {
+		dev_info(prueth->dev, "defaulting to min value of %dus for rx-usecs\n",
+			 ICSSG_MIN_COALESCE_USECS);
+		coal->rx_coalesce_usecs = ICSSG_MIN_COALESCE_USECS;
+	}
+
+	if (coal->tx_coalesce_usecs && coal->tx_coalesce_usecs < ICSSG_MIN_COALESCE_USECS) {
+		dev_info(prueth->dev, "defaulting to min value of %dus for tx-usecs\n",
+			 ICSSG_MIN_COALESCE_USECS);
+		coal->tx_coalesce_usecs = ICSSG_MIN_COALESCE_USECS;
+	}
+
+	emac->rx_pace_timeout_ns = coal->rx_coalesce_usecs * 1000;
+	tx_chn->tx_pace_timeout_ns = coal->tx_coalesce_usecs * 1000;
+
+	return 0;
+}
+
+static int emac_set_per_queue_coalesce(struct net_device *ndev, u32 queue,
+				       struct ethtool_coalesce *coal)
+{
+	struct prueth_emac *emac = netdev_priv(ndev);
+	struct prueth *prueth = emac->prueth;
+	struct prueth_tx_chn *tx_chn;
+
+	if (queue >= PRUETH_MAX_TX_QUEUES)
+		return -EINVAL;
+
+	tx_chn = &emac->tx_chns[queue];
+
+	if (coal->tx_coalesce_usecs && coal->tx_coalesce_usecs < ICSSG_MIN_COALESCE_USECS) {
+		dev_info(prueth->dev, "defaulting to min value of %dus for tx-usecs for tx-%u\n",
+			 ICSSG_MIN_COALESCE_USECS, queue);
+		coal->tx_coalesce_usecs = ICSSG_MIN_COALESCE_USECS;
+	}
+
+	tx_chn->tx_pace_timeout_ns = coal->tx_coalesce_usecs * 1000;
+
+	return 0;
+}
+
 const struct ethtool_ops icssg_ethtool_ops = {
 	.get_drvinfo = emac_get_drvinfo,
 	.get_msglevel = emac_get_msglevel,
@@ -408,6 +490,11 @@ const struct ethtool_ops icssg_ethtool_ops = {
 	.get_ts_info = emac_get_ts_info,
 	.get_priv_flags = emac_get_ethtool_priv_flags,
 	.set_priv_flags = emac_set_ethtool_priv_flags,
+	.supported_coalesce_params = ETHTOOL_COALESCE_RX_USECS | ETHTOOL_COALESCE_TX_USECS,
+	.get_coalesce           = emac_get_coalesce,
+	.set_coalesce           = emac_set_coalesce,
+	.get_per_queue_coalesce = emac_get_per_queue_coalesce,
+	.set_per_queue_coalesce = emac_set_per_queue_coalesce,
 	.get_channels = emac_get_channels,
 	.set_channels = emac_set_channels,
 	.get_link_ksettings = emac_get_link_ksettings,
