@@ -34,6 +34,26 @@ config BRCM_TRACING
 config BRCMDBG
 	bool "Broadcom driver debug functions"
 	depends on BRCMSMAC || BRCMFMAC
-	select WANT_DEV_COREDUMP if BRCMFMAC
+	select WANT_DEV_COREDUMP
 	help
 	  Selecting this enables additional code for debug purposes.
+
+config BRCMFMAC_PCIE_BARWIN_SZ
+	bool "Custom PCIE BAR window size support for FullMAC driver"
+	depends on BRCMFMAC
+	depends on PCI
+	default n
+	help
+	  If you say Y here, the FMAC driver will use custom PCIE BAR
+	  window size. Say Y to allow developers to use custom PCIE
+	  BAR window size when HOST PCIE IP can support less then 4MB
+	  BAR window.
+
+config BRCMFMAC_BT_SHARED_SDIO
+	bool "FMAC shares SDIO bus to Bluetooth"
+	depends on BRCMFMAC
+	depends on BRCMFMAC_SDIO
+	default n
+	help
+	  Selecting this to enables sharing the SDIO bus interface between
+	  Cypress BT and WiFi host drivers.
