@@ -87,7 +87,7 @@ struct afx_hdl {
 	struct work_struct afx_work;
 	struct completion act_frm_scan;
 	bool is_active;
-	s32 peer_chan;
+	u16 peer_chan;
 	bool is_listen;
 	u16 my_listen_chan;
 	u16 peer_listen_chan;
@@ -138,6 +138,7 @@ struct brcmf_p2p_info {
 	bool block_gon_req_tx;
 	bool p2pdev_dynamically;
 	bool wait_for_offchan_complete;
+	struct wireless_dev *remin_on_channel_wdev;
 };
 
 s32 brcmf_p2p_attach(struct brcmf_cfg80211_info *cfg, bool p2pdev_forced);
@@ -170,7 +171,9 @@ int brcmf_p2p_notify_action_tx_complete(struct brcmf_if *ifp,
 					void *data);
 bool brcmf_p2p_send_action_frame(struct brcmf_cfg80211_info *cfg,
 				 struct net_device *ndev,
-				 struct brcmf_fil_af_params_le *af_params);
+				 struct brcmf_fil_af_params_le *af_params,
+				 struct brcmf_cfg80211_vif *vif,
+				 struct ieee80211_channel *peer_listen_chan);
 bool brcmf_p2p_scan_finding_common_channel(struct brcmf_cfg80211_info *cfg,
 					   struct brcmf_bss_info_le *bi);
 s32 brcmf_p2p_notify_rx_mgmt_p2p_probereq(struct brcmf_if *ifp,
