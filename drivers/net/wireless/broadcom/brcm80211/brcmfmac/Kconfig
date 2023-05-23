@@ -48,3 +48,10 @@ config BRCMFMAC_PCIE
 	  IEEE802.11ac embedded FullMAC WLAN driver. Say Y if you want to
 	  use the driver for an PCIE wireless card.
 
+config BRCMFMAC_BT_SHARED_SDIO
+	bool "FMAC shares SDIO bus to Bluetooth"
+	depends on BRCMFMAC_SDIO
+	default n
+	help
+	  This option enables the feautre of sharing the SDIO bus interface
+	  between Cypress BT and WiFi host drivers.
