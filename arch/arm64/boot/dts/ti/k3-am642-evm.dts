@@ -186,6 +186,8 @@
 
 			cpsw3g_phy3: ethernet-phy@3 {
 				reg = <3>;
+				tx-internal-delay-ps = <250>;
+				rx-internal-delay-ps = <2000>;
 			};
 		};
 	};
