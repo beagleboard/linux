@@ -51,6 +51,10 @@ properties:
     description: phandle pointing to the SRAM device node
     maxItems: 1
 
+  sram-size:
+    description: Amount to allocate from SRAM device node
+    maxItems: 1
+
 required:
   - compatible
   - reg
@@ -69,4 +73,5 @@ examples:
         clocks = <&clks 42>;
         clock-names = "vcodec";
         sram = <&sram>;
+	sram-size = <0x12345>;
     };
