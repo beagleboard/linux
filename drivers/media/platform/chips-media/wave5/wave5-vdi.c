@@ -151,6 +151,39 @@ void wave5_vdi_free_dma_memory(struct vpu_device *vpu_dev, struct vpu_buf *vb)
 	memset(vb, 0, sizeof(*vb));
 }
 
+void wave5_vdi_allocate_sram(struct vpu_device *vpu_dev)
+{
+	struct vpu_buf *vb = &vpu_dev->sram_buf;
+
+	if (!vpu_dev->sram_pool || !vpu_dev->sram_size)
+		return;
+
+	if (!vb->vaddr) {
+		vb->size = vpu_dev->sram_size;
+		vb->vaddr = gen_pool_dma_alloc(vpu_dev->sram_pool, vb->size,
+					       &vb->daddr);
+		if (!vb->vaddr)
+			vb->size = 0;
+	}
+
+	dev_dbg(vpu_dev->dev, "%s: sram daddr: %pad, size: %zu, vaddr: 0x%p\n",
+		__func__, &vb->daddr, vb->size, vb->vaddr);
+}
+
+void wave5_vdi_free_sram(struct vpu_device *vpu_dev)
+{
+	struct vpu_buf *vb = &vpu_dev->sram_buf;
+
+	if (!vb->size || !vb->vaddr)
+		return;
+
+	if (vb->vaddr)
+		gen_pool_free(vpu_dev->sram_pool, (unsigned long)vb->vaddr,
+			      vb->size);
+
+	memset(vb, 0, sizeof(*vb));
+}
+
 unsigned int wave5_vdi_convert_endian(struct vpu_device *vpu_dev, unsigned int endian)
 {
 	if (PRODUCT_CODE_W_SERIES(vpu_dev->product_code)) {

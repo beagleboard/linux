@@ -10,6 +10,7 @@
 
 #include <linux/kfifo.h>
 #include <linux/idr.h>
+#include <linux/genalloc.h>
 #include <media/v4l2-device.h>
 #include <media/v4l2-mem2mem.h>
 #include <media/v4l2-ctrls.h>
@@ -916,15 +917,11 @@ enum GOP_PRESET_IDX {
 };
 
 struct sec_axi_info {
-	struct {
-		u32 use_ip_enable;
-		u32 use_bit_enable;
-		u32 use_lf_row_enable: 1;
-		u32 use_enc_rdo_enable: 1;
-		u32 use_enc_lf_enable: 1;
-	} wave;
-	unsigned int buf_size;
-	dma_addr_t buf_base;
+	u32 use_ip_enable;
+	u32 use_bit_enable;
+	u32 use_lf_row_enable: 1;
+	u32 use_enc_rdo_enable: 1;
+	u32 use_enc_lf_enable: 1;
 };
 
 struct dec_info {
@@ -1019,11 +1016,13 @@ struct vpu_device {
 	struct mutex dev_lock; /* the lock for the src,dst v4l2 queues */
 	struct mutex hw_lock; /* lock hw configurations */
 	int irq;
-	enum product_id	 product;
-	struct vpu_attr	 attr;
+	enum product_id	product;
+	struct vpu_attr	attr;
 	struct vpu_buf common_mem;
 	u32 last_performance_cycles;
-	struct dma_vpu_buf sram_buf;
+	u32 sram_size;
+	struct gen_pool *sram_pool;
+	struct vpu_buf sram_buf;
 	void __iomem *vdb_register;
 	u32 product_code;
 	u32 ext_addr;
@@ -1065,8 +1064,8 @@ struct vpu_instance {
 	enum vpu_instance_type type;
 	const struct vpu_instance_ops *ops;
 
-	enum wave_std		 std;
-	s32			 id;
+	enum wave_std std;
+	s32 id;
 	union {
 		struct enc_info enc_info;
 		struct dec_info dec_info;
@@ -1111,6 +1110,8 @@ int wave5_vdi_write_memory(struct vpu_device *vpu_dev, struct vpu_buf *vb, size_
 			   u8 *data, size_t len, unsigned int endian);
 unsigned int wave5_vdi_convert_endian(struct vpu_device *vpu_dev, unsigned int endian);
 void wave5_vdi_free_dma_memory(struct vpu_device *vpu_dev, struct vpu_buf *vb);
+void wave5_vdi_allocate_sram(struct vpu_device *vpu_dev);
+void wave5_vdi_free_sram(struct vpu_device *vpu_dev);
 
 int wave5_vpu_init_with_bitcode(struct device *dev, u8 *bitcode, size_t size);
 void wave5_vpu_clear_interrupt_ex(struct vpu_instance *inst, u32 intr_flag);

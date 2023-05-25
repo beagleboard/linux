@@ -29,11 +29,6 @@ struct vpu_buf {
 	void *vaddr;
 };
 
-struct dma_vpu_buf {
-	size_t size;
-	dma_addr_t daddr;
-};
-
 enum endian_mode {
 	VDI_LITTLE_ENDIAN = 0, /* 64bit LE */
 	VDI_BIG_ENDIAN, /* 64bit BE */

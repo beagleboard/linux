@@ -1663,6 +1663,7 @@ static int wave5_vpu_open_enc(struct file *filp)
 	list_add_tail(&inst->list, &dev->instances);
 
 	mutex_unlock(&dev->dev_lock);
+	wave5_vdi_allocate_sram(inst->dev);
 
 	return 0;
 

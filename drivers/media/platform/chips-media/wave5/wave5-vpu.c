@@ -8,7 +8,6 @@
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/clk.h>
-#include <linux/of_address.h>
 #include <linux/firmware.h>
 #include <linux/interrupt.h>
 #include "wave5-vpu.h"
@@ -217,9 +216,7 @@ static int wave5_vpu_probe(struct platform_device *pdev)
 {
 	int ret;
 	struct vpu_device *dev;
-	struct device_node *np;
 	const struct wave5_match_data *match_data;
-	struct resource sram;
 
 	match_data = device_get_match_data(&pdev->dev);
 	if (!match_data) {
@@ -260,20 +257,16 @@ static int wave5_vpu_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	np = of_parse_phandle(pdev->dev.of_node, "sram", 0);
-	if (!np) {
-		dev_warn(&pdev->dev, "sram node not found\n");
-	} else {
-		ret = of_address_to_resource(np, 0, &sram);
-		if (ret) {
-			dev_err(&pdev->dev, "sram resource not available\n");
-			goto err_put_node;
-		}
-		dev->sram_buf.daddr = sram.start;
-		dev->sram_buf.size = resource_size(&sram);
-		dev_dbg(&pdev->dev, "%s: sram daddr: %pad, size: 0x%lx\n",
-			__func__, &dev->sram_buf.daddr, dev->sram_buf.size);
+	ret = of_property_read_u32(pdev->dev.of_node, "sram-size",
+				   &dev->sram_size);
+	if (ret) {
+		dev_warn(&pdev->dev, "sram-size not found\n");
+		dev->sram_size = 0;
 	}
+
+	dev->sram_pool = of_gen_pool_get(pdev->dev.of_node, "sram", 0);
+	if (!dev->sram_pool)
+		dev_warn(&pdev->dev, "sram node not found\n");
 
 	dev->product_code = wave5_vdi_readl(dev, VPU_PRODUCT_CODE_REGISTER);
 	ret = wave5_vdi_init(&pdev->dev);
@@ -353,8 +346,6 @@ err_vdi_release:
 	wave5_vdi_release(&pdev->dev);
 err_clk_dis:
 	clk_bulk_disable_unprepare(dev->num_clks, dev->clks);
-err_put_node:
-	of_node_put(np);
 
 	return ret;
 }
