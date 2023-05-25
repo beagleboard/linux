@@ -735,5 +735,7 @@
 
 	icssg1_phy1: ethernet-phy@0 {
 		reg = <0xf>;
+		tx-internal-delay-ps = <250>;
+		rx-internal-delay-ps = <2000>;
 	};
 };
