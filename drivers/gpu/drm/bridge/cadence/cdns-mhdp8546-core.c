@@ -1751,8 +1751,8 @@ static int cdns_mhdp_attach(struct drm_bridge *bridge,
 			return -ETIMEDOUT;
 		}
 
-		ret = cdns_mhdp_update_link_status(mhdp);
-		return ret;
+		cdns_mhdp_update_link_status(mhdp);
+		return 0;
 	}
 	/* Enable SW event interrupts */
 	if (hw_ready)
