@@ -34,14 +34,6 @@
 	status = "disabled";
 };
 
-&usbss0 {
-	status = "disabled";
-};
-
-&usbss1 {
-	status = "disabled";
-};
-
 &cbass_mcu {
 	status = "disabled";
 };
