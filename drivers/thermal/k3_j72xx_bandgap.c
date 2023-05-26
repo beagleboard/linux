@@ -19,6 +19,9 @@
 #include <linux/of.h>
 #include <linux/delay.h>
 #include <linux/slab.h>
+#include <linux/cpufreq.h>
+#include <linux/cpumask.h>
+#include <linux/cpu_cooling.h>
 
 #define K3_VTM_DEVINFO_PWR0_OFFSET		0x4
 #define K3_VTM_DEVINFO_PWR0_TEMPSENS_CT_MASK	0xf0
@@ -184,9 +187,27 @@ struct k3_j72xx_bandgap {
 /* common data structures */
 struct k3_thermal_data {
 	struct k3_j72xx_bandgap *bgp;
+	struct cpufreq_policy *policy;
+	struct thermal_zone_device *ti_thermal;
+	struct thermal_cooling_device *cool_dev;
+	struct work_struct thermal_wq;
 	u32 ctrl_offset;
 	u32 stat_offset;
+	enum thermal_device_mode mode;
+	int prev_temp;
+	int sensor_id;
 };
+
+static void k3_thermal_work(struct work_struct *work)
+{
+	struct k3_thermal_data *data = container_of(work,
+					struct k3_thermal_data, thermal_wq);
+
+	thermal_zone_device_update(data->ti_thermal, THERMAL_EVENT_UNSPECIFIED);
+
+	dev_info(&data->ti_thermal->device, "updated thermal zone %s\n",
+		 data->ti_thermal->type);
+}
 
 static int two_cmp(int tmp, int mask)
 {
@@ -259,8 +280,41 @@ static int k3_thermal_get_temp(struct thermal_zone_device *tz, int *temp)
 	return ret;
 }
 
+static int k3_thermal_get_trend(struct thermal_zone_device *tz, int trip, enum thermal_trend *trend)
+{
+	struct k3_thermal_data *data = tz->devdata;
+	struct k3_j72xx_bandgap *bgp;
+	u32 temp1, temp2;
+	int id, tr, ret = 0;
+
+	bgp = data->bgp;
+	id = data->sensor_id;
+
+	ret = k3_thermal_get_temp(tz, &temp1);
+	if (ret)
+		return ret;
+	temp2 = data->prev_temp;
+
+	tr = temp1 - temp2;
+
+	data->prev_temp = temp1;
+
+	if (tr > 0)
+		*trend = THERMAL_TREND_RAISING;
+	else if (tr < 0)
+		*trend = THERMAL_TREND_DROPPING;
+	else
+		*trend = THERMAL_TREND_STABLE;
+
+	dev_dbg(bgp->dev, "The temperatures are t1 = %d and t2 = %d and trend =%d\n",
+		temp1, temp2, *trend);
+
+	return ret;
+}
+
 static const struct thermal_zone_device_ops k3_of_thermal_ops = {
 	.get_temp = k3_thermal_get_temp,
+	.get_trend = k3_thermal_get_trend,
 };
 
 static int k3_j72xx_bandgap_temp_to_adc_code(int temp)
@@ -349,6 +403,63 @@ static void print_look_up_table(struct device *dev, int *ref_table)
 struct k3_j72xx_bandgap_data {
 	unsigned int has_errata_i2128;
 };
+
+int k3_thermal_register_cpu_cooling(struct k3_j72xx_bandgap *bgp, int id)
+{
+	struct k3_thermal_data *data;
+	struct device_node *np = bgp->dev->of_node;
+
+	/*
+	 * We are assuming here that if one deploys the zone
+	 * using DT, then it must be aware that the cooling device
+	 * loading has to happen via cpufreq driver.
+	 */
+	if (of_find_property(np, "#thermal-sensor-cells", NULL))
+		return 0;
+
+	data = bgp->ts_data[id];
+	if (!data)
+		return -EINVAL;
+
+	data->policy = cpufreq_cpu_get(0);
+	if (!data->policy) {
+		pr_debug("%s: CPUFreq policy not found\n", __func__);
+		return -EPROBE_DEFER;
+	}
+
+	/* Register cooling device */
+	data->cool_dev = cpufreq_cooling_register(data->policy);
+	if (IS_ERR(data->cool_dev)) {
+		int ret = PTR_ERR(data->cool_dev);
+
+		dev_err(bgp->dev, "Failed to register cpu cooling device %d\n",
+			ret);
+		cpufreq_cpu_put(data->policy);
+
+		return ret;
+	}
+
+	data->mode = THERMAL_DEVICE_ENABLED;
+
+	INIT_WORK(&data->thermal_wq, k3_thermal_work);
+
+	return 0;
+}
+
+int ti_thermal_unregister_cpu_cooling(struct k3_j72xx_bandgap *bgp, int id)
+{
+	struct k3_thermal_data *data;
+
+	data = bgp->ts_data[id];
+
+	if (!IS_ERR_OR_NULL(data)) {
+		cpufreq_cooling_unregister(data->cool_dev);
+		if (data->policy)
+			cpufreq_cpu_put(data->policy);
+	}
+
+	return 0;
+}
 
 static int k3_j72xx_bandgap_probe(struct platform_device *pdev)
 {
@@ -449,6 +560,7 @@ static int k3_j72xx_bandgap_probe(struct platform_device *pdev)
 	/* Register the thermal sensors */
 	for (id = 0; id < cnt; id++) {
 		data[id].bgp = bgp;
+		data[id].sensor_id = id;
 		data[id].ctrl_offset = K3_VTM_TMPSENS0_CTRL_OFFSET + id * 0x20;
 		data[id].stat_offset = data[id].ctrl_offset +
 					K3_VTM_TMPSENS_STAT_OFFSET;
@@ -474,6 +586,12 @@ static int k3_j72xx_bandgap_probe(struct platform_device *pdev)
 		writel(val, data[id].bgp->cfg2_base + data[id].ctrl_offset);
 
 		bgp->ts_data[id] = &data[id];
+
+		if (id == 1)
+			ret = k3_thermal_register_cpu_cooling(bgp, 1);
+		if (ret)
+			goto err_alloc;
+
 		ti_thermal = devm_thermal_of_zone_register(bgp->dev, id, &data[id],
 							   &k3_of_thermal_ops);
 		if (IS_ERR(ti_thermal)) {
