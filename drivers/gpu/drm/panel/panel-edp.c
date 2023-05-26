@@ -25,6 +25,7 @@
 #include <linux/delay.h>
 #include <linux/gpio/consumer.h>
 #include <linux/iopoll.h>
+#include <linux/media-bus-format.h>
 #include <linux/module.h>
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
@@ -189,6 +190,9 @@ struct panel_desc {
 
 	/** @delay: Structure containing various delay values for this panel. */
 	struct panel_delay delay;
+
+	/** @bus_format: See MEDIA_BUS_FMT_... defines. */
+	u32 bus_format;
 };
 
 /**
@@ -339,6 +343,9 @@ static int panel_edp_get_non_edid_modes(struct panel_edp *panel,
 	connector->display_info.bpc = panel->desc->bpc;
 	connector->display_info.width_mm = panel->desc->size.width;
 	connector->display_info.height_mm = panel->desc->size.height;
+	if (panel->desc->bus_format)
+		drm_display_info_set_bus_formats(&connector->display_info,
+						 &panel->desc->bus_format, 1);
 
 	return num;
 }
@@ -1745,6 +1752,7 @@ static const struct panel_desc ti_panel_edp = {
 	.modes = &ti_panel_edp_mode,
 	.num_modes = 1,
 	.bpc = 8,
+	.bus_format = MEDIA_BUS_FMT_RGB888_1X24,
 };
 
 static const struct of_device_id platform_of_match[] = {
