@@ -18,7 +18,7 @@ struct nft_bitwise_fast_expr {
 	u32			mask;
 	u32			xor;
 	u8			sreg;
-	enum nft_registers	dreg:8;
+	u8			dreg;
 };
 
 struct nft_cmp_fast_expr {
@@ -44,7 +44,7 @@ struct nft_payload {
 	enum nft_payload_bases	base:8;
 	u8			offset;
 	u8			len;
-	enum nft_registers	dreg:8;
+	u8			dreg;
 };
 
 struct nft_payload_set {
