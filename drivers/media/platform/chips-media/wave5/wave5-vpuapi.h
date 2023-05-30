@@ -1073,7 +1073,7 @@ struct vpu_instance {
 	} *codec_info;
 	struct frame_buffer frame_buf[MAX_REG_FRAME];
 	struct vpu_buf frame_vbuf[MAX_REG_FRAME];
-	u32 min_dst_buf_count;
+	u32 fbc_buf_count;
 	u32 dst_buf_count;
 	u32 queued_src_buf_num;
 	u32 queued_dst_buf_num;

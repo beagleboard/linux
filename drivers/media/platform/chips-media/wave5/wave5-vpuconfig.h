@@ -53,9 +53,9 @@
 /************************************************************************/
 /* VPU COMMON MEMORY                                                    */
 /************************************************************************/
-#define VLC_BUF_NUM                     (3)
+#define VLC_BUF_NUM                     (2)
 
-#define COMMAND_QUEUE_DEPTH             (4)
+#define COMMAND_QUEUE_DEPTH             (2)
 
 #define W5_REMAP_INDEX0                 0
 #define W5_REMAP_INDEX1                 1

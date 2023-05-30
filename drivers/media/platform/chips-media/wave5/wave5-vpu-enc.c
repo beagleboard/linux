@@ -162,7 +162,7 @@ static void wave5_update_pix_fmt(struct v4l2_pix_format_mplane *pix_mp, unsigned
 		pix_mp->width = width;
 		pix_mp->height = height;
 		pix_mp->plane_fmt[0].bytesperline = 0;
-		pix_mp->plane_fmt[0].sizeimage = width * height;
+		pix_mp->plane_fmt[0].sizeimage = width * height / 8 * 3;
 		break;
 	}
 }
@@ -1296,14 +1296,14 @@ static int wave5_vpu_enc_queue_setup(struct vb2_queue *q, unsigned int *num_buff
 		if (ctrl)
 			v4l2_ctrl_s_ctrl(ctrl, inst->min_src_buf_count);
 
-		inst->min_dst_buf_count = initial_info.min_frame_buffer_count;
+		inst->fbc_buf_count = initial_info.min_frame_buffer_count;
 		inst->src_buf_count = inst->min_src_buf_count;
 
 		if (*num_buffers > inst->src_buf_count)
 			inst->src_buf_count = *num_buffers;
 
 		*num_buffers = inst->src_buf_count;
-		non_linear_num = inst->min_dst_buf_count;
+		non_linear_num = inst->fbc_buf_count;
 
 		fb_stride = ALIGN(inst->dst_fmt.width, 32);
 		fb_height = ALIGN(inst->dst_fmt.height, 32);
@@ -1348,7 +1348,7 @@ static int wave5_vpu_enc_queue_setup(struct vb2_queue *q, unsigned int *num_buff
 	return 0;
 
 free_buffers:
-	for (i = 0; i < inst->min_dst_buf_count; i++)
+	for (i = 0; i < inst->fbc_buf_count; i++)
 		wave5_vdi_free_dma_memory(inst->dev, &inst->frame_vbuf[i]);
 	return ret;
 }

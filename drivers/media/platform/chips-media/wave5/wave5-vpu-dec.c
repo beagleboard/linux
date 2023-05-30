@@ -226,7 +226,7 @@ static void wave5_update_pix_fmt(struct v4l2_pix_format_mplane *pix_mp, unsigned
 		pix_mp->width = width;
 		pix_mp->height = height;
 		pix_mp->plane_fmt[0].bytesperline = 0;
-		pix_mp->plane_fmt[0].sizeimage = width * height;
+		pix_mp->plane_fmt[0].sizeimage = width * height / 8 * 3;
 		break;
 	}
 }
@@ -827,7 +827,7 @@ static int wave5_vpu_dec_queue_setup(struct vb2_queue *q, unsigned int *num_buff
 		memset(&open_param, 0, sizeof(struct dec_open_param));
 		wave5_set_default_dec_openparam(&open_param);
 
-		inst->bitstream_vbuf.size = ALIGN(inst->src_fmt.plane_fmt[0].sizeimage, 1024) * 4;
+		inst->bitstream_vbuf.size = ALIGN((inst->src_fmt.plane_fmt[0].sizeimage * 3), 1024);
 		ret = wave5_vdi_allocate_dma_memory(inst->dev, &inst->bitstream_vbuf);
 		if (ret) {
 			dev_dbg(inst->dev->dev, "%s: alloc bitstream of size %zu fail: %d\n",
@@ -860,7 +860,7 @@ static int wave5_vpu_dec_queue_setup(struct vb2_queue *q, unsigned int *num_buff
 	} else if (inst->state == VPU_INST_STATE_INIT_SEQ &&
 		   q->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 
-		if (*num_buffers > inst->min_dst_buf_count &&
+		if (*num_buffers > inst->dst_buf_count &&
 		    *num_buffers < WAVE5_MAX_FBS)
 			inst->dst_buf_count = *num_buffers;
 
@@ -886,7 +886,7 @@ static int wave5_prepare_fb(struct vpu_instance *inst)
 	int ret, i;
 
 	linear_num = inst->dst_buf_count;
-	non_linear_num = inst->min_dst_buf_count;
+	non_linear_num = inst->fbc_buf_count;
 
 	for (i = 0; i < non_linear_num; i++) {
 		struct frame_buffer *frame = &inst->frame_buf[i];
@@ -961,8 +961,8 @@ static int wave5_vpu_dec_start_streaming_open(struct vpu_instance *inst)
 			initial_info.profile, initial_info.min_frame_buffer_count);
 
 		inst->state = VPU_INST_STATE_INIT_SEQ;
-		inst->min_dst_buf_count = initial_info.min_frame_buffer_count + 1;
-		inst->dst_buf_count = inst->min_dst_buf_count;
+		inst->fbc_buf_count = initial_info.min_frame_buffer_count + 1;
+		inst->dst_buf_count = initial_info.frame_buf_delay + 1;
 
 		inst->conf_win_width = initial_info.pic_width - initial_info.pic_crop_rect.right;
 		inst->conf_win_height = initial_info.pic_height - initial_info.pic_crop_rect.bottom;
@@ -970,7 +970,7 @@ static int wave5_vpu_dec_start_streaming_open(struct vpu_instance *inst)
 		ctrl = v4l2_ctrl_find(&inst->v4l2_ctrl_hdl,
 				      V4L2_CID_MIN_BUFFERS_FOR_CAPTURE);
 		if (ctrl)
-			v4l2_ctrl_s_ctrl(ctrl, inst->min_dst_buf_count);
+			v4l2_ctrl_s_ctrl(ctrl, inst->dst_buf_count);
 
 		if (initial_info.pic_width != inst->src_fmt.width ||
 		    initial_info.pic_height != inst->src_fmt.height) {
@@ -1030,8 +1030,8 @@ static int wave5_vpu_dec_start_streaming_seek(struct vpu_instance *inst)
 			__func__, initial_info.pic_width, initial_info.pic_height,
 			initial_info.profile, initial_info.min_frame_buffer_count);
 
-		inst->min_dst_buf_count = initial_info.min_frame_buffer_count + 1;
-		inst->dst_buf_count = inst->min_dst_buf_count;
+		inst->fbc_buf_count = initial_info.min_frame_buffer_count + 1;
+		inst->dst_buf_count = initial_info.frame_buf_delay + 1;
 
 		inst->conf_win_width = initial_info.pic_width - initial_info.pic_crop_rect.right;
 		inst->conf_win_height = initial_info.pic_height - initial_info.pic_crop_rect.bottom;
@@ -1039,7 +1039,7 @@ static int wave5_vpu_dec_start_streaming_seek(struct vpu_instance *inst)
 		ctrl = v4l2_ctrl_find(&inst->v4l2_ctrl_hdl,
 				      V4L2_CID_MIN_BUFFERS_FOR_CAPTURE);
 		if (ctrl)
-			v4l2_ctrl_s_ctrl(ctrl, inst->min_dst_buf_count);
+			v4l2_ctrl_s_ctrl(ctrl, inst->dst_buf_count);
 
 		if (initial_info.pic_width != inst->src_fmt.width ||
 		    initial_info.pic_height != inst->src_fmt.height) {
@@ -1088,7 +1088,7 @@ static void wave5_vpu_dec_buf_queue_dst(struct vb2_buffer *vb)
 	if (inst->state == VPU_INST_STATE_INIT_SEQ) {
 		dma_addr_t buf_addr_y = 0, buf_addr_cb = 0, buf_addr_cr = 0;
 		u32 buf_size = 0;
-		u32 non_linear_num = inst->dst_buf_count;
+		u32 non_linear_num = inst->fbc_buf_count;
 		u32 fb_stride = inst->dst_fmt.width;
 		u32 luma_size = fb_stride * inst->dst_fmt.height;
 		u32 chroma_size = (fb_stride / 2) * (inst->dst_fmt.height / 2);
