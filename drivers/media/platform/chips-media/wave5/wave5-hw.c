@@ -720,12 +720,14 @@ int wave5_vpu_dec_register_framebuffer(struct vpu_instance *inst, struct frame_b
 	size_t remain, idx, j, i, cnt_8_chunk;
 	u32 start_no, end_no;
 	u32 reg_val, cbcr_interleave, nv21, pic_size;
-	u32 endian, yuv_format;
+	u32 endian;
 	u32 addr_y, addr_cb, addr_cr;
 	u32 table_width = init_info->pic_width;
 	u32 table_height = init_info->pic_height;
 	u32 mv_col_size, frame_width, frame_height, fbc_y_tbl_size, fbc_c_tbl_size;
 	struct vpu_buf vb_buf;
+	bool justified = WTL_RIGHT_JUSTIFIED;
+	u32 format_no = WTL_PIXEL_8BIT;
 	u32 color_format = 0;
 	u32 pixel_order = 1;
 	u32 bwb_flag = (map_type == LINEAR_FRAME_MAP) ? 1 : 0;
@@ -846,21 +848,23 @@ int wave5_vpu_dec_register_framebuffer(struct vpu_instance *inst, struct frame_b
 		vpu_write_reg(inst->dev, W5_CMD_SET_FB_TASK_BUF_SIZE, vb_buf.size);
 	} else {
 		pic_size = (init_info->pic_width << 16) | (init_info->pic_height);
+
+		if (inst->output_format == FORMAT_422)
+			color_format = 1;
+		else
+			color_format = 0;
 	}
 	endian = wave5_vdi_convert_endian(inst->dev, fb_arr[0].endian);
 	vpu_write_reg(inst->dev, W5_PIC_SIZE, pic_size);
 
-	yuv_format = 0;
-	color_format = 0;
-
-	reg_val =
-		(bwb_flag << 28) |
-		(pixel_order << 23) | /* PIXEL ORDER in 128bit. first pixel in low address */
-		(yuv_format << 20) |
-		(color_format << 19) |
-		(nv21 << 17) |
-		(cbcr_interleave << 16) |
-		(fb_arr[0].stride);
+	reg_val = (bwb_flag << 28) |
+		  (pixel_order << 23) |
+		  (justified << 22) |
+		  (format_no << 20) |
+		  (color_format << 19) |
+		  (nv21 << 17) |
+		  (cbcr_interleave << 16) |
+		  (fb_arr[0].stride);
 	vpu_write_reg(inst->dev, W5_COMMON_PIC_INFO, reg_val);
 
 	remain = count;

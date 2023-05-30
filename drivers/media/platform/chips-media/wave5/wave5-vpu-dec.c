@@ -51,6 +51,27 @@ static const struct vpu_format dec_fmt_list[FMT_TYPES][MAX_FMTS] = {
 			.min_height = 8,
 		},
 		{
+			.v4l2_pix_fmt = V4L2_PIX_FMT_YUV422P,
+			.max_width = 8192,
+			.min_width = 8,
+			.max_height = 4320,
+			.min_height = 8,
+		},
+		{
+			.v4l2_pix_fmt = V4L2_PIX_FMT_NV16,
+			.max_width = 8192,
+			.min_width = 8,
+			.max_height = 4320,
+			.min_height = 8,
+		},
+		{
+			.v4l2_pix_fmt = V4L2_PIX_FMT_NV61,
+			.max_width = 8192,
+			.min_width = 8,
+			.max_height = 4320,
+			.min_height = 8,
+		},
+		{
 			.v4l2_pix_fmt = V4L2_PIX_FMT_YUV420M,
 			.max_width = 8192,
 			.min_width = 8,
@@ -66,6 +87,27 @@ static const struct vpu_format dec_fmt_list[FMT_TYPES][MAX_FMTS] = {
 		},
 		{
 			.v4l2_pix_fmt = V4L2_PIX_FMT_NV21M,
+			.max_width = 8192,
+			.min_width = 8,
+			.max_height = 4320,
+			.min_height = 8,
+		},
+		{
+			.v4l2_pix_fmt = V4L2_PIX_FMT_YUV422M,
+			.max_width = 8192,
+			.min_width = 8,
+			.max_height = 4320,
+			.min_height = 8,
+		},
+		{
+			.v4l2_pix_fmt = V4L2_PIX_FMT_NV16M,
+			.max_width = 8192,
+			.min_width = 8,
+			.max_height = 4320,
+			.min_height = 8,
+		},
+		{
+			.v4l2_pix_fmt = V4L2_PIX_FMT_NV61M,
 			.max_width = 8192,
 			.min_width = 8,
 			.max_height = 4320,
@@ -203,6 +245,14 @@ static void wave5_update_pix_fmt(struct v4l2_pix_format_mplane *pix_mp, unsigned
 		pix_mp->plane_fmt[0].bytesperline = round_up(width, 32);
 		pix_mp->plane_fmt[0].sizeimage = width * height * 3 / 2;
 		break;
+	case V4L2_PIX_FMT_YUV422P:
+	case V4L2_PIX_FMT_NV16:
+	case V4L2_PIX_FMT_NV61:
+		pix_mp->width = round_up(width, 32);
+		pix_mp->height = round_up(height, 16);
+		pix_mp->plane_fmt[0].bytesperline = round_up(width, 32);
+		pix_mp->plane_fmt[0].sizeimage = width * height * 2;
+		break;
 	case V4L2_PIX_FMT_YUV420M:
 		pix_mp->width = round_up(width, 32);
 		pix_mp->height = round_up(height, 16);
@@ -221,6 +271,25 @@ static void wave5_update_pix_fmt(struct v4l2_pix_format_mplane *pix_mp, unsigned
 		pix_mp->plane_fmt[0].sizeimage = width * height;
 		pix_mp->plane_fmt[1].bytesperline = round_up(width, 32);
 		pix_mp->plane_fmt[1].sizeimage = width * height / 2;
+		break;
+	case V4L2_PIX_FMT_YUV422M:
+		pix_mp->width = round_up(width, 32);
+		pix_mp->height = round_up(height, 16);
+		pix_mp->plane_fmt[0].bytesperline = round_up(width, 32);
+		pix_mp->plane_fmt[0].sizeimage = width * height;
+		pix_mp->plane_fmt[1].bytesperline = round_up(width, 32) / 2;
+		pix_mp->plane_fmt[1].sizeimage = width * height / 2;
+		pix_mp->plane_fmt[2].bytesperline = round_up(width, 32) / 2;
+		pix_mp->plane_fmt[2].sizeimage = width * height / 2;
+		break;
+	case V4L2_PIX_FMT_NV16M:
+	case V4L2_PIX_FMT_NV61M:
+		pix_mp->width = round_up(width, 32);
+		pix_mp->height = round_up(height, 16);
+		pix_mp->plane_fmt[0].bytesperline = round_up(width, 32);
+		pix_mp->plane_fmt[0].sizeimage = width * height;
+		pix_mp->plane_fmt[1].bytesperline = round_up(width, 32);
+		pix_mp->plane_fmt[1].sizeimage = width * height;
 		break;
 	default:
 		pix_mp->width = width;
@@ -274,6 +343,49 @@ static void wave5_vpu_dec_stop_decode(struct vpu_instance *inst)
 	v4l2_m2m_job_finish(inst->v4l2_m2m_dev, inst->v4l2_fh.m2m_ctx);
 }
 
+static void wave5_handle_display_frame(struct vpu_instance *inst,
+				       struct dec_output_info *info)
+{
+	struct vb2_v4l2_buffer *dst_buf =
+		v4l2_m2m_dst_buf_remove_by_idx(inst->v4l2_fh.m2m_ctx,
+					       info->index_frame_display);
+	int stride = info->disp_frame.stride;
+	int height = info->disp_pic_height - info->rc_display.bottom;
+	unsigned int size;
+
+	if (inst->dst_fmt.num_planes == 1) {
+		if (inst->output_format == FORMAT_422)
+			size = stride * height * 2;
+		else
+			size = stride * height * 3 / 2;
+		vb2_set_plane_payload(&dst_buf->vb2_buf, 0, size);
+	} else if (inst->dst_fmt.num_planes == 2) {
+		size = stride * height;
+		vb2_set_plane_payload(&dst_buf->vb2_buf, 0, size);
+		if (inst->output_format == FORMAT_422)
+			size = stride * height;
+		else
+			size = stride * height / 2;
+		vb2_set_plane_payload(&dst_buf->vb2_buf, 1, size);
+	} else if (inst->dst_fmt.num_planes == 3) {
+		size = stride * height;
+		vb2_set_plane_payload(&dst_buf->vb2_buf, 0, size);
+		if (inst->output_format == FORMAT_422)
+			size = stride * height / 2;
+		else
+			size = stride * height / 4;
+		vb2_set_plane_payload(&dst_buf->vb2_buf, 1, size);
+		vb2_set_plane_payload(&dst_buf->vb2_buf, 2, size);
+	}
+
+	dst_buf->vb2_buf.timestamp = inst->timestamp;
+	dst_buf->field = V4L2_FIELD_NONE;
+	v4l2_m2m_buf_done(dst_buf, VB2_BUF_STATE_DONE);
+
+	dev_dbg(inst->dev->dev, "%s: frame_cycle %8u\n",
+		__func__, info->frame_cycle);
+}
+
 static void wave5_vpu_dec_finish_decode(struct vpu_instance *inst)
 {
 	struct dec_output_info dec_output_info;
@@ -295,36 +407,7 @@ static void wave5_vpu_dec_finish_decode(struct vpu_instance *inst)
 		wave5_handle_src_buffer(inst);
 
 		if (dec_output_info.index_frame_display >= 0) {
-			struct vb2_v4l2_buffer *dst_buf =
-				v4l2_m2m_dst_buf_remove_by_idx(inst->v4l2_fh.m2m_ctx,
-							       dec_output_info.index_frame_display);
-			int stride = dec_output_info.disp_frame.stride;
-			int height = dec_output_info.disp_pic_height -
-				dec_output_info.rc_display.bottom;
-
-			if (inst->dst_fmt.num_planes == 1) {
-				vb2_set_plane_payload(&dst_buf->vb2_buf, 0,
-						      (stride * height * 3 / 2));
-			} else if (inst->dst_fmt.num_planes == 2) {
-				vb2_set_plane_payload(&dst_buf->vb2_buf, 0,
-						      (stride * height));
-				vb2_set_plane_payload(&dst_buf->vb2_buf, 1,
-						      ((stride / 2) * height));
-			} else if (inst->dst_fmt.num_planes == 3) {
-				vb2_set_plane_payload(&dst_buf->vb2_buf, 0,
-						      (stride * height));
-				vb2_set_plane_payload(&dst_buf->vb2_buf, 1,
-						      ((stride / 2) * (height / 2)));
-				vb2_set_plane_payload(&dst_buf->vb2_buf, 2,
-						      ((stride / 2) * (height / 2)));
-			}
-
-			dst_buf->vb2_buf.timestamp = inst->timestamp;
-			dst_buf->field = V4L2_FIELD_NONE;
-			v4l2_m2m_buf_done(dst_buf, VB2_BUF_STATE_DONE);
-
-			dev_dbg(inst->dev->dev, "%s: frame_cycle %8u\n",
-				__func__, dec_output_info.frame_cycle);
+			wave5_handle_display_frame(inst, &dec_output_info);
 		} else if (dec_output_info.index_frame_display == DISPLAY_IDX_FLAG_SEQ_END &&
 			   !inst->eos) {
 			static const struct v4l2_event vpu_event_eos = {
@@ -486,13 +569,31 @@ static int wave5_vpu_dec_s_fmt_cap(struct file *file, void *fh, struct v4l2_form
 	    inst->dst_fmt.pixelformat == V4L2_PIX_FMT_NV12M) {
 		inst->cbcr_interleave = true;
 		inst->nv21 = false;
+		inst->output_format = FORMAT_420;
 	} else if (inst->dst_fmt.pixelformat == V4L2_PIX_FMT_NV21 ||
 		   inst->dst_fmt.pixelformat == V4L2_PIX_FMT_NV21M) {
 		inst->cbcr_interleave = true;
 		inst->nv21 = true;
+		inst->output_format = FORMAT_420;
+	} else if (inst->dst_fmt.pixelformat == V4L2_PIX_FMT_NV16 ||
+		   inst->dst_fmt.pixelformat == V4L2_PIX_FMT_NV16M) {
+		inst->cbcr_interleave = true;
+		inst->nv21 = false;
+		inst->output_format = FORMAT_422;
+	} else if (inst->dst_fmt.pixelformat == V4L2_PIX_FMT_NV61 ||
+		   inst->dst_fmt.pixelformat == V4L2_PIX_FMT_NV61M) {
+		inst->cbcr_interleave = true;
+		inst->nv21 = true;
+		inst->output_format = FORMAT_422;
+	} else if (inst->dst_fmt.pixelformat == V4L2_PIX_FMT_YUV422P ||
+		   inst->dst_fmt.pixelformat == V4L2_PIX_FMT_YUV422M) {
+		inst->cbcr_interleave = false;
+		inst->nv21 = false;
+		inst->output_format = FORMAT_422;
 	} else {
 		inst->cbcr_interleave = false;
 		inst->nv21 = false;
+		inst->output_format = FORMAT_420;
 	}
 
 	return 0;
@@ -803,19 +904,30 @@ static int wave5_vpu_dec_queue_setup(struct vb2_queue *q, unsigned int *num_buff
 		*num_planes = inst_format.num_planes;
 
 		if (*num_planes == 1) {
-			sizes[0] = inst_format.width * inst_format.height * 3 / 2;
+			if (inst->output_format == FORMAT_422)
+				sizes[0] = inst_format.width * inst_format.height * 2;
+			else
+				sizes[0] = inst_format.width * inst_format.height * 3 / 2;
 			if (q->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
 				sizes[0] = inst_format.plane_fmt[0].sizeimage;
 			dev_dbg(inst->dev->dev, "%s: size[0]: %u\n", __func__, sizes[0]);
 		} else if (*num_planes == 2) {
 			sizes[0] = inst_format.width * inst_format.height;
-			sizes[1] = inst_format.width * inst_format.height / 2;
+			if (inst->output_format == FORMAT_422)
+				sizes[1] = inst_format.width * inst_format.height;
+			else
+				sizes[1] = inst_format.width * inst_format.height / 2;
 			dev_dbg(inst->dev->dev, "%s: size[0]: %u | size[1]: %u\n",
 				__func__, sizes[0], sizes[1]);
 		} else if (*num_planes == 3) {
 			sizes[0] = inst_format.width * inst_format.height;
-			sizes[1] = inst_format.width * inst_format.height / 4;
-			sizes[2] = inst_format.width * inst_format.height / 4;
+			if (inst->output_format == FORMAT_422) {
+				sizes[1] = inst_format.width * inst_format.height / 2;
+				sizes[2] = inst_format.width * inst_format.height / 2;
+			} else {
+				sizes[1] = inst_format.width * inst_format.height / 4;
+				sizes[2] = inst_format.width * inst_format.height / 4;
+			}
 			dev_dbg(inst->dev->dev, "%s: size[0]: %u | size[1]: %u | size[2]: %u\n",
 				__func__, sizes[0], sizes[1], sizes[2]);
 		}
@@ -1088,10 +1200,15 @@ static void wave5_vpu_dec_buf_queue_dst(struct vb2_buffer *vb)
 	if (inst->state == VPU_INST_STATE_INIT_SEQ) {
 		dma_addr_t buf_addr_y = 0, buf_addr_cb = 0, buf_addr_cr = 0;
 		u32 buf_size = 0;
-		u32 non_linear_num = inst->fbc_buf_count;
+		u32 fb_index = inst->fbc_buf_count + vb->index;
 		u32 fb_stride = inst->dst_fmt.width;
 		u32 luma_size = fb_stride * inst->dst_fmt.height;
-		u32 chroma_size = (fb_stride / 2) * (inst->dst_fmt.height / 2);
+		u32 chroma_size;
+
+		if (inst->output_format == FORMAT_422)
+			chroma_size = fb_stride * inst->dst_fmt.height / 2;
+		else
+			chroma_size = fb_stride * inst->dst_fmt.height / 4;
 
 		if (inst->dst_fmt.num_planes == 1) {
 			buf_size = vb2_plane_size(&vbuf->vb2_buf, 0);
@@ -1112,14 +1229,14 @@ static void wave5_vpu_dec_buf_queue_dst(struct vb2_buffer *vb)
 			buf_addr_cb = vb2_dma_contig_plane_dma_addr(&vbuf->vb2_buf, 1);
 			buf_addr_cr = vb2_dma_contig_plane_dma_addr(&vbuf->vb2_buf, 2);
 		}
-		inst->frame_buf[vb->index + non_linear_num].buf_y = buf_addr_y;
-		inst->frame_buf[vb->index + non_linear_num].buf_cb = buf_addr_cb;
-		inst->frame_buf[vb->index + non_linear_num].buf_cr = buf_addr_cr;
-		inst->frame_buf[vb->index + non_linear_num].size = buf_size;
-		inst->frame_buf[vb->index + non_linear_num].width = inst->src_fmt.width;
-		inst->frame_buf[vb->index + non_linear_num].stride = fb_stride;
-		inst->frame_buf[vb->index + non_linear_num].map_type = LINEAR_FRAME_MAP;
-		inst->frame_buf[vb->index + non_linear_num].update_fb_info = true;
+		inst->frame_buf[fb_index].buf_y = buf_addr_y;
+		inst->frame_buf[fb_index].buf_cb = buf_addr_cb;
+		inst->frame_buf[fb_index].buf_cr = buf_addr_cr;
+		inst->frame_buf[fb_index].size = buf_size;
+		inst->frame_buf[fb_index].width = inst->src_fmt.width;
+		inst->frame_buf[fb_index].stride = fb_stride;
+		inst->frame_buf[fb_index].map_type = LINEAR_FRAME_MAP;
+		inst->frame_buf[fb_index].update_fb_info = true;
 	}
 
 	if (!vb2_is_streaming(vb->vb2_queue))

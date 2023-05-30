@@ -1080,6 +1080,7 @@ struct vpu_instance {
 	u32 conf_win_width;
 	u32 conf_win_height;
 	u64 timestamp;
+	enum frame_buffer_format output_format;
 	bool cbcr_interleave;
 	bool nv21;
 	bool eos;
