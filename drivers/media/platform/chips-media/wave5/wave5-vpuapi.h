@@ -1077,6 +1077,8 @@ struct vpu_instance {
 	u32 dst_buf_count;
 	u32 queued_src_buf_num;
 	u32 queued_dst_buf_num;
+	struct list_head avail_src_bufs;
+	struct list_head avail_dst_bufs;
 	u32 conf_win_width;
 	u32 conf_win_height;
 	u64 timestamp;
