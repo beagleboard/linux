@@ -239,19 +239,6 @@ static void wave5_vpu_dec_start_decode(struct vpu_instance *inst)
 
 	memset(&pic_param, 0, sizeof(struct dec_param));
 
-	if (inst->state == VPU_INST_STATE_INIT_SEQ) {
-		u32 non_linear_num = inst->dst_buf_count;
-		u32 linear_num = inst->dst_buf_count;
-		u32 stride = inst->dst_fmt.width;
-
-		ret = wave5_vpu_dec_register_frame_buffer_ex(inst, non_linear_num, linear_num,
-							     stride, inst->dst_fmt.height,
-							     COMPRESSED_FRAME_MAP);
-		if (ret)
-			dev_dbg(inst->dev->dev, "%s: vpu_dec_register_frame_buffer_ex fail: %d",
-				__func__, ret);
-	}
-
 	ret = wave5_vpu_dec_start_one_frame(inst, &pic_param, &fail_res);
 	if (ret && fail_res != WAVE5_SYSERR_QUEUEING_FAIL) {
 		struct vb2_v4l2_buffer *src_buf;
@@ -376,6 +363,9 @@ static void wave5_vpu_dec_finish_decode(struct vpu_instance *inst)
 
 			v4l2_m2m_job_finish(inst->v4l2_m2m_dev, inst->v4l2_fh.m2m_ctx);
 		}
+
+		if (inst->state == VPU_INST_STATE_STOP && !inst->eos)
+			inst->ops->start_process(inst);
 	}
 }
 
@@ -700,6 +690,7 @@ static int wave5_vpu_dec_decoder_cmd(struct file *file, void *fh, struct v4l2_de
 				"Setting EOS for the bitstream, fail: %d\n", ret);
 			return ret;
 		}
+		inst->ops->start_process(inst);
 		break;
 	case V4L2_DEC_CMD_START:
 		break;
@@ -868,44 +859,12 @@ static int wave5_vpu_dec_queue_setup(struct vb2_queue *q, unsigned int *num_buff
 
 	} else if (inst->state == VPU_INST_STATE_INIT_SEQ &&
 		   q->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
-		u32 non_linear_num;
-		u32 fb_stride, fb_height;
-		u32 luma_size, chroma_size;
 
 		if (*num_buffers > inst->min_dst_buf_count &&
 		    *num_buffers < WAVE5_MAX_FBS)
 			inst->dst_buf_count = *num_buffers;
 
 		*num_buffers = inst->dst_buf_count;
-		non_linear_num = inst->dst_buf_count;
-
-		for (i = 0; i < non_linear_num; i++) {
-			struct frame_buffer *frame = &inst->frame_buf[i];
-			struct vpu_buf *vframe = &inst->frame_vbuf[i];
-
-			fb_stride = inst->dst_fmt.width;
-			fb_height = ALIGN(inst->dst_fmt.height, 32);
-			luma_size = fb_stride * fb_height;
-			chroma_size = ALIGN(fb_stride / 2, 16) * fb_height;
-
-			vframe->size = luma_size + chroma_size;
-			ret = wave5_vdi_allocate_dma_memory(inst->dev, vframe);
-			if (ret) {
-				dev_dbg(inst->dev->dev,
-					"%s: Allocating FBC buf of size %zu, fail: %d\n",
-					__func__, vframe->size, ret);
-				return ret;
-			}
-
-			frame->buf_y = vframe->daddr;
-			frame->buf_cb = vframe->daddr + luma_size;
-			frame->buf_cr = (dma_addr_t)-1;
-			frame->size = vframe->size;
-			frame->width = inst->src_fmt.width;
-			frame->stride = fb_stride;
-			frame->map_type = COMPRESSED_FRAME_MAP;
-			frame->update_fb_info = true;
-		}
 	} else if (inst->state == VPU_INST_STATE_STOP &&
 		   q->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 		*num_buffers = 0;
@@ -916,6 +875,57 @@ static int wave5_vpu_dec_queue_setup(struct vb2_queue *q, unsigned int *num_buff
 free_bitstream_vbuf:
 	wave5_vdi_free_dma_memory(inst->dev, &inst->bitstream_vbuf);
 	return ret;
+}
+
+static int wave5_prepare_fb(struct vpu_instance *inst)
+{
+	int linear_num;
+	int non_linear_num;
+	int fb_stride, fb_height;
+	int luma_size, chroma_size;
+	int ret, i;
+
+	linear_num = inst->dst_buf_count;
+	non_linear_num = inst->min_dst_buf_count;
+
+	for (i = 0; i < non_linear_num; i++) {
+		struct frame_buffer *frame = &inst->frame_buf[i];
+		struct vpu_buf *vframe = &inst->frame_vbuf[i];
+
+		fb_stride = inst->dst_fmt.width;
+		fb_height = ALIGN(inst->dst_fmt.height, 32);
+		luma_size = fb_stride * fb_height;
+		chroma_size = ALIGN(fb_stride / 2, 16) * fb_height;
+
+		vframe->size = luma_size + chroma_size;
+		ret = wave5_vdi_allocate_dma_memory(inst->dev, vframe);
+		if (ret) {
+			dev_dbg(inst->dev->dev,
+				"%s: Allocating FBC buf of size %zu, fail: %d\n",
+				__func__, vframe->size, ret);
+			return ret;
+		}
+
+		frame->buf_y = vframe->daddr;
+		frame->buf_cb = vframe->daddr + luma_size;
+		frame->buf_cr = (dma_addr_t)-1;
+		frame->size = vframe->size;
+		frame->width = inst->src_fmt.width;
+		frame->stride = fb_stride;
+		frame->map_type = COMPRESSED_FRAME_MAP;
+		frame->update_fb_info = true;
+	}
+
+	ret = wave5_vpu_dec_register_frame_buffer_ex(inst, non_linear_num, linear_num,
+						     fb_stride, inst->dst_fmt.height,
+						     COMPRESSED_FRAME_MAP);
+	if (ret) {
+		dev_dbg(inst->dev->dev, "%s: vpu_dec_register_frame_buffer_ex fail: %d",
+			__func__, ret);
+		return ret;
+	}
+
+	return 0;
 }
 
 static int wave5_vpu_dec_start_streaming_open(struct vpu_instance *inst)
@@ -970,8 +980,6 @@ static int wave5_vpu_dec_start_streaming_open(struct vpu_instance *inst)
 					     initial_info.pic_height);
 		}
 		v4l2_event_queue_fh(&inst->v4l2_fh, &vpu_event_src_ch);
-
-		wave5_handle_src_buffer(inst);
 	}
 
 	return ret;
@@ -1162,6 +1170,10 @@ static int wave5_vpu_dec_start_streaming(struct vb2_queue *q, unsigned int count
 			}
 		}
 	}
+
+	if (q->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE &&
+	    inst->state == VPU_INST_STATE_INIT_SEQ)
+		ret = wave5_prepare_fb(inst);
 
 	return ret;
 }
