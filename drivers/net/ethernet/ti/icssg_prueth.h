@@ -51,7 +51,7 @@
 #define ICSSG_MAX_RFLOWS	8	/* per slice */
 
 /* Number of ICSSG related stats */
-#define ICSSG_NUM_STATS 64
+#define ICSSG_NUM_STATS 70
 
 /* Firmware status codes */
 #define ICSS_HS_FW_READY 0x55555555
@@ -73,6 +73,9 @@
 #define ICSS_CMD_DISABLE_VLAN 0x6
 #define ICSS_CMD_ADD_FILTER 0x7
 #define ICSS_CMD_ADD_MAC 0x8
+
+/* ICSSG IET STATS Base Address */
+#define ICSSG_IET_STATS_BASE 0x180
 
 /* In switch mode there are 3 real ports i.e. 3 mac addrs.
  * however Linux sees only the host side port. The other 2 ports
