@@ -277,6 +277,23 @@ patternProperties:
 
     additionalProperties: false
 
+  pa-stats@[a-f0-9]+$:
+    description: |
+      PA-STATS sub-module represented as a SysCon.
+
+    type: object
+
+    properties:
+      compatible:
+        items:
+          - const: ti,pruss-pa-st
+          - const: syscon
+
+      reg:
+        maxItems: 1
+
+    additionalProperties: false
+
   interrupt-controller@[a-f0-9]+$:
     description: |
       PRUSS INTC Node. Each PRUSS has a single interrupt controller instance
