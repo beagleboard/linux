@@ -147,6 +147,7 @@
 
 		ti,mii-g-rt = <&icssg2_mii_g_rt>;
 		ti,mii-rt = <&icssg2_mii_rt>;
+		ti,pa-stats = <&icssg2_pa_stats>;
 		iep = <&icssg2_iep0>,  <&icssg2_iep1>;
 
 		interrupt-parent = <&icssg2_intc>;
