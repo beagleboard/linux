@@ -10,7 +10,8 @@
 
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/interrupt-controller/irq.h>
-#include <dt-bindings/pinctrl/k3.h>
+
+#include "k3-pinctrl.h"
 
 / {
 	fragment@101 {
