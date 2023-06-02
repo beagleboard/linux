@@ -40,9 +40,9 @@
 		#size-cells = <2>;
 		ranges;
 
-		ramoops@9ca00000 {
+		ramoops@9c700000 {
 			compatible = "ramoops";
-			reg = <0x00 0x9ca00000 0x00 0x00100000>;
+			reg = <0x00 0x9c700000 0x00 0x00100000>;
 			record-size = <0x8000>;
 			console-size = <0x8000>;
 			ftrace-size = <0x00>;
@@ -57,15 +57,9 @@
 			linux,cma-default;
 		};
 
-		secure_tfa_ddr: tfa@9e780000 {
-			reg = <0x00 0x9e780000 0x00 0x80000>;
-			alignment = <0x1000>;
-			no-map;
-		};
-
-		secure_ddr: optee@9e800000 {
-			reg = <0x00 0x9e800000 0x00 0x01800000>; /* for OP-TEE */
-			alignment = <0x1000>;
+		rtos_ipc_memory_region: ipc-memories@9c800000 {
+			compatible = "shared-dma-pool";
+			reg = <0x00 0x9c800000 0x00 0x00300000>;
 			no-map;
 		};
 
@@ -90,6 +84,18 @@
 		wkup_r5fss0_core0_memory_region: r5f-memory@9db00000 {
 			compatible = "shared-dma-pool";
 			reg = <0x00 0x9db00000 0x00 0x00c00000>;
+			no-map;
+		};
+
+		secure_tfa_ddr: tfa@9e780000 {
+			reg = <0x00 0x9e780000 0x00 0x80000>;
+			alignment = <0x1000>;
+			no-map;
+		};
+
+		secure_ddr: optee@9e800000 {
+			reg = <0x00 0x9e800000 0x00 0x01800000>; /* for OP-TEE */
+			alignment = <0x1000>;
 			no-map;
 		};
 	};
