@@ -149,12 +149,6 @@
 		};
 	};
 
-	hdmi_mstrclk: hdmi-mstrclk {
-		compatible = "fixed-clock";
-		#clock-cells = <0>;
-		clock-frequency = <12288000>;
-	};
-
 	hdmi: connector {
 		compatible = "hdmi-connector";
 		label = "hdmi";
@@ -387,9 +381,6 @@
 	sii9022: sii9022@3b {
 		compatible = "sil,sii9022";
 		reg = <0x3b>;
-
-		clocks = <&hdmi_mstrclk>;
-		clock-names = "mclk";
 
 		interrupt-parent = <&exp1>;
 		interrupts = <16 IRQ_TYPE_EDGE_FALLING>;
