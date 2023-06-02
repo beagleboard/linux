@@ -1,0 +1,58 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright (C) 2015 Robert Nelson <robertcnelson@gmail.com>
+ * Copyright (C) 2019 Amilcar Lucas <amilcar.lucas@iav.de>
+ * Copyright (C) 2020 - 2023 Deepak Khatri <lorforlinux@beagleboard.org>
+ *
+ * See Cape Interface Spec page for more info on Bone Buses
+ * https://docs.beagleboard.org/0.0/boards/capes/cape-interface-spec.html#beaglebone-cape-interface-spec
+ *
+ */
+
+/dts-v1/;
+/plugin/;
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+ */
+&{/chosen} {
+	overlays {
+		BBORG_RELAY-00A2.kernel = __TIMESTAMP__;
+	};
+};
+
+/*
+ * Easy load control through sysfs (/sys/class/leds/) using gpio-leds driver
+ */
+
+// relay1
+&bone_led_P9_41 {
+	status = "okay";
+	// access: sys/class/leds/relay1
+	label = "relay1";
+	default-state = "keep";
+};
+
+// relay2
+&bone_led_P9_42 {
+	status = "okay";
+	// access: sys/class/leds/relay2
+	label = "relay2";
+	default-state = "keep";
+};
+
+// realy3
+&bone_led_P9_30 {
+	status = "okay";
+	// access: sys/class/leds/relay3
+	label = "relay3";
+	default-state = "keep";
+};
+
+// realy4
+&bone_led_P9_27 {
+	status = "okay";
+	// access: sys/class/leds/relay4
+	label = "relay4";
+	default-state = "keep";
+};
