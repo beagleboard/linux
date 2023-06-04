@@ -863,17 +863,6 @@
     memory-region = <&dsp1_mem>;
 };
 
-&vvcam_flash_led0{
-    flash_led_name = "aw36413_aw36515";
-    floodlight_i2c_bus = /bits/ 8 <2>;
-    floodlight_en_pin = <&gpio1_porta 26 0>;
-    projection_i2c_bus = /bits/ 8 <1>;
-    flash_led_touch_pin = <&gpio1_porta 27 0>; //flash led touch pin
-    io-channels = <&adc 2>;
-    io-channel-names = "projection_adc";
-    status = "okay";
-};
-
 &vvcam_sensor2 {
 	sensor_name = "GC5035";
 	sensor_regulators = "DOVDD18_SCAN", "DVDD12_SCAN", "AVDD28_SCAN";
