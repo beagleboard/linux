@@ -2005,6 +2005,21 @@
 	status = "okay";
 };
 
+&dpu_enc0 {
+	status = "okay";
+
+	ports {
+		/* output */
+		port@1 {
+			reg = <1>;
+
+			enc0_out: endpoint {
+				remote-endpoint = <&dsi0_in>;
+			};
+		};
+	};
+};
+
 &dpu_enc1 {
         ports {
                 /delete-node/ port@0;
@@ -2013,6 +2028,47 @@
 
 &dpu {
         status = "okay";
+};
+
+&dsi0 {
+        status = "okay";
+};
+
+&dhost_0 {
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+
+			dsi0_in: endpoint {
+				remote-endpoint = <&enc0_out>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+
+			dsi0_out: endpoint {
+				remote-endpoint = <&panel0_in>;
+			};
+		};
+	};
+
+	panel0@0 {
+		compatible = "i2c_dsi,ili9881d";
+		reg = <0>;
+		
+		mcu_auto_reset_enable = <0>;
+		tp_point_rotate = <0>;
+		
+		port {
+			panel0_in: endpoint {
+				remote-endpoint = <&dsi0_out>;
+			};
+		};
+	};
 };
 
 &disp1_out {
