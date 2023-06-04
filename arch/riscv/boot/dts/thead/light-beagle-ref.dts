@@ -15,11 +15,6 @@
 	model = "BeagleBoard.org BeagleV-Ahead";
 	compatible = "beagle,light", "thead,light-val", "thead,light";
 
-	memory@0 {
-		device_type = "memory";
-		reg = <0x0 0x00000000 0x0 0x80000000>;
-	};
-
 	chosen {
 		bootargs = "console=ttyS0,115200 crashkernel=256M-:128M earlycon clk_ignore_unused sram=0xffe0000000,0x180000";
 		stdout-path = "serial0:115200n8";

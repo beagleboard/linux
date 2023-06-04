@@ -42,3 +42,8 @@ dtb-$(CONFIG_SOC_THEAD) += light-a-val-android.dtb
 
 dtb-$(CONFIG_SOC_THEAD) += fire-emu.dtb fire-emu-crash.dtb
 dtb-$(CONFIG_SOC_THEAD) += fire-emu-soc-base.dtb fire-emu-soc-c910x4.dtb fire-emu-gpu-dpu-dsi0.dtb fire-emu-vi-dsp-vo.dtb fire-emu-vi-vp-vo.dtb
+
+targets += dtbs dtbs_install
+targets += $(dtb-y)
+
+subdir-y	:= overlays

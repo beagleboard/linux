@@ -1,0 +1,30 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright (C) 2023 BeagleBoard.org - https://beagleboard.org/
+ * Copyright (C) 2023 Deepak Khatri <lorforlinux@beagleboard.org>
+ *
+ * See Cape Interface Spec page for more info on Bone Buses
+ * https://docs.beagleboard.org/0.0/boards/capes/cape-interface-spec.html
+ *
+ */
+
+/dts-v1/;
+/plugin/;
+
+ /*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+ */
+ 
+&{/chosen} {
+	overlays {
+		BBORG_LOAD-00A2 = __TIMESTAMP__;
+	};
+};
+
+/*
+ * Enable mikroBus port
+ */
+
+&bone_mikrobus0 {
+    status = "okay";
+};

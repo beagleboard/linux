@@ -1,0 +1,32 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright (C) 2020 - 2022 Deepak Khatri <lorforlinux@beagleboard.org>
+ *
+ * See Cape Interface Spec page for more info on Bone Buses
+ * https://docs.beagleboard.org/0.0/boards/capes/cape-interface-spec.html#beaglebone-cape-interface-spec
+ *
+ * Virtual cape for LED on P9_11 
+ * Supports BBB, BBBWL, BBAI, and BBAI-64
+ *
+ */
+ 
+/dts-v1/;
+/plugin/;
+ 
+&{/chosen} {
+	overlays {
+		BONE-LED_P9_11 = __TIMESTAMP__;
+	};
+};
+
+/*
+ * Easy LED control through sysfs (/sys/class/leds/) using gpio-leds driver
+ */
+
+&bone_led_P9_11 {
+    status = "okay";
+    // access: sys/class/leds/led_P9_11
+    label = "led_P9_11";
+    linux,default-trigger = "heartbeat";
+    default-state = "on";
+};
