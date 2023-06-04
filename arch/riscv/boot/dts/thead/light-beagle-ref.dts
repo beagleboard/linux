@@ -863,40 +863,6 @@
     memory-region = <&dsp1_mem>;
 };
 
-&vvcam_sensor2 {
-	sensor_name = "GC5035";
-	sensor_regulators = "DOVDD18_SCAN", "DVDD12_SCAN", "AVDD28_SCAN";
-	sensor_regulator_timing_us = <100 50 0>;
-	sensor_pdn = <&gpio1_porta 30 0>; //powerdown pin / shutdown pin 
-	sensor_rst = <&gpio1_porta 29 0>;
-	sensor_pdn_delay_us = <1000>; //powerdown pin / shutdown pin actived till I2C ready
-	DOVDD18_SCAN-supply = <&soc_dovdd18_scan_reg>;
-	DVDD12_SCAN-supply = <&soc_dvdd12_scan_reg>;
-	AVDD28_SCAN-supply = <&soc_avdd28_scan_en_reg>;
-	i2c_addr = /bits/ 8 <0x37>;
-	i2c_bus = /bits/ 8 <4>;
-	i2c_reg_width = /bits/ 8 <1>;
-	i2c_data_width = /bits/ 8 <1>;
-	status = "okay";
-};
-
-&vvcam_sensor3 {
-	sensor_name = "GC02M1B";
-	sensor_regulators = "DOVDD18_SCAN", "DVDD12_SCAN", "AVDD28_SCAN";
-	sensor_regulator_timing_us = <100 50 0>;
-	sensor_pdn = <&gpio1_porta 30 0>; //powerdown pin / shutdown pin 
-	sensor_rst = <&gpio1_porta 29 0>;
-	sensor_pdn_delay_us = <1000>; //powerdown pin / shutdown pin actived till I2C ready
-	DOVDD18_SCAN-supply = <&soc_dovdd18_scan_reg>;
-	DVDD12_SCAN-supply = <&soc_dvdd12_scan_reg>;
-	AVDD28_SCAN-supply = <&soc_avdd28_scan_en_reg>;
-	i2c_addr = /bits/ 8 <0x37>;
-	i2c_bus = /bits/ 8 <4>;
-	i2c_reg_width = /bits/ 8 <1>;
-	i2c_data_width = /bits/ 8 <1>;
-	status = "okay";
-};
-
 &video0{
     vi_mem_pool_region = <2>;	// vi_mem: framebuffer, region[2]
     channel0 {
