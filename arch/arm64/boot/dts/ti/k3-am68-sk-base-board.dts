@@ -134,18 +134,9 @@
 		pinctrl-names = "default";
 		gpio = <&exp2 2 GPIO_ACTIVE_HIGH>;     /*P0 - DP0_3V3 _EN */
 		enable-active-high;
+		regulator-always-on;
 	};
 
-	panel {
-		compatible = "ti,panel-edp";
-		power-supply = <&dp0_pwr_3v3>;
-
-		port {
-			dp0_panel_in: endpoint {
-				remote-endpoint = <&dp0_out>;
-			};
-		};
-	};
 
 	hdmi-connector {
 		compatible = "hdmi-connector";
@@ -385,6 +376,7 @@
 };
 
 &mcu_i2c1 {
+	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&mcu_i2c1_pins_default>;
 	/* i2c1 is used for DVI DDC, so we need to use 100kHz */
@@ -412,6 +404,19 @@
 		vccio-supply = <&vsys_io_1v8>;
 		vcca-supply = <&vsys_io_1v2>;
 		vcc-supply = <&vsys_io_1v2>;
+
+		aux-bus {
+			panel {
+				compatible = "ti,panel-edp";
+				power-supply = <&dp0_pwr_3v3>;
+
+				port {
+					dp0_panel_in: endpoint {
+						remote-endpoint = <&dp0_out>;
+					};
+				};
+			};
+		};
 
 		dsi_edp_bridge_ports: ports {
 			#address-cells = <1>;
@@ -526,6 +531,8 @@
 
 &dss {
 
+	status = "okay";
+
 	pinctrl-names = "default";
 	pinctrl-0 = <&dss_vout0_pins_default>;
 
@@ -559,6 +566,14 @@
 	};
 };
 
+&dphy_tx0 {
+	status = "okay";
+};
+
+&dsi0 {
+	status = "okay";
+};
+
 &dsi0_ports {
 
 	port@0 {
@@ -577,6 +592,7 @@
 };
 
 &mhdp {
+	status = "okay";
 	cdns,no-hpd;
 };
 
