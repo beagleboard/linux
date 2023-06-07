@@ -591,11 +591,6 @@
 	};
 };
 
-&mhdp {
-	status = "okay";
-	cdns,no-hpd;
-};
-
 &mcu_mcan0 {
 	status = "okay";
 	pinctrl-names = "default";
