@@ -1,0 +1,75 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/media/img,e5010-jpeg-enc.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Imagination E5010 JPEG Encoder
+
+maintainers:
+  - Devarsh Thakkar <devarsht@ti.com>
+
+description: |
+  The E5010 is a JPEG encoder from Imagination Technologies implemented on
+  TI's AM62A SoC. It is capable of real time encoding of YUV420 and YUV422
+  inputs to JPEG and M-JPEG. It supports baseline JPEG Encoding up to
+  8Kx8K resolution.
+
+properties:
+  compatible:
+    const: img,e5010-jpeg-enc
+
+  reg:
+    items:
+      - description: The E5010 main register region
+      - description: The E5010 mmu register region
+
+  reg-names:
+    items:
+      - const: regjasper
+      - const: regmmu
+
+  power-domains:
+    maxItems: 1
+
+  resets:
+    maxItems: 1
+
+  clocks:
+    minItems: 1
+    maxItems: 2
+
+  clock-names:
+    minItems: 1
+    maxItems: 2
+
+  interrupts:
+    maxItems: 1
+
+required:
+  - compatible
+  - reg
+  - reg-names
+  - interrupts
+  - clocks
+  - clock-names
+  - power-domains
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/soc/ti,sci_pm_domain.h>
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+    #include <dt-bindings/interrupt-controller/irq.h>
+
+    e5010: e5010@fd20000 {
+        compatible = "img,e5010-jpeg-enc";
+        reg = <0x00 0xfd20000 0x00 0x100>,
+              <0x00 0xfd20200 0x00 0x200>;
+        reg-names = "regjasper", "regmmu";
+        clocks = <&k3_clks 201 0>;
+        clock-names = "jpegenc0_core_clk";
+        power-domains = <&k3_pds 201 TI_SCI_PD_EXCLUSIVE>;
+        interrupts = <GIC_SPI 98 IRQ_TYPE_LEVEL_HIGH>;
+    };
