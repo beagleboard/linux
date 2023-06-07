@@ -33,3 +33,5 @@ config VIDEO_IMG_VXE_ENC
     Imagination VXE384 (Video Encoder) hardware as used on the Texas
     Instruments Jacinto and Sitara devices.
     The module name when built is vxe-enc.
+
+source "drivers/media/platform/img/e5010/Kconfig"
