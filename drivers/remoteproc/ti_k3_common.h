@@ -88,6 +88,8 @@ struct k3_rproc {
 	struct mbox_chan *mbox;
 	struct mbox_client client;
 	bool ipc_only;
+	struct completion shut_comp;
+	struct notifier_block pm_notifier;
 };
 
 void k3_rproc_kick(struct rproc *rproc, int vqid);
