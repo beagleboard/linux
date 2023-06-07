@@ -33,8 +33,3 @@
 &crypto {
 	status = "disabled";
 };
-
-&cbass_mcu {
-	status = "disabled";
-};
-
