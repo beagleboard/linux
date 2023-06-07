@@ -866,6 +866,17 @@
 		sram-size=<0xf800>;
 	};
 
+	e5010: e5010@fd20000 {
+		compatible = "img,e5010-jpeg-enc";
+		reg = <0x00 0xfd20000 0x00 0x100>,
+		      <0x00 0xfd20200 0x00 0x200>;
+		reg-names = "regjasper", "regmmu";
+		clocks = <&k3_clks 201 0>;
+		clock-names = "jpegenc0_core_clk";
+		power-domains = <&k3_pds 201 TI_SCI_PD_EXCLUSIVE>;
+		interrupts = <GIC_SPI 98 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
 	c7x_0: dsp@7e000000 {
 		compatible = "ti,am62a-c7xv-dsp";
 		reg = <0x00 0x7e000000 0x00 0x00100000>;
