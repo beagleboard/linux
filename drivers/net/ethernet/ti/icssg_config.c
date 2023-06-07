@@ -439,7 +439,8 @@ static void icssg_init_switch_mode(struct prueth *prueth)
 		prueth->vlan_tbl[i].fid_c1 = 0;
 	}
 
-	icssg_class_set_host_mac_addr(prueth->miig_rt, prueth->hw_bridge_dev->dev_addr);
+	if (prueth->hw_bridge_dev)
+		icssg_class_set_host_mac_addr(prueth->miig_rt, prueth->hw_bridge_dev->dev_addr);
 	icssg_set_pvid(prueth, prueth->default_vlan, PRUETH_PORT_HOST);
 }
 
@@ -450,7 +451,7 @@ int icssg_config(struct prueth *prueth, struct prueth_emac *emac, int slice)
 	u8 *cfg_byte_ptr = config;
 	int ret;
 
-	if (prueth->is_switch_mode)
+	if (prueth->is_switch_mode || prueth->is_hsr_offload_mode)
 		icssg_init_switch_mode(prueth);
 	else
 		icssg_init_emac_mode(prueth);
@@ -466,7 +467,7 @@ int icssg_config(struct prueth *prueth, struct prueth_emac *emac, int slice)
 	}
 	regmap_update_bits(prueth->miig_rt, ICSSG_CFG_OFFSET, ICSSG_CFG_DEFAULT, ICSSG_CFG_DEFAULT);
 	icssg_miig_set_interface_mode(prueth->miig_rt, slice, emac->phy_if);
-	if (prueth->is_switch_mode)
+	if (prueth->is_switch_mode || prueth->is_hsr_offload_mode)
 		icssg_config_mii_init_switch(emac);
 	else
 		icssg_config_mii_init(emac);
@@ -492,7 +493,7 @@ int icssg_config(struct prueth *prueth, struct prueth_emac *emac, int slice)
 	*(cfg_byte_ptr + SPL_PKT_DEFAULT_PRIORITY) = 0;
 	*(cfg_byte_ptr + QUEUE_NUM_UNTAGGED) = 0x0;
 
-	if (prueth->is_switch_mode)
+	if (prueth->is_switch_mode || prueth->is_hsr_offload_mode)
 		ret = prueth_switch_buffer_setup(emac);
 	else
 		ret = prueth_emac_buffer_setup(emac);

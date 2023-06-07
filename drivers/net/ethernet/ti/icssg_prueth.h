@@ -125,6 +125,7 @@ struct prueth_rx_chn {
 enum prueth_devlink_param_id {
 	PRUETH_DEVLINK_PARAM_ID_BASE = DEVLINK_PARAM_GENERIC_ID_MAX,
 	PRUETH_DL_PARAM_SWITCH_MODE,
+	PRUETH_DL_PARAM_HSR_OFFLOAD_MODE,
 };
 
 struct prueth_devlink {
@@ -277,6 +278,7 @@ struct prueth_pdata {
  * @iep1: pointer to IEP1 device
  * @vlan_tbl: VLAN-FID table pointer
  * @hw_bridge_dev: pointer to HW bridge net device
+ * @hsr_dev: pointer to the HSR net device
  * @br_members: bitmask of bridge member ports
  * @prueth_netdevice_nb: netdevice notifier block
  * @prueth_switchdevice_nb: switchdev notifier block
@@ -315,11 +317,13 @@ struct prueth {
 	struct prueth_vlan_tbl *vlan_tbl;
 
 	struct net_device *hw_bridge_dev;
+	struct net_device *hsr_dev;
 	u8 br_members;
 	struct notifier_block prueth_netdevice_nb;
 	struct notifier_block prueth_switchdev_nb;
 	struct notifier_block prueth_switchdev_bl_nb;
 	bool is_switch_mode;
+	bool is_hsr_offload_mode;
 	bool is_switchmode_supported;
 	unsigned char switch_id[MAX_PHYS_ITEM_ID_LEN];
 	int default_vlan;

@@ -13,6 +13,7 @@
 #include <linux/dma/ti-cppi5.h>
 #include <linux/etherdevice.h>
 #include <linux/genalloc.h>
+#include <linux/if_hsr.h>
 #include <linux/if_vlan.h>
 #include <linux/interrupt.h>
 #include <linux/kernel.h>
@@ -60,6 +61,12 @@
 				 NETIF_MSG_WOL)
 
 #define prueth_napi_to_emac(napi) container_of(napi, struct prueth_emac, napi_rx)
+
+#define DEFAULT_VID		1
+#define DEFAULT_PORT_MASK	1
+#define DEFAULT_UNTAG_MASK	1
+
+#define NETIF_PRUETH_HSR_OFFLOAD	NETIF_F_HW_HSR_FWD
 
 /* CTRLMMR_ICSSG_RGMII_CTRL register bits */
 #define ICSSG_CTRL_RGMII_ID_MODE		BIT(24)
@@ -1012,6 +1019,19 @@ struct icssg_firmwares {
 	char *txpru;
 };
 
+static struct icssg_firmwares icssg_hsr_firmwares[] = {
+	{
+		.pru = "ti-pruss/am65x-sr2-pru0-pru-hsr-fw.elf",
+		.rtu = "ti-pruss/am65x-sr2-rtu0-pru-hsr-fw.elf",
+		.txpru = "ti-pruss/am65x-sr2-txpru0-pru-hsr-fw.elf",
+	},
+	{
+		.pru = "ti-pruss/am65x-sr2-pru1-pru-hsr-fw.elf",
+		.rtu = "ti-pruss/am65x-sr2-rtu1-pru-hsr-fw.elf",
+		.txpru = "ti-pruss/am65x-sr2-txpru1-pru-hsr-fw.elf",
+	}
+};
+
 static struct icssg_firmwares icssg_switch_firmwares[] = {
 	{
 		.pru = "ti-pruss/am65x-sr2-pru0-prusw-fw.elf",
@@ -1046,6 +1066,8 @@ static int prueth_emac_start(struct prueth *prueth, struct prueth_emac *emac)
 
 	if (prueth->is_switch_mode)
 		firmwares = icssg_switch_firmwares;
+	else if (prueth->is_hsr_offload_mode)
+		firmwares = icssg_hsr_firmwares;
 	else
 		firmwares = icssg_emac_firmwares;
 
@@ -1672,7 +1694,7 @@ static int emac_ndo_open(struct net_device *ndev)
 
 	prueth->emacs_initialized++;
 
-	if (prueth->is_switch_mode) {
+	if (prueth->is_switch_mode || prueth->is_hsr_offload_mode) {
 		icssg_fdb_add_del(emac, eth_stp_addr, prueth->default_vlan,
 				  ICSSG_FDB_ENTRY_P0_MEMBERSHIP |
 				  ICSSG_FDB_ENTRY_P1_MEMBERSHIP |
@@ -1681,6 +1703,14 @@ static int emac_ndo_open(struct net_device *ndev)
 				  true);
 		icssg_vtbl_modify(emac, emac->port_vlan, BIT(emac->port_id),
 				  BIT(emac->port_id), true);
+
+		/* In order for the packets to be received, HSR firmware
+		 * requires VLAN ID = 1 to be present in the VLAN table
+		 */
+		if (prueth->is_hsr_offload_mode)
+			icssg_vtbl_modify(emac, DEFAULT_VID, DEFAULT_PORT_MASK,
+					  DEFAULT_UNTAG_MASK, true);
+
 		icssg_set_pvid(emac->prueth, emac->port_vlan, emac->port_id);
 		emac_set_port_state(emac, ICSSG_EMAC_PORT_VLAN_AWARE_ENABLE);
 	}
@@ -2162,6 +2192,44 @@ static int emac_ndo_bpf(struct net_device *ndev, struct netdev_bpf *bpf)
 	}
 }
 
+static inline enum prueth_port other_port_id(enum prueth_port port_id)
+{
+	enum prueth_port other_port_id =
+		(port_id == PRUETH_PORT_MII0) ? PRUETH_PORT_MII1 :
+						PRUETH_PORT_MII0;
+	return other_port_id;
+}
+
+static int emac_ndo_set_features(struct net_device *ndev,
+				 netdev_features_t features)
+{
+	netdev_features_t hsr_feature_present = ndev->features & NETIF_PRUETH_HSR_OFFLOAD;
+	netdev_features_t hsr_feature_wanted = features & NETIF_PRUETH_HSR_OFFLOAD;
+	bool hsr_change_request = ((hsr_feature_wanted ^ hsr_feature_present) != 0);
+	struct prueth_emac *emac = netdev_priv(ndev);
+	struct prueth *prueth = emac->prueth;
+	struct prueth_emac *other_emac;
+	enum prueth_port other_port;
+	int ret = -EBUSY;
+
+	if (netif_running(ndev) && hsr_change_request) {
+		netdev_err(ndev,
+			   "Can't change feature when device is running\n");
+		return ret;
+	}
+
+	other_port = other_port_id(emac->port_id);
+	other_emac = prueth->emac[other_port - 1];
+
+	if (other_emac && netif_running(other_emac->ndev) && hsr_change_request) {
+		netdev_err(ndev,
+			   "Can't change feature when other port is running\n");
+		return ret;
+	}
+
+	return 0;
+}
+
 static const struct net_device_ops emac_netdev_ops = {
 	.ndo_open = emac_ndo_open,
 	.ndo_stop = emac_ndo_stop,
@@ -2175,6 +2243,7 @@ static const struct net_device_ops emac_netdev_ops = {
 	.ndo_setup_tc = icssg_qos_ndo_setup_tc,
 	.ndo_bpf = emac_ndo_bpf,
 	.ndo_xdp_xmit = emac_xdp_xmit,
+	.ndo_set_features = emac_ndo_set_features,
 };
 
 /* get emac_port corresponding to eth_node name */
@@ -2340,6 +2409,7 @@ static int prueth_netdev_init(struct prueth *prueth,
 	ndev->ethtool_ops = &icssg_ethtool_ops;
 	ndev->hw_features = NETIF_F_SG;
 	ndev->features = ndev->hw_features;
+	ndev->hw_features |= NETIF_F_HW_HSR_FWD;
 
 	netif_napi_add(ndev, &emac->napi_rx,
 		       emac_napi_rx_poll);
@@ -2519,6 +2589,8 @@ static int prueth_netdevice_event(struct notifier_block *unused,
 {
 	struct net_device *ndev = netdev_notifier_info_to_dev(ptr);
 	struct netdev_notifier_changeupper_info *info;
+	struct prueth_emac *emac = netdev_priv(ndev);
+	struct prueth *prueth = emac->prueth;
 	int ret = NOTIFY_DONE;
 
 	if (ndev->netdev_ops != &emac_netdev_ops)
@@ -2527,6 +2599,21 @@ static int prueth_netdevice_event(struct notifier_block *unused,
 	switch (event) {
 	case NETDEV_CHANGEUPPER:
 		info = ptr;
+
+		if ((ndev->features & NETIF_PRUETH_HSR_OFFLOAD) &&
+		    is_hsr_master(info->upper_dev)) {
+			if (!prueth->hsr_dev) {
+				prueth->hsr_dev = info->upper_dev;
+
+				icssg_class_set_host_mac_addr(prueth->miig_rt,
+							      prueth->hsr_dev->dev_addr);
+			} else {
+				if (prueth->hsr_dev != info->upper_dev) {
+					dev_err(prueth->dev, "Both interfaces must be linked to same upper device\n");
+					return -EOPNOTSUPP;
+				}
+			}
+		}
 
 		if (netif_is_bridge_master(info->upper_dev)) {
 			if (info->linking)
@@ -2568,6 +2655,107 @@ static void prueth_unregister_notifiers(struct prueth *prueth)
 
 static const struct devlink_ops prueth_devlink_ops = {};
 
+/* This function to be called with rtnl_lock */
+static int prueth_dl_mode_update(struct prueth *prueth, bool mode_en)
+{
+	int i;
+
+	ASSERT_RTNL();
+	prueth->default_vlan = 1;
+
+	for (i = PRUETH_MAC0; i < PRUETH_NUM_MACS; i++) {
+		struct net_device *sl_ndev = prueth->emac[i]->ndev;
+
+		if (!sl_ndev || !netif_running(sl_ndev))
+			continue;
+
+		dev_err(prueth->dev, "Cannot switch modes when i/f are up\n");
+		return -EINVAL;
+	}
+
+	for (i = PRUETH_MAC0; i < PRUETH_NUM_MACS; i++) {
+		struct net_device *sl_ndev = prueth->emac[i]->ndev;
+		struct prueth_emac *emac;
+
+		if (!sl_ndev)
+			continue;
+
+		emac = netdev_priv(sl_ndev);
+		if (mode_en)
+			emac->port_vlan = prueth->default_vlan;
+		else
+			emac->port_vlan = 0;
+	}
+
+	return 0;
+}
+
+static int prueth_dl_hsr_offload_mode_get(struct devlink *dl, u32 id,
+					  struct devlink_param_gset_ctx *ctx)
+{
+	struct prueth_devlink *dl_priv = devlink_priv(dl);
+	struct prueth *prueth = dl_priv->prueth;
+
+	dev_dbg(prueth->dev, "%s id:%u\n", __func__, id);
+
+	if (id != PRUETH_DL_PARAM_HSR_OFFLOAD_MODE)
+		return -EOPNOTSUPP;
+
+	ctx->val.vbool = prueth->is_hsr_offload_mode;
+
+	return 0;
+}
+
+static int prueth_dl_hsr_offload_mode_set(struct devlink *dl, u32 id,
+					  struct devlink_param_gset_ctx *ctx)
+{
+	struct prueth_devlink *dl_priv = devlink_priv(dl);
+	struct prueth *prueth = dl_priv->prueth;
+	bool hsr_offload_en = ctx->val.vbool;
+	int ret;
+
+	if (id != PRUETH_DL_PARAM_HSR_OFFLOAD_MODE)
+		return -EOPNOTSUPP;
+
+	if (hsr_offload_en == prueth->is_hsr_offload_mode)
+		return 0;
+
+	if (!hsr_offload_en &&
+	    (prueth->emac[PRUETH_MAC0]->ndev->features & NETIF_PRUETH_HSR_OFFLOAD) &&
+	    (prueth->emac[PRUETH_MAC1]->ndev->features & NETIF_PRUETH_HSR_OFFLOAD)) {
+		dev_err(prueth->dev, "Disable HSR offload on both interfaces\n");
+		return -EINVAL;
+	}
+
+	if (hsr_offload_en) {
+		if (!(prueth->emac[PRUETH_MAC0]->ndev->features & NETIF_PRUETH_HSR_OFFLOAD) &&
+		    !(prueth->emac[PRUETH_MAC1]->ndev->features & NETIF_PRUETH_HSR_OFFLOAD)) {
+			dev_err(prueth->dev, "Enable HSR offload on both interfaces\n");
+			return -EINVAL;
+		}
+
+		if (prueth->is_switch_mode) {
+			dev_err(prueth->dev, "Switching from bridge to HSR mode not allowed\n");
+			return -EINVAL;
+		}
+	}
+
+	rtnl_lock();
+
+	ret = prueth_dl_mode_update(prueth, hsr_offload_en);
+	if (ret)
+		goto exit;
+
+	prueth->is_hsr_offload_mode = hsr_offload_en;
+
+	dev_info(prueth->dev, "Enabling %s mode\n",
+		 hsr_offload_en ? "HSR offload" : "Dual EMAC");
+exit:
+	rtnl_unlock();
+
+	return ret;
+}
+
 static int prueth_dl_switch_mode_get(struct devlink *dl, u32 id,
 				     struct devlink_param_gset_ctx *ctx)
 {
@@ -2590,7 +2778,7 @@ static int prueth_dl_switch_mode_set(struct devlink *dl, u32 id,
 	struct prueth_devlink *dl_priv = devlink_priv(dl);
 	struct prueth *prueth = dl_priv->prueth;
 	bool switch_en = ctx->val.vbool;
-	int i;
+	int ret;
 
 	dev_dbg(prueth->dev, "%s id:%u\n", __func__, id);
 
@@ -2605,34 +2793,18 @@ static int prueth_dl_switch_mode_set(struct devlink *dl, u32 id,
 		return -EINVAL;
 	}
 
+	if (switch_en && prueth->is_hsr_offload_mode) {
+		dev_err(prueth->dev, "Switching from HSR offload to switch mode	not allowed\n");
+		return -EINVAL;
+	}
+
 	rtnl_lock();
 
-	prueth->default_vlan = 1;
-	prueth->is_switch_mode = switch_en;
-
-	for (i = PRUETH_MAC0; i < PRUETH_NUM_MACS; i++) {
-		struct net_device *sl_ndev = prueth->emac[i]->ndev;
-
-		if (!sl_ndev || !netif_running(sl_ndev))
-			continue;
-
-		dev_err(prueth->dev, "Cannot switch modes when i/f are up\n");
+	ret = prueth_dl_mode_update(prueth, switch_en);
+	if (ret)
 		goto exit;
-	}
 
-	for (i = PRUETH_MAC0; i < PRUETH_NUM_MACS; i++) {
-		struct net_device *sl_ndev = prueth->emac[i]->ndev;
-		struct prueth_emac *emac;
-
-		if (!sl_ndev)
-			continue;
-
-		emac = netdev_priv(sl_ndev);
-		if (switch_en)
-			emac->port_vlan = prueth->default_vlan;
-		else
-			emac->port_vlan = 0;
-	}
+	prueth->is_switch_mode = switch_en;
 
 	dev_info(prueth->dev, "Enabling %s mode\n",
 		 switch_en ? "switch" : "Dual EMAC");
@@ -2640,7 +2812,7 @@ static int prueth_dl_switch_mode_set(struct devlink *dl, u32 id,
 exit:
 	rtnl_unlock();
 
-	return 0;
+	return ret;
 }
 
 static const struct devlink_param prueth_devlink_params[] = {
@@ -2649,6 +2821,11 @@ static const struct devlink_param prueth_devlink_params[] = {
 			     BIT(DEVLINK_PARAM_CMODE_RUNTIME),
 			     prueth_dl_switch_mode_get,
 			     prueth_dl_switch_mode_set, NULL),
+	DEVLINK_PARAM_DRIVER(PRUETH_DL_PARAM_HSR_OFFLOAD_MODE, "hsr_offload_mode",
+			     DEVLINK_PARAM_TYPE_BOOL,
+			     BIT(DEVLINK_PARAM_CMODE_RUNTIME),
+			     prueth_dl_hsr_offload_mode_get,
+			     prueth_dl_hsr_offload_mode_set, NULL),
 };
 
 static void prueth_unregister_devlink_ports(struct prueth *prueth)
