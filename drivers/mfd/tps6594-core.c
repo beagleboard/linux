@@ -124,6 +124,7 @@ static const struct resource tps6594_rtc_resources[] = {
 };
 
 static const struct mfd_cell tps6594_common_cells[] = {
+	MFD_CELL_RES("tps6594-regulator", tps6594_regulator_resources),
 	MFD_CELL_RES("tps6594-pinctrl", tps6594_pinctrl_resources),
 	MFD_CELL_RES("tps6594-pfsm", tps6594_pfsm_resources),
 	MFD_CELL_RES("tps6594-esm", tps6594_esm_resources),
