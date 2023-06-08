@@ -750,8 +750,9 @@ static int wave5_vpu_dec_g_selection(struct file *file, void *fh, struct v4l2_se
 		break;
 	case V4L2_SEL_TGT_COMPOSE:
 	case V4L2_SEL_TGT_COMPOSE_DEFAULT:
-		s->r.left = 0;
-		s->r.top = 0;
+		s->r.left = inst->pic_crop_rect.left;
+		s->r.top = inst->pic_crop_rect.top;
+
 		if (inst->state > VPU_INST_STATE_OPEN) {
 			s->r.width = inst->conf_win_width;
 			s->r.height = inst->conf_win_height;
@@ -1101,8 +1102,21 @@ static int wave5_vpu_dec_start_streaming_open(struct vpu_instance *inst)
 		inst->fbc_buf_count = initial_info.min_frame_buffer_count + 1;
 		inst->dst_buf_count = initial_info.frame_buf_delay + 1;
 
+		memset(&inst->pic_crop_rect, 0x0, sizeof(struct vpu_rect));
+
+		inst->pic_crop_rect.right = initial_info.pic_crop_rect.right;
+		inst->pic_crop_rect.left = initial_info.pic_crop_rect.left;
+		inst->pic_crop_rect.top = initial_info.pic_crop_rect.top;
+		inst->pic_crop_rect.bottom = initial_info.pic_crop_rect.bottom;
+
 		inst->conf_win_width = initial_info.pic_width - initial_info.pic_crop_rect.right;
 		inst->conf_win_height = initial_info.pic_height - initial_info.pic_crop_rect.bottom;
+
+		if (initial_info.pic_crop_rect.left != 0)
+			inst->conf_win_width = inst->conf_win_width - initial_info.pic_crop_rect.left;
+
+		if (initial_info.pic_crop_rect.top != 0)
+			inst->conf_win_height = inst->conf_win_height - initial_info.pic_crop_rect.top;
 
 		ctrl = v4l2_ctrl_find(&inst->v4l2_ctrl_hdl,
 				      V4L2_CID_MIN_BUFFERS_FOR_CAPTURE);

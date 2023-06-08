@@ -1083,6 +1083,7 @@ struct vpu_instance {
 		struct enc_info enc_info;
 		struct dec_info dec_info;
 	} *codec_info;
+	struct vpu_rect pic_crop_rect;
 	struct frame_buffer frame_buf[MAX_REG_FRAME];
 	struct vpu_buf frame_vbuf[MAX_REG_FRAME];
 	u32 fbc_buf_count;
