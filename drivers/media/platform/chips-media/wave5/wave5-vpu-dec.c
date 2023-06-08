@@ -219,6 +219,7 @@ static void wave5_handle_bitstream_buffer(struct vpu_instance *inst)
 static void wave5_handle_src_buffer(struct vpu_instance *inst)
 {
 	struct vb2_v4l2_buffer *src_buf;
+	int head = 0;
 
 	src_buf = v4l2_m2m_next_src_buf(inst->v4l2_fh.m2m_ctx);
 	if (src_buf) {
@@ -227,7 +228,13 @@ static void wave5_handle_src_buffer(struct vpu_instance *inst)
 		if (vpu_buf->consumed) {
 			dev_dbg(inst->dev->dev, "%s: already consumed buffer\n", __func__);
 			src_buf = v4l2_m2m_src_buf_remove(inst->v4l2_fh.m2m_ctx);
-			inst->timestamp = src_buf->vb2_buf.timestamp;
+			head = inst->time_stamp.head;
+			inst->time_stamp.buf[head] = src_buf->vb2_buf.timestamp;
+			inst->time_stamp.head++;
+
+			if (IS_WRAP(inst->time_stamp.head, MAX_TIMESTAMP_CIR_BUF) == 0)
+				inst->time_stamp.head = 0;
+
 			v4l2_m2m_buf_done(src_buf, VB2_BUF_STATE_DONE);
 		}
 	}
@@ -352,6 +359,7 @@ static void wave5_handle_display_frame(struct vpu_instance *inst,
 	int stride = info->disp_frame.stride;
 	int height = info->disp_pic_height - info->rc_display.bottom;
 	unsigned int size;
+	int tail = 0;
 
 	if (inst->dst_fmt.num_planes == 1) {
 		if (inst->output_format == FORMAT_422)
@@ -378,7 +386,13 @@ static void wave5_handle_display_frame(struct vpu_instance *inst,
 		vb2_set_plane_payload(&dst_buf->vb2_buf, 2, size);
 	}
 
-	dst_buf->vb2_buf.timestamp = inst->timestamp;
+	tail = inst->time_stamp.tail;
+	dst_buf->vb2_buf.timestamp = inst->time_stamp.buf[tail];
+	inst->time_stamp.tail++;
+
+	if (IS_WRAP(inst->time_stamp.tail, MAX_TIMESTAMP_CIR_BUF) == 0)
+		inst->time_stamp.tail = 0;
+
 	dst_buf->field = V4L2_FIELD_NONE;
 	v4l2_m2m_buf_done(dst_buf, VB2_BUF_STATE_DONE);
 
@@ -391,6 +405,7 @@ static void wave5_vpu_dec_finish_decode(struct vpu_instance *inst)
 	struct dec_output_info dec_output_info;
 	int ret;
 	u32 irq_status;
+	int tail = 0;
 
 	if (kfifo_out(&inst->irq_status, &irq_status, sizeof(int)))
 		wave5_vpu_clear_interrupt_ex(inst, irq_status);
@@ -436,7 +451,13 @@ static void wave5_vpu_dec_finish_decode(struct vpu_instance *inst)
 						      vb2_plane_size(&dst_buf->vb2_buf, 2));
 			}
 
-			dst_buf->vb2_buf.timestamp = inst->timestamp;
+			tail = inst->time_stamp.tail;
+			dst_buf->vb2_buf.timestamp = inst->time_stamp.buf[tail];
+			inst->time_stamp.tail++;
+
+			if (IS_WRAP(inst->time_stamp.tail, MAX_TIMESTAMP_CIR_BUF) == 0)
+				inst->time_stamp.tail = 0;
+
 			dst_buf->flags |= V4L2_BUF_FLAG_LAST;
 			dst_buf->field = V4L2_FIELD_NONE;
 			v4l2_m2m_buf_done(dst_buf, VB2_BUF_STATE_DONE);
@@ -1044,6 +1065,10 @@ static int wave5_vpu_dec_start_streaming_open(struct vpu_instance *inst)
 {
 	struct dec_initial_info initial_info;
 	int ret = 0;
+
+	inst->time_stamp.head = 0;
+	inst->time_stamp.tail = 0;
+	memset(&inst->time_stamp.buf, 0, sizeof(MAX_TIMESTAMP_CIR_BUF));
 
 	memset(&initial_info, 0, sizeof(struct dec_initial_info));
 
