@@ -60,7 +60,7 @@ enum vxe_cb_type {
 };
 
 typedef void (*vxe_cb)(void *ctx, enum vxe_cb_type type, void *buf_ref, unsigned int size,
-		unsigned int coded_frm_cnt);
+		unsigned int coded_frm_cnt, enum img_frame_type frame_type);
 
 /*
  * Enum specifying video encode profile

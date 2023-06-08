@@ -179,7 +179,6 @@ static int vdeckm_handle_mtxtohost_msg(unsigned int *msg, struct lst_t *pend_pic
 		unsigned int mbs_recovered = 0;
 		unsigned char flag = 0;
 
-		pr_debug("Received message from firmware\n");
 		error_flags = MEMIO_READ_FIELD(msg, FW_DEVA_COMPLETED_ERROR_FLAGS);
 
 		no_bewdts = MEMIO_READ_FIELD(msg, FW_DEVA_COMPLETED_NUM_BEWDTS);

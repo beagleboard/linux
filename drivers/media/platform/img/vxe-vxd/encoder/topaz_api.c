@@ -616,12 +616,14 @@ int topaz_process_message(struct topaz_stream_context *str_ctx, struct mtx_tohos
 			pr_info("FRAMES_CODED[%d]\n", video->frames_encoded);
 #endif
 
-			if (feedback_struct->coded_package->coded_buffer[0])
+			if (feedback_struct->coded_package->coded_buffer[0]) {
 				/* Send callback for coded_buffer ready */
 				global_topaz_core_context->vxe_str_processed_cb(str_ctx->vxe_ctx,
 					VXE_CB_CODED_BUFF_READY,
 					(void *)(feedback_struct->coded_package->coded_buffer[0]),
-					feedback_struct->bytes_coded, video->frames_encoded);
+					feedback_struct->bytes_coded, video->frames_encoded,
+					feedback_struct->frame_type);
+			}
 
 			if (!str_ctx->vxe_ctx->eos) {
 				if (feedback_struct->src_frame) {
@@ -631,7 +633,7 @@ int topaz_process_message(struct topaz_stream_context *str_ctx, struct mtx_tohos
 						VXE_CB_SRC_FRAME_RELEASE,
 						(void *)(feedback_struct
 								 ->src_frame),
-						0, 0);
+						0, 0, 0);
 				}
 			}
 			if (video->flush_at_frame > 0 &&
@@ -665,12 +667,14 @@ int topaz_process_message(struct topaz_stream_context *str_ctx, struct mtx_tohos
 				video->extra_wb_retrieved--;
 			}
 		} else {
-			if (feedback_struct->coded_package->coded_buffer[0])
+			if (feedback_struct->coded_package->coded_buffer[0]) {
 				/* Send callback for coded_buffer ready */
 				global_topaz_core_context->vxe_str_processed_cb(str_ctx->vxe_ctx,
 					VXE_CB_CODED_BUFF_READY,
 					(void *)(feedback_struct->coded_package->coded_buffer[0]),
-					feedback_struct->bytes_coded, video->frames_encoded);
+					feedback_struct->bytes_coded, video->frames_encoded,
+					feedback_struct->frame_type);
+			}
 		}
 
 		if (feedback_struct->entire_frame &&
@@ -3057,7 +3061,7 @@ int topaz_flush_stream(void *topaz_str_ctx, unsigned int frame_cnt)
 			global_topaz_core_context->vxe_str_processed_cb(str_ctx->vxe_ctx,
 				VXE_CB_SRC_FRAME_RELEASE,
 				(void *)(enc->video->source_slot_buff[index]),
-				0, 0);
+				0, 0, 0);
 			enc->video->source_slot_buff[index] = NULL;
 		}
 	}
@@ -3069,7 +3073,7 @@ int topaz_flush_stream(void *topaz_str_ctx, unsigned int frame_cnt)
 			global_topaz_core_context->vxe_str_processed_cb(str_ctx->vxe_ctx,
 				VXE_CB_CODED_BUFF_READY,
 				(void *)(enc->video->coded_package[index]->coded_buffer[0]),
-				0, 0);
+				0, 0, 0);
 			enc->video->coded_package[index]->busy = FALSE;
 		}
 	}

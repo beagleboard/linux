@@ -141,6 +141,16 @@ struct vxe_dev {
 #define S_FMT_FLAG_CAP_RECV 0x2
 #define S_FMT_FLAG_STREAM_CREATED 0x4
 
+#define VXE_ENCODER_MAX_WIDTH 1920
+#define VXE_ENCODER_MIN_WIDTH 64
+#define VXE_ENCODER_MAX_HEIGHT 1080
+#define VXE_ENCODER_MIN_HEIGHT 64
+
+#define VXE_ENCODER_DEFAULT_HEIGHT 240
+#define VXE_ENCODER_DEFAULT_WIDTH 416
+#define VXE_ENCODER_INITIAL_QP_I 18
+#define VXE_ENCODER_DEFAULT_FRAMERATE 30
+
 /*
  * struct vxe_enc_q_data - contains queue data information
  *
@@ -196,6 +206,14 @@ struct vxe_enc_ctx {
 	unsigned int frames_encoding;
 	unsigned int frame_num;
 	unsigned int last_frame_num;
+	unsigned int cap_seq;   /* sequence number on capture port */
+	unsigned int out_seq;   /* sequence number on output port */
+
+	enum v4l2_colorspace colorspace;
+	enum v4l2_xfer_func xfer_func;
+	enum v4l2_ycbcr_encoding ycbcr_enc;
+	enum v4l2_quantization quantization;
+	enum v4l2_hsv_encoding hsv_enc;
 
 	/* The below variable used only in Rtos */
 	void *mm_return_resource; /* Place holder for CB to application */
@@ -203,7 +221,7 @@ struct vxe_enc_ctx {
 	void *stream_worker_queue_sem_handle;
 	void *work;
 	struct vxe_enc_q_data q_data[2];
-
+	struct v4l2_ctrl_handler v4l2_ctrl_hdl;
 	struct sg_table above_mb_params_sgt[2];
 
 #ifdef ENABLE_PROFILING
