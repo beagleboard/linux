@@ -289,7 +289,8 @@ static void pcie_aspm_configure_common_clock(struct pcie_link_state *link)
 		reg16 &= ~PCI_EXP_LNKCTL_CCC;
 	pcie_capability_write_word(parent, PCI_EXP_LNKCTL, reg16);
 
-	if (pcie_retrain_link(link))
+	/* Retrain link and then wait for the link to become active */
+	if (pcie_retrain_link(link) && pcie_wait_for_link(parent, true))
 		return;
 
 	/* Training failed. Restore common clock configurations */
