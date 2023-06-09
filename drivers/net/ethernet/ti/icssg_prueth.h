@@ -67,6 +67,7 @@
 #define ICSS_CMD_RXTX 0x10
 #define ICSS_CMD_ADD_FDB 0x1
 #define ICSS_CMD_DEL_FDB 0x2
+#define ICSS_CMD_ERASE_FDB 0x3
 #define ICSS_CMD_SET_RUN 0x4
 #define ICSS_CMD_GET_FDB_SLOT 0x5
 #define ICSS_CMD_ENABLE_VLAN 0x5
@@ -376,6 +377,8 @@ void icssg_vtbl_modify(struct prueth_emac *emac, u8 vid, u8 port_mask,
 		       u8 untag_mask, bool add);
 u16 icssg_get_pvid(struct prueth_emac *emac);
 void icssg_set_pvid(struct prueth *prueth, u8 vid, u8 port);
+int emac_fdb_erase_all(struct prueth_emac *emac);
+int emac_fdb_flush_multicast(struct prueth_emac *emac);
 #define prueth_napi_to_tx_chn(pnapi) \
 	container_of(pnapi, struct prueth_tx_chn, napi_tx)
 
