@@ -491,25 +491,6 @@
 	clock-frequency = <100000000>;
 };
 
-&uart4 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_uart4>;
-	symlink = "bone/uart/bluetooth";
-	uart-has-rtscts;
-	status = "okay";
-
-	//bluetooth {
-	//	// WIP: AP6203BM: BCM43013
-	//	compatible = "brcm,bcm4330-bt";
-	//	pinctrl-names = "default";
-	//	pinctrl-0 = <&pinctrl_bt>;
-	//	max-speed = <3000000>;
-	//	shutdown-gpios = <&gpio2_porta 28 GPIO_ACTIVE_HIGH>;
-	//	device-wakeup-gpios = <&gpio2_porta 29 GPIO_ACTIVE_HIGH>;
-	//	host-wakeup-gpios = <&gpio2_porta 30 GPIO_ACTIVE_HIGH>;
-	//};
-};
-
 &qspi0 {
 	num-cs = <1>;
 	cs-gpios = <&gpio2_porta 3 0>;
