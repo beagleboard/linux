@@ -98,6 +98,11 @@
 			alignment = <0x1000>;
 			no-map;
 		};
+
+		framebuffer: framebuffer@ff700000 {
+			reg = <0x00 0xff700000 0x00 0x008ca000>;
+			no-map;
+		};
 	};
 
 	leds {
