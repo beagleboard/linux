@@ -60,7 +60,7 @@
 		regulator-boot-on;
 		enable-active-high;
 		vin-supply = <&vsys_3v3>;
-		gpio = <&exp1 10 GPIO_ACTIVE_HIGH>;
+		gpio = <&exp1 8 GPIO_ACTIVE_HIGH>;
 	};
 
 	vdd_sd_dv: regulator-tlv71033 {
