@@ -197,7 +197,9 @@ static struct genl_family ksmbd_genl_family = {
 	.module		= THIS_MODULE,
 	.ops		= ksmbd_genl_ops,
 	.n_ops		= ARRAY_SIZE(ksmbd_genl_ops),
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0)
 	.resv_start_op	= KSMBD_EVENT_SPNEGO_AUTHEN_RESPONSE + 1,
+#endif
 };
 
 static void ksmbd_nl_init_fixup(void)
@@ -516,7 +518,6 @@ struct ksmbd_login_response *ksmbd_ipc_login_request(const char *account)
 	req = (struct ksmbd_login_request *)msg->payload;
 	req->handle = ksmbd_acquire_id(&ipc_ida);
 	strscpy(req->account, account, KSMBD_REQ_MAX_ACCOUNT_NAME_SZ);
-
 	resp = ipc_msg_send_request(msg, req->handle);
 	ipc_msg_handle_free(req->handle);
 	ipc_msg_free(msg);
