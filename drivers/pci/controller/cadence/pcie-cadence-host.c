@@ -160,6 +160,15 @@ static void cdns_pcie_host_enable_ptm_response(struct cdns_pcie *pcie)
 	cdns_pcie_writel(pcie, CDNS_PCIE_LM_PTM_CTRL, val | CDNS_PCIE_LM_TPM_CTRL_PTMRSEN);
 }
 
+static void cdns_pcie_host_disable_ptm_response(struct cdns_pcie *pcie)
+{
+	u32 val;
+
+	val = cdns_pcie_readl(pcie, CDNS_PCIE_LM_PTM_CTRL);
+	val &= ~CDNS_PCIE_LM_TPM_CTRL_PTMRSEN;
+	cdns_pcie_writel(pcie, CDNS_PCIE_LM_PTM_CTRL, val);
+}
+
 static int cdns_pcie_host_start_link(struct cdns_pcie_rc *rc)
 {
 	struct cdns_pcie *pcie = &rc->pcie;
@@ -572,5 +581,18 @@ int cdns_pcie_host_setup(struct cdns_pcie_rc *rc)
 	return ret;
 }
 EXPORT_SYMBOL_GPL(cdns_pcie_host_setup);
+
+int cdns_pcie_host_remove_setup(struct cdns_pcie_rc *rc)
+{
+	struct cdns_pcie *pcie = &rc->pcie;
+	struct pci_host_bridge *bridge = pci_host_bridge_from_priv(rc);
+
+        pci_stop_root_bus(bridge->bus);
+        pci_remove_root_bus(bridge->bus);
+	cdns_pcie_host_disable_ptm_response(pcie);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(cdns_pcie_host_remove_setup);
 
 MODULE_LICENSE("GPL v2");
