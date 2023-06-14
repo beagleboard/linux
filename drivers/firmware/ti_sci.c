@@ -31,6 +31,8 @@
 /* Low power mode memory context size */
 #define LPM_CTX_MEM_SIZE 0x80000
 
+#define AM62X_DEV_MCU_M4FSS0_CORE0_DEV_ID 9
+
 /* List of all TI SCI devices active in system */
 static LIST_HEAD(ti_sci_list);
 /* Protection for the entire list */
@@ -3570,7 +3572,15 @@ static void ti_sci_set_is_suspending(struct ti_sci_info *info, bool is_suspendin
 static int ti_sci_prepare_system_suspend(struct ti_sci_info *info)
 {
 #if IS_ENABLED(CONFIG_SUSPEND)
-	u8 mode;
+	u8 mode, unused;
+	u8 mcu_state = 0;
+
+	/*
+	 * Dev ID 9 is AM62X_DEV_MCU_M4FSS0_CORE0. Check state to determine
+	 * MCU only or deep sleep mode
+	 */
+	ti_sci_get_device_state(&info->handle, AM62X_DEV_MCU_M4FSS0_CORE0_DEV_ID,
+				NULL, NULL, &mcu_state, &unused);
 
 	/* Map and validate the target Linux suspend state to TISCI LPM. */
 	switch (pm_suspend_target_state) {
@@ -3581,7 +3591,10 @@ static int ti_sci_prepare_system_suspend(struct ti_sci_info *info)
 		/* S2MEM can't continue if the LPM firmware is not loaded. */
 		if (!info->lpm_firmware_loaded)
 			return -EINVAL;
-		mode = TISCI_MSG_VALUE_SLEEP_MODE_DEEP_SLEEP;
+
+		mode = mcu_state ? TISCI_MSG_VALUE_SLEEP_MODE_MCU_ONLY
+			: TISCI_MSG_VALUE_SLEEP_MODE_DEEP_SLEEP;
+
 		break;
 	default:
 		/*
