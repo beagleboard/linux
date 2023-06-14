@@ -46,8 +46,6 @@ static void k3_m4_rproc_mbox_callback(struct mbox_client *client, void *data)
 	const char *name = kproc->rproc->name;
 	u32 msg = omap_mbox_message(data);
 
-	dev_dbg(dev, "mbox msg: 0x%x\n", msg);
-
 	switch (msg) {
 	case RP_MBOX_CRASH:
 		/*
@@ -62,6 +60,10 @@ static void k3_m4_rproc_mbox_callback(struct mbox_client *client, void *data)
 	case RP_MBOX_SHUTDOWN_ACK:
 		dev_dbg(dev, "received shutdown_ack from %s\n", name);
 		complete(&kproc->shut_comp);
+		break;
+	case RP_MBOX_SUSPEND_ACK:
+		dev_dbg(dev, "received suspend_ack from %s\n", name);
+		complete(&kproc->suspend_comp);
 		break;
 	default:
 		/* silently handle all other valid messages */
@@ -180,21 +182,47 @@ static int m4f_pm_notifier_call(struct notifier_block *bl,
 				unsigned long state, void *unused)
 {
 	struct k3_rproc *kproc = container_of(bl, struct k3_rproc, pm_notifier);
+	unsigned long msg = RP_MBOX_SUSPEND_SYSTEM;
+	unsigned long to = msecs_to_jiffies(3000);
+	int ret;
 
 	switch (state) {
 	case PM_HIBERNATION_PREPARE:
 	case PM_RESTORE_PREPARE:
 	case PM_SUSPEND_PREPARE:
-		if (!device_may_wakeup(kproc->dev))
+		if (!device_may_wakeup(kproc->dev)) {
 			rproc_shutdown(kproc->rproc);
+		} else {
+			reinit_completion(&kproc->suspend_comp);
+			ret = mbox_send_message(kproc->mbox, (void *)msg);
+			if (ret < 0) {
+				dev_err(kproc->dev, "PM mbox_send_message failed: %d\n", ret);
+				return ret;
+			}
+			ret = wait_for_completion_timeout(&kproc->suspend_comp, to);
+			if (ret == 0) {
+				dev_err(kproc->dev,
+					"%s: timedout waiting for rproc completion event\n", __func__);
+				return -EBUSY;
+			};
+		}
 		kproc->rproc->state = RPROC_SUSPENDED;
 		break;
 	case PM_POST_HIBERNATION:
 	case PM_POST_RESTORE:
 	case PM_POST_SUSPEND:
 		if (kproc->rproc->state == RPROC_SUSPENDED) {
-			if (!device_may_wakeup(kproc->dev))
+			if (!device_may_wakeup(kproc->dev)) {
 				rproc_boot(kproc->rproc);
+			} else {
+				msg = RP_MBOX_ECHO_REQUEST;
+				ret = mbox_send_message(kproc->mbox, (void *)msg);
+				if (ret < 0) {
+					dev_err(kproc->dev,
+						"PM mbox_send_message failed: %d\n", ret);
+					return ret;
+				}
+			}
 			kproc->rproc->state = RPROC_RUNNING;
 		}
 		break;
@@ -422,6 +450,7 @@ static int k3_m4_rproc_probe(struct platform_device *pdev)
 	}
 
 	init_completion(&kproc->shut_comp);
+	init_completion(&kproc->suspend_comp);
 
 	ret = ti_sci_proc_request(kproc->tsp);
 	if (ret < 0) {
