@@ -89,6 +89,7 @@ struct k3_rproc {
 	struct mbox_client client;
 	bool ipc_only;
 	struct completion shut_comp;
+	struct completion suspend_comp;
 	struct notifier_block pm_notifier;
 };
 
