@@ -190,11 +190,14 @@
 	};
 
 	main_pmx0: pinctrl@f4000 {
-		compatible = "pinctrl-single";
+		compatible = "ti,am6-padconf";
 		reg = <0x00 0xf4000 0x00 0x2ac>;
 		#pinctrl-cells = <1>;
 		pinctrl-single,register-width = <32>;
 		pinctrl-single,function-mask = <0xffffffff>;
+		interrupts = <GIC_SPI 98 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-controller;
+		#interrupt-cells = <1>;
 	};
 
 	main_uart0: serial@2800000 {
