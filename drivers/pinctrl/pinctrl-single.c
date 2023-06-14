@@ -1955,6 +1955,12 @@ static const struct pcs_soc_data pinctrl_single_am437x = {
 	.irq_status_mask = (1 << 30),   /* OMAP_WAKEUP_EVENT */
 };
 
+static const struct pcs_soc_data pinctrl_single_am62 = {
+	.flags = PCS_QUIRK_SHARED_IRQ | PCS_CONTEXT_LOSS_OFF,
+	.irq_enable_mask = (1 << 29),   /* WKUP_EN */
+	.irq_status_mask = (1 << 30),   /* WKUP_EVT */
+};
+
 static const struct pcs_soc_data pinctrl_single = {
 };
 
@@ -1963,6 +1969,7 @@ static const struct pcs_soc_data pinconf_single = {
 };
 
 static const struct of_device_id pcs_of_match[] = {
+	{ .compatible = "ti,am6-padconf", .data = &pinctrl_single_am62 },
 	{ .compatible = "ti,omap3-padconf", .data = &pinctrl_single_omap_wkup },
 	{ .compatible = "ti,omap4-padconf", .data = &pinctrl_single_omap_wkup },
 	{ .compatible = "ti,omap5-padconf", .data = &pinctrl_single_omap_wkup },
