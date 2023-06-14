@@ -53,6 +53,7 @@ dtb-$(CONFIG_ARCH_K3) += k3-am654-pcie-usb2.dtbo
 # Boards with J7200 SoC
 k3-j7200-evm-dtbs := k3-j7200-common-proc-board.dtb k3-j7200-evm-quad-port-eth-exp.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-j7200-evm.dtb
+dtb-$(CONFIG_ARCH_K3) += k3-j7200-evm-mcspi-loopback.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-j7200-evm-virt-mac-client.dtbo
 
 # Boards with J721e SoC
