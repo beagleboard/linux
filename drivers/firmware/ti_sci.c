@@ -3626,7 +3626,10 @@ static int ti_sci_resume(struct device *dev)
 	return 0;
 }
 
-static DEFINE_SIMPLE_DEV_PM_OPS(ti_sci_pm_ops, ti_sci_suspend, ti_sci_resume);
+static const struct dev_pm_ops ti_sci_pm_ops = {
+	.suspend_noirq = ti_sci_suspend,
+	.resume_noirq = ti_sci_resume,
+};
 
 static int tisci_pm_handler(struct notifier_block *nb, unsigned long pm_event,
 			    void *unused)
