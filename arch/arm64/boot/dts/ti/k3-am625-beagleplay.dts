@@ -493,6 +493,11 @@
 			<&mcu_m4fss_memory_region>;
 };
 
+&wkup_r5fss0 {
+	/* Runs dedicated Device Management firmware */
+	status = "reserved";
+};
+
 &mailbox0_cluster0 {
 	mbox_m4_0: mbox-m4-0 {
 		ti,mbox-rx = <0 0 0>;
