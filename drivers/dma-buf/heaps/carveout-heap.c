@@ -265,7 +265,7 @@ static struct dma_buf *carveout_dma_heap_allocate(struct dma_heap *heap,
 
 	DEFINE_DMA_BUF_EXPORT_INFO(exp_info);
 	struct dma_buf *dmabuf;
-	int ret;
+	int ret = 0;
 
 	buffer = kzalloc(sizeof(*buffer), GFP_KERNEL);
 	if (!buffer)
