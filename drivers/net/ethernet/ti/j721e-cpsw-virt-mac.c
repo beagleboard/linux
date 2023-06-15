@@ -1271,7 +1271,7 @@ static int virt_cpsw_nuss_of(struct virt_cpsw_common *common)
 	struct device *dev = common->dev;
 	struct device_node *port_np;
 	struct virt_cpsw_port *port;
-	u8 *mac_addr;
+	u8 mac_addr[ETH_ALEN];
 	int ret;
 
 	ret = of_property_read_u32(dev->of_node, "ti,psil-base",
