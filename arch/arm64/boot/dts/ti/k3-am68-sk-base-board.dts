@@ -201,6 +201,13 @@
 		>;
 	};
 
+	main_i2c1_pins_default: main-i2c1-pins-default {
+		pinctrl-single,pins = <
+			J721S2_IOPAD(0x0ac, PIN_INPUT, 13) /* (AC25) MCASP0_AXR15.I2C1_SCL */
+			J721S2_IOPAD(0x0b0, PIN_INPUT, 13) /* (AD26) MCASP1_AXR3.I2C1_SDA */
+		>;
+	};
+
 	main_mmc1_pins_default: main-mmc1-pins-default {
 		pinctrl-single,pins = <
 			J721S2_IOPAD(0x104, PIN_INPUT, 0) /* (P23) MMC1_CLK */
@@ -372,6 +379,22 @@
 				  "BOARDID_EEPROM_WP", "CAN_STB", " ",
 				  "GPIO_uSD_PWR_EN", " ", "IO_EXP_PCIe1_M.2_RTSz",
 				  "IO_EXP_MCU_RGMII_RST#", " ", " ", " ", " ";
+	};
+};
+
+&main_i2c1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_i2c1_pins_default>;
+	clock-frequency = <400000>;
+
+	exp3: gpio@20 {
+		compatible = "ti,tca6408";
+		reg = <0x20>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		gpio-line-names = "CSI_VIO_SEL", "CSI_SEL_FPC_EXPn",
+				"IO_EXP_CSI2_EXP_RSTz","CSI0_B_GPIO1",
+				"CSI1_B_GPIO1";
 	};
 };
 
@@ -565,6 +588,24 @@
 			remote-endpoint = <&tfp410_in>;
 		};
 	};
+};
+
+&ti_csi2rx0 {
+	status = "okay";
+	/* MIPI-CSI Connector */
+};
+
+&ti_csi2rx1 {
+	status = "okay";
+	/* MIPI-CSI Connector */
+};
+
+&dphy_rx0 {
+	status = "okay";
+};
+
+&dphy_rx1 {
+	status = "okay";
 };
 
 &dphy_tx0 {
