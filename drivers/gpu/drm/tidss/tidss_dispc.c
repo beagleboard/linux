@@ -1065,7 +1065,7 @@ static void dispc_oldi_tx_power(struct dispc_device *dispc, bool power)
 				   AM65X_OLDI_PWRDN_TX, val);
 		regmap_update_bits(dispc->oldi_io_ctrl, AM65X_OLDI_CLK_IO_CTRL,
 				   AM65X_OLDI_PWRDN_TX, val);
-
+		break;
 	default:
 		break;
 	}
