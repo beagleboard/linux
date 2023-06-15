@@ -17,6 +17,7 @@ dtb-$(CONFIG_ARCH_K3) += k3-am625-sk-csi2-ov5640.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-am625-sk-csi2-tevi-ov5640.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-am625-sk-hdmi-audio.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-am62-lp-sk.dtb
+dtb-$(CONFIG_ARCH_K3) += k3-am62-lp-sk-nand.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-am62-lp-sk-microtips-mf101hie-panel.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-am625-sk-mcan.dtbo
 
