@@ -20,12 +20,6 @@
 	};
 };
 
-&dmsc {
-	reg-names = "lpm";
-	reg = <0x00 0x78000000 0x00 0x8000>;
-	firmware-name = "ti-sysfw/ti-fs-stub-firmware-am62x-gp-signed.bin";
-};
-
 &main_mcan0 {
 	status = "disabled";
 };
