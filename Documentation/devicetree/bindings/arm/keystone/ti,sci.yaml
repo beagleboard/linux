@@ -52,9 +52,6 @@ properties:
       - description: |
           Specifies the debug messages memory mapped region that is optionally
           made available from TI-SCI controller.
-      - description: |
-          Specifies the lpm memory mapped region where the FS Stub low power
-          firmware is to be loaded.
     minItems: 1
 
   mbox-names:
@@ -89,12 +86,6 @@ properties:
   reset-controller:
     type: object
     $ref: /schemas/reset/ti,sci-reset.yaml#
-
-  firmware-name:
-    description: |
-      Name of binary of FS Stub low power firmware located on the
-      firmware search path.
-    $ref: /schemas/types.yaml#/definitions/string
 
 required:
   - compatible
