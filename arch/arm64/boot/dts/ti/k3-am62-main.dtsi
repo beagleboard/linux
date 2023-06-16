@@ -189,6 +189,13 @@
 		dma-names = "tx", "rx1", "rx2";
 	};
 
+	mcrc: mcrc@30300000 {
+		compatible = "ti,mcrc";
+		reg = <0x00 0x30300000 0x00 0x1000>;
+		clocks = <&k3_clks 116 0>;
+		power-domains = <&k3_pds 116 TI_SCI_PD_EXCLUSIVE>;
+	};
+
 	main_pmx0: pinctrl@f4000 {
 		compatible = "ti,am6-padconf";
 		reg = <0x00 0xf4000 0x00 0x2ac>;
