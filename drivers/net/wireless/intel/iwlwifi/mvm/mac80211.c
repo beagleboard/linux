@@ -1,64 +1,9 @@
-/******************************************************************************
- *
- * This file is provided under a dual BSD/GPLv2 license.  When using or
- * redistributing this file, you may do so under either license.
- *
- * GPL LICENSE SUMMARY
- *
- * Copyright(c) 2013 - 2015 Intel Mobile Communications GmbH
- * Copyright(c) 2016 - 2017 Intel Deutschland GmbH
- * Copyright(c) 2012 - 2014, 2018 - 2020 Intel Corporation
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of version 2 of the GNU General Public License as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * The full GNU General Public License is included in this distribution
- * in the file called COPYING.
- *
- * Contact Information:
- *  Intel Linux Wireless <linuxwifi@intel.com>
- * Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
- *
- * BSD LICENSE
- *
- * Copyright(c) 2013 - 2015 Intel Mobile Communications GmbH
- * Copyright(c) 2016 - 2017 Intel Deutschland GmbH
- * Copyright(c) 2012 - 2014, 2018 - 2020 Intel Corporation
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- *
- *  * Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- *  * Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in
- *    the documentation and/or other materials provided with the
- *    distribution.
- *  * Neither the name Intel Corporation nor the names of its
- *    contributors may be used to endorse or promote products derived
- *    from this software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- *****************************************************************************/
+// SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause
+/*
+ * Copyright (C) 2012-2014, 2018-2020 Intel Corporation
+ * Copyright (C) 2013-2015 Intel Mobile Communications GmbH
+ * Copyright (C) 2016-2017 Intel Deutschland GmbH
+ */
 #include <linux/kernel.h>
 #include <linux/slab.h>
 #include <linux/skbuff.h>
@@ -71,7 +16,6 @@
 #include <net/ieee80211_radiotap.h>
 #include <net/tcp.h>
 
-#include "iwl-drv.h"
 #include "iwl-op-mode.h"
 #include "iwl-io.h"
 #include "mvm.h"
@@ -350,6 +294,7 @@ static const u8 he_if_types_ext_capa_sta[] = {
 	 [0] = WLAN_EXT_CAPA1_EXT_CHANNEL_SWITCHING,
 	 [2] = WLAN_EXT_CAPA3_MULTI_BSSID_SUPPORT,
 	 [7] = WLAN_EXT_CAPA8_OPMODE_NOTIF,
+	 [9] = WLAN_EXT_CAPA10_TWT_REQUESTER_SUPPORT,
 };
 
 static const struct wiphy_iftype_ext_capab he_iftypes_ext_capa[] = {
@@ -566,6 +511,7 @@ int iwl_mvm_mac_setup_register(struct iwl_mvm *mvm)
 
 	hw->wiphy->flags |= WIPHY_FLAG_AP_UAPSD;
 	hw->wiphy->flags |= WIPHY_FLAG_HAS_CHANNEL_SWITCH;
+	hw->wiphy->flags |= WIPHY_FLAG_SPLIT_SCAN_6GHZ;
 
 	hw->wiphy->iface_combinations = iwl_mvm_iface_combinations;
 	hw->wiphy->n_iface_combinations =
@@ -619,6 +565,11 @@ int iwl_mvm_mac_setup_register(struct iwl_mvm *mvm)
 			hw->wiphy->bands[NL80211_BAND_5GHZ]->vht_cap.cap |=
 				IEEE80211_VHT_CAP_SU_BEAMFORMER_CAPABLE;
 	}
+	if (fw_has_capa(&mvm->fw->ucode_capa,
+			IWL_UCODE_TLV_CAPA_PSC_CHAN_SUPPORT) &&
+	    mvm->nvm_data->bands[NL80211_BAND_6GHZ].n_channels)
+		hw->wiphy->bands[NL80211_BAND_6GHZ] =
+			&mvm->nvm_data->bands[NL80211_BAND_6GHZ];
 
 	hw->wiphy->hw_version = mvm->trans->hw_id;
 
@@ -748,13 +699,9 @@ int iwl_mvm_mac_setup_register(struct iwl_mvm *mvm)
 	}
 
 	hw->netdev_features |= mvm->cfg->features;
-	if (!iwl_mvm_is_csum_supported(mvm)) {
+	if (!iwl_mvm_is_csum_supported(mvm))
 		hw->netdev_features &= ~(IWL_TX_CSUM_NETIF_FLAGS |
 					 NETIF_F_RXCSUM);
-		/* We may support SW TX CSUM */
-		if (IWL_MVM_SW_TX_CSUM_OFFLOAD)
-			hw->netdev_features |= IWL_TX_CSUM_NETIF_FLAGS;
-	}
 
 	if (mvm->cfg->vht_mu_mimo_supported)
 		wiphy_ext_feature_set(hw->wiphy,
@@ -1163,30 +1110,9 @@ static int iwl_mvm_mac_start(struct ieee80211_hw *hw)
 {
 	struct iwl_mvm *mvm = IWL_MAC80211_GET_MVM(hw);
 	int ret;
-	int retry, max_retry = 0;
 
 	mutex_lock(&mvm->mutex);
-
-	/* we are starting the mac not in error flow, and restart is enabled */
-	if (!test_bit(IWL_MVM_STATUS_HW_RESTART_REQUESTED, &mvm->status) &&
-	    iwlwifi_mod_params.fw_restart) {
-		max_retry = IWL_MAX_INIT_RETRY;
-		/*
-		 * This will prevent mac80211 recovery flows to trigger during
-		 * init failures
-		 */
-		set_bit(IWL_MVM_STATUS_STARTING, &mvm->status);
-	}
-
-	for (retry = 0; retry <= max_retry; retry++) {
-		ret = __iwl_mvm_mac_start(mvm);
-		if (!ret)
-			break;
-
-		IWL_ERR(mvm, "mac start retry %d\n", retry);
-	}
-	clear_bit(IWL_MVM_STATUS_STARTING, &mvm->status);
-
+	ret = __iwl_mvm_mac_start(mvm);
 	mutex_unlock(&mvm->mutex);
 
 	return ret;
@@ -1374,12 +1300,6 @@ static int iwl_mvm_post_channel_switch(struct ieee80211_hw *hw,
 
 	mutex_lock(&mvm->mutex);
 
-	if (mvmvif->csa_failed) {
-		mvmvif->csa_failed = false;
-		ret = -EIO;
-		goto out_unlock;
-	}
-
 	if (vif->type == NL80211_IFTYPE_STATION) {
 		struct iwl_mvm_sta *mvmsta;
 
@@ -1411,6 +1331,8 @@ static int iwl_mvm_post_channel_switch(struct ieee80211_hw *hw,
 	ret = iwl_mvm_power_update_ps(mvm);
 
 out_unlock:
+	if (mvmvif->csa_failed)
+		ret = -EIO;
 	mutex_unlock(&mvm->mutex);
 
 	return ret;
@@ -1438,9 +1360,10 @@ static void iwl_mvm_abort_channel_switch(struct ieee80211_hw *hw,
 					     WIDE_ID(MAC_CONF_GROUP,
 						     CHANNEL_SWITCH_TIME_EVENT_CMD),
 					     0, sizeof(cmd), &cmd));
+	mvmvif->csa_failed = true;
 	mutex_unlock(&mvm->mutex);
 
-	WARN_ON(iwl_mvm_post_channel_switch(hw, vif));
+	iwl_mvm_post_channel_switch(hw, vif);
 }
 
 static void iwl_mvm_channel_switch_disconnect_wk(struct work_struct *wk)
@@ -1738,7 +1661,6 @@ static void iwl_mvm_recalc_multicast(struct iwl_mvm *mvm)
 	struct iwl_mvm_mc_iter_data iter_data = {
 		.mvm = mvm,
 	};
-	int ret;
 
 	lockdep_assert_held(&mvm->mutex);
 
@@ -1748,22 +1670,6 @@ static void iwl_mvm_recalc_multicast(struct iwl_mvm *mvm)
 	ieee80211_iterate_active_interfaces_atomic(
 		mvm->hw, IEEE80211_IFACE_ITER_NORMAL,
 		iwl_mvm_mc_iface_iterator, &iter_data);
-
-	/*
-	 * Send a (synchronous) ech command so that we wait for the
-	 * multiple asynchronous MCAST_FILTER_CMD commands sent by
-	 * the interface iterator. Otherwise, we might get here over
-	 * and over again (by userspace just sending a lot of these)
-	 * and the CPU can send them faster than the firmware can
-	 * process them.
-	 * Note that the CPU is still faster - but with this we'll
-	 * actually send fewer commands overall because the CPU will
-	 * not schedule the work in mac80211 as frequently if it's
-	 * still running when rescheduled (possibly multiple times).
-	 */
-	ret = iwl_mvm_send_cmd_pdu(mvm, ECHO_CMD, 0, 0, NULL);
-	if (ret)
-		IWL_ERR(mvm, "Failed to synchronize multicast groups update\n");
 }
 
 static u64 iwl_mvm_prepare_multicast(struct ieee80211_hw *hw,
@@ -3067,20 +2973,16 @@ static void iwl_mvm_check_he_obss_narrow_bw_ru_iter(struct wiphy *wiphy,
 						    void *_data)
 {
 	struct iwl_mvm_he_obss_narrow_bw_ru_data *data = _data;
-	const struct cfg80211_bss_ies *ies;
 	const struct element *elem;
 
-	rcu_read_lock();
-	ies = rcu_dereference(bss->ies);
-	elem = cfg80211_find_elem(WLAN_EID_EXT_CAPABILITY, ies->data,
-				  ies->len);
+	elem = cfg80211_find_elem(WLAN_EID_EXT_CAPABILITY, bss->ies->data,
+				  bss->ies->len);
 
 	if (!elem || elem->datalen < 10 ||
 	    !(elem->data[10] &
 	      WLAN_EXT_CAPA10_OBSS_NARROW_BW_RU_TOLERANCE_SUPPORT)) {
 		data->tolerated = false;
 	}
-	rcu_read_unlock();
 }
 
 static void iwl_mvm_check_he_obss_narrow_bw_ru(struct ieee80211_hw *hw,
@@ -3837,7 +3739,6 @@ static int iwl_mvm_roc(struct ieee80211_hw *hw,
 	struct iwl_mvm_vif *mvmvif = iwl_mvm_vif_from_mac80211(vif);
 	struct cfg80211_chan_def chandef;
 	struct iwl_mvm_phy_ctxt *phy_ctxt;
-	bool band_change_removal;
 	int ret, i;
 
 	IWL_DEBUG_MAC80211(mvm, "enter (%d, %d, %d)\n", channel->hw_value,
@@ -3918,30 +3819,19 @@ static int iwl_mvm_roc(struct ieee80211_hw *hw,
 	cfg80211_chandef_create(&chandef, channel, NL80211_CHAN_NO_HT);
 
 	/*
-	 * Check if the remain-on-channel is on a different band and that
-	 * requires context removal, see iwl_mvm_phy_ctxt_changed(). If
-	 * so, we'll need to release and then re-configure here, since we
-	 * must not remove a PHY context that's part of a binding.
+	 * Change the PHY context configuration as it is currently referenced
+	 * only by the P2P Device MAC
 	 */
-	band_change_removal =
-		fw_has_capa(&mvm->fw->ucode_capa,
-			    IWL_UCODE_TLV_CAPA_BINDING_CDB_SUPPORT) &&
-		mvmvif->phy_ctxt->channel->band != chandef.chan->band;
-
-	if (mvmvif->phy_ctxt->ref == 1 && !band_change_removal) {
-		/*
-		 * Change the PHY context configuration as it is currently
-		 * referenced only by the P2P Device MAC (and we can modify it)
-		 */
+	if (mvmvif->phy_ctxt->ref == 1) {
 		ret = iwl_mvm_phy_ctxt_changed(mvm, mvmvif->phy_ctxt,
 					       &chandef, 1, 1);
 		if (ret)
 			goto out_unlock;
 	} else {
 		/*
-		 * The PHY context is shared with other MACs (or we're trying to
-		 * switch bands), so remove the P2P Device from the binding,
-		 * allocate an new PHY context and create a new binding.
+		 * The PHY context is shared with other MACs. Need to remove the
+		 * P2P Device from the binding, allocate an new PHY context and
+		 * create a new binding
 		 */
 		phy_ctxt = iwl_mvm_get_free_phy_ctxt(mvm);
 		if (!phy_ctxt) {
@@ -4157,7 +4047,7 @@ static int __iwl_mvm_assign_vif_chanctx(struct iwl_mvm *mvm,
 			mvmvif->ap_ibss_active = true;
 			break;
 		}
-		/* fall through */
+		fallthrough;
 	case NL80211_IFTYPE_ADHOC:
 		/*
 		 * The AP binding flow is handled as part of the start_ap flow
@@ -4661,6 +4551,9 @@ static int iwl_mvm_pre_channel_switch(struct ieee80211_hw *hw,
 
 		break;
 	case NL80211_IFTYPE_STATION:
+		if (chsw->delay > IWL_MAX_CSA_BLOCK_TX)
+			schedule_delayed_work(&mvmvif->csa_work, 0);
+
 		if (chsw->block_tx) {
 			/*
 			 * In case of undetermined / long time with immediate
@@ -4734,12 +4627,17 @@ static void iwl_mvm_channel_switch_rx_beacon(struct ieee80211_hw *hw,
 	}
 	mvmvif->csa_count = chsw->count;
 
-	IWL_DEBUG_MAC80211(mvm, "Modify CSA on mac %d\n", mvmvif->id);
+	mutex_lock(&mvm->mutex);
+	if (mvmvif->csa_failed)
+		goto out_unlock;
 
+	IWL_DEBUG_MAC80211(mvm, "Modify CSA on mac %d\n", mvmvif->id);
 	WARN_ON(iwl_mvm_send_cmd_pdu(mvm,
 				     WIDE_ID(MAC_CONF_GROUP,
 					     CHANNEL_SWITCH_TIME_EVENT_CMD),
-				     CMD_ASYNC, sizeof(cmd), &cmd));
+				     0, sizeof(cmd), &cmd));
+out_unlock:
+	mutex_unlock(&mvm->mutex);
 }
 
 static void iwl_mvm_flush_no_vif(struct iwl_mvm *mvm, u32 queues, bool drop)
@@ -5155,12 +5053,10 @@ void iwl_mvm_sync_rx_queues_internal(struct iwl_mvm *mvm,
 
 	if (notif->sync) {
 		notif->cookie = mvm->queue_sync_cookie;
-		atomic_set(&mvm->queue_sync_counter,
-			   mvm->trans->num_rx_queues);
+		mvm->queue_sync_state = (1 << mvm->trans->num_rx_queues) - 1;
 	}
 
-	ret = iwl_mvm_notify_rx_queue(mvm, qmask, (u8 *)notif,
-				      size, !notif->sync);
+	ret = iwl_mvm_notify_rx_queue(mvm, qmask, notif, size, !notif->sync);
 	if (ret) {
 		IWL_ERR(mvm, "Failed to trigger RX queues sync (%d)\n", ret);
 		goto out;
@@ -5169,14 +5065,16 @@ void iwl_mvm_sync_rx_queues_internal(struct iwl_mvm *mvm,
 	if (notif->sync) {
 		lockdep_assert_held(&mvm->mutex);
 		ret = wait_event_timeout(mvm->rx_sync_waitq,
-					 atomic_read(&mvm->queue_sync_counter) == 0 ||
+					 READ_ONCE(mvm->queue_sync_state) == 0 ||
 					 iwl_mvm_is_radio_killed(mvm),
 					 HZ);
-		WARN_ON_ONCE(!ret && !iwl_mvm_is_radio_killed(mvm));
+		WARN_ONCE(!ret && !iwl_mvm_is_radio_killed(mvm),
+			  "queue sync: failed to sync, state is 0x%lx\n",
+			  mvm->queue_sync_state);
 	}
 
 out:
-	atomic_set(&mvm->queue_sync_counter, 0);
+	mvm->queue_sync_state = 0;
 	if (notif->sync)
 		mvm->queue_sync_cookie++;
 }
