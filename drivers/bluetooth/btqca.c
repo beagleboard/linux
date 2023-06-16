@@ -14,12 +14,11 @@
 
 #define VERSION "0.1"
 
-int qca_read_soc_version(struct hci_dev *hdev, u32 *soc_version,
+int qca_read_soc_version(struct hci_dev *hdev, struct qca_btsoc_version *ver,
 			 enum qca_btsoc_type soc_type)
 {
 	struct sk_buff *skb;
 	struct edl_event_hdr *edl;
-	struct qca_btsoc_version *ver;
 	char cmd;
 	int err = 0;
 	u8 event_type = HCI_EV_VENDOR;
@@ -70,9 +69,9 @@ int qca_read_soc_version(struct hci_dev *hdev, u32 *soc_version,
 	}
 
 	if (soc_type >= QCA_WCN3991)
-		memmove(&edl->data, &edl->data[1], sizeof(*ver));
-
-	ver = (struct qca_btsoc_version *)(edl->data);
+		memcpy(ver, edl->data + 1, sizeof(*ver));
+	else
+		memcpy(ver, &edl->data, sizeof(*ver));
 
 	bt_dev_info(hdev, "QCA Product ID   :0x%08x",
 		    le32_to_cpu(ver->product_id));
@@ -83,13 +82,7 @@ int qca_read_soc_version(struct hci_dev *hdev, u32 *soc_version,
 	bt_dev_info(hdev, "QCA Patch Version:0x%08x",
 		    le16_to_cpu(ver->patch_ver));
 
-	/* QCA chipset version can be decided by patch and SoC
-	 * version, combination with upper 2 bytes from SoC
-	 * and lower 2 bytes from patch will be used.
-	 */
-	*soc_version = (le32_to_cpu(ver->soc_id) << 16) |
-		       (le16_to_cpu(ver->rom_ver) & 0x0000ffff);
-	if (*soc_version == 0)
+	if (ver->soc_id == 0 || ver->rom_ver == 0)
 		err = -EILSEQ;
 
 out:
@@ -143,7 +136,7 @@ int qca_send_pre_shutdown_cmd(struct hci_dev *hdev)
 EXPORT_SYMBOL_GPL(qca_send_pre_shutdown_cmd);
 
 static void qca_tlv_check_data(struct qca_fw_config *config,
-		u8 *fw_data, enum qca_btsoc_type soc_type)
+		const struct firmware *fw, enum qca_btsoc_type soc_type)
 {
 	const u8 *data;
 	u32 type_len;
@@ -154,7 +147,7 @@ static void qca_tlv_check_data(struct qca_fw_config *config,
 	struct tlv_type_nvm *tlv_nvm;
 	uint8_t nvm_baud_rate = config->user_baud_rate;
 
-	tlv = (struct tlv_type_hdr *)fw_data;
+	tlv = (struct tlv_type_hdr *)fw->data;
 
 	type_len = le32_to_cpu(tlv->type_len);
 	length = (type_len >> 8) & 0x00ffffff;
@@ -350,9 +343,8 @@ static int qca_download_firmware(struct hci_dev *hdev,
 				 enum qca_btsoc_type soc_type)
 {
 	const struct firmware *fw;
-	u8 *data;
 	const u8 *segment;
-	int ret, size, remain, i = 0;
+	int ret, remain, i = 0;
 
 	bt_dev_info(hdev, "QCA Downloading %s", config->fwname);
 
@@ -363,22 +355,10 @@ static int qca_download_firmware(struct hci_dev *hdev,
 		return ret;
 	}
 
-	size = fw->size;
-	data = vmalloc(fw->size);
-	if (!data) {
-		bt_dev_err(hdev, "QCA Failed to allocate memory for file: %s",
-			   config->fwname);
-		release_firmware(fw);
-		return -ENOMEM;
-	}
+	qca_tlv_check_data(config, fw, soc_type);
 
-	memcpy(data, fw->data, size);
-	release_firmware(fw);
-
-	qca_tlv_check_data(config, data, soc_type);
-
-	segment = data;
-	remain = size;
+	segment = fw->data;
+	remain = fw->size;
 	while (remain > 0) {
 		int segsize = min(MAX_SIZE_PER_TLV_SEGMENT, remain);
 
@@ -408,7 +388,7 @@ static int qca_download_firmware(struct hci_dev *hdev,
 		ret = qca_inject_cmd_complete_event(hdev);
 
 out:
-	vfree(data);
+	release_firmware(fw);
 
 	return ret;
 }
@@ -459,14 +439,19 @@ int qca_set_bdaddr_rome(struct hci_dev *hdev, const bdaddr_t *bdaddr)
 EXPORT_SYMBOL_GPL(qca_set_bdaddr_rome);
 
 int qca_uart_setup(struct hci_dev *hdev, uint8_t baudrate,
-		   enum qca_btsoc_type soc_type, u32 soc_ver,
+		   enum qca_btsoc_type soc_type, struct qca_btsoc_version ver,
 		   const char *firmware_name)
 {
 	struct qca_fw_config config;
 	int err;
 	u8 rom_ver = 0;
+	u32 soc_ver;
 
 	bt_dev_dbg(hdev, "QCA setup on UART");
+
+	soc_ver = get_soc_ver(ver.soc_id, ver.rom_ver);
+
+	bt_dev_info(hdev, "QCA controller version 0x%08x", soc_ver);
 
 	config.user_baud_rate = baudrate;
 
@@ -504,9 +489,15 @@ int qca_uart_setup(struct hci_dev *hdev, uint8_t baudrate,
 	if (firmware_name)
 		snprintf(config.fwname, sizeof(config.fwname),
 			 "qca/%s", firmware_name);
-	else if (qca_is_wcn399x(soc_type))
-		snprintf(config.fwname, sizeof(config.fwname),
-			 "qca/crnv%02x.bin", rom_ver);
+	else if (qca_is_wcn399x(soc_type)) {
+		if (ver.soc_id == QCA_WCN3991_SOC_ID) {
+			snprintf(config.fwname, sizeof(config.fwname),
+				 "qca/crnv%02xu.bin", rom_ver);
+		} else {
+			snprintf(config.fwname, sizeof(config.fwname),
+				 "qca/crnv%02x.bin", rom_ver);
+		}
+	}
 	else if (soc_type == QCA_QCA6390)
 		snprintf(config.fwname, sizeof(config.fwname),
 			 "qca/htnv%02x.bin", rom_ver);
