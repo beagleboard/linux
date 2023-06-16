@@ -60,6 +60,7 @@ enum vpu_instance_state {
 #define WAVE5_FBC_CHROMA_TABLE_SIZE(_w, _h) (ALIGN((_h), 64) * ALIGN((_w) / 2, 256) / 32)
 #define WAVE5_ENC_AVC_BUF_SIZE(_w, _h) (ALIGN(_w, 64) * ALIGN(_h, 64) / 32)
 #define WAVE5_ENC_HEVC_BUF_SIZE(_w, _h) (ALIGN(_w, 64) / 64 * ALIGN(_h, 64) / 64 * 128)
+#define DEC_BUF_OFFSET 2
 
 #define IS_WRAP(_v, _max) ((_v % _max) ? 1 : 0)
 
@@ -1115,6 +1116,10 @@ struct vpu_instance {
 	unsigned int rc_enable;
 	unsigned int bit_rate;
 	struct enc_wave_param enc_param;
+	unsigned int *map_index;
+	unsigned long *mapped_dma_addr;
+	unsigned int cap_io_mode;
+	struct mutex *inst_lock;
 };
 
 void wave5_vdi_write_register(struct vpu_device *vpu_dev, u32 addr, u32 data);

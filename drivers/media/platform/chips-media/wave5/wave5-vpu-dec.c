@@ -351,15 +351,20 @@ static void wave5_vpu_dec_stop_decode(struct vpu_instance *inst)
 }
 
 static void wave5_handle_display_frame(struct vpu_instance *inst,
-				       struct dec_output_info *info)
+				       struct dec_output_info *info, int index_to_remove)
 {
-	struct vb2_v4l2_buffer *dst_buf =
-		v4l2_m2m_dst_buf_remove_by_idx(inst->v4l2_fh.m2m_ctx,
-					       info->index_frame_display);
 	int stride = info->disp_frame.stride;
 	int height = info->disp_pic_height - info->rc_display.bottom;
 	unsigned int size;
 	int tail = 0;
+	struct vb2_v4l2_buffer *dst_buf =
+		v4l2_m2m_dst_buf_remove_by_idx(inst->v4l2_fh.m2m_ctx,
+					       index_to_remove);
+	if (dst_buf == NULL) {
+		pr_err("%s vb2 buffer not found index_to_remove : %d : %d\n",
+		       __func__, index_to_remove, info->index_frame_display);
+		return;
+	}
 
 	if (inst->dst_fmt.num_planes == 1) {
 		if (inst->output_format == FORMAT_422)
@@ -406,6 +411,7 @@ static void wave5_vpu_dec_finish_decode(struct vpu_instance *inst)
 	int ret;
 	u32 irq_status;
 	int tail = 0;
+	int index_to_remove = -1;
 
 	if (kfifo_out(&inst->irq_status, &irq_status, sizeof(int)))
 		wave5_vpu_clear_interrupt_ex(inst, irq_status);
@@ -415,6 +421,7 @@ static void wave5_vpu_dec_finish_decode(struct vpu_instance *inst)
 		v4l2_m2m_job_finish(inst->v4l2_m2m_dev, inst->v4l2_fh.m2m_ctx);
 		return;
 	}
+	index_to_remove = dec_output_info.index_frame_display;
 	if (dec_output_info.index_frame_decoded == DECODED_IDX_FLAG_NO_FB &&
 	    dec_output_info.index_frame_display == DISPLAY_IDX_FLAG_NO_FB) {
 		dev_dbg(inst->dev->dev, "%s: no more frame buffer\n", __func__);
@@ -422,8 +429,15 @@ static void wave5_vpu_dec_finish_decode(struct vpu_instance *inst)
 		wave5_handle_src_buffer(inst);
 
 		if (dec_output_info.index_frame_display >= 0) {
-			wave5_handle_display_frame(inst, &dec_output_info);
-		} else if (dec_output_info.index_frame_display == DISPLAY_IDX_FLAG_SEQ_END &&
+			mutex_lock(inst->inst_lock);
+			index_to_remove =
+				inst->map_index[dec_output_info
+							.index_frame_display];
+			mutex_unlock(inst->inst_lock);
+			wave5_handle_display_frame(inst, &dec_output_info,
+						   index_to_remove);
+		} else if (dec_output_info.index_frame_display ==
+				   DISPLAY_IDX_FLAG_SEQ_END &&
 			   !inst->eos) {
 			static const struct v4l2_event vpu_event_eos = {
 				.type = V4L2_EVENT_EOS
@@ -954,6 +968,9 @@ static int wave5_vpu_dec_queue_setup(struct vb2_queue *q, unsigned int *num_buff
 				__func__, sizes[0], sizes[1], sizes[2]);
 		}
 	}
+	if (q->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
+		inst->cap_io_mode = q->memory;
+
 
 	if (inst->state == VPU_INST_STATE_NONE && q->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 		struct dec_open_param open_param;
@@ -999,6 +1016,26 @@ static int wave5_vpu_dec_queue_setup(struct vb2_queue *q, unsigned int *num_buff
 			inst->dst_buf_count = *num_buffers;
 
 		*num_buffers = inst->dst_buf_count;
+		inst->map_index =
+			kzalloc((inst->dst_buf_count) * sizeof(unsigned int),
+				GFP_KERNEL);
+		if (!inst->map_index) {
+			ret = -ENOMEM;
+			dev_dbg(inst->dev->dev,
+				"%s: Failed to allocate nenory, fail: %d\n",
+				__func__, ret);
+			goto free_bitstream_vbuf;
+		}
+		inst->mapped_dma_addr =
+			kzalloc((inst->dst_buf_count) * sizeof(unsigned long),
+				GFP_KERNEL);
+		if (!inst->mapped_dma_addr) {
+			ret = -ENOMEM;
+			dev_dbg(inst->dev->dev,
+				"%s: Failed to allocate nenory, fail: %d\n",
+				__func__, ret);
+			goto free_bitstream_vbuf;
+		}
 	} else if (inst->state == VPU_INST_STATE_STOP &&
 		   q->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 		*num_buffers = 0;
@@ -1058,6 +1095,10 @@ static int wave5_prepare_fb(struct vpu_instance *inst)
 			__func__, ret);
 		return ret;
 	}
+	if (inst->cap_io_mode == VB2_MEMORY_DMABUF) {
+		for (i = (linear_num - DEC_BUF_OFFSET); i < linear_num; i++)
+			ret = wave5_vpu_dec_set_disp_flag(inst, i);
+	}
 
 	return 0;
 }
@@ -1069,7 +1110,7 @@ static int wave5_vpu_dec_start_streaming_open(struct vpu_instance *inst)
 
 	inst->time_stamp.head = 0;
 	inst->time_stamp.tail = 0;
-	memset(&inst->time_stamp.buf, 0, sizeof(MAX_TIMESTAMP_CIR_BUF));
+	memset(&inst->time_stamp.buf, 0, MAX_TIMESTAMP_CIR_BUF*sizeof(u64));
 
 	memset(&initial_info, 0, sizeof(struct dec_initial_info));
 
@@ -1226,14 +1267,60 @@ static void wave5_vpu_dec_buf_queue_dst(struct vb2_buffer *vb)
 {
 	struct vb2_v4l2_buffer *vbuf = to_vb2_v4l2_buffer(vb);
 	struct vpu_instance *inst = vb2_get_drv_priv(vb->vb2_queue);
-	int ret;
+	unsigned long addr;
+	int ret, i, act_index = -1;
 
-	vbuf->sequence = inst->queued_dst_buf_num++;
-	ret = wave5_vpu_dec_clr_disp_flag(inst, vb->index);
-	if (ret) {
-		dev_dbg(inst->dev->dev,
-			"%s: Clearing the display flag of buffer index: %u, fail: %d\n",
-			__func__, vb->index, ret);
+	addr = vb2_dma_contig_plane_dma_addr(vb, 0);
+	if (vb->vb2_queue->memory == VB2_MEMORY_DMABUF) {
+		mutex_lock(inst->inst_lock);
+		if (vb->index < (inst->dst_buf_count - DEC_BUF_OFFSET)) {
+			if (inst->queued_dst_buf_num <
+			    (inst->dst_buf_count - DEC_BUF_OFFSET)) {
+				ret = wave5_vpu_dec_clr_disp_flag(inst,
+								  vb->index);
+				inst->map_index[vb->index] = vb->index;
+			} else {
+				for (i = 0; i < inst->dst_buf_count; i++) {
+					if (inst->mapped_dma_addr[i] == addr) {
+						act_index = i;
+						break;
+					}
+				}
+				if (act_index >= 0) {
+					ret = wave5_vpu_dec_clr_disp_flag(
+						inst, act_index);
+					if (ret) {
+						dev_dbg(inst->dev->dev,
+							"%s: Clearing the display flag of buffer index: %u, fail: %d\n",
+							__func__, vb->index,
+							ret);
+					}
+					inst->map_index[act_index] = vb->index;
+				} else {
+					pr_err("%s Address not found for index : %d: %lx\n",
+					       __func__, vb->index, addr);
+					v4l2_m2m_dst_buf_remove_by_idx(
+						inst->v4l2_fh.m2m_ctx,
+						vb->index);
+					v4l2_m2m_buf_done(
+						to_vb2_v4l2_buffer(vb),
+						VB2_BUF_STATE_ERROR);
+					mutex_unlock(inst->inst_lock);
+					return;
+				}
+			}
+			vbuf->sequence = inst->queued_dst_buf_num++;
+		}
+		mutex_unlock(inst->inst_lock);
+	} else {
+		inst->map_index[vb->index] = vb->index;
+		vbuf->sequence = inst->queued_dst_buf_num++;
+		ret = wave5_vpu_dec_clr_disp_flag(inst, vb->index);
+		if (ret) {
+			dev_dbg(inst->dev->dev,
+				"%s: Clearing the display flag of buffer index: %u, fail: %d\n",
+				__func__, vb->index, ret);
+		}
 	}
 
 	if (inst->state == VPU_INST_STATE_INIT_SEQ) {
@@ -1244,6 +1331,7 @@ static void wave5_vpu_dec_buf_queue_dst(struct vb2_buffer *vb)
 		u32 luma_size = fb_stride * inst->dst_fmt.height;
 		u32 chroma_size;
 
+		inst->mapped_dma_addr[vb->index] = addr;
 		if (inst->output_format == FORMAT_422)
 			chroma_size = fb_stride * inst->dst_fmt.height / 2;
 		else
@@ -1294,8 +1382,15 @@ static void wave5_vpu_dec_buf_queue(struct vb2_buffer *vb)
 		__func__, vb->type, vb->index, vb2_plane_size(&vbuf->vb2_buf, 0),
 		vb2_plane_size(&vbuf->vb2_buf, 1), vb2_plane_size(&vbuf->vb2_buf, 2));
 
-	v4l2_m2m_buf_queue(inst->v4l2_fh.m2m_ctx, vbuf);
-
+	if ((vb->vb2_queue->memory == VB2_MEMORY_DMABUF) &&
+	    (vb->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)) {
+		if (vb->index < (inst->dst_buf_count - DEC_BUF_OFFSET))
+			v4l2_m2m_buf_queue(inst->v4l2_fh.m2m_ctx, vbuf);
+		else
+			v4l2_m2m_buf_done(vbuf, VB2_BUF_STATE_ERROR);
+	} else {
+		v4l2_m2m_buf_queue(inst->v4l2_fh.m2m_ctx, vbuf);
+	}
 	if (vb->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
 		wave5_vpu_dec_buf_queue_src(vb);
 	else if (vb->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
@@ -1539,6 +1634,12 @@ static int wave5_vpu_open_dec(struct file *filp)
 		ret = inst->id;
 		goto cleanup_inst;
 	}
+	inst->inst_lock = kzalloc(sizeof(*inst->inst_lock), GFP_KERNEL);
+	if (!inst->inst_lock) {
+		ret = -ENOMEM;
+		goto cleanup_inst;
+	}
+	mutex_init(inst->inst_lock);
 
 	ret = mutex_lock_interruptible(&dev->dev_lock);
 	if (ret)
