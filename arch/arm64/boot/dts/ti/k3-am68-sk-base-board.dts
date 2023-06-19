@@ -594,6 +594,7 @@
 };
 
 &usbss0 {
+	status = "okay";
 	pinctrl-0 = <&main_usbss0_pins_default>;
 	pinctrl-names = "default";
 	ti,vbus-divider;
