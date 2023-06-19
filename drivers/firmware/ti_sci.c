@@ -108,7 +108,6 @@ struct ti_sci_desc {
  * @ctx_mem_buf: Low power context memory buffer
  * @fw_caps:	FW/SoC low power capabilities
  * @users:	Number of users of this instance
- * @is_suspending: Flag set to indicate in suspend path.
  */
 struct ti_sci_info {
 	struct device *dev;
@@ -130,7 +129,6 @@ struct ti_sci_info {
 	u64 fw_caps;
 	/* protected by ti_sci_list_mutex */
 	int users;
-	bool is_suspending;
 };
 
 #define cl_to_ti_sci_info(c)	container_of(c, struct ti_sci_info, cl)
@@ -432,14 +430,14 @@ static inline int ti_sci_do_xfer(struct ti_sci_info *info,
 
 	ret = 0;
 
-	if (!info->is_suspending) {
+	if (system_state <= SYSTEM_RUNNING) {
 		/* And we wait for the response. */
 		timeout = msecs_to_jiffies(info->desc->max_rx_timeout_ms);
 		if (!wait_for_completion_timeout(&xfer->done, timeout))
 			ret = -ETIMEDOUT;
 	} else {
 		/*
-		 * If we are suspending, we cannot use wait_for_completion_timeout
+		 * If we are !running, we cannot use wait_for_completion_timeout
 		 * during noirq phase, so we must manually poll the completion.
 		 */
 		ret = read_poll_timeout_atomic(try_wait_for_completion, done_state,
@@ -3527,11 +3525,6 @@ static int tisci_reboot_handler(struct notifier_block *nb, unsigned long mode,
 	return NOTIFY_BAD;
 }
 
-static void ti_sci_set_is_suspending(struct ti_sci_info *info, bool is_suspending)
-{
-	info->is_suspending = is_suspending;
-}
-
 static int ti_sci_prepare_system_suspend(struct ti_sci_info *info)
 {
 #if IS_ENABLED(CONFIG_SUSPEND)
@@ -3585,12 +3578,6 @@ static int ti_sci_suspend(struct device *dev)
 	ret = ti_sci_prepare_system_suspend(info);
 	if (ret)
 		return ret;
-	/*
-	 * We must switch operation to polled mode now as drivers and the genpd
-	 * layer may make late TI SCI calls to change clock and device states
-	 * from the noirq phase of suspend.
-	 */
-	ti_sci_set_is_suspending(info, true);
 
 	return 0;
 }
@@ -3601,8 +3588,6 @@ static int ti_sci_resume(struct device *dev)
 	u32 source;
 	u64 time;
 	int ret = 0;
-
-	ti_sci_set_is_suspending(info, false);
 
 	ret = ti_sci_cmd_set_io_isolation(&info->handle, TISCI_MSG_VALUE_IO_DISABLE);
 	if (ret)
