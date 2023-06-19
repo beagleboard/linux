@@ -396,10 +396,10 @@ static int cdns_pcie_host_dma_ranges_cmp(void *priv, const struct list_head *a,
 {
 	struct resource_entry *entry1, *entry2;
 
-        entry1 = container_of(a, struct resource_entry, node);
-        entry2 = container_of(b, struct resource_entry, node);
+	entry1 = container_of(a, struct resource_entry, node);
+	entry2 = container_of(b, struct resource_entry, node);
 
-        return resource_size(entry2->res) - resource_size(entry1->res);
+	return resource_size(entry2->res) - resource_size(entry1->res);
 }
 
 static int cdns_pcie_host_map_dma_ranges(struct cdns_pcie_rc *rc)
@@ -587,8 +587,8 @@ int cdns_pcie_host_remove_setup(struct cdns_pcie_rc *rc)
 	struct cdns_pcie *pcie = &rc->pcie;
 	struct pci_host_bridge *bridge = pci_host_bridge_from_priv(rc);
 
-        pci_stop_root_bus(bridge->bus);
-        pci_remove_root_bus(bridge->bus);
+	pci_stop_root_bus(bridge->bus);
+	pci_remove_root_bus(bridge->bus);
 	cdns_pcie_host_disable_ptm_response(pcie);
 
 	return 0;

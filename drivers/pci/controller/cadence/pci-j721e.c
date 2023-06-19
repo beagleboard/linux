@@ -42,11 +42,11 @@ static void j721e_pcie_config_link_irq(struct j721e_pcie *pcie)
 
 void j721e_pcie_remove_link_irq(struct j721e_pcie *pcie)
 {
-        u32 reg;
+	u32 reg;
 
-        reg = j721e_pcie_intd_readl(pcie, CLEAR_REG_SYS_2);
-        reg |= pcie->linkdown_irq_regfield;
-        j721e_pcie_intd_writel(pcie, CLEAR_REG_SYS_2, reg);
+	reg = j721e_pcie_intd_readl(pcie, CLEAR_REG_SYS_2);
+	reg |= pcie->linkdown_irq_regfield;
+	j721e_pcie_intd_writel(pcie, CLEAR_REG_SYS_2, reg);
 }
 EXPORT_SYMBOL_GPL(j721e_pcie_remove_link_irq);
 
@@ -93,7 +93,7 @@ const struct cdns_pcie_ops j721e_pcie_ops = {
 EXPORT_SYMBOL_GPL(j721e_pcie_ops);
 
 static int j721e_pcie_set_mode(struct j721e_pcie *pcie, struct regmap *syscon,
-			       unsigned int offset)
+				unsigned int offset)
 {
 	struct device *dev = pcie->cdns_pcie->dev;
 	u32 mask = J721E_MODE_RC;
@@ -169,7 +169,7 @@ static int j721e_pcie_ctrl_init(struct j721e_pcie *pcie)
 
 	/* Do not error out to maintain old DT compatibility */
 	ret = of_parse_phandle_with_fixed_args(node, "ti,syscon-pcie-ctrl", 1,
-					       0, &args);
+						0, &args);
 	if (!ret)
 		offset = args.args[0];
 
@@ -194,7 +194,7 @@ static int j721e_pcie_ctrl_init(struct j721e_pcie *pcie)
 	return 0;
 }
 
-int j721e_pcie_setup_link_interrupts(struct j721e_pcie *pcie)
+static int j721e_pcie_setup_link_interrupts(struct j721e_pcie *pcie)
 {
 	struct device *dev = pcie->cdns_pcie->dev;
 	struct platform_device *pdev = to_platform_device(dev);
@@ -204,7 +204,7 @@ int j721e_pcie_setup_link_interrupts(struct j721e_pcie *pcie)
 	if (ret < 0)
 		return ret;
 	ret = devm_request_irq(dev, ret, j721e_pcie_link_irq_handler, 0,
-			       "j721e-pcie-link-down-irq", pcie);
+				"j721e-pcie-link-down-irq", pcie);
 	if (ret < 0) {
 		dev_err(dev, "failed to request link state IRQ %d\n", ret);
 		return ret;

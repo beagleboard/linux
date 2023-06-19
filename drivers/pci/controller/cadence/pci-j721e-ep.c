@@ -117,7 +117,7 @@ static int j721e_pcie_remove(struct platform_device *pdev)
 {
 	struct j721e_pcie *pcie = platform_get_drvdata(pdev);
 	struct cdns_pcie *cdns_pcie = pcie->cdns_pcie;
-        struct device *dev = &pdev->dev;
+	struct device *dev = &pdev->dev;
 
 	j721e_pcie_remove_link_irq(pcie);
 	cdns_pcie_stop_link(cdns_pcie);
