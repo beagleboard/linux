@@ -70,6 +70,8 @@
 #define MAX_PRU_SYS_EVENTS 160
 #define MAX_PRU_CHANNELS 20
 
+#define MAX_PRU_INT_EVENTS	64
+
 /**
  * struct pruss_intc_map_record - keeps track of actual mapping state
  * @value: The currently mapped value (channel or host)
@@ -85,10 +87,13 @@ struct pruss_intc_map_record {
  * @num_system_events: number of input system events handled by the PRUSS INTC
  * @num_host_events: number of host events (which is equal to number of
  *		     channels) supported by the PRUSS INTC
+ * @quirky_events: bitmask of events that need quirky IRQ handling (limited to
+ *		   (internal sources only for now, so 64 bits suffice)
  */
 struct pruss_intc_match_data {
 	u8 num_system_events;
 	u8 num_host_events;
+	u64 quirky_events;
 };
 
 /**
@@ -304,6 +309,10 @@ static void pruss_intc_irq_ack(struct irq_data *data)
 	struct pruss_intc *intc = irq_data_get_irq_chip_data(data);
 	unsigned int hwirq = data->hwirq;
 
+	if (hwirq < MAX_PRU_INT_EVENTS &&
+	    intc->soc_config->quirky_events & BIT_ULL(hwirq))
+		return;
+
 	pruss_intc_write_reg(intc, PRU_INTC_SICR, hwirq);
 }
 
@@ -320,6 +329,9 @@ static void pruss_intc_irq_unmask(struct irq_data *data)
 	struct pruss_intc *intc = irq_data_get_irq_chip_data(data);
 	unsigned int hwirq = data->hwirq;
 
+	if (hwirq < MAX_PRU_INT_EVENTS &&
+	    intc->soc_config->quirky_events & BIT_ULL(hwirq))
+		pruss_intc_write_reg(intc, PRU_INTC_SICR, hwirq);
 	pruss_intc_write_reg(intc, PRU_INTC_EISR, hwirq);
 }
 
@@ -644,11 +656,13 @@ static int pruss_intc_remove(struct platform_device *pdev)
 static const struct pruss_intc_match_data pruss_intc_data = {
 	.num_system_events = 64,
 	.num_host_events = 10,
+	.quirky_events = BIT_ULL(7), /* IEP capture/compare event */
 };
 
 static const struct pruss_intc_match_data icssg_intc_data = {
 	.num_system_events = 160,
 	.num_host_events = 20,
+	.quirky_events = BIT_ULL(7) | BIT_ULL(56), /* IEP{0,1} capture/compare events */
 };
 
 static const struct of_device_id pruss_intc_of_match[] = {
