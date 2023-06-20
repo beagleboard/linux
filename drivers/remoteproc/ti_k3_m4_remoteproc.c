@@ -431,7 +431,7 @@ static int k3_m4_rproc_probe(struct platform_device *pdev)
 
 	if (device_property_present(dev, "wakeup-source")) {
 		dev_dbg(dev, "registering as wakeup source\n");
-		device_init_wakeup(dev, true);
+		device_set_wakeup_capable(dev, true);
 	}
 
 	kproc->reset = devm_reset_control_get_exclusive(dev, NULL);
