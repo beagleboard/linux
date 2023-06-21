@@ -1021,14 +1021,14 @@ struct icssg_firmwares {
 
 static struct icssg_firmwares icssg_hsr_firmwares[] = {
 	{
-		.pru = "ti-pruss/am65x-sr2-pru0-pru-hsr-fw.elf",
-		.rtu = "ti-pruss/am65x-sr2-rtu0-pru-hsr-fw.elf",
-		.txpru = "ti-pruss/am65x-sr2-txpru0-pru-hsr-fw.elf",
+		.pru = "ti-pruss/am65x-sr2-pru0-pruhsr-fw.elf",
+		.rtu = "ti-pruss/am65x-sr2-rtu0-pruhsr-fw.elf",
+		.txpru = "ti-pruss/am65x-sr2-txpru0-pruhsr-fw.elf",
 	},
 	{
-		.pru = "ti-pruss/am65x-sr2-pru1-pru-hsr-fw.elf",
-		.rtu = "ti-pruss/am65x-sr2-rtu1-pru-hsr-fw.elf",
-		.txpru = "ti-pruss/am65x-sr2-txpru1-pru-hsr-fw.elf",
+		.pru = "ti-pruss/am65x-sr2-pru1-pruhsr-fw.elf",
+		.rtu = "ti-pruss/am65x-sr2-rtu1-pruhsr-fw.elf",
+		.txpru = "ti-pruss/am65x-sr2-txpru1-pruhsr-fw.elf",
 	}
 };
 
