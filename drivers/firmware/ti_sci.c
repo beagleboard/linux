@@ -3580,7 +3580,7 @@ static int ti_sci_suspend(struct device *dev)
 	ret = ti_sci_cmd_set_io_isolation(&info->handle, TISCI_MSG_VALUE_IO_ENABLE);
 	if (ret)
 		return ret;
-	dev_info(dev, "ti_sci suspend set isolation: %d\n", ret);
+	dev_dbg(dev, "%s: set isolation: %d\n", __func__, ret);
 
 	ret = ti_sci_prepare_system_suspend(info);
 	if (ret)
@@ -3607,7 +3607,8 @@ static int ti_sci_resume(struct device *dev)
 	ret = ti_sci_cmd_set_io_isolation(&info->handle, TISCI_MSG_VALUE_IO_DISABLE);
 	if (ret)
 		return ret;
-	dev_info(dev, "ti_sci_resume disable isolation: %d\n", ret);
+	dev_dbg(dev, "%s: disable isolation: %d\n", __func__, ret);
+
 	ti_sci_msg_cmd_lpm_wake_reason(&info->handle, &source, &time);
 	dev_info(dev, "%s: wakeup source: 0x%X\n", __func__, source);
 
