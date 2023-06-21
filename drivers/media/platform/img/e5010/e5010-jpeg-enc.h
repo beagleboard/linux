@@ -110,7 +110,7 @@ struct e5010_context {
 	struct e5010_q_data out_queue;
 	struct e5010_q_data cap_queue;
 	int quality;
-	bool quality_updated;
+	bool update_qp;
 	struct v4l2_ctrl_handler ctrl_handler;
 	u8 luma_qp[QP_TABLE_SIZE];
 	u8 chroma_qp[QP_TABLE_SIZE];

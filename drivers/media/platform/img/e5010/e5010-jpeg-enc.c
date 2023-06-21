@@ -274,6 +274,8 @@ static void calculate_qp_tables(struct e5010_context *ctx)
 			val = 255;
 		ctx->luma_qp[i] = quality == -50 ? 1 : val;
 	}
+
+	ctx->update_qp = true;
 }
 
 static int update_qp_tables(struct e5010_context *ctx)
@@ -712,7 +714,6 @@ static int e5010_s_ctrl(struct v4l2_ctrl *ctrl)
 	switch (ctrl->id) {
 	case V4L2_CID_JPEG_COMPRESSION_QUALITY:
 		ctx->quality = ctrl->val;
-		ctx->quality_updated = true;
 		calculate_qp_tables(ctx);
 		break;
 	default:
@@ -818,8 +819,6 @@ static void e5010_jpeg_set_default_params(struct e5010_context *ctx)
 	e5010_queue_update_sizeimage(queue, ctx);
 	queue->format_set = false;
 	queue->streaming = false;
-
-	ctx->quality = 50;
 }
 
 static int e5010_open(struct file *file)
@@ -859,7 +858,6 @@ static int e5010_open(struct file *file)
 	ctx->fh.ctrl_handler = &ctx->ctrl_handler;
 
 	e5010_jpeg_set_default_params(ctx);
-	calculate_qp_tables(ctx);
 	mutex_unlock(&dev->mutex);
 	return 0;
 
@@ -1459,14 +1457,15 @@ static void e5010_device_run(void *priv)
 	if (s_vb->flags & V4L2_BUF_FLAG_TIMECODE)
 		d_vb->timecode = s_vb->timecode;
 
-	if (ctx != dev->last_context_run || ctx->quality_updated)
+	if (ctx != dev->last_context_run || ctx->update_qp)
 		ret = update_qp_tables(ctx);
+
 	if (ret) {
-		ctx->quality_updated = true;
+		ctx->update_qp = true;
 		dev_warn(dev->dev, "Failed to update QP tables\n");
 	} else {
 		dev->last_context_run = ctx;
-		ctx->quality_updated = false;
+		ctx->update_qp = false;
 	}
 
 	/* Set I/O Buffer addresses */
