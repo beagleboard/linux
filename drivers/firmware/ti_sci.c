@@ -3598,6 +3598,8 @@ static int ti_sci_suspend(struct device *dev)
 static int ti_sci_resume(struct device *dev)
 {
 	struct ti_sci_info *info = dev_get_drvdata(dev);
+	u32 source;
+	u64 time;
 	int ret = 0;
 
 	ti_sci_set_is_suspending(info, false);
@@ -3606,6 +3608,8 @@ static int ti_sci_resume(struct device *dev)
 	if (ret)
 		return ret;
 	dev_info(dev, "ti_sci_resume disable isolation: %d\n", ret);
+	ti_sci_msg_cmd_lpm_wake_reason(&info->handle, &source, &time);
+	dev_info(dev, "%s: wakeup source: 0x%X\n", __func__, source);
 
 	return 0;
 }
