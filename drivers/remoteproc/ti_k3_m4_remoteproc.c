@@ -241,7 +241,6 @@ static int k3_m4_rproc_start(struct rproc *rproc)
 {
 	struct k3_rproc *kproc = rproc->priv;
 	struct device *dev = kproc->dev;
-	u32 boot_addr;
 	int ret;
 
 	if (kproc->ipc_only) {
@@ -254,7 +253,6 @@ static int k3_m4_rproc_start(struct rproc *rproc)
 	if (ret)
 		return ret;
 
-	boot_addr = rproc->bootaddr;
 	ret = k3_rproc_release(kproc);
 	if (ret)
 		goto put_mbox;
