@@ -788,7 +788,7 @@ static int core_handle_processed_unit(struct core_stream_context *c_str_ctx,
 
 				g_ctx->vxd_str_processed_cb(c_str_ctx->vxd_dec_context,
 					VXD_CB_STRUNIT_PROCESSED,
-					bstr_seg->bufmap_id);
+					bstr_seg->bufmap_id, 0);
 			}
 			/* Get next segment. */
 			bstr_seg = (struct bspp_bitstr_seg *)
@@ -798,7 +798,7 @@ static int core_handle_processed_unit(struct core_stream_context *c_str_ctx,
 
 	case VDECDD_STRUNIT_PICTURE_END:
 		g_ctx->vxd_str_processed_cb(c_str_ctx->vxd_dec_context,
-			VXD_CB_PICT_END, 0xFFFF);
+			VXD_CB_PICT_END, 0xFFFF, 0);
 		break;
 
 	case VDECDD_STRUNIT_STOP:
@@ -837,7 +837,8 @@ core_handle_decoded_picture(struct core_stream_context *core_str_ctx,
 		return IMG_ERROR_COULD_NOT_OBTAIN_RESOURCE;
 
 	global_core_ctx->vxd_str_processed_cb(core_str_ctx->vxd_dec_context,
-		(enum vxd_cb_type)type, pictbuf_mapinfo->buf_map_id);
+		(enum vxd_cb_type)type, pictbuf_mapinfo->buf_map_id,
+		picture->dec_pict_info->err_flags);
 	return IMG_SUCCESS;
 }
 
@@ -888,21 +889,21 @@ static int core_stream_processed_cb(void *handle, int cb_type, void *cb_item)
 
 	case VXD_CB_STR_END:
 		global_core_ctx->vxd_str_processed_cb(core_str_ctx->vxd_dec_context,
-			(enum vxd_cb_type)cb_type, 0);
+			(enum vxd_cb_type)cb_type, 0, 0);
 		ret = IMG_SUCCESS;
 
 		break;
-
 	case VXD_CB_ERROR_FATAL:
 		/*
 		 * Whenever the error case occurs, we need to handle the error case.
 		 * Need to forward this error to v4l2 glue layer.
+		 * in this case the cb_item is the error_code as we may not have
+		 * an associated picture.
 		 */
 		global_core_ctx->vxd_str_processed_cb(core_str_ctx->vxd_dec_context,
-			(enum vxd_cb_type)cb_type, *((unsigned int *)cb_item));
+			(enum vxd_cb_type)cb_type, 0, *((unsigned int *)cb_item));
 		ret = IMG_SUCCESS;
 		break;
-
 	default:
 		return 0;
 	}

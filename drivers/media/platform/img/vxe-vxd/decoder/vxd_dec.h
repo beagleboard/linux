@@ -176,7 +176,8 @@ enum vxd_cb_type {
  * @type: the type of message
  * @buf_map_id: the buf_map_id of the resource being returned
  */
-typedef void (*vxd_cb)(void *ctx, enum vxd_cb_type type, unsigned int buf_map_id);
+typedef void (*vxd_cb)(void *ctx, enum vxd_cb_type type, unsigned int buf_map_id,
+						unsigned int error_code);
 
 /*
  * struct vxd_return - contains information about items returning from core

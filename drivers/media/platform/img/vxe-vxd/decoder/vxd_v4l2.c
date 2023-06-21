@@ -410,7 +410,7 @@ static struct vxd_dec_q_data *get_q_data(struct vxd_dec_ctx *ctx,
 }
 
 static void vxd_return_resource(void *ctx_handle, enum vxd_cb_type type,
-				unsigned int buf_map_id)
+				unsigned int buf_map_id, unsigned int err_flags)
 {
 	struct vxd_return *res;
 	struct vxd_buffer *buf = NULL;
@@ -480,7 +480,16 @@ static void vxd_return_resource(void *ctx_handle, enum vxd_cb_type type,
 			vb2_set_plane_payload(&buf->buffer.vb.vb2_buf, i,
 					      ctx->pict_bufcfg.plane_size[i]);
 
-		v4l2_m2m_buf_done(&buf->buffer.vb, VB2_BUF_STATE_DONE);
+		/*
+		 * for fatal errors we will use the FATAL callback
+		 * however this will signal to v4l2 that this frame
+		 * has a (potentially concealled) error
+		 */
+		if (err_flags)
+			v4l2_m2m_buf_done(&buf->buffer.vb, VB2_BUF_STATE_ERROR);
+		else
+			v4l2_m2m_buf_done(&buf->buffer.vb, VB2_BUF_STATE_DONE);
+
 		break;
 	case VXD_CB_PICT_RELEASE:
 		buf = find_buffer(buf_map_id, &ctx->reuse_queue);
@@ -543,10 +552,11 @@ static void vxd_return_resource(void *ctx_handle, enum vxd_cb_type type,
 			if (!q_data)
 				break;
 
+			// terminal error, set planes to zero size and tell v4l2 layer
 			for (i = 0; i < q_data->fmt->num_planes; i++)
 				vb2_set_plane_payload(&vb->vb2_buf, i, 0);
 
-			v4l2_m2m_buf_done(vb, VB2_BUF_STATE_DONE);
+			v4l2_m2m_buf_done(vb, VB2_BUF_STATE_ERROR);
 		} else {
 			ctx->flag_last = TRUE;
 		}
@@ -1662,7 +1672,7 @@ static int vxd_dec_cmd(struct file *file, void *fh, struct v4l2_decoder_cmd *cmd
 #ifdef DEBUG_DECODER_DRIVER
 			pr_info("All buffers are decoded, so issue dummy stream end\n");
 #endif
-			vxd_return_resource((void *)ctx, VXD_CB_STR_END, 0);
+			vxd_return_resource((void *)ctx, VXD_CB_STR_END, 0, 0);
 		}
 	}
 
