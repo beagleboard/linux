@@ -1435,7 +1435,6 @@ static void e5010_device_run(void *priv)
 	struct vb2_v4l2_buffer *s_vb, *d_vb;
 	u32 reg = 0;
 	int ret = 0;
-	u32 bytesperline_64div;
 	unsigned long flags;
 	int num_planes = ctx->out_queue.fmt->num_planes;
 
@@ -1494,7 +1493,6 @@ static void e5010_device_run(void *priv)
 	if (ret)
 		dev_err(dev->dev, "Failed to set input width\n");
 
-	bytesperline_64div = ctx->out_queue.bytesperline[0] / 64;
 	ret = e5010_hw_set_luma_stride(dev->jasper_base, ctx->out_queue.bytesperline[0]);
 	if (ret)
 		dev_err(dev->dev, "Failed to set luma stride\n");
