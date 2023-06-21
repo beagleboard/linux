@@ -1336,9 +1336,7 @@ static int e5010_encoder_cmd(struct file *file, void *priv,
 			     struct v4l2_encoder_cmd *cmd)
 {
 	struct e5010_context *ctx = file->private_data;
-	struct e5010_dev *dev = ctx->dev;
 	int ret;
-	unsigned long flags;
 	struct vb2_queue *cap_vq;
 
 	cap_vq = v4l2_m2m_get_vq(ctx->fh.m2m_ctx, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE);
@@ -1351,11 +1349,9 @@ static int e5010_encoder_cmd(struct file *file, void *priv,
 	    !vb2_is_streaming(v4l2_m2m_get_dst_vq(ctx->fh.m2m_ctx)))
 		return 0;
 
-	spin_lock_irqsave(&dev->hw_lock, flags);
 	ret = v4l2_m2m_ioctl_encoder_cmd(file, &ctx->fh, cmd);
 	if (ret < 0)
-		return 0;
-	spin_unlock_irqrestore(&dev->hw_lock, flags);
+		return ret;
 
 	if (cmd->cmd == V4L2_ENC_CMD_STOP &&
 	    v4l2_m2m_has_stopped(ctx->fh.m2m_ctx))
@@ -1391,7 +1387,7 @@ static int e5010_start_streaming(struct vb2_queue *q, unsigned int count)
 	if (ret)
 		dev_err(ctx->dev->dev, "Failed to Enable e5010 device\n");
 
-	return 0;
+	return ret;
 }
 
 static void e5010_stop_streaming(struct vb2_queue *q)
