@@ -1014,9 +1014,14 @@ static int udma_stop(struct udma_chan *uc)
 		if (!uc->cyclic && !uc->desc)
 			udma_push_to_ring(uc, -1);
 
-		udma_rchanrt_write(uc, UDMA_CHAN_RT_PEER_RT_EN_REG,
-				   UDMA_PEER_RT_EN_ENABLE |
-				   UDMA_PEER_RT_EN_TEARDOWN);
+		/* FIXME: Doing a forced teardown for McASP PDMA to prevent channel corruption */
+		if (uc->cyclic && uc->config.ep_type == PSIL_EP_PDMA_XY &&
+		    uc->config.enable_acc32 && uc->config.enable_burst)
+			udma_rchanrt_write(uc, UDMA_CHAN_RT_PEER_RT_EN_REG, 0);
+		else
+			udma_rchanrt_write(uc, UDMA_CHAN_RT_PEER_RT_EN_REG,
+					   UDMA_PEER_RT_EN_ENABLE |
+					   UDMA_PEER_RT_EN_TEARDOWN);
 		break;
 	case DMA_MEM_TO_DEV:
 		udma_tchanrt_write(uc, UDMA_CHAN_RT_PEER_RT_EN_REG,
