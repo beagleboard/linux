@@ -1196,7 +1196,7 @@ static int e5010_probe(struct platform_device *pdev)
 		goto fail_after_video_register_device;
 	}
 
-	dev->clk = devm_clk_get(&pdev->dev, NULL);
+	dev->clk = devm_clk_get(&pdev->dev, "core_clk");
 	if (IS_ERR(dev->clk)) {
 		dev_err(dev->dev, "failed to get clock\n");
 		ret = PTR_ERR(dev->clk);
