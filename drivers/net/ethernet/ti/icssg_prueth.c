@@ -2752,6 +2752,11 @@ static int prueth_dl_hsr_offload_mode_set(struct devlink *dl, u32 id,
 
 	prueth->is_hsr_offload_mode = hsr_offload_en;
 
+	if (prueth->is_hsr_offload_mode)
+		icss_iep_init_fw(prueth->iep1);
+	else
+		icss_iep_exit_fw(prueth->iep1);
+
 	dev_info(prueth->dev, "Enabling %s mode\n",
 		 hsr_offload_en ? "HSR offload" : "Dual EMAC");
 exit:
