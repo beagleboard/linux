@@ -495,13 +495,13 @@ static int e5010_jpeg_try_fmt(struct v4l2_format *f, struct e5010_context *ctx)
 		pix_mp->colorspace = V4L2_COLORSPACE_SRGB;
 		v4l_bound_align_image(&queue->width_adjusted,
 				      MIN_DIMENSION,
-			      MAX_DIMENSION,
-			      fmt->h_align,
-			      &queue->height_adjusted,
-			      MIN_DIMENSION, /* adjust upwards*/
-			      MAX_DIMENSION,
-			      fmt->v_align,
-			      0);
+				      MAX_DIMENSION,
+				      fmt->h_align,
+				      &queue->height_adjusted,
+				      MIN_DIMENSION, /* adjust upwards*/
+				      MAX_DIMENSION,
+				      fmt->v_align,
+				      0);
 		e5010_queue_update_bytesperline(queue);
 		e5010_queue_update_sizeimage(queue, ctx);
 		for (i = 0; i < fmt->num_planes; i++) {
@@ -516,13 +516,13 @@ static int e5010_jpeg_try_fmt(struct v4l2_format *f, struct e5010_context *ctx)
 		memset(plane_fmt[0].reserved, 0, sizeof(plane_fmt[0].reserved));
 		v4l_bound_align_image(&queue->width_adjusted,
 				      MIN_DIMENSION,
-				MAX_DIMENSION,
-				4,
-				&queue->height_adjusted,
-				MIN_DIMENSION, /* adjust upwards*/
-				MAX_DIMENSION,
-				ctx->out_queue.fmt->v_align,
-				0);
+				      MAX_DIMENSION,
+				      4,
+				      &queue->height_adjusted,
+				      MIN_DIMENSION, /* adjust upwards*/
+				      MAX_DIMENSION,
+				      ctx->out_queue.fmt->v_align,
+				      0);
 		e5010_queue_update_bytesperline(queue);
 		e5010_queue_update_sizeimage(queue, ctx);
 		plane_fmt[0].sizeimage = queue->sizeimage[0];
@@ -775,20 +775,20 @@ static void e5010_jpeg_set_default_params(struct e5010_context *ctx)
 	fmt = find_format(&f);
 	queue = &ctx->out_queue;
 	queue->fmt = fmt;
-	queue->width = 640;
-	queue->height = 480;
+	queue->width = DEFAULT_WIDTH;
+	queue->height = DEFAULT_HEIGHT;
 	queue->width_adjusted = queue->width;
 	queue->height_adjusted = queue->height;
 
 	v4l_bound_align_image(&queue->width_adjusted,
 			      MIN_DIMENSION,
-			MAX_DIMENSION,
-			fmt->h_align,
-			&queue->height_adjusted,
-			MIN_DIMENSION, /* adjust upwards*/
-			MAX_DIMENSION,
-			fmt->v_align,
-			0);
+			      MAX_DIMENSION,
+			      fmt->h_align,
+			      &queue->height_adjusted,
+			      MIN_DIMENSION, /* adjust upwards*/
+			      MAX_DIMENSION,
+			      fmt->v_align,
+			      0);
 
 	e5010_queue_update_bytesperline(queue);
 	e5010_queue_update_sizeimage(queue, ctx);
@@ -800,19 +800,20 @@ static void e5010_jpeg_set_default_params(struct e5010_context *ctx)
 	fmt = find_format(&f);
 	queue = &ctx->cap_queue;
 	queue->fmt = fmt;
-	queue->width = 640;
-	queue->height = 480;
+	queue->width = DEFAULT_WIDTH;
+	queue->height = DEFAULT_HEIGHT;
 	queue->width_adjusted = queue->width;
 	queue->height_adjusted = queue->height;
 	v4l_bound_align_image(&queue->width_adjusted,
 			      MIN_DIMENSION,
-			MAX_DIMENSION,
-			4,
-			&queue->height_adjusted,
-			MIN_DIMENSION, /* adjust upwards*/
-			MAX_DIMENSION,
-			ctx->out_queue.fmt->v_align,
-			0);
+			      MAX_DIMENSION,
+			      4,
+			      &queue->height_adjusted,
+			      MIN_DIMENSION, /* adjust upwards*/
+			      MAX_DIMENSION,
+			      ctx->out_queue.fmt->v_align,
+			      0);
+
 	e5010_queue_update_bytesperline(queue);
 	e5010_queue_update_sizeimage(queue, ctx);
 	queue->format_set = false;
