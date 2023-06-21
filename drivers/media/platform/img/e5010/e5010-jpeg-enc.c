@@ -226,6 +226,29 @@ static const u8 marker_chroma_ac[] = {
 	0xE8, 0xE9, 0xEA, 0xF2, 0xF3, 0xF4, 0xF5, 0xF6, 0xF7, 0xF8, 0xF9, 0xFA
 };
 
+static unsigned int debug;
+module_param(debug, uint, 0644);
+MODULE_PARM_DESC(debug, "debug level");
+
+#define dprintk(dev, lvl, fmt, arg...) \
+	v4l2_dbg(lvl, debug, &(dev)->v4l2_dev, "%s: " fmt, __func__, ## arg)
+
+static const struct v4l2_event e5010_eos_event = {
+	.type = V4L2_EVENT_EOS
+};
+
+static const char *type_name(enum v4l2_buf_type type)
+{
+	switch (type) {
+	case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
+		return "Output";
+	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
+		return "Capture";
+	default:
+		return "Invalid";
+	}
+}
+
 static struct e5010_q_data *get_queue(struct e5010_context *ctx, enum v4l2_buf_type type)
 {
 	switch (type) {
@@ -396,7 +419,9 @@ static int e5010_g_fmt(struct file *file, void *priv, struct v4l2_format *f)
 	pix_mp->num_planes = queue->fmt->num_planes;
 
 	if (V4L2_TYPE_IS_OUTPUT(f->type)) {
-		pix_mp->colorspace = V4L2_COLORSPACE_SRGB;
+		if (!pix_mp->colorspace)
+			pix_mp->colorspace = V4L2_COLORSPACE_SRGB;
+
 		for (i = 0; i < queue->fmt->num_planes; i++) {
 			plane_fmt[i].sizeimage = queue->sizeimage[i];
 			plane_fmt[i].bytesperline = queue->bytesperline[i];
@@ -436,6 +461,7 @@ static void e5010_queue_update_sizeimage(struct e5010_q_data *q, struct e5010_co
 			q->sizeimage[0] = q->width_adjusted * q->height_adjusted * 3 / 2;
 		else
 			q->sizeimage[0] = q->width_adjusted * q->height_adjusted * 2;
+		q->sizeimage[0] += HEADER_SIZE;
 		/* jpeg stream size must be multiple of 4K */
 		q->sizeimage[0] = ALIGN(q->sizeimage[0], PAGE_SIZE);
 		q->sizeimage[1] = 0;
@@ -494,7 +520,9 @@ static int e5010_jpeg_try_fmt(struct v4l2_format *f, struct e5010_context *ctx)
 	queue->height_adjusted = queue->height;
 
 	if (V4L2_TYPE_IS_OUTPUT(f->type)) {
-		pix_mp->colorspace = V4L2_COLORSPACE_SRGB;
+		if (!pix_mp->colorspace)
+			pix_mp->colorspace = V4L2_COLORSPACE_SRGB;
+
 		v4l_bound_align_image(&queue->width_adjusted,
 				      MIN_DIMENSION,
 				      MAX_DIMENSION,
@@ -539,6 +567,15 @@ static int e5010_jpeg_try_fmt(struct v4l2_format *f, struct e5010_context *ctx)
 	pix_mp->xfer_func = V4L2_XFER_FUNC_DEFAULT;
 	pix_mp->num_planes = fmt->num_planes;
 	memset(pix_mp->reserved, 0, sizeof(pix_mp->reserved));
+
+	dprintk(ctx->dev, 2,
+		"ctx: 0x%p: format type %s:, wxh: %dx%d (plane0 : %d bytes, plane1 : %d bytes),fmt: %c%c%c%c\n",
+		ctx, type_name(f->type), queue->width_adjusted, queue->height_adjusted,
+		queue->sizeimage[0], queue->sizeimage[1],
+		(queue->fmt->fourcc & 0xff),
+		(queue->fmt->fourcc >>  8) & 0xff,
+		(queue->fmt->fourcc >> 16) & 0xff,
+		(queue->fmt->fourcc >> 24) & 0xff);
 
 	return 0;
 }
@@ -756,15 +793,6 @@ static int e5010_ctrls_setup(struct e5010_context *ctx)
 	return err;
 }
 
-static void notify_eos(struct e5010_context *ctx)
-{
-	const struct v4l2_event ev = {
-		.type = V4L2_EVENT_EOS
-	};
-
-	v4l2_event_queue_fh(&ctx->fh, &ev);
-}
-
 static void e5010_jpeg_set_default_params(struct e5010_context *ctx)
 {
 	struct e5010_q_data *queue;
@@ -825,7 +853,6 @@ static int e5010_open(struct file *file)
 {
 	struct e5010_dev *dev = video_drvdata(file);
 	struct video_device *vdev = video_devdata(file);
-
 	struct e5010_context *ctx;
 	int ret = 0;
 
@@ -858,6 +885,9 @@ static int e5010_open(struct file *file)
 	ctx->fh.ctrl_handler = &ctx->ctrl_handler;
 
 	e5010_jpeg_set_default_params(ctx);
+
+	dprintk(dev, 1, "Created instance: 0x%p, m2m_ctx: 0x%p\n", ctx, ctx->fh.m2m_ctx);
+
 	mutex_unlock(&dev->mutex);
 	return 0;
 
@@ -877,6 +907,7 @@ static int e5010_release(struct file *file)
 	struct e5010_dev *dev = video_drvdata(file);
 	struct e5010_context *ctx = file->private_data;
 
+	dprintk(dev, 1, "Releasing instance: 0x%p, m2m_ctx: 0x%p\n", ctx, ctx->fh.m2m_ctx);
 	mutex_lock(&dev->mutex);
 	v4l2_ctrl_handler_free(&ctx->ctrl_handler);
 	v4l2_m2m_ctx_release(ctx->fh.m2m_ctx);
@@ -1040,31 +1071,46 @@ static irqreturn_t e5010_irq(int irq, void *data)
 	dst_buf = v4l2_m2m_dst_buf_remove(ctx->fh.m2m_ctx);
 	src_buf = v4l2_m2m_src_buf_remove(ctx->fh.m2m_ctx);
 	if (!dst_buf || !src_buf) {
-		dev_err(dev->dev, "No source or destination buffer.\n");
+		dev_err(dev->dev, "ctx: 0x%p No source or destination buffer\n", ctx);
 		goto job_unlock;
 	}
 
 	if (out_addr_err) {
 		e5010_hw_clear_output_error(dev->jasper_base, 1);
-		dev_warn(dev->dev, "Output bitstream size exceeded max size\n");
+		dev_warn(dev->dev, "ctx: 0x%p Output bitstream size exceeded max size\n", ctx);
+		v4l2_m2m_buf_done(src_buf, VB2_BUF_STATE_ERROR);
+		vb2_set_plane_payload(&dst_buf->vb2_buf, 0, dst_buf->planes[0].length);
+		v4l2_m2m_buf_done(dst_buf, VB2_BUF_STATE_ERROR);
+		if (v4l2_m2m_is_last_draining_src_buf(ctx->fh.m2m_ctx, src_buf)) {
+			dst_buf->flags |= V4L2_BUF_FLAG_LAST;
+			v4l2_m2m_mark_stopped(ctx->fh.m2m_ctx);
+			v4l2_event_queue_fh(&ctx->fh, &e5010_eos_event);
+			dprintk(dev, 2, "ctx: 0x%p Sending EOS\n", ctx);
+		}
 	}
 
 	if (pic_done) {
 		e5010_hw_clear_picture_done(dev->jasper_base, 1);
-		dev_dbg(dev->dev, "Got output bitstream of size %d\n",
-			readl(dev->jasper_base + JASPER_OUTPUT_SIZE_OFFSET));
+		dprintk(dev, 3, "ctx: 0x%p Got output bitstream of size %d bytes\n",
+			ctx, readl(dev->jasper_base + JASPER_OUTPUT_SIZE_OFFSET));
 
 		if (v4l2_m2m_is_last_draining_src_buf(ctx->fh.m2m_ctx, src_buf)) {
 			dst_buf->flags |= V4L2_BUF_FLAG_LAST;
 			v4l2_m2m_mark_stopped(ctx->fh.m2m_ctx);
-			notify_eos(ctx);
+			v4l2_event_queue_fh(&ctx->fh, &e5010_eos_event);
+			dprintk(dev, 2, "ctx: 0x%p Sending EOS\n", ctx);
 		}
 		v4l2_m2m_buf_done(src_buf, VB2_BUF_STATE_DONE);
 		output_size = e5010_hw_get_output_size(dev->jasper_base);
 		vb2_set_plane_payload(&dst_buf->vb2_buf, 0, output_size + HEADER_SIZE);
 		v4l2_m2m_buf_done(dst_buf, VB2_BUF_STATE_DONE);
-		v4l2_m2m_job_finish(dev->m2m_dev, ctx->fh.m2m_ctx);
+		dprintk(dev, 3,
+			"ctx: 0x%p frame done for dst_buf->sequence: %d src_buf->sequence: %d\n",
+			ctx, dst_buf->sequence, src_buf->sequence);
 	}
+
+	v4l2_m2m_job_finish(dev->m2m_dev, ctx->fh.m2m_ctx);
+	dprintk(dev, 3, "ctx: 0x%p Finish job\n", ctx);
 
 job_unlock:
 	spin_unlock(&dev->hw_lock);
@@ -1075,26 +1121,31 @@ static int e5010_init_device(struct e5010_dev *dev)
 {
 	int ret = 0;
 
-	/*TODO: Bypass MMU until support for the same is added in driver*/
+	/*TODO: Set MMU in bypass mode until support for the same is added in driver*/
 	e5010_hw_bypass_mmu(dev->mmu_base, 1);
 
-	ret = e5010_hw_enable_auto_clock_gating(dev->jasper_base, 1);
-	ret = e5010_hw_enable_manual_clock_gating(dev->jasper_base, 0);
+	if (e5010_hw_enable_auto_clock_gating(dev->jasper_base, 1))
+		dev_warn(dev->dev, "Failed to enable auto clock gating\n");
+
+	if (e5010_hw_enable_manual_clock_gating(dev->jasper_base, 0))
+		dev_warn(dev->dev, "Failed to disable manual clock gating\n");
+
+	if (e5010_hw_enable_crc_check(dev->jasper_base, 0))
+		dev_warn(dev->dev, "Failed to disable CRC check\n");
+
+	if (e5010_hw_enable_output_address_error_irq(dev->jasper_base, 1))
+		dev_err(dev->dev, "Failed to enable Output Address Error interrupts\n");
+
 	ret = e5010_hw_set_input_source_to_memory(dev->jasper_base, 1);
 	if (ret) {
 		dev_err(dev->dev, "Failed to set input source to memory\n");
-		return ret;
+		goto fail;
 	}
-
-	ret = e5010_hw_enable_crc_check(dev->jasper_base, 0);
-	ret = e5010_hw_enable_output_address_error_irq(dev->jasper_base, 1);
-	if (ret)
-		dev_err(dev->dev, "Failed to enable Output Address Error interrupts\n");
 
 	ret = e5010_hw_enable_picture_done_irq(dev->jasper_base, 1);
 	if (ret)
 		dev_err(dev->dev, "Failed to enable Picture Done interrupts\n");
-
+fail:
 	return ret;
 }
 
@@ -1257,6 +1308,10 @@ static int e5010_queue_setup(struct vb2_queue *vq, unsigned int *nbuffers, unsig
 	for (i = 0; i < *nplanes; i++)
 		sizes[i] = queue->sizeimage[i];
 
+	dprintk(ctx->dev, 2,
+		"ctx: 0x%p, type %s, buffer(s): %d, planes %d, plane1: bytes %d plane2: %d bytes\n",
+		ctx, type_name(vq->type), *nbuffers, *nplanes, sizes[0], sizes[1]);
+
 	return 0;
 }
 
@@ -1275,6 +1330,10 @@ static void e5010_buf_finish(struct vb2_buffer *vb)
 static int e5010_buf_out_validate(struct vb2_buffer *vb)
 {
 	struct vb2_v4l2_buffer *vbuf = to_vb2_v4l2_buffer(vb);
+	struct e5010_context *ctx = vb2_get_drv_priv(vb->vb2_queue);
+
+	if (vbuf->field != V4L2_FIELD_NONE)
+		dprintk(ctx->dev, 1, "ctx: 0x%p, field isn't supported\n", ctx);
 
 	vbuf->field = V4L2_FIELD_NONE;
 
@@ -1325,7 +1384,7 @@ static void e5010_buf_queue(struct vb2_buffer *vb)
 			return;
 		vbuf->sequence = queue->sequence++;
 		v4l2_m2m_last_buffer_done(ctx->fh.m2m_ctx, vbuf);
-		notify_eos(ctx);
+		v4l2_event_queue_fh(&ctx->fh, &e5010_eos_event);
 		return;
 	}
 
@@ -1355,7 +1414,7 @@ static int e5010_encoder_cmd(struct file *file, void *priv,
 
 	if (cmd->cmd == V4L2_ENC_CMD_STOP &&
 	    v4l2_m2m_has_stopped(ctx->fh.m2m_ctx))
-		notify_eos(ctx);
+		v4l2_event_queue_fh(&ctx->fh, &e5010_eos_event);
 
 	if (cmd->cmd == V4L2_ENC_CMD_START &&
 	    v4l2_m2m_has_stopped(ctx->fh.m2m_ctx))
@@ -1404,14 +1463,14 @@ static void e5010_stop_streaming(struct vb2_queue *q)
 
 	if (q->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 		while ((vbuf = v4l2_m2m_src_buf_remove(ctx->fh.m2m_ctx))) {
-			dev_dbg(ctx->dev->dev, "%s: buf type %4u | index %4u\n",
-				__func__, vbuf->vb2_buf.type, vbuf->vb2_buf.index);
+			dprintk(ctx->dev, 2, "ctx: 0x%p, buf type %s | index %d\n",
+				ctx, type_name(vbuf->vb2_buf.type), vbuf->vb2_buf.index);
 			v4l2_m2m_buf_done(vbuf, VB2_BUF_STATE_ERROR);
 		}
 	} else {
 		while ((vbuf = v4l2_m2m_dst_buf_remove(ctx->fh.m2m_ctx))) {
-			dev_dbg(ctx->dev->dev, "%s: buf type %4u | index %4u\n",
-				__func__, vbuf->vb2_buf.type, vbuf->vb2_buf.index);
+			dprintk(ctx->dev, 2, "ctx: 0x%p, buf type %s | index %d\n",
+				ctx, type_name(vbuf->vb2_buf.type), vbuf->vb2_buf.index);
 			vb2_set_plane_payload(&vbuf->vb2_buf, 0, 0);
 			v4l2_m2m_buf_done(vbuf, VB2_BUF_STATE_ERROR);
 		}
@@ -1422,7 +1481,7 @@ static void e5010_stop_streaming(struct vb2_queue *q)
 
 	if (V4L2_TYPE_IS_OUTPUT(q->type) &&
 	    v4l2_m2m_has_stopped(ctx->fh.m2m_ctx)) {
-		notify_eos(ctx);
+		v4l2_event_queue_fh(&ctx->fh, &e5010_eos_event);
 	}
 
 	pm_runtime_put_sync(ctx->dev->dev);
@@ -1443,21 +1502,24 @@ static void e5010_device_run(void *priv)
 	WARN_ON(!s_vb);
 	d_vb = v4l2_m2m_next_dst_buf(ctx->fh.m2m_ctx);
 	WARN_ON(!d_vb);
+	if (!s_vb || !d_vb)
+		goto no_ready_buf_err;
 
 	s_vb->sequence = ctx->out_queue.sequence++;
 	d_vb->sequence = ctx->cap_queue.sequence++;
-	d_vb->flags = s_vb->flags;
-	d_vb->vb2_buf.timestamp = s_vb->vb2_buf.timestamp;
 
-	if (s_vb->flags & V4L2_BUF_FLAG_TIMECODE)
-		d_vb->timecode = s_vb->timecode;
+	v4l2_m2m_buf_copy_metadata(s_vb, d_vb, false);
 
-	if (ctx != dev->last_context_run || ctx->update_qp)
+	if (ctx != dev->last_context_run || ctx->update_qp) {
+		dprintk(ctx->dev, 1, "ctx updated: 0x%p -> 0x%p, updating qp tables\n",
+			dev->last_context_run, ctx);
 		ret = update_qp_tables(ctx);
+	}
 
 	if (ret) {
 		ctx->update_qp = true;
-		dev_warn(dev->dev, "Failed to update QP tables\n");
+		dev_err(dev->dev, "Failed to update QP tables\n");
+		goto device_busy_err;
 	} else {
 		dev->last_context_run = ctx;
 		ctx->update_qp = false;
@@ -1466,64 +1528,114 @@ static void e5010_device_run(void *priv)
 	/* Set I/O Buffer addresses */
 	reg = (u32)vb2_dma_contig_plane_dma_addr(&s_vb->vb2_buf, 0);
 	ret = e5010_hw_set_input_luma_addr(dev->jasper_base, reg);
-	if (ret || !reg)
+	if (ret || !reg) {
 		dev_err(dev->dev, "Failed to set input luma address\n");
+		goto device_busy_err;
+	}
 
 	if (num_planes == 1)
 		reg += (ctx->out_queue.bytesperline[0]) * (ctx->out_queue.height);
 	else
 		reg = (u32)vb2_dma_contig_plane_dma_addr(&s_vb->vb2_buf, 1);
 
+	dprintk(ctx->dev, 3,
+		"ctx: 0x%p, luma_addr: 0x%x, chroma_addr: 0x%x, out_addr: 0x%x\n",
+		ctx, (u32)vb2_dma_contig_plane_dma_addr(&s_vb->vb2_buf, 0), reg,
+		(u32)vb2_dma_contig_plane_dma_addr(&d_vb->vb2_buf, 0));
+
+	dprintk(ctx->dev, 3,
+		"ctx: 0x%p, buf indices: src_index: %d, dst_index: %d\n",
+		ctx, s_vb->vb2_buf.index, d_vb->vb2_buf.index);
+
 	ret = e5010_hw_set_input_chroma_addr(dev->jasper_base, reg);
-	if (ret || !reg)
+	if (ret || !reg) {
 		dev_err(dev->dev, "Failed to set input chroma address\n");
+		goto device_busy_err;
+	}
 
 	reg = (u32)vb2_dma_contig_plane_dma_addr(&d_vb->vb2_buf, 0);
 	reg += HEADER_SIZE;
-	ret = e5010_hw_set_output_size(dev->jasper_base, reg);
-	if (ret || !reg)
+	ret = e5010_hw_set_output_base_addr(dev->jasper_base, reg);
+	if (ret || !reg) {
 		dev_err(dev->dev, "Failed to set output size\n");
+		goto device_busy_err;
+	}
 
 	/* Set input settings */
 	ret = e5010_hw_set_horizontal_size(dev->jasper_base, ctx->out_queue.width - 1);
-	if (ret)
+	if (ret) {
 		dev_err(dev->dev, "Failed to set input width\n");
+		goto device_busy_err;
+	}
 
 	ret = e5010_hw_set_vertical_size(dev->jasper_base, ctx->out_queue.height - 1);
-	if (ret)
+	if (ret) {
 		dev_err(dev->dev, "Failed to set input width\n");
+		goto device_busy_err;
+	}
 
 	ret = e5010_hw_set_luma_stride(dev->jasper_base, ctx->out_queue.bytesperline[0]);
-	if (ret)
+	if (ret) {
 		dev_err(dev->dev, "Failed to set luma stride\n");
+		goto device_busy_err;
+	}
 
 	ret = e5010_hw_set_chroma_stride(dev->jasper_base, ctx->out_queue.bytesperline[0]);
-	if (ret)
+	if (ret) {
 		dev_err(dev->dev, "Failed to set chroma stride\n");
+		goto device_busy_err;
+	}
 
 	ret = e5010_set_input_subsampling(dev->jasper_base, ctx->out_queue.fmt->subsampling);
-	if (ret)
+	if (ret) {
 		dev_err(dev->dev, "Failed to set input subsampling\n");
+		goto device_busy_err;
+	}
 
 	ret = e5010_hw_set_chroma_order(dev->jasper_base, ctx->out_queue.fmt->chroma_order);
-	if (ret)
+	if (ret) {
 		dev_err(dev->dev, "Failed to set chroma order\n");
+		goto device_busy_err;
+	}
 
 	e5010_hw_set_output_max_size(dev->jasper_base, d_vb->planes[0].length);
 	e5010_hw_encode_start(dev->jasper_base, 1);
+
 	spin_unlock_irqrestore(&dev->hw_lock, flags);
+
+	return;
+
+device_busy_err:
+	e5010_reset(dev->dev, dev->jasper_base, dev->mmu_base);
+
+no_ready_buf_err:
+	if (s_vb) {
+		v4l2_m2m_src_buf_remove_by_buf(ctx->fh.m2m_ctx, s_vb);
+		v4l2_m2m_buf_done(s_vb, VB2_BUF_STATE_ERROR);
+	}
+
+	if (d_vb) {
+		v4l2_m2m_dst_buf_remove_by_buf(ctx->fh.m2m_ctx, d_vb);
+		/* Payload set to 1 since 0 payload can trigger EOS */
+		vb2_set_plane_payload(&d_vb->vb2_buf, 0, 1);
+		v4l2_m2m_buf_done(d_vb, VB2_BUF_STATE_ERROR);
+	}
+	v4l2_m2m_job_finish(dev->m2m_dev, ctx->fh.m2m_ctx);
+	spin_unlock_irqrestore(&dev->hw_lock, flags);
+
+	return;
 }
 
 static int e5010_job_ready(void *priv)
 {
 	struct e5010_context *ctx = priv;
 
-	if ((v4l2_m2m_num_src_bufs_ready(ctx->fh.m2m_ctx) > 0) &&
-	    (v4l2_m2m_num_dst_bufs_ready(ctx->fh.m2m_ctx) > 0) &&
-	     !e5010_hw_is_busy(ctx->dev->jasper_base))
-		return 1;
+	if (e5010_hw_is_busy(ctx->dev->jasper_base)) {
+		dprintk(ctx->dev, 1, "ctx: 0x%p, hw is busy", ctx);
+		return 0;
+	}
 
-	return 0;
+	return 1;
 }
 
 #ifdef CONFIG_PM

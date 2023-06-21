@@ -9,6 +9,7 @@
 
 #include <linux/io.h>
 #include <linux/iopoll.h>
+#include <linux/dev_printk.h>
 #include "e5010-jpeg-enc-hw.h"
 
 static void write_reg_field(void __iomem *base, unsigned int offset, u32 mask,
@@ -42,7 +43,7 @@ static int write_reg_field_not_busy(void __iomem *jasper_base, void __iomem *wr_
 	return 0;
 }
 
-int e5010_reset(void __iomem *core_base, void __iomem *mmu_base)
+void e5010_reset(struct device *dev, void __iomem *core_base, void __iomem *mmu_base)
 {
 	int ret = 0;
 	u32 val;
@@ -59,12 +60,11 @@ int e5010_reset(void __iomem *core_base, void __iomem *mmu_base)
 					(val & MMU_MMU_CONTROL1_MMU_SOFT_RESET_MASK) == 0,
 					2000, 50000);
 	if (ret)
-		return ret;
+		dev_warn(dev, "MMU soft reset timed out, forcing system soft reset\n");
 
 	write_reg_field(core_base, JASPER_RESET_OFFSET,
 			JASPER_RESET_CR_SYS_RESET_MASK,
 			JASPER_RESET_CR_SYS_RESET_SHIFT, 1);
-	return ret;
 }
 
 void e5010_hw_bypass_mmu(void __iomem *mmu_base, u32 enable)
@@ -200,7 +200,7 @@ int e5010_hw_set_input_chroma_addr(void __iomem *core_base, u32 val)
 	return ret;
 }
 
-int e5010_hw_set_output_size(void __iomem *core_base, u32 val)
+int e5010_hw_set_output_base_addr(void __iomem *core_base, u32 val)
 {
 	int ret;
 
