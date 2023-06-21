@@ -1836,6 +1836,7 @@ static void emac_ndo_tx_timeout(struct net_device *ndev, unsigned int txqueue)
 static void emac_ndo_set_rx_mode_work(struct work_struct *work)
 {
 	struct prueth_emac *emac = container_of(work, struct prueth_emac, rx_mode_work);
+	struct prueth *prueth = emac->prueth;
 	struct net_device *ndev = emac->ndev;
 	bool promisc, allmulti;
 
@@ -1858,18 +1859,21 @@ static void emac_ndo_set_rx_mode_work(struct work_struct *work)
 		return;
 	}
 
-	emac_fdb_flush_multicast(emac);
+	if (!prueth->is_switch_mode && !prueth->is_hsr_offload_mode) {
+		emac_fdb_flush_multicast(emac);
 
-	if (!netdev_mc_empty(ndev)) {
-		struct netdev_hw_addr *ha;
+		if (!netdev_mc_empty(ndev)) {
+			struct netdev_hw_addr *ha;
 
-		/* Program multicast address list into FDB Table */
-		netdev_for_each_mc_addr(ha, ndev) {
-			icssg_fdb_add_del(emac, ha->addr, 0, BIT(emac->port_id), true);
-			icssg_vtbl_modify(emac, 0, BIT(emac->port_id),
-					  BIT(emac->port_id), true);
+			/* Program multicast address list into FDB Table */
+			netdev_for_each_mc_addr(ha, ndev) {
+				icssg_fdb_add_del(emac, ha->addr, 0,
+						  BIT(emac->port_id), true);
+				icssg_vtbl_modify(emac, 0, BIT(emac->port_id),
+						  BIT(emac->port_id), true);
+			}
+			return;
 		}
-		return;
 	}
 }
 
