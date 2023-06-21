@@ -443,6 +443,7 @@ struct vxd_dec_ctx {
 	struct bspp_ddbuf_array_info fw_pps[MAX_PPSS];
 	decode_cb cb;
 	struct mutex *mutex; /* Per stream mutex */
+	struct mutex *mutex2; /* used as a sequencing mutex, so device_run runs to completion */
 
 	/* The below variable used only in Rtos */
 	void *mm_return_resource; /* Place holder for CB to application */

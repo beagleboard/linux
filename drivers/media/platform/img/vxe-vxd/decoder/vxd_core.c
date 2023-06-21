@@ -559,6 +559,8 @@ static void stream_worker(void *work)
 #endif
 
 	mutex_lock_nested(ctx->mutex, SUBCLASS_VXD_CORE);
+	/* don't let this run while device_run is still executing */
+	mutex_lock(ctx->mutex2);
 
 	while (!list_empty(&ctx->items_done)) {
 		item = list_first_entry(&ctx->items_done, struct vxd_item, list);
@@ -579,6 +581,7 @@ static void stream_worker(void *work)
 		kfree(item);
 	}
 	mutex_unlock(ctx->mutex);
+	mutex_unlock(ctx->mutex2);
 }
 
 int vxd_create_ctx(struct vxd_dev *vxd, struct vxd_dec_ctx *ctx)
