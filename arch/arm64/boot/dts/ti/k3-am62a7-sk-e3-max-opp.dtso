@@ -1,0 +1,60 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * DT Overlay to run AM62A7-SK Rev E3 board at maximum performance
+ * Requires VDD_CORE to be at 0.85V
+ *
+ * Copyright (C) 2023 Texas Instruments Incorporated - https://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+
+&{/} {
+	opp-table {
+		/*
+		 * Add 1.4GHz and disable lower OPPs for max A53 performance
+		 * Only for AM62A7-SK Rev E3 board
+		 * Requires VDD_CORE to be at 0.85V
+		 */
+		opp-200000000 {
+			status = "disabled";
+		};
+
+		opp-400000000 {
+			status = "disabled";
+		};
+
+		opp-600000000 {
+			status = "disabled";
+		};
+
+		opp-800000000 {
+			status = "disabled";
+		};
+
+		opp-1000000000 {
+			status = "disabled";
+		};
+
+		opp-1250000000 {
+			status = "disabled";
+		};
+
+		opp-1400000000 {
+			opp-hz = /bits/ 64 <1400000000>;
+			opp-supported-hw = <0x01 0x0004>;
+			clock-latency-ns = <6000000>;
+		};
+	};
+};
+
+&c7x_0 {
+	/*
+	 * Override C7x frequency to 1 GHz for max performance
+	 * Only for AM62A7-SK Rev E3 board
+	 * Requires VDD_CORE to be at 0.85V
+	 */
+	clocks = <&k3_clks 208 0>;
+	assigned-clocks = <&k3_clks 208 0>;
+	assigned-clock-rates = <1000000000>;
+};

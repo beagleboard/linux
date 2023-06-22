@@ -33,6 +33,7 @@ k3-am62a7-sk-fusion-ov2312-dtbs := k3-am62a7-sk.dtb \
 				   k3-am62a7-sk-fusion.dtbo \
 				   k3-fpdlink-ov2312-0-0.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-am62a7-sk-csi2-imx219.dtb
+dtb-$(CONFIG_ARCH_K3) += k3-am62a7-sk-e3-max-opp.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-am62a7-sk-ethernet-dc01.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-am62a7-sk-fusion-imx390.dtb
 dtb-$(CONFIG_ARCH_K3) += k3-am62a7-sk-fusion-ov2312.dtb
