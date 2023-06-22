@@ -89,17 +89,6 @@ int e5010_hw_enable_output_address_error_irq(void __iomem *core_base, u32 enable
 	return ret;
 }
 
-bool e5010_hw_is_busy(void __iomem *core_base)
-{
-	u32 reg;
-	bool busy;
-
-	reg = readl(core_base + JASPER_STATUS_OFFSET);
-	busy = (reg & JASPER_STATUS_CR_JASPER_BUSY_MASK) ? true : false;
-
-	return busy;
-}
-
 bool e5010_hw_pic_done_irq(void __iomem *core_base)
 {
 	u32 reg;

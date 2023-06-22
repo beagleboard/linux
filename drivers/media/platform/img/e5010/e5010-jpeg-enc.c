@@ -1511,7 +1511,7 @@ static void e5010_device_run(void *priv)
 	v4l2_m2m_buf_copy_metadata(s_vb, d_vb, false);
 
 	if (ctx != dev->last_context_run || ctx->update_qp) {
-		dprintk(ctx->dev, 1, "ctx updated: 0x%p -> 0x%p, updating qp tables\n",
+		dprintk(dev, 1, "ctx updated: 0x%p -> 0x%p, updating qp tables\n",
 			dev->last_context_run, ctx);
 		ret = update_qp_tables(ctx);
 	}
@@ -1538,12 +1538,12 @@ static void e5010_device_run(void *priv)
 	else
 		reg = (u32)vb2_dma_contig_plane_dma_addr(&s_vb->vb2_buf, 1);
 
-	dprintk(ctx->dev, 3,
+	dprintk(dev, 3,
 		"ctx: 0x%p, luma_addr: 0x%x, chroma_addr: 0x%x, out_addr: 0x%x\n",
 		ctx, (u32)vb2_dma_contig_plane_dma_addr(&s_vb->vb2_buf, 0), reg,
 		(u32)vb2_dma_contig_plane_dma_addr(&d_vb->vb2_buf, 0));
 
-	dprintk(ctx->dev, 3,
+	dprintk(dev, 3,
 		"ctx: 0x%p, buf indices: src_index: %d, dst_index: %d\n",
 		ctx, s_vb->vb2_buf.index, d_vb->vb2_buf.index);
 
@@ -1624,18 +1624,6 @@ no_ready_buf_err:
 	spin_unlock_irqrestore(&dev->hw_lock, flags);
 
 	return;
-}
-
-static int e5010_job_ready(void *priv)
-{
-	struct e5010_context *ctx = priv;
-
-	if (e5010_hw_is_busy(ctx->dev->jasper_base)) {
-		dprintk(ctx->dev, 1, "ctx: 0x%p, hw is busy", ctx);
-		return 0;
-	}
-
-	return 1;
 }
 
 #ifdef CONFIG_PM
@@ -1751,7 +1739,6 @@ static const struct v4l2_file_operations e5010_fops = {
 
 static const struct v4l2_m2m_ops e5010_m2m_ops = {
 	.device_run = e5010_device_run,
-	.job_ready = e5010_job_ready,
 };
 
 static const struct of_device_id e5010_of_match[] = {
