@@ -743,20 +743,13 @@ static void ti_csi2rx_cleanup_buffers(struct ti_csi2rx_ctx *ctx,
 				      enum vb2_buffer_state buf_state)
 {
 	struct ti_csi2rx_dma *dma = &ctx->dma;
-	struct ti_csi2rx_buffer *buf = NULL, *tmp, *curr;
+	struct ti_csi2rx_buffer *buf = NULL, *tmp;
 	enum ti_csi2rx_dma_state state;
 	unsigned long flags;
 	int ret;
 
 	spin_lock_irqsave(&dma->lock, flags);
-	list_for_each_entry_safe(buf, tmp, &ctx->dma.queue, list) {
-		list_del(&buf->list);
-		vb2_buffer_done(&buf->vb.vb2_buf, buf_state);
-	}
-
-	curr = ctx->dma.curr;
 	state = ctx->dma.state;
-	dma->curr = NULL;
 	dma->state = TI_CSI2RX_DMA_STOPPED;
 	spin_unlock_irqrestore(&dma->lock, flags);
 
@@ -765,11 +758,18 @@ static void ti_csi2rx_cleanup_buffers(struct ti_csi2rx_ctx *ctx,
 		if (ret)
 			dev_dbg(ctx->csi->dev,
 				"Failed to drain DMA. Next frame might be bogus\n");
-		dmaengine_terminate_sync(ctx->dma.chan);
+	}
+	dmaengine_terminate_sync(ctx->dma.chan);
+
+	spin_lock_irqsave(&dma->lock, flags);
+	list_for_each_entry_safe(buf, tmp, &ctx->dma.queue, list) {
+		list_del(&buf->list);
+		vb2_buffer_done(&buf->vb.vb2_buf, buf_state);
 	}
 
-	if (curr)
-		vb2_buffer_done(&curr->vb.vb2_buf, buf_state);
+	if (dma->curr)
+		vb2_buffer_done(&dma->curr->vb.vb2_buf, buf_state);
+	spin_unlock_irqrestore(&dma->lock, flags);
 }
 
 static int ti_csi2rx_restart_dma(struct ti_csi2rx_ctx *ctx,
