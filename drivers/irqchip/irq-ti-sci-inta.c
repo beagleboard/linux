@@ -526,6 +526,10 @@ static int ti_sci_inta_set_affinity(struct irq_data *d,
 	event_desc = irq_data_get_irq_chip_data(d);
 	if (event_desc) {
 		vint_desc = to_vint_desc(event_desc, event_desc->vint_bit);
+		parent_irq_data = irq_get_irq_data(vint_desc->parent_virq);
+
+		if (!parent_irq_data || !parent_irq_data->chip->irq_set_affinity)
+			return -EINVAL;
 
 		/*
 		 * Cannot set affinity if there is more than one event
@@ -537,9 +541,8 @@ static int ti_sci_inta_set_affinity(struct irq_data *d,
 		vint_desc->affinity_managed = true;
 
 		irq_data_update_effective_affinity(d, mask_val);
-		parent_irq_data = irq_get_irq_data(vint_desc->parent_virq);
-		if (parent_irq_data->chip->irq_set_affinity)
-			return parent_irq_data->chip->irq_set_affinity(parent_irq_data, mask_val, force);
+
+		return parent_irq_data->chip->irq_set_affinity(parent_irq_data, mask_val, force);
 	}
 
 	return -EINVAL;
