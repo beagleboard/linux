@@ -1,0 +1,114 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (C) 2022 Texas Instruments Incorporated - https://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+
+/ {
+	fragment@101 {
+		target-path = "/";
+
+		__overlay__ {
+			backlight: backlight {
+				pinctrl-names = "default";
+				pinctrl-0 = <&backlight_pins_default>;
+
+				compatible = "pwm-backlight";
+
+				brightness-levels = <0 4 8 16 32 64 128 255>;
+				default-brightness-level = <6>;
+
+				enable-gpios = <&main_gpio0 0 GPIO_ACTIVE_HIGH>;
+				pwms = <&epwm0 1 20000 0>;
+			};
+
+			lcd {
+				compatible = "lincolntech,lcd185-101ct";
+				backlight = <&backlight>;
+
+				/*
+				* Note that the OLDI TX 0 transmits the odd set of pixels
+				* while the OLDI TX 1 transmits the even set. This is a
+				* fixed configuration in the IP integration and is not
+				* changeable. The properties, "dual-lvds-odd-pixels" and
+				* "dual-lvds-even-pixels" have been used to merely
+				* identify if a Dual Link configuration is required.
+				* Swapping them will not make any difference.
+				*/
+				port@0 {
+					dual-lvds-odd-pixels;
+					lcd_in0: endpoint {
+						remote-endpoint = <&oldi_out0>;
+					};
+				};
+
+				port@1 {
+					dual-lvds-even-pixels;
+					lcd_in1: endpoint {
+						remote-endpoint = <&oldi_out1>;
+					};
+				};
+			};
+		};
+	};
+};
+
+&dss {
+	pinctrl-0 = <&hdmi_pins_default &oldi_pins_default>;
+};
+
+&dss_ports {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	/* VP1: LVDS Output (OLDI TX 0) */
+	port@0 {
+		reg = <0>;
+		oldi_out0: endpoint {
+			remote-endpoint = <&lcd_in0>;
+		};
+	};
+
+	/* VP1: LVDS Output (OLDI TX 1) */
+	port@2 {
+		reg = <2>;
+		oldi_out1: endpoint {
+			remote-endpoint = <&lcd_in1>;
+		};
+	};
+};
+
+&main_i2c2 {
+	status = "okay";
+
+	eeprom@57 {
+		compatible = "atmel,24c256";
+		reg = <0x57>;
+	};
+
+	touchscreen@5d {
+	        compatible = "goodix,gt928";
+	        reg = <0x5d>;
+
+	        pinctrl-names = "default";
+	        pinctrl-0 = <&touchscreen_pins_default>;
+
+	        interrupt-parent = <&main_gpio0>;
+	        interrupts = <39 IRQ_TYPE_EDGE_FALLING>;
+
+		touchscreen-size-x = <1920>;
+		touchscreen-size-y = <1200>;
+
+		reset-gpios = <&main_gpio1 15 GPIO_ACTIVE_HIGH>;
+		irq-gpios = <&main_gpio0 39 GPIO_ACTIVE_HIGH>;
+	};
+};
+
+&epwm0 {
+	status = "okay";
+};
