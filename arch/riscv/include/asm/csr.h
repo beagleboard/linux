@@ -26,18 +26,10 @@
 
 #define SR_VS_OFF	_AC(0x00000000, UL)
 
-#if (defined(CONFIG_VECTOR_1_0) && defined(__THEAD_VERSION__))
-#define SR_VS		_AC(0x00000600, UL) /* Vector Status */
-#define SR_VS_INITIAL	_AC(0x00000200, UL)
-#define SR_VS_CLEAN	_AC(0x00000400, UL)
-#define SR_VS_DIRTY	_AC(0x00000600, UL)
-#else
 #define SR_VS		_AC(0x01800000, UL) /* Vector Status */
 #define SR_VS_INITIAL	_AC(0x00800000, UL)
 #define SR_VS_CLEAN	_AC(0x01000000, UL)
 #define SR_VS_DIRTY	_AC(0x01800000, UL)
-
-#endif
 
 #define SR_XS		_AC(0x00018000, UL) /* Extension Status */
 #define SR_XS_OFF	_AC(0x00000000, UL)
