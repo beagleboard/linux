@@ -48,25 +48,21 @@ endif
 endif
 
 # ISA string setting
+riscv-march-$(CONFIG_ARCH_RV32I)	:= rv32ima
+riscv-march-$(CONFIG_ARCH_RV64I)	:= rv64ima
+riscv-march-$(CONFIG_FPU)			:= $(riscv-march-y)fd
+riscv-march-$(CONFIG_RISCV_ISA_C)	:= $(riscv-march-y)c
+riscv-march-$(CONFIG_VECTOR_1_0)	:= $(riscv-march-y)v
+riscv-march-$(CONFIG_VECTOR_0_7)	:= $(riscv-march-y)v0p7
+riscv-march-$(CONFIG_THEAD_ISA)		:= $(riscv-march-y)_xtheadc
+
 # Newer binutils versions default to ISA spec version 20191213 which moves some
 # instructions from the I extension to the Zicsr and Zifencei extensions.
 toolchain-need-zicsr-zifencei := $(call cc-option-yn, -march=$(riscv-march-y)_zicsr_zifencei)
 riscv-march-$(toolchain-need-zicsr-zifencei) := $(riscv-march-y)_zicsr_zifencei
 
-riscv-march-cflags-$(CONFIG_ARCH_RV32I)		:= rv32ima
-riscv-march-cflags-$(CONFIG_ARCH_RV64I)		:= rv64ima
-riscv-march-cflags-$(CONFIG_RISCV_ISA_C)	:= $(riscv-march-cflags-y)c
-
-riscv-march-aflags-$(CONFIG_ARCH_RV32I)		:= rv32ima
-riscv-march-aflags-$(CONFIG_ARCH_RV64I)		:= rv64ima
-riscv-march-aflags-$(CONFIG_FPU)		:= $(riscv-march-aflags-y)fd
-riscv-march-aflags-$(CONFIG_RISCV_ISA_C)	:= $(riscv-march-aflags-y)c
-riscv-march-aflags-$(CONFIG_VECTOR_1_0)		:= $(riscv-march-aflags-y)v
-riscv-march-aflags-$(CONFIG_VECTOR_0_7)		:= $(riscv-march-aflags-y)v0p7
-riscv-march-aflags-$(CONFIG_THEAD_ISA)		:= $(riscv-march-aflags-y)_xtheadc
-
-KBUILD_CFLAGS += -march=$(riscv-march-cflags-y) -Wa,-march=$(riscv-march-aflags-y)
-KBUILD_AFLAGS += -march=$(riscv-march-aflags-y)
+KBUILD_CFLAGS += -march=$(subst _xtheadc,,$(subst v0p7,,$(subst fd,,$(riscv-march-y))))
+KBUILD_AFLAGS += -march=$(riscv-march-y)
 
 KBUILD_CFLAGS += -mno-save-restore
 KBUILD_CFLAGS += -DCONFIG_PAGE_OFFSET=$(CONFIG_PAGE_OFFSET)
