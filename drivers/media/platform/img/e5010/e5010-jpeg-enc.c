@@ -462,8 +462,6 @@ static void e5010_queue_update_sizeimage(struct e5010_q_data *q, struct e5010_co
 		else
 			q->sizeimage[0] = q->width_adjusted * q->height_adjusted * 2;
 		q->sizeimage[0] += HEADER_SIZE;
-		/* jpeg stream size must be multiple of 4K */
-		q->sizeimage[0] = ALIGN(q->sizeimage[0], PAGE_SIZE);
 		q->sizeimage[1] = 0;
 	} else if (q->fmt->subsampling == V4L2_JPEG_CHROMA_SUBSAMPLING_420) {
 		if (q->fmt->num_planes == 1)	{
