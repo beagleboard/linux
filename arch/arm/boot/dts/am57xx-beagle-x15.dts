@@ -1,9 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (C) 2014-2016 Texas Instruments Incorporated - http://www.ti.com/
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
+ * Copyright (C) 2014-2016 Texas Instruments Incorporated - https://www.ti.com/
  */
 
 #include "am57xx-beagle-x15-common.dtsi"
@@ -11,6 +8,11 @@
 / {
 	/* NOTE: This describes the "original" pre-production A2 revision */
 	model = "TI AM5728 BeagleBoard-X15";
+
+	chosen {
+		base_dtb = "am57xx-beagle-x15.dts";
+		base_dtb_timestamp = __TIMESTAMP__;
+	};
 };
 
 &tpd12s015 {
