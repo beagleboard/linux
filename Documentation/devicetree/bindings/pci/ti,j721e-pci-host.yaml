@@ -42,6 +42,18 @@ properties:
           - description: pcie_ctrl register offset within SYSCON
     description: Specifier for configuring PCIe mode and link speed.
 
+  ti,syscon-pcie-refclk-out:
+    $ref: /schemas/types.yaml#/definitions/phandle-array
+    items:
+      - items:
+          - description: Phandle to the SYSCON entry
+          - description: lock2_kick0 register offset within SYSCON
+          - description: lock2_kick1 register offset within SYSCON
+          - description: acspcie_ctrl register offset within SYSCON
+          - description: pcie_refclk_clksel register offset within SYSCON
+          - description: clock source index to source ref clock
+    description: Specifier for enabling ACSPCIe clock buffer for reference clock output.
+
   power-domains:
     maxItems: 1
 
@@ -136,6 +148,7 @@ required:
   - reg
   - reg-names
   - ti,syscon-pcie-ctrl
+  - ti,syscon-pcie-refclk-out
   - max-link-speed
   - num-lanes
   - power-domains
@@ -188,5 +201,45 @@ examples:
             ranges = <0x01000000 0x0 0x10001000  0x00 0x10001000  0x0 0x0010000>,
                      <0x02000000 0x0 0x10011000  0x00 0x10011000  0x0 0x7fef000>;
             dma-ranges = <0x02000000 0x0 0x0 0x0 0x0 0x10000 0x0>;
+        };
+    };
+
+  -
+    #include <dt-bindings/mux/mux.h>
+    #include <dt-bindings/mux/ti-serdes.h>
+    #include <dt-bindings/phy/phy.h>
+    #include <dt-bindings/phy/phy-ti.h>
+
+    bus {
+        #address-cells = <2>;
+        #size-cells = <2>;
+
+        pcie1_rc: pcie@2910000 {
+                compatible = "ti,j784s4-pcie-host";
+                reg = <0x00 0x02910000 0x00 0x1000>,
+                      <0x00 0x02917000 0x00 0x400>,
+                      <0x00 0x0d800000 0x00 0x00800000>,
+                      <0x00 0x18000000 0x00 0x00001000>;
+                reg-names = "intd_cfg", "user_cfg", "reg", "cfg";
+                interrupt-names = "link_state";
+                interrupts = <GIC_SPI 330 IRQ_TYPE_EDGE_RISING>;
+                device_type = "pci";
+                ti,syscon-pcie-ctrl = <&scm_conf 0x4074>;
+                ti,syscon-pcie-refclk-out = <&scm_conf 0x9008 0x900c 0x18090 0x8074 0x1>;
+                max-link-speed = <3>;
+                num-lanes = <4>;
+                power-domains = <&k3_pds 333 TI_SCI_PD_EXCLUSIVE>;
+                clocks = <&k3_clks 333 0>;
+                clock-names = "fck";
+                #address-cells = <3>;
+                #size-cells = <2>;
+                bus-range = <0x0 0xff>;
+                vendor-id = <0x104c>;
+                device-id = <0xb013>;
+                msi-map = <0x0 &gic_its 0x10000 0x10000>;
+                dma-coherent;
+                ranges = <0x01000000 0x0 0x18001000  0x00 0x18001000  0x0 0x0010000>,
+                         <0x02000000 0x0 0x18011000  0x00 0x18011000  0x0 0x7fef000>;
+                dma-ranges = <0x02000000 0x0 0x0 0x0 0x0 0x10000 0x0>;
         };
     };
