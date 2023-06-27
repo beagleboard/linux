@@ -10,9 +10,20 @@
 #include <linux/gpio/consumer.h>
 #include <linux/delay.h>
 #include <linux/of_device.h>
+#include <linux/mfd/syscon.h>
+#include <linux/regmap.h>
 
 #include "pcie-cadence.h"
 #include "pci-j721e.h"
+
+#define CTRL_MMR_LOCK2_MASK		0xFFFFFFFF
+#define CTRL_MMR_LOCK2_KICK0_UNLOCK_VAL	0x68EF3490
+#define CTRL_MMR_LOCK2_KICK1_UNLOCK_VAL	0xD172BC5A
+#define CTRL_MMR_LOCK_KICK_LOCK_VAL	0xFFFFFFFF
+#define CTRL_MMR_ACSPCIE_PAD_MASK	0xFFFFFFFF
+#define CTRL_MMR_ACSPCIE_PAD_EN		0x01000000
+#define PCIE_REFCLK_CLKSEL_OUT_EN	BIT(8)
+#define PCIE_REFCLK_CLKSEL_MASK	GENMASK(1, 0)
 
 static int cdns_ti_pcie_config_read(struct pci_bus *bus, unsigned int devfn,
 					int where, int size, u32 *value)
@@ -92,6 +103,84 @@ static const struct of_device_id of_j721e_pcie_host_match[] = {
 };
 MODULE_DEVICE_TABLE(of, of_j721e_pcie_host_match);
 
+static int j721e_enable_acspcie(struct j721e_pcie *pcie)
+{
+	struct device *dev = pcie->cdns_pcie->dev;
+	struct device_node *node = dev->of_node;
+	struct of_phandle_args args;
+	unsigned int lock2_kick0_offset, lock2_kick1_offset;
+	unsigned int acspcie_pad_offset, refclk_clksel_offset;
+	unsigned int refclk_clksel_source;
+	struct regmap *syscon;
+	u32 val = 0, mask = 0;
+	int ret;
+
+	/*
+	 * If property ti,syscon-pcie-refclk-out exists, believe PCIe connector
+	 * requires PCIe ref clock from Serdes, so enable ACSPCIE pads and mux
+	 * to source out PCIe ref clock else ref clock has to be supplied from
+	 * on-board clock generator.
+	 */
+	syscon = syscon_regmap_lookup_by_phandle(node, "ti,syscon-pcie-refclk-out");
+	if (IS_ERR(syscon))
+		return 0;
+
+	ret = of_parse_phandle_with_fixed_args(node, "ti,syscon-pcie-refclk-out", 5,
+						0, &args);
+	if (ret) {
+		dev_err(dev, "Failed to read ti,syscon-pcie-refclk-out property\n");
+		return ret;
+	}
+
+	lock2_kick0_offset = args.args[0];
+	lock2_kick1_offset = args.args[1];
+	acspcie_pad_offset = args.args[2];
+	refclk_clksel_offset = args.args[3];
+	refclk_clksel_source = args.args[4];
+
+	/* Un-lock Partition 2 : 8000h to 9FFFh */
+	mask = CTRL_MMR_LOCK2_MASK;
+	val = CTRL_MMR_LOCK2_KICK0_UNLOCK_VAL;
+	ret = regmap_update_bits(syscon, lock2_kick0_offset, mask, val);
+	if (ret)
+		goto err;
+
+	val = CTRL_MMR_LOCK2_KICK1_UNLOCK_VAL;
+	ret = regmap_update_bits(syscon, lock2_kick1_offset, mask, val);
+	if (ret)
+		goto err;
+
+	/* Enable ACSPCIe PADS  */
+	mask = CTRL_MMR_ACSPCIE_PAD_MASK;
+	val = CTRL_MMR_ACSPCIE_PAD_EN;
+	ret = regmap_update_bits(syscon, acspcie_pad_offset, mask, val);
+	if (ret)
+		goto err;
+
+	/* PCIE_REFCLKx_CLKSEL : EN + ref_clk_source */
+	mask = PCIE_REFCLK_CLKSEL_OUT_EN | PCIE_REFCLK_CLKSEL_MASK;
+	val = PCIE_REFCLK_CLKSEL_OUT_EN | refclk_clksel_source;
+	ret = regmap_update_bits(syscon, refclk_clksel_offset, mask, val);
+	if (ret)
+		goto err;
+
+	/* Re-lock Partition 2 : 8000h to 9FFFh */
+	mask = CTRL_MMR_LOCK_KICK_LOCK_VAL;
+	val = CTRL_MMR_LOCK_KICK_LOCK_VAL;
+	ret = regmap_update_bits(syscon, lock2_kick0_offset, mask, val);
+	if (ret)
+		goto err;
+
+	ret = regmap_update_bits(syscon, lock2_kick1_offset, mask, val);
+	if (ret)
+		goto err;
+
+	return 0;
+err:
+	dev_err(dev, "Failed to enable ref clock out\n");
+	return ret;
+}
+
 static int j721e_pcie_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -132,6 +221,13 @@ static int j721e_pcie_probe(struct platform_device *pdev)
 
 	ret = j721e_pcie_common_init(pcie);
 	if (ret)
+		return ret;
+
+	/*
+	 * Enable ACSPCIe clock buffer to source out reference clock for EP
+	 */
+	ret = j721e_enable_acspcie(pcie);
+	if (ret < 0)
 		return ret;
 
 	gpiod = devm_gpiod_get_optional(dev, "reset", GPIOD_OUT_LOW);
