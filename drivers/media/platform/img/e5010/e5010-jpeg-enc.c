@@ -519,7 +519,7 @@ static int e5010_jpeg_try_fmt(struct v4l2_format *f, struct e5010_context *ctx)
 
 	if (V4L2_TYPE_IS_OUTPUT(f->type)) {
 		if (!pix_mp->colorspace)
-			pix_mp->colorspace = V4L2_COLORSPACE_SRGB;
+			pix_mp->colorspace = V4L2_COLORSPACE_JPEG;
 		if (!pix_mp->ycbcr_enc)
 			pix_mp->ycbcr_enc = V4L2_YCBCR_ENC_DEFAULT;
 		if (!pix_mp->quantization)
