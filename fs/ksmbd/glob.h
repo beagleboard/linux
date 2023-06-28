@@ -12,7 +12,7 @@
 #include "unicode.h"
 #include "vfs_cache.h"
 
-#define KSMBD_VERSION	"3.4.2"
+#define KSMBD_VERSION	"3.4.8"
 
 extern int ksmbd_debug_types;
 
@@ -45,5 +45,14 @@ extern int ksmbd_debug_types;
 	} while (0)
 
 #define UNICODE_LEN(x)		((x) * 2)
+
+#ifdef CONFIG_SMB_INSECURE_SERVER
+/* ksmbd misc functions */
+extern void ntstatus_to_dos(__le32 ntstatus, __u8 *eclass, __le16 *ecode);
+#endif
+
+#ifndef LOOKUP_NO_SYMLINKS
+#define LOOKUP_NO_SYMLINKS 0
+#endif
 
 #endif /* __KSMBD_GLOB_H */

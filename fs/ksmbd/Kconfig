@@ -6,6 +6,7 @@ config SMB_SERVER
 	select NLS
 	select NLS_UTF8
 	select CRYPTO
+	select CRYPTO_MD4
 	select CRYPTO_MD5
 	select CRYPTO_HMAC
 	select CRYPTO_ECB
@@ -41,6 +42,16 @@ config SMB_SERVER
 	  compound requests, multi-credit, packet signing, RDMA(smbdirect),
 	  smb3 encryption, copy-offload, secure per-user session
 	  establishment via NTLM or NTLMv2.
+
+config SMB_INSECURE_SERVER
+        bool "Support for insecure SMB1/CIFS and SMB2.0 protocols"
+        depends on SMB_SERVER && INET
+        select NLS
+	default n
+
+        help
+	  This enables deprecated insecure protocols dialects: SMB1/CIFS
+	  and SMB2.0
 
 config SMB_SERVER_SMBDIRECT
 	bool "Support for SMB Direct protocol"
