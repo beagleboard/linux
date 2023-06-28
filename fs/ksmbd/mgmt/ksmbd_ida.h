@@ -16,6 +16,9 @@
  *    The value 0xFFFF is used to specify all TIDs or no TID,
  *    depending upon the context in which it is used.
  */
+#ifdef CONFIG_SMB_INSECURE_SERVER
+int ksmbd_acquire_smb1_tid(struct ida *ida);
+#endif
 int ksmbd_acquire_smb2_tid(struct ida *ida);
 
 /*
@@ -25,6 +28,9 @@ int ksmbd_acquire_smb2_tid(struct ida *ida);
  *    valid UID.<21> All other possible values for a UID, excluding
  *    zero (0x0000), are valid.
  */
+#ifdef CONFIG_SMB_INSECURE_SERVER
+int ksmbd_acquire_smb1_uid(struct ida *ida);
+#endif
 int ksmbd_acquire_smb2_uid(struct ida *ida);
 int ksmbd_acquire_async_msg_id(struct ida *ida);
 
