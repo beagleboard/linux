@@ -3,13 +3,57 @@
  * Copyright (C) 2012 Texas Instruments Incorporated - https://www.ti.com/
  */
 
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/pinctrl/am33xx.h>
 #include <dt-bindings/display/tda998x.h>
 #include <dt-bindings/interrupt-controller/irq.h>
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+ */
+&{/chosen} {
+	overlays {
+		BB-HDMI-TDA998x-00A0.kernel = __TIMESTAMP__;
+	};
+};
+
+/*
+ * Free up the pins used by the cape from the pinmux helpers.
+ */
+&ocp {
+	P9_25_pinmux { status = "disabled"; };	/* mcasp0_ahclkx */
+	P9_28_pinmux { status = "disabled"; };	/* mcasp0_axr2 */
+	P9_29_pinmux { status = "disabled"; };	/* mcasp0_fsx */
+	P9_31_pinmux { status = "disabled"; };	/* mcasp0_aclkx */
+	P8_45_pinmux { status = "disabled"; };	/* lcd_data0 */
+	P8_46_pinmux { status = "disabled"; };	/* lcd_data1 */
+	P8_43_pinmux { status = "disabled"; };	/* lcd_data2 */
+	P8_44_pinmux { status = "disabled"; };	/* lcd_data3 */
+	P8_41_pinmux { status = "disabled"; };	/* lcd_data4 */
+	P8_42_pinmux { status = "disabled"; };	/* lcd_data5 */
+	P8_39_pinmux { status = "disabled"; };	/* lcd_data6 */
+	P8_40_pinmux { status = "disabled"; };	/* lcd_data7 */
+	P8_37_pinmux { status = "disabled"; };	/* lcd_data8 */
+	P8_38_pinmux { status = "disabled"; };	/* lcd_data9 */
+	P8_36_pinmux { status = "disabled"; };	/* lcd_data10 */
+	P8_34_pinmux { status = "disabled"; };	/* lcd_data11 */
+	P8_35_pinmux { status = "disabled"; };	/* lcd_data12 */
+	P8_33_pinmux { status = "disabled"; };	/* lcd_data13 */
+	P8_31_pinmux { status = "disabled"; };	/* lcd_data14 */
+	P8_32_pinmux { status = "disabled"; };	/* lcd_data15 */
+	P8_27_pinmux { status = "disabled"; };	/* lcd_vsync */
+	P8_29_pinmux { status = "disabled"; };	/* lcd_hsync */
+	P8_28_pinmux { status = "disabled"; };	/* lcd_pclk */
+	P8_30_pinmux { status = "disabled"; };	/* lcd_ac_bias_en */
+};
 
 &am33xx_pinmux {
 	nxp_hdmi_bonelt_pins: nxp_hdmi_bonelt_pins {
 		pinctrl-single,pins = <
-			AM33XX_PADCONF(AM335X_PIN_XDMA_EVENT_INTR0, PIN_OUTPUT_PULLDOWN, MUX_MODE3)
+			AM33XX_PADCONF(AM335X_PIN_XDMA_EVENT_INTR0, PIN_OUTPUT_PULLUP, MUX_MODE7)
 			AM33XX_PADCONF(AM335X_PIN_LCD_DATA0, PIN_OUTPUT, MUX_MODE0)
 			AM33XX_PADCONF(AM335X_PIN_LCD_DATA1, PIN_OUTPUT, MUX_MODE0)
 			AM33XX_PADCONF(AM335X_PIN_LCD_DATA2, PIN_OUTPUT, MUX_MODE0)
@@ -35,7 +79,7 @@
 
 	nxp_hdmi_bonelt_off_pins: nxp_hdmi_bonelt_off_pins {
 		pinctrl-single,pins = <
-			AM33XX_PADCONF(AM335X_PIN_XDMA_EVENT_INTR0, PIN_OUTPUT_PULLDOWN, MUX_MODE3)
+			AM33XX_PADCONF(AM335X_PIN_XDMA_EVENT_INTR0, PIN_OUTPUT_PULLDOWN, MUX_MODE7)
 		>;
 	};
 
@@ -68,6 +112,9 @@
 };
 
 &i2c0 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
 	tda19988: tda19988@70 {
 		compatible = "nxp,tda998x";
 		reg = <0x70>;
@@ -85,13 +132,8 @@
 		audio-ports = <	TDA998x_I2S	0x03>;
 
 		ports {
-			#address-cells = <1>;
-			#size-cells = <0>;
-
 			port@0 {
-				reg = <0>;
-
-				hdmi_0: endpoint {
+				hdmi_0: endpoint@0 {
 					remote-endpoint = <&lcdc_0>;
 				};
 			};
@@ -99,7 +141,7 @@
 	};
 };
 
-&mcasp0	{
+&mcasp0 {
 	#sound-dai-cells = <0>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&mcasp0_pins>;
@@ -113,7 +155,7 @@
 	rx-num-evt = <32>;
 };
 
-/ {
+&{/} {
 	clk_mcasp0_fixed: clk_mcasp0_fixed {
 		#clock-cells = <0>;
 		compatible = "fixed-clock";
