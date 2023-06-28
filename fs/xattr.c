@@ -392,6 +392,7 @@ vfs_getxattr_alloc(struct user_namespace *mnt_userns, struct dentry *dentry,
 	*xattr_value = value;
 	return error;
 }
+EXPORT_SYMBOL_GPL(vfs_getxattr_alloc);
 
 ssize_t
 __vfs_getxattr(struct dentry *dentry, struct inode *inode, const char *name,
