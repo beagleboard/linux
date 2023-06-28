@@ -60,7 +60,7 @@ enum vpu_instance_state {
 #define WAVE5_FBC_CHROMA_TABLE_SIZE(_w, _h) (ALIGN((_h), 64) * ALIGN((_w) / 2, 256) / 32)
 #define WAVE5_ENC_AVC_BUF_SIZE(_w, _h) (ALIGN(_w, 64) * ALIGN(_h, 64) / 32)
 #define WAVE5_ENC_HEVC_BUF_SIZE(_w, _h) (ALIGN(_w, 64) / 64 * ALIGN(_h, 64) / 64 * 128)
-#define DEC_BUF_OFFSET 2
+#define DEC_BUF_OFFSET 3
 
 #define IS_WRAP(_v, _max) ((_v % _max) ? 1 : 0)
 
