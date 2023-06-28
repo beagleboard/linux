@@ -93,7 +93,8 @@ static inline int check_conn_state(struct ksmbd_work *work)
 {
 	struct smb_hdr *rsp_hdr;
 
-	if (ksmbd_conn_exiting(work) || ksmbd_conn_need_reconnect(work)) {
+	if (ksmbd_conn_exiting(work->conn) ||
+	    ksmbd_conn_need_reconnect(work->conn)) {
 		rsp_hdr = work->response_buf;
 		rsp_hdr->Status.CifsError = STATUS_CONNECTION_DISCONNECTED;
 		return 1;
@@ -415,7 +416,11 @@ int server_queue_ctrl_reset_work(void)
 	return __queue_ctrl_work(SERVER_CTRL_TYPE_RESET);
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+static ssize_t stats_show(const struct class *class, const struct class_attribute *attr,
+#else
 static ssize_t stats_show(struct class *class, struct class_attribute *attr,
+#endif
 			  char *buf)
 {
 	/*
@@ -429,15 +434,18 @@ static ssize_t stats_show(struct class *class, struct class_attribute *attr,
 		"reset",
 		"shutdown"
 	};
-
-	ssize_t sz = scnprintf(buf, PAGE_SIZE, "%d %s %d %lu\n", stats_version,
-			       state[server_conf.state], server_conf.tcp_port,
-			       server_conf.ipc_last_active / HZ);
-	return sz;
+	return sysfs_emit(buf, "%d %s %d %lu\n", stats_version,
+			  state[server_conf.state], server_conf.tcp_port,
+			  server_conf.ipc_last_active / HZ);
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+static ssize_t kill_server_store(const struct class *class,
+				 const struct class_attribute *attr, const char *buf,
+#else
 static ssize_t kill_server_store(struct class *class,
 				 struct class_attribute *attr, const char *buf,
+#endif
 				 size_t len)
 {
 	if (!sysfs_streq(buf, "hard"))
@@ -457,7 +465,11 @@ static const char * const debug_type_strings[] = {"smb", "auth", "vfs",
 						  "oplock", "ipc", "conn",
 						  "rdma"};
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+static ssize_t debug_show(const struct class *class, const struct class_attribute *attr,
+#else
 static ssize_t debug_show(struct class *class, struct class_attribute *attr,
+#endif
 			  char *buf)
 {
 	ssize_t sz = 0;
@@ -465,23 +477,21 @@ static ssize_t debug_show(struct class *class, struct class_attribute *attr,
 
 	for (i = 0; i < ARRAY_SIZE(debug_type_strings); i++) {
 		if ((ksmbd_debug_types >> i) & 1) {
-			pos = scnprintf(buf + sz,
-					PAGE_SIZE - sz,
-					"[%s] ",
-					debug_type_strings[i]);
+			pos = sysfs_emit_at(buf, sz, "[%s] ", debug_type_strings[i]);
 		} else {
-			pos = scnprintf(buf + sz,
-					PAGE_SIZE - sz,
-					"%s ",
-					debug_type_strings[i]);
+			pos = sysfs_emit_at(buf, sz, "%s ", debug_type_strings[i]);
 		}
 		sz += pos;
 	}
-	sz += scnprintf(buf + sz, PAGE_SIZE - sz, "\n");
+	sz += sysfs_emit_at(buf, sz, "\n");
 	return sz;
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+static ssize_t debug_store(const struct class *class, const struct class_attribute *attr,
+#else
 static ssize_t debug_store(struct class *class, struct class_attribute *attr,
+#endif
 			   const char *buf, size_t len)
 {
 	int i;
@@ -521,7 +531,9 @@ ATTRIBUTE_GROUPS(ksmbd_control_class);
 
 static struct class ksmbd_control_class = {
 	.name		= "ksmbd-control",
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 4, 0)
 	.owner		= THIS_MODULE,
+#endif
 	.class_groups	= ksmbd_control_class_groups,
 };
 
@@ -585,9 +597,6 @@ static int __init ksmbd_server_init(void)
 	ret = ksmbd_workqueue_init();
 	if (ret)
 		goto err_crypto_destroy;
-
-	pr_warn_once("The ksmbd server is experimental\n");
-
 	return 0;
 
 err_crypto_destroy:
@@ -614,6 +623,7 @@ err_unregister:
 static void __exit ksmbd_server_exit(void)
 {
 	ksmbd_server_shutdown();
+	rcu_barrier();
 	ksmbd_release_inode_hash();
 }
 
@@ -623,6 +633,7 @@ MODULE_DESCRIPTION("Linux kernel CIFS/SMB SERVER");
 MODULE_LICENSE("GPL");
 MODULE_SOFTDEP("pre: ecb");
 MODULE_SOFTDEP("pre: hmac");
+MODULE_SOFTDEP("pre: md4");
 MODULE_SOFTDEP("pre: md5");
 MODULE_SOFTDEP("pre: nls");
 MODULE_SOFTDEP("pre: aes");
