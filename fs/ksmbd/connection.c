@@ -10,6 +10,9 @@
 
 #include "server.h"
 #include "smb_common.h"
+#ifdef CONFIG_SMB_INSECURE_SERVER
+#include "smb1pdu.h"
+#endif
 #include "mgmt/ksmbd_ida.h"
 #include "connection.h"
 #include "transport_tcp.h"
@@ -61,7 +64,11 @@ struct ksmbd_conn *ksmbd_conn_alloc(void)
 	if (!conn->local_nls)
 		conn->local_nls = load_nls_default();
 	if (IS_ENABLED(CONFIG_UNICODE))
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 17, 0)
 		conn->um = utf8_load(UNICODE_AGE(12, 1, 0));
+#else
+		conn->um = utf8_load("12.1.0");
+#endif
 	else
 		conn->um = ERR_PTR(-EOPNOTSUPP);
 	if (IS_ERR(conn->um))
@@ -111,11 +118,20 @@ void ksmbd_conn_enqueue_request(struct ksmbd_work *work)
 {
 	struct ksmbd_conn *conn = work->conn;
 	struct list_head *requests_queue = NULL;
+#ifdef CONFIG_SMB_INSECURE_SERVER
+	struct smb2_hdr *hdr = work->request_buf;
 
-	if (conn->ops->get_cmd_val(work) != SMB2_CANCEL_HE) {
-		requests_queue = &conn->requests;
-		work->syncronous = true;
+	if (hdr->ProtocolId == SMB2_PROTO_NUMBER) {
+		if (conn->ops->get_cmd_val(work) != SMB2_CANCEL_HE)
+			requests_queue = &conn->requests;
+	} else {
+		if (conn->ops->get_cmd_val(work) != SMB_COM_NT_CANCEL)
+			requests_queue = &conn->requests;
 	}
+#else
+	if (conn->ops->get_cmd_val(work) != SMB2_CANCEL_HE)
+		requests_queue = &conn->requests;
+#endif
 
 	if (requests_queue) {
 		atomic_inc(&conn->req_running);
@@ -136,14 +152,14 @@ int ksmbd_conn_try_dequeue_request(struct ksmbd_work *work)
 
 	if (!work->multiRsp)
 		atomic_dec(&conn->req_running);
-	spin_lock(&conn->request_lock);
 	if (!work->multiRsp) {
+		spin_lock(&conn->request_lock);
 		list_del_init(&work->request_entry);
-		if (work->syncronous == false)
-			list_del_init(&work->async_request_entry);
+		spin_unlock(&conn->request_lock);
+		if (work->asynchronous)
+			release_async_work(work);
 		ret = 0;
 	}
-	spin_unlock(&conn->request_lock);
 
 	wake_up_all(&conn->req_running_q);
 	return ret;
