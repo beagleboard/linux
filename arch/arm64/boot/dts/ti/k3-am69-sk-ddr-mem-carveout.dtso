@@ -13,15 +13,9 @@
 
 #include "k3-pinctrl.h"
 
-/ {
-	fragment@101 {
-		target-path = "/";
-
-		__overlay__ {
-			dma-buf-phys {
-				compatible = "ti,dma-buf-phys";
-			};
-		};
+&{/} {
+	dma-buf-phys {
+		compatible = "ti,dma-buf-phys";
 	};
 };
 
@@ -177,6 +171,7 @@
 &mailbox0_cluster0 {
 	status = "okay";
 	interrupts = <436>;
+	interrupt-parent = <&main_navss_intr>;
 
 	mbox_mcu_r5fss0_core0: mbox-mcu-r5fss0-core0 {
 		ti,mbox-rx = <0 0 0>;
@@ -192,6 +187,7 @@
 &mailbox0_cluster1 {
 	status = "okay";
 	interrupts = <432>;
+	interrupt-parent = <&main_navss_intr>;
 
 	mbox_main_r5fss0_core0: mbox-main-r5fss0-core0 {
 		ti,mbox-rx = <0 0 0>;
@@ -207,6 +203,7 @@
 &mailbox0_cluster2 {
 	status = "okay";
 	interrupts = <428>;
+	interrupt-parent = <&main_navss_intr>;
 
 	mbox_main_r5fss1_core0: mbox-main-r5fss1-core0 {
 		ti,mbox-rx = <0 0 0>;
@@ -222,6 +219,7 @@
 &mailbox0_cluster3 {
 	status = "okay";
 	interrupts = <424>;
+	interrupt-parent = <&main_navss_intr>;
 
 	mbox_main_r5fss2_core0: mbox-main-r5fss2-core0 {
 		ti,mbox-rx = <0 0 0>;
@@ -237,6 +235,7 @@
 &mailbox0_cluster4 {
 	status = "okay";
 	interrupts = <420>;
+	interrupt-parent = <&main_navss_intr>;
 
 	mbox_c71_0: mbox-c71-0 {
 		ti,mbox-rx = <0 0 0>;
@@ -252,6 +251,7 @@
 &mailbox0_cluster5 {
 	status = "okay";
 	interrupts = <416>;
+	interrupt-parent = <&main_navss_intr>;
 
 	mbox_c71_2: mbox-c71-2 {
 		ti,mbox-rx = <0 0 0>;
