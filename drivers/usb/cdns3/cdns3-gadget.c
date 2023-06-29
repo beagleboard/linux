@@ -68,6 +68,8 @@
 #include "cdns3-trace.h"
 #include "drd.h"
 
+#define CDNS3_DEFAULT_EP_BUFFER_SIZE	4
+
 static int __cdns3_gadget_ep_queue(struct usb_ep *ep,
 				   struct usb_request *request,
 				   gfp_t gfp_flags);
@@ -2930,6 +2932,7 @@ static int cdns3_gadget_udc_start(struct usb_gadget *gadget,
 
 	spin_lock_irqsave(&priv_dev->lock, flags);
 	priv_dev->gadget_driver = driver;
+	priv_dev->ep_buf_size = CDNS3_DEFAULT_EP_BUFFER_SIZE;
 
 	/* limit speed if necessary */
 	max_speed = min(driver->max_speed, gadget->max_speed);
@@ -2978,6 +2981,7 @@ static int cdns3_gadget_udc_stop(struct usb_gadget *gadget)
 
 	priv_dev->onchip_used_size = 0;
 	priv_dev->out_mem_is_allocated = 0;
+	priv_dev->ep_buf_size = 0;
 	priv_dev->gadget.speed = USB_SPEED_UNKNOWN;
 
 	list_for_each_entry(ep, &priv_dev->gadget.ep_list, ep_list) {
