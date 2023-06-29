@@ -74,6 +74,7 @@ struct ksmbd_heartbeat {
 #define KSMBD_GLOBAL_FLAG_SMB2_LEASES		BIT(0)
 #define KSMBD_GLOBAL_FLAG_SMB2_ENCRYPTION	BIT(1)
 #define KSMBD_GLOBAL_FLAG_SMB3_MULTICHANNEL	BIT(2)
+#define KSMBD_GLOBAL_FLAG_SMB2_ENCRYPTION_OFF	BIT(3)
 
 /*
  * IPC request for ksmbd server startup
@@ -244,7 +245,7 @@ struct ksmbd_rpc_command {
 struct ksmbd_spnego_authen_request {
 	__u32	handle;
 	__u16	spnego_blob_len;	/* the length of spnego_blob */
-	__u8	spnego_blob[];		/*
+	__u8	spnego_blob[0];		/*
 					 * the GSS token from SecurityBuffer of
 					 * SMB2 SESSION SETUP request
 					 */

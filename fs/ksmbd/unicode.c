@@ -14,6 +14,24 @@
 #include "uniupr.h"
 #include "smb_common.h"
 
+#ifdef CONFIG_SMB_INSECURE_SERVER
+int smb1_utf16_name_length(const __le16 *from, int maxbytes)
+{
+	int i, len = 0;
+	int maxwords = maxbytes / 2;
+	__u16 ftmp;
+
+	for (i = 0; i < maxwords; i++) {
+		ftmp = get_unaligned_le16(&from[i]);
+		len += 2;
+		if (ftmp == 0)
+			break;
+	}
+
+	return len;
+}
+#endif
+
 /*
  * smb_utf16_bytes() - how long will a string be after conversion?
  * @from:	pointer to input string
