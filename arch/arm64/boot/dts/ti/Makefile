@@ -127,3 +127,4 @@ DTC_FLAGS_k3-j721s2-common-proc-board += -@
 DTC_FLAGS_k3-j721s2-evm-fusion += -@
 DTC_FLAGS_k3-j784s4-evm += -@
 DTC_FLAGS_k3-am642-evm += -@
+dtb-$(CONFIG_ARCH_K3) += k3-j721e-beagleboneai64.dtb
