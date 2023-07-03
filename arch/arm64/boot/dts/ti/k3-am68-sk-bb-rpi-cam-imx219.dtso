@@ -20,6 +20,16 @@
 	};
 };
 
+&exp3 {
+	p01-hog {
+		/* CSI_MUX_SEL_2 */
+		gpio-hog;
+		gpios = <1 GPIO_ACTIVE_HIGH>;
+		output-high;
+		line-name = "CSI_MUX_SEL_2";
+	};
+};
+
 &main_i2c1 {
 	status = "okay";
 	#address-cells = <1>;
