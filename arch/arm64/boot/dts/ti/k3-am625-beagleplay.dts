@@ -66,6 +66,14 @@
 			pmsg-size = <0x8000>;
 		};
 
+		/* global cma region */
+		linux,cma {
+			compatible = "shared-dma-pool";
+			reusable;
+			size = <0x00 0x8000000>;
+			linux,cma-default;
+		};
+
 		mcu_m4fss_dma_memory_region: m4f-dma-memory@9cb00000 {
 			compatible = "shared-dma-pool";
 			reg = <0x00 0x9cb00000 0x00 0x100000>;
