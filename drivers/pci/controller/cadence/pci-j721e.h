@@ -11,6 +11,8 @@
 #define ENABLE_REG_SYS_0	0x100
 #define STATUS_REG_SYS_0	0x500
 #define STATUS_CLR_REG_SYS_0	0x700
+#define ENABLE_REG_SYS_1	0x104
+#define STATUS_REG_SYS_1	0x504
 #define ENABLE_REG_SYS_2	0x108
 #define CLEAR_REG_SYS_2         0x308
 #define STATUS_REG_SYS_2	0x508
@@ -23,6 +25,18 @@
 
 #define J721E_PCIE_USER_LINKSTATUS	0x14
 #define LINK_STATUS			GENMASK(1, 0)
+
+#define EOI_REG			0x10
+#define INTx_EN(num)		(1 << (num))
+#define SYS1_INTx_EN(num)	(1 << (22 + (num)))
+#define USER_EOI_REG		0xC8
+
+enum eoi_reg {
+	EOI_DOWNSTREAM_INTERRUPT,
+	EOI_FLR_INTERRUPT,
+	EOI_LEGACY_INTERRUPT,
+	EOI_POWER_STATE_INTERRUPT,
+};
 
 enum link_status {
 	NO_RECEIVERS_DETECTED,
@@ -47,6 +61,7 @@ struct j721e_pcie {
 	u32			linkdown_irq_regfield;
 	struct gpio_desc        *gpiod;
 	struct irq_domain	*legacy_irq_domain;
+	unsigned int		is_intc_v1:1;
 };
 
 enum j721e_pcie_mode {
@@ -56,6 +71,7 @@ enum j721e_pcie_mode {
 
 struct j721e_pcie_data {
 	enum j721e_pcie_mode	mode;
+	unsigned int		is_intc_v1:1;
 	unsigned int		quirk_retrain_flag:1;
 	unsigned int		quirk_detect_quiet_flag:1;
 	unsigned int		quirk_disable_flr:1;

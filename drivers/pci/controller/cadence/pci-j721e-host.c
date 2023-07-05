@@ -27,10 +27,6 @@
 #define PCIE_REFCLK_CLKSEL_OUT_EN	BIT(8)
 #define PCIE_REFCLK_CLKSEL_MASK	GENMASK(1, 0)
 
-#define EOI_REG			0x10
-#define INTx_EN(num)		(1 << (num))
-
-
 static int cdns_ti_pcie_config_read(struct pci_bus *bus, unsigned int devfn,
 					int where, int size, u32 *value)
 {
@@ -63,6 +59,7 @@ static const struct j721e_pcie_data j721e_pcie_rc_data = {
 	.byte_access_allowed = false,
 	.linkdown_irq_regfield = LINK_DOWN,
 	.max_lanes = 2,
+	.is_intc_v1 = true,
 };
 
 static const struct j721e_pcie_data j7200_pcie_rc_data = {
@@ -109,6 +106,39 @@ static const struct of_device_id of_j721e_pcie_host_match[] = {
 };
 MODULE_DEVICE_TABLE(of, of_j721e_pcie_host_match);
 
+static void j721e_pcie_legacy_irq_handler(struct irq_desc *desc)
+{
+	struct j721e_pcie *pcie = irq_desc_get_handler_data(desc);
+	struct irq_chip *chip = irq_desc_get_chip(desc);
+	int i, virq;
+	u32 reg;
+
+	chained_irq_enter(chip, desc);
+
+	for (i = 0; i < PCI_NUM_INTX; i++) {
+		reg = j721e_pcie_intd_readl(pcie, STATUS_REG_SYS_1);
+		if (!(reg & SYS1_INTx_EN(i)))
+			continue;
+
+		virq = irq_find_mapping(pcie->legacy_irq_domain, i);
+		generic_handle_irq(virq);
+	}
+
+	chained_irq_exit(chip, desc);
+}
+
+static void j721e_pcie_irq_eoi(struct irq_data *data)
+{
+	struct j721e_pcie *pcie = irq_data_get_irq_chip_data(data);
+
+	j721e_pcie_user_writel(pcie, USER_EOI_REG, EOI_LEGACY_INTERRUPT);
+}
+
+struct irq_chip j721e_pcie_irq_chip = {
+	.name		= "J721E-PCIE-INTX",
+	.irq_eoi	= j721e_pcie_irq_eoi,
+};
+
 static void j721e_pcie_v1_legacy_irq_handler(struct irq_desc *desc)
 {
 	struct j721e_pcie *pcie = irq_desc_get_handler_data(desc);
@@ -133,8 +163,14 @@ static void j721e_pcie_v1_legacy_irq_handler(struct irq_desc *desc)
 
 static int j721e_pcie_intx_map(struct irq_domain *domain, unsigned int irq, irq_hw_number_t hwirq)
 {
-	irq_set_chip_and_handler(irq, &dummy_irq_chip, handle_simple_irq);
-	irq_set_chip_data(irq, domain->host_data);
+	struct j721e_pcie *pcie = domain->host_data;
+
+	if (pcie->is_intc_v1)
+		irq_set_chip_and_handler(irq, &dummy_irq_chip, handle_simple_irq);
+	else
+		irq_set_chip_and_handler(irq, &j721e_pcie_irq_chip, handle_fasteoi_irq);
+
+	irq_set_chip_data(irq, pcie);
 
 	return 0;
 }
@@ -163,7 +199,11 @@ static int j721e_pcie_config_legacy_irq(struct j721e_pcie *pcie)
 		dev_err(dev, "Failed to parse and map legacy irq\n");
 		return -EINVAL;
 	}
-	irq_set_chained_handler_and_data(irq, j721e_pcie_v1_legacy_irq_handler, pcie);
+
+	if (pcie->is_intc_v1)
+		irq_set_chained_handler_and_data(irq, j721e_pcie_v1_legacy_irq_handler, pcie);
+	else
+		irq_set_chained_handler_and_data(irq, j721e_pcie_legacy_irq_handler, pcie);
 
 	legacy_irq_domain = irq_domain_add_linear(intc_node, PCI_NUM_INTX,
 						  &j721e_pcie_intx_domain_ops, pcie);
@@ -174,9 +214,15 @@ static int j721e_pcie_config_legacy_irq(struct j721e_pcie *pcie)
 	pcie->legacy_irq_domain = legacy_irq_domain;
 
 	for (i = 0; i < PCI_NUM_INTX; i++) {
-		reg = j721e_pcie_intd_readl(pcie, ENABLE_REG_SYS_0);
-		reg |= INTx_EN(i);
-		j721e_pcie_intd_writel(pcie, ENABLE_REG_SYS_0, reg);
+		if (pcie->is_intc_v1) {
+			reg = j721e_pcie_intd_readl(pcie, ENABLE_REG_SYS_0);
+			reg |= INTx_EN(i);
+			j721e_pcie_intd_writel(pcie, ENABLE_REG_SYS_0, reg);
+		} else {
+			reg = j721e_pcie_intd_readl(pcie, ENABLE_REG_SYS_1);
+			reg |= SYS1_INTx_EN(i);
+			j721e_pcie_intd_writel(pcie, ENABLE_REG_SYS_1, reg);
+		}
 	}
 
 	return 0;
@@ -302,14 +348,15 @@ static int j721e_pcie_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
+	pcie->is_intc_v1 = data->is_intc_v1;
+	ret = j721e_pcie_config_legacy_irq(pcie);
+	if (ret < 0)
+		goto err_get_sync;
+
 	/*
 	 * Enable ACSPCIe clock buffer to source out reference clock for EP
 	 */
 	ret = j721e_enable_acspcie(pcie);
-	if (ret < 0)
-		return ret;
-
-	ret = j721e_pcie_config_legacy_irq(pcie);
 	if (ret < 0)
 		goto err_get_sync;
 
