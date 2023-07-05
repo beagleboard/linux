@@ -169,6 +169,8 @@ examples:
   - |
     #include <dt-bindings/soc/ti,sci_pm_domain.h>
     #include <dt-bindings/gpio/gpio.h>
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+    #include <dt-bindings/interrupt-controller/irq.h>
 
     bus {
         #address-cells = <2>;
@@ -201,14 +203,30 @@ examples:
             ranges = <0x01000000 0x0 0x10001000  0x00 0x10001000  0x0 0x0010000>,
                      <0x02000000 0x0 0x10011000  0x00 0x10011000  0x0 0x7fef000>;
             dma-ranges = <0x02000000 0x0 0x0 0x0 0x0 0x10000 0x0>;
+            #interrupt-cells = <1>;
+            interrupt-map-mask = <0 0 0 7>;
+            interrupt-map = <0 0 0 1 &pcie1_intc 0>, /* INT A */
+                            <0 0 0 2 &pcie1_intc 0>, /* INT B */
+                            <0 0 0 3 &pcie1_intc 0>, /* INT C */
+                            <0 0 0 4 &pcie1_intc 0>; /* INT D */
+
+            pcie1_intc: interrupt-controller {
+                    interrupt-controller;
+                    #interrupt-cells = <1>;
+                    interrupt-parent = <&gic500>;
+                    interrupts = <GIC_SPI 324 IRQ_TYPE_EDGE_RISING>;
+            };
+
         };
     };
 
-  -
+  - |
     #include <dt-bindings/mux/mux.h>
     #include <dt-bindings/mux/ti-serdes.h>
     #include <dt-bindings/phy/phy.h>
     #include <dt-bindings/phy/phy-ti.h>
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+    #include <dt-bindings/interrupt-controller/irq.h>
 
     bus {
         #address-cells = <2>;
@@ -241,5 +259,19 @@ examples:
                 ranges = <0x01000000 0x0 0x18001000  0x00 0x18001000  0x0 0x0010000>,
                          <0x02000000 0x0 0x18011000  0x00 0x18011000  0x0 0x7fef000>;
                 dma-ranges = <0x02000000 0x0 0x0 0x0 0x0 0x10000 0x0>;
+                #interrupt-cells = <1>;
+                interrupt-map-mask = <0 0 0 7>;
+                interrupt-map = <0 0 0 1 &pcie0_intc 0>,
+                                <0 0 0 2 &pcie0_intc 0>,
+                                <0 0 0 3 &pcie0_intc 0>,
+                                <0 0 0 4 &pcie0_intc 0>;
+                status = "disabled";
+
+                pcie0_intc: interrupt-controller {
+                        interrupt-controller;
+                        #interrupt-cells = <1>;
+                        interrupt-parent = <&gic500>;
+                        interrupts = <GIC_SPI 312 IRQ_TYPE_EDGE_RISING>;
+                };
         };
     };
