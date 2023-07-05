@@ -12,6 +12,8 @@
 #include <linux/of_device.h>
 #include <linux/mfd/syscon.h>
 #include <linux/regmap.h>
+#include <linux/of_irq.h>
+#include <linux/irqchip/chained_irq.h>
 
 #include "pcie-cadence.h"
 #include "pci-j721e.h"
@@ -24,6 +26,10 @@
 #define CTRL_MMR_ACSPCIE_PAD_EN		0x01000000
 #define PCIE_REFCLK_CLKSEL_OUT_EN	BIT(8)
 #define PCIE_REFCLK_CLKSEL_MASK	GENMASK(1, 0)
+
+#define EOI_REG			0x10
+#define INTx_EN(num)		(1 << (num))
+
 
 static int cdns_ti_pcie_config_read(struct pci_bus *bus, unsigned int devfn,
 					int where, int size, u32 *value)
@@ -102,6 +108,79 @@ static const struct of_device_id of_j721e_pcie_host_match[] = {
 	{},
 };
 MODULE_DEVICE_TABLE(of, of_j721e_pcie_host_match);
+
+static void j721e_pcie_v1_legacy_irq_handler(struct irq_desc *desc)
+{
+	struct j721e_pcie *pcie = irq_desc_get_handler_data(desc);
+	struct irq_chip *chip = irq_desc_get_chip(desc);
+	int i, virq;
+	u32 reg;
+
+	chained_irq_enter(chip, desc);
+
+	for (i = 0; i < PCI_NUM_INTX; i++) {
+		reg = j721e_pcie_intd_readl(pcie, STATUS_REG_SYS_0);
+		if (!(reg & INTx_EN(i)))
+			continue;
+
+		virq = irq_find_mapping(pcie->legacy_irq_domain, 3 - i);
+		generic_handle_irq(virq);
+		j721e_pcie_intd_writel(pcie, STATUS_CLR_REG_SYS_0, INTx_EN(i));
+	}
+
+	chained_irq_exit(chip, desc);
+}
+
+static int j721e_pcie_intx_map(struct irq_domain *domain, unsigned int irq, irq_hw_number_t hwirq)
+{
+	irq_set_chip_and_handler(irq, &dummy_irq_chip, handle_simple_irq);
+	irq_set_chip_data(irq, domain->host_data);
+
+	return 0;
+}
+
+static const struct irq_domain_ops j721e_pcie_intx_domain_ops = {
+	.map = j721e_pcie_intx_map,
+};
+
+static int j721e_pcie_config_legacy_irq(struct j721e_pcie *pcie)
+{
+	struct irq_domain *legacy_irq_domain;
+	struct device *dev = pcie->cdns_pcie->dev;
+	struct device_node *node = dev->of_node;
+	struct device_node *intc_node;
+	int irq, i;
+	u32 reg;
+
+	intc_node = of_get_child_by_name(node, "interrupt-controller");
+	if (!intc_node) {
+		dev_dbg(dev, "interrupt-controller node is absent. Legacy INTR not supported\n");
+		return 0;
+	}
+
+	irq = irq_of_parse_and_map(intc_node, 0);
+	if (!irq) {
+		dev_err(dev, "Failed to parse and map legacy irq\n");
+		return -EINVAL;
+	}
+	irq_set_chained_handler_and_data(irq, j721e_pcie_v1_legacy_irq_handler, pcie);
+
+	legacy_irq_domain = irq_domain_add_linear(intc_node, PCI_NUM_INTX,
+						  &j721e_pcie_intx_domain_ops, pcie);
+	if (!legacy_irq_domain) {
+		dev_err(dev, "Failed to add irq domain for legacy irqs\n");
+		return -EINVAL;
+	}
+	pcie->legacy_irq_domain = legacy_irq_domain;
+
+	for (i = 0; i < PCI_NUM_INTX; i++) {
+		reg = j721e_pcie_intd_readl(pcie, ENABLE_REG_SYS_0);
+		reg |= INTx_EN(i);
+		j721e_pcie_intd_writel(pcie, ENABLE_REG_SYS_0, reg);
+	}
+
+	return 0;
+}
 
 static int j721e_enable_acspcie(struct j721e_pcie *pcie)
 {
@@ -229,6 +308,10 @@ static int j721e_pcie_probe(struct platform_device *pdev)
 	ret = j721e_enable_acspcie(pcie);
 	if (ret < 0)
 		return ret;
+
+	ret = j721e_pcie_config_legacy_irq(pcie);
+	if (ret < 0)
+		goto err_get_sync;
 
 	gpiod = devm_gpiod_get_optional(dev, "reset", GPIOD_OUT_LOW);
 	if (IS_ERR(gpiod)) {

@@ -8,6 +8,9 @@
 #ifndef _PCIE_J721E_H
 #define _PCIE_J721E_H
 
+#define ENABLE_REG_SYS_0	0x100
+#define STATUS_REG_SYS_0	0x500
+#define STATUS_CLR_REG_SYS_0	0x700
 #define ENABLE_REG_SYS_2	0x108
 #define CLEAR_REG_SYS_2         0x308
 #define STATUS_REG_SYS_2	0x508
@@ -43,6 +46,7 @@ struct j721e_pcie {
 	void __iomem		*intd_cfg_base;
 	u32			linkdown_irq_regfield;
 	struct gpio_desc        *gpiod;
+	struct irq_domain	*legacy_irq_domain;
 };
 
 enum j721e_pcie_mode {
