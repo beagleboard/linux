@@ -748,6 +748,19 @@
 		ranges = <0x01000000 0x0 0x10001000 0x0 0x10001000 0x0 0x0010000>,
 			 <0x02000000 0x0 0x10011000 0x0 0x10011000 0x0 0x7fef000>;
 		dma-ranges = <0x02000000 0x0 0x0 0x0 0x0 0x10000 0x0>;
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0 0 0 7>;
+		interrupt-map = <0 0 0 1 &pcie0_intc 0>, /* INT A */
+				<0 0 0 2 &pcie0_intc 0>, /* INT B */
+				<0 0 0 3 &pcie0_intc 0>, /* INT C */
+				<0 0 0 4 &pcie0_intc 0>; /* INT D */
+
+		pcie0_intc: interrupt-controller {
+			interrupt-controller;
+			#interrupt-cells = <1>;
+			interrupt-parent = <&gic500>;
+			interrupts = <GIC_SPI 312 IRQ_TYPE_EDGE_RISING>;
+		};
 	};
 
 	pcie0_ep: pcie-ep@2900000 {
@@ -796,6 +809,19 @@
 		ranges = <0x01000000 0x0 0x18001000 0x0 0x18001000 0x0 0x0010000>,
 			 <0x02000000 0x0 0x18011000 0x0 0x18011000 0x0 0x7fef000>;
 		dma-ranges = <0x02000000 0x0 0x0 0x0 0x0 0x10000 0x0>;
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0 0 0 7>;
+		interrupt-map = <0 0 0 1 &pcie1_intc 0>, /* INT A */
+				<0 0 0 2 &pcie1_intc 0>, /* INT B */
+				<0 0 0 3 &pcie1_intc 0>, /* INT C */
+				<0 0 0 4 &pcie1_intc 0>; /* INT D */
+
+		pcie1_intc: interrupt-controller {
+			interrupt-controller;
+			#interrupt-cells = <2>;
+			interrupt-parent = <&gic500>;
+			interrupts = <GIC_SPI 324 IRQ_TYPE_EDGE_RISING>;
+		};
 	};
 
 	pcie1_ep: pcie-ep@2910000 {
@@ -844,6 +870,19 @@
 		ranges = <0x01000000 0x0 0x00001000 0x44 0x00001000 0x0 0x0010000>,
 			 <0x02000000 0x0 0x00011000 0x44 0x00011000 0x0 0x7fef000>;
 		dma-ranges = <0x02000000 0x0 0x0 0x0 0x0 0x10000 0x0>;
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0 0 0 7>;
+		interrupt-map = <0 0 0 1 &pcie2_intc 0>, /* INT A */
+				<0 0 0 2 &pcie2_intc 0>, /* INT B */
+				<0 0 0 3 &pcie2_intc 0>, /* INT C */
+				<0 0 0 4 &pcie2_intc 0>; /* INT D */
+
+		pcie2_intc: interrupt-controller {
+			interrupt-controller;
+			#interrupt-cells = <2>;
+			interrupt-parent = <&gic500>;
+			interrupts = <GIC_SPI 336 IRQ_TYPE_EDGE_RISING>;
+		};
 	};
 
 	pcie2_ep: pcie-ep@2920000 {
@@ -892,6 +931,19 @@
 		ranges = <0x01000000 0x0 0x00001000 0x44 0x10001000 0x0 0x0010000>,
 			 <0x02000000 0x0 0x00011000 0x44 0x10011000 0x0 0x7fef000>;
 		dma-ranges = <0x02000000 0x0 0x0 0x0 0x0 0x10000 0x0>;
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0 0 0 7>;
+		interrupt-map = <0 0 0 1 &pcie3_intc 0>, /* INT A */
+				<0 0 0 2 &pcie3_intc 0>, /* INT B */
+				<0 0 0 3 &pcie3_intc 0>, /* INT C */
+				<0 0 0 4 &pcie3_intc 0>; /* INT D */
+
+		pcie3_intc: interrupt-controller {
+			interrupt-controller;
+			#interrupt-cells = <2>;
+			interrupt-parent = <&gic500>;
+			interrupts = <GIC_SPI 348 IRQ_TYPE_EDGE_RISING>;
+		};
 	};
 
 	pcie3_ep: pcie-ep@2930000 {
