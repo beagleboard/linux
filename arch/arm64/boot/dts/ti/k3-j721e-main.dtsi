@@ -754,6 +754,7 @@
 				<0 0 0 2 &pcie0_intc 0>, /* INT B */
 				<0 0 0 3 &pcie0_intc 0>, /* INT C */
 				<0 0 0 4 &pcie0_intc 0>; /* INT D */
+		status = "disabled";
 
 		pcie0_intc: interrupt-controller {
 			interrupt-controller;
@@ -795,6 +796,7 @@
 				<0 0 0 2 &pcie1_intc 0>, /* INT B */
 				<0 0 0 3 &pcie1_intc 0>, /* INT C */
 				<0 0 0 4 &pcie1_intc 0>; /* INT D */
+		status = "disabled";
 
 		pcie1_intc: interrupt-controller {
 			interrupt-controller;
@@ -836,6 +838,7 @@
 				<0 0 0 2 &pcie2_intc 0>, /* INT B */
 				<0 0 0 3 &pcie2_intc 0>, /* INT C */
 				<0 0 0 4 &pcie2_intc 0>; /* INT D */
+		status = "disabled";
 
 		pcie2_intc: interrupt-controller {
 			interrupt-controller;
@@ -877,6 +880,7 @@
 				<0 0 0 2 &pcie3_intc 0>, /* INT B */
 				<0 0 0 3 &pcie3_intc 0>, /* INT C */
 				<0 0 0 4 &pcie3_intc 0>; /* INT D */
+		status = "disabled";
 
 		pcie3_intc: interrupt-controller {
 			interrupt-controller;
