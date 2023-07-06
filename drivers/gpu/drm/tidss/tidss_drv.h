@@ -21,6 +21,8 @@
 /* For DSSes with 2 OLDI TXes */
 #define TIDSS_MAX_BRIDGES_PER_PIPE	2
 
+#define TIDSS_AM625_IDLE_OLDI_CLOCK 25000000
+
 typedef u32 dispc_irq_t;
 
 struct tidss_device {

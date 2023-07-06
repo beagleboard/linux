@@ -2988,6 +2988,18 @@ int dispc_init(struct tidss_device *tidss)
 		}
 		dispc->vp_clk[i] = clk;
 
+		if (dispc_get_output_type(dispc, i) == DISPC_OUTPUT_OLDI &&
+		    feat->subrev == DISPC_AM625) {
+			r = clk_set_rate(dispc->vp_clk[i],
+					 TIDSS_AM625_IDLE_OLDI_CLOCK);
+			if (r) {
+				dev_err(dev,
+					"vp%d: failed to set oldi clk rate to %u\n",
+					i, TIDSS_AM625_IDLE_OLDI_CLOCK);
+				return r;
+			}
+		}
+
 		gamma_table = devm_kmalloc_array(dev, gamma_size,
 						 sizeof(*gamma_table),
 						 GFP_KERNEL);
