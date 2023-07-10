@@ -60,6 +60,7 @@ install_linux_image () {
 	# Only some architectures with OF support have this target
 	if is_enabled CONFIG_OF_EARLY_FLATTREE && [ -d "${srctree}/arch/${SRCARCH}/boot/dts" ]; then
 		${MAKE} -f ${srctree}/Makefile INSTALL_DTBS_PATH="${pdir}/usr/lib/linux-image-${KERNELRELEASE}" dtbs_install
+		${MAKE} -f ${srctree}/Makefile INSTALL_DTBS_PATH="${pdir}/boot/dtbs/${KERNELRELEASE}" dtbs_install
 	fi
 
 	${MAKE} -f ${srctree}/Makefile INSTALL_MOD_PATH="${pdir}" modules_install
