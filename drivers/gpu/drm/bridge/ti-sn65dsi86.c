@@ -153,7 +153,6 @@
  * @ln_polrs:     Value for the 4-bit LN_POLRS field of SN_ENH_FRAME_REG.
  * @comms_enabled: If true then communication over the aux channel is enabled.
  * @comms_mutex:   Protects modification of comms_enabled.
- * @plugged:       Panel is plugged.
  *
  * @gchip:        If we expose our GPIOs, this is used.
  * @gchip_output: A cache of whether we've set GPIOs to output.  This
@@ -180,7 +179,7 @@ struct ti_sn65dsi86 {
 	struct regmap			*regmap;
 	struct drm_dp_aux		aux;
 	struct drm_bridge		bridge;
-	struct drm_connector		connector;
+	struct drm_connector		*connector;
 	struct device_node		*host_node;
 	struct mipi_dsi_device		*dsi;
 	struct clk			*refclk;
@@ -192,7 +191,6 @@ struct ti_sn65dsi86 {
 	u8				ln_polrs;
 	bool				comms_enabled;
 	struct mutex			comms_mutex;
-	bool				plugged;
 
 #if defined(CONFIG_OF_GPIO)
 	struct gpio_chip		gchip;
@@ -275,52 +273,6 @@ static const u32 ti_sn_bridge_dsiclk_lut[] = {
 	416000000,
 	486000000,
 	460800000,
-};
-
-static struct ti_sn65dsi86 *
-connector_to_ti_sn_bridge(struct drm_connector *connector)
-{
-	return container_of(connector, struct ti_sn65dsi86, connector);
-}
-
-static enum drm_connector_status
-ti_sn_bridge_connector_detect(struct drm_connector *connector, bool force)
-{
-	struct ti_sn65dsi86 *pdata = connector_to_ti_sn_bridge(connector);
-
-	return pdata->plugged ? connector_status_connected
-			      : connector_status_disconnected;
-}
-
-static const struct drm_connector_funcs ti_sn_bridge_connector_funcs = {
-	.detect = ti_sn_bridge_connector_detect,
-	.fill_modes = drm_helper_probe_single_connector_modes,
-	.destroy = drm_connector_cleanup,
-	.reset = drm_atomic_helper_connector_reset,
-	.atomic_duplicate_state = drm_atomic_helper_connector_duplicate_state,
-	.atomic_destroy_state = drm_atomic_helper_connector_destroy_state,
-};
-
-static int ti_sn_bridge_connector_get_modes(struct drm_connector *connector)
-{
-	struct ti_sn65dsi86 *pdata = connector_to_ti_sn_bridge(connector);
-
-	return drm_bridge_get_modes(pdata->next_bridge, connector);
-}
-
-static enum drm_mode_status
-ti_sn_bridge_connector_mode_valid(struct drm_connector *connector,
-				  struct drm_display_mode *mode)
-{
-	if (mode->clock > 594000)
-		return MODE_CLOCK_HIGH;
-
-	return MODE_OK;
-}
-
-static const struct drm_connector_helper_funcs ti_sn_bridge_connector_helper_funcs = {
-	.get_modes = ti_sn_bridge_connector_get_modes,
-	.mode_valid = ti_sn_bridge_connector_mode_valid,
 };
 
 static void ti_sn_bridge_set_refclk_freq(struct ti_sn65dsi86 *pdata)
@@ -750,7 +702,6 @@ static int ti_sn_bridge_attach(struct drm_bridge *bridge,
 {
 	struct ti_sn65dsi86 *pdata = bridge_to_ti_sn65dsi86(bridge);
 	int ret;
-	u8 link_status[DP_LINK_STATUS_SIZE];
 
 	pdata->aux.drm_dev = bridge->dev;
 	ret = drm_dp_aux_register(&pdata->aux);
@@ -771,25 +722,14 @@ static int ti_sn_bridge_attach(struct drm_bridge *bridge,
 	if (flags & DRM_BRIDGE_ATTACH_NO_CONNECTOR)
 		return 0;
 
-	ret = drm_connector_init(bridge->dev, &pdata->connector,
-				 &ti_sn_bridge_connector_funcs,
-				 DRM_MODE_CONNECTOR_eDP);
-	if (ret) {
-		DRM_ERROR("Connector initialization failed\n");
-		return ret;
+	pdata->connector = drm_bridge_connector_init(pdata->bridge.dev,
+						     pdata->bridge.encoder);
+	if (IS_ERR(pdata->connector)) {
+		ret = PTR_ERR(pdata->connector);
+		goto err_initted_aux;
 	}
 
-	drm_connector_helper_add(&pdata->connector,
-				 &ti_sn_bridge_connector_helper_funcs);
-
-	drm_connector_attach_encoder(&pdata->connector, pdata->bridge.encoder);
-
-	ret = drm_dp_dpcd_read_link_status(&pdata->aux, link_status);
-
-	if (ret < 0)
-		pdata->plugged = false;
-	else
-		pdata->plugged = true;
+	drm_connector_attach_encoder(pdata->connector, pdata->bridge.encoder);
 
 	return 0;
 
