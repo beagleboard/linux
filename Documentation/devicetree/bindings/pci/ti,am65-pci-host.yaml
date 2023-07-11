@@ -55,13 +55,25 @@ properties:
 
   dma-coherent: true
 
+patternProperties:
+  "interrupt-controller":
+    type: object
+    description: interrupt controller to handle legacy interrupts.
+
 required:
   - compatible
   - reg
   - reg-names
   - max-link-speed
+  - num-lanes
+  - power-domains
+  - reset-gpios
+  - phys
+  - phy-names
+  - dma-coherent
   - ti,syscon-pcie-id
   - ti,syscon-pcie-mode
+  - msi-map
   - ranges
 
 if:
@@ -82,25 +94,43 @@ examples:
     #include <dt-bindings/interrupt-controller/arm-gic.h>
     #include <dt-bindings/interrupt-controller/irq.h>
     #include <dt-bindings/soc/ti,sci_pm_domain.h>
+    #include <dt-bindings/gpio/gpio.h>
 
-    pcie0_rc: pcie@5500000 {
-        compatible = "ti,am654-pcie-rc";
-        reg =  <0x5500000 0x1000>,
-               <0x5501000 0x1000>,
-               <0x10000000 0x2000>,
-               <0x5506000 0x1000>;
-        reg-names = "app", "dbics", "config", "atu";
-        power-domains = <&k3_pds 120 TI_SCI_PD_EXCLUSIVE>;
-        #address-cells = <3>;
+    bus {
+        #address-cells = <2>;
         #size-cells = <2>;
-        ranges = <0x81000000 0 0          0x10020000 0 0x00010000>,
-                 <0x82000000 0 0x10030000 0x10030000 0 0x07FD0000>;
-        ti,syscon-pcie-id = <&scm_conf 0x0210>;
-        ti,syscon-pcie-mode = <&scm_conf 0x4060>;
-        bus-range = <0x0 0xff>;
-        max-link-speed = <2>;
-        dma-coherent;
-        interrupts = <GIC_SPI 340 IRQ_TYPE_EDGE_RISING>;
-        msi-map = <0x0 &gic_its 0x0 0x10000>;
-        device_type = "pci";
-    };
+
+        pcie0_rc: pcie@5500000 {
+                compatible = "ti,am654-pcie-rc";
+                reg =  <0x0 0x5500000 0x0 0x1000>,
+                       <0x0 0x5501000 0x0 0x1000>,
+                       <0x0 0x10000000 0x0 0x2000>,
+                       <0x0 0x5506000 0x0 0x1000>;
+                reg-names = "app", "dbics", "config", "atu";
+                power-domains = <&k3_pds 120 TI_SCI_PD_EXCLUSIVE>;
+                #address-cells = <3>;
+                #size-cells = <2>;
+                ranges = <0x81000000 0 0          0x0 0x10020000 0 0x00010000>,
+                         <0x82000000 0 0x10030000 0x0 0x10030000 0 0x07FD0000>;
+                ti,syscon-pcie-id = <&pcie_devid>;
+                ti,syscon-pcie-mode = <&pcie0_mode>;
+                bus-range = <0x0 0xff>;
+                num-viewport = <16>;
+                max-link-speed = <2>;
+                dma-coherent;
+                interrupts = <GIC_SPI 340 IRQ_TYPE_EDGE_RISING>;
+                msi-map = <0x0 &gic_its 0x0 0x10000>;
+                #interrupt-cells = <1>;
+                interrupt-map-mask = <0 0 0 7>;
+                interrupt-map = <0 0 0 1 &pcie0_intc 0>, /* INT A */
+                                <0 0 0 2 &pcie0_intc 0>, /* INT B */
+                                <0 0 0 3 &pcie0_intc 0>, /* INT C */
+                                <0 0 0 4 &pcie0_intc 0>; /* INT D */
+
+                pcie0_intc: interrupt-controller {
+                        interrupt-controller;
+                        #interrupt-cells = <1>;
+                        interrupt-parent = <&gic500>;
+                        interrupts = <GIC_SPI 328 IRQ_TYPE_EDGE_RISING>;
+                };
+        };
