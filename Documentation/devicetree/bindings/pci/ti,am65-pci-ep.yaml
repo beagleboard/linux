@@ -49,28 +49,40 @@ required:
   - reg
   - reg-names
   - max-link-speed
+  - num-lanes
   - power-domains
   - ti,syscon-pcie-mode
+  - phys
+  - phy-names
   - dma-coherent
 
 unevaluatedProperties: false
 
 examples:
   - |
+    #include <dt-bindings/soc/ti,sci_pm_domain.h>
+    #include <dt-bindings/gpio/gpio.h>
     #include <dt-bindings/interrupt-controller/arm-gic.h>
     #include <dt-bindings/interrupt-controller/irq.h>
-    #include <dt-bindings/soc/ti,sci_pm_domain.h>
 
-    pcie0_ep: pcie-ep@5500000 {
-        compatible = "ti,am654-pcie-ep";
-        reg =  <0x5500000 0x1000>,
-               <0x5501000 0x1000>,
-               <0x10000000 0x8000000>,
-               <0x5506000 0x1000>;
-        reg-names = "app", "dbics", "addr_space", "atu";
-        power-domains = <&k3_pds 120 TI_SCI_PD_EXCLUSIVE>;
-        ti,syscon-pcie-mode = <&scm_conf 0x4060>;
-        max-link-speed = <2>;
-        dma-coherent;
-        interrupts = <GIC_SPI 340 IRQ_TYPE_EDGE_RISING>;
+
+    bus {
+        #address-cells = <2>;
+        #size-cells = <2>;
+
+        pcie0_ep: pcie-ep@5500000 {
+                compatible = "ti,am654-pcie-ep";
+                reg =  <0x0 0x5500000 0x0 0x1000>,
+                       <0x0 0x5501000 0x0 0x1000>,
+                       <0x0 0x10000000 0x0 0x8000000>,
+                       <0x0 0x5506000 0x0 0x1000>;
+                reg-names = "app", "dbics", "addr_space", "atu";
+                power-domains = <&k3_pds 120 TI_SCI_PD_EXCLUSIVE>;
+                ti,syscon-pcie-mode = <&pcie0_mode>;
+                num-ib-windows = <16>;
+                num-ob-windows = <16>;
+                max-link-speed = <2>;
+                dma-coherent;
+                interrupts = <GIC_SPI 340 IRQ_TYPE_EDGE_RISING>;
+        };
     };
