@@ -44,7 +44,7 @@ ERROR_RECOVERY_SIMULATION ?=n
 # This config enables allocation of capture buffers from
 # dma contiguous memory.
 # If unsure, say Y
-CAPTURE_CONTIG_ALLOC ?=y
+CAPTURE_CONTIG_ALLOC ?=n
 
 vxd-dec-y += common/img_mem_man.o \
 	common/img_mem_unified.o \
