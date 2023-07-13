@@ -1354,10 +1354,6 @@
 	status = "okay";
 };
 
-&dsi0 {
-	status = "okay";
-};
-
 #define K3_TS_OFFSET(pa, val)  (0x4+(pa)*4) (0x10000 | val)
 
 &timesync_router {
