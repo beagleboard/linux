@@ -348,12 +348,26 @@ static int ti_csi2rx_querycap(struct file *file, void *priv,
 static int ti_csi2rx_enum_fmt_vid_cap(struct file *file, void *priv,
 				      struct v4l2_fmtdesc *f)
 {
-	if (f->index >= num_formats)
+	const struct ti_csi2rx_fmt *fmt = NULL;
+
+	if (f->mbus_code) {
+		if (f->index > 0)
+			return -EINVAL;
+
+		fmt = find_format_by_code(f->mbus_code);
+	} else {
+		if (f->index >= num_formats)
+			return -EINVAL;
+
+		fmt = &formats[f->index];
+	}
+
+	if (!fmt)
 		return -EINVAL;
 
+	f->pixelformat = fmt->fourcc;
 	memset(f->reserved, 0, sizeof(f->reserved));
 	f->type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-	f->pixelformat = formats[f->index].fourcc;
 
 	return 0;
 }
