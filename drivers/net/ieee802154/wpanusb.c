@@ -148,9 +148,7 @@ static void wpanusb_tx_done(struct wpanusb *wpanusb, uint8_t seq)
 	} else {
 		dev_dbg(&udev->dev, "unknown ack %u\n", seq);
 
-		ieee802154_wake_queue(wpanusb->hw);
-		if (wpanusb->tx_skb)
-			dev_kfree_skb_irq(wpanusb->tx_skb);
+		ieee802154_xmit_hw_error(wpanusb->hw, wpanusb->tx_skb);
 	}
 }
 
