@@ -44,6 +44,8 @@
 
 	chosen {
 		stdout-path = "serial2:115200n8";
+		base_dtb = "k3-am625-beagleplay.dts";
+		base_dtb_timestamp = __TIMESTAMP__;
 	};
 
 	memory@80000000 {
@@ -170,6 +172,7 @@
 		compatible = "gpio-leds";
 
 		led-0 {
+			label = "beaglebone:green:usr0";
 			gpios = <&main_gpio0 3 GPIO_ACTIVE_HIGH>;
 			linux,default-trigger = "heartbeat";
 			function = LED_FUNCTION_HEARTBEAT;
@@ -177,6 +180,7 @@
 		};
 
 		led-1 {
+			label = "beaglebone:green:usr1";
 			gpios = <&main_gpio0 4 GPIO_ACTIVE_HIGH>;
 			linux,default-trigger = "disk-activity";
 			function = LED_FUNCTION_DISK_ACTIVITY;
@@ -184,16 +188,19 @@
 		};
 
 		led-2 {
+			label = "beaglebone:green:usr2";
 			gpios = <&main_gpio0 5 GPIO_ACTIVE_HIGH>;
 			function = LED_FUNCTION_CPU;
 		};
 
 		led-3 {
+			label = "beaglebone:green:usr3";
 			gpios = <&main_gpio0 6 GPIO_ACTIVE_HIGH>;
 			function = LED_FUNCTION_LAN;
 		};
 
 		led-4 {
+			label = "beaglebone:green:usr4";
 			gpios = <&main_gpio0 9 GPIO_ACTIVE_HIGH>;
 			function = LED_FUNCTION_WLAN;
 		};
@@ -606,6 +613,7 @@
 	pinctrl-0 = <&i2c_csi_pins_default>;
 	clock-frequency = <400000>;
 	/* Enable with overlay for camera sensor */
+	symlink = "play/csi/i2c";
 };
 
 &mcu_i2c0 {
@@ -613,6 +621,7 @@
 	pinctrl-0 = <&i2c_qwiic_pins_default>;
 	clock-frequency = <100000>;
 	status = "okay";
+	symlink = "play/qwiic/i2c";
 };
 
 &mcu_m4fss {
@@ -822,6 +831,7 @@
 	pinctrl-0 = <&grove_pins_default>;
 	clock-frequency = <100000>;
 	status = "okay";
+	symlink = "play/grove/i2c";
 };
 
 &main_i2c2 {
@@ -875,6 +885,7 @@
 	pinctrl-0 = <&mikrobus_i2c_pins_default>;
 	clock-frequency = <400000>;
 	status = "okay";
+	symlink = "play/mikrobus/i2c";
 };
 
 &main_spi2 {
