@@ -5,6 +5,10 @@
  */
 
 #include <linux/fs.h>
+#include <linux/version.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
+#include <linux/filelock.h>
+#endif
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
 
@@ -251,7 +255,11 @@ static void __ksmbd_inode_close(struct ksmbd_file *fp)
 	filp = fp->filp;
 	if (ksmbd_stream_fd(fp) && (ci->m_flags & S_DEL_ON_CLS_STREAM)) {
 		ci->m_flags &= ~S_DEL_ON_CLS_STREAM;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
+		err = ksmbd_vfs_remove_xattr(file_mnt_idmap(filp),
+#else
 		err = ksmbd_vfs_remove_xattr(file_mnt_user_ns(filp),
+#endif
 					     filp->f_path.dentry,
 					     fp->stream.name);
 		if (err)
@@ -266,7 +274,11 @@ static void __ksmbd_inode_close(struct ksmbd_file *fp)
 			dir = dentry->d_parent;
 			ci->m_flags &= ~(S_DEL_ON_CLS | S_DEL_PENDING);
 			write_unlock(&ci->m_lock);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
+			ksmbd_vfs_unlink(file_mnt_idmap(filp), dir, dentry);
+#else
 			ksmbd_vfs_unlink(file_mnt_user_ns(filp), dir, dentry);
+#endif
 			write_lock(&ci->m_lock);
 		}
 		write_unlock(&ci->m_lock);
@@ -327,7 +339,9 @@ static void __ksmbd_close_fd(struct ksmbd_file_table *ft, struct ksmbd_file *fp)
 		locks_free_lock(smb_lock->fl);
 		kfree(smb_lock);
 	}
-
+#ifdef CONFIG_SMB_INSECURE_SERVER
+	kfree(fp->filename);
+#endif
 	if (ksmbd_stream_fd(fp))
 		kfree(fp->stream.name);
 	kmem_cache_free(filp_cache, fp);
@@ -482,6 +496,36 @@ struct ksmbd_file *ksmbd_lookup_fd_cguid(char *cguid)
 	return fp;
 }
 
+#ifdef CONFIG_SMB_INSECURE_SERVER
+struct ksmbd_file *ksmbd_lookup_fd_filename(struct ksmbd_work *work, char *filename)
+{
+	struct ksmbd_file	*fp = NULL;
+	unsigned int		id;
+	char			*pathname;
+
+	pathname = kmalloc(PATH_MAX, GFP_KERNEL);
+	if (!pathname)
+		return NULL;
+
+	read_lock(&work->sess->file_table.lock);
+	idr_for_each_entry(work->sess->file_table.idr, fp, id) {
+		char *path = d_path(&fp->filp->f_path, pathname, PATH_MAX);
+
+		if (IS_ERR(path))
+			break;
+
+		if (!strcmp(path, filename)) {
+			fp = ksmbd_fp_get(fp);
+			break;
+		}
+	}
+	read_unlock(&work->sess->file_table.lock);
+
+	kfree(pathname);
+	return fp;
+}
+#endif
+
 struct ksmbd_file *ksmbd_lookup_fd_inode(struct inode *inode)
 {
 	struct ksmbd_file	*lfp;
@@ -529,7 +573,13 @@ static int __open_id(struct ksmbd_file_table *ft, struct ksmbd_file *fp,
 
 	idr_preload(GFP_KERNEL);
 	write_lock(&ft->lock);
+#ifdef CONFIG_SMB_INSECURE_SERVER
+	ret = idr_alloc_cyclic(ft->idr, fp, 0,
+			       IS_SMB2(fp->conn) ? INT_MAX - 1 : 0xFFFF,
+			       GFP_NOWAIT);
+#else
 	ret = idr_alloc_cyclic(ft->idr, fp, 0, INT_MAX - 1, GFP_NOWAIT);
+#endif
 	if (ret >= 0) {
 		id = ret;
 		ret = 0;
@@ -663,6 +713,22 @@ void ksmbd_free_global_file_table(void)
 	}
 
 	ksmbd_destroy_file_table(&global_ft);
+}
+
+int ksmbd_file_table_flush(struct ksmbd_work *work)
+{
+	struct ksmbd_file	*fp = NULL;
+	unsigned int		id;
+	int			ret;
+
+	read_lock(&work->sess->file_table.lock);
+	idr_for_each_entry(work->sess->file_table.idr, fp, id) {
+		ret = ksmbd_vfs_fsync(work, fp->volatile_id, KSMBD_NO_FID);
+		if (ret)
+			break;
+	}
+	read_unlock(&work->sess->file_table.lock);
+	return ret;
 }
 
 int ksmbd_init_file_table(struct ksmbd_file_table *ft)

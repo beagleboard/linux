@@ -12,6 +12,9 @@
 #include "../smb_common.h"
 #include "../ntlmssp.h"
 
+#ifdef CONFIG_SMB_INSECURE_SERVER
+#define CIFDS_SESSION_FLAG_SMB1		BIT(0)
+#endif
 #define CIFDS_SESSION_FLAG_SMB2		BIT(1)
 
 #define PREAUTH_HASHVALUE_SIZE		64
@@ -52,7 +55,7 @@ struct ksmbd_session {
 	struct xarray			ksmbd_chann_list;
 	struct xarray			tree_conns;
 	struct ida			tree_conn_ida;
-	struct list_head		rpc_handle_list;
+	struct xarray			rpc_handle_list;
 
 	__u8				smb3encryptionkey[SMB3_ENC_DEC_KEY_SIZE];
 	__u8				smb3decryptionkey[SMB3_ENC_DEC_KEY_SIZE];
@@ -77,6 +80,9 @@ static inline void clear_session_flag(struct ksmbd_session *sess, int bit)
 	sess->flags &= ~bit;
 }
 
+#ifdef CONFIG_SMB_INSECURE_SERVER
+struct ksmbd_session *ksmbd_smb1_session_create(void);
+#endif
 struct ksmbd_session *ksmbd_smb2_session_create(void);
 
 void ksmbd_session_destroy(struct ksmbd_session *sess);
