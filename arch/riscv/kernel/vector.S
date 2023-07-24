@@ -38,14 +38,14 @@ ENTRY(__vstate_save)
 	csrr	t0,  CSR_VTYPE
 	sd	t0,  TASK_THREAD_VTYPE_V0(a0)
 
-	vsetvli	t0, x0, e8,m8
-	vsb.v	v0,  (a0)
+	.word 0x003072d7 	/* vsetvli	t0, x0, e8,m8 	*/
+	.word 0x02050027 	/* vsb.v	v0,  (a0)	*/
 	addi	a0, a0, RISCV_VECTOR_VLENB*8
-	vsb.v	v8,  (a0)
+	.word 0x02050427 	/* vsb.v	v8,  (a0) 	*/
 	addi	a0, a0, RISCV_VECTOR_VLENB*8
-	vsb.v	v16, (a0)
+	.word 0x02050827 	/* vsb.v	v16, (a0) 	*/
 	addi	a0, a0, RISCV_VECTOR_VLENB*8
-	vsb.v	v24, (a0)
+	.word 0x02050c27 	/* vsb.v	v24, (a0) 	*/
 
 	csrc	sstatus, t1
 	ret
@@ -59,14 +59,14 @@ ENTRY(__vstate_restore)
 	li	t1, (SR_VS | SR_FS)
 	csrs	sstatus, t1
 
-	vsetvli	t0, x0, e8,m8
-	vlb.v	v0,  (a0)
+	.word 0x003072d7	/* vsetvli	t0, x0, e8,m8 	*/
+	.word 0x12050007	/* vlb.v	v0,  (a0) 	*/
 	addi	a0, a0, RISCV_VECTOR_VLENB*8
-	vlb.v	v8,  (a0)
+	.word 0x12050407	/* vlb.v	v8,  (a0)	*/
 	addi	a0, a0, RISCV_VECTOR_VLENB*8
-	vlb.v	v16, (a0)
+	.word 0x12050807 	/* vlb.v	v16, (a0)	*/
 	addi	a0, a0, RISCV_VECTOR_VLENB*8
-	vlb.v	v24, (a0)
+	.word 0x12050c07	/* vlb.v	v24, (a0)	*/
 
 	mv	a0,  t2
 	ld	t0,  TASK_THREAD_VSTART_V0(a0)
@@ -78,7 +78,7 @@ ENTRY(__vstate_restore)
 	ld	t0,  TASK_THREAD_VL_V0(a0)
 	ld	t2,  TASK_THREAD_VTYPE_V0(a0)
 
-	vsetvl	t3, t0, t2
+	.word 0x8072fe57 	/* vsetvl	t3, t0, t2	*/
 
 	csrc	sstatus, t1
 	ret
