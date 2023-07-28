@@ -1,0 +1,44 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * DT Overlay for disabling mikrobus device driver.
+ *
+ * Copyright (C) 2023 Jason Kridner, BeagleBoard.org Foundation
+ */
+
+/dts-v1/;
+/plugin/;
+
+&{/chosen} {
+	overlays {
+		k3-am625-beagleplay-release-mikrobus = __TIMESTAMP__;
+	};
+};
+
+&mikrobus0 {
+	status = "disabled";
+};
+
+/*
+ * Setup default muxes for peripheral drivers to do them instead
+ * of depending on mikrobus driver to select
+ */
+
+&main_i2c3 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&mikrobus_i2c_pins_default>;
+};
+
+&main_spi2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&mikrobus_spi_pins_default>;
+};
+
+&main_uart5 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&mikrobus_uart_pins_default>;
+};
+
+&main_gpio1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&mikrobus_gpio_pins_default>;
+};

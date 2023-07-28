@@ -1,0 +1,149 @@
+// SPDX-License-Identifier: GPL-2.0
+/**
+ * DT Overlay for RPi 7inch touchscreen panel interfaced with DSI on
+ * beagleboneai64 board.
+ *
+ * Copyright (C) 2021 Texas Instruments Incorporated - https://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/pinctrl/k3.h>
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+ */
+&{/chosen} {
+	overlays {
+		BBAI64-DSI-RPi-7inch-panel.kernel = __TIMESTAMP__;
+	};
+};
+
+/ {
+	fragment@101 {
+		target-path = "/";
+
+		__overlay__ {
+			reg_bridge: reg_bridge@0 {
+				reg = <0 0 0x0 0x0>;
+				compatible = "regulator-fixed";
+				regulator-name = "bridge_reg";
+				gpio = <&reg_display 0 0>;
+				vin-supply = <&reg_display>;
+				enable-active-high;
+			};
+
+			panel_disp0: panel_disp1@0 {
+				reg = <0 0 0x0 0x0>;
+				compatible = "raspberrypi,7inch-dsi", "simple-panel";
+				backlight = <&reg_display>;
+				power-supply = <&reg_display>;
+
+				port {
+					panel_in: endpoint {
+						remote-endpoint = <&panel_bridge_out>;
+					};
+				};
+			};
+		};
+	};
+};
+
+&main_pmx0 {
+	main_i2c4_pins_default: main-i2c-pins-default {
+		pinctrl-single,pins = <
+			J721E_IOPAD(0xa8, PIN_INPUT_PULLUP, 2) /* (AD19) PRG1_MDIO0_MDIO.I2C4_SCL */
+			J721E_IOPAD(0xac, PIN_INPUT_PULLUP, 2) /* (AD18) PRG1_MDIO0_MDC.I2C4_SDA */
+		>;
+	};
+};
+
+&main_i2c4 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_i2c4_pins_default>;
+	clock-frequency = <400000>;
+
+	reg_display: reg_display@45 {
+		compatible = "raspberrypi,7inch-touchscreen-panel-regulator";
+		reg = <0x45>;
+		gpio-controller;
+		#gpio-cells = <2>;
+	};
+
+	ft5406: ts@38 {
+		compatible = "edt,edt-ft5406";
+		reg = <0x38>;
+
+		touchscreen-size-x = < 800 >;
+		touchscreen-size-y = < 480 >;
+
+		vcc-supply = <&reg_display>;
+		reset-gpio = <&reg_display 1 1>;
+
+		touchscreen-inverted-x;
+		touchscreen-inverted-y;
+	};
+};
+
+&dss_ports {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	port@2 {
+		reg = <2>;
+
+		dpi1_out: endpoint {
+			remote-endpoint = <&dsi0_in>;
+		};
+	};
+};
+
+&dsi0 {
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+			dsi0_out: endpoint {
+				remote-endpoint = <&panel_bridge_in>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+			dsi0_in: endpoint {
+				remote-endpoint = <&dpi1_out>;
+			};
+		};
+	};
+
+	bridge@0 {
+		compatible = "toshiba,tc358762";
+		reg = <0>;
+		vddc-supply = <&reg_bridge>;
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+				panel_bridge_in: endpoint {
+					remote-endpoint = <&dsi0_out>;
+				};
+			};
+
+			port@1 {
+				reg = <1>;
+				panel_bridge_out: endpoint {
+					remote-endpoint = <&panel_in>;
+				};
+			};
+		};
+	};
+
+};
