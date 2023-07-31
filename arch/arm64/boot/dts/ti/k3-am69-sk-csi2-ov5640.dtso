@@ -32,13 +32,6 @@
 		output-high;
 		line-name = "CSI_MUX_SEL_2";
 	};
-	p02-hog{
-		/* P02 - CSI2_RSTz */
-		gpio-hog;
-		gpios = <2 GPIO_ACTIVE_HIGH>;
-		output-high;
-		line-name = "CSI2_RSTz";
-	};
 };
 
 &pca9543 {
@@ -60,6 +53,7 @@
 			/* MCU_CLKOUT0 WKUP_GPIO0_11 (M38) */
 			clocks = <&k3_clks 157 174>;
 			clock-names = "xclk";
+			powerdown-gpios = <&exp2 2 GPIO_ACTIVE_LOW>;
 
 			/* HSDIV4_16FFT_MCU_2_HSDIVOUT0_CLK10 -> REFCLK2 */
 			assigned-clocks = <&k3_clks 157 174>;
@@ -89,6 +83,7 @@
 			/* MCU_CLKOUT0 WKUP_GPIO0_11 (M38) */
 			clocks = <&k3_clks 157 174>;
 			clock-names = "xclk";
+			powerdown-gpios = <&exp2 2 GPIO_ACTIVE_LOW>;
 
 			/* HSDIV4_16FFT_MCU_2_HSDIVOUT0_CLK10 -> REFCLK2 */
 			assigned-clocks = <&k3_clks 157 174>;
