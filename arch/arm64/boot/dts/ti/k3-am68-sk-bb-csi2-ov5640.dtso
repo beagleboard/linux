@@ -11,10 +11,10 @@
 #include <dt-bindings/gpio/gpio.h>
 #include "k3-pinctrl.h"
 
-&wkup_pmx0 {
+&wkup_pmx2 {
 	csi2_exp_refclk_pins_default: csi2-exp-refclk-pins-default {
 		pinctrl-single,pins = <
-			J721S2_IOPAD(0x0ec, PIN_OUTPUT, 6) /* (F25) WKUP_GPIO0_11.MCU_CLKOUT0 */
+			J721S2_IOPAD(0x084, PIN_OUTPUT, 6) /* (F25) WKUP_GPIO0_11.MCU_CLKOUT0 */
 		>;
 	};
 };
