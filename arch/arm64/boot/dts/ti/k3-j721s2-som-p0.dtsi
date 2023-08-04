@@ -190,9 +190,6 @@
 		pinctrl-single,pins = <
 			J721S2_WKUP_IOPAD(0x000, PIN_OUTPUT, 0) /* (D19) MCU_OSPI0_CLK */
 			J721S2_WKUP_IOPAD(0x02c, PIN_OUTPUT, 0) /* (F15) MCU_OSPI0_CSn0 */
-			J721S2_WKUP_IOPAD(0x030, PIN_OUTPUT, 0) /* (G17) MCU_OSPI0_CSn1 */
-			J721S2_WKUP_IOPAD(0x038, PIN_OUTPUT, 0) /* (F14) MCU_OSPI0_CSn2 */
-			J721S2_WKUP_IOPAD(0x03c, PIN_OUTPUT, 0) /* (F17) MCU_OSPI0_CSn3 */
 			J721S2_WKUP_IOPAD(0x00c, PIN_INPUT, 0) /* (C19) MCU_OSPI0_D0 */
 			J721S2_WKUP_IOPAD(0x010, PIN_INPUT, 0) /* (F16) MCU_OSPI0_D1 */
 			J721S2_WKUP_IOPAD(0x014, PIN_INPUT, 0) /* (G15) MCU_OSPI0_D2 */
@@ -203,6 +200,15 @@
 			J721S2_WKUP_IOPAD(0x028, PIN_INPUT, 0) /* (F20) MCU_OSPI0_D7 */
 			J721S2_WKUP_IOPAD(0x008, PIN_INPUT, 0) /* (E18) MCU_OSPI0_DQS */
 			J721S2_WKUP_IOPAD(0x004, PIN_INPUT, 0) /* (E20) MCU_OSPI0_LBCLKO */
+		>;
+	};
+};
+
+&wkup_pmx1 {
+	pmic_irq_pins_default: pmic-irq-pins-default {
+		pinctrl-single,pins = <
+			/* (C21) MCU_OSPI1_CSn1.WKUP_GPIO0_39 */
+			J721S2_WKUP_IOPAD(0x028, PIN_INPUT, 7)
 		>;
 	};
 };
@@ -248,18 +254,11 @@
 	phys = <&transceiver0>;
 };
 
-&wkup_pmx0 {
-	pmic_irq_pins_default: pmic-irq-pins-default {
-		pinctrl-single,pins = <
-			/* (C21) MCU_OSPI1_CSn1.WKUP_GPIO0_39 */
-			J721S2_WKUP_IOPAD(0x060, PIN_INPUT, 7)
-		>;
-	};
-
+&wkup_pmx2 {
 	wkup_i2c0_pins_default: wkup_i2c0_pins_default {
 		pinctrl-single,pins = <
-			J721S2_WKUP_IOPAD(0x100, PIN_INPUT, 0) /* (H24) WKUP_I2C0_SCL */
-			J721S2_WKUP_IOPAD(0x104, PIN_INPUT, 0) /* (H27) WKUP_I2C0_SDA */
+			J721S2_WKUP_IOPAD(0x98, PIN_INPUT, 0) /* (H24) WKUP_I2C0_SCL */
+			J721S2_WKUP_IOPAD(0x9c, PIN_INPUT, 0) /* (H27) WKUP_I2C0_SDA */
 		>;
 	};
 };
