@@ -7,11 +7,17 @@
 #include "am33xx.dtsi"
 #include "am335x-bone-common.dtsi"
 #include "am335x-boneblack-common.dtsi"
+#include "am335x-boneblack-hdmi.dtsi"
 #include <dt-bindings/interrupt-controller/irq.h>
 
 / {
 	model = "TI AM335x BeagleBone Black Wireless";
 	compatible = "ti,am335x-bone-black-wireless", "ti,am335x-bone-black", "ti,am335x-bone", "ti,am33xx";
+
+	chosen {
+		base_dtb = "am335x-boneblack-wireless.dts";
+		base_dtb_timestamp = __TIMESTAMP__;
+	};
 
 	wlan_en_reg: fixedregulator@2 {
 		compatible = "regulator-fixed";
@@ -62,7 +68,7 @@
 	};
 };
 
-&mac_sw {
+&mac {
 	status = "disabled";
 };
 
@@ -101,7 +107,7 @@
 };
 
 &gpio3 {
-	ls_buf_en {
+	ls-buf-en-hog {
 		gpio-hog;
 		gpios = <10 GPIO_ACTIVE_HIGH>;
 		output-high;
