@@ -9,6 +9,8 @@
 /dts-v1/;
 /plugin/;
 
+#include <dt-bindings/mux/ti-serdes.h>
+
 &{/} {
 	cpsw9g_virt_mac: main-r5fss-cpsw9g-virt-mac0 {
 		compatible = "ti,j721e-cpsw-virt-mac";
@@ -89,4 +91,13 @@
 			<&main_r5fss0_core0_memory_region>,
 			<&main_r5fss0_core0_shared_memory_queue_region>,
 			<&main_r5fss0_core0_shared_memory_bufpool_region>;
+};
+
+&serdes_ln_ctrl {
+	idle-states = <J721E_SERDES0_LANE0_PCIE0_LANE0>, <J721E_SERDES0_LANE1_QSGMII_LANE2>,
+		      <J721E_SERDES1_LANE0_PCIE1_LANE0>, <J721E_SERDES1_LANE1_PCIE1_LANE1>,
+		      <J721E_SERDES2_LANE0_PCIE2_LANE0>, <J721E_SERDES2_LANE1_PCIE2_LANE1>,
+		      <J721E_SERDES3_LANE0_USB3_0_SWAP>, <J721E_SERDES3_LANE1_USB3_0>,
+		      <J721E_SERDES4_LANE0_EDP_LANE0>, <J721E_SERDES4_LANE1_EDP_LANE1>,
+		      <J721E_SERDES4_LANE2_EDP_LANE2>, <J721E_SERDES4_LANE3_EDP_LANE3>;
 };
