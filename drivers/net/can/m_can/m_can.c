@@ -309,7 +309,7 @@ enum m_can_reg {
 #define TX_EVENT_TXTS_MASK	GENMASK(15, 0)
 
 /* Hrtimer polling interval */
-#define HRTIMER_POLL_INTERVAL		1
+#define HRTIMER_POLL_INTERVAL_MS	1
 
 /* The ID and DLC registers are adjacent in M_CAN FIFO memory,
  * and we can save a (potentially slow) bus round trip by combining
@@ -1389,9 +1389,9 @@ static int m_can_start(struct net_device *dev)
 
 	m_can_enable_all_interrupts(cdev);
 
-	if (dev->irq == 0) {
+	if (!dev->irq) {
 		dev_dbg(cdev->dev, "Start hrtimer\n");
-		hrtimer_start(&cdev->hrtimer, ms_to_ktime(HRTIMER_POLL_INTERVAL),
+		hrtimer_start(&cdev->hrtimer, ms_to_ktime(HRTIMER_POLL_INTERVAL_MS),
 			      HRTIMER_MODE_REL_PINNED);
 	}
 
@@ -1549,7 +1549,7 @@ static void m_can_stop(struct net_device *dev)
 {
 	struct m_can_classdev *cdev = netdev_priv(dev);
 
-	if (dev->irq == 0) {
+	if (!dev->irq) {
 		dev_dbg(cdev->dev, "Stop hrtimer\n");
 		hrtimer_cancel(&cdev->hrtimer);
 	}
@@ -1786,7 +1786,7 @@ static enum hrtimer_restart hrtimer_callback(struct hrtimer *timer)
 
 	m_can_isr(0, cdev->net);
 
-	hrtimer_forward_now(timer, ms_to_ktime(HRTIMER_POLL_INTERVAL));
+	hrtimer_forward_now(timer, ms_to_ktime(HRTIMER_POLL_INTERVAL_MS));
 
 	return HRTIMER_RESTART;
 }
@@ -1829,10 +1829,10 @@ static int m_can_open(struct net_device *dev)
 		err = request_threaded_irq(dev->irq, NULL, m_can_isr,
 					   IRQF_ONESHOT,
 					   dev->name, dev);
-	}
-	if (dev->irq > 0)
+	} else if (dev->irq) {
 		err = request_irq(dev->irq, m_can_isr, IRQF_SHARED, dev->name,
 				  dev);
+	}
 
 	if (err < 0) {
 		netdev_err(dev, "failed to request interrupt\n");
@@ -2025,7 +2025,7 @@ int m_can_class_register(struct m_can_classdev *cdev)
 			goto clk_disable;
 	}
 
-	if (cdev->net->irq == 0)
+	if (!cdev->net->irq)
 		cdev->hrtimer.function = &hrtimer_callback;
 
 	ret = m_can_dev_setup(cdev);

@@ -83,7 +83,7 @@ static int m_can_plat_probe(struct platform_device *pdev)
 	void __iomem *addr;
 	void __iomem *mram_addr;
 	struct phy *transceiver;
-	int irq, ret = 0;
+	int irq = 0, ret = 0;
 
 	mcan_class = m_can_class_allocate_dev(&pdev->dev,
 					      sizeof(struct m_can_plat_priv));
@@ -105,16 +105,11 @@ static int m_can_plat_probe(struct platform_device *pdev)
 	if (device_property_present(mcan_class->dev, "interrupts") ||
 	    device_property_present(mcan_class->dev, "interrupt-names")) {
 		irq = platform_get_irq_byname(pdev, "int0");
-		if (irq == -EPROBE_DEFER) {
-			ret = -EPROBE_DEFER;
-			goto probe_fail;
-		}
 		if (irq < 0) {
-			ret = -EINVAL;
+			ret = irq;
 			goto probe_fail;
 		}
 	} else {
-		irq = 0;
 		dev_dbg(mcan_class->dev, "Polling enabled, initialize hrtimer");
 		hrtimer_init(&mcan_class->hrtimer, CLOCK_MONOTONIC,
 			     HRTIMER_MODE_REL_PINNED);
