@@ -505,6 +505,7 @@ config VCPU_STALL_DETECTOR
 
 config DMA_BUF_PHYS
 	tristate "DMA-BUF physical address user-space exporter"
+	depends on DMA_SHARED_BUFFER
 	default y
 	help
 	  Exports CPU physical address of DMA-BUF to user-space.
