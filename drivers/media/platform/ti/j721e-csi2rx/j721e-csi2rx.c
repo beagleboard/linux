@@ -589,6 +589,12 @@ static void ti_csi2rx_setup_shim(struct ti_csi2rx_ctx *ctx)
 		return;
 	}
 
+	/* De-assert the pixel interface reset. */
+	if (!csi->enable_count) {
+		reg = SHIM_CNTL_PIX_RST;
+		writel(reg, csi->shim + SHIM_CNTL);
+	}
+
 	reg = SHIM_DMACNTX_EN;
 	reg |= FIELD_PREP(SHIM_DMACNTX_FMT, fmt->csi_dt);
 
@@ -1021,6 +1027,10 @@ static void ti_csi2rx_stop_streaming(struct vb2_queue *vq)
 	struct ti_csi2rx_ctx *ctx = vb2_get_drv_priv(vq);
 	struct ti_csi2rx_dev *csi = ctx->csi;
 	int ret;
+
+	/* assert pixel reset to prevent stale data on stopping last stream */
+	if (csi->enable_count == 1)
+		writel(0, csi->shim + SHIM_CNTL);
 
 	video_device_pipeline_stop(&ctx->vdev);
 
@@ -1637,10 +1647,6 @@ static int ti_csi2rx_probe(struct platform_device *pdev)
 		dev_err(csi->dev, "Failed to create children: %d\n", ret);
 		goto cleanup_subdev;
 	}
-
-	/* De-assert the pixel interface reset. */
-	reg = SHIM_CNTL_PIX_RST;
-	writel(reg, csi->shim + SHIM_CNTL);
 
 	return 0;
 
