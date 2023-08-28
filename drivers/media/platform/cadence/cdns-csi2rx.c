@@ -410,7 +410,7 @@ static void csi2rx_stop(struct csi2rx_priv *csi2rx)
 		ret = readl_relaxed_poll_timeout(csi2rx->base +
 						 CSI2RX_STREAM_STATUS_REG(i),
 						 val,
-						 (val & CSI2RX_STREAM_STATUS_RDY),
+						 !(val & CSI2RX_STREAM_STATUS_RDY),
 						 10, 10000);
 		if (ret)
 			dev_warn(csi2rx->dev, "Failed to stop stream%u\n", i);
