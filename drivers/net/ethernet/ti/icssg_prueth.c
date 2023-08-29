@@ -1653,7 +1653,7 @@ static int emac_ndo_open(struct net_device *ndev)
 
 	icssg_mii_update_mtu(prueth->mii_rt, slice, ndev->max_mtu);
 
-	if (prueth->emacs_initialized) {
+	if (!prueth->emacs_initialized) {
 		ret = icss_iep_init(emac->iep, &prueth_iep_clockops,
 				    emac, IEP_DEFAULT_CYCLE_TIME_NS);
 	}
