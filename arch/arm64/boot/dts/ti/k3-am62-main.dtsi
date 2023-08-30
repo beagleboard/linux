@@ -663,8 +663,9 @@
 	};
 
 	fss: bus@fc00000 {
-		compatible = "simple-bus";
+		compatible = "simple-pm-bus";
 		reg = <0x00 0x0fc00000 0x00 0x70000>;
+		power-domains = <&k3_pds 74 TI_SCI_PD_EXCLUSIVE>;
 		#address-cells = <2>;
 		#size-cells = <2>;
 		ranges;
