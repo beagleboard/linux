@@ -1619,7 +1619,6 @@ static int ti_csi2rx_probe(struct platform_device *pdev)
 	struct ti_csi2rx_dev *csi;
 	struct resource *res;
 	int ret, i, count;
-	unsigned int reg;
 
 	csi = devm_kzalloc(&pdev->dev, sizeof(*csi), GFP_KERNEL);
 	if (!csi)
