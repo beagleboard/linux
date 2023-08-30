@@ -16,6 +16,7 @@ config DMABUF_HEAPS_CMA
 config DMABUF_HEAPS_CARVEOUT
 	bool "DMA-BUF Carveout Heap"
 	depends on DMABUF_HEAPS && HAS_IOMEM
+	depends on OF_RESERVED_MEM
 	select GENERIC_ALLOCATOR
 	help
 	  Choose this option to enable dma-buf Carveout heap. This heap is
