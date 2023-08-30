@@ -66,6 +66,7 @@ int do_truncate(struct user_namespace *mnt_userns, struct dentry *dentry,
 	inode_unlock(dentry->d_inode);
 	return ret;
 }
+EXPORT_SYMBOL_GPL(do_truncate);
 
 long vfs_truncate(const struct path *path, loff_t length)
 {
