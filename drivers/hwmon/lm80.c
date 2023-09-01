@@ -573,6 +573,9 @@ static int lm80_detect(struct i2c_client *client, struct i2c_board_info *info)
 			return -ENODEV;
 
 		name = "lm96080";
+	} else if(man_id == 0x80 && dev_id == 0x19) {
+		 /* Check for  AMC80 version which is register compatible with lm96080 */
+		name = "amc80";
 	} else {
 		/* Check 6-bit addressing */
 		for (i = 0x2a; i <= 0x3d; i++) {
@@ -624,6 +627,7 @@ static int lm80_probe(struct i2c_client *client)
 static const struct i2c_device_id lm80_id[] = {
 	{ "lm80", 0 },
 	{ "lm96080", 1 },
+	{ "amc80", 2},
 	{ }
 };
 MODULE_DEVICE_TABLE(i2c, lm80_id);
