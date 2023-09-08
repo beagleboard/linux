@@ -126,6 +126,7 @@ enum prueth_devlink_param_id {
 	PRUETH_DEVLINK_PARAM_ID_BASE = DEVLINK_PARAM_GENERIC_ID_MAX,
 	PRUETH_DL_PARAM_SWITCH_MODE,
 	PRUETH_DL_PARAM_HSR_OFFLOAD_MODE,
+	PRUETH_DL_PARAM_CUT_THRU_EN,
 };
 
 struct prueth_devlink {
@@ -222,6 +223,7 @@ struct prueth_emac {
 
 	struct pruss_mem_region dram;
 
+	u8 cut_thru_queue_map;
 	bool offload_fwd_mark;
 	struct devlink_port devlink_port;
 	int port_vlan;

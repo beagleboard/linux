@@ -2659,6 +2659,76 @@ static void prueth_unregister_notifiers(struct prueth *prueth)
 
 static const struct devlink_ops prueth_devlink_ops = {};
 
+static u8 prueth_dl_cut_thru_check(struct prueth_emac *emac)
+{
+	void *config = emac->dram.va + ICSSG_CONFIG_OFFSET;
+	u8 queue_map = 0U;
+	u8 cut_thru_val;
+	int i;
+
+	for (i = 0; i < PRUETH_MAX_TX_QUEUES * PRUETH_NUM_MACS; i++) {
+		cut_thru_val = readb(config + EXPRESS_PRE_EMPTIVE_Q_MAP + i);
+		if (cut_thru_val & BIT(7))
+			queue_map |= BIT(i);
+	}
+
+	return queue_map;
+}
+
+static int prueth_dl_cut_thru_en_get(struct devlink *dl, u32 id,
+				     struct devlink_param_gset_ctx *ctx)
+{
+	struct prueth_devlink *dl_priv = devlink_priv(dl);
+	struct prueth *prueth = dl_priv->prueth;
+	u16 tx_queues = 0U;
+	int i;
+
+	dev_dbg(prueth->dev, "%s id:%u\n", __func__, id);
+
+	if (id != PRUETH_DL_PARAM_CUT_THRU_EN)
+		return -EOPNOTSUPP;
+
+	for (i = PRUETH_MAC0; i < PRUETH_NUM_MACS; i++) {
+		if (!(prueth->emac[i]))
+			return -EINVAL;
+
+		tx_queues |= prueth_dl_cut_thru_check(prueth->emac[i]) << (8 * i);
+	}
+
+	ctx->val.vu16 = tx_queues;
+
+	return 0;
+}
+
+static int prueth_dl_cut_thru_en_set(struct devlink *dl, u32 id,
+				     struct devlink_param_gset_ctx *ctx)
+{
+	struct prueth_devlink *dl_priv = devlink_priv(dl);
+	struct prueth *prueth = dl_priv->prueth;
+	u16 tx_queues = ctx->val.vu16;
+	struct prueth_emac *emac;
+	int i;
+
+	if (id != PRUETH_DL_PARAM_CUT_THRU_EN)
+		return -EOPNOTSUPP;
+
+	if (!prueth->is_switch_mode && !prueth->is_hsr_offload_mode) {
+		dev_err(prueth->dev, "Cut-Thru not supported in MAC mode\n");
+		return -EINVAL;
+	}
+
+	for (i = PRUETH_MAC0; i < PRUETH_NUM_MACS; i++) {
+		emac = prueth->emac[i];
+		if (netif_running(emac->ndev)) {
+			dev_err(prueth->dev, "Cannot enable cut-thru when i/f are up\n");
+			return -EINVAL;
+		}
+
+		emac->cut_thru_queue_map = tx_queues >> (8 * i);
+	}
+	return 0;
+}
+
 /* This function to be called with rtnl_lock */
 static int prueth_dl_mode_update(struct prueth *prueth, bool mode_en)
 {
@@ -2835,6 +2905,11 @@ static const struct devlink_param prueth_devlink_params[] = {
 			     BIT(DEVLINK_PARAM_CMODE_RUNTIME),
 			     prueth_dl_hsr_offload_mode_get,
 			     prueth_dl_hsr_offload_mode_set, NULL),
+	DEVLINK_PARAM_DRIVER(PRUETH_DL_PARAM_CUT_THRU_EN, "cut_thru",
+			     DEVLINK_PARAM_TYPE_U16,
+			     BIT(DEVLINK_PARAM_CMODE_RUNTIME),
+			     prueth_dl_cut_thru_en_get,
+			     prueth_dl_cut_thru_en_set, NULL),
 };
 
 static void prueth_unregister_devlink_ports(struct prueth *prueth)
