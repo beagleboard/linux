@@ -1,0 +1,76 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright (C) 2012 Texas Instruments Incorporated - https://www.ti.com/
+ */
+/dts-v1/;
+
+#include "am33xx.dtsi"
+#include "am335x-bone-common.dtsi"
+#include "am335x-sancloud-bbe-common.dtsi"
+#include "am335x-bone-common-univ.dtsi"
+#include <dt-bindings/interrupt-controller/irq.h>
+
+/ {
+	model = "SanCloud BeagleBone Enhanced Lite";
+	compatible = "sancloud,am335x-boneenhanced",
+		     "ti,am335x-bone-black",
+		     "ti,am335x-bone",
+		     "ti,am33xx";
+
+	chosen {
+		base_dtb = "am335x-sancloud-bbe-lite-uboot-univ.dts";
+		base_dtb_timestamp = __TIMESTAMP__;
+	};
+};
+
+/*
+ * Free up the pins used by this board from the pinmux helpers.
+ */
+&ocp {
+	P9_17_pinmux { status = "disabled"; };	/* P9_17 (A16) spi0_cs0.spi0_cs0 */
+	P9_18_pinmux { status = "disabled"; };	/* P9_18 (B16) spi0_d1.spi0_d1 */
+	P9_21_pinmux { status = "disabled"; };	/* P9_21 (B17) spi0_d0.spi0_d0 */
+	P9_22_pinmux { status = "disabled"; };	/* P9_22 (A17) spi0_sclk.spi0_sclk */
+};
+
+&am33xx_pinmux {
+	bb_spi0_pins: pinmux_bb_spi0_pins {
+		pinctrl-single,pins = <
+			AM33XX_PADCONF(AM335X_PIN_SPI0_SCLK, PIN_INPUT, MUX_MODE0)
+			AM33XX_PADCONF(AM335X_PIN_SPI0_D0, PIN_INPUT, MUX_MODE0)
+			AM33XX_PADCONF(AM335X_PIN_SPI0_D1, PIN_INPUT, MUX_MODE0)
+			AM33XX_PADCONF(AM335X_PIN_SPI0_CS0, PIN_INPUT, MUX_MODE0)
+		>;
+	};
+};
+
+&ldo3_reg {
+	regulator-min-microvolt = <1800000>;
+	regulator-max-microvolt = <1800000>;
+	regulator-always-on;
+};
+
+&mmc1 {
+	vmmc-supply = <&vmmcsd_fixed>;
+};
+
+&spi0 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&bb_spi0_pins>;
+
+	channel@0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		compatible = "micron,spi-authenta";
+		symlink = "bone/spi/0.0";
+
+		reg = <0>;
+		spi-max-frequency = <16000000>;
+		spi-cpha;
+	};
+};
