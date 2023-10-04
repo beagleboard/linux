@@ -1328,9 +1328,9 @@ static int vxe_s_fmt(struct file *file, void *priv, struct v4l2_format *f)
 			return -EINVAL;
 		}
 		if (V4L2_TYPE_IS_OUTPUT(f->type)) {
-			ctx->sh_params.width_in_mbs_minus1 = ((queue->width +
+			ctx->sh_params.width_in_mbs_minus1 = ((ALIGN_16(queue->width) +
 				(MB_SIZE - 1))/MB_SIZE)-1;
-			ctx->sh_params.height_in_maps_units_minus1 = ((queue->height +
+			ctx->sh_params.height_in_maps_units_minus1 = ((ALIGN_16(queue->height) +
 					(MB_SIZE - 1))/MB_SIZE) - 1;
 			pr_debug("h264_sequence_header_params: width_in_mbs_minus1=%d\n",
 				 ctx->sh_params.width_in_mbs_minus1);
