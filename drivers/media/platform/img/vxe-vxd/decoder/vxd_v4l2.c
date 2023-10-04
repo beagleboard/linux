@@ -57,9 +57,15 @@
 #include "vxd_pvdec_priv.h"
 #include "vxd_dec.h"
 #include "img_errors.h"
+#include "vdecdd_utils.h"
 
 #define VXD_DEC_SPIN_LOCK_NAME  "vxd-dec"
 #define IMG_VXD_DEC_MODULE_NAME "vxd-dec"
+
+#define V4L2_CID_VXD_SET_DEC_BUFS (V4L2_CID_USER_BASE + 0x1001)
+#define V4L2_CID_VXD_SET_DISP_BUFS (V4L2_CID_USER_BASE + 0x1002)
+#define V4L2_CID_VXD_SET_IMG_BUFS (V4L2_CID_USER_BASE + 0x1003)
+#define V4L2_CID_VXD_SET_SPEC_BUFS (V4L2_CID_USER_BASE + 0x1004)
 
 #ifdef ERROR_RECOVERY_SIMULATION
 /* This code should be execute only in debug flag */
@@ -122,6 +128,90 @@ static struct heap_config vxd_dec_heap_configs[] = {
 		},
 		.to_dev_addr = NULL,
 	},
+};
+
+static inline struct vxd_dec_ctx *vxd_ctrl_to_ctx(struct v4l2_ctrl *vctrl)
+{
+	return container_of(vctrl->handler, struct vxd_dec_ctx, v4l2_ctrl_hdl);
+}
+
+static int vxd_dec_s_ctrl(struct v4l2_ctrl *ctrl)
+{
+	struct vxd_dec_ctx *ctx = vxd_ctrl_to_ctx(ctrl);
+
+	pr_debug("%s: name: %s | value: %d\n",
+		__func__, ctrl->name, ctrl->val);
+
+	switch (ctrl->id) {
+	case V4L2_CID_VXD_SET_DEC_BUFS:
+		ctx->max_dec_frame_buffering = ctrl->val;
+		break;
+	case V4L2_CID_VXD_SET_SPEC_BUFS:
+		ctx->override_spec_dpb_buffers = ctrl->val;
+		break;
+	case V4L2_CID_VXD_SET_IMG_BUFS:
+		ctx->img_extra_decode_buffers = ctrl->val;
+		break;
+	case V4L2_CID_VXD_SET_DISP_BUFS:
+		ctx->display_pipeline_size = ctrl->val;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static const struct v4l2_ctrl_ops vxd_dec_ctrl_ops = {
+	.s_ctrl = vxd_dec_s_ctrl,
+};
+
+static const struct v4l2_ctrl_config vxd_max_dec_frame_buffering = {
+	.ops = &vxd_dec_ctrl_ops,
+	.id = V4L2_CID_VXD_SET_DEC_BUFS,
+	.name = "max_dec_frame_buffering",
+	.type = V4L2_CTRL_TYPE_INTEGER,
+	.def = 0,
+	.min = 0,
+	.max = 16,
+	.step = 1,
+	.flags = 0,
+};
+
+static const struct v4l2_ctrl_config vxd_img_extra_decode_buffers = {
+	.ops = &vxd_dec_ctrl_ops,
+	.id = V4L2_CID_VXD_SET_IMG_BUFS,
+	.name = "img_extra_decode_buffers",
+	.type = V4L2_CTRL_TYPE_INTEGER,
+	.def = -1,
+	.min = -1,
+	.max = 3,
+	.step = 1,
+	.flags = 0,
+};
+
+static const struct v4l2_ctrl_config vxd_display_pipeline_size = {
+	.ops = &vxd_dec_ctrl_ops,
+	.id = V4L2_CID_VXD_SET_DISP_BUFS,
+	.name = "display_pipeline_size",
+	.type = V4L2_CTRL_TYPE_INTEGER,
+	.def = DISPLAY_LAG,
+	.min = 0,
+	.max = 6,
+	.step = 1,
+	.flags = 0,
+};
+
+static const struct v4l2_ctrl_config vxd_override_spec_dpb_buffers = {
+	.ops = &vxd_dec_ctrl_ops,
+	.id = V4L2_CID_VXD_SET_SPEC_BUFS,
+	.name = "override_spec_dpb_buffers",
+	.type = V4L2_CTRL_TYPE_INTEGER,
+	.def = -1,
+	.min = -1,
+	.max = 16,
+	.step = 1,
+	.flags = 0,
 };
 
 static struct vxd_dec_fmt vxd_dec_formats[] = {
@@ -622,14 +712,49 @@ static int vxd_dec_queue_setup(struct vb2_queue *vq,
 
 	if (!V4L2_TYPE_IS_OUTPUT(vq->type)) {
 		src_q_data = &ctx->q_data[Q_DATA_SRC];
-		if (src_q_data)
-			hw_nbuffers = get_nbuffers(src_q_data->fmt->std,
-						   q_data->width,
-						   q_data->height,
-						   ctx->max_num_ref_frames);
+		if (src_q_data) {
+			if (src_q_data->fmt->std == VDEC_STD_H264) {
+				if (ctx->override_spec_dpb_buffers == -1)
+					vdecddutils_get_minrequired_numpicts(
+						&ctx->strcfgdata,
+						&ctx->comseq_hdr_info,
+						&ctx->str_opcfg, &hw_nbuffers);
+				else
+					hw_nbuffers =
+						ctx->override_spec_dpb_buffers;
+
+				/*
+				 * IMG Spec says need:
+				 * vdecddutils_get_minrequired_numpicts()
+				 *			+ ((num_cores * slots_per_core) - 1)
+				 *			+ display_pipeline_length
+				 */
+				if (ctx->img_extra_decode_buffers == -1)
+					hw_nbuffers +=
+					 (CORE_NUM_DECODE_SLOTS *
+					 ((struct dec_ctx *)ctx->dev_ctx->dec_context)->num_pipes) -
+					 1;
+				else
+					hw_nbuffers +=
+						ctx->img_extra_decode_buffers;
+
+				hw_nbuffers += ctx->display_pipeline_size;
+
+				pr_debug(
+					"DPB allocation algorithm has requested %d buffers\n",
+					hw_nbuffers);
+			} else {
+				hw_nbuffers = get_nbuffers(src_q_data->fmt->std,
+									q_data->width,
+									q_data->height,
+									ctx->max_num_ref_frames);
+			}
+		}
 	}
 
 	*nbuffers = max(*nbuffers, hw_nbuffers);
+
+	pr_debug("telling the framework to allocate %d buffers\n", *nbuffers);
 
 	for (i = 0; i < *nplanes; i++)
 		sizes[i] = q_data->size_image[i];
@@ -1028,6 +1153,8 @@ static int vxd_dec_open(struct file *file)
 	struct vxd_dev *vxd = video_drvdata(file);
 	struct vxd_dec_ctx *ctx;
 	struct vxd_dec_q_data *s_q_data;
+	struct v4l2_ctrl_handler *v4l2_ctrl_hdl;
+
 	int i, ret = 0;
 
 	dev_dbg(vxd->dev, "%s:%d vxd %p\n", __func__, __LINE__, vxd);
@@ -1045,6 +1172,8 @@ static int vxd_dec_open(struct file *file)
 		return -ENOMEM;
 	}
 	ctx->dev = vxd;
+
+	v4l2_ctrl_hdl = &ctx->v4l2_ctrl_hdl;
 
 	v4l2_fh_init(&ctx->fh, video_devdata(file));
 	file->private_data = &ctx->fh;
@@ -1067,6 +1196,20 @@ static int vxd_dec_open(struct file *file)
 	}
 
 	v4l2_fh_add(&ctx->fh);
+
+	v4l2_ctrl_handler_init(v4l2_ctrl_hdl, 6);
+	v4l2_ctrl_new_custom(v4l2_ctrl_hdl, &vxd_max_dec_frame_buffering, NULL);
+	v4l2_ctrl_new_custom(v4l2_ctrl_hdl, &vxd_override_spec_dpb_buffers, NULL);
+	v4l2_ctrl_new_custom(v4l2_ctrl_hdl, &vxd_img_extra_decode_buffers, NULL);
+	v4l2_ctrl_new_custom(v4l2_ctrl_hdl, &vxd_display_pipeline_size, NULL);
+	if (ctx->v4l2_ctrl_hdl.error) {
+		dev_err(vxd->dev, "failed to create custom controls\n");
+		ret = -ENODEV;
+		goto exit;
+	}
+
+	ctx->fh.ctrl_handler = &ctx->v4l2_ctrl_hdl;
+	v4l2_ctrl_handler_setup(&ctx->v4l2_ctrl_hdl);
 
 	ret = idr_alloc_cyclic(vxd->streams, &ctx->stream, VXD_MIN_STREAM_ID, VXD_MAX_STREAM_ID,
 			       GFP_KERNEL);
@@ -1355,6 +1498,10 @@ static int vxd_get_header_info(void *priv)
 		ctx->height = preparsed_data->sequ_hdr_info.com_sequ_hdr_info.max_frame_size.height;
 		ctx->max_num_ref_frames =
 			preparsed_data->sequ_hdr_info.com_sequ_hdr_info.max_ref_frame_num;
+
+		/* save off the sequence header to the context structure */
+		memcpy(&ctx->comseq_hdr_info, &(preparsed_data->sequ_hdr_info.com_sequ_hdr_info),
+					sizeof(struct vdec_comsequ_hdrinfo));
 	} else {
 		dev_err(dev, "get_header_info preparsed data is null %d\n", ret);
 		return ret;
@@ -1457,7 +1604,7 @@ static int vxd_dec_s_fmt(struct file *file, void *priv, struct v4l2_format *f)
 	struct device *dev = vxd_dev->v4l2_dev.dev;
 	struct vxd_dec_q_data *q_data;
 	struct vb2_queue *vq;
-	struct vdec_str_configdata strcfgdata;
+
 	int ret = 0;
 	unsigned char i = 0, j = 0;
 
@@ -1506,22 +1653,24 @@ static int vxd_dec_s_fmt(struct file *file, void *priv, struct v4l2_format *f)
 		q_data->size_image[0] = pix_mp->plane_fmt[0].sizeimage;
 
 		if (!ctx->stream_created) {
-			strcfgdata.vid_std = q_data->fmt->std;
+			ctx->strcfgdata.vid_std = q_data->fmt->std;
 
-			if (strcfgdata.vid_std == VDEC_STD_UNDEFINED) {
+			if (ctx->strcfgdata.vid_std == VDEC_STD_UNDEFINED) {
 				dev_err(dev, "Invalid input format\n");
 				return -EINVAL;
 			}
-			strcfgdata.bstr_format = VDEC_BSTRFORMAT_ELEMENTARY;
-			strcfgdata.user_str_id = ctx->stream.id;
-			strcfgdata.update_yuv = FALSE;
-			strcfgdata.bandwidth_efficient = FALSE;
-			strcfgdata.disable_mvc = FALSE;
-			strcfgdata.full_scan = FALSE;
-			strcfgdata.immediate_decode = TRUE;
-			strcfgdata.intra_frame_closed_gop = TRUE;
+			ctx->strcfgdata.bstr_format = VDEC_BSTRFORMAT_ELEMENTARY;
+			ctx->strcfgdata.user_str_id = ctx->stream.id;
+			ctx->strcfgdata.update_yuv = FALSE;
+			ctx->strcfgdata.bandwidth_efficient = FALSE;
+			ctx->strcfgdata.disable_mvc = FALSE;
+			ctx->strcfgdata.full_scan = FALSE;
+			ctx->strcfgdata.immediate_decode = TRUE;
+			ctx->strcfgdata.intra_frame_closed_gop = TRUE;
 
-			ret = core_stream_create(ctx, &strcfgdata, &ctx->res_str_id);
+			ctx->strcfgdata.max_dec_frame_buffering = ctx->max_dec_frame_buffering;
+
+			ret = core_stream_create(ctx, &ctx->strcfgdata, &ctx->res_str_id);
 			if (ret) {
 				dev_err(dev, "Core stream create failed\n");
 				return -EINVAL;
@@ -1535,8 +1684,8 @@ static int vxd_dec_s_fmt(struct file *file, void *priv, struct v4l2_format *f)
 				}
 			}
 
-			vxd_dec_alloc_bspp_resource(ctx, strcfgdata.vid_std);
-			ret = bspp_stream_create(&strcfgdata,
+			vxd_dec_alloc_bspp_resource(ctx, ctx->strcfgdata.vid_std);
+			ret = bspp_stream_create(&ctx->strcfgdata,
 						 &ctx->bspp_context,
 						 ctx->fw_sequ,
 						 ctx->fw_pps);

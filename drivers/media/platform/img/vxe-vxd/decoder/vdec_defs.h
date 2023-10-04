@@ -109,6 +109,12 @@ struct vdec_str_configdata {
 	unsigned char full_scan;
 	unsigned char immediate_decode;
 	unsigned char intra_frame_closed_gop;
+
+	/*
+	 * constrain the amount of DPB's allowed
+	 * a value of 0 means let the firmware determine
+	 */
+	unsigned int max_dec_frame_buffering;
 };
 
 /*

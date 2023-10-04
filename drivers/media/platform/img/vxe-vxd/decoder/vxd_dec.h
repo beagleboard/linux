@@ -436,6 +436,24 @@ struct vxd_dec_ctx {
 	unsigned int out_seq; /* sequence number for output port */
 	struct vdec_str_opconfig str_opcfg;
 	struct vdec_pict_bufconfig pict_bufcfg;
+
+	struct vdec_comsequ_hdrinfo comseq_hdr_info;
+	struct vdec_str_configdata strcfgdata;
+	struct vdecdd_dddev_context     *dev_ctx;
+
+	struct v4l2_ctrl_handler v4l2_ctrl_hdl;
+
+	/* The following are parameters from V4L2 extra-controls */
+
+	/*
+	 * used by the IMG firmware to constrain DPB's utilized
+	 * a value of 0 indicates to let the firmware decide
+	 */
+	unsigned int max_dec_frame_buffering;
+	int override_spec_dpb_buffers;
+	int img_extra_decode_buffers;
+	unsigned int display_pipeline_size;
+
 	void *bspp_context;
 	struct bspp_bitstr_seg bstr_segments[MAX_SEGMENTS];
 	struct lst_t seg_list;

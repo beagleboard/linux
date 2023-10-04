@@ -30,6 +30,7 @@
 #include "hevcfw_data.h"
 
 #define MAX_CONCURRENT_STREAMS 16
+#define CORE_NUM_DECODE_SLOTS 2
 
 enum dec_pict_states {
 	DECODER_PICTURE_STATE_TO_DECODE = 0,

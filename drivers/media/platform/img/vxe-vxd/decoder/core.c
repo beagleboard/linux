@@ -1371,6 +1371,9 @@ int core_stream_create(void *vxd_dec_ctx_arg,
 
 	core_str_ctx->core_ctx = global_core_ctx;
 	core_str_ctx->vxd_dec_context = (struct vxd_dec_ctx *)vxd_dec_ctx_arg;
+
+	((struct vxd_dec_ctx *)vxd_dec_ctx_arg)->dev_ctx = global_core_ctx->dev_ctx;
+
 	/* register callback for firmware response */
 	core_str_ctx->vxd_dec_context->cb = (decode_cb)core_fw_response_cb;
 

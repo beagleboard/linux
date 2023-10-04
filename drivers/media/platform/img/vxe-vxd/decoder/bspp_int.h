@@ -282,6 +282,12 @@ struct bspp_unit_data {
 	enum bspp_error_type parse_error;
 	/* To turn on/off considering I-Frames as ClosedGop boundaries. */
 	int intra_frm_as_closed_gop;
+
+	/*
+	 * constrain the amount of DPB's allowed
+	 * a value of 0 means let the firmware decide
+	 */
+	unsigned int max_dec_frame_buffering;
 };
 
 /*
