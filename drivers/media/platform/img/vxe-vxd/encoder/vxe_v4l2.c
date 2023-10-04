@@ -1846,7 +1846,7 @@ static int vxe_enc_probe(struct platform_device *pdev)
 		goto out_vid_dev;
 	}
 
-	ret = video_register_device(vfd, VFL_TYPE_VIDEO, 0);
+	ret = video_register_device(vfd, VFL_TYPE_VIDEO, 1);
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to register video device\n");
 		goto out_vid_reg;
