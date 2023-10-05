@@ -31,10 +31,7 @@
 #define SHIM_DMACNTX_SIZE		GENMASK(21, 20)
 #define SHIM_DMACNTX_VC			GENMASK(9, 6)
 #define SHIM_DMACNTX_FMT		GENMASK(5, 0)
-#define SHIM_DMACNTX_UYVY		0
-#define SHIM_DMACNTX_VYUY		1
-#define SHIM_DMACNTX_YUYV		2
-#define SHIM_DMACNTX_YVYU		3
+#define SHIM_DMACNTX_YUV422_MODE_11	3
 #define SHIM_DMACNTX_SIZE_8		0
 #define SHIM_DMACNTX_SIZE_16		1
 #define SHIM_DMACNTX_SIZE_32		2
@@ -600,27 +597,30 @@ static void ti_csi2rx_setup_shim(struct ti_csi2rx_ctx *ctx)
 	reg |= FIELD_PREP(SHIM_DMACNTX_FMT, fmt->csi_dt);
 
 	/*
-	 * Using the values from the documentation gives incorrect ordering for
-	 * the luma and chroma components. In practice, the "reverse" format
-	 * gives the correct image. So for example, if the image is in UYVY, the
-	 * reverse would be YVYU.
+	 * The hardware assumes incoming YUV422 8-bit data on MIPI CSI2 bus
+	 * follows the spec and is packed in the order U0 -> Y0 -> V0 -> Y1 ->
+	 * ...
+	 *
+	 * There is an option to swap the bytes around before storing in
+	 * memory, to achieve different pixel formats:
+	 *
+	 * Byte3 ------------ Byte0
+	 * [ Y1 ][ V0 ][ Y0 ][ U0 ]	MODE 11
+	 * [ Y1 ][ U0 ][ Y0 ][ V0 ]	MODE 10
+	 * [ V0 ][ Y1 ][ U0 ][ Y0 ]	MODE 01
+	 * [ Y1 ][ V0 ][ Y0 ][ U0 ]	MODE 00
+	 *
+	 * We don't have any requirement to change pixelformat from what is
+	 * coming from the source, so we keep it in MODE 11, which does not
+	 * swap any bytes when storing in memory.
 	 */
 	switch (fmt->fourcc) {
 	case V4L2_PIX_FMT_UYVY:
-		reg |= FIELD_PREP(SHIM_DMACNTX_YUV422,
-					SHIM_DMACNTX_YVYU);
-		break;
 	case V4L2_PIX_FMT_VYUY:
-		reg |= FIELD_PREP(SHIM_DMACNTX_YUV422,
-					SHIM_DMACNTX_YUYV);
-		break;
 	case V4L2_PIX_FMT_YUYV:
-		reg |= FIELD_PREP(SHIM_DMACNTX_YUV422,
-					SHIM_DMACNTX_VYUY);
-		break;
 	case V4L2_PIX_FMT_YVYU:
 		reg |= FIELD_PREP(SHIM_DMACNTX_YUV422,
-					SHIM_DMACNTX_UYVY);
+					SHIM_DMACNTX_YUV422_MODE_11);
 		break;
 	default:
 		/* Ignore if not YUV 4:2:2 */
