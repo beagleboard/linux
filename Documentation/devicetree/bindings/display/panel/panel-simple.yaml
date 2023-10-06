@@ -234,6 +234,8 @@ properties:
       - logictechno,lttd800480070-l6wh-rt
         # Microtips Technology MF-101HIEBCAF0 10.1" WUXGA (1920x1200) TFT LCD panel
       - microtips,mf-101hiebcaf0
+        # Microtips Technology MF-103HIEB0GA0 10.25" 1920x720 TFT LCD panel
+      - microtips,mf-103hieb0ga0
         # Mitsubishi "AA070MC01 7.0" WVGA TFT LCD panel
       - mitsubishi,aa070mc01-ca1
         # Multi-Inno Technology Co.,Ltd MI0700S4T-6 7" 800x480 TFT Resistive Touch Module
