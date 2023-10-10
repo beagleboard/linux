@@ -29,6 +29,11 @@
 		reg = <0x80000000 0x10000000>; /* 256 MB */
 	};
 
+	aliases {
+		serial0 = &uart0;
+		serial1 = &pruss_uart;
+	};
+
 	chosen {
 		stdout-path = &uart0;
 	};
