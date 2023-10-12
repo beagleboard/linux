@@ -12,7 +12,7 @@
 #include <linux/module.h>
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
-#include <linux/pm.h>
+#include <linux/pm_runtime.h>
 
 #include <media/mipi-csi2.h>
 #include <media/v4l2-device.h>
@@ -934,6 +934,10 @@ static int ti_csi2rx_start_streaming(struct vb2_queue *vq, unsigned int count)
 	int ret = 0, i;
 	struct v4l2_subdev_state *state;
 
+	ret = pm_runtime_resume_and_get(csi->dev);
+	if (ret)
+		return ret;
+
 	spin_lock_irqsave(&dma->lock, flags);
 	if (list_empty(&dma->queue))
 		ret = -EIO;
@@ -1020,6 +1024,7 @@ err_pipeline:
 	video_device_pipeline_stop(&ctx->vdev);
 err:
 	ti_csi2rx_cleanup_buffers(ctx, VB2_BUF_STATE_QUEUED);
+	pm_runtime_put(csi->dev);
 	return ret;
 }
 
@@ -1044,6 +1049,7 @@ static void ti_csi2rx_stop_streaming(struct vb2_queue *vq)
 	writel(0, csi->shim + SHIM_DMACNTX(ctx->idx));
 
 	ti_csi2rx_cleanup_buffers(ctx, VB2_BUF_STATE_ERROR);
+	pm_runtime_put(csi->dev);
 }
 
 static const struct vb2_ops csi_vb2_qops = {
@@ -1274,7 +1280,9 @@ static void ti_csi2rx_cleanup_vb2q(struct ti_csi2rx_ctx *ctx)
 
 static void ti_csi2rx_cleanup_ctx(struct ti_csi2rx_ctx *ctx)
 {
-	ti_csi2rx_cleanup_dma(ctx);
+	if (!pm_runtime_status_suspended(ctx->csi->dev))
+		ti_csi2rx_cleanup_dma(ctx);
+
 	ti_csi2rx_cleanup_vb2q(ctx);
 
 	video_unregister_device(&ctx->vdev);
@@ -1388,11 +1396,6 @@ static int ti_csi2rx_init_dma(struct ti_csi2rx_ctx *ctx)
 	char name[32];
 	int ret;
 
-	INIT_LIST_HEAD(&ctx->dma.queue);
-	spin_lock_init(&ctx->dma.lock);
-
-	ctx->dma.state = TI_CSI2RX_DMA_STOPPED;
-
 	snprintf(name, sizeof(name), "rx%u", ctx->idx);
 	ctx->dma.chan = dma_request_chan(ctx->csi->dev, name);
 	if (IS_ERR(ctx->dma.chan))
@@ -1505,6 +1508,10 @@ static int ti_csi2rx_init_ctx(struct ti_csi2rx_ctx *ctx)
 	vdev->lock = &ctx->mutex;
 	video_set_drvdata(vdev, ctx);
 
+	INIT_LIST_HEAD(&ctx->dma.queue);
+	spin_lock_init(&ctx->dma.lock);
+	ctx->dma.state = TI_CSI2RX_DMA_STOPPED;
+
 	ret = ti_csi2rx_init_dma(ctx);
 	if (ret)
 		return ret;
@@ -1530,7 +1537,14 @@ static int ti_csi2rx_suspend(struct device *dev)
 	unsigned long flags = 0;
 	int i, ret = 0;
 
-	/* Assert the pixel reset. */
+	/* If device was not in use we can simply suspend */
+	if (pm_runtime_status_suspended(dev))
+		return 0;
+
+	/*
+	 * If device is running, assert the pixel reset to cleanly stop any
+	 * on-going streams before we suspend.
+	 */
 	writel(0, csi->shim + SHIM_CNTL);
 
 	for (i = 0; i < csi->num_ctx; i++) {
@@ -1577,6 +1591,11 @@ static int ti_csi2rx_resume(struct device *dev)
 	unsigned int reg;
 	int i, ret = 0;
 
+	/* If device was not in use, we can simply wakeup */
+	if (pm_runtime_status_suspended(dev))
+		return 0;
+
+	/* If device was in use before, restore all the running streams */
 	reg = SHIM_CNTL_PIX_RST;
 	writel(reg, csi->shim + SHIM_CNTL);
 
@@ -1608,8 +1627,38 @@ static int ti_csi2rx_resume(struct device *dev)
 	return ret;
 }
 
+static int ti_csi2rx_runtime_suspend(struct device *dev)
+{
+	struct ti_csi2rx_dev *csi = dev_get_drvdata(dev);
+	int i;
+
+	if (csi->enable_count != 0)
+		return -EBUSY;
+
+	for (i = 0; i < csi->num_ctx; i++)
+		ti_csi2rx_cleanup_dma(&csi->ctx[i]);
+
+	return 0;
+}
+
+static int ti_csi2rx_runtime_resume(struct device *dev)
+{
+	struct ti_csi2rx_dev *csi = dev_get_drvdata(dev);
+	int ret, i;
+
+	for (i = 0; i < csi->num_ctx; i++) {
+		ret = ti_csi2rx_init_dma(&csi->ctx[i]);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
 static const struct dev_pm_ops ti_csi2rx_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(ti_csi2rx_suspend, ti_csi2rx_resume)
+	SET_RUNTIME_PM_OPS(ti_csi2rx_runtime_suspend, ti_csi2rx_runtime_resume,
+			   NULL)
 };
 #endif /* CONFIG_PM */
 
@@ -1674,6 +1723,10 @@ static int ti_csi2rx_probe(struct platform_device *pdev)
 		goto cleanup_subdev;
 	}
 
+	pm_runtime_set_active(csi->dev);
+	pm_runtime_enable(csi->dev);
+	pm_runtime_idle(csi->dev);
+
 	return 0;
 
 cleanup_subdev:
@@ -1704,10 +1757,10 @@ static int ti_csi2rx_remove(struct platform_device *pdev)
 	ti_csi2rx_cleanup_subdev(csi);
 	ti_csi2rx_cleanup_v4l2(csi);
 
-	/* Assert the pixel reset. */
-	writel(0, csi->shim + SHIM_CNTL);
-
 	mutex_destroy(&csi->mutex);
+
+	pm_runtime_disable(&pdev->dev);
+	pm_runtime_set_suspended(&pdev->dev);
 
 	return 0;
 }
