@@ -211,11 +211,8 @@ struct tidss_plane *tidss_plane_create(struct tidss_device *tidss,
 
 	drm_plane_helper_add(&tplane->plane, &tidss_plane_helper_funcs);
 
-	if (type == DRM_PLANE_TYPE_PRIMARY)
-		drm_plane_create_zpos_immutable_property(&tplane->plane, 0);
-	else
-		drm_plane_create_zpos_property(&tplane->plane, hw_plane_id, 1,
-					       num_planes - 1);
+	drm_plane_create_zpos_property(&tplane->plane, hw_plane_id, 0,
+				       num_planes - 1);
 
 	ret = drm_plane_create_color_properties(&tplane->plane,
 						color_encodings,
