@@ -242,3 +242,30 @@ void w1_remove_master_device(struct w1_bus_master *bm)
 	__w1_remove_master_device(found);
 }
 EXPORT_SYMBOL(w1_remove_master_device);
+
+/**
+ * w1_find_master_device() - find a master device
+ * @bm:	master bus device to search
+ */
+struct w1_master *w1_find_master_device(struct w1_bus_master *bm)
+{
+	struct w1_master *dev, *found = NULL;
+
+	list_for_each_entry(dev, &w1_masters, w1_master_entry) {
+		if (!dev->initialized)
+			continue;
+
+		if (dev->bus_master->data == bm->data) {
+			found = dev;
+			break;
+		}
+	}
+
+	if (!found) {
+		pr_err("device doesn't exist.\n");
+		return ERR_PTR(-ENODEV);
+	}
+
+	return found;
+}
+EXPORT_SYMBOL(w1_find_master_device);
