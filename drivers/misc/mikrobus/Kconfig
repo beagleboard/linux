@@ -1,0 +1,18 @@
+menuconfig MIKROBUS
+	tristate "Module for instantiating devices on mikroBUS ports"
+	depends on GPIOLIB
+	depends on W1
+	help
+	  This option enables the mikroBUS driver. mikroBUS is an add-on
+	  board socket standard that offers maximum expandability with
+	  the smallest number of pins. The mikroBUS driver instantiates
+	  devices on a mikroBUS port described by identifying data present
+	  in an add-on board resident EEPROM, more details on the mikroBUS
+	  driver support and discussion can be found in this eLinux wiki :
+	  elinux.org/Mikrobus
+
+
+	  Say Y here to enable support for this driver.
+
+	  To compile this code as a module, chose M here: the module
+	  will be called mikrobus.ko
