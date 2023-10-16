@@ -673,7 +673,8 @@ static int __w1_attach_slave_device(struct w1_slave *sl)
 	sl->dev.of_node = of_find_matching_node(sl->master->dev.of_node,
 						sl->family->of_match_table);
 
-	dev_set_name(&sl->dev, "%02x-%012llx",
+	dev_set_name(&sl->dev, "%s-%02x-%012llx",
+		 sl->master->name,
 		 (unsigned int) sl->reg_num.family,
 		 (unsigned long long) sl->reg_num.id);
 	snprintf(&sl->name[0], sizeof(sl->name),
