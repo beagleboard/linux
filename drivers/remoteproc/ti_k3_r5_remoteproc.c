@@ -6,9 +6,11 @@
  *	Suman Anna <s-anna@ti.com>
  */
 
+#include <linux/delay.h>
 #include <linux/dma-mapping.h>
 #include <linux/err.h>
 #include <linux/interrupt.h>
+#include <linux/iopoll.h>
 #include <linux/kernel.h>
 #include <linux/mailbox_client.h>
 #include <linux/module.h>
@@ -165,7 +167,29 @@ struct k3_r5_rproc {
 	struct k3_r5_core *core;
 	struct k3_r5_mem *rmem;
 	int num_rmems;
+	struct completion shut_comp;
 };
+
+/**
+ * is_core_in_wfi - local utility function to check core status
+ * @core: remote core pointer used for checking core status
+ *
+ * This utility function is invoked by the shutdown sequence to ensure
+ * the remote core is in wfi, before asserting a reset.
+ */
+static int is_core_in_wfi(struct k3_r5_core *core)
+{
+	int ret;
+	u64 boot_vec = 0;
+	u32 cfg = 0, ctrl = 0, stat = 0;
+
+	ret = ti_sci_proc_get_status(core->tsp, &boot_vec, &cfg, &ctrl, &stat);
+
+	if (ret < 0)
+		return 0;
+
+	return (stat & PROC_BOOT_STATUS_FLAG_R5_WFI);
+}
 
 /**
  * k3_r5_rproc_mbox_callback() - inbound mailbox message handler
@@ -201,6 +225,10 @@ static void k3_r5_rproc_mbox_callback(struct mbox_client *client, void *data)
 		break;
 	case RP_MBOX_ECHO_REPLY:
 		dev_info(dev, "received echo reply from %s\n", name);
+		break;
+	case RP_MBOX_SHUTDOWN_ACK:
+		dev_dbg(dev, "received shutdown_ack from %s\n", name);
+		complete(&kproc->shut_comp);
 		break;
 	default:
 		/* silently handle all other valid messages */
@@ -240,15 +268,6 @@ static int k3_r5_split_reset(struct k3_r5_core *core)
 		dev_err(core->dev, "local-reset assert failed, ret = %d\n",
 			ret);
 		return ret;
-	}
-
-	ret = core->ti_sci->ops.dev_ops.put_device(core->ti_sci,
-						   core->ti_sci_id);
-	if (ret) {
-		dev_err(core->dev, "module-reset assert failed, ret = %d\n",
-			ret);
-		if (reset_control_deassert(core->reset))
-			dev_warn(core->dev, "local-reset deassert back failed\n");
 	}
 
 	return ret;
@@ -610,10 +629,14 @@ put_mbox:
  */
 static int k3_r5_rproc_stop(struct rproc *rproc)
 {
+	unsigned long to  = msecs_to_jiffies(5000);
 	struct k3_r5_rproc *kproc = rproc->priv;
 	struct k3_r5_cluster *cluster = kproc->cluster;
 	struct k3_r5_core *core = kproc->core;
+	struct device *dev = kproc->dev;
+	unsigned long msg = RP_MBOX_SHUTDOWN;
 	int ret;
+	u32 stat = 0;
 
 	/* halt all applicable cores */
 	if (cluster->mode == CLUSTER_MODE_LOCKSTEP) {
@@ -625,12 +648,28 @@ static int k3_r5_rproc_stop(struct rproc *rproc)
 			}
 		}
 	} else {
+		reinit_completion(&kproc->shut_comp);
+		ret = mbox_send_message(kproc->mbox, (void *)msg);
+		if (ret < 0) {
+			dev_err(dev, "PM mbox_send_message failed: %d\n", ret);
+			return ret;
+		}
+
+		ret = wait_for_completion_timeout(&kproc->shut_comp, to);
+		if (ret == 0) {
+			dev_err(dev, "%s: timeout waiting for rproc completion event\n", __func__);
+			return -EBUSY;
+		}
+
+		mbox_free_channel(kproc->mbox);
+		ret = readx_poll_timeout(is_core_in_wfi, core, stat, stat, 200, 2000);
+		if (ret)
+			goto out;
+
 		ret = k3_r5_core_halt(core);
 		if (ret)
 			goto out;
 	}
-
-	mbox_free_channel(kproc->mbox);
 
 	return 0;
 
@@ -1256,6 +1295,7 @@ static int k3_r5_cluster_rproc_init(struct platform_device *pdev)
 			goto err_config;
 		}
 
+		init_completion(&kproc->shut_comp);
 init_rmem:
 		k3_r5_adjust_tcm_sizes(kproc);
 
