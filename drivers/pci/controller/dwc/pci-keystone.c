@@ -564,7 +564,7 @@ static int ks_pcie_v3_65_add_bus(struct pci_bus *bus)
 	struct dw_pcie *pci = to_dw_pcie_from_pp(pp);
 	struct keystone_pcie *ks_pcie = to_keystone_pcie(pci);
 
-	if (!pci_is_root_bus(bus))
+	if (!pci_is_root_bus(bus) || ks_pcie->is_am6)
 		return 0;
 
 	/* Configure and set up BAR0 */
