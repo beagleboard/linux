@@ -105,7 +105,6 @@
 		regulator-min-microvolt = <3300000>;
 		regulator-max-microvolt = <3300000>;
 		vin-supply = <&vcc_3v3_sys>;
-		regulator-always-on;
 		gpios = <&exp1 11 GPIO_ACTIVE_LOW>;
 	};
 
