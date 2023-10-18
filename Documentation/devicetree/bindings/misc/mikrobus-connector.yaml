@@ -1,0 +1,80 @@
+# SPDX-License-Identifier: GPL-2.0 OR BSD-2-Clause
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/misc/mikrobus-connector.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: mikroBUS add-on board socket
+
+maintainers:
+  - Ayush Singh <ayushdevel1325@gmail.com>
+
+properties:
+  compatible:
+    const: mikrobus-connector
+
+  pinctrl-0: true
+  pinctrl-1: true
+  pinctrl-2: true
+  pinctrl-3: true
+  pinctrl-4: true
+  pinctrl-5: true
+  pinctrl-6: true
+  pinctrl-7: true
+  pinctrl-8: true
+
+  pinctrl-names:
+    items:
+      - const: default
+      - const: pwm_default
+      - const: pwm_gpio
+      - const: uart_default
+      - const: uart_gpio
+      - const: i2c_default
+      - const: i2c_gpio
+      - const: spi_default
+      - const: spi_gpio
+
+  mikrobus-gpios:
+    minItems: 11
+    maxItems: 12
+
+  i2c-adapter:
+    description: i2c adapter attached to the mikrobus socket.
+
+  spi-controller:
+    description: spi bus number of the spi-master attached to the mikrobus socket.
+
+  uart:
+    description: uart port attached to the mikrobus socket
+
+  pwms:
+    description: the pwm-controller corresponding to the mikroBUS PWM pin.
+    maxItems: 1
+
+additionalProperties: false
+
+examples:
+  - |
+      mikrobus-0 {
+        compatible = "mikrobus-connector";
+        status = "okay";
+        pinctrl-names = "default", "pwm_default", "pwm_gpio","uart_default", "uart_gpio", "i2c_default", 
+                        "i2c_gpio", "spi_default", "spi_gpio";
+        pinctrl-0 = <&P2_03_gpio_input_pin &P1_04_gpio_pin &P1_02_gpio_pin>;
+        pinctrl-1 = <&P2_01_pwm_pin>;
+        pinctrl-2 = <&P2_01_gpio_pin>;
+        pinctrl-3 = <&P2_05_uart_pin &P2_07_uart_pin>;
+        pinctrl-4 = <&P2_05_gpio_pin &P2_07_gpio_pin>;
+        pinctrl-5 = <&P2_09_i2c_pin &P2_11_i2c_pin>;
+        pinctrl-6 = <&P2_09_gpio_pin &P2_11_gpio_pin>;
+        pinctrl-7 = <&P1_12_spi_pin &P1_10_spi_pin &P1_08_spi_sclk_pin &P1_06_spi_cs_pin>;
+        pinctrl-8 = <&P1_12_gpio_pin &P1_10_gpio_pin &P1_08_gpio_pin &P1_06_gpio_pin>;
+        i2c-adapter = <&i2c1>;
+        spi-controller = <&spi1>;
+        uart = <&uart4>;
+        pwms = <&ehrpwm1 0 500000 0>;
+        mikrobus-gpios = <&gpio1 18 0> , <&gpio0 23 0>, <&gpio0 30 0> , <&gpio0 31 0>, <&gpio0 15 0>,
+                         <&gpio0 14 0>, <&gpio0 4 0> , <&gpio0 3 0>, <&gpio0 2 0>, <&gpio0 5 0>,
+                         <&gpio2 25 0>, <&gpio2 3 0>;
+      };
