@@ -1704,12 +1704,12 @@ static int emac_ndo_open(struct net_device *ndev)
 		icssg_vtbl_modify(emac, emac->port_vlan, BIT(emac->port_id),
 				  BIT(emac->port_id), true);
 
-		/* In order for the packets to be received, HSR firmware
-		 * requires VLAN ID = 1 to be present in the VLAN table
+		/* In order for the packets to be received at host port, Both
+		 * HSR and switch firmware requires VLAN ID = 1 to be present
+		 * in the VLAN table
 		 */
-		if (prueth->is_hsr_offload_mode)
-			icssg_vtbl_modify(emac, DEFAULT_VID, DEFAULT_PORT_MASK,
-					  DEFAULT_UNTAG_MASK, true);
+		icssg_vtbl_modify(emac, DEFAULT_VID, DEFAULT_PORT_MASK,
+				  DEFAULT_UNTAG_MASK, true);
 
 		icssg_set_pvid(emac->prueth, emac->port_vlan, emac->port_id);
 		emac_set_port_state(emac, ICSSG_EMAC_PORT_VLAN_AWARE_ENABLE);
