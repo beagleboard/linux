@@ -1601,6 +1601,7 @@ static int emac_ndo_open(struct net_device *ndev)
 {
 	struct prueth_emac *emac = netdev_priv(ndev);
 	int ret, i, num_data_chn = emac->tx_ch_num;
+	struct icssg_flow_cfg __iomem *flow_cfg;
 	struct prueth *prueth = emac->prueth;
 	int slice = prueth_emac_slice(emac);
 	struct device *dev = prueth->dev;
@@ -1619,7 +1620,10 @@ static int emac_ndo_open(struct net_device *ndev)
 	icssg_class_set_mac_addr(prueth->miig_rt, slice, emac->mac_addr);
 	icssg_ft1_set_mac_addr(prueth->miig_rt, slice, emac->mac_addr);
 
-	icssg_class_default(prueth->miig_rt, slice, 0);
+	if (!prueth->num_emacs_initialized) {
+		icssg_class_default(prueth->miig_rt, ICSS_SLICE0, 0);
+		icssg_class_default(prueth->miig_rt, ICSS_SLICE1, 0);
+	}
 
 	/* Notify the stack of the actual queue counts. */
 	ret = netif_set_real_num_tx_queues(ndev, num_data_chn);
@@ -1656,10 +1660,31 @@ static int emac_ndo_open(struct net_device *ndev)
 		goto cleanup_napi;
 	}
 
-	/* reset and start PRU firmware */
-	ret = prueth_emac_start(prueth, emac);
-	if (ret)
-		goto free_rx_irq;
+	if (!prueth->num_emacs_initialized) {
+		if (prueth->emac[ICSS_SLICE0]) {
+			ret = prueth_emac_start(prueth, prueth->emac[ICSS_SLICE0]);
+			if (ret) {
+				netdev_err(ndev, "unable to start fw for slice %d", ICSS_SLICE0);
+				goto free_rx_irq;
+			}
+		}
+		if (prueth->emac[ICSS_SLICE1]) {
+			ret = prueth_emac_start(prueth, prueth->emac[ICSS_SLICE1]);
+			if (ret) {
+				netdev_err(ndev, "unable to start fw for slice %d", ICSS_SLICE1);
+				goto halt_slice0_prus;
+			}
+		}
+	}
+
+	flow_cfg = emac->dram.va + ICSSG_CONFIG_OFFSET + PSI_L_REGULAR_FLOW_ID_BASE_OFFSET;
+	writew(emac->rx_flow_id_base, &flow_cfg->rx_base_flow);
+	ret = emac_fdb_flow_id_updated(emac);
+
+	if (ret) {
+		netdev_err(ndev, "Failed to update Rx Flow ID %d", ret);
+		goto stop;
+	}
 
 	icssg_mii_update_mtu(prueth->mii_rt, slice, ndev->max_mtu);
 
@@ -1741,7 +1766,11 @@ destroy_xdp_rxqs:
 free_rx_ts_irq:
 	free_irq(emac->tx_ts_irq, emac);
 stop:
-	prueth_emac_stop(emac);
+	if (prueth->emac[ICSS_SLICE1])
+		prueth_emac_stop(prueth->emac[ICSS_SLICE1]);
+halt_slice0_prus:
+	if (prueth->emac[ICSS_SLICE0])
+		prueth_emac_stop(prueth->emac[ICSS_SLICE0]);
 free_rx_irq:
 	free_irq(emac->rx_chns.irq[rx_flow], emac);
 cleanup_napi:
@@ -1775,7 +1804,10 @@ static int emac_ndo_stop(struct net_device *ndev)
 	if (ndev->phydev)
 		phy_stop(ndev->phydev);
 
-	icssg_class_disable(prueth->miig_rt, prueth_emac_slice(emac));
+	if (prueth->num_emacs_initialized == 1) {
+		icssg_class_disable(prueth->miig_rt, ICSS_SLICE0);
+		icssg_class_disable(prueth->miig_rt, ICSS_SLICE1);
+	}
 
 	atomic_set(&emac->tdown_cnt, emac->tx_ch_num);
 	/* ensure new tdown_cnt value is visible */
@@ -1807,17 +1839,18 @@ static int emac_ndo_stop(struct net_device *ndev)
 	hrtimer_cancel(&emac->rx_hrtimer);
 
 	cancel_work_sync(&emac->rx_mode_work);
-	/* stop PRUs */
-	prueth_emac_stop(emac);
 
-	if (prueth->num_emacs_initialized == 1)
+	if (prueth->num_emacs_initialized == 1) {
 		icss_iep_exit(emac->iep);
+		/* stop PRUs */
+		if (prueth->emac[ICSS_SLICE0])
+			prueth_emac_stop(prueth->emac[ICSS_SLICE0]);
+		if (prueth->emac[ICSS_SLICE1])
+			prueth_emac_stop(prueth->emac[ICSS_SLICE1]);
+	}
 
 	/* Destroying the queued work in ndo_stop() */
 	cancel_delayed_work_sync(&emac->stats_work);
-
-	/* stop PRUs */
-	prueth_emac_stop(emac);
 
 	free_irq(emac->tx_ts_irq, emac);
 
