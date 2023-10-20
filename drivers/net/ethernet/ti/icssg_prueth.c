@@ -1608,7 +1608,7 @@ static int emac_ndo_open(struct net_device *ndev)
 	int rx_flow;
 
 	/* clear SMEM and MSMC settings for all slices */
-	if (!prueth->emacs_initialized) {
+	if (!prueth->num_emacs_initialized) {
 		memset_io(prueth->msmcram.va, 0, prueth->msmcram.size);
 		memset_io(prueth->shram.va, 0, ICSSG_CONFIG_OFFSET_SLICE1 * PRUETH_NUM_MACS);
 	}
@@ -1663,7 +1663,7 @@ static int emac_ndo_open(struct net_device *ndev)
 
 	icssg_mii_update_mtu(prueth->mii_rt, slice, ndev->max_mtu);
 
-	if (!prueth->emacs_initialized) {
+	if (!prueth->num_emacs_initialized) {
 		ret = icss_iep_init(emac->iep, &prueth_iep_clockops,
 				    emac, IEP_DEFAULT_CYCLE_TIME_NS);
 	}
@@ -1702,7 +1702,7 @@ static int emac_ndo_open(struct net_device *ndev)
 	/* start PHY */
 	phy_start(ndev->phydev);
 
-	prueth->emacs_initialized++;
+	prueth->num_emacs_initialized++;
 
 	if (prueth->is_switch_mode || prueth->is_hsr_offload_mode) {
 		icssg_fdb_add_del(emac, eth_stp_addr, prueth->default_vlan,
@@ -1810,7 +1810,7 @@ static int emac_ndo_stop(struct net_device *ndev)
 	/* stop PRUs */
 	prueth_emac_stop(emac);
 
-	if (prueth->emacs_initialized == 1)
+	if (prueth->num_emacs_initialized == 1)
 		icss_iep_exit(emac->iep);
 
 	/* Destroying the queued work in ndo_stop() */
@@ -1828,7 +1828,7 @@ static int emac_ndo_stop(struct net_device *ndev)
 	prueth_cleanup_rx_chns(emac, &emac->rx_chns, max_rx_flows);
 	prueth_cleanup_tx_chns(emac);
 
-	prueth->emacs_initialized--;
+	prueth->num_emacs_initialized--;
 
 	return 0;
 }

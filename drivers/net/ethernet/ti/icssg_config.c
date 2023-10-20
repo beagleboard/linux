@@ -418,7 +418,7 @@ static void icssg_init_emac_mode(struct prueth *prueth)
 	 */
 	u8 mac[ETH_ALEN] = { 0 };
 
-	if (prueth->emacs_initialized)
+	if (prueth->num_emacs_initialized)
 		return;
 
 	/* Set VLAN TABLE address base */
@@ -442,7 +442,7 @@ static void icssg_init_switch_mode(struct prueth *prueth)
 	int i;
 	u32 addr = prueth->shram.pa + EMAC_ICSSG_SWITCH_DEFAULT_VLAN_TABLE_OFFSET;
 
-	if (prueth->emacs_initialized)
+	if (prueth->num_emacs_initialized)
 		return;
 
 	/* Set VLAN TABLE address base */
