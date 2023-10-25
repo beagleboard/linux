@@ -51,6 +51,7 @@ dtb-$(CONFIG_ARCH_K3) += k3-am62a7-sk-ub954-evm-ov2312.dtb
 
 # Boards with AM62Px SoC
 dtb-$(CONFIG_ARCH_K3) += k3-am62p5-sk.dtb
+dtb-$(CONFIG_ARCH_K3) += k3-am62p5-sk-microtips-mf101hie-panel.dtbo
 
 # Boards with AM64x SoC
 dtb-$(CONFIG_ARCH_K3) += k3-am642-evm.dtb
@@ -137,6 +138,7 @@ DTC_FLAGS_k3-am625-sk-lpmdemo += -@
 DTC_FLAGS_k3-am62a7-sk += -@
 DTC_FLAGS_k3-am62a7-sk-fusion += -@
 DTC_FLAGS_k3-am62a7-sk-ub954-evm += -@
+DTC_FLAGS_k3-am62p5-sk += -@
 DTC_FLAGS_k3-am654-base-board += -@
 DTC_FLAGS_k3-am68-sk-base-board += -@
 DTC_FLAGS_k3-am69-sk += -@
