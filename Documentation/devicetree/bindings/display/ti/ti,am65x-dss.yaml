@@ -22,6 +22,7 @@ properties:
     enum:
       - ti,am625-dss
       - ti,am62a7-dss
+      - ti,am62p51-dss
       - ti,am65x-dss
 
   reg:
@@ -70,7 +71,8 @@ properties:
     maxItems: 1
 
   power-domains:
-    maxItems: 1
+    minItems: 1
+    maxItems: 3
     description: phandle to the associated power domain
 
   dma-coherent:
@@ -83,8 +85,8 @@ properties:
       port@0:
         $ref: /schemas/graph.yaml#/properties/port
         description:
-          For AM625 and AM65x, this maps to DSS OLDI output port node
-          (OLDI TX 0) forwarded from video port 1.
+          For AM625, AM62P51 and AM65x, this maps to DSS OLDI output
+          port node (OLDI TX 0) forwarded from video port 1.
           For AM62A7, this maps to DSS DPI output port node forwarded
           from video port 2. (video port 1 remains tied off.)
 
@@ -97,8 +99,8 @@ properties:
       port@2:
         $ref: /schemas/graph.yaml#/properties/port
         description:
-          For AM625, this maps to DSS OLDI output port node (OLDI TX 1)
-          forwarded from video port 1.
+          For AM625, AM62P51, this maps to DSS OLDI output port node
+          (OLDI TX 1) forwarded from video port 1.
 
   ti,am65x-oldi-io-ctrl:
     $ref: "/schemas/types.yaml#/definitions/phandle"
