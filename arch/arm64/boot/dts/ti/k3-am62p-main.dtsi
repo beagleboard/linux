@@ -441,6 +441,15 @@
 		status = "disabled";
 	};
 
+	vpu: video-codec@30210000 {
+		compatible = "cnm,cm521c-vpu";
+		reg = <0x00 0x30210000 0x00 0x10000>;
+		interrupts = <GIC_SPI 225 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&k3_clks 204 2>;
+		clock-names = "vcodec";
+		power-domains = <&k3_pds 204 TI_SCI_PD_EXCLUSIVE>;
+	};
+
 	main_spi0: spi@20100000 {
 		compatible = "ti,am654-mcspi", "ti,omap4-mcspi";
 		reg = <0x00 0x20100000 0x00 0x400>;
