@@ -783,3 +783,11 @@
 		};
 	};
 };
+
+&ti_csi2rx0 {
+	status = "okay";
+};
+
+&dphy0 {
+	status = "okay";
+};
