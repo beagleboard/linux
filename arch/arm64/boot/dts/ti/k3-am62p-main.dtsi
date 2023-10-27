@@ -589,6 +589,7 @@
 		clock-names = "clk_ahb", "clk_xin";
 		ti,otap-del-sel-legacy = <0x8>;
 		status = "disabled";
+		no-1-8-v;
 	};
 
 	sdhci2: mmc@fa20000 {
