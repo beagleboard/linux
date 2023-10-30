@@ -1036,7 +1036,7 @@ static int wave5_vpu_dec_queue_setup(struct vb2_queue *q, unsigned int *num_buff
 				__func__, ret);
 			goto free_bitstream_vbuf;
 		}
-	} else if (inst->state == VPU_INST_STATE_STOP &&
+	} else if ((inst->state == VPU_INST_STATE_STOP || inst->state == VPU_INST_STATE_PIC_RUN) &&
 		   q->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 		*num_buffers = 0;
 	}
