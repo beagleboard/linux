@@ -1,0 +1,122 @@
+// SPDX-License-Identifier: GPL-2.0
+/**
+ * DT overlay for enabling MCAN for AM62P-SK
+ *
+ * Copyright (C) 2023 Texas Instruments Incorporated - https://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include "k3-pinctrl.h"
+
+&{/} {
+	transceiver1: can-phy0 {
+		compatible = "ti,tcan1042";
+		#phy-cells = <0>;
+		max-bitrate = <5000000>;
+	};
+
+	transceiver2: can-phy1 {
+		compatible = "ti,tcan1042";
+		#phy-cells = <0>;
+		max-bitrate = <5000000>;
+	};
+
+	transceiver3: can-phy2 {
+		compatible = "ti,tcan1042";
+		#phy-cells = <0>;
+		max-bitrate = <5000000>;
+	};
+
+	transceiver4: can-phy3 {
+		compatible = "ti,tcan1042";
+		#phy-cells = <0>;
+		max-bitrate = <5000000>;
+	};
+};
+
+&main_pmx0 {
+	main_mcan0_pins_default: main-mcan0-pins-default {
+		pinctrl-single,pins = <
+			AM62PX_IOPAD(0x01dc, PIN_INPUT, 0) /* (F20) MCAN0_RX */
+			AM62PX_IOPAD(0x01d8, PIN_OUTPUT, 0) /* (B23) MCAN0_TX */
+		>;
+	};
+
+	main_mcan1_pins_default: main-mcan1-pins-default {
+		pinctrl-single,pins = <
+			AM62PX_IOPAD(0x00b4, PIN_INPUT, 5) /* (U25) GPMC0_CSn3.MCAN1_RX */
+			AM62PX_IOPAD(0x00b0, PIN_OUTPUT, 5) /* (T22) GPMC0_CSn2.MCAN1_TX */
+		>;
+	};
+};
+
+&mcu_pmx0 {
+	mcu_mcan0_pins_default: mcu-mcan0-pins-default {
+		pinctrl-single,pins = <
+			AM62PX_MCU_IOPAD(0x0038, PIN_INPUT, 0) /* (D6) MCU_MCAN0_RX */
+			AM62PX_MCU_IOPAD(0x0034, PIN_OUTPUT, 0) /* (E8) MCU_MCAN0_TX */
+		>;
+	};
+
+	mcu_mcan1_pins_default: mcu-mcan1-pins-default {
+		pinctrl-single,pins = <
+			AM62PX_MCU_IOPAD(0x0040, PIN_INPUT, 0) /* (E7) MCU_MCAN1_RX */
+			AM62PX_MCU_IOPAD(0x003c, PIN_OUTPUT, 0) /* (F8) MCU_MCAN1_TX */
+		>;
+	};
+};
+
+&main_i2c2{
+	/*
+	* main_i2c2 is using (U25) and (T22)
+	* so disable to use main_mcan1
+	*/
+	status = "disabled";
+};
+
+&main_i2c1 {
+	/*
+	* Unset GPIO SoC_I2C2_MCAN_SEL to
+	* route MCAN1 signals to MCAN1 HDR
+	*/
+	gpio@23 {
+		p20-hog {
+		/* P20 - SoC_I2C2_MCAN_SEL */
+		gpio-hog;
+		gpios = <16 GPIO_ACTIVE_HIGH>;
+		output-low;
+		line-name = "SoC_I2C2_MCAN_SEL";
+		};
+	};
+};
+
+&main_mcan0 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_mcan0_pins_default>;
+	phys = <&transceiver1>;
+};
+
+&main_mcan1 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_mcan1_pins_default>;
+	phys = <&transceiver2>;
+};
+
+&mcu_mcan0 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&mcu_mcan0_pins_default>;
+	phys = <&transceiver3>;
+};
+
+&mcu_mcan1 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&mcu_mcan1_pins_default>;
+	phys = <&transceiver4>;
+};
