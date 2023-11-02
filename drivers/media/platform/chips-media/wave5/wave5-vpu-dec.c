@@ -4,6 +4,7 @@
  *
  * Copyright (C) 2021 CHIPS&MEDIA INC
  */
+#include <linux/pm_runtime.h>
 
 #include "wave5-helper.h"
 
@@ -1576,7 +1577,7 @@ static int wave5_vpu_open_dec(struct file *filp)
 	struct video_device *vdev = video_devdata(filp);
 	struct vpu_device *dev = video_drvdata(filp);
 	struct vpu_instance *inst = NULL;
-	int ret = 0;
+	int ret = 0, err;
 
 	inst = kzalloc(sizeof(*inst), GFP_KERNEL);
 	if (!inst)
@@ -1645,6 +1646,13 @@ static int wave5_vpu_open_dec(struct file *filp)
 		goto cleanup_inst;
 	}
 	mutex_init(inst->inst_lock);
+
+	err = pm_runtime_resume_and_get(inst->dev->dev);
+	if (err) {
+		dev_err(inst->dev->dev, "runtime resume failed %d\n", err);
+		ret = -EINVAL;
+		goto cleanup_inst;
+	}
 
 	ret = mutex_lock_interruptible(&dev->dev_lock);
 	if (ret)

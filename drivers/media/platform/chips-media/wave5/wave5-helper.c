@@ -5,6 +5,8 @@
  * Copyright (C) 2021 CHIPS&MEDIA INC
  */
 
+#include <linux/pm_opp.h>
+#include <linux/pm_runtime.h>
 #include "wave5-helper.h"
 
 void wave5_cleanup_instance(struct vpu_instance *inst)
@@ -82,6 +84,9 @@ int wave5_vpu_release_device(struct file *filp,
 
 		mutex_unlock(&dev->dev_lock);
 	}
+
+	if (!pm_runtime_suspended(dev->dev))
+		pm_runtime_put_sync(dev->dev);
 
 	return ret;
 }

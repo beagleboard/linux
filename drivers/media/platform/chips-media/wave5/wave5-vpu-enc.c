@@ -5,6 +5,7 @@
  * Copyright (C) 2021 CHIPS&MEDIA INC
  */
 
+#include <linux/pm_runtime.h>
 #include "wave5-helper.h"
 
 #define VPU_ENC_DEV_NAME "C&M Wave5 VPU encoder"
@@ -1461,7 +1462,7 @@ static int wave5_vpu_open_enc(struct file *filp)
 	struct vpu_device *dev = video_drvdata(filp);
 	struct vpu_instance *inst = NULL;
 	struct v4l2_ctrl_handler *v4l2_ctrl_hdl;
-	int ret = 0;
+	int ret = 0, err;
 
 	inst = kzalloc(sizeof(*inst), GFP_KERNEL);
 	if (!inst)
@@ -1659,6 +1660,13 @@ static int wave5_vpu_open_enc(struct file *filp)
 	if (inst->id < 0) {
 		dev_warn(inst->dev->dev, "Allocating instance ID, fail: %d\n", inst->id);
 		ret = inst->id;
+		goto cleanup_inst;
+	}
+
+	err = pm_runtime_resume_and_get(inst->dev->dev);
+	if (err) {
+		dev_err(inst->dev->dev, "runtime resume failed %d\n", err);
+		ret = -EINVAL;
 		goto cleanup_inst;
 	}
 
