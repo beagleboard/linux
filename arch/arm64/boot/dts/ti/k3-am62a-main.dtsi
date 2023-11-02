@@ -1008,6 +1008,25 @@
 		power-domains = <&k3_pds 204 TI_SCI_PD_EXCLUSIVE>;
 		sram=<&oc_sram>;
 		sram-size=<0xf800>;
+		operating-points-v2 = <&vpu_opp_table>;
+		vpu_opp_table: opp-table {
+			compatible = "operating-points-v2";
+			opp-20000000 {
+				opp-hz = /bits/ 64 <20000000>;
+			};
+
+			opp-100000000 {
+				opp-hz = /bits/ 64 <100000000>;
+			};
+
+			opp-200000000 {
+				opp-hz = /bits/ 64 <200000000>;
+			};
+
+			opp-400000000 {
+				opp-hz = /bits/ 64 <400000000>;
+			};
+		};
 	};
 
 	e5010: e5010@fd20000 {
