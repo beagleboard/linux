@@ -1170,6 +1170,10 @@ static int wave5_vpu_dec_start_streaming_open(struct vpu_instance *inst)
 		if (ctrl)
 			v4l2_ctrl_s_ctrl(ctrl, inst->dst_buf_count);
 
+		inst->frame_rate = (initial_info.f_rate_numerator /
+					initial_info.f_rate_denominator);
+		wave5_instance_set_clk(inst);
+
 		if (initial_info.pic_width != inst->src_fmt.width ||
 		    initial_info.pic_height != inst->src_fmt.height) {
 			wave5_update_pix_fmt(&inst->src_fmt, initial_info.pic_width,

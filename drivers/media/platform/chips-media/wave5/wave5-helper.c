@@ -69,6 +69,7 @@ int wave5_vpu_release_device(struct file *filp,
 			dev_err(inst->dev->dev, "%s close, fail: %d\n", name, ret);
 			return ret;
 		}
+		wave5_instance_reset_clk(inst);
 	}
 
 	wave5_cleanup_instance(inst);
@@ -196,4 +197,65 @@ const struct vpu_format *wave5_find_vpu_fmt_by_idx(unsigned int idx,
 		return NULL;
 
 	return &fmt_list[idx];
+}
+
+int wave5_set_dev_clk(struct vpu_instance *inst)
+{
+	struct dev_pm_opp *opp;
+	unsigned long calc_pixel_rate, req_freq, acq_freq, pixel_rate;
+	int ret;
+
+	pixel_rate = inst->dev->opp_pixel_rate;
+	calc_pixel_rate = pixel_rate*(uint)(MAX_OP_HZ);
+	req_freq = (calc_pixel_rate / MAX_PIXEL_RATE) + 1;
+	opp = dev_pm_opp_find_freq_ceil(inst->dev->dev, &req_freq);
+	if (IS_ERR(opp)) {
+		opp = dev_pm_opp_find_freq_floor(inst->dev->dev, &req_freq);
+		if (IS_ERR(opp)) {
+			dev_err(inst->dev->dev, "Failed to get floor value\n");
+			return -EINVAL;
+		}
+
+	}
+
+	dev_pm_opp_put(opp);
+	acq_freq = dev_pm_opp_get_freq(opp);
+	if (acq_freq != inst->dev->opp_freq) {
+		inst->dev->opp_freq = acq_freq;
+		ret = dev_pm_opp_set_rate(inst->dev->dev, acq_freq);
+		if (ret) {
+			dev_err(inst->dev->dev, "Error setting the clock");
+			return ret;
+		}
+	}
+	return ret;
+}
+
+int wave5_instance_reset_clk(struct vpu_instance *inst)
+{
+	if (inst->dev->opp_pixel_rate < inst->pixel_rate)
+		goto err;
+	inst->dev->opp_pixel_rate -= inst->pixel_rate;
+	wave5_set_dev_clk(inst);
+err:
+	return -EINVAL;
+}
+
+
+int wave5_instance_set_clk(struct vpu_instance *inst)
+{
+	int width, height, framerate;
+	unsigned long pixel_rate, req_freq;
+	int ret;
+
+	width = inst->src_fmt.width;
+	height = inst->src_fmt.height;
+	framerate = inst->frame_rate;
+	pixel_rate = (width*height*framerate);
+	inst->pixel_rate = pixel_rate;
+	inst->dev->opp_pixel_rate += inst->pixel_rate;
+	pixel_rate = pixel_rate*(uint)(MAX_OP_HZ);
+	req_freq = (pixel_rate / MAX_PIXEL_RATE) + 1;
+	ret = wave5_set_dev_clk(inst);
+	return ret;
 }

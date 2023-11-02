@@ -12,6 +12,8 @@
 
 #define FMT_TYPES	2
 #define MAX_FMTS	12
+#define MAX_OP_HZ	500000000
+#define MAX_PIXEL_RATE 497664000      /* 480 MPix/s at 500MHz */
 
 void wave5_cleanup_instance(struct vpu_instance *inst);
 int wave5_vpu_release_device(struct file *filp,
@@ -25,4 +27,7 @@ const struct vpu_format *wave5_find_vpu_fmt(unsigned int v4l2_pix_fmt,
 					    const struct vpu_format fmt_list[MAX_FMTS]);
 const struct vpu_format *wave5_find_vpu_fmt_by_idx(unsigned int idx,
 						   const struct vpu_format fmt_list[MAX_FMTS]);
+int wave5_instance_set_clk(struct vpu_instance *inst);
+int wave5_instance_reset_clk(struct vpu_instance *inst);
+int wave5_set_dev_clk(struct vpu_instance *inst);
 #endif

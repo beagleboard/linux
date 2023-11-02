@@ -1190,6 +1190,7 @@ static int wave5_vpu_enc_queue_setup(struct vb2_queue *q, unsigned int *num_buff
 		struct enc_initial_info initial_info;
 		struct v4l2_ctrl *ctrl;
 
+		wave5_instance_set_clk(inst);
 		memset(&open_param, 0, sizeof(struct enc_open_param));
 
 		inst->std = wave5_to_vpu_wavestd(inst->dst_fmt.pixelformat);

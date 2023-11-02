@@ -11,6 +11,7 @@
 #include <linux/firmware.h>
 #include <linux/interrupt.h>
 #include <linux/pm_runtime.h>
+#include <linux/pm_opp.h>
 #include "wave5-vpu.h"
 #include "wave5-regdefine.h"
 #include "wave5-vpuconfig.h"
@@ -387,6 +388,10 @@ static int wave5_vpu_probe(struct platform_device *pdev)
 		goto err_enc_unreg;
 	}
 
+	ret = dev_pm_opp_of_add_table(&pdev->dev);
+	if (ret && ret != -ENODEV)
+		dev_err(&pdev->dev, "Invalid OPP table in device tree\n");
+
 	dev_dbg(&pdev->dev, "Added wave5 driver with caps: %s %s and product code: 0x%x\n",
 		(match_data->flags & WAVE5_IS_ENC) ? "'ENCODE'" : "",
 		(match_data->flags & WAVE5_IS_DEC) ? "'DECODE'" : "",
@@ -419,6 +424,7 @@ static int wave5_vpu_remove(struct platform_device *pdev)
 
 	pm_runtime_put_sync(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
+	dev_pm_opp_of_remove_table(&pdev->dev);
 	if (dev->irq < 0) {
 		kthread_destroy_worker(dev->worker);
 		hrtimer_cancel(&dev->hrtimer);

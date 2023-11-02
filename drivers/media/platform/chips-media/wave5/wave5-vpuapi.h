@@ -1038,6 +1038,8 @@ struct vpu_device {
 	struct kthread_worker *worker;
 	int vpu_poll_interval;
 	int num_clks;
+	unsigned long opp_pixel_rate;
+	unsigned long opp_freq;
 };
 
 struct vpu_instance;
@@ -1120,6 +1122,7 @@ struct vpu_instance {
 	unsigned long *mapped_dma_addr;
 	unsigned int cap_io_mode;
 	struct mutex *inst_lock;
+	unsigned long pixel_rate;
 };
 
 void wave5_vdi_write_register(struct vpu_device *vpu_dev, u32 addr, u32 data);
