@@ -134,3 +134,4 @@ examples:
                         interrupts = <GIC_SPI 328 IRQ_TYPE_EDGE_RISING>;
                 };
         };
+    };
