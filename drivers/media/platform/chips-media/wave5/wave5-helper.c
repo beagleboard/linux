@@ -245,17 +245,19 @@ err:
 int wave5_instance_set_clk(struct vpu_instance *inst)
 {
 	int width, height, framerate;
-	unsigned long pixel_rate, req_freq;
+	unsigned int pixel_rate;
 	int ret;
 
 	width = inst->src_fmt.width;
 	height = inst->src_fmt.height;
 	framerate = inst->frame_rate;
 	pixel_rate = (width*height*framerate);
+
+	if (!pixel_rate)
+		pixel_rate = MAX_PIXEL_RATE;
+
 	inst->pixel_rate = pixel_rate;
 	inst->dev->opp_pixel_rate += inst->pixel_rate;
-	pixel_rate = pixel_rate*(uint)(MAX_OP_HZ);
-	req_freq = (pixel_rate / MAX_PIXEL_RATE) + 1;
 	ret = wave5_set_dev_clk(inst);
 	return ret;
 }
