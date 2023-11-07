@@ -32,6 +32,9 @@ additionalProperties: false
 
 examples:
   - |
+    #include <dt-bindings/interrupt-controller/irq.h>
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+    #include <dt-bindings/soc/ti,sci_pm_domain.h>
     mcrc: mcrc@30300000 {
       compatible = "ti,mcrc";
       reg = <0x00 0x30300000 0x00 0x1000>;
