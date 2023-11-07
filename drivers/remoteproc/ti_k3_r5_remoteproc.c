@@ -23,6 +23,7 @@
 #include <linux/remoteproc.h>
 #include <linux/reset.h>
 #include <linux/slab.h>
+#include <linux/suspend.h>
 
 #include "omap_remoteproc.h"
 #include "remoteproc_internal.h"
@@ -168,6 +169,8 @@ struct k3_r5_rproc {
 	struct k3_r5_mem *rmem;
 	int num_rmems;
 	struct completion shut_comp;
+	struct completion suspend_comp;
+	struct notifier_block pm_notifier;
 };
 
 /**
@@ -434,6 +437,64 @@ static int k3_r5_rproc_request_mbox(struct rproc *rproc)
 		return ret;
 	}
 
+	return 0;
+}
+
+
+/* PM notifier call.
+ * This is a callback function for PM notifications. On a resume completion
+ * i.e after all the resume driver calls are handled on PM_POST_SUSPEND,
+ * on a deep sleep the remote core is rebooted.
+ */
+static int r5f_pm_notifier_call(struct notifier_block *bl,
+				unsigned long state, void *unused)
+{
+	struct k3_r5_rproc *kproc = container_of(bl, struct k3_r5_rproc, pm_notifier);
+	unsigned long msg = RP_MBOX_SUSPEND_SYSTEM;
+	unsigned long to = msecs_to_jiffies(5000);
+	int ret;
+
+	switch (state) {
+	case PM_HIBERNATION_PREPARE:
+	case PM_RESTORE_PREPARE:
+	case PM_SUSPEND_PREPARE:
+		if (!device_may_wakeup(kproc->dev)) {
+			rproc_shutdown(kproc->rproc);
+		} else {
+			reinit_completion(&kproc->suspend_comp);
+			ret = mbox_send_message(kproc->mbox, (void *)msg);
+			if (ret < 0) {
+				dev_err(kproc->dev, "PM mbox_send_message failed: %d\n", ret);
+				return ret;
+			}
+			ret = wait_for_completion_timeout(&kproc->suspend_comp, to);
+			if (ret == 0) {
+				dev_err(kproc->dev,
+					"%s: timedout waiting for rproc completion event\n", __func__);
+				return -EBUSY;
+			};
+		}
+		kproc->rproc->state = RPROC_SUSPENDED;
+		break;
+	case PM_POST_HIBERNATION:
+	case PM_POST_RESTORE:
+	case PM_POST_SUSPEND:
+		if (kproc->rproc->state == RPROC_SUSPENDED) {
+			if (!device_may_wakeup(kproc->dev)) {
+				rproc_boot(kproc->rproc);
+			} else {
+				msg = RP_MBOX_ECHO_REQUEST;
+				ret = mbox_send_message(kproc->mbox, (void *)msg);
+				if (ret < 0) {
+					dev_err(kproc->dev,
+						"PM mbox_send_message failed: %d\n", ret);
+					return ret;
+				}
+			}
+			kproc->rproc->state = RPROC_RUNNING;
+		}
+		break;
+	}
 	return 0;
 }
 
@@ -1312,6 +1373,9 @@ init_rmem:
 			goto err_add;
 		}
 
+		kproc->pm_notifier.notifier_call = r5f_pm_notifier_call;
+		register_pm_notifier(&kproc->pm_notifier);
+
 		/* create only one rproc in lockstep, single-cpu or
 		 * single core mode
 		 */
@@ -1381,9 +1445,8 @@ static void k3_r5_cluster_rproc_exit(void *data)
 		}
 
 		rproc_del(rproc);
-
 		k3_r5_reserved_mem_exit(kproc);
-
+		unregister_pm_notifier(&kproc->pm_notifier);
 		rproc_free(rproc);
 		core->rproc = NULL;
 	}
