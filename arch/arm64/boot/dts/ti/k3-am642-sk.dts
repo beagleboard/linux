@@ -348,6 +348,15 @@
 			AM64X_IOPAD(0x00bc, PIN_INPUT, 7) /* (U8) GPIO0_46 */
 		>;
 	};
+
+	main_eqep0_pins_default: main-eqep0-pins-default {
+		pinctrl-single,pins = <
+			AM64X_IOPAD(0x00a0, PIN_INPUT, 3) /* (N16) GPMC0_WPn.EQEP0_A */
+			AM64X_IOPAD(0x00a4, PIN_INPUT, 3) /* (N17) GPMC0_DIR.EQEP0_B */
+			AM64X_IOPAD(0x00ac, PIN_INPUT, 3) /* (R20) GPMC0_CSn1.EQEP0_I */
+			AM64X_IOPAD(0x00a8, PIN_INPUT, 3) /* (R19) GPMC0_CSn0.EQEP0_S */
+		>;
+	};
 };
 
 &main_uart0 {
@@ -629,6 +638,14 @@
 	/* PWM is available on Pin 1 of header J3 */
 	pinctrl-names = "default";
 	pinctrl-0 = <&main_ecap0_pins_default>;
+};
+
+&eqep0 {
+	/* EQEP0_A is available on Pin 18 of header J4 */
+	/* EQEP0_B is available on Pin 22 of header J4 */
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_eqep0_pins_default>;
 };
 
 #define TS_OFFSET(pa, val)     (0x4+(pa)*4) (0x10000 | val)
