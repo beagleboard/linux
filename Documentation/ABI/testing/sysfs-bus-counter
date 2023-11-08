@@ -234,6 +234,9 @@ What:		/sys/bus/counter/devices/counterX/signalY/index_polarity_component_id
 What:		/sys/bus/counter/devices/counterX/signalY/polarity_component_id
 What:		/sys/bus/counter/devices/counterX/signalY/synchronous_mode_component_id
 What:		/sys/bus/counter/devices/counterX/signalY/frequency_component_id
+What:		/sys/bus/counter/devices/unit_timer_enable_component_id
+What:		/sys/bus/counter/devices/unit_timer_period_component_id
+What:		/sys/bus/counter/devices/unit_timer_time_component_id
 KernelVersion:	5.16
 Contact:	linux-iio@vger.kernel.org
 Description:
@@ -380,3 +383,24 @@ KernelVersion:	6.1
 Contact:	linux-iio@vger.kernel.org
 Description:
 		Read-only attribute that indicates the signal Y frequency, in Hz.
+
+What:		/sys/bus/counter/devices/unit_timer_enable
+KernelVersion:	5.16
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Read/write attribute that starts or stops the unit timer. Valid
+		values are boolean.
+
+What:		/sys/bus/counter/devices/unit_timer_period
+KernelVersion:	5.16
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Read/write attribute that selects the unit timer timeout in
+		nanoseconds.
+
+What:		/sys/bus/counter/devices/unit_timer_time
+KernelVersion:	5.16
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Read/write attribute that indicates the current time of the
+		unit timer in nanoseconds.
