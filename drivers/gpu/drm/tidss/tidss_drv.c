@@ -10,6 +10,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/pm_domain.h>
 
+#include <drm/drm_aperture.h>
 #include <drm/drm_atomic.h>
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_crtc.h>
@@ -259,11 +260,19 @@ static int tidss_probe(struct platform_device *pdev)
 		goto err_irq_uninstall;
 	}
 
+	/* Remove possible early fb before setting up the fbdev */
+	ret = drm_aperture_remove_framebuffers(false, &tidss_driver);
+	if (ret)
+		goto err_drm_dev_unreg;
+
 	drm_fbdev_generic_setup(ddev, 32);
 
 	dev_dbg(dev, "%s done\n", __func__);
 
 	return 0;
+
+err_drm_dev_unreg:
+	drm_dev_unregister(ddev);
 
 err_irq_uninstall:
 	tidss_irq_uninstall(ddev);
