@@ -2955,6 +2955,10 @@ static int dispc_softreset(struct dispc_device *dispc)
 	u32 val;
 	int ret;
 
+	/* K2G display controller does not support soft reset */
+	if (dispc->feat->subrev == DISPC_K2G)
+		return 0;
+
 	/*
 	 * When we reset the DSS, we also reset the OLDI enable. This disables
 	 * a /7 divider and could, in some cases, lead to the DSS receiving a
@@ -3099,12 +3103,9 @@ int dispc_init(struct tidss_device *tidss)
 	of_property_read_u32(dispc->dev->of_node, "max-memory-bandwidth",
 			     &dispc->memory_bandwidth_limit);
 
-	/* K2G display controller does not support soft reset */
-	if (feat->subrev != DISPC_K2G) {
-		r = dispc_softreset(dispc);
-		if (r)
-			return r;
-	}
+	r = dispc_softreset(dispc);
+	if (r)
+		return r;
 
 	tidss->dispc = dispc;
 
