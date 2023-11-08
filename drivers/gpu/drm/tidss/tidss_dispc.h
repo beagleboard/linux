@@ -151,4 +151,6 @@ void dispc_set_oldi_mode(struct dispc_device *dispc, enum dispc_oldi_modes oldi_
 int dispc_init(struct tidss_device *tidss);
 void dispc_remove(struct tidss_device *tidss);
 
+void dispc_splash_fini(struct dispc_device *dispc);
+
 #endif

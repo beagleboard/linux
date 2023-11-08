@@ -47,6 +47,7 @@ struct tidss_device {
 	struct device **pd_dev;
 	struct device_link **pd_link;
 
+	u32 boot_enabled_vp_mask;
 };
 
 #define to_tidss(__dev) container_of(__dev, struct tidss_device, ddev)
