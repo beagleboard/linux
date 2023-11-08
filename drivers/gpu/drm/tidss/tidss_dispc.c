@@ -2955,6 +2955,30 @@ static void dispc_softreset(struct dispc_device *dispc)
 	u32 val;
 	int ret;
 
+	/*
+	 * When we reset the DSS, we also reset the OLDI enable. This disables
+	 * a /7 divider and could, in some cases, lead to the DSS receiving a
+	 * much too high pixel clock. According to the HW folks, receiving such
+	 * a high clock can potentially cause damage to the DSS controller hardware.
+	 *
+	 * So set the VP clock rate for OLDI to a lower frequency before
+	 * resetting the DSS.
+	 */
+	for (u32 vp_idx = 0; vp_idx < dispc->feat->num_vps; vp_idx++) {
+		if (dispc_get_output_type(dispc, vp_idx) == DISPC_OUTPUT_OLDI &&
+		    ((dispc->feat->subrev == DISPC_AM625) ||
+		     (dispc->feat->subrev == DISPC_AM62P51))) {
+			ret = clk_set_rate(dispc->vp_clk[vp_idx],
+					   TIDSS_AM625_IDLE_OLDI_CLOCK);
+			if (ret) {
+				dev_err(dispc->dev,
+					"vp%d: failed to set oldi clk rate to %u\n",
+					vp_idx, TIDSS_AM625_IDLE_OLDI_CLOCK);
+				return;
+			}
+		}
+	}
+
 	/* Soft reset */
 	REG_FLD_MOD(dispc, DSS_SYSCONFIG, 1, 1, 1);
 	/* Wait for reset to complete */
@@ -3023,10 +3047,6 @@ int dispc_init(struct tidss_device *tidss)
 			return r;
 	}
 
-	/* K2G display controller does not support soft reset */
-	if (feat->subrev != DISPC_K2G)
-		dispc_softreset(dispc);
-
 	for (i = 0; i < dispc->feat->num_vps; i++) {
 		u32 gamma_size = dispc->feat->vp_feat.color.gamma_size;
 		u32 *gamma_table;
@@ -3049,19 +3069,6 @@ int dispc_init(struct tidss_device *tidss)
 			return PTR_ERR(clk);
 		}
 		dispc->vp_clk[i] = clk;
-
-		if (dispc_get_output_type(dispc, i) == DISPC_OUTPUT_OLDI &&
-		    ((feat->subrev == DISPC_AM625) ||
-		     (feat->subrev == DISPC_AM62P51))) {
-			r = clk_set_rate(dispc->vp_clk[i],
-					 TIDSS_AM625_IDLE_OLDI_CLOCK);
-			if (r) {
-				dev_err(dev,
-					"vp%d: failed to set oldi clk rate to %u\n",
-					i, TIDSS_AM625_IDLE_OLDI_CLOCK);
-				return r;
-			}
-		}
 
 		gamma_table = devm_kmalloc_array(dev, gamma_size,
 						 sizeof(*gamma_table),
@@ -3087,6 +3094,10 @@ int dispc_init(struct tidss_device *tidss)
 
 	of_property_read_u32(dispc->dev->of_node, "max-memory-bandwidth",
 			     &dispc->memory_bandwidth_limit);
+
+	/* K2G display controller does not support soft reset */
+	if (feat->subrev != DISPC_K2G)
+		dispc_softreset(dispc);
 
 	tidss->dispc = dispc;
 
