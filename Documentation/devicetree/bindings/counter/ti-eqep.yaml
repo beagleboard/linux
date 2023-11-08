@@ -21,7 +21,7 @@ properties:
     maxItems: 1
 
   clocks:
-    description: The clock that determines the SYSCLKOUT rate for the eQEP
+    description: The clock that determines the clock rate for the eQEP
       peripheral.
     maxItems: 1
 
@@ -42,9 +42,10 @@ examples:
     eqep0: counter@180 {
         compatible = "ti,am3352-eqep";
         reg = <0x180 0x80>;
-        clocks = <&l4ls_gclk>;
-        clock-names = "sysclkout";
-        interrupts = <79>;
+        power-domains = <&k3_pds 59 TI_SCI_PD_EXCLUSIVE>;
+        clocks = <&k3_clks 59 0>;
+        clock-names = "fck";
+        interrupts = <GIC_SPI 116 IRQ_TYPE_EDGE_RISING>;
     };
 
 ...
