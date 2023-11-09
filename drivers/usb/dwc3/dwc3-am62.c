@@ -273,6 +273,11 @@ static int dwc3_ti_remove(struct platform_device *pdev)
 	struct dwc3_data *data = platform_get_drvdata(pdev);
 	u32 reg;
 
+	pm_runtime_get_sync(dev);
+
+	device_wakeup_disable(dev);
+	device_set_wakeup_capable(dev, false);
+
 	of_platform_depopulate(dev);
 
 	/* Clear mode valid bit */
@@ -281,7 +286,6 @@ static int dwc3_ti_remove(struct platform_device *pdev)
 	dwc3_ti_writel(data, USBSS_MODE_CONTROL, reg);
 
 	pm_runtime_put_sync(dev);
-	clk_disable_unprepare(data->usb2_refclk);
 	pm_runtime_disable(dev);
 	pm_runtime_set_suspended(dev);
 
