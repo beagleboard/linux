@@ -49,6 +49,10 @@ properties:
       Specifier for conveying frequency of ref clock input, for the
       operation of USB2PHY.
 
+  vddcore-supply:
+    description:
+      This is the SoC's vdd_core supply that is used as PHY core supply.
+
   '#address-cells':
     const: 2
 
@@ -67,6 +71,7 @@ required:
   - clocks
   - clock-names
   - ti,syscon-phy-pll-refclk
+  - vddcore-supply
 
 additionalProperties: false
 
@@ -87,6 +92,7 @@ examples:
         clock-names = "ref";
         ti,syscon-phy-pll-refclk = <&wkup_conf 0x4018>;
         power-domains = <&k3_pds 179 TI_SCI_PD_EXCLUSIVE>;
+        vddcore-supply = <&vdd_core>;
         #address-cells = <2>;
         #size-cells = <2>;
 
