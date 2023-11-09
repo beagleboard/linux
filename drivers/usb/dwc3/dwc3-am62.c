@@ -214,10 +214,25 @@ static int dwc3_ti_probe(struct platform_device *pdev)
 
 	data->rate_code = i;
 
+	clk_prepare_enable(data->usb2_refclk);
+	pm_runtime_set_active(dev);
+	pm_runtime_enable(dev);
+
+	/* Turn OFF the USB power domain so we can set proper PHY clock and
+	 * core voltage before the USB power domain turns ON
+	 */
+	pm_runtime_suspend(dev);
+
 	/* Read the syscon property and set the rate code */
 	ret = phy_syscon_pll_refclk(data);
-	if (ret)
-		return ret;
+	if (ret) {
+		pm_runtime_disable(dev);
+		pm_runtime_set_suspended(dev);
+		return -EINVAL;
+	}
+
+	/* Turn ON the USB power domain */
+	pm_runtime_resume(dev);
 
 	/* VBUS divider select */
 	data->vbus_divider = device_property_read_bool(dev, "ti,vbus-divider");
@@ -227,13 +242,10 @@ static int dwc3_ti_probe(struct platform_device *pdev)
 
 	dwc3_ti_writel(data, USBSS_PHY_CONFIG, reg);
 
-	pm_runtime_set_active(dev);
-	pm_runtime_enable(dev);
 	/*
 	 * Don't ignore its dependencies with its children
 	 */
 	pm_suspend_ignore_children(dev, false);
-	clk_prepare_enable(data->usb2_refclk);
 	pm_runtime_get_noresume(dev);
 
 	ret = of_platform_populate(node, NULL, NULL, dev);
