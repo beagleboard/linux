@@ -97,7 +97,8 @@
 #define USBSS_VBUS_STAT_SESSVALID	BIT(2)
 #define USBSS_VBUS_STAT_VBUSVALID	BIT(0)
 
-/* Mask for PHY PLL REFCLK */
+/* USB_PHY_CTRL register bits in CTRL_MMR */
+#define PHY_CORE_VOLTAGE_MASK	BIT(31)
 #define PHY_PLL_REFCLK_MASK	GENMASK(3, 0)
 
 #define DWC3_AM62_AUTOSUSPEND_DELAY	100
@@ -106,11 +107,11 @@ struct dwc3_data {
 	struct device *dev;
 	void __iomem *usbss;
 	struct clk *usb2_refclk;
-	int rate_code;
 	struct regmap *syscon;
 	unsigned int offset;
 	unsigned int vbus_divider;
 	u32 wakeup_stat;
+	struct regulator *vddcore;
 };
 
 static const int dwc3_ti_rate_table[] = {	/* in KHZ */
@@ -139,14 +140,16 @@ static inline void dwc3_ti_writel(struct dwc3_data *data, u32 offset, u32 value)
 	writel(value, (data->usbss) + offset);
 }
 
-static int phy_syscon_pll_refclk(struct dwc3_data *data)
+static int phy_syscon_pll_refclk_and_voltage(struct dwc3_data *data)
 {
+	int i, ret, vddcore, phy_core_voltage;
 	struct device *dev = data->dev;
-	struct device_node *node = dev->of_node;
 	struct of_phandle_args args;
+	struct device_node *node;
 	struct regmap *syscon;
-	int ret;
+	unsigned long rate;
 
+	node = dev->of_node;
 	syscon = syscon_regmap_lookup_by_phandle(node, "ti,syscon-phy-pll-refclk");
 	if (IS_ERR(syscon)) {
 		dev_err(dev, "unable to get ti,syscon-phy-pll-refclk regmap\n");
@@ -162,7 +165,42 @@ static int phy_syscon_pll_refclk(struct dwc3_data *data)
 
 	data->offset = args.args[0];
 
-	ret = regmap_update_bits(data->syscon, data->offset, PHY_PLL_REFCLK_MASK, data->rate_code);
+	/* Core voltage */
+	vddcore = regulator_get_voltage(data->vddcore);
+	switch (vddcore) {
+	case 850000:
+		phy_core_voltage = 0;
+		break;
+	case 800000:
+	case 750000:
+		phy_core_voltage = 1;
+		break;
+	default:
+		dev_err(dev, "unsupported vddcore supply: %dmV\n", vddcore);
+		return -EINVAL;
+	}
+
+	ret = regmap_update_bits(data->syscon, data->offset,
+				 PHY_CORE_VOLTAGE_MASK, phy_core_voltage);
+	if (ret) {
+		dev_err(dev, "failed to set phy core voltage\n");
+		return ret;
+	}
+
+	/* PLL ref clock frequency selector */
+	rate = clk_get_rate(data->usb2_refclk);
+	rate /= 1000;	// To KHz
+	for (i = 0; i < ARRAY_SIZE(dwc3_ti_rate_table); i++) {
+		if (dwc3_ti_rate_table[i] == rate)
+			break;
+	}
+
+	if (i == ARRAY_SIZE(dwc3_ti_rate_table)) {
+		dev_err(dev, "unsupported usb2_refclk rate: %lu KHz\n", rate);
+		return -EINVAL;
+	}
+
+	ret = regmap_update_bits(data->syscon, data->offset, PHY_PLL_REFCLK_MASK, i);
 	if (ret) {
 		dev_err(dev, "failed to set phy pll reference clock rate\n");
 		return ret;
@@ -176,8 +214,7 @@ static int dwc3_ti_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct device_node *node = pdev->dev.of_node;
 	struct dwc3_data *data;
-	int i, ret;
-	unsigned long rate;
+	int ret;
 	u32 reg;
 
 	data = devm_kzalloc(dev, sizeof(*data), GFP_KERNEL);
@@ -193,26 +230,17 @@ static int dwc3_ti_probe(struct platform_device *pdev)
 		return PTR_ERR(data->usbss);
 	}
 
+	data->vddcore = devm_regulator_get(dev, "vddcore");
+	if (IS_ERR(data->vddcore)) {
+		dev_err(dev, "can't get vddcore-supply\n");
+		return PTR_ERR(data->vddcore);
+	}
+
 	data->usb2_refclk = devm_clk_get(dev, "ref");
 	if (IS_ERR(data->usb2_refclk)) {
 		dev_err(dev, "can't get usb2_refclk\n");
 		return PTR_ERR(data->usb2_refclk);
 	}
-
-	/* Calculate the rate code */
-	rate = clk_get_rate(data->usb2_refclk);
-	rate /= 1000;	// To KHz
-	for (i = 0; i < ARRAY_SIZE(dwc3_ti_rate_table); i++) {
-		if (dwc3_ti_rate_table[i] == rate)
-			break;
-	}
-
-	if (i == ARRAY_SIZE(dwc3_ti_rate_table)) {
-		dev_err(dev, "unsupported usb2_refclk rate: %lu KHz\n", rate);
-		return -EINVAL;
-	}
-
-	data->rate_code = i;
 
 	clk_prepare_enable(data->usb2_refclk);
 	pm_runtime_set_active(dev);
@@ -223,8 +251,8 @@ static int dwc3_ti_probe(struct platform_device *pdev)
 	 */
 	pm_runtime_suspend(dev);
 
-	/* Read the syscon property and set the rate code */
-	ret = phy_syscon_pll_refclk(data);
+	/* Read the syscon property and set the rate code and voltage */
+	ret = phy_syscon_pll_refclk_and_voltage(data);
 	if (ret) {
 		pm_runtime_disable(dev);
 		pm_runtime_set_suspended(dev);
