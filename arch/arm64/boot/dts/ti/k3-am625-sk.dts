@@ -119,6 +119,17 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&wlan_en_pins_default>;
 	};
+
+	vdd_core: regulator-8 {
+		/* output of TPS62826DMQ */
+		compatible = "regulator-fixed";
+		regulator-name = "vdd_core";
+		regulator-min-microvolt = <850000>;
+		regulator-max-microvolt = <850000>;
+		vin-supply = <&vcc_3v3_sys>;
+		regulator-always-on;
+		regulator-boot-on;
+	};
 };
 
 &main_pmx0 {
