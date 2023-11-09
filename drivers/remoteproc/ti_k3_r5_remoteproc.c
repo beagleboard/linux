@@ -233,6 +233,10 @@ static void k3_r5_rproc_mbox_callback(struct mbox_client *client, void *data)
 		dev_dbg(dev, "received shutdown_ack from %s\n", name);
 		complete(&kproc->shut_comp);
 		break;
+	case RP_MBOX_SUSPEND_ACK:
+		dev_dbg(dev, "received suspend_ack from %s\n", name);
+		complete(&kproc->suspend_comp);
+		break;
 	default:
 		/* silently handle all other valid messages */
 		if (msg >= RP_MBOX_READY && msg < RP_MBOX_END_MSG)
@@ -460,6 +464,15 @@ static int r5f_pm_notifier_call(struct notifier_block *bl,
 	case PM_SUSPEND_PREPARE:
 		if (!device_may_wakeup(kproc->dev)) {
 			rproc_shutdown(kproc->rproc);
+			ret = kproc->core->ti_sci->ops.dev_ops.put_device(kproc->core->ti_sci,
+									kproc->core->ti_sci_id);
+			if (ret) {
+				dev_err(kproc->core->dev, "module-reset assert failed, ret = %d\n",
+						ret);
+				if (reset_control_deassert(kproc->core->reset))
+					dev_warn(kproc->core->dev, "local-reset deassert back failed\n");
+			}
+
 		} else {
 			reinit_completion(&kproc->suspend_comp);
 			ret = mbox_send_message(kproc->mbox, (void *)msg);
@@ -1357,6 +1370,7 @@ static int k3_r5_cluster_rproc_init(struct platform_device *pdev)
 		}
 
 		init_completion(&kproc->shut_comp);
+		init_completion(&kproc->suspend_comp);
 init_rmem:
 		k3_r5_adjust_tcm_sizes(kproc);
 
@@ -1667,6 +1681,11 @@ static int k3_r5_core_of_init(struct platform_device *pdev)
 	if (ret) {
 		dev_err(dev, "missing 'ti,sci-dev-id' property\n");
 		goto err;
+	}
+
+	if (device_property_present(dev, "wakeup-source")) {
+		dev_dbg(dev, "registering as wakeup source\n");
+		device_set_wakeup_capable(dev, true);
 	}
 
 	core->reset = devm_reset_control_get_exclusive(dev, NULL);
