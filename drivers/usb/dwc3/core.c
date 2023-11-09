@@ -1129,6 +1129,13 @@ static int dwc3_core_init(struct dwc3 *dwc)
 		goto err0a;
 	}
 
+	reg = dwc3_readl(dwc->regs, DWC3_GUSB2PHYCFG(0));
+	if (reg & DWC3_GUSB2PHYCFG_SUSPHY) {
+		dev_err(dwc->dev, "WARNING: DWC3_GUSB2PHYCFG_SUSPHY is set by default\n");
+		reg &= ~DWC3_GUSB2PHYCFG_SUSPHY;
+		dwc3_writel(dwc->regs, DWC3_GUSB2PHYCFG(0), reg);
+	}
+
 	ret = dwc3_core_soft_reset(dwc);
 	if (ret)
 		goto err1;
