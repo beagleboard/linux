@@ -374,3 +374,11 @@
 			>;
 	};
 };
+
+&usbss0 {
+	vddcore-supply = <&vdd_core>;
+};
+
+&usbss1 {
+	vddcore-supply = <&vdd_core>;
+};

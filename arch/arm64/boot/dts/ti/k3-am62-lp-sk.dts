@@ -299,3 +299,11 @@
 &pruss {
         status = "disabled";
 };
+
+&usbss0 {
+	vddcore-supply = <&buck1_reg>;
+};
+
+&usbss1 {
+	vddcore-supply = <&buck1_reg>;
+};

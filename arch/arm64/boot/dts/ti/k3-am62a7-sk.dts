@@ -904,3 +904,11 @@
 	ti,driver-strength-ohm = <50>;
 	disable-wp;
 };
+
+&usbss0 {
+	vddcore-supply = <&buck123>;
+};
+
+&usbss1 {
+	vddcore-supply = <&buck123>;
+};
