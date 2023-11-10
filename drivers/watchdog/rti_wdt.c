@@ -71,6 +71,9 @@ static int rti_wdt_start(struct watchdog_device *wdd)
 	u32 timer_margin;
 	struct rti_wdt_device *wdt = watchdog_get_drvdata(wdd);
 
+	if (pm_runtime_suspended(wdd->parent))
+		pm_runtime_get_sync(wdd->parent);
+
 	/* set timeout period */
 	timer_margin = (u64)wdd->timeout * wdt->freq;
 	timer_margin >>= WDT_PRELOAD_SHIFT;
@@ -291,6 +294,9 @@ static int rti_wdt_probe(struct platform_device *pdev)
 	if (last_ping)
 		watchdog_set_last_hw_keepalive(wdd, last_ping);
 
+	if (!watchdog_hw_running(wdd))
+		pm_runtime_put_sync(&pdev->dev);
+
 	return 0;
 }
 
@@ -299,6 +305,9 @@ static int rti_wdt_remove(struct platform_device *pdev)
 	struct rti_wdt_device *wdt = platform_get_drvdata(pdev);
 
 	watchdog_unregister_device(&wdt->wdd);
+
+	if (!pm_runtime_suspended(&pdev->dev))
+		pm_runtime_put_sync(&pdev->dev);
 
 	return 0;
 }
