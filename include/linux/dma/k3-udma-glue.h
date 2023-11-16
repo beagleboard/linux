@@ -108,6 +108,10 @@ struct k3_udma_glue_rx_channel_cfg {
 
 struct k3_udma_glue_rx_channel;
 
+struct k3_udma_glue_rx_channel *
+k3_udma_glue_request_remote_rx_chn_by_id(struct device *dev, struct device_node *udmax_np,
+					 struct k3_udma_glue_rx_channel_cfg *cfg, u32 thread_id);
+
 struct k3_udma_glue_rx_channel *k3_udma_glue_request_rx_chn(
 		struct device *dev,
 		const char *name,
