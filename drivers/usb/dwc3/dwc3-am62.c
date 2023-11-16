@@ -111,7 +111,6 @@ struct dwc3_data {
 	unsigned int offset;
 	unsigned int vbus_divider;
 	u32 wakeup_stat;
-	struct regulator *vddcore;
 };
 
 static const int dwc3_ti_rate_table[] = {	/* in KHZ */
@@ -142,7 +141,7 @@ static inline void dwc3_ti_writel(struct dwc3_data *data, u32 offset, u32 value)
 
 static int phy_syscon_pll_refclk_and_voltage(struct dwc3_data *data)
 {
-	int i, ret, vddcore, phy_core_voltage;
+	int i, ret;
 	struct device *dev = data->dev;
 	struct of_phandle_args args;
 	struct device_node *node;
@@ -165,23 +164,9 @@ static int phy_syscon_pll_refclk_and_voltage(struct dwc3_data *data)
 
 	data->offset = args.args[0];
 
-	/* Core voltage */
-	vddcore = regulator_get_voltage(data->vddcore);
-	switch (vddcore) {
-	case 850000:
-		phy_core_voltage = 0;
-		break;
-	case 800000:
-	case 750000:
-		phy_core_voltage = 1;
-		break;
-	default:
-		dev_err(dev, "unsupported vddcore supply: %dmV\n", vddcore);
-		return -EINVAL;
-	}
-
+	/* Core voltage. PHY_CORE_VOLTAGE bit Recommended to be 0 always */
 	ret = regmap_update_bits(data->syscon, data->offset,
-				 PHY_CORE_VOLTAGE_MASK, phy_core_voltage);
+				 PHY_CORE_VOLTAGE_MASK, 0);
 	if (ret) {
 		dev_err(dev, "failed to set phy core voltage\n");
 		return ret;
@@ -228,12 +213,6 @@ static int dwc3_ti_probe(struct platform_device *pdev)
 	if (IS_ERR(data->usbss)) {
 		dev_err(dev, "can't map IOMEM resource\n");
 		return PTR_ERR(data->usbss);
-	}
-
-	data->vddcore = devm_regulator_get(dev, "vddcore");
-	if (IS_ERR(data->vddcore)) {
-		dev_err(dev, "can't get vddcore-supply\n");
-		return PTR_ERR(data->vddcore);
 	}
 
 	data->usb2_refclk = devm_clk_get(dev, "ref");
