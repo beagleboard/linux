@@ -118,6 +118,10 @@ properties:
   phys:
     maxItems: 1
 
+  wakeup-source:
+    $ref: /schemas/types.yaml#/definitions/flag
+    description: This device is capable to wakeup the SoC.
+
 required:
   - compatible
   - reg
