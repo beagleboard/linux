@@ -564,6 +564,7 @@
 };
 
 &sdhci1 {
+	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&main_mmc1_pins_default>;
 	ti,driver-strength-ohm = <50>;
