@@ -58,6 +58,7 @@
 #define TI_CSI2RX_MAX_PADS		(1 + TI_CSI2RX_MAX_SOURCE_PADS)
 
 #define DRAIN_TIMEOUT_MS		50
+#define DRAIN_BUFFER_SIZE		SZ_32K
 
 struct ti_csi2rx_fmt {
 	u32				fourcc;	/* Four character code. */
@@ -126,6 +127,12 @@ struct ti_csi2rx_dev {
 	struct v4l2_subdev		subdev;
 	struct ti_csi2rx_ctx		ctx[TI_CSI2RX_MAX_CTX];
 	u64				enabled_streams_mask;
+	/* Buffer to drain stale data from PSI-L endpoint */
+	struct {
+		void			*vaddr;
+		dma_addr_t		paddr;
+		size_t			len;
+	} drain;
 };
 
 static const struct ti_csi2rx_fmt formats[] = {
@@ -644,25 +651,29 @@ static void ti_csi2rx_drain_callback(void *param)
 	complete(drain_complete);
 }
 
-static int ti_csi2rx_drain_dma(struct ti_csi2rx_ctx *csi)
+/*
+ * Drain the stale data left at the PSI-L endpoint.
+ *
+ * This might happen if no buffers are queued in time but source is still
+ * streaming. In multi-stream scenarios this can happen when one stream is
+ * stopped but other is still streaming, and thus module-level pixel reset is
+ * not asserted.
+ *
+ * To prevent that stale data corrupting the subsequent transactions, it is
+ * required to issue DMA requests to drain it out.
+ */
+static int ti_csi2rx_drain_dma(struct ti_csi2rx_ctx *ctx)
 {
+	struct ti_csi2rx_dev *csi = ctx->csi;
 	struct dma_async_tx_descriptor *desc;
-	struct device *dev = csi->dma.chan->device->dev;
 	struct completion drain_complete;
-	void *buf;
-	size_t len = csi->v_fmt.fmt.pix.sizeimage;
-	dma_addr_t addr;
 	dma_cookie_t cookie;
 	int ret;
 
 	init_completion(&drain_complete);
 
-	buf = dma_alloc_coherent(dev, len, &addr, GFP_KERNEL | GFP_ATOMIC);
-	if (!buf)
-		return -ENOMEM;
-
-	desc = dmaengine_prep_slave_single(csi->dma.chan, addr, len,
-					   DMA_DEV_TO_MEM,
+	desc = dmaengine_prep_slave_single(ctx->dma.chan, csi->drain.paddr,
+					   csi->drain.len, DMA_DEV_TO_MEM,
 					   DMA_PREP_INTERRUPT | DMA_CTRL_ACK);
 	if (!desc) {
 		ret = -EIO;
@@ -677,16 +688,16 @@ static int ti_csi2rx_drain_dma(struct ti_csi2rx_ctx *csi)
 	if (ret)
 		goto out;
 
-	dma_async_issue_pending(csi->dma.chan);
+	dma_async_issue_pending(ctx->dma.chan);
 
 	if (!wait_for_completion_timeout(&drain_complete,
 					 msecs_to_jiffies(DRAIN_TIMEOUT_MS))) {
-		dmaengine_terminate_sync(csi->dma.chan);
+		dmaengine_terminate_sync(ctx->dma.chan);
+		dev_dbg(csi->dev, "DMA transfer timed out for drain buffer\n");
 		ret = -ETIMEDOUT;
 		goto out;
 	}
 out:
-	dma_free_coherent(dev, len, buf, addr);
 	return ret;
 }
 
@@ -1699,11 +1710,18 @@ static int ti_csi2rx_probe(struct platform_device *pdev)
 		csi->num_ctx = TI_CSI2RX_MAX_CTX;
 	}
 
+	csi->drain.len = DRAIN_BUFFER_SIZE;
+	csi->drain.vaddr = dma_alloc_coherent(csi->dev, csi->drain.len,
+					      &csi->drain.paddr,
+					      GFP_KERNEL);
+	if (!csi->drain.vaddr)
+		return -ENOMEM;
+
 	mutex_init(&csi->mutex);
 
 	ret = ti_csi2rx_v4l2_init(csi);
 	if (ret)
-		return ret;
+		goto cleanup_drain;
 
 	for (i = 0; i < csi->num_ctx; i++) {
 		csi->ctx[i].idx = i;
@@ -1738,6 +1756,10 @@ cleanup_ctx:
 		ti_csi2rx_cleanup_ctx(&csi->ctx[i]);
 
 	ti_csi2rx_cleanup_v4l2(csi);
+cleanup_drain:
+	mutex_destroy(&csi->mutex);
+	dma_free_coherent(csi->dev, csi->drain.len, csi->drain.vaddr,
+			  csi->drain.paddr);
 	return ret;
 }
 
@@ -1758,6 +1780,8 @@ static int ti_csi2rx_remove(struct platform_device *pdev)
 	ti_csi2rx_cleanup_v4l2(csi);
 
 	mutex_destroy(&csi->mutex);
+	dma_free_coherent(csi->dev, csi->drain.len, csi->drain.vaddr,
+			  csi->drain.paddr);
 
 	pm_runtime_disable(&pdev->dev);
 	pm_runtime_set_suspended(&pdev->dev);
