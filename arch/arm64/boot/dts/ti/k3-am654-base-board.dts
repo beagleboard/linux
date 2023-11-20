@@ -376,6 +376,13 @@
 			AM65X_IOPAD(0x0010, PIN_INPUT, 0) /* (D21) ECAP0_IN_APWM_OUT */
 		>;
 	};
+
+	/* Select GPIO1_87 for ICSSG2 PHY interrupt */
+	icssg2_phy_irq_pins_default: icssg2-phy-irq-default-pins {
+		pinctrl-single,pins = <
+			AM65X_IOPAD(0x0014, PIN_INPUT, 7) /* (A22) EXT_REFCLK1.GPIO1_87 */
+		>;
+	};
 };
 
 &wkup_uart0 {
@@ -659,17 +666,21 @@
 
 &icssg2_mdio {
 	status = "okay";
-	pinctrl-names = "default";
-	pinctrl-0 = <&icssg2_mdio_pins_default>;
+	pinctrl-names = "default", "icssg2-phy-irq";
+	pinctrl-0 = <&icssg2_mdio_pins_default>, <&icssg2_phy_irq_pins_default>;
 
 	icssg2_phy0: ethernet-phy@0 {
 		reg = <0>;
+		interrupt-parent = <&main_gpio1>;
+		interrupts = <87 0x2>;
 		ti,rx-internal-delay = <DP83867_RGMIIDCTL_2_00_NS>;
 		ti,fifo-depth = <DP83867_PHYCR_FIFO_DEPTH_4_B_NIB>;
 	};
 
 	icssg2_phy1: ethernet-phy@3 {
 		reg = <3>;
+		interrupt-parent = <&main_gpio1>;
+		interrupts = <87 0x2>;
 		ti,rx-internal-delay = <DP83867_RGMIIDCTL_2_00_NS>;
 		ti,fifo-depth = <DP83867_PHYCR_FIFO_DEPTH_4_B_NIB>;
 	};
