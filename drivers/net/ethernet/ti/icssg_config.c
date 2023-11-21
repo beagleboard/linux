@@ -318,11 +318,17 @@ static int prueth_switch_buffer_setup(struct prueth_emac *emac)
 		addr += PRUETH_SW_NUM_BUF_POOLS_HOST * PRUETH_SW_BUF_POOL_SIZE_HOST;
 
 	for (i = PRUETH_NUM_BUF_POOLS;
-	     i <  PRUETH_SW_NUM_BUF_POOLS_HOST + PRUETH_NUM_BUF_POOLS;
+	     i <  2 * PRUETH_SW_NUM_BUF_POOLS_HOST + PRUETH_NUM_BUF_POOLS;
 	     i++) {
-		bpool_cfg[i].addr = cpu_to_le32(addr);
-		bpool_cfg[i].len = cpu_to_le32(PRUETH_SW_BUF_POOL_SIZE_HOST);
-		addr += PRUETH_SW_BUF_POOL_SIZE_HOST;
+		/* The driver only uses first 4 queues per PRU so only initialize them */
+		if (i % PRUETH_SW_NUM_BUF_POOLS_HOST < PRUETH_SW_NUM_BUF_POOLS_PER_PRU) {
+			bpool_cfg[i].addr = cpu_to_le32(addr);
+			bpool_cfg[i].len = cpu_to_le32(PRUETH_SW_BUF_POOL_SIZE_HOST);
+			addr += PRUETH_SW_BUF_POOL_SIZE_HOST;
+		} else {
+			bpool_cfg[i].addr = 0;
+			bpool_cfg[i].len = 0;
+		}
 	}
 
 	if (!slice)
