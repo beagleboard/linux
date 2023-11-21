@@ -1902,20 +1902,56 @@ static void emac_ndo_set_rx_mode_work(struct work_struct *work)
 		return;
 	}
 
-	if (!prueth->is_switch_mode && !prueth->is_hsr_offload_mode) {
+	if (!prueth->is_switch_mode) {
 		emac_fdb_flush_multicast(emac);
 
-		if (!netdev_mc_empty(ndev)) {
-			struct netdev_hw_addr *ha;
+		if (!prueth->is_hsr_offload_mode) {
+			if (!netdev_mc_empty(ndev)) {
+				struct netdev_hw_addr *ha;
 
-			/* Program multicast address list into FDB Table */
-			netdev_for_each_mc_addr(ha, ndev) {
-				icssg_fdb_add_del(emac, ha->addr, 0,
-						  BIT(emac->port_id), true);
-				icssg_vtbl_modify(emac, 0, BIT(emac->port_id),
-						  BIT(emac->port_id), true);
+				/* Program multicast address list into FDB Table */
+				netdev_for_each_mc_addr(ha, ndev) {
+					icssg_fdb_add_del(emac, ha->addr, 0,
+							  BIT(emac->port_id), true);
+					icssg_vtbl_modify(emac, 0, BIT(emac->port_id),
+							  BIT(emac->port_id), true);
+				}
+				return;
 			}
-			return;
+		} else {
+			/* Now that the FDB entries are flushed, restore the
+			 * entries that were added during ndo_open
+			 */
+			icssg_fdb_add_del(emac, eth_stp_addr, prueth->default_vlan,
+					  ICSSG_FDB_ENTRY_P0_MEMBERSHIP |
+					  ICSSG_FDB_ENTRY_P1_MEMBERSHIP |
+					  ICSSG_FDB_ENTRY_P2_MEMBERSHIP |
+					  ICSSG_FDB_ENTRY_BLOCK,
+					  true);
+			icssg_vtbl_modify(emac, emac->port_vlan, BIT(emac->port_id),
+					  BIT(emac->port_id), true);
+
+			/* In order for the packets to be received at host port, Both
+			 * HSR firmware requires VLAN ID = 1 to be present
+			 * in the VLAN table
+			 */
+			icssg_vtbl_modify(emac, DEFAULT_VID, DEFAULT_PORT_MASK,
+					  DEFAULT_UNTAG_MASK, true);
+
+			if (!netdev_mc_empty(ndev)) {
+				struct netdev_hw_addr *ha;
+
+				/* Program multicast address list into FDB Table */
+				netdev_for_each_mc_addr(ha, ndev) {
+					icssg_fdb_add_del(emac, ha->addr, prueth->default_vlan,
+							  ICSSG_FDB_ENTRY_P0_MEMBERSHIP |
+							  ICSSG_FDB_ENTRY_P1_MEMBERSHIP |
+							  ICSSG_FDB_ENTRY_P2_MEMBERSHIP |
+							  ICSSG_FDB_ENTRY_BLOCK,
+							  true);
+				}
+				return;
+			}
 		}
 	}
 }
