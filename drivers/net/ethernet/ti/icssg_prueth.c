@@ -1950,6 +1950,9 @@ static void emac_ndo_set_rx_mode_work(struct work_struct *work)
 							  ICSSG_FDB_ENTRY_BLOCK,
 							  true);
 				}
+
+				icssg_vtbl_modify(emac, emac->port_vlan, BIT(emac->port_id),
+						  BIT(emac->port_id), true);
 				return;
 			}
 		}
