@@ -1,0 +1,24 @@
+// SPDX-License-Identifier: GPL-2.0
+/**
+ * DT overlay to enable display sharing mode for AM62P DSS0
+ * This is compatible with AM62P Device Manager firmware labelled as
+ * "dss_display_share.wkup-r5f0_0.release.strip.out"
+ *
+ * Copyright (C) 2023 Texas Instruments Incorporated - http://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+
+&dss0 {
+	ti,dss-shared-mode;
+	ti,dss-shared-mode-vp = "vp1";
+	ti,dss-shared-mode-vp-owned = <0>;
+	ti,dss-shared-mode-common = "common1";
+	ti,dss-shared-mode-planes = "vid";
+	ti,dss-shared-mode-plane-zorder = <0>;
+	interrupts = <GIC_SPI 85 IRQ_TYPE_LEVEL_HIGH>;
+};
