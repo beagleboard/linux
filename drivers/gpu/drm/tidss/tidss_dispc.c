@@ -143,6 +143,18 @@ static const u16 tidss_am65x_common_regs[DISPC_COMMON_REG_TABLE_LEN] = {
 	[DISPC_SECURE_DISABLE_OFF] =		0xac,
 };
 
+static const u16 tidss_am62_common1_regs[DISPC_COMMON_REG_TABLE_LEN] = {
+	[DISPC_IRQ_EOI_OFF] =			0x24,
+	[DISPC_IRQSTATUS_RAW_OFF] =		0x28,
+	[DISPC_IRQSTATUS_OFF] =			0x2c,
+	[DISPC_IRQENABLE_SET_OFF] =		0x30,
+	[DISPC_IRQENABLE_CLR_OFF] =		0x40,
+	[DISPC_VID_IRQENABLE_OFF] =		0x44,
+	[DISPC_VID_IRQSTATUS_OFF] =		0x58,
+	[DISPC_VP_IRQENABLE_OFF] =		0x70,
+	[DISPC_VP_IRQSTATUS_OFF] =		0x7c,
+};
+
 const struct dispc_features dispc_am625_feats = {
 	.max_pclk_khz = {
 		[DISPC_OUTPUT_DPI] = 165000,
@@ -1398,6 +1410,22 @@ enum drm_mode_status dispc_vp_mode_valid(struct dispc_device *dispc, u32 vp_idx,
 
 	max_pclk = dispc->feat->max_pclk_khz[output_type];
 
+	/*
+	 * For shared mode, with remote core driving the video port, make sure that Linux
+	 * controlled primary plane doesn't exceed video port screen size set by remote core
+	 */
+	if (dispc->tidss->shared_mode && !dispc->tidss->shared_mode_owned_vps[vp_idx]) {
+		int vp_hdisplay = VP_REG_GET(dispc, vp_idx, DISPC_VP_SIZE_SCREEN, 11, 0) + 1;
+		int vp_vdisplay = VP_REG_GET(dispc, vp_idx, DISPC_VP_SIZE_SCREEN, 27, 16) + 1;
+
+		if (mode->hdisplay > vp_hdisplay ||
+		    mode->vdisplay > vp_vdisplay) {
+			dev_err(dispc->dev, "%dx%d exceeds VP screen size %dx%d in shared mode\n",
+				mode->hdisplay, mode->vdisplay, vp_hdisplay, vp_vdisplay);
+			return MODE_BAD;
+		}
+	}
+
 	if (WARN_ON(max_pclk == 0))
 		return MODE_BAD;
 
@@ -1446,15 +1474,17 @@ enum drm_mode_status dispc_vp_mode_valid(struct dispc_device *dispc, u32 vp_idx,
 		return MODE_BAD_VVALUE;
 
 	if (dispc->memory_bandwidth_limit) {
-		const unsigned int bpp = 4;
-		u64 bandwidth;
+		if (!dispc->tidss->shared_mode || dispc->tidss->shared_mode_owned_vps[vp_idx]) {
+			const unsigned int bpp = 4;
+			u64 bandwidth;
 
-		bandwidth = 1000 * mode->clock;
-		bandwidth = bandwidth * mode->hdisplay * mode->vdisplay * bpp;
-		bandwidth = div_u64(bandwidth, mode->htotal * mode->vtotal);
+			bandwidth = 1000 * mode->clock;
+			bandwidth = bandwidth * mode->hdisplay * mode->vdisplay * bpp;
+			bandwidth = div_u64(bandwidth, mode->htotal * mode->vtotal);
 
-		if (dispc->memory_bandwidth_limit < bandwidth)
-			return MODE_BAD;
+			if (dispc->memory_bandwidth_limit < bandwidth)
+				return MODE_BAD;
+		}
 	}
 
 	return MODE_OK;
@@ -2845,6 +2875,175 @@ static void dispc_vp_set_color_mgmt(struct dispc_device *dispc, u32 vp_idx,
 		dispc_k3_vp_set_ctm(dispc, vp_idx, ctm);
 }
 
+static const char *get_vp_from_vp_idx(u32 vp_idx)
+{
+	const char *vp_name = NULL;
+
+	switch (vp_idx) {
+	case 0:
+		vp_name = "vp1";
+		break;
+	case 1:
+		vp_name = "vp2";
+		break;
+	case 2:
+		vp_name = "vp3";
+		break;
+	case 3:
+		vp_name = "vp4";
+		break;
+	default:
+		vp_name = NULL;
+		break;
+	}
+
+	return vp_name;
+}
+
+static const char *get_ovr_from_vp(const char *vp_name)
+{
+	const char *ovr_name = NULL;
+
+	if (!strcmp("vp1", vp_name))
+		ovr_name = "ovr1";
+	else if (!strcmp("vp2", vp_name))
+		ovr_name = "ovr2";
+	else if (!strcmp("vp3", vp_name))
+		ovr_name = "ovr3";
+	else if (!strcmp("vp4", vp_name))
+		ovr_name = "ovr4";
+	else
+		return NULL;
+
+	return ovr_name;
+}
+
+static void dispc_shared_mode_update_outputs(struct dispc_features *shared_mode_feat,
+					     struct dispc_device *dispc)
+{
+	u32 i, j;
+	int num_outputs = shared_mode_feat->num_outputs;
+	u32 output_source_vp[TIDSS_MAX_OUTPUTS];
+	enum dispc_output_type output_type[TIDSS_MAX_OUTPUTS];
+
+	memcpy((void *)output_source_vp, (void *)shared_mode_feat->output_source_vp,
+	       sizeof(output_source_vp));
+	memset(shared_mode_feat->output_source_vp, 0, sizeof(output_source_vp));
+	memcpy((void *)output_type, (void *)shared_mode_feat->output_type,
+	       sizeof(output_type));
+	memset(shared_mode_feat->output_type, 0, sizeof(output_type));
+
+	for (i = 0, j = 0; i < num_outputs; i++) {
+		/*
+		 * Find corresponding output type and source video port index from video ports that
+		 * were made available to Linux either in shared context
+		 * or ownership context.
+		 */
+		if (get_vp_from_vp_idx(output_source_vp[i]) &&
+		    match_string(shared_mode_feat->vp_name, shared_mode_feat->num_vps,
+				 get_vp_from_vp_idx(output_source_vp[i])) >=  0) {
+			shared_mode_feat->output_source_vp[j] = output_source_vp[i];
+			shared_mode_feat->output_type[j++] = output_type[i];
+			if (dispc->tidss->shared_mode_owned_vps[output_source_vp[i]] &&
+			    output_type[i] == DISPC_OUTPUT_OLDI)
+				dispc->tidss->shared_mode_own_oldi = true;
+			dev_dbg(dispc->dev, "output_source_vp[%d] : %u, output_type[%d] : %u\n",
+				j - 1, shared_mode_feat->output_source_vp[j - 1], j - 1,
+				shared_mode_feat->output_type[j - 1]);
+		}
+	}
+
+	shared_mode_feat->num_outputs = j;
+	dev_dbg(dispc->dev, "num_outputs : %u, tidss->shared_mode_own_oldi : %s\n",
+		shared_mode_feat->num_outputs,
+		dispc->tidss->shared_mode_own_oldi ? "true" : "false");
+}
+
+static int dispc_update_shared_mode_features(struct dispc_features *shared_mode_feat,
+					     struct dispc_device *dispc)
+{
+	int r = 0, i = 0;
+
+	dev_dbg(dispc->dev, "Start updating dispc feature list for shared mode:\n");
+
+	/*
+	 * Start with a shallow copy from existing features and prune the list
+	 * as per what is actually made available to Linux
+	 */
+	memcpy((void *)shared_mode_feat, (void *)dispc->feat, sizeof(*shared_mode_feat));
+	shared_mode_feat->num_vps = device_property_string_array_count(dispc->dev,
+								       "ti,dss-shared-mode-vp");
+	shared_mode_feat->num_planes = device_property_string_array_count(dispc->dev,
+									  "ti,dss-shared-mode-planes");
+
+	r = device_property_read_string(dispc->dev, "ti,dss-shared-mode-common",
+					(const char **)&shared_mode_feat->common);
+	if (r) {
+		dev_err(dispc->dev, "failed to read shared video port name: %d\n", r);
+		return r;
+	}
+
+	memset(shared_mode_feat->vid_name, 0, sizeof(shared_mode_feat->vid_name));
+	r = device_property_read_string_array(dispc->dev, "ti,dss-shared-mode-planes",
+					      shared_mode_feat->vid_name, TIDSS_MAX_PLANES);
+	if (r < 0) {
+		dev_err(dispc->dev, "failed to read client vid layer name: %d\n", r);
+		return r;
+	}
+
+	r = device_property_read_u32_array(dispc->dev, "ti,dss-shared-mode-vp-owned",
+					   dispc->tidss->shared_mode_owned_vps,
+					   shared_mode_feat->num_vps);
+	if (r < 0) {
+		dev_err(dispc->dev, "failed to read owned vp list: %d\n", r);
+		return r;
+	}
+
+	memset(shared_mode_feat->vp_name, 0, sizeof(shared_mode_feat->vp_name));
+	r = device_property_read_string_array(dispc->dev, "ti,dss-shared-mode-vp",
+					      shared_mode_feat->vp_name, TIDSS_MAX_VPS);
+	if (r < 0) {
+		dev_err(dispc->dev, "failed to read shared video port name: %d\n", r);
+		return r;
+	}
+
+	memset(shared_mode_feat->vid_order, 0, sizeof(shared_mode_feat->vid_order));
+	r = device_property_read_u32_array(dispc->dev, "ti,dss-shared-mode-plane-zorder",
+					   shared_mode_feat->vid_order,
+					   shared_mode_feat->num_planes);
+	if (r < 0) {
+		dev_err(dispc->dev, "failed to read vid_order array name: %d\n", r);
+		return r;
+	}
+	memcpy((void *)shared_mode_feat->vpclk_name, (void *)shared_mode_feat->vp_name,
+	       sizeof(shared_mode_feat->vpclk_name));
+	memset(shared_mode_feat->ovr_name, 0, sizeof(shared_mode_feat->ovr_name));
+
+	for (i = 0; i < shared_mode_feat->num_vps; i++) {
+		shared_mode_feat->ovr_name[i] = get_ovr_from_vp(shared_mode_feat->vp_name[i]);
+		dev_dbg(dispc->dev, "vp[%d] = %s, ovr[%d] = %s vpclk[%d] = %s vp_owned[%d] = %d\n",
+			i,  shared_mode_feat->vp_name[i], i, shared_mode_feat->ovr_name[i], i,
+			shared_mode_feat->vpclk_name[i], i, dispc->tidss->shared_mode_owned_vps[i]);
+	}
+
+	for (i = 0; i < shared_mode_feat->num_planes; i++) {
+		if (!strncmp("vidl", shared_mode_feat->vid_name[i], 4))
+			shared_mode_feat->vid_lite[i] = true;
+		dev_dbg(dispc->dev, "vid[%d] = %s, vid_order[%d] = %u vid_lite[%d] = %u\n", i,
+			shared_mode_feat->vid_name[i], i, shared_mode_feat->vid_order[i], i,
+			shared_mode_feat->vid_lite[i]);
+	}
+
+	if (!strcmp(shared_mode_feat->common, "common1"))
+		shared_mode_feat->common_regs = tidss_am62_common1_regs;
+
+	dev_dbg(dispc->dev, "common : %s\n", shared_mode_feat->common);
+	dispc_shared_mode_update_outputs(shared_mode_feat, dispc);
+	dev_dbg(dispc->dev, "Feature list updated for shared mode\n");
+
+	return 0;
+}
+
 void dispc_vp_setup(struct dispc_device *dispc, u32 vp_idx,
 		    const struct drm_crtc_state *state, bool newmodeset)
 {
@@ -2855,6 +3054,16 @@ void dispc_vp_setup(struct dispc_device *dispc, u32 vp_idx,
 static bool dispc_is_idle(struct dispc_device *dispc)
 {
 	return REG_GET(dispc, DSS_SYSSTATUS, 9, 9);
+}
+
+static bool dispc_owns_global_common_in_shared_mode(struct dispc_device *dispc)
+{
+	if ((!strcmp(dispc->feat->common, "common") ||
+	     !strcmp(dispc->feat->common, "common_m")) &&
+	     dispc->tidss->shared_mode)
+		return true;
+	else
+		return false;
 }
 
 int dispc_runtime_suspend(struct dispc_device *dispc)
@@ -3124,6 +3333,7 @@ int dispc_init(struct tidss_device *tidss)
 	struct platform_device *pdev = to_platform_device(dev);
 	struct dispc_device *dispc;
 	const struct dispc_features *feat;
+	struct dispc_features *shared_mode_feat;
 	unsigned int i, num_fourccs;
 	int r = 0;
 
@@ -3162,6 +3372,21 @@ int dispc_init(struct tidss_device *tidss)
 	}
 
 	dispc->num_fourccs = num_fourccs;
+
+	if (tidss->shared_mode) {
+		dev_dbg(dev, "%s : DSS is being shared with remote core\n", __func__);
+		shared_mode_feat = devm_kzalloc(dev, sizeof(*shared_mode_feat), GFP_KERNEL);
+		if (!shared_mode_feat)
+			return -ENOMEM;
+
+		r = dispc_update_shared_mode_features(shared_mode_feat, dispc);
+		if (r)
+			return r;
+
+		tidss->feat = (const struct dispc_features *)shared_mode_feat;
+		feat = tidss->feat;
+		dispc->feat = feat;
+	}
 
 	dispc_common_regmap = dispc->feat->common_regs;
 
@@ -3209,25 +3434,36 @@ int dispc_init(struct tidss_device *tidss)
 	}
 
 	if (feat->has_oldi) {
-		r = dispc_init_am6xx_oldi_io_ctrl(dev, dispc);
-		if (r)
-			return r;
+		/*
+		 * For shared mode, Initialize the OLDI IO control only if we own
+		 * the OLDI Tx ports
+		 */
+		if (!tidss->shared_mode || tidss->shared_mode_own_oldi) {
+			r = dispc_init_am6xx_oldi_io_ctrl(dev, dispc);
+			if (r)
+				return r;
+		}
 	}
-
-	dispc->fclk = devm_clk_get(dev, "fck");
-	if (IS_ERR(dispc->fclk)) {
-		dev_err(dev, "%s: Failed to get fclk: %ld\n",
-			__func__, PTR_ERR(dispc->fclk));
-		return PTR_ERR(dispc->fclk);
-	}
-	dev_dbg(dev, "DSS fclk %lu Hz\n", clk_get_rate(dispc->fclk));
 
 	of_property_read_u32(dispc->dev->of_node, "max-memory-bandwidth",
 			     &dispc->memory_bandwidth_limit);
+	/*
+	 * For shared mode, Initialize the hardware and clocking only if processing core running
+	 * Linux has ownership of DSS global register space
+	 */
+	if (!tidss->shared_mode || dispc_owns_global_common_in_shared_mode(dispc)) {
+		dispc->fclk = devm_clk_get(dev, "fck");
+		if (IS_ERR(dispc->fclk)) {
+			dev_err(dev, "%s: Failed to get fclk: %ld\n",
+				__func__, PTR_ERR(dispc->fclk));
+			return PTR_ERR(dispc->fclk);
+		}
+		dev_dbg(dev, "DSS fclk %lu Hz\n", clk_get_rate(dispc->fclk));
 
-	r = dispc_init_hw(dispc);
-	if (r)
-		return r;
+		r = dispc_init_hw(dispc);
+		if (r)
+			return r;
+	}
 
 	tidss->dispc = dispc;
 

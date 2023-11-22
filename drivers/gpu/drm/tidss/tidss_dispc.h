@@ -97,7 +97,7 @@ struct dispc_features {
 	bool vid_lite[TIDSS_MAX_PLANES];
 	u32 vid_order[TIDSS_MAX_PLANES];
 	u32 num_outputs;
-	const enum dispc_output_type output_type[TIDSS_MAX_OUTPUTS];
+	enum dispc_output_type output_type[TIDSS_MAX_OUTPUTS];
 	u32 output_source_vp[TIDSS_MAX_OUTPUTS];
 };
 
