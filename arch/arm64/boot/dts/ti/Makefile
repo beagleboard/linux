@@ -129,6 +129,7 @@ dtb-$(CONFIG_ARCH_K3) += k3-am62x-sk-csi2-ov5640.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-am62x-sk-csi2-tevi-ov5640.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-am62x-sk-hdmi-audio.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-am62x-sk-mcan.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-am625-sk-main-gpio-wakeup.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-am62x-sk-mcu-gpio-wakeup.dtbo
 
 # FPDLink Sensors
