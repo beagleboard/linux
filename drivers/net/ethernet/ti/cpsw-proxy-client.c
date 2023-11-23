@@ -88,7 +88,7 @@ struct cpsw_virt_port {
 	u32				rx_flow_idx_base;
 	u32				rx_flow_idx_offset;
 	u16				vlan_id;
-	u8				ipv4_addr[8];
+	u8				ipv4_addr[ETHREMOTECFG_IPV4ADDRLEN];
 	u8				mcast_mac_addr[ETH_ALEN];
 	u8				mac_addr[ETH_ALEN];
 };
@@ -233,7 +233,7 @@ static int create_request(u32 token, u32 client_id, u32 req_type, struct cpsw_pr
 		ipv4_reg_req = (struct ipv4_register_request *)msg;
 		req_msg_hdr = &ipv4_reg_req->request_msg_hdr;
 
-		memcpy(&ipv4_reg_req->ipv4_addr, virt_port->ipv4_addr, 8);
+		memcpy(&ipv4_reg_req->ipv4_addr, virt_port->ipv4_addr, ETHREMOTECFG_IPV4ADDRLEN);
 		ether_addr_copy(ipv4_reg_req->mac_addr, virt_port->mac_addr);
 
 		break;
@@ -242,7 +242,7 @@ static int create_request(u32 token, u32 client_id, u32 req_type, struct cpsw_pr
 		ipv4_dereg_req = (struct ipv4_deregister_request *)msg;
 		req_msg_hdr = &ipv4_dereg_req->request_msg_hdr;
 
-		memcpy(&ipv4_dereg_req->ipv4_addr, virt_port->ipv4_addr, 8);
+		memcpy(&ipv4_dereg_req->ipv4_addr, virt_port->ipv4_addr, ETHREMOTECFG_IPV4ADDRLEN);
 
 		break;
 
@@ -1998,7 +1998,7 @@ static int cpsw_proxy_client_inetaddr_event(struct notifier_block *unused,
 
 	virt_port = cpsw_virt_port_ndev_to_virt_port(ndev);
 	common = virt_port->common;
-	memcpy(virt_port->ipv4_addr, &ifa->ifa_address, 8);
+	memcpy(virt_port->ipv4_addr, &ifa->ifa_address, ETHREMOTECFG_IPV4ADDRLEN);
 	switch (event) {
 	case NETDEV_UP:
 	case NETDEV_CHANGEADDR:
