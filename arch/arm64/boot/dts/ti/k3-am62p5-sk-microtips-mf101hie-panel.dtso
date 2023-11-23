@@ -73,7 +73,7 @@
 		compatible = "ilitek,ili251x";
 		reg = <0x41>;
 		interrupt-parent = <&exp1>;
-		interrupts = <22 IRQ_TYPE_EDGE_FALLING>;
+		interrupts = <0 IRQ_TYPE_EDGE_FALLING>;
 		reset-gpios = <&exp2 20 GPIO_ACTIVE_LOW>;
 	};
 };
