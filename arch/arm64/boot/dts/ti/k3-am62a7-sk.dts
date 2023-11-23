@@ -17,6 +17,8 @@
 	model = "Texas Instruments AM62A7 SK";
 
 	aliases {
+		serial0 = &mcu_uart0;
+		serial1 = &wkup_uart0;
 		serial2 = &main_uart0;
 		mmc0 = &sdhci0;
 		mmc1 = &sdhci1;
