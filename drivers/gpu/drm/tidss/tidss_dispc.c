@@ -465,6 +465,61 @@ const struct dispc_features dispc_am62p51_feats = {
 	.output_source_vp = { 0, 1, 0, },
 };
 
+const struct dispc_features dispc_am62p52_feats = {
+	.max_pclk_khz = {
+		[DISPC_OUTPUT_DPI] = 165000,
+		[DISPC_OUTPUT_OLDI] = 100000,
+		[DISPC_OUTPUT_INTERNAL] = 300000,
+	},
+
+	.scaling = {
+		.in_width_max_5tap_rgb = 1280,
+		.in_width_max_3tap_rgb = 2560,
+		.in_width_max_5tap_yuv = 2560,
+		.in_width_max_3tap_yuv = 4096,
+		.upscale_limit = 16,
+		.downscale_limit_5tap = 4,
+		.downscale_limit_3tap = 2,
+		/*
+		 * The max supported pixel inc value is 255. The value
+		 * of pixel inc is calculated like this: 1+(xinc-1)*bpp.
+		 * The maximum bpp of all formats supported by the HW
+		 * is 8. So the maximum supported xinc value is 32,
+		 * because 1+(32-1)*8 < 255 < 1+(33-1)*4.
+		 */
+		.xinc_max = 32,
+	},
+
+	.subrev = DISPC_AM62P52,
+
+	.has_oldi = true,
+
+	.common = "common",
+	.common_regs = tidss_am65x_common_regs,
+
+	.num_vps = 2,
+	.vp_name = { "vp1", "vp2" },
+	.ovr_name = { "ovr1", "ovr2" },
+	.vpclk_name =  { "vp1", "vp2" },
+
+	.vp_feat = { .color = {
+			.has_ctm = true,
+			.gamma_size = 256,
+			.gamma_type = TIDSS_GAMMA_8BIT,
+		},
+	},
+
+	.num_planes = 2,
+	/* note: vid is plane_id 0 and vidl1 is plane_id 1 */
+	.vid_name = { "vid", "vidl1" },
+	.vid_lite = { false, true, },
+	.vid_order = { 1, 0 },
+
+	.num_outputs = 2,
+	.output_type = { DISPC_OUTPUT_INTERNAL, DISPC_OUTPUT_INTERNAL, },
+	.output_source_vp = { 0, 1, },
+};
+
 static const u16 *dispc_common_regmap;
 
 struct dss_vp_data {
@@ -983,6 +1038,7 @@ dispc_irq_t dispc_read_and_clear_irqstatus(struct dispc_device *dispc)
 	case DISPC_AM625:
 	case DISPC_AM62A7:
 	case DISPC_AM62P51:
+	case DISPC_AM62P52:
 	case DISPC_AM65X:
 	case DISPC_J721E:
 		return dispc_k3_read_and_clear_irqstatus(dispc);
@@ -1001,6 +1057,7 @@ void dispc_set_irqenable(struct dispc_device *dispc, dispc_irq_t mask)
 	case DISPC_AM625:
 	case DISPC_AM62A7:
 	case DISPC_AM62P51:
+	case DISPC_AM62P52:
 	case DISPC_AM65X:
 	case DISPC_J721E:
 		dispc_k3_set_irqenable(dispc, mask);
@@ -1090,7 +1147,6 @@ static void dispc_oldi_tx_power(struct dispc_device *dispc, bool power)
 	 */
 	switch (dispc->feat->subrev) {
 	case DISPC_AM625:
-	case DISPC_AM62P51:
 		if (power) {
 			switch (dispc->oldi_mode) {
 			case OLDI_MODE_SINGLE_LINK:
@@ -1115,6 +1171,34 @@ static void dispc_oldi_tx_power(struct dispc_device *dispc, bool power)
 			/* Power down both OLDI TXes and LVDS Bandgap */
 			val = AM625_OLDI0_PWRDN_TX | AM625_OLDI1_PWRDN_TX |
 			      AM625_OLDI_PWRDN_BG;
+		}
+
+		regmap_update_bits(dispc->oldi_io_ctrl, AM625_OLDI_PD_CTRL,
+				   AM625_OLDI0_PWRDN_TX | AM625_OLDI1_PWRDN_TX |
+				   AM625_OLDI_PWRDN_BG, val);
+		break;
+
+	case DISPC_AM62P51:
+	case DISPC_AM62P52:
+		if (power) {
+			switch (dispc->oldi_mode) {
+			case OLDI_MODE_SINGLE_LINK:
+			case OLDI_MODE_CLONE_SINGLE_LINK:
+			case OLDI_MODE_DUAL_LINK:
+				/* No Power down because the other AM62P DSS could be using it. */
+				val = 0;
+				break;
+
+			default:
+				/* Power down both OLDI TXes and LVDS Bandgap */
+				val = AM625_OLDI0_PWRDN_TX | AM625_OLDI1_PWRDN_TX |
+				      AM625_OLDI_PWRDN_BG;
+				break;
+			}
+
+		} else {
+			/* No Power down because the other AM62P DSS could be using it. */
+			val = 0;
 		}
 
 		regmap_update_bits(dispc->oldi_io_ctrl, AM625_OLDI_PD_CTRL,
@@ -1532,7 +1616,8 @@ int dispc_vp_set_clk_rate(struct dispc_device *dispc, u32 vp_idx,
 	 */
 	if (dispc_get_output_type(dispc, vp_idx) == DISPC_OUTPUT_OLDI &&
 	    ((dispc->feat->subrev == DISPC_AM625) ||
-	     (dispc->feat->subrev == DISPC_AM62P51)))
+	     (dispc->feat->subrev == DISPC_AM62P51) ||
+	     (dispc->feat->subrev == DISPC_AM62P52)))
 		rate *= 7;
 
 	r = clk_set_rate(dispc->vp_clk[vp_idx], rate);
@@ -1600,6 +1685,7 @@ void dispc_ovr_set_plane(struct dispc_device *dispc, u32 hw_plane,
 	case DISPC_AM625:
 	case DISPC_AM62A7:
 	case DISPC_AM62P51:
+	case DISPC_AM62P52:
 	case DISPC_AM65X:
 		dispc_am65x_ovr_set_plane(dispc, hw_plane, vp_idx,
 					  x, y, layer);
@@ -2531,6 +2617,7 @@ static void dispc_plane_init(struct dispc_device *dispc)
 	case DISPC_AM625:
 	case DISPC_AM62A7:
 	case DISPC_AM62P51:
+	case DISPC_AM62P52:
 	case DISPC_AM65X:
 	case DISPC_J721E:
 		dispc_k3_plane_init(dispc);
@@ -2638,6 +2725,7 @@ static void dispc_vp_write_gamma_table(struct dispc_device *dispc, u32 vp_idx)
 	case DISPC_AM625:
 	case DISPC_AM62A7:
 	case DISPC_AM62P51:
+	case DISPC_AM62P52:
 	case DISPC_AM65X:
 		dispc_am65x_vp_write_gamma_table(dispc, vp_idx);
 		break;
@@ -3205,7 +3293,8 @@ static int dispc_softreset(struct dispc_device *dispc)
 	for (u32 vp_idx = 0; vp_idx < dispc->feat->num_vps; vp_idx++) {
 		if (dispc_get_output_type(dispc, vp_idx) == DISPC_OUTPUT_OLDI &&
 		    ((dispc->feat->subrev == DISPC_AM625) ||
-		     (dispc->feat->subrev == DISPC_AM62P51))) {
+		     (dispc->feat->subrev == DISPC_AM62P51) ||
+		     (dispc->feat->subrev == DISPC_AM62P52))) {
 			ret = clk_set_rate(dispc->vp_clk[vp_idx],
 					   TIDSS_AM625_IDLE_OLDI_CLOCK);
 			if (ret) {
