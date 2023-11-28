@@ -31,6 +31,14 @@
 	};
 };
 
+&mcu_gpio0 {
+	status = "okay";
+};
+
+&mcu_gpio_intr {
+	status = "okay";
+};
+
 &mcu_pmx0 {
 	wake_mcugpio1_pins_default: wake-mcugpio1-pins-default {
 		pinctrl-single,pins = <
