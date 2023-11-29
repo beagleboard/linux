@@ -1894,10 +1894,9 @@ static int m_can_set_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
 	else
 		new_pinctrl_state = cdev->pinctrl_state_default;
 
-	if (!IS_ERR_OR_NULL(new_pinctrl_state)) {
+	if (!IS_ERR_OR_NULL(new_pinctrl_state))
 		pinctrl_select_state(cdev->pinctrl, new_pinctrl_state);
-		dev_err(cdev->dev, "enabling wakeup state");
-	}
+
 	device_set_wakeup_enable(cdev->dev, wol_enable);
 
 	return 0;
