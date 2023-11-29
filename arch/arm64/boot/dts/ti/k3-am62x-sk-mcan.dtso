@@ -40,39 +40,17 @@
 };
 
 &mcu_pmx0 {
-	mcu_mcan0_tx_pins_default: mcu-mcan0-tx-pins-default {
+	mcu_mcan0_pins_default: mcu-mcan0-pins-default {
 		pinctrl-single,pins = <
+			AM62X_MCU_IOPAD(0x0038, PIN_INPUT, 0) /* (B3) MCU_MCAN0_RX */
 			AM62X_MCU_IOPAD(0x0034, PIN_OUTPUT, 0) /* (D6) MCU_MCAN0_TX */
 		>;
 	};
 
-	mcu_mcan0_rx_pins_default: mcu-mcan0-rx-pins-default {
-		pinctrl-single,pins = <
-			AM62X_MCU_IOPAD(0x0038, PIN_INPUT, 0) /* (B3) MCU_MCAN0_RX */
-		>;
-	};
-
-	mcu_mcan0_rx_pins_wakeup: mcu-mcan0-rx-pins-wakeup {
-		pinctrl-single,pins = <
-			AM62X_MCU_IOPAD(0x0038, PIN_INPUT | WKUP_EN, 0) /* (B3) MCU_MCAN0_RX */
-		>;
-	};
-
-	mcu_mcan1_tx_pins_default: mcu-mcan1-tx-pins-default {
-		pinctrl-single,pins = <
-			AM62X_MCU_IOPAD(0x003c, PIN_OUTPUT, 0) /* (E5) MCU_MCAN1_TX */
-		>;
-	};
-
-	mcu_mcan1_rx_pins_default: mcu-mcan1-rx-pins-default {
+	mcu_mcan1_pins_default: mcu-mcan1-pins-default {
 		pinctrl-single,pins = <
 			AM62X_MCU_IOPAD(0x0040, PIN_INPUT, 0) /* (D4) MCU_MCAN1_RX */
-		>;
-	};
-
-	mcu_mcan1_rx_pins_wakeup: mcu-mcan1-rx-pins-wakeup {
-		pinctrl-single,pins = <
-			AM62X_MCU_IOPAD(0x0040, PIN_INPUT | WKUP_EN, 0) /* (D4) MCU_MCAN1_RX */
+			AM62X_MCU_IOPAD(0x003c, PIN_OUTPUT, 0) /* (E5) MCU_MCAN1_TX */
 		>;
 	};
 };
@@ -85,17 +63,15 @@
 };
 
 &mcu_mcan0 {
-	pinctrl-names = "default", "wakeup";
-	pinctrl-0 = <&mcu_mcan0_tx_pins_default>, <&mcu_mcan0_rx_pins_default>;
-	pinctrl-1 = <&mcu_mcan0_tx_pins_default>, <&mcu_mcan0_rx_pins_wakeup>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&mcu_mcan0_pins_default>;
 	phys = <&transceiver2>;
 	status = "okay";
 };
 
 &mcu_mcan1 {
-	pinctrl-names = "default", "wakeup";
-	pinctrl-0 = <&mcu_mcan1_tx_pins_default>, <&mcu_mcan1_rx_pins_default>;
-	pinctrl-1 = <&mcu_mcan1_tx_pins_default>, <&mcu_mcan1_rx_pins_wakeup>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&mcu_mcan1_pins_default>;
 	phys = <&transceiver3>;
 	status = "okay";
 };
