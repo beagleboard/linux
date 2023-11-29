@@ -642,7 +642,7 @@
 			assigned-clock-parents = <&k3_clks 293 13>;
 		};
 
-		wiz1_cmn_refclk_dig_div: cmn-refclk-dig-div{
+		wiz1_cmn_refclk_dig_div: cmn-refclk-dig-div {
 			clocks = <&wiz1_refclk_dig>;
 			#clock-cells = <0>;
 		};
@@ -1572,11 +1572,11 @@
 			"vp1", "vp2", "vp3", "vp4",
 			"wb";
 
-		clocks =	<&k3_clks 152 0>,
-				<&k3_clks 152 1>,
-				<&k3_clks 152 4>,
-				<&k3_clks 152 9>,
-				<&k3_clks 152 13>;
+		clocks = <&k3_clks 152 0>,
+			 <&k3_clks 152 1>,
+			 <&k3_clks 152 4>,
+			 <&k3_clks 152 9>,
+			 <&k3_clks 152 13>;
 		clock-names = "fck", "vp1", "vp2", "vp3", "vp4";
 
 		power-domains = <&k3_pds 152 TI_SCI_PD_EXCLUSIVE>;
