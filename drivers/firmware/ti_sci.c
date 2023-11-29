@@ -132,7 +132,6 @@ struct ti_sci_info {
 
 	int nr_wakeup_sources;
 	struct device_node **wakeup_source_nodes;
-	struct sys_off_handler *sys_off_handler;
 };
 
 #define cl_to_ti_sci_info(c)	container_of(c, struct ti_sci_info, cl)
@@ -409,6 +408,28 @@ static void ti_sci_put_one_xfer(struct ti_sci_xfers_info *minfo,
 
 	/* Increment the count for the next user to get through */
 	up(&minfo->sem_xfer_count);
+}
+
+/**
+ * ti_sci_do_send() - Do one send, do not expect a response
+ * @info:	Pointer to SCI entity information
+ * @xfer:	Transfer to initiate
+ *
+ * Return: If send error, return corresponding error, else
+ *	   if all goes well, return 0.
+ */
+static inline int ti_sci_do_send(struct ti_sci_info *info,
+				 struct ti_sci_xfer *xfer)
+{
+	int ret;
+
+	ret = mbox_send_message(info->chan_tx, &xfer->tx_message);
+	if (ret < 0)
+		return ret;
+
+	mbox_client_txdone(info->chan_tx, ret);
+
+	return 0;
 }
 
 /**
@@ -3612,14 +3633,38 @@ static const struct dev_pm_ops ti_sci_pm_ops = {
 /* Does not return if successful */
 static int tisci_enter_partial_io(struct ti_sci_info *info)
 {
-	u8 mode = 3;
+	struct ti_sci_msg_req_prepare_sleep *req;
+	struct ti_sci_xfer *xfer;
+	struct device *dev = info->dev;
+	u32 ctx_lo = (u32)(info->ctx_mem_addr & 0xffffffff);
+	u32 ctx_hi = (u32)((u64)info->ctx_mem_addr >> 32);
+	int ret = 0;
 
-	dev_dbg(info->dev, "Entering partial-IO mode\n");
+	xfer = ti_sci_get_one_xfer(info, TI_SCI_MSG_PREPARE_SLEEP,
+				   TI_SCI_FLAG_REQ_ACK_ON_PROCESSED,
+				   sizeof(*req), sizeof(struct ti_sci_msg_hdr));
+	if (IS_ERR(xfer)) {
+		ret = PTR_ERR(xfer);
+		dev_err(dev, "Message alloc failed(%d)\n", ret);
+		return ret;
+	}
 
-	return ti_sci_cmd_prepare_sleep(&info->handle, mode,
-					(u32)(info->ctx_mem_addr & 0xffffffff),
-					(u32)((u64)info->ctx_mem_addr >> 32),
-					0);
+	req = (struct ti_sci_msg_req_prepare_sleep *)xfer->xfer_buf;
+	req->mode = TISCI_MSG_VALUE_SLEEP_MODE_PARTIAL_IO;
+	req->ctx_lo = ctx_lo;
+	req->ctx_hi = ctx_hi;
+	req->debug_flags = 0;
+
+	ret = ti_sci_do_send(info, xfer);
+	if (ret) {
+		dev_err(dev, "Mbox send fail %d\n", ret);
+		goto fail;
+	}
+
+fail:
+	ti_sci_put_one_xfer(&info->minfo, xfer);
+
+	return ret;
 }
 
 static int tisci_sys_off_handler(struct sys_off_data *data)
@@ -3647,14 +3692,14 @@ static int tisci_sys_off_handler(struct sys_off_data *data)
 		return NOTIFY_DONE;
 
 	ret = tisci_enter_partial_io(info);
-	if (ret) {
-		dev_err(info->dev,
-			"Failed to enter Partial-IO %pe, continuing with normal poweroff\n",
-			ERR_PTR(ret));
-		return NOTIFY_DONE;
-	}
 
-	/* tisci_enter_partial_io does not return, this code is not executed */
+	if (ret)
+		dev_err(info->dev,
+			"Failed to enter Partial-IO %pe, halting system\n",
+			ERR_PTR(ret));
+
+	machine_halt();
+
 	return NOTIFY_DONE;
 }
 
