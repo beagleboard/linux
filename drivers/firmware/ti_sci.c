@@ -3698,7 +3698,9 @@ static int tisci_sys_off_handler(struct sys_off_data *data)
 			"Failed to enter Partial-IO %pe, halting system\n",
 			ERR_PTR(ret));
 
-	machine_halt();
+	/* Halt system/code execution */
+	while (1)
+		;
 
 	return NOTIFY_DONE;
 }
