@@ -82,7 +82,7 @@
 				clocks = <&clk_imx219_fixed>;
 				clock-names = "xclk";
 
-				reset-gpios = <&exp3 3 GPIO_ACTIVE_HIGH>;
+				reset-gpios = <&exp3 4 GPIO_ACTIVE_HIGH>;
 
 				port {
 					csi2_cam1: endpoint {
