@@ -69,6 +69,8 @@
 #define EDT_RAW_DATA_RETRIES		100
 #define EDT_RAW_DATA_DELAY		1000 /* usec */
 
+#define POLL_INTERVAL_MS		17	/* 17ms = 60fps */
+
 enum edt_pmode {
 	EDT_PMODE_NOT_SUPPORTED,
 	EDT_PMODE_HIBERNATE,
@@ -121,11 +123,15 @@ struct edt_ft5x06_ts_data {
 	int offset_y;
 	int report_rate;
 	int max_support_points;
+	unsigned int known_ids;
 
 	char name[EDT_NAME_LEN];
 
 	struct edt_reg_addr reg_addr;
 	enum edt_ver version;
+
+	struct timer_list timer;
+	struct work_struct work_i2c_poll;
 };
 
 struct edt_i2c_chip_data {
@@ -192,6 +198,10 @@ static irqreturn_t edt_ft5x06_ts_isr(int irq, void *dev_id)
 	int i, type, x, y, id;
 	int offset, tplen, datalen, crclen;
 	int error;
+	unsigned int active_ids = 0, known_ids = tsdata->known_ids;
+	long released_ids;
+	int b = 0;
+	unsigned int num_points;
 
 	switch (tsdata->version) {
 	case EDT_M06:
@@ -239,9 +249,15 @@ static irqreturn_t edt_ft5x06_ts_isr(int irq, void *dev_id)
 
 		if (!edt_ft5x06_ts_check_crc(tsdata, rdbuf, datalen))
 			goto out;
+		num_points = tsdata->max_support_points;
+	} else {
+		/* Register 2 is TD_STATUS, containing the number of touch
+		 * points.
+		 */
+		num_points = min(rdbuf[2] & 0xf, tsdata->max_support_points);
 	}
 
-	for (i = 0; i < tsdata->max_support_points; i++) {
+	for (i = 0; i < num_points; i++) {
 		u8 *buf = &rdbuf[i * tplen + offset];
 
 		type = buf[0] >> 6;
@@ -263,16 +279,47 @@ static irqreturn_t edt_ft5x06_ts_isr(int irq, void *dev_id)
 
 		input_mt_slot(tsdata->input, id);
 		if (input_mt_report_slot_state(tsdata->input, MT_TOOL_FINGER,
-					       type != TOUCH_EVENT_UP))
+					       type != TOUCH_EVENT_UP)) {
 			touchscreen_report_pos(tsdata->input, &tsdata->prop,
 					       x, y, true);
+			active_ids |= BIT(id);
+		} else {
+			known_ids &= ~BIT(id);
+		}
 	}
+
+	/* One issue with the device is the TOUCH_UP message is not always
+	 * returned. Instead track which ids we know about and report when they
+	 * are no longer updated
+	 */
+	released_ids = known_ids & ~active_ids;
+	for_each_set_bit_from(b, &released_ids, tsdata->max_support_points) {
+		input_mt_slot(tsdata->input, b);
+		input_mt_report_slot_inactive(tsdata->input);
+	}
+	tsdata->known_ids = active_ids;
 
 	input_mt_report_pointer_emulation(tsdata->input, true);
 	input_sync(tsdata->input);
 
 out:
 	return IRQ_HANDLED;
+}
+
+static void edt_ft5x06_ts_irq_poll_timer(struct timer_list *t)
+{
+	struct edt_ft5x06_ts_data *tsdata = from_timer(tsdata, t, timer);
+
+	schedule_work(&tsdata->work_i2c_poll);
+	mod_timer(&tsdata->timer, jiffies + msecs_to_jiffies(POLL_INTERVAL_MS));
+}
+
+static void edt_ft5x06_ts_work_i2c_poll(struct work_struct *work)
+{
+	struct edt_ft5x06_ts_data *tsdata = container_of(work,
+			struct edt_ft5x06_ts_data, work_i2c_poll);
+
+	edt_ft5x06_ts_isr(0, tsdata);
 }
 
 static int edt_ft5x06_register_write(struct edt_ft5x06_ts_data *tsdata,
@@ -1221,17 +1268,27 @@ static int edt_ft5x06_ts_probe(struct i2c_client *client,
 
 	i2c_set_clientdata(client, tsdata);
 
-	irq_flags = irq_get_trigger_type(client->irq);
-	if (irq_flags == IRQF_TRIGGER_NONE)
-		irq_flags = IRQF_TRIGGER_FALLING;
-	irq_flags |= IRQF_ONESHOT;
+	if (client->irq) {
+		irq_flags = irq_get_trigger_type(client->irq);
+		if (irq_flags == IRQF_TRIGGER_NONE)
+			irq_flags = IRQF_TRIGGER_FALLING;
+		irq_flags |= IRQF_ONESHOT;
 
-	error = devm_request_threaded_irq(&client->dev, client->irq,
-					NULL, edt_ft5x06_ts_isr, irq_flags,
-					client->name, tsdata);
-	if (error) {
-		dev_err(&client->dev, "Unable to request touchscreen IRQ.\n");
-		return error;
+		error = devm_request_threaded_irq(&client->dev, client->irq,
+						  NULL, edt_ft5x06_ts_isr,
+						  irq_flags, client->name,
+						  tsdata);
+		if (error) {
+			dev_err(&client->dev, "Unable to request touchscreen IRQ.\n");
+			return error;
+		}
+	} else {
+		INIT_WORK(&tsdata->work_i2c_poll,
+			  edt_ft5x06_ts_work_i2c_poll);
+		timer_setup(&tsdata->timer, edt_ft5x06_ts_irq_poll_timer, 0);
+		tsdata->timer.expires = jiffies +
+					msecs_to_jiffies(POLL_INTERVAL_MS);
+		add_timer(&tsdata->timer);
 	}
 
 	error = devm_device_add_group(&client->dev, &edt_ft5x06_attr_group);
@@ -1257,6 +1314,10 @@ static int edt_ft5x06_ts_remove(struct i2c_client *client)
 {
 	struct edt_ft5x06_ts_data *tsdata = i2c_get_clientdata(client);
 
+	if (!client->irq) {
+		del_timer(&tsdata->timer);
+		cancel_work_sync(&tsdata->work_i2c_poll);
+	}
 	edt_ft5x06_ts_teardown_debugfs(tsdata);
 
 	return 0;
