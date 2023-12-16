@@ -2,7 +2,7 @@ image: robertcnelson/beagle-devscripts-kernel-debian-12-amd64
 # https://git.beagleboard.org/beagleboard/ci-docker-images
 
 before_script:
-  - apt-get update -q && apt-get install -y -q cache gcc
+  - apt-get update -q && apt-get install -y -q ccache gcc
 
 cache:
   key: "$CI_PROJECT_NAME-ti-linux-5.10.y"
