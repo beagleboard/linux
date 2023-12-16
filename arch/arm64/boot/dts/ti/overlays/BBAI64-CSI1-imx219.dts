@@ -1,0 +1,98 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * DT Overlay for RPi Camera V2.1 (Sony IMX219) interfaced with CSI1 on BBAI64 board.
+ *
+ * Copyright (C) 2022 Robert Nelson, BeagleBoard.org Foundation
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/pinctrl/k3.h>
+
+/* CSI0 */
+/* W29_CSI0_GPIO1 */
+/* W27_CSI0_GPIO2 */
+/* Y26_I2C5_SCL */
+/* AA27_I2C5_SDA */
+
+/* CSI1 */
+/* V25_CSI1_GPIO1 */
+/* W24_CSI1_GPIO2 */
+/* Y6_I2C1_SCL */
+/* AA6_I2C1_SDA */
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+ */
+&{/chosen} {
+	overlays {
+		BBAI64-CSI1-imx219.kernel = __TIMESTAMP__;
+	};
+};
+
+/ {
+	fragment@101 {
+		target-path = "/";
+
+		__overlay__ {
+			clk_csi1_imx219_fixed: csi1-imx219-xclk {
+				compatible = "fixed-clock";
+				#clock-cells = <0>;
+				clock-frequency = <24000000>;
+			};
+		};
+	};
+};
+
+&main_pmx0 {
+	csi1_gpio_pins_default: csi1-gpio-pins-default {
+		pinctrl-single,pins = <
+			//J721E_IOPAD(0x198, PIN_OUTPUT, 7) /* (V25) RGMII6_TD1.GPIO0_101 */
+			J721E_IOPAD(0x1b0, PIN_OUTPUT, 7) /* (W24) RGMII6_RD1.GPIO0_107 */
+		>;
+	};
+};
+
+&main_i2c1 {
+	clock-frequency = <400000>;
+	status = "okay";
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	csi1_imx219: csi1_sensor@10 {
+		status = "okay";
+		compatible = "sony,imx219";
+		reg = <0x10>;
+
+		clocks = <&clk_csi1_imx219_fixed>;
+		clock-names = "xclk";
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&csi1_gpio_pins_default>;
+		//reset-gpios = <&main_gpio0 101 GPIO_ACTIVE_HIGH>;
+		reset-gpios = <&main_gpio0 107 GPIO_ACTIVE_HIGH>;
+
+		port {
+			csi2rx1_cam0: endpoint {
+				remote-endpoint = <&csi2rx1_in_sensor>;
+				link-frequencies = /bits/ 64 <456000000>;
+				clock-lanes = <0>;
+				data-lanes = <1 2>;
+			};
+		};
+	};
+};
+
+&csi1_port0 {
+	status = "okay";
+	csi2rx1_in_sensor: endpoint {
+		remote-endpoint = <&csi2rx1_cam0>;
+		bus-type = <4>; /* CSI2 DPHY. */
+		clock-lanes = <0>;
+		data-lanes = <1 2>;
+	};
+};
