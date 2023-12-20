@@ -289,7 +289,7 @@ static int tidss_probe(struct platform_device *pdev)
 	}
 
 	/* Remove possible early fb before setting up the fbdev */
-	ret = drm_aperture_remove_framebuffers(false, &tidss_driver);
+	ret = drm_aperture_remove_framebuffers(&tidss_driver);
 	if (ret)
 		goto err_drm_dev_unreg;
 
