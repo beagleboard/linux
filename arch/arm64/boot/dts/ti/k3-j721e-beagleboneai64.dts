@@ -31,6 +31,8 @@
 
 	chosen {
 		stdout-path = "serial2:115200n8";
+		base_dtb = "k3-j721e-beagleboneai64.dts";
+		base_dtb_timestamp = __TIMESTAMP__;
 	};
 
 	memory@80000000 {
@@ -189,30 +191,35 @@
 		pinctrl-0 = <&led_pins_default>;
 
 		led-0 {
+			label = "beaglebone:green:usr0";
 			gpios = <&main_gpio0 96 GPIO_ACTIVE_HIGH>;
 			function = LED_FUNCTION_HEARTBEAT;
 			linux,default-trigger = "heartbeat";
 		};
 
 		led-1 {
+			label = "beaglebone:green:usr1";
 			gpios = <&main_gpio0 95 GPIO_ACTIVE_HIGH>;
 			function = LED_FUNCTION_DISK_ACTIVITY;
 			linux,default-trigger = "mmc0";
 		};
 
 		led-2 {
+			label = "beaglebone:green:usr2";
 			gpios = <&main_gpio0 97 GPIO_ACTIVE_HIGH>;
 			function = LED_FUNCTION_CPU;
 			linux,default-trigger = "cpu";
 		};
 
 		led-3 {
+			label = "beaglebone:green:usr3";
 			gpios = <&main_gpio0 110 GPIO_ACTIVE_HIGH>;
 			function = LED_FUNCTION_DISK_ACTIVITY;
 			linux,default-trigger = "mmc1";
 		};
 
 		led-4 {
+			label = "beaglebone:green:usr4";
 			gpios = <&main_gpio0 109 GPIO_ACTIVE_HIGH>;
 			function = LED_FUNCTION_WLAN;
 			default-state = "off";
@@ -531,6 +538,13 @@
 		>;
 	};
 
+	wkup_uart0_pins_default: wkup-uart0-default-pins {
+		pinctrl-single,pins = <
+			J721E_WKUP_IOPAD(0xa0, PIN_INPUT, 0) /* (J29) WKUP_UART0_RXD */
+			J721E_WKUP_IOPAD(0xa4, PIN_OUTPUT, 0) /* (J28) WKUP_UART0_TXD */
+		>;
+	};
+
 	mcu_usbss1_pins_default: mcu-usbss1-pins-default {
 		pinctrl-single,pins = <
 			J721E_WKUP_IOPAD(0x3c, PIN_OUTPUT_PULLUP, 5) /* (A23) MCU_OSPI1_LBCLKO.WKUP_GPIO0_30 */
@@ -541,6 +555,8 @@
 &wkup_uart0 {
 	/* Wakeup UART is used by TIFS firmware. */
 	status = "reserved";
+	pinctrl-names = "default";
+	pinctrl-0 = <&wkup_uart0_pins_default>;
 };
 
 &main_uart0 {
@@ -553,6 +569,7 @@
 
 &main_sdhci0 {
 	/* eMMC */
+	status = "okay";
 	non-removable;
 	ti,driver-strength-ohm = <50>;
 	disable-wp;
@@ -560,6 +577,7 @@
 
 &main_sdhci1 {
 	/* SD Card */
+	status = "okay";
 	vmmc-supply = <&vdd_mmc1>;
 	vqmmc-supply = <&vdd_sd_dv_alt>;
 	pinctrl-names = "default";
@@ -681,6 +699,7 @@
 };
 
 &wkup_gpio0 {
+	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&mcu_adc0_pins_default>, <&mcu_adc1_pins_default>,
 		    <&mikro_bus_pins_default>;
@@ -692,6 +711,7 @@
 };
 
 &main_gpio0 {
+	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&csi1_gpio_pins_default>, <&csi0_gpio_pins_default>;
 };
@@ -779,6 +799,7 @@
 };
 
 &tscadc0 {
+	status = "okay";
 	/* BBB Header: P9.39, P9.40, P9.37, P9.38, P9.33, P9.36, P9.35 */
 	adc {
 		ti,adc-channels = <0 1 2 3 4 5 6>;
@@ -786,6 +807,7 @@
 };
 
 &tscadc1 {
+	status = "okay";
 	/* MCU mikroBUS Header J10.1 - MCU_ADC1_AIN0 */
 	adc {
 		ti,adc-channels = <0>;
@@ -1007,18 +1029,21 @@
 };
 
 &c66_0 {
+	status = "okay";
 	mboxes = <&mailbox0_cluster3>, <&mbox_c66_0>;
 	memory-region = <&c66_0_dma_memory_region>,
 			<&c66_0_memory_region>;
 };
 
 &c66_1 {
+	status = "okay";
 	mboxes = <&mailbox0_cluster3>, <&mbox_c66_1>;
 	memory-region = <&c66_1_dma_memory_region>,
 			<&c66_1_memory_region>;
 };
 
 &c71_0 {
+	status = "okay";
 	mboxes = <&mailbox0_cluster4>, <&mbox_c71_0>;
 	memory-region = <&c71_0_dma_memory_region>,
 			<&c71_0_memory_region>;

@@ -14,7 +14,7 @@
 #include "k3-am625.dtsi"
 
 / {
-	compatible =  "beagle,am625-beagleplay", "ti,am625";
+	compatible = "beagle,am625-beagleplay", "ti,am625";
 	model = "BeagleBoard.org BeaglePlay";
 
 	aliases {
@@ -30,6 +30,7 @@
 		i2c4 = &wkup_i2c0;
 		i2c5 = &mcu_i2c0;
 		mdio-gpio0 = &mdio0;
+		mikrobus0 = &mikrobus0;
 		mmc0 = &sdhci0;
 		mmc1 = &sdhci1;
 		mmc2 = &sdhci2;
@@ -44,9 +45,12 @@
 
 	chosen {
 		stdout-path = "serial2:115200n8";
+		base_dtb = "k3-am625-beagleplay.dts";
+		base_dtb_timestamp = __TIMESTAMP__;
 	};
 
 	memory@80000000 {
+		bootph-pre-ram;
 		device_type = "memory";
 		/* 2G RAM */
 		reg = <0x00000000 0x80000000 0x00000000 0x80000000>;
@@ -104,6 +108,7 @@
 	};
 
 	vsys_5v0: regulator-1 {
+		bootph-all;
 		compatible = "regulator-fixed";
 		regulator-name = "vsys_5v0";
 		regulator-min-microvolt = <5000000>;
@@ -114,6 +119,7 @@
 
 	vdd_3v3: regulator-2 {
 		/* output of TLV62595DMQR-U12 */
+		bootph-all;
 		compatible = "regulator-fixed";
 		regulator-name = "vdd_3v3";
 		regulator-min-microvolt = <3300000>;
@@ -130,7 +136,8 @@
 		regulator-min-microvolt = <1800000>;
 		regulator-max-microvolt = <1800000>;
 		enable-active-high;
-		regulator-always-on;
+		/* regulator-always-on; */
+		regulator-off-in-suspend;
 		vin-supply = <&vdd_3v3>;
 		gpio = <&main_gpio0 38 GPIO_ACTIVE_HIGH>;
 		pinctrl-names = "default";
@@ -139,6 +146,7 @@
 
 	vdd_3v3_sd: regulator-4 {
 		/* output of TPS22918DBVR-U21 */
+		bootph-all;
 		pinctrl-names = "default";
 		pinctrl-0 = <&vdd_3v3_sd_pins_default>;
 
@@ -153,6 +161,7 @@
 	};
 
 	vdd_sd_dv: regulator-5 {
+		bootph-all;
 		compatible = "regulator-gpio";
 		regulator-name = "sd_hs200_switch";
 		pinctrl-names = "default";
@@ -167,9 +176,12 @@
 	};
 
 	leds {
+		bootph-all;
 		compatible = "gpio-leds";
 
 		led-0 {
+			bootph-all;
+			label = "beaglebone:green:usr0";
 			gpios = <&main_gpio0 3 GPIO_ACTIVE_HIGH>;
 			linux,default-trigger = "heartbeat";
 			function = LED_FUNCTION_HEARTBEAT;
@@ -177,24 +189,35 @@
 		};
 
 		led-1 {
+			bootph-all;
+			label = "beaglebone:green:usr1";
 			gpios = <&main_gpio0 4 GPIO_ACTIVE_HIGH>;
-			linux,default-trigger = "disk-activity";
+			linux,default-trigger = "mmc0";
 			function = LED_FUNCTION_DISK_ACTIVITY;
 			default-state = "keep";
 		};
 
 		led-2 {
+			bootph-all;
+			label = "beaglebone:green:usr2";
 			gpios = <&main_gpio0 5 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "cpu";
 			function = LED_FUNCTION_CPU;
 		};
 
 		led-3 {
+			bootph-all;
+			label = "beaglebone:green:usr3";
 			gpios = <&main_gpio0 6 GPIO_ACTIVE_HIGH>;
-			function = LED_FUNCTION_LAN;
+			linux,default-trigger = "mmc1";
+			function = LED_FUNCTION_DISK_ACTIVITY;
 		};
 
 		led-4 {
+			bootph-all;
+			label = "beaglebone:green:usr4";
 			gpios = <&main_gpio0 9 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "phy0tx";
 			function = LED_FUNCTION_WLAN;
 		};
 	};
@@ -264,6 +287,33 @@
 			reset-deassert-us = <60000>; /* T2 */
 		};
 	};
+
+	mikrobus0: linux-mikrobus {
+		symlink = "play/mikrobus";
+		compatible = "linux,mikrobus";
+		pinctrl-names = "default", "pwm_default", "pwm_gpio",
+				"uart_default", "uart_gpio", "i2c_default",
+				"i2c_gpio", "spi_default", "spi_gpio";
+		pinctrl-0 = <&mikrobus_gpio_pins_default>;
+		pinctrl-1 = <&mikrobus_pwm_pins_default>;
+		pinctrl-2 = <&mikrobus_pwm_pins_gpio>;
+		pinctrl-3 = <&mikrobus_uart_pins_default>;
+		pinctrl-4 = <&mikrobus_uart_pins_gpio>;
+		pinctrl-5 = <&mikrobus_i2c_pins_default>;
+		pinctrl-6 = <&mikrobus_i2c_pins_gpio>;
+		pinctrl-7 = <&mikrobus_spi_pins_default>;
+		pinctrl-8 = <&mikrobus_spi_pins_gpio>;
+		i2c-adapter = <&main_i2c3>;
+		spi-master = <1>;
+		spi-cs = <0 1>;
+		uart = <&main_uart5>;
+		mikrobus-gpios = <&main_gpio1 11 GPIO_ACTIVE_HIGH>, <&main_gpio1 9 GPIO_ACTIVE_HIGH>,
+		<&main_gpio1 24 GPIO_ACTIVE_HIGH>, <&main_gpio1 25 GPIO_ACTIVE_HIGH>,
+		<&main_gpio1 22 GPIO_ACTIVE_HIGH>, <&main_gpio1 23 GPIO_ACTIVE_HIGH>,
+		<&main_gpio1 7 GPIO_ACTIVE_HIGH>, <&main_gpio1 8 GPIO_ACTIVE_HIGH>,
+		<&main_gpio1 14 GPIO_ACTIVE_HIGH>, <&main_gpio1 13 GPIO_ACTIVE_HIGH>,
+		<&main_gpio1 12 GPIO_ACTIVE_HIGH>, <&main_gpio1 10 GPIO_ACTIVE_HIGH>;
+	};
 };
 
 &main_pmx0 {
@@ -327,6 +377,7 @@
 	};
 
 	vdd_sd_dv_pins_default: vdd-sd-pins-default {
+		bootph-all;
 		pinctrl-single,pins = <
 			AM62X_IOPAD(0x0244, PIN_OUTPUT, 7) /* (C17) MMC1_SDWP.GPIO1_49 */
 		>;
@@ -346,6 +397,7 @@
 	};
 
 	local_i2c_pins_default: local-i2c-pins-default {
+		bootph-all;
 		pinctrl-single,pins = <
 			AM62X_IOPAD(0x01e0, PIN_INPUT_PULLUP, 0) /* (B16) I2C0_SCL */
 			AM62X_IOPAD(0x01e4, PIN_INPUT_PULLUP, 0) /* (A16) I2C0_SDA */
@@ -395,6 +447,7 @@
 	};
 
 	emmc_pins_default: emmc-pins-default {
+		bootph-all;
 		pinctrl-single,pins = <
 			AM62X_IOPAD(0x0220, PIN_INPUT, 0) /* (Y3) MMC0_CMD */
 			AM62X_IOPAD(0x0218, PIN_INPUT, 0) /* (AB1) MMC0_CLK */
@@ -416,6 +469,7 @@
 	};
 
 	sd_pins_default: sd-pins-default {
+		bootph-all;
 		pinctrl-single,pins = <
 			AM62X_IOPAD(0x023c, PIN_INPUT, 0) /* (A21) MMC1_CMD */
 			AM62X_IOPAD(0x0234, PIN_INPUT, 0) /* (B22) MMC1_CLK */
@@ -500,10 +554,24 @@
 		>;
 	};
 
+	mikrobus_i2c_pins_gpio: mikrobus-i2c-pins-gpio {
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x01d0, PIN_INPUT, 7) /* (A15) UART0_CTSn.GPIO1_22 */
+			AM62X_IOPAD(0x01d4, PIN_INPUT, 7) /* (B15) UART0_RTSn.GPIO1_23 */
+		>;
+	};
+
 	mikrobus_uart_pins_default: mikrobus-uart-pins-default {
 		pinctrl-single,pins = <
 			AM62X_IOPAD(0x01d8, PIN_INPUT, 1) /* (C15) MCAN0_TX.UART5_RXD */
 			AM62X_IOPAD(0x01dc, PIN_OUTPUT, 1) /* (E15) MCAN0_RX.UART5_TXD */
+		>;
+	};
+
+	mikrobus_uart_pins_gpio: mikrobus-uart-pins-gpio {
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x01d8, PIN_INPUT, 7) /* (C15) MCAN0_TX.GPIO1_24 */
+			AM62X_IOPAD(0x01dc, PIN_INPUT, 7) /* (E15) MCAN0_RX.GPIO1_25 */
 		>;
 	};
 
@@ -516,11 +584,41 @@
 		>;
 	};
 
+	mikrobus_spi_pins_gpio: mikrobus-spi-pins-gpio {
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x0194, PIN_INPUT, 7) /* (B19) MCASP0_AXR3.GPIO1_7 */
+			AM62X_IOPAD(0x0198, PIN_INPUT, 7) /* (A19) MCASP0_AXR2.GPIO1_8 */
+			AM62X_IOPAD(0x01ac, PIN_INPUT, 7) /* (E19) MCASP0_AFSR.GPIO1_13 */
+			AM62X_IOPAD(0x01b0, PIN_INPUT, 7) /* (A20) MCASP0_ACLKR.GPIO1_14 */
+		>;
+	};
+
 	mikrobus_gpio_pins_default: mikrobus-gpio-pins-default {
 		pinctrl-single,pins = <
 			AM62X_IOPAD(0x019c, PIN_INPUT, 7) /* (B18) MCASP0_AXR1.GPIO1_9 */
 			AM62X_IOPAD(0x01a0, PIN_INPUT, 7) /* (E18) MCASP0_AXR0.GPIO1_10 */
 			AM62X_IOPAD(0x01a8, PIN_INPUT, 7) /* (D20) MCASP0_AFSX.GPIO1_12 */
+		>;
+	};
+
+	main_uart0_pins_default: main-uart0-default-pins {
+		bootph-all;
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x01c8, PIN_INPUT, 0) /* (D14) UART0_RXD */
+			AM62X_IOPAD(0x01cc, PIN_OUTPUT, 0) /* (E14) UART0_TXD */
+		>;
+	};
+
+	mikrobus_pwm_pins_default: mikrobus-pwm-pins-default {
+		bootph-all;
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x01a4, PIN_INPUT, 2) /* (B20) MCASP0_ACLKX.ECAP2_IN_APWM_OUT */
+		>;
+	};
+
+	mikrobus_pwm_pins_gpio: mikrobus-pwm-pins-gpio {
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x01a4, PIN_INPUT, 7) /* (B20) MCASP0_ACLKX.GPIO1_11 */
 		>;
 	};
 
@@ -535,13 +633,6 @@
 		pinctrl-single,pins = <
 			AM62X_IOPAD(0x0000, PIN_OUTPUT, 7) /* (H24) OSPI0_CLK.GPIO0_0 */
 			AM62X_IOPAD(0x01b8, PIN_OUTPUT, 2) /* (C13) SPI0_CS1.EHRPWM0_B */
-		>;
-	};
-
-	console_pins_default: console-pins-default {
-		pinctrl-single,pins = <
-			AM62X_IOPAD(0x01c8, PIN_INPUT, 0) /* (D14) UART0_RXD */
-			AM62X_IOPAD(0x01cc, PIN_OUTPUT, 0) /* (E14) UART0_TXD */
 		>;
 	};
 
@@ -606,6 +697,7 @@
 	pinctrl-0 = <&i2c_csi_pins_default>;
 	clock-frequency = <400000>;
 	/* Enable with overlay for camera sensor */
+	symlink = "play/csi/i2c";
 };
 
 &mcu_i2c0 {
@@ -613,6 +705,7 @@
 	pinctrl-0 = <&i2c_qwiic_pins_default>;
 	clock-frequency = <100000>;
 	status = "okay";
+	symlink = "play/qwiic/i2c";
 };
 
 &mcu_m4fss {
@@ -677,6 +770,7 @@
 };
 
 &main_gpio0 {
+	bootph-all;
 	pinctrl-names = "default";
 	pinctrl-0 = <&gpio0_pins_default>;
 	gpio-line-names = "BL_EN_3V3", "SPE_PO_EN", "RTC_INT",	/* 0-2 */
@@ -696,8 +790,7 @@
 };
 
 &main_gpio1 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&mikrobus_gpio_pins_default>;
+	bootph-all;
 	gpio-line-names = "", "", "", "", "",			/* 0-4 */
 		"SPE_RSTN", "SPE_INTN", "MIKROBUS_GPIO1_7",	/* 5-7 */
 		"MIKROBUS_GPIO1_8", "MIKROBUS_GPIO1_9",		/* 8-9 */
@@ -712,7 +805,17 @@
 		"SD_CD", "SD_VOLT_SEL", "", "";			/* 48-51 */
 };
 
+&mcu_gpio0 {
+	gpio-line-names = "", "", "", "",			/* 0-3 */
+		"", "", "", "",					/* 4-7 */
+		"", "", "", "",					/* 8-11 */
+		"", "", "", "",					/* 12-15 */
+		"", "QWIIC_I2C0_SCL", "QWIIC_I2C0_SDA", "",	/* 16-19 */
+		"", "", "", "";					/* 20-23 */
+};
+
 &main_i2c0 {
+	bootph-all;
 	pinctrl-names = "default";
 	pinctrl-0 = <&local_i2c_pins_default>;
 	clock-frequency = <400000>;
@@ -731,6 +834,7 @@
 	};
 
 	tps65219: pmic@30 {
+		bootph-all;
 		compatible = "ti,tps65219";
 		reg = <0x30>;
 		buck1-supply = <&vsys_5v0>;
@@ -822,6 +926,7 @@
 	pinctrl-0 = <&grove_pins_default>;
 	clock-frequency = <100000>;
 	status = "okay";
+	symlink = "play/grove/i2c";
 };
 
 &main_i2c2 {
@@ -831,20 +936,17 @@
 	status = "okay";
 
 	it66121hdmitx: hdmitx@4c {
-		#sound-dai-cells = <0>;
 		compatible = "ite,it66121";
+		reg = <0x4c>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&hdmi_gpio_pins_default>;
-		reg = <0x4c>;
-
-		interrupt-parent = <&main_gpio0>;
-		interrupts = <36 IRQ_TYPE_EDGE_FALLING>;
-
 		vcn33-supply = <&vdd_3v3>;
 		vcn18-supply = <&buck2_reg>;
 		vrf12-supply = <&buck3_reg>;
-
 		reset-gpios = <&main_gpio0 21 GPIO_ACTIVE_LOW>;
+		interrupt-parent = <&main_gpio0>;
+		interrupts = <36 IRQ_TYPE_EDGE_FALLING>;
+		#sound-dai-cells = <0>;
 
 		ports {
 			#address-cells = <1>;
@@ -871,65 +973,26 @@
 };
 
 &main_i2c3 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&mikrobus_i2c_pins_default>;
 	clock-frequency = <400000>;
 	status = "okay";
+	symlink = "play/mikrobus/i2c";
 };
 
 &main_spi2 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&mikrobus_spi_pins_default>;
 	status = "okay";
+	symlink = "play/mikrobus/spi";
 };
 
 &mcasp0 {
 	status = "disabled";
 };
 
-&mcasp1 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&mcasp_hdmi_pins_default>;
-
-	#sound-dai-cells = <0>;
-
-	op-mode = <0>;          /* MCASP_IIS_MODE */
-	tdm-slots = <2>;
-
-	serial-dir = <  /* 0: INACTIVE, 1: TX, 2: RX */
-	       1 0 0 0
-	       0 0 0 0
-	       0 0 0 0
-	       0 0 0 0
-	>;
-	tx-num-evt = <32>;
-	rx-num-evt = <32>;
-};
-
 &mcasp2 {
 	status = "disabled";
 };
 
-&dss {
-	pinctrl-names = "default";
-	pinctrl-0 = <&hdmi_pins_default>;
-};
-
-&dss_ports {
-	#address-cells = <1>;
-	#size-cells = <0>;
-
-	/* VP2: DPI Output */
-	port@1 {
-		reg = <1>;
-
-		dpi1_out: endpoint {
-			remote-endpoint = <&it66121hdmitx_in>;
-		};
-	};
-};
-
 &sdhci0 {
+	bootph-all;
 	pinctrl-names = "default";
 	pinctrl-0 = <&emmc_pins_default>;
 	ti,driver-strength-ohm = <50>;
@@ -939,6 +1002,7 @@
 
 &sdhci1 {
 	/* SD/MMC */
+	bootph-all;
 	pinctrl-names = "default";
 	pinctrl-0 = <&sd_pins_default>;
 
@@ -979,8 +1043,9 @@
 };
 
 &main_uart0 {
+	bootph-all;
 	pinctrl-names = "default";
-	pinctrl-0 = <&console_pins_default>;
+	pinctrl-0 = <&main_uart0_pins_default>;
 	status = "okay";
 };
 
@@ -990,13 +1055,58 @@
 };
 
 &main_uart5 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&mikrobus_uart_pins_default>;
 	status = "okay";
+	symlink = "play/mikrobus/uart";
 };
 
 &main_uart6 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&wifi_debug_uart_pins_default>;
 	status = "okay";
+	symlink = "play/cc1352/uart";
+
+	mcu {
+		status = "okay";
+		compatible = "ti,cc1352p7";
+		reset-gpios = <&main_gpio0 72 GPIO_ACTIVE_LOW>;
+		vdds-supply = <&vdd_3v3>;
+	};
+};
+
+&dss {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&hdmi_pins_default>;
+};
+
+&dss_ports {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	/* VP2: DPI Output */
+	port@1 {
+		reg = <1>;
+
+		dpi1_out: endpoint {
+			remote-endpoint = <&it66121hdmitx_in>;
+		};
+	};
+};
+
+&mcasp1 {
+	status = "okay";
+	#sound-dai-cells = <0>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&mcasp_hdmi_pins_default>;
+
+	op-mode = <0>;          /* MCASP_IIS_MODE */
+	tdm-slots = <2>;
+	serial-dir = <  /* 0: INACTIVE, 1: TX, 2: RX */
+	       1 0 0 0
+	       0 0 0 0
+	       0 0 0 0
+	       0 0 0 0
+	>;
+	tx-num-evt = <32>;
+	rx-num-evt = <32>;
 };
