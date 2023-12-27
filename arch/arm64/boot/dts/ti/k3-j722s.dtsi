@@ -87,6 +87,22 @@
 	ti,interrupt-ranges = <0 237 8>;
 };
 
+&main_bcdma_csi {
+	compatible = "ti,j722s-dmss-bcdma-csi";
+	reg = <0x00 0x4e230000 0x00 0x100>,
+			<0x00 0x4e180000 0x00 0x20000>,
+			<0x00 0x4e300000 0x00 0x10000>,
+			<0x00 0x4e100000 0x00 0x80000>;
+	reg-names = "gcfg", "rchanrt", "tchanrt", "ringrt";
+	msi-parent = <&inta_main_dmss_csi>;
+	#dma-cells = <3>;
+	ti,sci = <&dmsc>;
+	ti,sci-dev-id = <199>;
+	ti,sci-rm-range-rchan = <0x21>;
+	ti,sci-rm-range-tchan = <0x22>;
+	power-domains = <&k3_pds 182 TI_SCI_PD_EXCLUSIVE>;
+};
+
 &oc_sram {
 	reg = <0x00 0x70000000 0x00 0x40000>;
 	ranges = <0x00 0x00 0x70000000 0x40000>;
