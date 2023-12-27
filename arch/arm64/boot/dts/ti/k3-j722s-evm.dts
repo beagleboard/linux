@@ -160,6 +160,23 @@
 		>;
 		bootph-all;
 	};
+
+	ospi0_pins_default: ospi0-default-pins {
+		pinctrl-single,pins = <
+			J722S_IOPAD(0x0000, PIN_OUTPUT, 0) /* (P23) OSPI0_CLK */
+			J722S_IOPAD(0x002c, PIN_OUTPUT, 0) /* (M25) OSPI0_CSn0 */
+			J722S_IOPAD(0x000c, PIN_INPUT, 0) /* (L25) OSPI0_D0 */
+			J722S_IOPAD(0x0010, PIN_INPUT, 0) /* (N24) OSPI0_D1 */
+			J722S_IOPAD(0x0014, PIN_INPUT, 0) /* (N25) OSPI0_D2 */
+			J722S_IOPAD(0x0018, PIN_INPUT, 0) /* (M24) OSPI0_D3 */
+			J722S_IOPAD(0x001c, PIN_INPUT, 0) /* (N21) OSPI0_D4 */
+			J722S_IOPAD(0x0020, PIN_INPUT, 0) /* (N22) OSPI0_D5 */
+			J722S_IOPAD(0x0024, PIN_INPUT, 0) /* (P21) OSPI0_D6 */
+			J722S_IOPAD(0x0028, PIN_INPUT, 0) /* (N20) OSPI0_D7 */
+			J722S_IOPAD(0x0008, PIN_INPUT, 0) /* (P22) OSPI0_DQS */
+		>;
+		bootph-all;
+	};
 };
 
 &main_gpio1 {
@@ -237,6 +254,14 @@
 	};
 };
 
+&sdhci0 {
+	/*eMMC*/
+	status = "okay";
+	ti,driver-strength-ohm = <50>;
+	disable-wp;
+	bootph-all;
+};
+
 &sdhci1 {
 	/* SD/MMC */
 	status = "okay";
@@ -248,6 +273,127 @@
 	disable-wp;
 	no-1-8-v;
 	bootph-all;
+};
+
+&ospi0 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&ospi0_pins_default>;
+	bootph-all;
+
+	flash@0{
+		compatible = "jedec,spi-nor";
+		reg = <0x0>;
+		spi-tx-bus-width = <8>;
+		spi-rx-bus-width = <8>;
+		spi-max-frequency = <25000000>;
+		cdns,tshsl-ns = <60>;
+		cdns,tsd2d-ns = <60>;
+		cdns,tchsh-ns = <60>;
+		cdns,tslch-ns = <60>;
+		cdns,read-delay = <4>;
+		bootph-all;
+
+		partitions {
+			compatible = "fixed-partitions";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			bootph-all;
+
+			partition@0 {
+				label = "ospi.tiboot3";
+				reg = <0x00 0x80000>;
+			};
+
+			partition@80000 {
+				label = "ospi.tispl";
+				reg = <0x80000 0x200000>;
+			};
+
+			partition@280000 {
+				label = "ospi.u-boot";
+				reg = <0x280000 0x400000>;
+			};
+
+			partition@680000 {
+				label = "ospi.env";
+				reg = <0x680000 0x40000>;
+			};
+
+			partition@6c0000 {
+				label = "ospi.env.backup";
+				reg = <0x6c0000 0x40000>;
+			};
+
+			partition@800000 {
+				label = "ospi.rootfs";
+				reg = <0x800000 0x37c0000>;
+			};
+
+			partition@3fc0000 {
+				label = "ospi.phypattern";
+				reg = <0x3fc0000 0x40000>;
+				bootph-all;
+			};
+		};
+	};
+
+	ospi0_nand: nand@0 {
+		compatible = "spi-nand";
+		reg = <0x0>;
+		spi-tx-bus-width = <8>;
+		spi-rx-bus-width = <8>;
+		spi-max-frequency = <25000000>;
+		cdns,tshsl-ns = <60>;
+		cdns,tsd2d-ns = <60>;
+		cdns,tchsh-ns = <60>;
+		cdns,tslch-ns = <60>;
+		cdns,read-delay = <2>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		status = "disabled";
+
+		partitions {
+			compatible = "fixed-partitions";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			partition@0 {
+				label = "ospi_nand.tiboot3";
+				reg = <0x0 0x80000>;
+			};
+
+			partition@80000 {
+				label = "ospi_nand.tispl";
+				reg = <0x80000 0x200000>;
+			};
+
+			partition@280000 {
+				label = "ospi_nand.u-boot";
+				reg = <0x280000 0x400000>;
+			};
+
+			partition@680000 {
+				label = "ospi_nand.env";
+				reg = <0x680000 0x40000>;
+			};
+
+			partition@6c0000 {
+				label = "ospi_nand.env.backup";
+				reg = <0x6c0000 0x40000>;
+			};
+
+			partition@2000000 {
+				label = "ospi_nand.rootfs";
+				reg = <0x2000000 0x5fc0000>;
+			};
+
+			partition@7fc0000 {
+				label = "ospi_nand.phypattern";
+				reg = <0x7fc0000 0x40000>;
+			};
+		};
+	};
 };
 
 &mailbox0_cluster0 {
