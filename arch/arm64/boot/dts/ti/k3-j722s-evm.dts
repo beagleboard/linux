@@ -8,7 +8,9 @@
 
 /dts-v1/;
 
+#include <dt-bindings/leds/common.h>
 #include "k3-j722s.dtsi"
+#include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/net/ti-dp83867.h>
 
 / {
@@ -122,6 +124,27 @@
 		regulator-always-on;
 		regulator-boot-on;
 	};
+
+	leds {
+		compatible = "gpio-leds";
+		pinctrl-names = "default";
+		pinctrl-0 = <&led_pins_default>;
+
+		led-0 {
+			label = "j722s-evm:red:heartbeat";
+			gpios = <&main_gpio1 49 GPIO_ACTIVE_HIGH>;
+			function = LED_FUNCTION_HEARTBEAT;
+			linux,default-trigger = "heartbeat";
+		};
+
+		led-1 {
+			label = "j722s-evm:green:disk-activity";
+			gpios = <&exp1 16 GPIO_ACTIVE_HIGH>;
+			function = LED_FUNCTION_DISK_ACTIVITY;
+			linux,default-trigger = "mmc1";
+			default-state = "off";
+		};
+	};
 };
 
 &main_pmx0 {
@@ -203,6 +226,11 @@
 		>;
 	};
 
+	led_pins_default: led-default-pins {
+		pinctrl-single,pins = <
+			J722S_IOPAD(0x0244, PIN_INPUT, 7) /* (A24) MMC1_SDWP */
+		>;
+	};
 };
 
 &main_gpio1 {
