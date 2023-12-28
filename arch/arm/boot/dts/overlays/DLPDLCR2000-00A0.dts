@@ -1,0 +1,191 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright (C) 2012 Texas Instruments Incorporated - https://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/pinctrl/am33xx.h>
+#include <dt-bindings/board/am335x-bbw-bbb-base.h>
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+ */
+&{/chosen} {
+	overlays {
+		DLPDLCR2000-00A0.kernel = __TIMESTAMP__;
+	};
+};
+
+/*
+ * Free up the pins used by the cape from the pinmux helpers.
+ */
+&ocp {
+	P8_45_pinmux { status = "disabled"; };	/* lcd: lcd_data0 */
+	P8_46_pinmux { status = "disabled"; };	/* lcd: lcd_data1 */
+	P8_43_pinmux { status = "disabled"; };	/* lcd: lcd_data2 */
+	P8_44_pinmux { status = "disabled"; };	/* lcd: lcd_data3 */
+	P8_41_pinmux { status = "disabled"; };	/* lcd: lcd_data4 */
+	P8_42_pinmux { status = "disabled"; };	/* lcd: lcd_data5 */
+	P8_39_pinmux { status = "disabled"; };	/* lcd: lcd_data6 */
+	P8_40_pinmux { status = "disabled"; };	/* lcd: lcd_data7 */
+	P8_37_pinmux { status = "disabled"; };	/* lcd: lcd_data8 */
+	P8_38_pinmux { status = "disabled"; };	/* lcd: lcd_data9 */
+	P8_36_pinmux { status = "disabled"; };	/* lcd: lcd_data10 */
+	P8_34_pinmux { status = "disabled"; };	/* lcd: lcd_data11 */
+	P8_35_pinmux { status = "disabled"; };	/* lcd: lcd_data12 */
+	P8_33_pinmux { status = "disabled"; };	/* lcd: lcd_data13 */
+	P8_31_pinmux { status = "disabled"; };	/* lcd: lcd_data14 */
+	P8_32_pinmux { status = "disabled"; };	/* lcd: lcd_data15 */
+
+	P8_15_pinmux { status = "disabled"; };	/* gpmc_ad15.lcd_data16 */
+	P8_16_pinmux { status = "disabled"; };	/* gpmc_ad14.lcd_data17 */
+	P8_11_pinmux { status = "disabled"; };	/* gpmc_ad13.lcd_data18 */
+	P8_12_pinmux { status = "disabled"; };	/* gpmc_ad12.lcd_data19 */
+	P8_17_pinmux { status = "disabled"; };	/* gpmc_ad11.lcd_data20 */
+	P8_14_pinmux { status = "disabled"; };	/* gpmc_ad10.lcd_data21 */
+	P8_13_pinmux { status = "disabled"; };	/* gpmc_ad9.lcd_data22 */
+	P8_19_pinmux { status = "disabled"; };	/* gpmc_ad8.lcd_data23 */
+
+	P8_27_pinmux { status = "disabled"; };	/* lcd: lcd_vsync */
+	P8_29_pinmux { status = "disabled"; };	/* lcd: lcd_hsync */
+	P8_28_pinmux { status = "disabled"; };	/* lcd: lcd_pclk */
+	P8_30_pinmux { status = "disabled"; };	/* lcd: lcd_ac_bias_en */
+
+	P9_15_pinmux { status = "disabled"; };
+	P8_26_pinmux { status = "disabled"; };
+
+	valversled_helper {
+		compatible = "bone-pinmux-helper";
+		pinctrl-names = "default";
+		pinctrl-0 = <&bb_dlp_gpio_pins>;
+		status = "okay";
+	};
+};
+
+&am33xx_pinmux {
+	bb_dlp_gpio_pins: pinmux_dlp_gpio_pins {
+		pinctrl-single,pins = <
+			BONE_P8_26 (PIN_INPUT_PULLDOWN | MUX_MODE7)
+		>;
+	};
+
+	bb_dlp_led_pins: pinmux_dlp_led_pins {
+		pinctrl-single,pins = <
+			BONE_P9_15 (PIN_OUTPUT | MUX_MODE7)
+		>;
+	};
+
+	bb_lcd_lcd_pins: pinmux_bb_lcd_lcd_pins {
+		pinctrl-single,pins = <
+			BONE_P8_45 (PIN_OUTPUT | MUX_MODE0) /* lcd_data0.lcd_data0 */
+			BONE_P8_46 (PIN_OUTPUT | MUX_MODE0) /* lcd_data1.lcd_data1 */
+			BONE_P8_43 (PIN_OUTPUT | MUX_MODE0) /* lcd_data2.lcd_data2 */
+			BONE_P8_44 (PIN_OUTPUT | MUX_MODE0) /* lcd_data3.lcd_data3 */
+			BONE_P8_41 (PIN_OUTPUT | MUX_MODE0) /* lcd_data4.lcd_data4 */
+			BONE_P8_42 (PIN_OUTPUT | MUX_MODE0) /* lcd_data5.lcd_data5 */
+			BONE_P8_39 (PIN_OUTPUT | MUX_MODE0) /* lcd_data6.lcd_data6 */
+			BONE_P8_40 (PIN_OUTPUT | MUX_MODE0) /* lcd_data7.lcd_data7 */
+			BONE_P8_37 (PIN_OUTPUT | MUX_MODE0) /* lcd_data8.lcd_data8 */
+			BONE_P8_38 (PIN_OUTPUT | MUX_MODE0) /* lcd_data9.lcd_data9 */
+			BONE_P8_36 (PIN_OUTPUT | MUX_MODE0) /* lcd_data10.lcd_data10 */
+			BONE_P8_34 (PIN_OUTPUT | MUX_MODE0) /* lcd_data11.lcd_data11 */
+			BONE_P8_35 (PIN_OUTPUT | MUX_MODE0) /* lcd_data12.lcd_data12 */
+			BONE_P8_33 (PIN_OUTPUT | MUX_MODE0) /* lcd_data13.lcd_data13 */
+			BONE_P8_31 (PIN_OUTPUT | MUX_MODE0) /* lcd_data14.lcd_data14 */
+			BONE_P8_32 (PIN_OUTPUT | MUX_MODE0) /* lcd_data15.lcd_data15 */
+
+			BONE_P8_15 (PIN_OUTPUT | MUX_MODE1) /* gpmc_ad15.lcd_data16 */
+			BONE_P8_16 (PIN_OUTPUT | MUX_MODE1) /* gpmc_ad14.lcd_data17 */
+			BONE_P8_11 (PIN_OUTPUT | MUX_MODE1) /* gpmc_ad13.lcd_data18 */
+			BONE_P8_12 (PIN_OUTPUT | MUX_MODE1) /* gpmc_ad12.lcd_data19 */
+			BONE_P8_17 (PIN_OUTPUT | MUX_MODE1) /* gpmc_ad11.lcd_data20 */
+			BONE_P8_14 (PIN_OUTPUT | MUX_MODE1) /* gpmc_ad10.lcd_data21 */
+			BONE_P8_13 (PIN_OUTPUT | MUX_MODE1) /* gpmc_ad9.lcd_data22 */
+			BONE_P8_19 (PIN_OUTPUT | MUX_MODE1) /* gpmc_ad8.lcd_data23 */
+
+			BONE_P8_27 (PIN_OUTPUT | MUX_MODE0) /* lcd_vsync.lcd_vsync */
+			BONE_P8_29 (PIN_OUTPUT | MUX_MODE0) /* lcd_hsync.lcd_hsync */
+			BONE_P8_28 (PIN_OUTPUT | MUX_MODE0) /* lcd_pclk.lcd_pclk */
+			BONE_P8_30 (PIN_OUTPUT | MUX_MODE0) /* lcd_ac_bias_en.lcd_ac_bias_en */
+		>;
+	};
+};
+
+&lcdc {
+	status = "okay";
+
+	blue-and-red-wiring = "crossed";
+};
+
+&i2c2 {
+	status = "okay";
+
+	/* this is the configuration part */
+	clock-frequency = <100000>;
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	DLP2607: DLP2607@36 {
+		compatible = "DLP2607";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0x70>;
+	};
+};
+
+&{/} {
+
+	/* DLP Cape*/
+	panel {
+		status = "okay";
+		compatible = "ti,tilcdc,panel";
+		pinctrl-names = "default";
+		pinctrl-0 = <&bb_lcd_lcd_pins>;
+		panel-info {
+			ac-bias           = <255>;
+			ac-bias-intrpt    = <0>;
+			dma-burst-sz      = <16>;
+			bpp               = <32>;
+			fdd               = <0x80>;
+			tft-alt-mode      = <0>;
+			stn-565-mode      = <1>;
+			mono-8bit-mode    = <0>;
+			sync-edge         = <0>;
+			sync-ctrl         = <1>;
+			raster-order      = <0>;
+			fifo-th           = <0>;
+		};
+		display-timings {
+			native-mode = <&timing0>;
+			timing0: 640x360 {
+				clock-frequency = <5900000>;
+				hactive = <640>;
+				vactive = <360>;
+				hfront-porch = <14>;
+				hback-porch = <12>;
+				hsync-len = <4>;
+				vback-porch = <9>;
+				vfront-porch = <2>;
+				vsync-len = <3>;
+				hsync-active = <0>;
+				vsync-active = <0>;
+			};
+		};
+	};
+
+	leds {
+		pinctrl-names = "default";
+		pinctrl-0 = <&bb_dlp_led_pins>;
+		compatible = "gpio-leds";
+
+		proj_on_ext {
+			label = "proj_on_ext";
+			gpios = <&gpio1 16 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+		};
+	};
+};
