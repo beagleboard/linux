@@ -1,0 +1,63 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright (C) 2012,2019 Texas Instruments Incorporated - https://www.ti.com/
+ * Copyright (C) 2015 Robert Nelson <robertcnelson@gmail.com>
+ * Copyright (C) 2015 Sebastian Jegerås
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/pinctrl/am33xx.h>
+#include <dt-bindings/gpio/gpio.h>
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+ */
+&{/chosen} {
+	overlays {
+		BBORG_COMMS-00A2.kernel = __TIMESTAMP__;
+	};
+};
+
+/*
+ * Free up the pins used by the cape from the pinmux helpers.
+ */
+&ocp {
+	P9_24_pinmux { status = "disabled"; };	/* P9_24: uart1_txd.d_can1_rx */
+	P9_26_pinmux { status = "disabled"; };	/* P9_26: uart1_rxd.d_can1_tx */
+	P9_13_pinmux { status = "disabled"; };	/* P9_13: gpmc_wpn.uart4_txd_mux2 */
+	P9_11_pinmux { status = "disabled"; };	/* P9_11: gpmc_wait0.uart4_rxd_mux2 */
+};
+
+&am33xx_pinmux {
+	bborg_comms_can_pins: pinmux_comms_can_pins {
+		pinctrl-single,pins = <
+			0x184 (PIN_INPUT_PULLUP | MUX_MODE2)	/* P9_24: uart1_txd.d_can1_rx */
+			0x180 (PIN_OUTPUT_PULLUP | MUX_MODE2)	/* P9_26: uart1_rxd.d_can1_tx */
+		>;
+	};
+
+	bborg_comms_rs485_pins: pinmux_comms_rs485_pins {
+		pinctrl-single,pins = <
+			0x074 (PIN_OUTPUT | MUX_MODE6)	/* P9_13: gpmc_wpn.uart4_txd_mux2 */
+			0x070 (PIN_INPUT  | MUX_MODE6)	/* P9_11: gpmc_wait0.uart4_rxd_mux2 */
+		>;
+	};
+};
+
+&dcan1 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&bborg_comms_can_pins>;
+};
+
+&uart4 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&bborg_comms_rs485_pins>;
+	//rs485-rts-delay = <0 0>;
+	//rts-gpio = <&gpio3 19 1>; /*  GPIO_ACTIVE_HIGH>; */
+	//rs485-rts-active-high;
+	//linux,rs485-enabled-at-boot-time;
+};
