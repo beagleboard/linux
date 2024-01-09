@@ -39,8 +39,10 @@
  */
 #define REGIO_CHECK_VALUE_FITS_WITHIN_FIELD(group, reg, field, value, type) \
 	{ \
-		type __value = value; \
-		unsigned int temp = (unsigned int)(__value); \
+		type __value = 0; \
+		unsigned int temp = 0; \
+		__value = value; \
+		temp = (unsigned int)(__value); \
 		if (temp > group ## _ ## reg ## _ ## field ## _LSBMASK) { \
 			IMG_ASSERT((((unsigned int)__value) & \
 			(unsigned int)~(group ## _ ## reg ## _ ## field ## _LSBMASK)) == \
