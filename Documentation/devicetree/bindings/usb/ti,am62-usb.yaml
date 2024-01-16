@@ -14,7 +14,9 @@ properties:
     const: ti,am62-usb
 
   reg:
-    maxItems: 1
+    items:
+      - description: USB CFG register space
+      - description: USB PHY2 register space
 
   ranges: true
 
