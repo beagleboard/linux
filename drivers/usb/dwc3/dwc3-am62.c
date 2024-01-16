@@ -101,11 +101,17 @@
 #define PHY_CORE_VOLTAGE_MASK	BIT(31)
 #define PHY_PLL_REFCLK_MASK	GENMASK(3, 0)
 
+/* USB PHY2 register offsets */
+#define	USB_PHY_PLL_REG12		0x130
+#define	USB_PHY_PLL_LDO_REF_EN		BIT(5)
+#define	USB_PHY_PLL_LDO_REF_EN_EN	BIT(4)
+
 #define DWC3_AM62_AUTOSUSPEND_DELAY	100
 
 struct dwc3_data {
 	struct device *dev;
 	void __iomem *usbss;
+	void __iomem *phy;
 	struct clk *usb2_refclk;
 	struct regmap *syscon;
 	unsigned int offset;
@@ -137,6 +143,16 @@ static inline u32 dwc3_ti_readl(struct dwc3_data *data, u32 offset)
 static inline void dwc3_ti_writel(struct dwc3_data *data, u32 offset, u32 value)
 {
 	writel(value, (data->usbss) + offset);
+}
+
+static inline u32 dwc3_ti_phy_readl(struct dwc3_data *data, u32 offset)
+{
+	return readl((data->phy) + offset);
+}
+
+static inline void dwc3_ti_phy_writel(struct dwc3_data *data, u32 offset, u32 value)
+{
+	writel(value, (data->phy) + offset);
 }
 
 static int phy_syscon_pll_refclk_and_voltage(struct dwc3_data *data)
@@ -215,6 +231,12 @@ static int dwc3_ti_probe(struct platform_device *pdev)
 		return PTR_ERR(data->usbss);
 	}
 
+	data->phy = devm_platform_ioremap_resource(pdev, 1);
+	if (IS_ERR(data->phy)) {
+		dev_err(dev, "can't map PHY IOMEM resource\n");
+		return PTR_ERR(data->phy);
+	}
+
 	data->usb2_refclk = devm_clk_get(dev, "ref");
 	if (IS_ERR(data->usb2_refclk)) {
 		dev_err(dev, "can't get usb2_refclk\n");
@@ -240,6 +262,11 @@ static int dwc3_ti_probe(struct platform_device *pdev)
 
 	/* Turn ON the USB power domain */
 	pm_runtime_resume(dev);
+
+	/* Workaround Errata i2409 */
+	reg = dwc3_ti_phy_readl(data, USB_PHY_PLL_REG12);
+	reg |= USB_PHY_PLL_LDO_REF_EN | USB_PHY_PLL_LDO_REF_EN_EN;
+	dwc3_ti_phy_writel(data, USB_PHY_PLL_REG12, reg);
 
 	/* VBUS divider select */
 	data->vbus_divider = device_property_read_bool(dev, "ti,vbus-divider");
