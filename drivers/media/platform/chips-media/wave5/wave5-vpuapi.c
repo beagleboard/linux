@@ -672,7 +672,7 @@ int wave5_vpu_dec_give_command(struct vpu_instance *inst, enum codec_command cmd
 	case DEC_RESET_FRAMEBUF_INFO: {
 		int i;
 
-		for (i = 0; i < inst->dst_buf_count; i++) {
+		for (i = 0; i < inst->fbc_buf_count; i++) {
 			wave5_vdi_free_dma_memory(inst->dev, &inst->frame_vbuf[i]);
 			wave5_vdi_free_dma_memory(inst->dev, &p_dec_info->vb_mv[i]);
 			wave5_vdi_free_dma_memory(inst->dev, &p_dec_info->vb_fbc_y_tbl[i]);

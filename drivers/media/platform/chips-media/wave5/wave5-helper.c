@@ -16,7 +16,7 @@ void wave5_cleanup_instance(struct vpu_instance *inst)
 	if (list_is_singular(&inst->list))
 		wave5_vdi_free_sram(inst->dev);
 
-	for (i = 0; i < inst->dst_buf_count; i++)
+	for (i = 0; i < inst->fbc_buf_count; i++)
 		wave5_vdi_free_dma_memory(inst->dev, &inst->frame_vbuf[i]);
 
 	wave5_vdi_free_dma_memory(inst->dev, &inst->bitstream_vbuf);
