@@ -1,0 +1,107 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * DT Overlay for RPi Camera V2.1 (Sony IMX219) interfaced with CSI0 on BBAI64 board.
+ *
+ * Copyright (C) 2022 Robert Nelson, BeagleBoard.org Foundation
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/pinctrl/k3.h>
+
+/* CSI0 */
+/* W29_CSI0_GPIO1 */
+/* W27_CSI0_GPIO2 */
+/* Y26_I2C5_SCL */
+/* AA27_I2C5_SDA */
+
+/* CSI1 */
+/* V25_CSI1_GPIO1 */
+/* W24_CSI1_GPIO2 */
+/* Y6_I2C1_SCL */
+/* AA6_I2C1_SDA */
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+ */
+&{/chosen} {
+	overlays {
+		BBAI64-CSI0-imx219.kernel = __TIMESTAMP__;
+	};
+};
+
+/ {
+	fragment@101 {
+		target-path = "/";
+
+		__overlay__ {
+			clk_csi0_imx219_fixed: csi0-imx219-xclk {
+				compatible = "fixed-clock";
+				#clock-cells = <0>;
+				clock-frequency = <24000000>;
+			};
+		};
+	};
+};
+
+&main_pmx0 {
+	main_i2c5_pins_default: main-i2c5-pins-default {
+		pinctrl-single,pins = <
+			J721E_IOPAD(0x150, PIN_INPUT_PULLUP, 2) /* (Y26) PRG0_MDIO0_MDIO.I2C5_SCL */
+			J721E_IOPAD(0x154, PIN_INPUT_PULLUP, 2) /* (AA27) PRG0_MDIO0_MDC.I2C5_SDA */
+		>;
+	};
+
+	csi0_gpio_pins_default: csi0-gpio-pins-default {
+		pinctrl-single,pins = <
+			//J721E_IOPAD(0x19c, PIN_OUTPUT, 7) /* (W27) RGMII6_TD0.GPIO0_102 */
+			J721E_IOPAD(0x1a0, PIN_OUTPUT, 7) /* (W29) RGMII6_TXC.GPIO0_103 */
+		>;
+	};
+};
+
+&main_i2c5 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_i2c5_pins_default>;
+	clock-frequency = <400000>;
+	status = "okay";
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	csi0_imx219: csi0_sensor@10 {
+		status = "okay";
+		compatible = "sony,imx219";
+		reg = <0x10>;
+
+		clocks = <&clk_csi0_imx219_fixed>;
+		clock-names = "xclk";
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&csi0_gpio_pins_default>;
+		//reset-gpios = <&main_gpio0 102 GPIO_ACTIVE_HIGH>;
+		reset-gpios = <&main_gpio0 103 GPIO_ACTIVE_HIGH>;
+
+		port {
+			csi2rx0_cam0: endpoint {
+				remote-endpoint = <&csi2rx0_in_sensor>;
+				link-frequencies = /bits/ 64 <456000000>;
+				clock-lanes = <0>;
+				data-lanes = <1 2>;
+			};
+		};
+	};
+};
+
+&csi0_port0 {
+	status = "okay";
+	csi2rx0_in_sensor: endpoint {
+		remote-endpoint = <&csi2rx0_cam0>;
+		bus-type = <4>; /* CSI2 DPHY. */
+		clock-lanes = <0>;
+		data-lanes = <1 2>;
+	};
+};
