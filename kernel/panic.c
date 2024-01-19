@@ -244,6 +244,7 @@ void check_panic_on_warn(const char *origin)
 void panic(const char *fmt, ...)
 {
 	static char buf[1024];
+	va_list args2;
 	va_list args;
 	long i, i_next = 0, len;
 	int state = 0;
@@ -259,6 +260,21 @@ void panic(const char *fmt, ...)
 		 */
 		panic_on_warn = 0;
 	}
+
+	console_verbose();
+	pr_emerg("Kernel panic - not syncing:\n");
+	va_start(args2, fmt);
+	va_copy(args, args2);
+	vprintk(fmt, args2);
+	va_end(args2);
+#ifdef CONFIG_DEBUG_BUGVERBOSE
+	/*
+	 * Avoid nested stack-dumping if a panic occurs during oops processing
+	 */
+	if (!test_taint(TAINT_DIE) && oops_in_progress <= 1)
+		dump_stack();
+#endif
+	pr_flush(1000, true);
 
 	/*
 	 * Disable local interrupts. This will prevent panic_smp_self_stop
@@ -290,23 +306,12 @@ void panic(const char *fmt, ...)
 	if (old_cpu != PANIC_CPU_INVALID && old_cpu != this_cpu)
 		panic_smp_self_stop();
 
-	console_verbose();
 	bust_spinlocks(1);
-	va_start(args, fmt);
 	len = vscnprintf(buf, sizeof(buf), fmt, args);
 	va_end(args);
 
 	if (len && buf[len - 1] == '\n')
 		buf[len - 1] = '\0';
-
-	pr_emerg("Kernel panic - not syncing: %s\n", buf);
-#ifdef CONFIG_DEBUG_BUGVERBOSE
-	/*
-	 * Avoid nested stack-dumping if a panic occurs during oops processing
-	 */
-	if (!test_taint(TAINT_DIE) && oops_in_progress <= 1)
-		dump_stack();
-#endif
 
 	/*
 	 * If kgdb is enabled, give it a chance to run before we stop all
@@ -324,7 +329,6 @@ void panic(const char *fmt, ...)
 	 * Bypass the panic_cpu check and call __crash_kexec directly.
 	 */
 	if (!_crash_kexec_post_notifiers) {
-		printk_safe_flush_on_panic();
 		__crash_kexec(NULL);
 
 		/*
@@ -348,8 +352,6 @@ void panic(const char *fmt, ...)
 	 */
 	atomic_notifier_call_chain(&panic_notifier_list, 0, buf);
 
-	/* Call flush even twice. It tries harder with a single online CPU */
-	printk_safe_flush_on_panic();
 	kmsg_dump(KMSG_DUMP_PANIC);
 
 	/*
@@ -619,9 +621,11 @@ static u64 oops_id;
 
 static int init_oops_id(void)
 {
+#ifndef CONFIG_PREEMPT_RT
 	if (!oops_id)
 		get_random_bytes(&oops_id, sizeof(oops_id));
 	else
+#endif
 		oops_id++;
 
 	return 0;
@@ -632,6 +636,7 @@ static void print_oops_end_marker(void)
 {
 	init_oops_id();
 	pr_warn("---[ end trace %016llx ]---\n", (unsigned long long)oops_id);
+	pr_flush(1000, true);
 }
 
 /*
