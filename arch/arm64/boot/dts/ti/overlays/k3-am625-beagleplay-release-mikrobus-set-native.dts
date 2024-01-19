@@ -1,0 +1,86 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * DT Overlay for disabling mikrobus device and reassigning pins to default options
+ *
+ * Copyright (C) 2023 Texas Instruments Incorporated - https://www.ti.com/
+ *
+ * Signal maps (libgpiod GPIO Signal names to GPIO Signal (GPIO1 == 601000.gpio)
+ * MIKROBUS_GPIO1_9  -> GPIO1_9
+ * MIKROBUS_GPIO1_10 -> GPIO1_10
+ * MIKROBUS_GPIO1_11 -> GPIO1_11
+ * MIKROBUS_GPIO1_12 -> GPIO1_12
+ *
+ * Mapped to Signals, these look as follows ("GPIO Mode" is set by this overlay):
+ *
+ * Selected   Native        Pin                                    Pin   Native         Selected
+ * Mode       Function      Num     Legend              Legend     Num   Function       Mode
+ * |                |        |       |                     |        |       |           |
+ * |                |        |       v                     v        |       |           |
+ * v                v        v     +--------------------------+     v       v           v
+ * GPIO1_10  GPIO1_10  ------9-----+ AN                   PWM +-----8------ GPIO1_11    GPIO1_11
+ *                                 |                          |
+ * GPIO1_12  GPIO1_12  ------10----+ RST                  INT +-----7------ GPIO1_9     GPIO1_9
+ *                                 |                          |
+ * SPI2_CS0  SPI2_CS0  ------11----+ CS                    RX +-----6------ UART5_RXD   UART5_RXD
+ *                                 |                          |
+ * SPI2_CLK  SPI2_CLK  ------12----+ SCK                   TX +-----5------ UART5_TXD   UART5_TXD
+ *                                 |                          |
+ * SPI2_D0   SPI2_D0   ------13----+ MISO                 SCL +-----4------ I2C3_SCL    I2C3_SCL
+ *                                 |                          |
+ * SPI2_D1   SPI2_D1   ------14----+ MOSI                 SDA +-----3------ I2C3_SDA    I2C3_SDA
+ *                                 |                          |
+ *                     ------15----+ +3.3V                +5V +-----2------
+ *                                 |                          |
+ *                     ------16----+ GND2                GND1 +-----1------
+ *                                 +--------------------------+
+ */
+
+/dts-v1/;
+/plugin/;
+
+&{/chosen} {
+	overlays {
+		k3-am625-beagleplay-release-mikrobus-set-gpios-all = __TIMESTAMP__;
+	};
+};
+
+&mikrobus0 {
+	status = "disabled";
+};
+
+/*
+ * Disable all default peripherals for Mikrobus, instead of depending on
+ * mikrobus driver to select
+ */
+
+&main_i2c3 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&mikrobus_i2c_pins_default>;
+};
+
+&main_spi2 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&mikrobus_spi_pins_default>;
+};
+
+&main_uart5 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&mikrobus_uart_pins_default>;
+};
+
+/* Mux everything as GPIOs.. */
+&main_gpio1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&mikrobus_gpio_pins_default>, <&mikrobus_pwm_pins_gpio>;
+
+};
+
+/* XXX: Do we want GPIO or PWM for this pin? Selecting gpio for now */
+&ecap2_pwm {
+	status = "disabled";
+	//pinctrl-names = "default";
+	//pinctrl-0 = <&mikrobus_pwm_pins_default>;
+};

@@ -1,0 +1,28 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright (C) 2012 Texas Instruments Incorporated - https://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+ */
+&{/chosen} {
+	overlays {
+		AM335X-PRU-UIO-00A0.kernel = __TIMESTAMP__;
+	};
+};
+
+
+&pruss_tm {
+	status = "okay";
+};
+
+&pruss {
+	compatible = "ti,pruss-v2";
+	ti,pintc-offset = <0x20000>;
+	interrupt-parent = <&intc>;
+	interrupts = <20 21 22 23 24 25 26 27>;
+};
