@@ -751,10 +751,19 @@
 		ti,mbox-tx = <1 0 0>;
 	};
 };
+
+&wkup_r5fss0 {
+	status = "okay";
+};
+
 &wkup_r5fss0_core0 {
 	mboxes = <&mailbox0_cluster0 &mbox_r5_0>;
 	memory-region = <&wkup_r5fss0_core0_dma_memory_region>,
 			<&wkup_r5fss0_core0_memory_region>;
+};
+
+&mcu_r5fss0 {
+	status = "okay";
 };
 
 &mcu_r5fss0_core0 {
