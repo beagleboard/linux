@@ -51,6 +51,9 @@
 			d-cache-line-size = <64>;
 			d-cache-sets = <256>;
 			next-level-cache = <&L2_0>;
+			clocks = <&k3_clks 202 0>;
+			clock-names = "cpu";
+			operating-points-v2 = <&cpu0_opp_table>;
 		};
 
 		cpu1: cpu@1 {
@@ -65,7 +68,31 @@
 			d-cache-line-size = <64>;
 			d-cache-sets = <256>;
 			next-level-cache = <&L2_0>;
+			clocks = <&k3_clks 203 0>;
+			clock-names = "cpu";
+			operating-points-v2 = <&cpu0_opp_table>;
 		};
+	};
+
+	cpu0_opp_table: opp-table {
+		compatible = "operating-points-v2";
+
+		opp4-2000000000 {
+			opp-hz = /bits/ 64 <2000000000>;
+		};
+
+		opp3-1000000000 {
+			opp-hz = /bits/ 64 <1000000000>;
+		};
+
+		opp2-500000000 {
+			opp-hz = /bits/ 64 <500000000>;
+		};
+
+		opp1-250000000 {
+			opp-hz = /bits/ 64 <250000000>;
+		};
+
 	};
 
 	L2_0: l2-cache0 {
