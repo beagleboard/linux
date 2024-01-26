@@ -2118,7 +2118,11 @@ static int vxd_dec_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	dma_set_mask(&pdev->dev, DMA_BIT_MASK(40));
+	ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(40));
+	if (ret) {
+		dev_err(&pdev->dev, "%s: Failed to Set DMA Mask\n", __func__);
+		return ret;
+	}
 
 	vxd = devm_kzalloc(&pdev->dev, sizeof(*vxd), GFP_KERNEL);
 	if (!vxd)
