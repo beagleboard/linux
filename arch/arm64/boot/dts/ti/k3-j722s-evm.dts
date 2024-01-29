@@ -215,6 +215,7 @@
 };
 
 &main_pmx0 {
+	bootph-all;
 
 	main_i2c0_pins_default: main-i2c0-default-pins {
 		pinctrl-single,pins = <
@@ -319,6 +320,7 @@
 };
 
 &mcu_pmx0 {
+	bootph-all;
 
 	wkup_uart0_pins_default: wkup-uart0-default-pins {
 		pinctrl-single,pins = <
