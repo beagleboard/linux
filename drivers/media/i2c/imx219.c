@@ -868,6 +868,47 @@ static int imx219_set_pad_format(struct v4l2_subdev *sd,
 	return 0;
 }
 
+static int imx219_get_frame_desc(struct v4l2_subdev *sd, unsigned int pad,
+				 struct v4l2_mbus_frame_desc *fd)
+{
+	struct imx219 *imx219 = to_imx219(sd);
+	const struct imx219_mode *mode = imx219->mode;
+	u32 bpp;
+	int ret = 0;
+
+	if (pad != 0)
+		return -EINVAL;
+
+	mutex_lock(&imx219->mutex);
+
+	memset(fd, 0, sizeof(*fd));
+
+	fd->type = V4L2_MBUS_FRAME_DESC_TYPE_CSI2;
+
+	/* pixel stream */
+
+	if (imx219->fmt.code == MEDIA_BUS_FMT_SRGGB10_1X10)
+		bpp = 10;
+	else
+		bpp = 8;
+
+	fd->entry[fd->num_entries].stream = 0;
+
+	fd->entry[fd->num_entries].flags = V4L2_MBUS_FRAME_DESC_FL_LEN_MAX;
+	fd->entry[fd->num_entries].length = (mode->width * mode->height * bpp) / 8;
+	fd->entry[fd->num_entries].pixelcode = imx219->fmt.code;
+	fd->entry[fd->num_entries].bus.csi2.vc = 0;
+	if (imx219->fmt.code == MEDIA_BUS_FMT_SRGGB8_1X8)
+		fd->entry[fd->num_entries].bus.csi2.dt = 0x2a; /* SRGGB8 */
+	else if (imx219->fmt.code == MEDIA_BUS_FMT_SRGGB10_1X10)
+		fd->entry[fd->num_entries].bus.csi2.dt = 0x2b; /* SRGGB10 */
+	fd->num_entries++;
+
+	mutex_unlock(&imx219->mutex);
+
+	return ret;
+}
+
 static int imx219_set_framefmt(struct imx219 *imx219)
 {
 	switch (imx219->fmt.code) {
@@ -1213,6 +1254,7 @@ static const struct v4l2_subdev_pad_ops imx219_pad_ops = {
 	.set_fmt = imx219_set_pad_format,
 	.get_selection = imx219_get_selection,
 	.enum_frame_size = imx219_enum_frame_size,
+	.get_frame_desc = imx219_get_frame_desc,
 };
 
 static const struct v4l2_subdev_ops imx219_subdev_ops = {
