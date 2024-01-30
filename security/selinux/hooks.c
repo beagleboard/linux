@@ -1660,8 +1660,6 @@ static int inode_has_perm(const struct cred *cred,
 	struct inode_security_struct *isec;
 	u32 sid;
 
-	validate_creds(cred);
-
 	if (unlikely(IS_PRIVATE(inode)))
 		return 0;
 
@@ -3056,8 +3054,6 @@ static int selinux_inode_follow_link(struct dentry *dentry, struct inode *inode,
 	struct inode_security_struct *isec;
 	u32 sid;
 
-	validate_creds(cred);
-
 	ad.type = LSM_AUDIT_DATA_DENTRY;
 	ad.u.dentry = dentry;
 	sid = cred_sid(cred);
@@ -3100,8 +3096,6 @@ static int selinux_inode_permission(struct inode *inode, int mask)
 	/* No permission to check.  Existence test. */
 	if (!mask)
 		return 0;
-
-	validate_creds(cred);
 
 	if (unlikely(IS_PRIVATE(inode)))
 		return 0;
@@ -4667,6 +4661,13 @@ static int selinux_socket_bind(struct socket *sock, struct sockaddr *address, in
 				return -EINVAL;
 			addr4 = (struct sockaddr_in *)address;
 			if (family_sa == AF_UNSPEC) {
+				if (family == PF_INET6) {
+					/* Length check from inet6_bind_sk() */
+					if (addrlen < SIN6_LEN_RFC2133)
+						return -EINVAL;
+					/* Family check from __inet6_bind() */
+					goto err_af;
+				}
 				/* see __inet_bind(), we only want to allow
 				 * AF_UNSPEC if the address is INADDR_ANY
 				 */
