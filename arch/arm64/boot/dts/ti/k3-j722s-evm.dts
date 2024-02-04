@@ -671,8 +671,9 @@
 			<&c7x_1_memory_region>;
 };
 
-&serdes0_ln_ctrl {
-	idle-states = <J722S_SERDES0_LANE0_USB>;
+&serdes_ln_ctrl {
+	idle-states = <J722S_SERDES0_LANE0_USB>,
+		      <J722S_SERDES1_LANE0_PCIE0_LANE0>;
 };
 
 &serdes0 {
