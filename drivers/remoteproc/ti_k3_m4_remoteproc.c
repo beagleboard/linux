@@ -460,6 +460,10 @@ static int k3_m4_rproc_probe(struct platform_device *pdev)
 	if (ret)
 		goto release_tsp;
 
+	ret = k3_rproc_of_get_sram_memories(pdev, kproc);
+	if (ret)
+		goto release_tsp;
+
 	ret = k3_reserved_mem_init(kproc);
 	if (ret) {
 		dev_err(dev, "reserved memory init failed, ret = %d\n", ret);
