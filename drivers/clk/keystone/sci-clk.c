@@ -517,6 +517,7 @@ static int ti_sci_scan_clocks_from_dt(struct sci_clk_provider *provider)
 	struct sci_clk *sci_clk, *prev;
 	int num_clks = 0;
 	int num_parents;
+	bool state;
 	int clk_id;
 	const char * const clk_names[] = {
 		"clocks", "assigned-clocks", "assigned-clock-parents", NULL
@@ -584,16 +585,23 @@ static int ti_sci_scan_clocks_from_dt(struct sci_clk_provider *provider)
 					num_parents = 255;
 				}
 
-				clk_id = args.args[1] + 1;
+				clk_id = args.args[1];
 
 				while (num_parents--) {
+					/* Check if this clock id is valid */
+					ret = provider->ops->is_auto(provider->sci,
+						sci_clk->dev_id, ++clk_id, &state);
+
+					if (ret)
+						continue;
+
 					sci_clk = devm_kzalloc(dev,
 							       sizeof(*sci_clk),
 							       GFP_KERNEL);
 					if (!sci_clk)
 						return -ENOMEM;
 					sci_clk->dev_id = args.args[0];
-					sci_clk->clk_id = clk_id++;
+					sci_clk->clk_id = clk_id;
 					sci_clk->provider = provider;
 					list_add_tail(&sci_clk->node, &clks);
 
