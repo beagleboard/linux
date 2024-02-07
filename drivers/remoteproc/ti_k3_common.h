@@ -62,6 +62,8 @@ struct k3_rproc_dev_data {
  * @rproc: remoteproc device handle
  * @mem: internal memory regions data
  * @num_mems: number of internal memory regions
+ * @sram: on-chip SRAM memory regions data
+ * @num_sram: number of on-chip SRAM memory regions
  * @rmem: reserved memory regions data
  * @num_rmems: number of reserved memory regions
  * @reset: reset control handle
@@ -78,6 +80,8 @@ struct k3_rproc {
 	struct rproc *rproc;
 	struct k3_rproc_mem *mem;
 	int num_mems;
+	struct k3_rproc_mem *sram;
+	int num_sram;
 	struct k3_rproc_mem *rmem;
 	int num_rmems;
 	struct reset_control *reset;
@@ -101,6 +105,8 @@ struct resource_table *k3_get_loaded_rsc_table(struct rproc *rproc,
 void *k3_rproc_da_to_va(struct rproc *rproc, u64 da, size_t len,
 			bool *is_iomem);
 int k3_rproc_of_get_memories(struct platform_device *pdev,
+			     struct k3_rproc *kproc);
+int k3_rproc_of_get_sram_memories(struct platform_device *pdev,
 			     struct k3_rproc *kproc);
 int k3_reserved_mem_init(struct k3_rproc *kproc);
 void k3_reserved_mem_exit(struct k3_rproc *kproc);

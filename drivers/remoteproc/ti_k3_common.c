@@ -12,6 +12,7 @@
 #include <linux/io.h>
 #include <linux/mailbox_client.h>
 #include <linux/module.h>
+#include <linux/of_address.h>
 #include <linux/of_device.h>
 #include <linux/of_reserved_mem.h>
 #include <linux/omap-mailbox.h>
@@ -180,6 +181,18 @@ void *k3_rproc_da_to_va(struct rproc *rproc, u64 da, size_t len, bool *is_iomem)
 		}
 	}
 
+	/* handle any SRAM regions using SoC-view addresses */
+	for (i = 0; i < kproc->num_sram; i++) {
+		dev_addr = kproc->sram[i].dev_addr;
+		size = kproc->sram[i].size;
+
+		if (da >= dev_addr && ((da + len) <= (dev_addr + size))) {
+			offset = da - dev_addr;
+			va = kproc->sram[i].cpu_addr + offset;
+			return (__force void *)va;
+		}
+	}
+
 	/* handle static DDR reserved memory regions */
 	for (i = 0; i < kproc->num_rmems; i++) {
 		dev_addr = kproc->rmem[i].dev_addr;
@@ -248,6 +261,64 @@ int k3_rproc_of_get_memories(struct platform_device *pdev,
 	return 0;
 }
 EXPORT_SYMBOL_GPL(k3_rproc_of_get_memories);
+
+int k3_rproc_of_get_sram_memories(struct platform_device *pdev,
+					   struct k3_rproc *kproc)
+{
+	struct device_node *np = pdev->dev.of_node;
+	struct device *dev = &pdev->dev;
+	struct device_node *sram_np;
+	struct resource res;
+	int num_sram;
+	int i, ret;
+
+	num_sram = of_property_count_elems_of_size(np, "sram", sizeof(phandle));
+	if (num_sram <= 0) {
+		dev_dbg(dev, "device does not use reserved on-chip memories, num_sram = %d\n",
+			num_sram);
+		return 0;
+	}
+
+	kproc->sram = devm_kcalloc(dev, num_sram, sizeof(*kproc->sram), GFP_KERNEL);
+	if (!kproc->sram)
+		return -ENOMEM;
+
+	for (i = 0; i < num_sram; i++) {
+		sram_np = of_parse_phandle(np, "sram", i);
+		if (!sram_np)
+			return -EINVAL;
+
+		if (!of_device_is_available(sram_np)) {
+			of_node_put(sram_np);
+			return -EINVAL;
+		}
+
+		ret = of_address_to_resource(sram_np, 0, &res);
+		of_node_put(sram_np);
+		if (ret)
+			return -EINVAL;
+
+		kproc->sram[i].bus_addr = res.start;
+		kproc->sram[i].dev_addr = res.start;
+		kproc->sram[i].size = resource_size(&res);
+		kproc->sram[i].cpu_addr = devm_ioremap_wc(dev, res.start,
+							 resource_size(&res));
+		if (!kproc->sram[i].cpu_addr) {
+			dev_err(dev, "failed to parse and map sram%d memory at %pad\n",
+				i, &res.start);
+			return -ENOMEM;
+		}
+
+		dev_dbg(dev, "memory sram%d: bus addr %pa size 0x%zx va %pK da 0x%x\n",
+			i, &kproc->sram[i].bus_addr,
+			kproc->sram[i].size, kproc->sram[i].cpu_addr,
+			kproc->sram[i].dev_addr);
+	}
+	kproc->num_sram = num_sram;
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(k3_rproc_of_get_sram_memories);
 
 int k3_reserved_mem_init(struct k3_rproc *kproc)
 {
