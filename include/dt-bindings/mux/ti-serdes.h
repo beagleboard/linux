@@ -199,4 +199,7 @@
 #define J784S4_SERDES4_LANE3_USB		0x2
 #define J784S4_SERDES4_LANE3_IP4_UNUSED		0x3
 
+/* J722S */
+#define J722S_SERDES0_LANE0_USB                 0x0
+
 #endif /* _DT_BINDINGS_MUX_TI_SERDES */
