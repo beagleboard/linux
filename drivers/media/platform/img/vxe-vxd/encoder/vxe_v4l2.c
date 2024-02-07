@@ -63,10 +63,10 @@ static struct vxe_enc_fmt vxe_enc_formats[] = {
 		.csc_preset = IMG_CSC_NONE,
 	},
 	{
-		.fourcc = V4L2_PIX_FMT_RGB32,
+		.fourcc = V4L2_PIX_FMT_ARGB32,
 		.num_planes = 1,
 		.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE,
-		.fmt = IMG_CODEC_ABCX,
+		.fmt = IMG_CODEC_XBCA,
 		.min_bufs = 2,
 		.size_num[0] = 1,
 		.size_den[0] = 1,
