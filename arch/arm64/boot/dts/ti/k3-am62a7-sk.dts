@@ -243,7 +243,7 @@
 		};
 	};
 
-	hdmi: connector {
+	hdmi0: connector {
 		compatible = "hdmi-connector";
 		label = "hdmi";
 		type = "a";
@@ -774,7 +774,7 @@
 
 &dss_ports {
 	/* VP2: DPI Output */
-	port@0 {
+	hdmi0_dss: port@0 {
 		reg = <0>;
 
 		dpi1_out: endpoint {
