@@ -45,6 +45,7 @@
 				<SYSC_IDLE_SMART>,
 				<SYSC_IDLE_SMART_WKUP>;
 		ti,syss-mask = <1>;
+		ti,no-reset-on-init;
 		power-domains = <&k3_pds 114 TI_SCI_PD_EXCLUSIVE>;
 		clocks = <&k3_clks 114 0>;
 		clock-names = "fck";
