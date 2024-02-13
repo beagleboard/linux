@@ -230,11 +230,9 @@
 		simple-audio-card,format = "i2s";
 		simple-audio-card,bitclock-master = <&hdmi_dailink_master>;
 		simple-audio-card,frame-master = <&hdmi_dailink_master>;
-		simple-audio-card,mclk-fs = <2182>;
 
 		hdmi_dailink_master: simple-audio-card,cpu {
 			sound-dai = <&mcasp1>;
-			system-clock-frequency = <24000000>;
 			system-clock-direction-out;
 		};
 
@@ -888,11 +886,13 @@
 };
 
 &mcasp1 {
+	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&mcasp_hdmi_pins_default>;
 
 	#sound-dai-cells = <0>;
 
+	auxclk-fs-ratio = <2177>;
 	op-mode = <0>;          /* MCASP_IIS_MODE */
 	tdm-slots = <2>;
 
