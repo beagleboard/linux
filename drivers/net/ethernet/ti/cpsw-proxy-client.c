@@ -57,6 +57,7 @@ struct cpsw_proxy_tx_chan {
 	u32				tx_pace_timeout;
 	unsigned int			irq;
 	char				tx_chan_name[CPSW_PROXY_CLIENT_MAX_CHAN_NAME_LEN];
+	bool				is_valid;
 };
 
 struct cpsw_proxy_rx_chan {
@@ -75,6 +76,7 @@ struct cpsw_proxy_rx_chan {
 	unsigned int			irq;
 	bool				rx_irq_disabled;
 	char				rx_chan_name[CPSW_PROXY_CLIENT_MAX_CHAN_NAME_LEN];
+	bool				is_valid;
 };
 
 struct cpsw_virt_port {
@@ -92,14 +94,13 @@ struct cpsw_virt_port {
 	atomic_t			tdown_cnt;
 	bool				mcast_filter;
 	bool				promisc_enabled;
+	bool				mac_is_valid;
 	u32				virt_port_id;
 	u32				virt_port_token;
-	u32				tx_psil_dest_id;
-	u32				rx_psil_src_id;
-	u32				rx_flow_idx_base;
-	u32				rx_flow_idx_offset;
 	u32				num_tx_chan;
 	u32				num_rx_chan;
+	u32				curr_tx_chan_idx;
+	u32				curr_rx_chan_idx;
 	u16				vlan_id;
 	u8				ipv4_addr[ETHREMOTECFG_IPV4ADDRLEN];
 	u8				mcast_mac_addr[ETH_ALEN];
@@ -159,8 +160,12 @@ static int create_request(u32 token, u32 client_id, u32 req_type, struct cpsw_pr
 	struct rx_flow_release_request *rx_free_req;
 	struct ipv4_register_request *ipv4_reg_req;
 	struct request_message_header *req_msg_hdr;
+	struct rx_flow_alloc_request *rx_alloc_req;
+	struct tx_psil_alloc_request *tx_alloc_req;
 	struct mac_release_request *mac_free_req;
 	struct message *msg = &common->send_msg;
+	struct cpsw_proxy_rx_chan *rx_chn;
+	struct cpsw_proxy_tx_chan *tx_chn;
 	struct attach_request *attach_req;
 
 	/* Set message header fields */
@@ -170,6 +175,23 @@ static int create_request(u32 token, u32 client_id, u32 req_type, struct cpsw_pr
 
 	/* Handle differently based on type of request */
 	switch (req_type) {
+	case ETHREMOTECFG_ALLOC_RX:
+		rx_alloc_req = (struct rx_flow_alloc_request *)msg;
+		req_msg_hdr = &rx_alloc_req->request_msg_hdr;
+
+		/* Set relative index of the requested RX Flow */
+		rx_alloc_req->rx_flow_idx = virt_port->curr_rx_chan_idx;
+		break;
+
+	case ETHREMOTECFG_ALLOC_TX:
+		tx_alloc_req = (struct tx_psil_alloc_request *)msg;
+		req_msg_hdr = &tx_alloc_req->request_msg_hdr;
+
+		/* Set relative index of the requested TX Channel */
+		tx_alloc_req->tx_chan_idx = virt_port->curr_tx_chan_idx;
+		break;
+
+	case ETHREMOTECFG_ATTACH:
 	case ETHREMOTECFG_ATTACH_EXT:
 		attach_req = (struct attach_request *)msg;
 		req_msg_hdr = &attach_req->request_msg_hdr;
@@ -179,6 +201,7 @@ static int create_request(u32 token, u32 client_id, u32 req_type, struct cpsw_pr
 
 		break;
 
+	case ETHREMOTECFG_ALLOC_MAC:
 	case ETHREMOTECFG_DETACH:
 	case ETHREMOTECFG_PORT_LINK_STATUS:
 	case ETHREMOTECFG_PROMISC_DISABLE:
@@ -193,14 +216,15 @@ static int create_request(u32 token, u32 client_id, u32 req_type, struct cpsw_pr
 	case ETHREMOTECFG_FILTER_MAC_ADD:
 		mcast_add_req = (struct add_mcast_vlan_rx_flow_request *)msg;
 		req_msg_hdr = &mcast_add_req->request_msg_hdr;
+		rx_chn = &virt_port->virt_port_rx_chan[virt_port->curr_rx_chan_idx];
 
 		/* Set Multicast MAC Address */
 		ether_addr_copy(mcast_add_req->mac_addr, virt_port->mcast_mac_addr);
 		/* Set VLAN id */
 		mcast_add_req->vlan_id = virt_port->vlan_id;
 		/* Set RX Flow Index Base and Offset */
-		mcast_add_req->rx_flow_idx_base = virt_port->rx_flow_idx_base;
-		mcast_add_req->rx_flow_idx_offset = virt_port->rx_flow_idx_offset;
+		mcast_add_req->rx_flow_idx_base = rx_chn->rx_flow_idx_base;
+		mcast_add_req->rx_flow_idx_offset = rx_chn->rx_flow_idx_offset;
 
 		break;
 
@@ -227,18 +251,20 @@ static int create_request(u32 token, u32 client_id, u32 req_type, struct cpsw_pr
 	case ETHREMOTECFG_FREE_RX:
 		rx_free_req = (struct rx_flow_release_request *)msg;
 		req_msg_hdr = &rx_free_req->request_msg_hdr;
+		rx_chn = &virt_port->virt_port_rx_chan[virt_port->curr_rx_chan_idx];
 
 		/* Set RX Flow Index Base and Offset to release */
-		rx_free_req->rx_flow_idx_base = virt_port->rx_flow_idx_base;
-		rx_free_req->rx_flow_idx_offset = virt_port->rx_flow_idx_offset;
+		rx_free_req->rx_flow_idx_base = rx_chn->rx_flow_idx_base;
+		rx_free_req->rx_flow_idx_offset = rx_chn->rx_flow_idx_offset;
 
 		break;
 
 	case ETHREMOTECFG_FREE_TX:
 		tx_free_req = (struct tx_psil_release_request *)msg;
 		req_msg_hdr = &tx_free_req->request_msg_hdr;
+		tx_chn = &virt_port->virt_port_tx_chan[virt_port->curr_tx_chan_idx];
 
-		tx_free_req->tx_psil_dest_id = virt_port->tx_psil_dest_id;
+		tx_free_req->tx_psil_dest_id = tx_chn->tx_psil_dest_id;
 
 		break;
 
@@ -263,17 +289,14 @@ static int create_request(u32 token, u32 client_id, u32 req_type, struct cpsw_pr
 	case ETHREMOTECFG_MAC_DEREGISTER:
 		mac_reg_req = (struct mac_rx_flow_register_request *)msg;
 		req_msg_hdr = &mac_reg_req->request_msg_hdr;
+		rx_chn = &virt_port->virt_port_rx_chan[virt_port->curr_rx_chan_idx];
 
 		ether_addr_copy(mac_reg_req->mac_addr, virt_port->mac_addr);
-		mac_reg_req->rx_flow_idx_base = virt_port->rx_flow_idx_base;
-		mac_reg_req->rx_flow_idx_offset = virt_port->rx_flow_idx_offset;
+		mac_reg_req->rx_flow_idx_base = rx_chn->rx_flow_idx_base;
+		mac_reg_req->rx_flow_idx_offset = rx_chn->rx_flow_idx_offset;
 
 		break;
 
-	case ETHREMOTECFG_ATTACH:
-	case ETHREMOTECFG_ALLOC_TX:
-	case ETHREMOTECFG_ALLOC_RX:
-	case ETHREMOTECFG_ALLOC_MAC:
 	case ETHREMOTECFG_SET_RX_DEFAULTFLOW:
 	case ETHREMOTECFG_DEL_RX_DEFAULTFLOW:
 	case ETHREMOTECFG_REGISTER_READ:
@@ -615,6 +638,8 @@ static int cpsw_proxy_client_register_mac(struct cpsw_virt_port *virt_port)
 	struct message response;
 	int ret;
 
+	/* Register MAC address only for default RX Channel/Flow */
+	virt_port->curr_rx_chan_idx = 0;
 	ret = cpsw_proxy_client_send_request(common, virt_port, virt_port->virt_port_token,
 					     ETHREMOTECFG_MAC_REGISTER, &response);
 	if (ret)
@@ -757,6 +782,8 @@ static int cpsw_virt_port_add_mcast(struct net_device *ndev, const u8 *addr)
 	mutex_lock(&virt_port->mcast_filter_mutex);
 	ether_addr_copy(virt_port->mcast_mac_addr, addr);
 	virt_port->vlan_id = ETHREMOTECFG_ETHSWITCH_VLAN_USE_DFLT;
+	/* Register Multicast MAC address only for default RX Channel/Flow */
+	virt_port->curr_rx_chan_idx = 0;
 
 	ret = cpsw_proxy_client_send_request(common, virt_port, virt_port->virt_port_token,
 					     ETHREMOTECFG_FILTER_MAC_ADD, &response);
@@ -1703,37 +1730,56 @@ static void cpsw_proxy_client_detach(struct cpsw_proxy_common *common)
 	struct cpsw_virt_port *virt_port;
 	struct message response;
 	u32 port_id;
-	int ret, i;
+	int ret, i, j;
 
 	for (i = 0; i < common->num_virt_ports; i++) {
 		virt_port = &common->virt_ports[i];
 		port_id = virt_port->virt_port_id;
 
 		/* Free MAC Request */
-		ret = cpsw_proxy_client_send_request(common, virt_port,
-						     virt_port->virt_port_token,
-						     ETHREMOTECFG_FREE_MAC, &response);
-		if (ret) {
-			dev_err(common->dev, "failed to detach port %u err: %d\n", port_id, ret);
-			return;
+		if (virt_port->mac_is_valid) {
+			ret = cpsw_proxy_client_send_request(common, virt_port,
+							     virt_port->virt_port_token,
+							     ETHREMOTECFG_FREE_MAC, &response);
+			if (ret) {
+				dev_err(common->dev, "failed to detach port %u err: %d\n",
+					port_id, ret);
+				return;
+			}
 		}
 
 		/* Free TX DMA Channel */
-		ret = cpsw_proxy_client_send_request(common, virt_port,
-						     virt_port->virt_port_token,
-						     ETHREMOTECFG_FREE_TX, &response);
-		if (ret) {
-			dev_err(common->dev, "failed to detach port %u err: %d\n", port_id, ret);
-			return;
+		for (j = 0; j < virt_port->num_tx_chan; j++) {
+			if (&virt_port->virt_port_tx_chan &&
+			    &virt_port->virt_port_tx_chan->is_valid) {
+				virt_port->curr_tx_chan_idx = j;
+				ret = cpsw_proxy_client_send_request(common, virt_port,
+								     virt_port->virt_port_token,
+								     ETHREMOTECFG_FREE_TX,
+								     &response);
+				if (ret) {
+					dev_err(common->dev, "failed to detach port %u err: %d\n",
+						port_id, ret);
+					return;
+				}
+			}
 		}
 
 		/* Free RX DMA Flow */
-		ret = cpsw_proxy_client_send_request(common, virt_port,
-						     virt_port->virt_port_token,
-						     ETHREMOTECFG_FREE_RX, &response);
-		if (ret) {
-			dev_err(common->dev, "failed to detach port %u err: %d\n", port_id, ret);
-			return;
+		for (j = 0; j < virt_port->num_rx_chan; j++) {
+			if (&virt_port->virt_port_rx_chan &&
+			    &virt_port->virt_port_rx_chan->is_valid) {
+				virt_port->curr_rx_chan_idx = j;
+				ret = cpsw_proxy_client_send_request(common, virt_port,
+								     virt_port->virt_port_token,
+								     ETHREMOTECFG_FREE_RX,
+								     &response);
+				if (ret) {
+					dev_err(common->dev, "failed to detach port %u err: %d\n",
+						port_id, ret);
+					return;
+				}
+			}
 		}
 
 		/* Send Detach Request */
@@ -1747,11 +1793,11 @@ static void cpsw_proxy_client_detach(struct cpsw_proxy_common *common)
 	}
 }
 
-static int cpsw_proxy_client_attach_ext(struct cpsw_proxy_common *common)
+static int cpsw_proxy_client_attach(struct cpsw_proxy_common *common)
 {
-	struct attach_ext_response *att_ext_resp;
 	struct cpsw_proxy_rx_chan *rx_chn;
 	struct cpsw_proxy_tx_chan *tx_chn;
+	struct attach_response *att_resp;
 	struct cpsw_virt_port *virt_port;
 	struct message response;
 	int ret, ret1, i, j;
@@ -1761,41 +1807,30 @@ static int cpsw_proxy_client_attach_ext(struct cpsw_proxy_common *common)
 		virt_port = &common->virt_ports[i];
 		port_id = virt_port->virt_port_id;
 
-		/* Send Attach Ext Request */
+		/* Send Attach Request */
 		ret = cpsw_proxy_client_send_request(common, virt_port, ETHREMOTECFG_TOKEN_NONE,
-						     ETHREMOTECFG_ATTACH_EXT, &response);
+						     ETHREMOTECFG_ATTACH, &response);
 		if (ret) {
 			dev_err(common->dev, "failed to attach port %u err: %d\n", port_id, ret);
 			goto err;
 		}
 
-		att_ext_resp = (struct attach_ext_response *)&response;
-		virt_port->virt_port_token = att_ext_resp->response_msg_hdr.msg_hdr.token;
-		virt_port->tx_psil_dest_id = att_ext_resp->tx_psil_dest_id;
-		/* Each Virtual Port is allocated only one TX Channel for ATTACH_EXT */
-		virt_port->num_tx_chan = 1;
-		virt_port->rx_psil_src_id = att_ext_resp->rx_psil_src_id;
-		virt_port->rx_flow_idx_base = att_ext_resp->rx_flow_idx_base;
-		virt_port->rx_flow_idx_offset = att_ext_resp->rx_flow_idx_offset;
-		/* Each Virtual Port is allocated only one RX Channel for ATTACH_EXT */
-		virt_port->num_rx_chan = 1;
-		ether_addr_copy(virt_port->mac_addr, att_ext_resp->mac_addr);
-		virt_port->mcast_filter = att_ext_resp->features & ETHREMOTECFG_FEATURE_MC_FILTER;
+		att_resp = (struct attach_response *)&response;
+		virt_port->virt_port_token = att_resp->response_msg_hdr.msg_hdr.token;
+		virt_port->mcast_filter = att_resp->features & ETHREMOTECFG_FEATURE_MC_FILTER;
+		virt_port->num_tx_chan = att_resp->num_tx_chan;
+		virt_port->num_rx_chan = att_resp->num_rx_flow;
 
 		for (j = 0; j < virt_port->num_tx_chan; j++) {
 			tx_chn = &virt_port->virt_port_tx_chan[j];
 			tx_chn->virt_port = virt_port;
 			tx_chn->rel_chan_idx = j;
-			tx_chn->tx_psil_dest_id = virt_port->tx_psil_dest_id;
 		}
 
 		for (j = 0; j < virt_port->num_rx_chan; j++) {
 			rx_chn = &virt_port->virt_port_rx_chan[j];
 			rx_chn->virt_port = virt_port;
 			rx_chn->rel_chan_idx = j;
-			rx_chn->rx_psil_src_id = virt_port->rx_psil_src_id;
-			rx_chn->rx_flow_idx_base = virt_port->rx_flow_idx_base;
-			rx_chn->rx_flow_idx_offset = virt_port->rx_flow_idx_offset;
 		}
 	}
 
@@ -1814,6 +1849,83 @@ err:
 			dev_err(common->dev, "failed to DETACH port: %u err: %d\n", port_id, ret1);
 	}
 
+	return ret;
+}
+
+static int cpsw_proxy_client_dma_mac_alloc(struct cpsw_proxy_common *common)
+{
+	struct rx_flow_alloc_response *rx_alloc_resp;
+	struct tx_psil_alloc_response *tx_alloc_resp;
+	struct mac_alloc_response *mac_alloc_resp;
+	struct cpsw_proxy_tx_chan *tx_chn;
+	struct cpsw_proxy_rx_chan *rx_chn;
+	struct cpsw_virt_port *virt_port;
+	struct message response;
+	int ret, i, j;
+	u32 port_id;
+
+	for (i = 0; i < common->num_virt_ports; i++) {
+		virt_port = &common->virt_ports[i];
+		port_id = virt_port->virt_port_id;
+
+		for (j = 0; j < virt_port->num_rx_chan; j++) {
+			/* Send RX Chan Allocation Request */
+			virt_port->curr_rx_chan_idx = j;
+			rx_chn = &virt_port->virt_port_rx_chan[j];
+
+			ret = cpsw_proxy_client_send_request(common, virt_port,
+							     virt_port->virt_port_token,
+							     ETHREMOTECFG_ALLOC_RX, &response);
+			if (ret) {
+				dev_err(common->dev, "failed to alloc RX for port %u err: %d\n",
+					port_id, ret);
+				goto err;
+			}
+
+			rx_alloc_resp = (struct rx_flow_alloc_response *)&response;
+			rx_chn->rx_flow_idx_base = rx_alloc_resp->rx_flow_idx_base;
+			rx_chn->rx_flow_idx_offset = rx_alloc_resp->rx_flow_idx_offset;
+			rx_chn->rx_psil_src_id = rx_alloc_resp->rx_psil_src_id;
+			rx_chn->is_valid = 1;
+		}
+
+		for (j = 0; j < virt_port->num_tx_chan; j++) {
+			/* Send TX Channel Allocation Request */
+			virt_port->curr_tx_chan_idx = j;
+			tx_chn = &virt_port->virt_port_tx_chan[j];
+
+			ret = cpsw_proxy_client_send_request(common, virt_port,
+							     virt_port->virt_port_token,
+							     ETHREMOTECFG_ALLOC_TX, &response);
+			if (ret) {
+				dev_err(common->dev, "failed to alloc TX for port %u err: %d\n",
+					port_id, ret);
+				goto err;
+			}
+
+			tx_alloc_resp = (struct tx_psil_alloc_response *)&response;
+			tx_chn->tx_psil_dest_id = tx_alloc_resp->tx_psil_dest_id;
+			tx_chn->is_valid = 1;
+		}
+
+		/* Send MAC Allocation Request */
+		ret = cpsw_proxy_client_send_request(common, virt_port, virt_port->virt_port_token,
+						     ETHREMOTECFG_ALLOC_MAC, &response);
+		if (ret) {
+			dev_err(common->dev, "failed to alloc MAC for port %u err: %d\n", port_id,
+				ret);
+			goto err;
+		}
+
+		mac_alloc_resp = (struct mac_alloc_response *)&response;
+		ether_addr_copy(virt_port->mac_addr, mac_alloc_resp->mac_addr);
+		virt_port->mac_is_valid = 1;
+	}
+
+	return 0;
+
+err:
+	cpsw_proxy_client_detach(common);
 	return ret;
 }
 
@@ -2256,8 +2368,13 @@ static int cpsw_proxy_client_probe(struct rpmsg_device *rpdev)
 	if (ret)
 		goto err;
 
-	/* Request DMA Channel Information for each Virtual Port */
-	ret = cpsw_proxy_client_attach_ext(common);
+	/* Request DMA Channels and MAC allocation Info for each Virtual Port */
+	ret = cpsw_proxy_client_attach(common);
+	if (ret)
+		goto err;
+
+	/* Request DMA Channels and MAC Address for each Virtual Port */
+	ret = cpsw_proxy_client_dma_mac_alloc(common);
 	if (ret)
 		goto err;
 
