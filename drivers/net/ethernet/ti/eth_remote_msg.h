@@ -216,6 +216,10 @@ struct attach_response {
 	u32 tx_mtu[ETHREMOTECFG_PRIORITY_NUM];
 	/* Feature bitmask based on defines ETHREMOTECFG_FEATURE_xxx */
 	u32 features;
+	/* Number of TX DMA Channels available for the virtual port */
+	u32 num_tx_chan;
+	/* Number of RX DMA Flows available for the virtual port */
+	u32 num_rx_flow;
 } __packed;
 
 struct attach_ext_response {
@@ -238,6 +242,12 @@ struct attach_ext_response {
 	u32 rx_psil_src_id;
 } __packed;
 
+struct rx_flow_alloc_request {
+	struct request_message_header request_msg_hdr;
+	/* Relative index of RX flow among available num_rx_flow flows */
+	u32 rx_flow_idx;
+} __packed;
+
 struct rx_flow_alloc_response {
 	struct response_message_header response_msg_hdr;
 	/* Allocated RX flow index base */
@@ -246,6 +256,12 @@ struct rx_flow_alloc_response {
 	u32 rx_flow_idx_offset;
 	/* RX PSIL Peer source thread id */
 	u32 rx_psil_src_id;
+} __packed;
+
+struct tx_psil_alloc_request {
+	struct request_message_header request_msg_hdr;
+	/* Relative index of TX channel among available num_tx_chan channels */
+	u32 tx_chan_idx;
 } __packed;
 
 struct tx_psil_alloc_response {
