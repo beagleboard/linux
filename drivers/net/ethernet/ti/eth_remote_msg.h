@@ -254,8 +254,8 @@ struct tx_psil_alloc_response {
 	u32 tx_psil_dest_id;
 } __packed;
 
-struct mac_alloc_request {
-	struct request_message_header request_msg_hdr;
+struct mac_alloc_response {
+	struct response_message_header response_msg_hdr;
 	/* Allocated MAC address */
 	u8 mac_addr[ETHREMOTECFG_MACADDRLEN];
 } __packed;
