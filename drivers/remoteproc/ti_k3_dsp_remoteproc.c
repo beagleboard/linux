@@ -6,7 +6,9 @@
  *	Suman Anna <s-anna@ti.com>
  */
 
+#include <linux/delay.h>
 #include <linux/io.h>
+#include <linux/iopoll.h>
 #include <linux/mailbox_client.h>
 #include <linux/module.h>
 #include <linux/of_device.h>
@@ -16,11 +18,37 @@
 #include <linux/remoteproc.h>
 #include <linux/reset.h>
 #include <linux/slab.h>
+#include <linux/suspend.h>
 
 #include "omap_remoteproc.h"
 #include "remoteproc_internal.h"
 #include "ti_sci_proc.h"
 #include "ti_k3_common.h"
+
+/* C7x TI-SCI Processor Status Flags */
+#define PROC_BOOT_STATUS_FLAG_CPU_WFE                   0x00000001
+#define PROC_BOOT_STATUS_FLAG_CPU_WFI                   0x00000002
+
+/**
+ * is_core_in_wfi - local utility function to check core status
+ * @kproc: remote core pointer used for checking core status
+ *
+ * This utility function is invoked by the shutdown sequence to ensure
+ * the remote core is in wfi, before asserting a reset.
+ */
+static int is_core_in_wfi(struct k3_rproc *core)
+{
+	int ret;
+	u64 boot_vec;
+	u32 cfg, ctrl, stat;
+
+	ret = ti_sci_proc_get_status(core->tsp, &boot_vec, &cfg, &ctrl, &stat);
+
+	if (ret < 0)
+		return 0;
+
+	return (stat & PROC_BOOT_STATUS_FLAG_CPU_WFI);
+}
 
 /**
  * k3_dsp_rproc_mbox_callback() - inbound mailbox message handler
@@ -56,6 +84,10 @@ static void k3_dsp_rproc_mbox_callback(struct mbox_client *client, void *data)
 		break;
 	case RP_MBOX_ECHO_REPLY:
 		dev_info(dev, "received echo reply from %s\n", name);
+		break;
+	case RP_MBOX_SHUTDOWN_ACK:
+		dev_dbg(dev, "received shutdown_ack from %s\n", name);
+		complete(&kproc->shut_comp);
 		break;
 	default:
 		/* silently handle all other valid messages */
@@ -158,6 +190,42 @@ static int k3_dsp_rproc_unprepare(struct rproc *rproc)
 }
 
 /*
+ * PM notifier call.
+ * This is a callback function for PM notifications. On a resume completion
+ * i.e after all the resume driver calls are handled on PM_POST_SUSPEND,
+ * on a deep sleep the remote core is rebooted.
+ */
+static int dsp_pm_notifier_call(struct notifier_block *bl,
+				unsigned long state, void *unused)
+{
+	struct k3_rproc *kproc = container_of(bl, struct k3_rproc, pm_notifier);
+	struct device *dev = kproc->dev;
+
+	switch (state) {
+	case PM_HIBERNATION_PREPARE:
+	case PM_RESTORE_PREPARE:
+	case PM_SUSPEND_PREPARE:
+		if (!device_may_wakeup(kproc->dev))
+			if (rproc_shutdown(kproc->rproc)) {
+				dev_err(dev, "failed to shutdown remote core\n");
+				return NOTIFY_BAD;
+			}
+		kproc->rproc->state = RPROC_SUSPENDED;
+	break;
+	case PM_POST_HIBERNATION:
+	case PM_POST_RESTORE:
+	case PM_POST_SUSPEND:
+		if (kproc->rproc->state == RPROC_SUSPENDED) {
+			if (!device_may_wakeup(kproc->dev))
+				rproc_boot(kproc->rproc);
+			kproc->rproc->state = RPROC_RUNNING;
+		}
+	break;
+	}
+	return 0;
+}
+
+/*
  * Power up the DSP remote processor.
  *
  * This function will be invoked only after the firmware for this rproc
@@ -207,9 +275,32 @@ put_mbox:
  */
 static int k3_dsp_rproc_stop(struct rproc *rproc)
 {
+	unsigned long to = msecs_to_jiffies(3000);
 	struct k3_rproc *kproc = rproc->priv;
+	struct device *dev = kproc->dev;
+	unsigned long msg = RP_MBOX_SHUTDOWN;
+	u32 stat = 0;
+	int ret;
+
+	reinit_completion(&kproc->shut_comp);
+	ret = mbox_send_message(kproc->mbox, (void *)msg);
+	if (ret < 0) {
+		dev_err(dev, "PM mbox_send_message failed: %d\n", ret);
+			return ret;
+	}
+
+	ret = wait_for_completion_timeout(&kproc->shut_comp, to);
+	if (ret == 0) {
+		dev_err(dev, "%s: timedout waiting for rproc completion event\n", __func__);
+			return -EBUSY;
+	};
 
 	mbox_free_channel(kproc->mbox);
+
+	/* poll remote core's status, with a timeout of 2ms and 200us sleeps in between */
+	ret = readx_poll_timeout(is_core_in_wfi, kproc, stat, stat, 200, 2000);
+	if (ret)
+		return ret;
 
 	k3_rproc_reset(kproc);
 
@@ -400,6 +491,12 @@ static int k3_dsp_rproc_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, kproc);
 
+	/* Register pm notifiers */
+	dev_info(dev, "register pm nitifiers in remoteproc mode\n");
+	init_completion(&kproc->shut_comp);
+	kproc->pm_notifier.notifier_call = dsp_pm_notifier_call;
+	register_pm_notifier(&kproc->pm_notifier);
+
 	return 0;
 
 release_mem:
@@ -447,6 +544,9 @@ static int k3_dsp_rproc_remove(struct platform_device *pdev)
 		dev_err(dev, "failed to put ti_sci handle, ret = %d\n", ret);
 
 	k3_reserved_mem_exit(kproc);
+
+	unregister_pm_notifier(&kproc->pm_notifier);
+
 	rproc_free(kproc->rproc);
 
 	return 0;
