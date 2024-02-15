@@ -280,7 +280,7 @@ static void sdhci_am654_set_clock(struct sdhci_host *host, unsigned int clock)
 
 	sdhci_set_clock(host, clock);
 
-	/* Setup DLL Output TAP delay */
+	/* Setup Output TAP delay */
 	if (sdhci_am654->legacy_otapdly)
 		otap_del_sel = sdhci_am654->otap_del_sel[0];
 	else
@@ -327,7 +327,7 @@ static void sdhci_j721e_4bit_set_clock(struct sdhci_host *host,
 	u32 itap_del_sel;
 	u32 mask, val;
 
-	/* Setup DLL Output TAP delay */
+	/* Setup Output TAP delay */
 	if (sdhci_am654->legacy_otapdly)
 		otap_del_sel = sdhci_am654->otap_del_sel[0];
 	else
@@ -337,6 +337,7 @@ static void sdhci_j721e_4bit_set_clock(struct sdhci_host *host,
 	val = (0x1 << OTAPDLYENA_SHIFT) |
 	      (otap_del_sel << OTAPDLYSEL_SHIFT);
 
+	/* Setup Input TAP delay */
 	itap_del_ena = sdhci_am654->itap_del_ena[timing];
 	itap_del_sel = sdhci_am654->itap_del_sel[timing];
 
