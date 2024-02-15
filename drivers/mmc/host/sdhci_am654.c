@@ -152,6 +152,7 @@ struct sdhci_am654_data {
 	u32 flags;
 	u32 quirks;
 	bool dll_enable;
+	bool hs200_tunning;
 
 #define SDHCI_AM654_QUIRK_FORCE_CDTEST BIT(0)
 };
@@ -176,6 +177,7 @@ static void sdhci_am654_setup_dll(struct sdhci_host *host, unsigned int clock)
 {
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct sdhci_am654_data *sdhci_am654 = sdhci_pltfm_priv(pltfm_host);
+	unsigned char timing = host->mmc->ios.timing;
 	int sel50, sel100, freqsel;
 	u32 mask, val;
 	int ret;
@@ -238,6 +240,10 @@ static void sdhci_am654_setup_dll(struct sdhci_host *host, unsigned int clock)
 		dev_err(mmc_dev(host->mmc), "DLL failed to relock\n");
 		return;
 	}
+
+	/* HS400 ITAPDLY should be the same as HS200 ITAPDLY*/
+	if (timing == MMC_TIMING_MMC_HS400)
+		sdhci_am654->itap_del_sel[timing] = sdhci_am654->itap_del_sel[timing - 1];
 }
 
 static void sdhci_am654_write_itapdly(struct sdhci_am654_data *sdhci_am654,
@@ -314,6 +320,9 @@ static void sdhci_am654_set_clock(struct sdhci_host *host, unsigned int clock)
 
 	regmap_update_bits(sdhci_am654->base, PHY_CTRL5, CLKBUFSEL_MASK,
 			   sdhci_am654->clkbuf_sel);
+
+	if (timing == MMC_TIMING_MMC_HS200 && sdhci_am654->dll_enable)
+		sdhci_am654->hs200_tunning = true;
 }
 
 static void sdhci_j721e_4bit_set_clock(struct sdhci_host *host,
@@ -550,6 +559,10 @@ static int sdhci_am654_platform_execute_tuning(struct sdhci_host *host,
 					  (sdhci_am654->dll_enable));
 
 	sdhci_am654_write_itapdly(sdhci_am654, itap, 1);
+
+	/* Save ITAPDLY for HS200 */
+	if (sdhci_am654->hs200_tunning)
+		sdhci_am654->itap_del_sel[MMC_TIMING_MMC_HS200] = itap;
 
 	return 0;
 }
