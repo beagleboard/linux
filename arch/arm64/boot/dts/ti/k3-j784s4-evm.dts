@@ -733,27 +733,27 @@
 
 			partition@0 {
 				label = "ospi.tiboot3";
-				reg = <0x0 0x80000>;
+				reg = <0x0 0x100000>;
 			};
 
-			partition@80000 {
+			partition@100000 {
 				label = "ospi.tispl";
-				reg = <0x80000 0x200000>;
+				reg = <0x100000 0x200000>;
 			};
 
-			partition@280000 {
+			partition@300000 {
 				label = "ospi.u-boot";
-				reg = <0x280000 0x400000>;
+				reg = <0x300000 0x400000>;
 			};
 
-			partition@680000 {
+			partition@700000 {
 				label = "ospi.env";
-				reg = <0x680000 0x40000>;
+				reg = <0x700000 0x40000>;
 			};
 
-			partition@6c0000 {
+			partition@740000 {
 				label = "ospi.env.backup";
-				reg = <0x6c0000 0x40000>;
+				reg = <0x740000 0x40000>;
 			};
 
 			partition@800000 {
@@ -790,27 +790,27 @@
 
 			partition@0 {
 				label = "ospi_nand.tiboot3";
-				reg = <0x0 0x80000>;
+				reg = <0x0 0x100000>;
 			};
 
-			partition@80000 {
+			partition@100000 {
 				label = "ospi_nand.tispl";
-				reg = <0x80000 0x200000>;
+				reg = <0x100000 0x200000>;
 			};
 
-			partition@280000 {
+			partition@300000 {
 				label = "ospi_nand.u-boot";
-				reg = <0x280000 0x400000>;
+				reg = <0x300000 0x400000>;
 			};
 
-			partition@680000 {
+			partition@700000 {
 				label = "ospi_nand.env";
-				reg = <0x680000 0x40000>;
+				reg = <0x700000 0x40000>;
 			};
 
-			partition@6c0000 {
+			partition@740000 {
 				label = "ospi_nand.env.backup";
-				reg = <0x6c0000 0x40000>;
+				reg = <0x740000 0x40000>;
 			};
 
 			partition@2000000 {
@@ -850,27 +850,27 @@
 
 			partition@0 {
 				label = "qspi.tiboot3";
-				reg = <0x0 0x80000>;
+				reg = <0x0 0x100000>;
 			};
 
-			partition@80000 {
+			partition@100000 {
 				label = "qspi.tispl";
-				reg = <0x80000 0x200000>;
+				reg = <0x100000 0x200000>;
 			};
 
-			partition@280000 {
+			partition@300000 {
 				label = "qspi.u-boot";
-				reg = <0x280000 0x400000>;
+				reg = <0x300000 0x400000>;
 			};
 
-			partition@680000 {
+			partition@700000 {
 				label = "qspi.env";
-				reg = <0x680000 0x40000>;
+				reg = <0x700000 0x40000>;
 			};
 
-			partition@6c0000 {
+			partition@740000 {
 				label = "qspi.env.backup";
-				reg = <0x6c0000 0x40000>;
+				reg = <0x740000 0x40000>;
 			};
 
 			partition@800000 {
