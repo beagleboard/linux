@@ -34,4 +34,22 @@
  */
 #define RPROC_GET_SHUTDOWN_ON_RELEASE _IOR(RPROC_MAGIC, 2, __s32)
 
+/**
+ * struct rproc_dma_buf_attach_data - metadata passed from userspace
+ * @fd:		DMA-BUF fd
+ * @da:		populated with device address of DMA-BUF
+ */
+struct rproc_dma_buf_attach_data {
+	__u32 fd;
+	__u64 da;
+};
+
+/**
+ * DOC: RPROC_IOC_DMA_BUF_ATTACH - Attach and map DMA-BUF a remote processor
+ *
+ * Takes a rproc_dma_buf_data struct containing a fd for a physicaly contigous
+ * buffer. Pins this buffer and populates phys field with the device address.
+ */
+#define RPROC_IOC_DMA_BUF_ATTACH _IOWR(RPROC_MAGIC, 0, struct rproc_dma_buf_attach_data)
+
 #endif
