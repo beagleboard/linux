@@ -27,14 +27,20 @@
 
 	rpi_header_gpio1_pins_default: rpi-header-gpio1-pins-default {
 		pinctrl-single,pins = <
+			AM62PX_IOPAD(0x01a4, PIN_INPUT, 7) /* (F24) MCASP0_ACLKX.GPIO1_11 */
+			AM62PX_IOPAD(0x01bc, PIN_INPUT, 7) /* (B21) SPI0_CLK.GPIO1_17 */
+			AM62PX_IOPAD(0x01c0, PIN_INPUT, 7) /* (B20) SPI0_D0.GPIO1_18 */
+			AM62PX_IOPAD(0x01c4, PIN_INPUT, 7) /* (C21) SPI0_D1.GPIO1_19 */
 			AM62PX_IOPAD(0x01d0, PIN_INPUT, 7) /* (A23) UART0_CTSn.GPIO1_22 */
+			AM62PX_IOPAD(0x01d8, PIN_INPUT, 7) /* (B23) MCAN0_TX.GPIO1_24 */
+			AM62PX_IOPAD(0x01dc, PIN_INPUT, 7) /* (F20) MCAN0_RX.GPIO1_25 */
 		>;
 	};
 
 	rpi_header_ehrpwm0_pins_default: rpi-header-ehrpwm0-pins-default {
 		pinctrl-single,pins = <
-			AM62PX_IOPAD(0x01ac, PIN_OUTPUT, 6) /* (G23) MCASP0_AFSR.EHRPWM0_A */
-			AM62PX_IOPAD(0x01b0, PIN_OUTPUT, 6) /* (G20) MCASP0_ACLKR.EHRPWM0_B */
+			AM62PX_IOPAD(0x01b4, PIN_OUTPUT, 2) /* (D20) SPI0_CS0.EHRPWM0_A */
+			AM62PX_IOPAD(0x01b8, PIN_OUTPUT, 2) /* (E20) SPI0_CS1.EHRPWM0_B */
 		>;
 	};
 
@@ -76,7 +82,8 @@
 	};
 };
 
-&mcasp0 {
+&dss0 {
+	/* Conflict with GPIO0_38 */
 	status = "disabled";
 };
 
@@ -91,7 +98,6 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&rpi_header_ehrpwm1_pins_default>;
 };
-
 
 &main_gpio0 {
 	status = "okay";
