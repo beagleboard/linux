@@ -729,8 +729,8 @@ static int sdhci_am654_get_otap_delay(struct sdhci_host *host,
 		}
 
 		if (td[i].itap_binding) {
-			device_property_read_u32(dev, td[i].itap_binding,
-						 &sdhci_am654->itap_del_sel[i]);
+			ret = device_property_read_u32(dev, td[i].itap_binding,
+						       &sdhci_am654->itap_del_sel[i]);
 
 			if (!ret)
 				sdhci_am654->itap_del_ena[i] = 0x1;
