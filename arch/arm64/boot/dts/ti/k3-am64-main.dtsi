@@ -482,6 +482,7 @@
 		ti,itap-del-sel-legacy = <0x10>;
 		ti,itap-del-sel-mmc-hs = <0xa>;
 		ti,itap-del-sel-ddr52 = <0x3>;
+		status = "disabled";
 	};
 
 	sdhci1: mmc@fa00000 {
@@ -504,6 +505,7 @@
 		ti,itap-del-sel-sd-hs = <0x0>;
 		ti,itap-del-sel-sdr12 = <0x0>;
 		ti,itap-del-sel-sdr25 = <0x0>;
+		status = "disabled";
 	};
 
 	cpsw3g: ethernet@8000000 {
