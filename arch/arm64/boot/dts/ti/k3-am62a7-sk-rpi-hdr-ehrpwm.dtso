@@ -27,7 +27,17 @@
 
 	rpi_header_gpio1_pins_default: rpi-header-gpio1-pins-default {
 		pinctrl-single,pins = <
+			AM62AX_IOPAD(0x0194, PIN_INPUT, 7) /* (C19) MCASP0_AXR3.GPIO1_7 */
+			AM62AX_IOPAD(0x0198, PIN_INPUT, 7) /* (B19) MCASP0_AXR2.GPIO1_8 */
+			AM62AX_IOPAD(0x01a4, PIN_INPUT, 7) /* (A19) MCASP0_ACLKX.GPIO1_11 */
+			AM62AX_IOPAD(0x01b4, PIN_INPUT, 7) /* (D16) SPI0_CS0.GPIO1_15 */
+			AM62AX_IOPAD(0x01b8, PIN_INPUT, 7) /* (C16) SPI0_CS1.GPIO1_16 */
+			AM62AX_IOPAD(0x01bc, PIN_INPUT, 7) /* (A17) SPI0_CLK.GPIO1_17 */
+			AM62AX_IOPAD(0x01c0, PIN_INPUT, 7) /* (B15) SPI0_D0.GPIO1_18 */
+			AM62AX_IOPAD(0x01c4, PIN_INPUT, 7) /* (E15) SPI0_D1.GPIO1_19 */
 			AM62AX_IOPAD(0x01d0, PIN_INPUT, 7) /* (F14) UART0_CTSn.GPIO1_22 */
+			AM62AX_IOPAD(0x01d8, PIN_INPUT, 7) /* (B17) MCAN0_TX.GPIO1_24 */
+			AM62AX_IOPAD(0x01dc, PIN_INPUT, 7) /* (C18) MCAN0_RX.GPIO1_25 */
 		>;
 	};
 
@@ -72,10 +82,6 @@
 			line-name = "UART1_FET_SEL";
 		};
 	};
-};
-
-&mcasp0 {
-	status = "disabled";
 };
 
 &epwm0 {
