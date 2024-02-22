@@ -74,10 +74,6 @@
 	};
 };
 
-&mcasp0 {
-	status = "disabled";
-};
-
 &epwm0 {
 	status = "okay";
 	pinctrl-names = "default";
