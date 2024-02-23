@@ -388,8 +388,6 @@
 
 	wkup_uart0_pins_default: wkup-uart0-pins-default {
 		pinctrl-single,pins = <
-			J784S4_WKUP_IOPAD(0x070, PIN_INPUT, 0) /* (E25) WKUP_UART0_CTSn */
-			J784S4_WKUP_IOPAD(0x074, PIN_OUTPUT, 0) /* (F28) WKUP_UART0_RTSn */
 			J784S4_WKUP_IOPAD(0x048, PIN_INPUT, 0) /* (K35) WKUP_UART0_RXD */
 			J784S4_WKUP_IOPAD(0x04c, PIN_OUTPUT, 0) /* (K34) WKUP_UART0_TXD */
 		>;
