@@ -49,7 +49,6 @@
 			reg = <0x41500000 0x100>;
 		};
 
-
 		target-module@41501000 {
 			compatible = "ti,sysc-omap2", "ti,sysc";
 			reg = <0x41501000 0x4>,
@@ -289,6 +288,63 @@
 				vin4b: port@3 {
 					reg = <3>;
 					label = "vin4b";
+				};
+			};
+		};
+	};
+
+	target-module@1b0000 {			/* 0x489b0000, ap 25 34.0 */
+		compatible = "ti,sysc-omap4", "ti,sysc";
+		reg = <0x1b0000 0x4>,
+		      <0x1b0010 0x4>;
+		reg-names = "rev", "sysc";
+		ti,sysc-midle = <SYSC_IDLE_FORCE>,
+				<SYSC_IDLE_NO>,
+				<SYSC_IDLE_SMART>;
+		ti,sysc-sidle = <SYSC_IDLE_FORCE>,
+				<SYSC_IDLE_NO>,
+				<SYSC_IDLE_SMART>;
+		clocks = <&cam_clkctrl DRA7_CAM_VIP3_CLKCTRL 0>;
+		clock-names = "fck";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges = <0x0 0x1b0000 0x10000>;
+
+		vip3: vip@0 {
+			compatible = "ti,dra7-vip3";
+			label = "vip3";
+			reg = <0x0000 0x114>,
+			      <0x5500 0xd8>,
+			      <0x5700 0x18>,
+			      <0x5800 0x80>,
+			      <0x5a00 0xd8>,
+			      <0x5c00 0x18>,
+			      <0x5d00 0x80>,
+			      <0xd000 0x400>;
+			reg-names = "vip",
+				    "parser0",
+				    "csc0",
+				    "sc0",
+				    "parser1",
+				    "csc1",
+				    "sc1",
+				    "vpdma";
+			interrupts = <GIC_SPI 353 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 394 IRQ_TYPE_LEVEL_HIGH>;
+			/* CTRL_CORE_SMA_SW_1 */
+			ti,vip-clk-polarity = <&scm_conf 0x534>;
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				vin5a: port@0 {
+					reg = <0>;
+					label = "vin5a";
+				};
+				vin6a: port@1 {
+					reg = <1>;
+					label = "vin6a";
 				};
 			};
 		};
