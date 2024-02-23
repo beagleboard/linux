@@ -390,8 +390,6 @@
 
 	wkup_uart0_pins_default: wkup-uart0-pins-default {
 		pinctrl-single,pins = <
-			J721E_WKUP_IOPAD(0xc8, PIN_INPUT, 0) /* (F29) WKUP_GPIO0_6.WKUP_UART0_CTSn */
-			J721E_WKUP_IOPAD(0xcc, PIN_OUTPUT, 0) /* (G28) WKUP_GPIO0_7.WKUP_UART0_RTSn */
 			J721E_WKUP_IOPAD(0xa0, PIN_INPUT, 0) /* (J29) WKUP_UART0_RXD */
 			J721E_WKUP_IOPAD(0xa4, PIN_OUTPUT, 0) /* (J28) WKUP_UART0_TXD */
 		>;
