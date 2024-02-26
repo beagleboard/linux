@@ -1,0 +1,84 @@
+// SPDX-License-Identifier: GPL-2.0
+/**
+ * Microtips integrated OLDI panel (MF-101HIEBCAF0) and touch DT overlay for J722S-EVM
+ *
+ * Panel datasheet: https://simplespec.microtipsusa.com/uploads/spec/datasheetFile/2588/13-101HIEBCAF0-S_V1.1_20221104.pdf
+ *
+ * Copyright (C) 2024 Texas Instruments Incorporated - http://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+
+&{/} {
+	display {
+		compatible = "microtips,mf-101hiebcaf0";
+		/*
+		* Note that the OLDI TX 0 transmits the odd set of pixels
+		* while the OLDI TX 1 transmits the even set. This is a
+		* fixed configuration in the IP integration and is not
+		* changeable. The properties, "dual-lvds-odd-pixels" and
+		* "dual-lvds-even-pixels" have been used to merely
+		* identify if a Dual Link configuration is required.
+		* Swapping them will not make any difference.
+		*/
+		port@0 {
+			dual-lvds-odd-pixels;
+
+			lcd_in0: endpoint {
+				remote-endpoint = <&oldi_out0>;
+			};
+		};
+
+		port@1 {
+			dual-lvds-even-pixels;
+
+			lcd_in1: endpoint {
+				remote-endpoint = <&oldi_out1>;
+			};
+		};
+	};
+};
+
+&dss0 {
+	status = "okay";
+};
+
+&dss0_ports {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	/* VP1: LVDS Output (OLDI TX 0) */
+	port@0 {
+		reg = <0>;
+
+		oldi_out0: endpoint {
+			remote-endpoint = <&lcd_in0>;
+		};
+	};
+
+	/* VP1: LVDS Output (OLDI TX 1) */
+	port@2 {
+		reg = <2>;
+
+		oldi_out1: endpoint {
+			remote-endpoint = <&lcd_in1>;
+		};
+	};
+};
+
+&main_i2c1 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	touchscreen@41 {
+		compatible = "ilitek,ili251x";
+		reg = <0x41>;
+		interrupt-parent = <&exp2>;
+		interrupts = <12 IRQ_TYPE_EDGE_FALLING>;
+		reset-gpios = <&exp2 3 GPIO_ACTIVE_LOW>;
+	};
+};
