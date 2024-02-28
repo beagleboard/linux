@@ -1,0 +1,29 @@
+image: robertcnelson/beagle-devscripts-kernel-debian-12-amd64
+# https://git.beagleboard.org/beagleboard/ci-docker-images
+
+cache:
+  key: "$CI_PROJECT_NAME-ti-linux-rt-arm64-6.6.y"
+  paths:
+    - ccache.tar.lz4
+
+build:
+  tags:
+    - docker-amd64
+  stage: build
+  script:
+    - mkdir -p /root/.cache/ccache/ || true
+    - tar --use-compress-program=lz4 -xf ccache.tar.lz4 -C / || true
+    - ccache -s
+    - CORES=$(getconf _NPROCESSORS_ONLN)
+    - make ARCH=arm64 CROSS_COMPILE=/usr/bin/aarch64-linux-gnu- clean
+    - make ARCH=arm64 CROSS_COMPILE=/usr/bin/aarch64-linux-gnu- bb.org_defconfig
+    - echo "make -j${CORES} ARCH=arm64 KBUILD_DEBARCH=arm64 CROSS_COMPILE=/usr/bin/aarch64-linux-gnu- LOCALVERSION=-ti-rt-arm64-r$CI_JOB_ID KDEB_SOURCENAME=linux-upstream KDEB_COMPRESS=xz bindeb-pkg"
+    - make -j${CORES} ARCH=arm64 KBUILD_DEBARCH=arm64 KDEB_PKGVERSION=1xross CROSS_COMPILE="ccache /usr/bin/aarch64-linux-gnu-" LOCALVERSION=-ti-rt-arm64-r$CI_JOB_ID KDEB_SOURCENAME=linux-upstream KDEB_COMPRESS=xz bindeb-pkg
+    - mv ../*.deb ./
+    - ccache -s
+    - tar --use-compress-program=lz4 -cf ccache.tar.lz4 /root/.cache/ccache/
+  artifacts:
+    expire_in: 28 days
+    name: "$CI_PROJECT_NAME-$CI_JOB_ID"
+    paths:
+      - "linux-image-*.deb"
