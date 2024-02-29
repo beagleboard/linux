@@ -76,7 +76,7 @@
 };
 
 &cpsw3g {
-	pinctrl-0 = <&mdio1_pins_default &rgmii1_pins_default>;
+	pinctrl-0 = <&rgmii1_pins_default>;
 };
 
 &cpsw_port2 {
