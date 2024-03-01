@@ -249,8 +249,10 @@
 
 	main_uart0_pins_default: main-uart0-default-pins {
 		pinctrl-single,pins = <
-			J722S_IOPAD(0x01c8, PIN_INPUT, 0)	/* (A22) UART0_RXD */
-			J722S_IOPAD(0x01cc, PIN_OUTPUT, 0)	/* (B22) UART0_TXD */
+			J722S_IOPAD(0x01c8, PIN_INPUT, 0)	/* (F19) UART0_RXD */
+			J722S_IOPAD(0x01cc, PIN_OUTPUT, 0)	/* (F20) UART0_TXD */
+			J722S_IOPAD(0x01d4, PIN_OUTPUT, 0)	/* (B21) UART0_RTSn */
+			J722S_IOPAD(0x01d0, PIN_INPUT, 0)	/* (E22) UART0_CTSn */
 		>;
 		bootph-all;
 	};
