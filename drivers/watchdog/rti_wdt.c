@@ -70,9 +70,11 @@ static int rti_wdt_start(struct watchdog_device *wdd)
 {
 	u32 timer_margin;
 	struct rti_wdt_device *wdt = watchdog_get_drvdata(wdd);
+	int ret;
 
-	if (pm_runtime_suspended(wdd->parent))
-		pm_runtime_get_sync(wdd->parent);
+	ret = pm_runtime_resume_and_get(wdd->parent);
+	if (ret)
+		return ret;
 
 	/* set timeout period */
 	timer_margin = (u64)wdd->timeout * wdt->freq;
@@ -227,8 +229,12 @@ static int rti_wdt_probe(struct platform_device *pdev)
 	if (wdt->freq < 32768)
 		wdt->freq = wdt->freq * 9 / 10;
 
-	devm_pm_runtime_enable(dev);
-	pm_runtime_get_noresume(dev);
+	pm_runtime_enable(dev);
+	ret = pm_runtime_resume_and_get(dev);
+	if (ret < 0) {
+		pm_runtime_disable(&pdev->dev);
+		return dev_err_probe(dev, ret, "runtime pm failed\n");
+	}
 
 	platform_set_drvdata(pdev, wdt);
 
@@ -247,7 +253,7 @@ static int rti_wdt_probe(struct platform_device *pdev)
 	wdt->base = devm_platform_ioremap_resource(pdev, 0);
 	if (IS_ERR(wdt->base)) {
 		ret = PTR_ERR(wdt->base);
-		return ret;
+		goto err_iomap;
 	}
 
 	if (readl(wdt->base + RTIDWDCTRL) == WDENABLE_KEY) {
@@ -273,7 +279,7 @@ static int rti_wdt_probe(struct platform_device *pdev)
 		ret = rti_wdt_setup_hw_hb(wdd, wsize);
 		if (ret) {
 			dev_err(dev, "bad window size.\n");
-			return ret;
+			goto err_iomap;
 		}
 
 		last_ping = heartbeat_ms - time_left_ms;
@@ -288,7 +294,7 @@ static int rti_wdt_probe(struct platform_device *pdev)
 	ret = watchdog_register_device(wdd);
 	if (ret) {
 		dev_err(dev, "cannot register watchdog device\n");
-		return ret;
+		goto err_iomap;
 	}
 
 	if (last_ping)
@@ -298,18 +304,24 @@ static int rti_wdt_probe(struct platform_device *pdev)
 		pm_runtime_put_sync(&pdev->dev);
 
 	return 0;
+
+err_iomap:
+	pm_runtime_put_sync(&pdev->dev);
+	pm_runtime_disable(&pdev->dev);
+
+	return ret;
 }
 
-static int rti_wdt_remove(struct platform_device *pdev)
+static void rti_wdt_remove(struct platform_device *pdev)
 {
 	struct rti_wdt_device *wdt = platform_get_drvdata(pdev);
 
 	watchdog_unregister_device(&wdt->wdd);
 
 	if (!pm_runtime_suspended(&pdev->dev))
-		pm_runtime_put_sync(&pdev->dev);
+		pm_runtime_put(&pdev->dev);
 
-	return 0;
+	pm_runtime_disable(&pdev->dev);
 }
 
 static const struct of_device_id rti_wdt_of_match[] = {
@@ -324,7 +336,7 @@ static struct platform_driver rti_wdt_driver = {
 		.of_match_table = rti_wdt_of_match,
 	},
 	.probe = rti_wdt_probe,
-	.remove = rti_wdt_remove,
+	.remove_new = rti_wdt_remove,
 };
 
 module_platform_driver(rti_wdt_driver);
