@@ -1,7 +1,7 @@
-// SPDX-License-Identifier: GPL-2.0
+// SPDX-License-Identifier: GPL-2.0-only OR MIT
 /*
- * Device Tree file for the J722S-EVM
- * Copyright (C) 2023 Texas Instruments Incorporated - https://www.ti.com/
+ * Device Tree file for the J722S EVM
+ * Copyright (C) 2024 Texas Instruments Incorporated - https://www.ti.com/
  *
  * Schematics: https://www.ti.com/lit/zip/sprr495
  */
@@ -230,6 +230,7 @@
 };
 
 &main_pmx0 {
+	bootph-all;
 
 	main_i2c0_pins_default: main-i2c0-default-pins {
 		pinctrl-single,pins = <
@@ -388,6 +389,7 @@
 };
 
 &mcu_pmx0 {
+	bootph-all;
 
 	wkup_uart0_pins_default: wkup-uart0-default-pins {
 		pinctrl-single,pins = <
@@ -587,7 +589,7 @@
 	pinctrl-0 = <&ospi0_pins_default>;
 	bootph-all;
 
-	flash@0{
+	flash@0 {
 		compatible = "jedec,spi-nor";
 		reg = <0x0>;
 		spi-tx-bus-width = <8>;
