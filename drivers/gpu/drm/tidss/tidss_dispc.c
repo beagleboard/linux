@@ -3338,7 +3338,12 @@ static int dispc_init_hw(struct dispc_device *dispc)
 
 	dispc->tidss->boot_enabled_vp_mask = 0;
 
-	if (dispc_is_idle(dispc)) {
+	/* HACK: If simple-framebuffer device is absent, then soft reset dispc even if it is not
+	 * idle. This is to avoid powering-off of DSS (which can happen due
+	 * to probe deferral waiting for child drivers) while DSS is active thus leading to system
+	 * hang.
+	 */
+	if (dispc_is_idle(dispc) || !dispc->tidss->simplefb_enabled) {
 		ret = dispc_softreset(dispc);
 		if (ret)
 			goto err_clk_disable;

@@ -209,6 +209,8 @@ fail:
 static int tidss_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
+	struct device *simplefb_dev;
+	struct device_node *simplefb_node;
 	struct tidss_device *tidss;
 	struct drm_device *ddev;
 	int ret;
@@ -229,6 +231,17 @@ static int tidss_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, tidss);
 
 	spin_lock_init(&tidss->wait_lock);
+
+	if (IS_ENABLED(CONFIG_FB_SIMPLE)) {
+		simplefb_node = of_find_compatible_node(NULL, NULL, "simple-framebuffer");
+		simplefb_dev = bus_find_device_by_of_node(&platform_bus_type, simplefb_node);
+		if (simplefb_dev) {
+			put_device(simplefb_dev);
+			of_node_put(simplefb_node);
+			tidss->simplefb_enabled = true;
+			dev_dbg(dev, "simple-framebuffer detected\n");
+		}
+	}
 
 	tidss->shared_mode = device_property_read_bool(dev, "ti,dss-shared-mode");
 

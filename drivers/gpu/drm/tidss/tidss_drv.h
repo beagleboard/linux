@@ -48,6 +48,7 @@ struct tidss_device {
 	struct device_link **pd_link;
 
 	u32 boot_enabled_vp_mask;
+	bool simplefb_enabled;
 
 	bool shared_mode; /* DSS resources shared between remote core and Linux */
 
