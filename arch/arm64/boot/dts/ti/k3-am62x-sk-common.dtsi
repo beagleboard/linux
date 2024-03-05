@@ -40,11 +40,7 @@
 				 <&k3_clks 186 0>,
 				 <&k3_clks 186 2>;
 			display = <&dss>;
-			reg = <0x00 0xff700000 0x00 0x008ca000>;
-			width = <1920>;
-			height = <1200>;
-			stride = <(1920 * 4)>;
-			format = "x8r8g8b8";
+			status = "disabled";
 		};
 	};
 
@@ -116,11 +112,6 @@
 		secure_ddr: optee@9e800000 {
 			reg = <0x00 0x9e800000 0x00 0x01800000>; /* for OP-TEE */
 			alignment = <0x1000>;
-			no-map;
-		};
-
-		framebuffer: framebuffer@ff700000 {
-			reg = <0x00 0xff700000 0x00 0x008ca000>;
 			no-map;
 		};
 	};
