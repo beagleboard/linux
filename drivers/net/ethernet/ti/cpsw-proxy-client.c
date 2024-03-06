@@ -469,7 +469,7 @@ static int cpsw_proxy_client_cb(struct rpmsg_device *rpdev, void *data,
 	u32 msg_type = msg->msg_hdr.msg_type;
 	u32 notify_type, response_id, token;
 	struct cpsw_virt_port *virt_port;
-	int response_status, ret = 0;
+	int ret = 0;
 
 	switch (msg_type) {
 	case ETHREMOTECFG_MSG_NOTIFY:
@@ -519,7 +519,6 @@ static int cpsw_proxy_client_cb(struct rpmsg_device *rpdev, void *data,
 	case ETHREMOTECFG_MSG_RESPONSE:
 		response_msg_hdr = (struct response_message_header *)msg;
 		response_id = response_msg_hdr->response_id;
-		response_status = response_msg_hdr->response_status;
 
 		if (response_id == common->request_id - 1) {
 			dev_info(common->dev, "ignoring delayed response for request: %u\n",
