@@ -1750,8 +1750,7 @@ static void cpsw_proxy_client_detach(struct cpsw_proxy_common *common)
 
 		/* Free TX DMA Channel */
 		for (j = 0; j < virt_port->num_tx_chan; j++) {
-			if (&virt_port->virt_port_tx_chan &&
-			    &virt_port->virt_port_tx_chan->is_valid) {
+			if (virt_port->virt_port_tx_chan->is_valid) {
 				virt_port->curr_tx_chan_idx = j;
 				ret = cpsw_proxy_client_send_request(common, virt_port,
 								     virt_port->virt_port_token,
@@ -1767,8 +1766,7 @@ static void cpsw_proxy_client_detach(struct cpsw_proxy_common *common)
 
 		/* Free RX DMA Flow */
 		for (j = 0; j < virt_port->num_rx_chan; j++) {
-			if (&virt_port->virt_port_rx_chan &&
-			    &virt_port->virt_port_rx_chan->is_valid) {
+			if (virt_port->virt_port_rx_chan->is_valid) {
 				virt_port->curr_rx_chan_idx = j;
 				ret = cpsw_proxy_client_send_request(common, virt_port,
 								     virt_port->virt_port_token,
