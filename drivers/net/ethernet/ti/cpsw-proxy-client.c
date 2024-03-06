@@ -1380,10 +1380,8 @@ static int cpsw_virt_port_tx_poll(struct napi_struct *napi_tx, int budget)
 }
 
 /* RX psdata[2] word format - checksum information */
-#define CPSW_RX_PSD_CSUM_ADD	GENMASK(15, 0)
 #define CPSW_RX_PSD_CSUM_ERR	BIT(16)
 #define CPSW_RX_PSD_IS_FRAGMENT	BIT(17)
-#define CPSW_RX_PSD_IS_TCP		BIT(18)
 #define CPSW_RX_PSD_IPV6_VALID	BIT(19)
 #define CPSW_RX_PSD_IPV4_VALID	BIT(20)
 
