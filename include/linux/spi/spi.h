@@ -1566,4 +1566,8 @@ spi_transfer_is_last(struct spi_controller *ctlr, struct spi_transfer *xfer)
 	devm_spi_register_controller(_dev, _ctlr)
 #define spi_unregister_master(_ctlr)	spi_unregister_controller(_ctlr)
 
+#if IS_ENABLED(CONFIG_OF)
+struct spi_controller *of_find_spi_controller_by_node(struct device_node *node);
+#endif
+
 #endif /* __LINUX_SPI_H */
