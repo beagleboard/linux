@@ -2702,16 +2702,20 @@ static int prueth_netdevice_event(struct notifier_block *unused,
 
 		if ((ndev->features & NETIF_PRUETH_HSR_OFFLOAD) &&
 		    is_hsr_master(info->upper_dev)) {
-			if (!prueth->hsr_dev) {
-				prueth->hsr_dev = info->upper_dev;
+			if (info->linking) {
+				if (!prueth->hsr_dev) {
+					prueth->hsr_dev = info->upper_dev;
 
-				icssg_class_set_host_mac_addr(prueth->miig_rt,
-							      prueth->hsr_dev->dev_addr);
-			} else {
-				if (prueth->hsr_dev != info->upper_dev) {
-					dev_err(prueth->dev, "Both interfaces must be linked to same upper device\n");
-					return -EOPNOTSUPP;
+					icssg_class_set_host_mac_addr(prueth->miig_rt,
+								      prueth->hsr_dev->dev_addr);
+				} else {
+					if (prueth->hsr_dev != info->upper_dev) {
+						dev_err(prueth->dev, "Both interfaces must be linked to same upper device\n");
+						return -EOPNOTSUPP;
+					}
 				}
+			} else {
+				prueth->hsr_dev = NULL;
 			}
 		}
 
