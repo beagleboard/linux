@@ -330,6 +330,7 @@ struct prueth {
 	unsigned char switch_id[MAX_PHYS_ITEM_ID_LEN];
 	int default_vlan;
 	struct devlink *devlink;
+	spinlock_t vtbl_lock; /* Lock for vtbl in shared memory */
 };
 
 struct emac_tx_ts_response {
