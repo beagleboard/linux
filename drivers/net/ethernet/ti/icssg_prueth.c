@@ -67,7 +67,9 @@
 #define DEFAULT_UNTAG_MASK	1
 
 #define NETIF_PRUETH_HSR_OFFLOAD	(NETIF_F_HW_HSR_FWD | \
-					 NETIF_F_HW_HSR_DUP)
+					 NETIF_F_HW_HSR_DUP | \
+					 NETIF_F_HW_HSR_TAG_INS | \
+					 NETIF_F_HW_HSR_TAG_RM)
 
 /* CTRLMMR_ICSSG_RGMII_CTRL register bits */
 #define ICSSG_CTRL_RGMII_ID_MODE		BIT(24)
@@ -75,6 +77,7 @@
 #define IEP_DEFAULT_CYCLE_TIME_NS	1000000	/* 1 ms */
 
 #define PRUETH_UNDIRECTED_PKT_DST_TAG	0
+#define PRUETH_UNDIRECTED_PKT_TAG_INS	BIT(30)
 
 static void prueth_cleanup_rx_chns(struct prueth_emac *emac,
 				   struct prueth_rx_chn *rx_chn,
@@ -874,6 +877,9 @@ static enum netdev_tx emac_ndo_start_xmit(struct sk_buff *skb, struct net_device
 
 	if (prueth->is_hsr_offload_mode && (ndev->features & NETIF_F_HW_HSR_DUP))
 		dst_tag_id = PRUETH_UNDIRECTED_PKT_DST_TAG;
+
+	if (prueth->is_hsr_offload_mode && (ndev->features & NETIF_F_HW_HSR_TAG_INS))
+		epib[1] |= PRUETH_UNDIRECTED_PKT_TAG_INS;
 
 	cppi5_desc_set_tags_ids(&first_desc->hdr, 0, dst_tag_id);
 	k3_udma_glue_tx_dma_to_cppi5_addr(tx_chn->tx_chn, &buf_dma);
@@ -1676,6 +1682,13 @@ static int emac_ndo_open(struct net_device *ndev)
 				goto halt_slice0_prus;
 			}
 		}
+	}
+
+	if (prueth->is_hsr_offload_mode) {
+		if (ndev->features & NETIF_F_HW_HSR_TAG_RM)
+			emac_set_port_state(emac, ICSSG_EMAC_HSR_RX_OFFLOAD_ENABLE);
+		else
+			emac_set_port_state(emac, ICSSG_EMAC_HSR_RX_OFFLOAD_DISABLE);
 	}
 
 	flow_cfg = emac->dram.va + ICSSG_CONFIG_OFFSET + PSI_L_REGULAR_FLOW_ID_BASE_OFFSET;
