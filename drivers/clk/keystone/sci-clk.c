@@ -176,18 +176,28 @@ static int sci_clk_determine_rate(struct clk_hw *hw,
 		return 0;
 	}
 
-	ret = clk->provider->ops->get_best_match_freq(clk->provider->sci,
+	if (req->rate == 28569000) {
+		ret = clk->provider->ops->get_best_match_freq(clk->provider->sci,
 						      clk->dev_id,
 						      clk->clk_id,
-						      req->min_rate,
 						      req->rate,
-						      req->max_rate,
+						      req->rate,
+						      req->rate,
 						      &new_rate);
-	if (ret) {
-		dev_err(clk->provider->dev,
-			"determine-rate failed for dev=%d, clk=%d, ret=%d\n",
-			clk->dev_id, clk->clk_id, ret);
-		return ret;
+	} else {
+		ret = clk->provider->ops->get_best_match_freq(clk->provider->sci,
+								clk->dev_id,
+								clk->clk_id,
+								req->min_rate,
+								req->rate,
+								req->max_rate,
+								&new_rate);
+		if (ret) {
+			dev_err(clk->provider->dev,
+				"determine-rate failed for dev=%d, clk=%d, ret=%d\n",
+				clk->dev_id, clk->clk_id, ret);
+			return ret;
+		}
 	}
 
 	clk->cached_req = req->rate;
@@ -212,9 +222,15 @@ static int sci_clk_set_rate(struct clk_hw *hw, unsigned long rate,
 {
 	struct sci_clk *clk = to_sci_clk(hw);
 
+	if (rate == 28569000) {
+		return clk->provider->ops->set_freq(clk->provider->sci, clk->dev_id,
+							clk->clk_id, rate, rate,
+							rate);
+	}
+
 	return clk->provider->ops->set_freq(clk->provider->sci, clk->dev_id,
-					    clk->clk_id, rate / 10 * 9, rate,
-					    rate / 10 * 11);
+						clk->clk_id, rate / 10 * 9, rate,
+						rate / 10 * 11);
 }
 
 /**
