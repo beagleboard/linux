@@ -142,7 +142,8 @@ static int tas_set_trigger_list_change(struct prueth_emac *emac)
 	u64 base_time;
 	u64 cur_time;
 
-	cycle_time = admin_list->cycle_time - 4; /* -4ns to compensate for IEP wraparound time */
+	/* subtract emac->iep->def_inc ns to compensate for IEP wrap around time */
+	cycle_time = admin_list->cycle_time - emac->iep->def_inc;
 	base_time = admin_list->base_time;
 	cur_time = prueth_iep_gettime(emac, &sts);
 
