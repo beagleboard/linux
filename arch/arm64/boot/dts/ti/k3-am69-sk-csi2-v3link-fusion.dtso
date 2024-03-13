@@ -1,0 +1,156 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * DT Overlay for Arducam V3Link UC-A09 board
+ * https://www.arducam.com/fpd-link-3-cameras/
+ *
+ * Copyright (C) 2024 Texas Instruments Incorporated - http://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+
+&{/} {
+	clk_fusion_25M_fixed: fixed-clock-25M {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <25000000>;
+	};
+};
+
+&exp2 {
+	p01-hog {
+		/* P01 - CSI_MUX_SEL_2 */
+		gpio-hog;
+		gpios = <1 GPIO_ACTIVE_HIGH>;
+		output-high;
+		line-name = "CSI_MUX_SEL_2";
+	};
+};
+
+&pca9543 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	/* CAM0 I2C */
+	i2c@0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0>;
+
+		deser@30 {
+			compatible = "ti,ds90ub960-q1";
+			reg = <0x30>;
+
+			clock-names = "refclk";
+			clocks = <&clk_fusion_25M_fixed>;
+
+			i2c-alias-pool = <0x4a 0x4b 0x4c 0x4d 0x4e 0x4f>;
+
+			ds90ub960_0_ports: ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				/* CSI-2 TX */
+				port@4 {
+					reg = <4>;
+					ds90ub960_0_csi_out: endpoint {
+						data-lanes = <1 2 3 4>;
+						clock-lanes = <0>;
+						link-frequencies = /bits/ 64 <800000000>;
+						remote-endpoint = <&csi2_phy0>;
+					};
+				};
+			};
+
+			ds90ub960_0_links: links {
+				#address-cells = <1>;
+				#size-cells = <0>;
+			};
+		};
+	};
+
+	/* CAM1 I2C */
+	i2c@1 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <1>;
+
+		deser@30 {
+			compatible = "ti,ds90ub960-q1";
+			reg = <0x30>;
+
+			clock-names = "refclk";
+			clocks = <&clk_fusion_25M_fixed>;
+
+			i2c-alias-pool = <0x5a 0x5b 0x5c 0x5d 0x5e 0x5f>;
+
+			ds90ub960_1_ports: ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				/* CSI-2 TX */
+				port@4 {
+					reg = <4>;
+					ds90ub960_1_csi_out: endpoint {
+						data-lanes = <1 2 3 4>;
+						clock-lanes = <0>;
+						link-frequencies = /bits/ 64 <800000000>;
+						remote-endpoint = <&csi2_phy1>;
+					};
+				};
+			};
+
+			ds90ub960_1_links: links {
+				#address-cells = <1>;
+				#size-cells = <0>;
+			};
+		};
+	};
+};
+
+&cdns_csi2rx0 {
+	ports {
+		port@0 {
+			status = "okay";
+
+			csi2_phy0: endpoint {
+				remote-endpoint = <&ds90ub960_0_csi_out>;
+				clock-lanes = <0>;
+				data-lanes = <1 2 3 4>;
+				link-frequencies = /bits/ 64 <800000000>;
+			};
+		};
+};	};
+
+&cdns_csi2rx1 {
+	ports {
+		port@0 {
+			status = "okay";
+
+			csi2_phy1: endpoint {
+				remote-endpoint = <&ds90ub960_1_csi_out>;
+				clock-lanes = <0>;
+				data-lanes = <1 2 3 4>;
+				link-frequencies = /bits/ 64 <800000000>;
+			};
+		};
+	};
+};
+
+&ti_csi2rx0 {
+	status = "okay";
+};
+
+&ti_csi2rx1 {
+	status = "okay";
+};
+
+&dphy_rx0 {
+	status = "okay";
+};
+
+&dphy_rx1 {
+	status = "okay";
+};
