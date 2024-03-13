@@ -1,0 +1,81 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * DT Overlay for Fusion (FPD-Link III) board on AM69 SK CSI2 Aux Port
+ * https://svtronics.com/portfolio/evm577pfusion-v1-0-fusion/
+ *
+ * Copyright (C) 2024 Texas Instruments Incorporated - https://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+
+&{/} {
+	clk_fusion1_25M_fixed: fixed-clock-25M {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <25000000>;
+	};
+};
+
+&pca9543 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	i2c@1 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <1>;
+
+		deser@3d {
+			compatible = "ti,ds90ub960-q1";
+			reg = <0x3d>;
+			clocks = <&clk_fusion1_25M_fixed>;
+			clock-names = "refclk";
+			i2c-alias-pool = <0x6a 0x6b 0x6c 0x6d 0x6e 0x6f>;
+
+			ds90ub960_2_ports: ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				/* CSI-2 TX*/
+				port@4 {
+					reg = <4>;
+					ds90ub960_2_csi_out: endpoint {
+						clock-lanes = <0>;
+						data-lanes = <1 2 3 4>;
+						link-frequencies = /bits/ 64 <800000000>;
+						remote-endpoint = <&csi2_phy2>;
+					};
+				};
+			};
+
+			ds90ub960_2_links: links {
+				#address-cells = <1>;
+				#size-cells = <0>;
+			};
+		};
+	};
+};
+
+&cdns_csi2rx2 {
+	ports {
+		port@0 {
+			status = "okay";
+
+			csi2_phy2: endpoint {
+				remote-endpoint = <&ds90ub960_2_csi_out>;
+				clock-lanes = <0>;
+				data-lanes = <1 2 3 4>;
+				link-frequencies = /bits/ 64 <800000000>;
+			};
+		};
+	};
+};
+
+&ti_csi2rx2 {
+	status = "okay";
+};
+
+&dphy_rx2 {
+	status = "okay";
+};
