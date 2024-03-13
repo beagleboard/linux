@@ -163,6 +163,10 @@
 
 #define SII902X_AUDIO_PORT_INDEX		3
 
+/* drm_display_mode clock is in kHz */
+#define SII902X_MIN_PIXEL_CLOCK			25000
+#define SII902X_MAX_PIXEL_CLOCK			165000
+
 struct sii902x {
 	struct i2c_client *i2c;
 	struct regmap *regmap;
@@ -322,7 +326,11 @@ static int sii902x_get_modes(struct drm_connector *connector)
 static enum drm_mode_status sii902x_mode_valid(struct drm_connector *connector,
 					       struct drm_display_mode *mode)
 {
-	/* TODO: check mode */
+	if (mode->clock < SII902X_MIN_PIXEL_CLOCK)
+		return MODE_CLOCK_LOW;
+
+	if (mode->clock > SII902X_MAX_PIXEL_CLOCK)
+		return MODE_CLOCK_HIGH;
 
 	return MODE_OK;
 }
