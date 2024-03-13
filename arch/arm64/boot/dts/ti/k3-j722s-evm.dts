@@ -526,6 +526,14 @@
 			output-low;
 			line-name = "GPIO_OLDI_RSTn";
 		};
+
+		p05-hog {
+			/* P05 - HDMI_LS_OE */
+			gpio-hog;
+			gpios = <5 GPIO_ACTIVE_HIGH>;
+			output-high;
+			line-name = "HDMI_LS_OE";
+		};
 	};
 
 	sii9022: bridge-hdmi@3b {
