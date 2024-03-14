@@ -1,0 +1,87 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/media/i2c/ovti,ox05b.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: OmniVision OX05B1S Camera Sensor
+
+maintainers:
+  - Abhishek Sharma <abhishek.sharma@ti.com>
+
+description: |-
+  Omnivision OX05B1S is an RGBIR camera sensor with an active array size of
+  2592x1944. It is programmable through the I2C interface. The i2c client
+  address is fixed at 0x36 as per the sensor datasheet. Every alternate frame,
+  the sensor changes the exposure/gain registers to stream an -
+  A. IR-dominant frame on CSI-2 virtual channel 0
+  B. RGB-dominant frame on CSI-2 virtual channel 1
+
+  Both streams are captured at a resolution 2592x1944, 30 fps each
+  (60 fps total). The sensor also supports a few v4l2 controls like
+  exposure and gain controls.
+
+properties:
+  compatible:
+    enum:
+      - ovti,ox05b
+
+  reg:
+    description: I2C address
+    maxItems: 1
+
+  clocks:
+    maxItems: 1
+
+  clock-names:
+    const: inck
+
+  pwdn-gpios:
+    maxItems: 1
+    description:
+      Specifier for the GPIO connected to the PWDN pin.
+
+  port:
+    $ref: /schemas/graph.yaml#/properties/port
+    additionalProperties: false
+
+    properties:
+      endpoint:
+        $ref: /schemas/media/video-interfaces.yaml#
+        unevaluatedProperties: false
+
+required:
+  - compatible
+  - reg
+  - clocks
+  - clock-names
+  - port
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/gpio/gpio.h>
+
+    i2c {
+      #address-cells = <1>;
+      #size-cells = <0>;
+
+      ox05b1s: camera@36 {
+        compatible = "ovti,ox05b";
+        reg = <0x36>;
+
+        clocks = <&clk_ox05b1s_fixed>;
+        clock-names = "inck";
+
+        pwdn-gpios = <&exp1 13 GPIO_ACTIVE_LOW>;
+
+        port {
+          csi2_cam0: endpoint {
+            remote-endpoint = <&csi2rx0_in_sensor>;
+          };
+        };
+      };
+    };
+
+...
