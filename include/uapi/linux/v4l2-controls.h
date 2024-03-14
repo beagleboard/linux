@@ -148,8 +148,10 @@ enum v4l2_colorfx {
 #define V4L2_CID_COLORFX_CBCR			(V4L2_CID_BASE+42)
 #define V4L2_CID_COLORFX_RGB			(V4L2_CID_BASE+43)
 
+#define V4L2_CID_IR_EXPOSURE				(V4L2_CID_BASE+44)
+
 /* last CID + 1 */
-#define V4L2_CID_LASTP1                         (V4L2_CID_BASE+44)
+#define V4L2_CID_LASTP1                         (V4L2_CID_BASE+45)
 
 /* USER-class private control IDs */
 
@@ -1143,6 +1145,7 @@ enum v4l2_jpeg_chroma_subsampling {
 #define V4L2_CID_TEST_PATTERN_GREENB		(V4L2_CID_IMAGE_SOURCE_CLASS_BASE + 7)
 #define V4L2_CID_UNIT_CELL_SIZE			(V4L2_CID_IMAGE_SOURCE_CLASS_BASE + 8)
 #define V4L2_CID_NOTIFY_GAINS			(V4L2_CID_IMAGE_SOURCE_CLASS_BASE + 9)
+#define V4L2_CID_IR_ANALOGUE_GAIN			(V4L2_CID_IMAGE_SOURCE_CLASS_BASE + 10)
 
 
 /* Image processing controls */
@@ -1155,6 +1158,7 @@ enum v4l2_jpeg_chroma_subsampling {
 #define V4L2_CID_TEST_PATTERN			(V4L2_CID_IMAGE_PROC_CLASS_BASE + 3)
 #define V4L2_CID_DEINTERLACING_MODE		(V4L2_CID_IMAGE_PROC_CLASS_BASE + 4)
 #define V4L2_CID_DIGITAL_GAIN			(V4L2_CID_IMAGE_PROC_CLASS_BASE + 5)
+#define V4L2_CID_IR_DIGITAL_GAIN		(V4L2_CID_IMAGE_PROC_CLASS_BASE + 6)
 
 /*  DV-class control IDs defined by V4L2 */
 #define V4L2_CID_DV_CLASS_BASE			(V4L2_CTRL_CLASS_DV | 0x900)
