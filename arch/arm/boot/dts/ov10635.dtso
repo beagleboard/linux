@@ -29,6 +29,9 @@
 };
 
 &i2c5 {
+	status = "okay";
+	clock-frequency = <400000>;
+
 	#address-cells = <1>;
 	#size-cells = <0>;
 
