@@ -645,16 +645,8 @@ static int emac_rx_packet(struct prueth_emac *emac, u32 flow_id, int *xdp_state)
 
 	pa = page_address(page);
 	if (emac->xdp_prog) {
-		/* xdp_init_buff(&xdp, PAGE_SIZE, rx_chn->xdp_rxq); */
-		xdp.frame_sz = PAGE_SIZE;
-		xdp.rxq = &rx_chn->xdp_rxq;
-
-		/* xdp_prepare_buff(&xdp, pa, PRUETH_HEADROOM, pkt_len, false); */
-		xdp.data_hard_start = pa;
-		xdp.data = pa + PRUETH_HEADROOM;
-		xdp.data_end = xdp.data + pkt_len;
-		xdp.data_meta = xdp.data + 1;
-
+		xdp_init_buff(&xdp, PAGE_SIZE, &rx_chn->xdp_rxq);
+		xdp_prepare_buff(&xdp, pa, PRUETH_HEADROOM, pkt_len, false);
 		*xdp_state = emac_run_xdp(emac, &xdp, page);
 		if (*xdp_state != ICSSG_XDP_PASS)
 			goto requeue;
