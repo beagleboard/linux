@@ -2480,7 +2480,7 @@ int cdns_torrent_phy_configure_multilink(struct cdns_torrent_phy *cdns_phy)
 	struct cdns_reg_pairs *reg_pairs;
 	enum cdns_torrent_ssc_mode ssc;
 	struct regmap *regmap;
-	u32 num_regs, pcie_links;
+	u32 num_regs, pcie_links = 0;
 
 	if (num_links == 2) {
 		phy_t1 = cdns_phy->phys[0].phy_type;
