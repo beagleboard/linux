@@ -1,9 +1,9 @@
-// SPDX-License-Identifier: GPL-2.0
+// SPDX-License-Identifier: GPL-2.0-only OR MIT
 /*
  * https://beagleboard.org/ai-64
- * Copyright (C) 2022 Texas Instruments Incorporated - https://www.ti.com/
- * Copyright (C) 2022 Jason Kridner, BeagleBoard.org Foundation
- * Copyright (C) 2022 Robert Nelson, BeagleBoard.org Foundation
+ * Copyright (C) 2022-2024 Texas Instruments Incorporated - https://www.ti.com/
+ * Copyright (C) 2022-2024 Jason Kridner, BeagleBoard.org Foundation
+ * Copyright (C) 2022-2024 Robert Nelson, BeagleBoard.org Foundation
  */
 
 /dts-v1/;
@@ -32,6 +32,8 @@
 
 	chosen {
 		stdout-path = "serial2:115200n8";
+		base_dtb = "k3-j721e-beagleboneai64.dts";
+		base_dtb_timestamp = __TIMESTAMP__;
 	};
 
 	memory@80000000 {
@@ -190,32 +192,38 @@
 		pinctrl-0 = <&led_pins_default>;
 
 		led-0 {
+			label = "beaglebone:green:usr0";
 			gpios = <&main_gpio0 96 GPIO_ACTIVE_HIGH>;
 			function = LED_FUNCTION_HEARTBEAT;
 			linux,default-trigger = "heartbeat";
 		};
 
 		led-1 {
+			label = "beaglebone:green:usr1";
 			gpios = <&main_gpio0 95 GPIO_ACTIVE_HIGH>;
 			function = LED_FUNCTION_DISK_ACTIVITY;
 			linux,default-trigger = "mmc0";
 		};
 
 		led-2 {
+			label = "beaglebone:green:usr2";
 			gpios = <&main_gpio0 97 GPIO_ACTIVE_HIGH>;
 			function = LED_FUNCTION_CPU;
 			linux,default-trigger = "cpu";
 		};
 
 		led-3 {
+			label = "beaglebone:green:usr3";
 			gpios = <&main_gpio0 110 GPIO_ACTIVE_HIGH>;
 			function = LED_FUNCTION_DISK_ACTIVITY;
 			linux,default-trigger = "mmc1";
 		};
 
 		led-4 {
+			label = "beaglebone:green:usr4";
 			gpios = <&main_gpio0 109 GPIO_ACTIVE_HIGH>;
 			function = LED_FUNCTION_WLAN;
+			linux,default-trigger = "phy0tx";
 			default-state = "off";
 		};
 	};
