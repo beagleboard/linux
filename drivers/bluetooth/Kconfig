@@ -347,6 +347,41 @@ config BT_HCIVHCI
 	  Say Y here to compile support for virtual HCI devices into the
 	  kernel or say M to compile it as module (hci_vhci).
 
+config BT_TI
+	tristate "TI Bluetooth driver support"
+	help
+	  The core driver to support TI Bluetooth devices.
+
+	  Say Y here to compile TI Bluetooth driver
+	  into the kernel or say M to compile it as module.
+
+config BT_TI_SDIO
+	tristate "TI BT-over-SDIO driver"
+	depends on BT_TI && MMC
+	select FW_LOADER
+	select WANT_DEV_COREDUMP
+	help
+	  The driver for TI Bluetooth chipsets with SDIO interface.
+
+	  This driver is required if you want to use TI Bluetooth
+	  devices with SDIO interface.
+	  chipsets are supported.
+
+	  Say Y here to compile support for TI BT-over-SDIO driver
+	  into the kernel or say M to compile it as module.
+
+config BT_TI_UART
+	tristate "TI BT-over-UART driver"
+	depends on SERIAL_DEV_BUS
+	help
+	  Bluetooth HCI UART driver for CC33XX TI devices.
+	  This driver is required if you want to use CC33XX device with
+	  UART interface.
+	  Currently does not require BT_TI core.
+
+	  Say Y here to compile support for CC33XX UART devices into the
+	  kernel or say M to compile it as module (btuart).
+
 config BT_MRVL
 	tristate "Marvell Bluetooth driver support"
 	help
