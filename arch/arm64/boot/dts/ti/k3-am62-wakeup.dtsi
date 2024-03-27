@@ -1,14 +1,15 @@
-// SPDX-License-Identifier: GPL-2.0
+// SPDX-License-Identifier: GPL-2.0-only OR MIT
 /*
  * Device Tree Source for AM625 SoC Family Wakeup Domain peripherals
  *
- * Copyright (C) 2020-2022 Texas Instruments Incorporated - https://www.ti.com/
+ * Copyright (C) 2020-2024 Texas Instruments Incorporated - https://www.ti.com/
  */
 
 #include <dt-bindings/bus/ti-sysc.h>
 
 &cbass_wakeup {
 	wkup_conf: syscon@43000000 {
+		bootph-all;
 		compatible = "syscon", "simple-mfd";
 		reg = <0x00 0x43000000 0x00 0x20000>;
 		#address-cells = <1>;
@@ -16,6 +17,7 @@
 		ranges = <0x0 0x00 0x43000000 0x20000>;
 
 		chipid: chipid@14 {
+			bootph-all;
 			compatible = "ti,am654-chipid";
 			reg = <0x14 0x4>;
 		};
@@ -33,9 +35,9 @@
 
 	target-module@2b300050 {
 		compatible = "ti,sysc-omap2", "ti,sysc";
-		reg = <0 0x2b300050 0 0x4>,
-		      <0 0x2b300054 0 0x4>,
-		      <0 0x2b300058 0 0x4>;
+		reg = <0x00 0x2b300050 0x00 0x4>,
+		      <0x00 0x2b300054 0x00 0x4>,
+		      <0x00 0x2b300058 0x00 0x4>;
 		reg-names = "rev", "sysc", "syss";
 		ti,sysc-mask = <(SYSC_OMAP2_ENAWAKEUP |
 				 SYSC_OMAP2_SOFTRESET |
@@ -51,11 +53,11 @@
 		clock-names = "fck";
 		#address-cells = <1>;
 		#size-cells = <1>;
-		ranges = <0 0 0x2b300000 0x100000>;
+		ranges = <0x0 0x00 0x2b300000 0x100000>;
 
 		wkup_uart0: serial@0 {
 			compatible = "ti,am64-uart", "ti,am654-uart";
-			reg = <0 0x100>;
+			reg = <0x0 0x100>;
 			interrupts = <GIC_SPI 186 IRQ_TYPE_LEVEL_HIGH>;
 			status = "disabled";
 		};
