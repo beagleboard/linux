@@ -228,7 +228,7 @@ void cc33xx_tx_reset_link_queues(struct cc33xx *wl, u8 hlid);
 void cc33xx_handle_tx_low_watermark(struct cc33xx *wl);
 bool cc33xx_is_dummy_packet(struct cc33xx *wl, struct sk_buff *skb);
 void cc33xx_rearm_rx_streaming(struct cc33xx *wl, unsigned long *active_hlids);
-unsigned int wlcore_calc_packet_alignment(struct cc33xx *wl,
+unsigned int wlcore_cc33xx_calc_packet_alignment(struct cc33xx *wl,
 					  unsigned int packet_length);
 void cc33xx_free_tx_id(struct cc33xx *wl, int id);
 void wlcore_stop_queue_locked(struct cc33xx *wl, struct cc33xx_vif *wlvif,
