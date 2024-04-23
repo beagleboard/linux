@@ -565,6 +565,14 @@
 		status = "disabled";
 	};
 
+	gpu: gpu@4e20000000 {
+		compatible = "ti,j721s2-pvr", "img,pvr-bxs64";
+		reg = <0x4e 0x20000000 0x00 0x80000>;
+		interrupts = <GIC_SPI 24 IRQ_TYPE_LEVEL_HIGH>;
+		power-domains = <&k3_pds 373 TI_SCI_PD_EXCLUSIVE>;
+		clocks = <&k3_clks 130 1>;
+	};
+
 	main_gpio0: gpio@600000 {
 		compatible = "ti,j721e-gpio", "ti,keystone-gpio";
 		reg = <0x00 0x00600000 0x00 0x100>;
