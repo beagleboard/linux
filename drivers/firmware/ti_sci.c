@@ -3583,7 +3583,7 @@ static int ti_sci_init_suspend(struct platform_device *pdev,
 {
 	struct device *dev = &pdev->dev;
 
-	dma_set_mask_and_coherent(dev, DMA_BIT_MASK(64));
+	dma_set_mask_and_coherent(dev, DMA_BIT_MASK(32));
 	info->ctx_mem_buf = dma_alloc_attrs(info->dev, LPM_CTX_MEM_SIZE,
 					    &info->ctx_mem_addr,
 					    GFP_KERNEL,
