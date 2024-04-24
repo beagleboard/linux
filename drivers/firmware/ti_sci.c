@@ -24,6 +24,7 @@
 #include <linux/slab.h>
 #include <linux/soc/ti/ti-msgmgr.h>
 #include <linux/soc/ti/ti_sci_protocol.h>
+#include <linux/sys_soc.h>
 #include <linux/reboot.h>
 
 #include "ti_sci.h"
@@ -1817,6 +1818,88 @@ static int ti_sci_cmd_set_io_isolation(const struct ti_sci_handle *handle,
 	resp = (struct ti_sci_msg_hdr *)xfer->xfer_buf;
 
 	ret = ti_sci_is_response_ack(resp) ? 0 : -ENODEV;
+
+fail:
+	ti_sci_put_one_xfer(&info->minfo, xfer);
+
+	return ret;
+}
+
+/*
+ * This is the list of SoCs not affected by SYSFW Bug causing the fw_caps
+ * to return garbage values.
+ * As and when new SoC's start supporting low power modes, this struct can
+ * be updated with those new SOC family entries.
+ */
+static const struct soc_device_attribute has_lpm[] = {
+	{ .family = "AM62X" },
+	{ .family = "AM62AX" },
+	{ .family = "AM62PX" },
+	{ /* sentinel */ }
+};
+
+/**
+ * ti_sci_msg_cmd_query_fw_caps() - Get the FW/SoC capabilities
+ * @handle:		Pointer to TI SCI handle
+ * @fw_caps:		Each bit in fw_caps indicating one FW/SOC capability
+ *
+ * Return: 0 if all went well, else returns appropriate error value.
+ */
+static int ti_sci_msg_cmd_query_fw_caps(const struct ti_sci_handle *handle,
+					u64 *fw_caps)
+{
+	struct ti_sci_info *info;
+	struct ti_sci_xfer *xfer;
+	struct ti_sci_msg_resp_query_fw_caps *resp;
+	struct device *dev;
+	int ret = 0;
+
+	if (IS_ERR(handle))
+		return PTR_ERR(handle);
+	if (!handle)
+		return -EINVAL;
+
+	info = handle_to_ti_sci_info(handle);
+	dev = info->dev;
+
+	xfer = ti_sci_get_one_xfer(info, TI_SCI_MSG_QUERY_FW_CAPS,
+				   TI_SCI_FLAG_REQ_ACK_ON_PROCESSED,
+				   sizeof(struct ti_sci_msg_hdr),
+				   sizeof(*resp));
+	if (IS_ERR(xfer)) {
+		ret = PTR_ERR(xfer);
+		dev_err(dev, "Message alloc failed(%d)\n", ret);
+		return ret;
+	}
+
+	ret = ti_sci_do_xfer(info, xfer);
+	if (ret) {
+		dev_err(dev, "Mbox send fail %d\n", ret);
+		goto fail;
+	}
+
+	resp = (struct ti_sci_msg_resp_query_fw_caps *)xfer->xfer_buf;
+
+	if (!ti_sci_is_response_ack(resp)) {
+		ret = -ENODEV;
+		goto fail;
+	}
+
+	/*
+	 * fw_caps 1st bit is used to check Generic capability. Other than
+	 * that the 1:4 bits are used for various LPM capabilities.
+	 * The API is buggy on SYSFW 9.00 and below, on some devices.
+	 * Hence, to avoid any sort of bugs arising due to garbage values
+	 * Let's allow the fw_caps to be set to whatever the firmware
+	 * says only on devices listed under has_lpm. These devices should
+	 * have lpm features tested and implemented in the firmware
+	 * and only then should they be added to has_lpm struct.
+	 * Otherwise, set the value to 1 that is the default.
+	 */
+	if (fw_caps && soc_device_match(has_lpm))
+		*fw_caps = resp->fw_caps;
+	else
+		*fw_caps = resp->fw_caps & MSG_FLAG_CAPS_GENERIC;
 
 fail:
 	ti_sci_put_one_xfer(&info->minfo, xfer);
