@@ -2611,7 +2611,7 @@ static void prueth_offload_fwd_mark_update(struct prueth *prueth)
 	int set_val = 0;
 	int i;
 
-	if (prueth->br_members == (PRUETH_PORT_MII0 | PRUETH_PORT_MII1))
+	if (prueth->br_members == (BIT(PRUETH_PORT_MII0) | BIT(PRUETH_PORT_MII1)))
 		set_val = 1;
 
 	dev_dbg(prueth->dev, "set offload_fwd_mark %d\n", set_val);
