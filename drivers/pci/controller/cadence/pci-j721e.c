@@ -550,6 +550,15 @@ static int j721e_pcie_probe(struct platform_device *pdev)
 
 	j721e_pcie_config_link_irq(pcie);
 
+	/*
+	 * Enable PCIE_PWR_EN for BeagleY-AI
+	 */
+	gpiod = devm_gpiod_get_optional(dev, "enable", GPIOD_OUT_HIGH);
+	if (IS_ERR(gpiod)) {
+		ret = dev_err_probe(dev, PTR_ERR(gpiod), "Failed to get enable GPIO\n");
+		goto err_get_sync;
+	}
+
 	switch (mode) {
 	case PCI_MODE_RC:
 		gpiod = devm_gpiod_get_optional(dev, "reset", GPIOD_OUT_LOW);
