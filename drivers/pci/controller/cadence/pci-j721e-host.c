@@ -371,6 +371,17 @@ static int j721e_pcie_probe(struct platform_device *pdev)
 	if (ret < 0)
 		goto err_get_sync;
 
+	/*
+	 * Enable PCIE_PWR_EN for X1001 hat for NVMe SSD for BeagleY AI
+	 */
+	gpiod = devm_gpiod_get_optional(dev, "enable", GPIOD_OUT_HIGH);
+	if (IS_ERR(gpiod)) {
+		ret = PTR_ERR(gpiod);
+		if (ret != -EPROBE_DEFER)
+			dev_err(dev, "Failed to get enable GPIO\n");
+		goto err_get_sync;
+	}
+
 	gpiod = devm_gpiod_get_optional(dev, "reset", GPIOD_OUT_LOW);
 	if (IS_ERR(gpiod)) {
 		ret = PTR_ERR(gpiod);
