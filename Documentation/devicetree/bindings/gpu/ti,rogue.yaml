@@ -79,25 +79,9 @@ allOf:
         compatible:
           contains:
             enum:
-              - ti,j721s2-pvr
-              - ti,j721e-pvr
-    then:
-      properties:
-        reg:
-          minItems: 1
-        interrupts:
-          minItems: 1
-        clocks:
-          minItems: 1
-        power-domains:
-          minItems: 1
-          maxItems: 1
-  - if:
-      properties:
-        compatible:
-          contains:
-            enum:
               - ti,am62p-pvr
+              - ti,j721e-pvr
+              - ti,j721s2-pvr
     then:
       required:
         - power-domain-names
@@ -122,11 +106,21 @@ allOf:
         assigned-clocks:
           minItems: 1
         assigned-clock-rates:
-          default: 800000000
+          default: [800000000]
     else:
       properties:
         assigned-clocks: false
         assigned-clock-rates: false
+  - if:
+      properties:
+        compatible:
+          contains:
+            enum:
+              - ti,j721e-pvr
+    then:
+      properties:
+        assigned-clock-rates:
+          default: [750000000]
 
 examples:
   - |
@@ -141,8 +135,13 @@ examples:
             compatible = "ti,j721s2-pvr", "img,pvr-bxs64";
             reg = <0x4e 0x20000000 0x00 0x80000>;
             interrupts = <GIC_SPI 24 IRQ_TYPE_LEVEL_HIGH>;
-            power-domains = <&k3_pds 373 TI_SCI_PD_EXCLUSIVE>;
+            power-domains = <&k3_pds 130 TI_SCI_PD_EXCLUSIVE>,
+                            <&k3_pds 373 TI_SCI_PD_EXCLUSIVE>;
+            power-domain-names = "firmware", "dust";
             clocks = <&k3_clks 130 1>;
+            assigned-clocks = <&k3_clks 130 1>;
+            assigned-clock-rates = <800000000>;
+            clock-names = "core";
         };
     };
 
@@ -158,8 +157,13 @@ examples:
             compatible = "ti,j721e-pvr", "img,pvr-ge8430";
             reg = <0x4e 0x20000000 0x00 0x80000>;
             interrupts = <GIC_SPI 24 IRQ_TYPE_LEVEL_HIGH>;
-            power-domains = <&k3_pds 126 TI_SCI_PD_EXCLUSIVE>;
+            power-domains = <&k3_pds 125 TI_SCI_PD_EXCLUSIVE>,
+                            <&k3_pds 126 TI_SCI_PD_EXCLUSIVE>;
+            power-domain-names = "firmware", "dust";
             clocks = <&k3_clks 125 0>;
+            assigned-clocks = <&k3_clks 125 0>;
+            assigned-clock-rates = <750000000>;
+            clock-names = "core";
         };
     };
 
