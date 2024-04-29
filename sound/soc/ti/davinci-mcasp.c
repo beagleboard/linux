@@ -25,6 +25,7 @@
 #include <linux/of_device.h>
 #include <linux/platform_data/davinci_asp.h>
 #include <linux/math64.h>
+#include <linux/minmax.h>
 #include <linux/bitmap.h>
 #include <linux/gpio/driver.h>
 
@@ -1470,12 +1471,13 @@ static int davinci_mcasp_hw_rule_format(struct snd_pcm_hw_params *params,
 static int davinci_mcasp_hw_rule_min_periodsize(
 		struct snd_pcm_hw_params *params, struct snd_pcm_hw_rule *rule)
 {
+	struct davinci_mcasp_ruledata *rd = rule->private;
 	struct snd_interval *period_size = hw_param_interval(params,
 						SNDRV_PCM_HW_PARAM_PERIOD_SIZE);
 	struct snd_interval frames;
 
 	snd_interval_any(&frames);
-	frames.min = 64;
+	frames.min = max(rd->mcasp->txnumevt, rd->mcasp->rxnumevt);
 	frames.integer = 1;
 
 	return snd_interval_refine(period_size, &frames);
@@ -1591,7 +1593,7 @@ static int davinci_mcasp_startup(struct snd_pcm_substream *substream,
 
 	snd_pcm_hw_rule_add(substream->runtime, 0,
 			    SNDRV_PCM_HW_PARAM_PERIOD_SIZE,
-			    davinci_mcasp_hw_rule_min_periodsize, NULL,
+			    davinci_mcasp_hw_rule_min_periodsize, ruledata,
 			    SNDRV_PCM_HW_PARAM_PERIOD_SIZE, -1);
 
 	return 0;
