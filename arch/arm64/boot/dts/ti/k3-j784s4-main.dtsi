@@ -514,8 +514,13 @@
 		compatible = "ti,j721s2-pvr", "img,pvr-bxs64";
 		reg = <0x4e 0x20000000 0x00 0x80000>;
 		interrupts = <GIC_SPI 24 IRQ_TYPE_LEVEL_HIGH>;
-		power-domains = <&k3_pds 182 TI_SCI_PD_EXCLUSIVE>;
+		power-domains = <&k3_pds 181 TI_SCI_PD_EXCLUSIVE>,
+				<&k3_pds 182 TI_SCI_PD_EXCLUSIVE>;
+		power-domain-names = "firmware", "dust";
 		clocks = <&k3_clks 181 1>;
+		assigned-clocks = <&k3_clks 181 1>;
+		assigned-clock-rates = <800000000>;
+		clock-names = "core";
 	};
 
 	main_gpio0: gpio@600000 {
