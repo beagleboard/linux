@@ -1,6 +1,6 @@
-// SPDX-License-Identifier: GPL-2.0
+// SPDX-License-Identifier: GPL-2.0-only OR MIT
 /*
- * Copyright (C) 2022-2023 Texas Instruments Incorporated - https://www.ti.com/
+ * Copyright (C) 2022-2024 Texas Instruments Incorporated - https://www.ti.com/
  *
  * Design Files: https://www.ti.com/lit/zip/SPRR466
  * TRM: https://www.ti.com/lit/zip/spruj52
@@ -35,6 +35,7 @@
 
 	memory@80000000 {
 		device_type = "memory";
+		bootph-all;
 		/* 32G RAM */
 		reg = <0x00 0x80000000 0x00 0x80000000>,
 		      <0x08 0x80000000 0x07 0x80000000>;
@@ -452,6 +453,7 @@
 };
 
 &main_uart8 {
+	bootph-all;
 	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&main_uart8_pins_default>;
@@ -468,7 +470,7 @@
 		reg = <0x21>;
 		gpio-controller;
 		#gpio-cells = <2>;
-		gpio-line-names	= "BOARDID_EEPROM_WP", "CAN_STB", "GPIO_uSD_PWR_EN",
+		gpio-line-names = "BOARDID_EEPROM_WP", "CAN_STB", "GPIO_uSD_PWR_EN",
 				"IO_EXP_MCU_RGMII_RST#", "IO_EXP_PCIe0_4L_PERST#",
 				"IO_EXP_PCIe1_M.2_RTSz", "IO_EXP_PCIe3_M.2_RTSz",
 				"PM_INA_BUS_EN", "ENET1_EXP_PWRDN", "EXP1_ENET_RSTz",
@@ -582,6 +584,7 @@
 };
 
 &main_sdhci0 {
+	bootph-all;
 	/* eMMC */
 	status = "okay";
 	non-removable;
@@ -591,6 +594,7 @@
 };
 
 &main_sdhci1 {
+	bootph-all;
 	/* SD card */
 	status = "okay";
 	pinctrl-0 = <&main_mmc1_pins_default>;
@@ -671,6 +675,7 @@
 	/* DP */
 	port@0 {
 		reg = <0>;
+
 		dpi0_out: endpoint {
 			remote-endpoint = <&dp0_in>;
 		};
@@ -679,6 +684,7 @@
 	/* HDMI */
 	port@1 {
 		reg = <1>;
+
 		dpi1_out0: endpoint {
 			remote-endpoint = <&tfp410_in>;
 		};
@@ -699,6 +705,7 @@
 
 	port@0 {
 		reg = <0>;
+
 		dp0_in: endpoint {
 			remote-endpoint = <&dpi0_out>;
 		};
@@ -706,6 +713,7 @@
 
 	port@4 {
 		reg = <4>;
+
 		dp0_out: endpoint {
 			remote-endpoint = <&dp0_connector_in>;
 		};
