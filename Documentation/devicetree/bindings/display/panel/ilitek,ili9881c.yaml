@@ -19,6 +19,7 @@ properties:
           - bananapi,lhr050h41
           - feixin,k101-im2byl02
           - wanchanglong,w552946aba
+          - microtips,mf-070zimacaa0
       - const: ilitek,ili9881c
 
   backlight: true
