@@ -9,6 +9,7 @@
 #include <linux/errno.h>
 #include <linux/fb.h>
 #include <linux/kernel.h>
+#include <linux/media-bus-format.h>
 #include <linux/module.h>
 #include <linux/of_device.h>
 
@@ -43,6 +44,8 @@ struct ili9881c_desc {
 	const size_t init_length;
 	const struct drm_display_mode *mode;
 	const unsigned long mode_flags;
+	u32 bus_format;
+	u32 bpc;
 };
 
 struct ili9881c {
@@ -1082,6 +1085,13 @@ static int ili9881c_get_modes(struct drm_panel *panel,
 	connector->display_info.width_mm = mode->width_mm;
 	connector->display_info.height_mm = mode->height_mm;
 
+	if (ctx->desc->bpc)
+		connector->display_info.bpc = ctx->desc->bpc;
+
+	if (ctx->desc->bus_format)
+		drm_display_info_set_bus_formats(&connector->display_info,
+						 &ctx->desc->bus_format, 1);
+
 	/*
 	 * TODO: Remove once all drm drivers call
 	 * drm_connector_set_orientation_from_panel()
@@ -1165,6 +1175,8 @@ static const struct ili9881c_desc lhr050h41_desc = {
 	.init_length = ARRAY_SIZE(lhr050h41_init),
 	.mode = &lhr050h41_default_mode,
 	.mode_flags = MIPI_DSI_MODE_VIDEO_SYNC_PULSE,
+	.bus_format = 0x0000,
+	.bpc = 0,
 };
 
 static const struct ili9881c_desc k101_im2byl02_desc = {
@@ -1172,6 +1184,8 @@ static const struct ili9881c_desc k101_im2byl02_desc = {
 	.init_length = ARRAY_SIZE(k101_im2byl02_init),
 	.mode = &k101_im2byl02_default_mode,
 	.mode_flags = MIPI_DSI_MODE_VIDEO_SYNC_PULSE,
+	.bus_format = 0x0000,
+	.bpc = 0,
 };
 
 static const struct ili9881c_desc mf_070zimacaa0_data = {
@@ -1180,6 +1194,8 @@ static const struct ili9881c_desc mf_070zimacaa0_data = {
 	.mode = &mf_070zimacaa0_default_mode,
 	.mode_flags = MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_VIDEO_SYNC_PULSE |
 		      MIPI_DSI_CLOCK_NON_CONTINUOUS,
+	.bus_format = MEDIA_BUS_FMT_RGB888_1X24,
+	.bpc = 8,
 };
 
 static const struct ili9881c_desc w552946aba_desc = {
@@ -1188,6 +1204,8 @@ static const struct ili9881c_desc w552946aba_desc = {
 	.mode = &w552946aba_default_mode,
 	.mode_flags = MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_VIDEO_BURST |
 		      MIPI_DSI_MODE_LPM | MIPI_DSI_MODE_NO_EOT_PACKET,
+	.bus_format = 0x0000,
+	.bpc = 0,
 };
 
 static const struct of_device_id ili9881c_of_match[] = {
