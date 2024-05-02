@@ -119,6 +119,9 @@ static const struct vpu_format dec_fmt_list[FMT_TYPES][MAX_FMTS] = {
 	}
 };
 
+static int initialize_sequence(struct vpu_instance *inst);
+static bool wave5_is_draining_or_eos(struct vpu_instance *inst);
+
 /*
  * Make sure that the state switch is allowed and add logging for debugging
  * purposes
@@ -1407,6 +1410,33 @@ static int wave5_vpu_dec_start_streaming(struct vb2_queue *q, unsigned int count
 		ret = switch_state(inst, VPU_INST_STATE_OPEN);
 		if (ret)
 			goto free_bitstream_vbuf;
+
+		ret = fill_ringbuffer(inst);
+		if (ret)
+			dev_err(inst->dev->dev, "Filling ring buffer failed\n");
+
+		ret = initialize_sequence(inst);
+		if (ret) {
+			unsigned long flags;
+
+			spin_lock_irqsave(&inst->state_spinlock, flags);
+			if (wave5_is_draining_or_eos(inst) &&
+			    wave5_last_src_buffer_consumed(inst->v4l2_fh.m2m_ctx)) {
+				struct vb2_queue *dst_vq = v4l2_m2m_get_dst_vq(m2m_ctx);
+
+				switch_state(inst, VPU_INST_STATE_STOP);
+
+				if (vb2_is_streaming(dst_vq))
+					send_eos_event(inst);
+				else
+					handle_dynamic_resolution_change(inst);
+
+				flag_last_buffer_done(inst);
+			}
+			spin_unlock_irqrestore(&inst->state_spinlock, flags);
+		} else {
+			switch_state(inst, VPU_INST_STATE_INIT_SEQ);
+		}
 	} else if (q->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 		struct dec_initial_info *initial_info =
 			&inst->codec_info->dec_info.initial_info;
