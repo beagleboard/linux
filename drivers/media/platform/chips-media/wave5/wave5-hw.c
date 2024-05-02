@@ -181,6 +181,19 @@ bool wave5_vpu_is_init(struct vpu_device *vpu_dev)
 	return vpu_read_reg(vpu_dev, W5_VCPU_CUR_PC) != 0;
 }
 
+static dma_addr_t wave5_read_reg_for_mem_addr(struct vpu_instance *inst,
+					      unsigned int reg_addr)
+{
+	dma_addr_t addr;
+	dma_addr_t high_addr = inst->dev->ext_addr;
+	u32 val;
+
+	val = vpu_read_reg(inst->dev, reg_addr);
+	addr = ((high_addr << 32) | val);
+
+	return addr;
+}
+
 unsigned int wave5_vpu_get_product_id(struct vpu_device *vpu_dev)
 {
 	u32 val = vpu_read_reg(vpu_dev, W5_PRODUCT_NUMBER);
@@ -413,7 +426,8 @@ int wave5_vpu_init(struct device *dev, u8 *fw, size_t size)
 
 	/* These register must be reset explicitly */
 	vpu_write_reg(vpu_dev, W5_HW_OPTION, 0);
-	wave5_fio_writel(vpu_dev, W5_BACKBONE_PROC_EXT_ADDR, 0);
+	reg_val = (vpu_dev->ext_addr & 0xFFFF);
+	wave5_fio_writel(vpu_dev, W5_BACKBONE_PROC_EXT_ADDR, reg_val);
 	wave5_fio_writel(vpu_dev, W5_BACKBONE_AXI_PARAM, 0);
 	vpu_write_reg(vpu_dev, W5_SEC_AXI_PARAM, 0);
 
@@ -501,7 +515,7 @@ int wave5_vpu_build_up_dec_param(struct vpu_instance *inst,
 	/* NOTE: SDMA reads MSB first */
 	vpu_write_reg(inst->dev, W5_CMD_BS_PARAM, BITSTREAM_ENDIANNESS_BIG_ENDIAN);
 	/* This register must be reset explicitly */
-	vpu_write_reg(inst->dev, W5_CMD_EXT_ADDR, 0);
+	vpu_write_reg(inst->dev, W5_CMD_EXT_ADDR, inst->dev->ext_addr);
 	vpu_write_reg(inst->dev, W5_CMD_NUM_CQ_DEPTH_M1, (COMMAND_QUEUE_DEPTH - 1));
 
 	ret = send_firmware_command(inst, W5_CREATE_INSTANCE, true, NULL, NULL);
@@ -1030,7 +1044,8 @@ int wave5_vpu_re_init(struct device *dev, u8 *fw, size_t size)
 
 		/* These register must be reset explicitly */
 		vpu_write_reg(vpu_dev, W5_HW_OPTION, 0);
-		wave5_fio_writel(vpu_dev, W5_BACKBONE_PROC_EXT_ADDR, 0);
+		reg_val = (vpu_dev->ext_addr & 0xFFFF);
+		wave5_fio_writel(vpu_dev, W5_BACKBONE_PROC_EXT_ADDR, reg_val);
 		wave5_fio_writel(vpu_dev, W5_BACKBONE_AXI_PARAM, 0);
 		vpu_write_reg(vpu_dev, W5_SEC_AXI_PARAM, 0);
 
@@ -1130,7 +1145,8 @@ static int wave5_vpu_sleep_wake(struct device *dev, bool i_sleep_wake, const uin
 
 		/* These register must be reset explicitly */
 		vpu_write_reg(vpu_dev, W5_HW_OPTION, 0);
-		wave5_fio_writel(vpu_dev, W5_BACKBONE_PROC_EXT_ADDR, 0);
+		reg_val = (vpu_dev->ext_addr & 0xFFFF);
+		wave5_fio_writel(vpu_dev, W5_BACKBONE_PROC_EXT_ADDR, reg_val);
 		wave5_fio_writel(vpu_dev, W5_BACKBONE_AXI_PARAM, 0);
 		vpu_write_reg(vpu_dev, W5_SEC_AXI_PARAM, 0);
 
@@ -1349,7 +1365,7 @@ dma_addr_t wave5_dec_get_rd_ptr(struct vpu_instance *inst)
 	if (ret)
 		return inst->codec_info->dec_info.stream_rd_ptr;
 
-	return vpu_read_reg(inst->dev, W5_RET_QUERY_DEC_BS_RD_PTR);
+	return wave5_read_reg_for_mem_addr(inst, W5_RET_QUERY_DEC_BS_RD_PTR);
 }
 
 int wave5_dec_set_rd_ptr(struct vpu_instance *inst, dma_addr_t addr)
@@ -1400,7 +1416,7 @@ int wave5_vpu_build_up_enc_param(struct device *dev, struct vpu_instance *inst,
 
 	reg_val = (open_param->line_buf_int_en << 6) | BITSTREAM_ENDIANNESS_BIG_ENDIAN;
 	vpu_write_reg(inst->dev, W5_CMD_BS_PARAM, reg_val);
-	vpu_write_reg(inst->dev, W5_CMD_EXT_ADDR, 0);
+	vpu_write_reg(inst->dev, W5_CMD_EXT_ADDR, inst->dev->ext_addr);
 	vpu_write_reg(inst->dev, W5_CMD_NUM_CQ_DEPTH_M1, (COMMAND_QUEUE_DEPTH - 1));
 
 	/* This register must be reset explicitly */
@@ -2159,10 +2175,10 @@ int wave5_vpu_enc_get_result(struct vpu_instance *inst, struct enc_output_info *
 	result->recon_frame_index = vpu_read_reg(inst->dev, W5_RET_ENC_PIC_IDX);
 	result->enc_pic_byte = vpu_read_reg(inst->dev, W5_RET_ENC_PIC_BYTE);
 	result->enc_src_idx = vpu_read_reg(inst->dev, W5_RET_ENC_USED_SRC_IDX);
-	p_enc_info->stream_wr_ptr = vpu_read_reg(inst->dev, W5_RET_ENC_WR_PTR);
-	p_enc_info->stream_rd_ptr = vpu_read_reg(inst->dev, W5_RET_ENC_RD_PTR);
+	p_enc_info->stream_wr_ptr = wave5_read_reg_for_mem_addr(inst, W5_RET_ENC_WR_PTR);
+	p_enc_info->stream_rd_ptr = wave5_read_reg_for_mem_addr(inst, W5_RET_ENC_RD_PTR);
 
-	result->bitstream_buffer = vpu_read_reg(inst->dev, W5_RET_ENC_RD_PTR);
+	result->bitstream_buffer = wave5_read_reg_for_mem_addr(inst, W5_RET_ENC_RD_PTR);
 	result->rd_ptr = p_enc_info->stream_rd_ptr;
 	result->wr_ptr = p_enc_info->stream_wr_ptr;
 
