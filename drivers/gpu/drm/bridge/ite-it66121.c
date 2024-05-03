@@ -293,16 +293,6 @@
 #define IT66121_DEVICE_MASK			0x0F
 #define IT66121_AFE_CLK_HIGH			80000 /* Khz */
 
-enum chip_id {
-	ID_IT6610,
-	ID_IT66121,
-};
-
-struct it66121_chip_info {
-	enum chip_id id;
-	u16 vid, pid;
-};
-
 struct it66121_ctx {
 	struct regmap *regmap;
 	struct drm_bridge bridge;
@@ -322,7 +312,6 @@ struct it66121_ctx {
 		u8 swl;
 		bool auto_cts;
 	} audio;
-	const struct it66121_chip_info *info;
 };
 
 static inline struct it66121_ctx *connector_to_it66121(struct drm_connector *con)
@@ -1689,11 +1678,11 @@ static int it66121_probe(struct i2c_client *client,
 	revision_id = FIELD_GET(IT66121_REVISION_MASK, device_ids[1]);
 	device_ids[1] &= IT66121_DEVICE_ID1_MASK;
 
-//	if ((vendor_ids[1] << 8 | vendor_ids[0]) != ctx->info->vid ||
-//	    (device_ids[1] << 8 | device_ids[0]) != ctx->info->pid) {
-//		ite66121_power_off(ctx);
-//		return -ENODEV;
-//	}
+	if (vendor_ids[0] != IT66121_VENDOR_ID0 || vendor_ids[1] != IT66121_VENDOR_ID1 ||
+	    device_ids[0] != IT66121_DEVICE_ID0 || device_ids[1] != IT66121_DEVICE_ID1) {
+		ite66121_power_off(ctx);
+		return -ENODEV;
+	}
 
 	ctx->bridge.funcs = &it66121_bridge_funcs;
 	ctx->bridge.of_node = dev->of_node;
@@ -1726,28 +1715,14 @@ static void it66121_remove(struct i2c_client *client)
 	mutex_destroy(&ctx->lock);
 }
 
-static const struct it66121_chip_info it66121_chip_info = {
-	.id = ID_IT66121,
-	.vid = 0x4954,
-	.pid = 0x0612,
-};
-
-static const struct it66121_chip_info it6610_chip_info = {
-	.id = ID_IT6610,
-	.vid = 0xca00,
-	.pid = 0x0611,
-};
-
 static const struct of_device_id it66121_dt_match[] = {
-	{ .compatible = "ite,it66121", &it66121_chip_info },
-	{ .compatible = "ite,it6610", &it6610_chip_info },
+	{ .compatible = "ite,it66121" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, it66121_dt_match);
 
 static const struct i2c_device_id it66121_id[] = {
-	{ "it66121", (kernel_ulong_t) &it66121_chip_info },
-	{ "it6610", (kernel_ulong_t) &it6610_chip_info },
+	{ "it66121", 0 },
 	{ }
 };
 MODULE_DEVICE_TABLE(i2c, it66121_id);
