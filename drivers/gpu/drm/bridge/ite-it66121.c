@@ -1651,14 +1651,21 @@ static const struct it66121_chip_info it66121_chip_info = {
 	.pid = 0x0612,
 };
 
+static const struct it66121_chip_info it66122_chip_info = {
+	.vid = 0x4954,
+	.pid = 0x0622,
+};
+
 static const struct of_device_id it66121_dt_match[] = {
 	{ .compatible = "ite,it66121", &it66121_chip_info },
+	{ .compatible = "ite,it66122", &it66122_chip_info },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, it66121_dt_match);
 
 static const struct i2c_device_id it66121_id[] = {
 	{ "it66121", (kernel_ulong_t) &it66121_chip_info },
+	{ "it66122", (kernel_ulong_t) &it66122_chip_info },
 	{ }
 };
 MODULE_DEVICE_TABLE(i2c, it66121_id);
