@@ -674,6 +674,8 @@ static const struct drm_connector_funcs it66121_connector_funcs = {
 	.atomic_destroy_state = drm_atomic_helper_connector_destroy_state,
 };
 
+static void it66121_bridge_hpd_enable(struct drm_bridge *bridge);
+
 static int it66121_bridge_attach(struct drm_bridge *bridge,
 				 enum drm_bridge_attach_flags flags)
 {
@@ -757,6 +759,9 @@ static int it66121_bridge_attach(struct drm_bridge *bridge,
 
 	/* Per programming manual, sleep here for bridge to settle */
 	msleep(50);
+
+	/* HACK For some part of missing hotplug somewhere.. */
+	it66121_bridge_hpd_enable(bridge);
 
 	return 0;
 }
