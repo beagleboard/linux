@@ -585,6 +585,8 @@ static bool it66121_is_hpd_detect(struct it66121_ctx *ctx)
 	return val & IT66121_SYS_STATUS_HPDETECT;
 }
 
+static void it66121_bridge_hpd_enable(struct drm_bridge *bridge);
+
 static int it66121_bridge_attach(struct drm_bridge *bridge,
 				 enum drm_bridge_attach_flags flags)
 {
@@ -648,6 +650,9 @@ static int it66121_bridge_attach(struct drm_bridge *bridge,
 
 	/* Per programming manual, sleep here for bridge to settle */
 	msleep(50);
+
+	/* HACK For some part of missing hotplug somewhere.. */
+	it66121_bridge_hpd_enable(bridge);
 
 	return 0;
 }
