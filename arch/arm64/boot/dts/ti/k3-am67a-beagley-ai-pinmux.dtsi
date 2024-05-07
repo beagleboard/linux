@@ -1,0 +1,271 @@
+// SPDX-License-Identifier: GPL-2.0-only OR MIT
+/*
+ * https://beagley-ai.org/
+ *
+ * Copyright (C) 2024 Texas Instruments Incorporated - https://www.ti.com/
+ * Copyright (C) 2024 Robert Nelson, BeagleBoard.org Foundation
+ */
+
+#include <dt-bindings/gpio/gpio.h>
+
+/ {
+	hat-array {
+		compatible = "gpio-array";
+		pinctrl-names = "default";
+		pinctrl-0 = <&hat_03_gpio>, <&hat_05_gpio>, <&hat_08_gpio>, <&hat_10_gpio>;
+
+		gpios = <&mcu_gpio0 2 GPIO_ACTIVE_HIGH>,
+				<&mcu_gpio0 3 GPIO_ACTIVE_HIGH>,
+				<&main_gpio1 14 GPIO_ACTIVE_HIGH>,
+				<&main_gpio1 15 GPIO_ACTIVE_HIGH>;
+		gpio-line-names = "ID_SDA", "ID_SCL", "GPIO2", "GPIO3";
+	};
+
+	hat-uart-ttyAMA0 {
+		compatible = "gpio-peripheral";
+		pinctrl-names = "default";
+		pinctrl-0 = <&hat_08_uart>, <&hat_10_uart>;
+
+		gpios = <&main_gpio1 14 GPIO_ACTIVE_HIGH>,
+				<&main_gpio1 15 GPIO_ACTIVE_HIGH>;
+		gpio-line-names = "UART1_TXD", "UART1_RXD";
+	};
+
+	hat-08-gpio {
+		compatible = "gpio-single";
+		pinctrl-names = "default";
+		pinctrl-0 = <&hat_08_gpio>;
+
+		gpios = <&main_gpio1 14 GPIO_ACTIVE_HIGH>;
+		gpio-line-names = "UART1_TXD";
+	};
+
+	hat-08-uart-txd0 {
+		compatible = "gpio-single";
+		pinctrl-names = "default";
+		pinctrl-0 = <&hat_08_uart>;
+
+		gpios = <&main_gpio1 14 GPIO_ACTIVE_HIGH>;
+		gpio-line-names = "UART1_TXD";
+	};
+
+	hat-10-gpio {
+		compatible = "gpio-single";
+		pinctrl-names = "default";
+		pinctrl-0 = <&hat_10_gpio>;
+
+		gpios = <&main_gpio1 15 GPIO_ACTIVE_HIGH>;
+		gpio-line-names = "UART1_TXD";
+	};
+
+	hat-10-uart1-rxd {
+		compatible = "gpio-single";
+		pinctrl-names = "default";
+		pinctrl-0 = <&hat_10_uart>;
+
+		gpios = <&main_gpio1 15 GPIO_ACTIVE_HIGH>;
+		gpio-line-names = "UART1_RXD";
+	};
+};
+
+&main_pmx0 {
+	hat_08_gpio: hat-08-gpio-pins {
+		pinctrl-single,pins = <
+			J722S_IOPAD(0x01b0, PIN_INPUT, 7) /* (F24) MCASP0_ACLKR.GPIO1_14 */
+		>;
+	};
+
+	hat_08_uart: hat-08-uart-pins {
+		pinctrl-single,pins = <
+			J722S_IOPAD(0x01b0, PIN_OUTPUT, 2) /* (F24) MCASP0_ACLKR.UART1_TXD */
+		>;
+	};
+
+	hat_10_gpio: hat-10-gpio-pins {
+		pinctrl-single,pins = <
+			J722S_IOPAD(0x01ac, PIN_INPUT, 7) /* (C27) MCASP0_AFSR.GPIO1_13 */
+		>;
+	};
+
+	hat_10_uart: hat-10-uart-pins {
+		pinctrl-single,pins = <
+			J722S_IOPAD(0x01ac, PIN_INPUT, 2) /* (C27) MCASP0_AFSR.UART1_RXD */
+		>;
+	};
+
+	hat_11_gpio: hat-11-gpio-pins {
+		pinctrl-single,pins = <
+			J722S_IOPAD(0x0198, PIN_INPUT, 7) /* (A26) MCASP0_AXR2.GPIO1_8 */
+		>;
+	};
+
+	hat_12_gpio: hat-12-gpio-pins {
+		pinctrl-single,pins = <
+			J722S_IOPAD(0x01a4, PIN_INPUT, 7) /* (D25) MCASP0_ACLKX.GPIO1_11 */
+		>;
+	};
+
+	hat_13_gpio: hat-13-gpio-pins {
+		pinctrl-single,pins = <
+			J722S_IOPAD(0x0088, PIN_INPUT, 7) /* (N22) GPMC0_OEn_REn.GPIO0_33 */
+		>;
+	};
+
+	hat_15_gpio: hat-15-gpio-pins {
+		pinctrl-single,pins = <
+			J722S_IOPAD(0x00a8, PIN_INPUT, 7) /* (R27) GPMC0_CSn0.GPIO0_41 */
+		>;
+	};
+
+	hat_22_gpio: hat-22-gpio-pins {
+		pinctrl-single,pins = <
+			J722S_IOPAD(0x00ac, PIN_INPUT, 7) /* (P21) GPMC0_CSn1.GPIO0_42 */
+		>;
+	};
+
+	hat_29_gpio: hat-29-gpio-pins {
+		pinctrl-single,pins = <
+			J722S_IOPAD(0x01b4, PIN_INPUT, 7) /* (B20) SPI0_CS0.GPIO1_15 */
+		>;
+	};
+
+	hat_31_gpio: hat-31-gpio-pins {
+		pinctrl-single,pins = <
+			J722S_IOPAD(0x01bc, PIN_INPUT, 7) /* (D20) SPI0_CLK.GPIO1_17 */
+		>;
+	};
+
+	hat_32_gpio: hat-32-gpio-pins {
+		pinctrl-single,pins = <
+			J722S_IOPAD(0x01b8, PIN_INPUT, 7) /* (C20) SPI0_CS1.GPIO1_16 */
+		>;
+	};
+
+	hat_33_gpio: hat-33-gpio-pins {
+		pinctrl-single,pins = <
+			J722S_IOPAD(0x01c0, PIN_INPUT, 7) /* (E19) SPI0_D0.GPIO1_18 */
+		>;
+	};
+
+	hat_35_gpio: hat-35-gpio-pins {
+		pinctrl-single,pins = <
+			J722S_IOPAD(0x01a8, PIN_INPUT, 7) /* (C26) MCASP0_AFSX.GPIO1_12 */
+		>;
+	};
+
+	hat_36_gpio: hat-36-gpio-pins {
+		pinctrl-single,pins = <
+			J722S_IOPAD(0x0194, PIN_INPUT, 7) /* (A25) MCASP0_AXR3.GPIO1_7 */
+		>;
+	};
+
+	hat_37_gpio: hat-37-gpio-pins {
+		pinctrl-single,pins = <
+			J722S_IOPAD(0x0094, PIN_INPUT, 7) /* (P26) GPMC0_BE1n.GPIO0_36 */
+		>;
+	};
+
+	hat_38_gpio: hat-38-gpio-pins {
+		pinctrl-single,pins = <
+			J722S_IOPAD(0x01a0, PIN_INPUT, 7) /* (F23) MCASP0_AXR0.GPIO1_10 */
+		>;
+	};
+
+	hat_40_gpio: hat-40-gpio-pins {
+		pinctrl-single,pins = <
+			J722S_IOPAD(0x019c, PIN_INPUT, 7) /* (B25) MCASP0_AXR1.GPIO1_9 */
+		>;
+	};
+};
+
+&mcu_pmx0 {
+	hat_03_gpio: hat-03-gpio-pins {
+		pinctrl-single,pins = <
+			J722S_MCU_IOPAD(0x0048, PIN_INPUT, 7) /* (E11) MCU_I2C0_SDA.MCU_GPIO0_18 */
+		>;
+	};
+
+	hat_05_gpio: hat-05-gpio-pins {
+		pinctrl-single,pins = <
+			J722S_MCU_IOPAD(0x0044, PIN_INPUT, 7) /* (B13) MCU_I2C0_SCL.MCU_GPIO0_17 */
+		>;
+	};
+
+	hat_16_gpio: hat-16-gpio-pins {
+		pinctrl-single,pins = <
+			J722S_MCU_IOPAD(0x001c, PIN_INPUT, 7) /* (B5) MCU_UART0_CTSn.MCU_GPIO0_7 */
+		>;
+	};
+
+	hat_18_gpio: hat-18-gpio-pins {
+		pinctrl-single,pins = <
+			J722S_MCU_IOPAD(0x0028, PIN_INPUT, 7) /* (C8) WKUP_UART0_TXD.MCU_GPIO0_10 */
+		>;
+	};
+
+	hat_19_gpio: hat-19-gpio-pins {
+		pinctrl-single,pins = <
+			J722S_MCU_IOPAD(0x000c, PIN_INPUT, 7) /* (B12) MCU_SPI0_D0.MCU_GPIO0_3 */
+		>;
+	};
+
+	hat_21_gpio: hat-21-gpio-pins {
+		pinctrl-single,pins = <
+			J722S_MCU_IOPAD(0x0010, PIN_INPUT, 7) /* (C11) MCU_SPI0_D1.MCU_GPIO0_4 */
+		>;
+	};
+
+	hat_23_gpio: hat-23-gpio-pins {
+		pinctrl-single,pins = <
+			J722S_MCU_IOPAD(0x0008, PIN_INPUT, 7) /* (A9) MCU_SPI0_CLK.MCU_GPIO0_2 */
+		>;
+	};
+
+	hat_24_gpio: hat-24-gpio-pins {
+		pinctrl-single,pins = <
+			J722S_MCU_IOPAD(0x0000, PIN_INPUT, 7) /* (C12) MCU_SPI0_CS0.MCU_GPIO0_0 */
+		>;
+	};
+
+	hat_26_gpio: hat-26-gpio-pins {
+		pinctrl-single,pins = <
+			J722S_MCU_IOPAD(0x0024, PIN_INPUT, 7) /* (B3) WKUP_UART0_RXD.MCU_GPIO0_9 */
+		>;
+	};
+
+	hat_27_gpio: hat-27-gpio-pins {
+		pinctrl-single,pins = <
+			J722S_MCU_IOPAD(0x0050, PIN_INPUT, 7) /* (D11) WKUP_I2C0_SDA.MCU_GPIO0_20 */
+		>;
+	};
+
+	hat_28_gpio: hat-28-gpio-pins {
+		pinctrl-single,pins = <
+			J722S_MCU_IOPAD(0x004c, PIN_INPUT, 7) /* (B9) WKUP_I2C0_SCL.MCU_GPIO0_19 */
+		>;
+	};
+};
+
+&mcu_i2c0 {
+	symlink = "hat/mcu_i2c0";
+};
+
+&wkup_uart0 {
+	symlink = "play/wkup_uart0";
+};
+
+&wkup_i2c0 {
+	symlink = "play/wkup_i2c0";
+};
+
+dsi0_csi1_i2c: &main_i2c0 {
+	symlink = "hat/dsi0_csi1_i2c";
+};
+
+&main_i2c1 {
+	symlink = "play/main_i2c1";
+};
+
+csi0_i2c: &main_i2c2 {
+	symlink = "hat/csi0";
+};
