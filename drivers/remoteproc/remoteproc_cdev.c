@@ -154,6 +154,13 @@ static int rproc_cdev_release(struct inode *inode, struct file *filp)
 	struct rproc *rproc = rproc_cdev->rproc;
 	int ret = 0;
 
+	if (rproc_cdev->cdev_put_on_release) {
+		if (rproc->state == RPROC_RUNNING)
+			rproc_shutdown(rproc);
+		else if (rproc->state == RPROC_ATTACHED)
+			ret = rproc_detach(rproc);
+	}
+
 	/* Release all buffers attached with this file */
 	struct rproc_cdev_attach *attach, *atmp;
 	list_for_each_entry_safe(attach, atmp, &rproc_cdev->attachments, node) {
@@ -163,14 +170,6 @@ static int rproc_cdev_release(struct inode *inode, struct file *filp)
 	}
 	mutex_destroy(&rproc_cdev->mutex);
 	kfree(rproc_cdev);
-
-	if (!rproc_cdev->cdev_put_on_release)
-		return 0;
-
-	if (rproc->state == RPROC_RUNNING)
-		rproc_shutdown(rproc);
-	else if (rproc->state == RPROC_ATTACHED)
-		ret = rproc_detach(rproc);
 
 	return ret;
 }
