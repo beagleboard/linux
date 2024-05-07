@@ -275,6 +275,14 @@
 	};
 };
 
+&main_gpio0 {
+	ti,ngpio = <87>;
+};
+
+&main_gpio1 {
+	ti,ngpio = <73>;
+};
+
 &oc_sram {
 	reg = <0x00 0x70000000 0x00 0x40000>;
 	ranges = <0x00 0x00 0x70000000 0x40000>;
