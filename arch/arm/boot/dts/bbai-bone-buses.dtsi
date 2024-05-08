@@ -1,0 +1,75 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright (C) 2020 Deepak Khatri <deepaklorkhatri7@gmail.com>
+ * Copyright (C) 2021 Robert Nelson <robertcnelson@gmail.com>
+ * See Cape Interface Spec page for more info on Bone Buses
+ * https://elinux.org/Beagleboard:BeagleBone_cape_interface_spec
+ * https://docs.beagleboard.io/latest/boards/capes/cape-interface-spec.html
+ */
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/pinctrl/dra.h>
+
+// For dummy refrence when peripheral is not available.
+&{/} {
+	not_available: not_available {
+		// Use &not_available phandle when bus not available!
+		// This node is responsible to create these entries,
+		// /sys/firmware/devicetree/base/__symbols__/not_available
+		// /sys/firmware/devicetree/base/not_available
+	};
+};
+
+// For compatible bone pinmuxing
+bone_pinmux: &dra7_pmx_core {
+	bborg_comms_can_pins: pinmux_comms_can_pins {
+		pinctrl-single,pins = <
+			DRA7XX_CORE_IOPAD(0x368C, PIN_INPUT_PULLUP | MUX_MODE2)		/* P9_24: F20: gpio6_15.dcan2_rx */
+			DRA7XX_CORE_IOPAD(0x3688, PIN_OUTPUT_PULLUP | MUX_MODE2)	/* P9_26A: E21: gpio6_14.dcan2_tx */
+			DRA7XX_CORE_IOPAD(0x3544, PIN_OUTPUT | MUX_MODE15)	/* P9_26B: AE2: vin1a_d20.off */
+		>;
+	};
+
+	bborg_comms_rs485_pins: pinmux_comms_rs485_pins {
+		pinctrl-single,pins = <
+			DRA7XX_CORE_IOPAD(0x3730, PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE4)	/* P9_13A: C17: mcasp3_axr1.uart5_txd */
+			DRA7XX_CORE_IOPAD(0x3680, PIN_OUTPUT | MUX_MODE15)			/* P9_13B: AB10: usb1_drvvbus.off */
+			DRA7XX_CORE_IOPAD(0x372C, PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE4)	/* P9_11A: B19: mcasp3_axr0.uart5_rxd */
+			DRA7XX_CORE_IOPAD(0x3620, PIN_OUTPUT | MUX_MODE15)			/* P9_11B: B8: vout1_d17.off */
+		>;
+	};
+};
+
+// UART
+// https://docs.beagleboard.io/latest/boards/capes/cape-interface-spec.html#uart
+bone_uart_1: &uart10 {
+	symlink = "bone/uart/1";
+};
+
+bone_uart_2: &uart3 {
+	symlink = "bone/uart/2";
+};
+
+bone_uart_3: &not_available {
+	// not available on BBAI
+};
+
+bone_uart_4: &uart5 {
+	symlink = "bone/uart/4";
+	status = "disabled";
+	pinctrl-names = "default";
+	pinctrl-0 = <&bborg_comms_rs485_pins>;
+};
+
+// CAN
+// https://docs.beagleboard.io/latest/boards/capes/cape-interface-spec.html#can
+bone_can_0: &not_available {
+	// Not available on BBAI
+};
+
+bone_can_1: &dcan2 {
+	symlink = "bone/can/1";
+	status = "disabled";
+	pinctrl-names = "default";
+	pinctrl-0 = <&bborg_comms_can_pins>;
+};
