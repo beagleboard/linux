@@ -235,6 +235,8 @@ struct prueth_emac {
 
 	struct bpf_prog *xdp_prog;
 	struct xdp_attachment_info xdpi;
+
+	struct netdev_hw_addr_list mcast_list;
 };
 
 /* The buf includes headroom compatible with both skb and xdpf */
