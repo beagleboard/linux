@@ -926,9 +926,9 @@ static int mcasp_common_hw_param(struct davinci_mcasp *mcasp, int stream,
 	}
 
 	if (active_serializers < max_active_serializers) {
-		dev_warn(mcasp->dev, "stream has more channels (%d) than are "
-			 "enabled in mcasp (%d)\n", channels,
-			 active_serializers * slots);
+		dev_dbg(mcasp->dev, "stream has more channels (%d) than are "
+			"enabled in mcasp (%d)\n", channels,
+			active_serializers * slots);
 		return -EINVAL;
 	}
 
