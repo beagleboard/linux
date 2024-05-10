@@ -166,8 +166,8 @@
 			#size-cells = <1>;
 			ranges = <0 0x50000000 0x10000>;
 
-			sgx: gpu@0 {
-				compatible = "ti,omap3530-sgx530", "img,sgx530";
+			gpu@0 {
+				compatible = "ti,omap3430-gpu", "img,powervr-sgx530";
 				reg = <0x0 0x10000>; /* 64kB */
 				interrupts = <21>;
 			};
