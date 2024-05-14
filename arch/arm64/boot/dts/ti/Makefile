@@ -170,8 +170,33 @@ dtb-$(CONFIG_ARCH_K3) += k3-v3link-imx219-0-0.dtbo \
 			 k3-v3link-imx219-0-2.dtbo \
 			 k3-v3link-imx219-0-3.dtbo
 
+dtb-$(CONFIG_ARCH_K3) += k3-am625-beaglemod.dtb
+dtb-$(CONFIG_ARCH_K3) += k3-am67a-beagley-ai.dtb
+dtb-$(CONFIG_ARCH_K3) += k3-j722s-beagley-ai-evt.dtb
+dtb-$(CONFIG_ARCH_K3) += k3-am625-beaglemod-audio.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-am625-beaglemod-can0.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-am625-beaglemod-can1.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-am625-beaglemod-csi0-ov5640.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-am625-beaglemod-eeprom.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-am625-beaglemod-eth.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-am625-beaglemod-hdmi.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-am625-beaglemod-lt-lcd185.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-am625-beaglemod-ospi-flash.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-am625-beaglemod-rs485-1.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-am625-beaglemod-rs485-2.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-am625-beaglemod-rtc.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-am625-beaglemod-wl1835.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-am67a-beagley-ai-csi0-imx219.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-am67a-beagley-ai-csi0-ov5640.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-am67a-beagley-ai-csi1-imx219.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-am67a-beagley-ai-dsi-rpi-7inch-panel.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-am67a-beagley-ai-hdmi-dss0-dpi1.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-am67a-beagley-ai-i2c-arm.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-am67a-beagley-ai-lincolntech-185lcd-panel.dtbo
+
 #Enable support for device-tree overlays
 DTC_FLAGS_k3-am62-lp-sk += -@
+DTC_FLAGS_k3-am625-beaglemod += -@
 DTC_FLAGS_k3-am625-beagleplay += -@
 DTC_FLAGS_k3-am625-sk += -@
 DTC_FLAGS_k3-am625-sk-lpmdemo += -@
@@ -196,6 +221,8 @@ DTC_FLAGS_k3-j721e-sk += -@
 DTC_FLAGS_k3-j721e-sk-fusion += -@
 DTC_FLAGS_k3-j721s2-common-proc-board += -@
 DTC_FLAGS_k3-j721s2-evm-fusion += -@
+DTC_FLAGS_k3-am67a-beagley-ai += -@
+DTC_FLAGS_k3-j722s-beagley-ai-evt += -@
 DTC_FLAGS_k3-j722s-evm += -@
 DTC_FLAGS_k3-j722s-evm-fpdlink-fusion += -@
 DTC_FLAGS_k3-j722s-evm-v3link-fusion += -@

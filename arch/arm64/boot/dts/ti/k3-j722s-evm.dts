@@ -1,7 +1,7 @@
-// SPDX-License-Identifier: GPL-2.0
+// SPDX-License-Identifier: GPL-2.0-only OR MIT
 /*
- * Device Tree file for the J722S-EVM
- * Copyright (C) 2023 Texas Instruments Incorporated - https://www.ti.com/
+ * Device Tree file for the J722S EVM
+ * Copyright (C) 2024 Texas Instruments Incorporated - https://www.ti.com/
  *
  * Schematics: https://www.ti.com/lit/zip/sprr495
  */
@@ -230,6 +230,7 @@
 };
 
 &main_pmx0 {
+	bootph-all;
 
 	/delete-property/ interrupts;
 	main_i2c0_pins_default: main-i2c0-default-pins {
@@ -250,10 +251,8 @@
 
 	main_uart0_pins_default: main-uart0-default-pins {
 		pinctrl-single,pins = <
-			J722S_IOPAD(0x01c8, PIN_INPUT, 0)	/* (F19) UART0_RXD */
-			J722S_IOPAD(0x01cc, PIN_OUTPUT, 0)	/* (F20) UART0_TXD */
-			J722S_IOPAD(0x01d4, PIN_OUTPUT, 0)	/* (B21) UART0_RTSn */
-			J722S_IOPAD(0x01d0, PIN_INPUT, 0)	/* (E22) UART0_CTSn */
+			J722S_IOPAD(0x01c8, PIN_INPUT, 0)	/* (A22) UART0_RXD */
+			J722S_IOPAD(0x01cc, PIN_OUTPUT, 0)	/* (B22) UART0_TXD */
 		>;
 		bootph-all;
 	};
@@ -391,6 +390,7 @@
 };
 
 &mcu_pmx0 {
+	bootph-all;
 
 	wkup_uart0_pins_default: wkup-uart0-default-pins {
 		pinctrl-single,pins = <
@@ -598,7 +598,7 @@
 	pinctrl-0 = <&ospi0_pins_default>;
 	bootph-all;
 
-	flash@0{
+	flash@0 {
 		compatible = "jedec,spi-nor";
 		reg = <0x0>;
 		spi-tx-bus-width = <8>;
