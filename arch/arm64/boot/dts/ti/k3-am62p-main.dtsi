@@ -997,7 +997,7 @@
 		power-domains = <&k3_pds 237 TI_SCI_PD_EXCLUSIVE>,
 				<&k3_pds 242 TI_SCI_PD_EXCLUSIVE>;
 		assigned-clocks = <&k3_clks 237 3>;
-		assigned-clock-rates = <720000000>;
+		assigned-clock-rates = <800000000>;
 		power-domain-names = "firmware", "dust";
 		clocks = <&k3_clks 237 3>;
 		clock-names = "core";
