@@ -33,6 +33,7 @@
 		mmc1 = &sdhci1;
 		mmc2 = &sdhci2;
 		rtc0 = &rtc;
+		rtc1 = &wkup_rtc0;
 		serial0 = &main_uart5;
 		serial1 = &main_uart6;
 		serial2 = &main_uart0;
