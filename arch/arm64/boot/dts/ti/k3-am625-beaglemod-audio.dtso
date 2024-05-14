@@ -1,0 +1,115 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (C) 2022 Texas Instruments Incorporated - https://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include "k3-pinctrl.h"
+
+&{/} {
+	tlv320aic3104_mclk: tlv320aic3104_mclk {
+		#clock-cells = <0>;
+		compatible = "fixed-clock";
+		clock-frequency = <24576000>;
+	};
+
+	sound {
+		compatible = "simple-audio-card";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,name = "beaglemod voice";
+		simple-audio-card,bitclock-master = <&dailink0_master>;
+		simple-audio-card,frame-master = <&dailink0_master>;
+		status = "okay";
+
+		simple-audio-card,widgets =
+			"Headphone", "Headphone Jack",
+			"Line", "Line In";
+		simple-audio-card,routing =
+			"Headphone Jack",       "HPLOUT",
+			"Headphone Jack",       "HPROUT",
+			"LINE1L",               "Line In",
+			"LINE1R",               "Line In";
+		dailink0_master: simple-audio-card,cpu {
+			sound-dai = <&mcasp1>;
+			system-clock-direction-out;
+		};
+		simple-audio-card,codec {
+			sound-dai = <&tlv320aic3104>;
+			clocks = <&tlv320aic3104_mclk>;
+		};
+	};
+
+	vdd_audio_1v8: regulator-audio {
+		compatible = "regulator-fixed";
+		regulator-name = "vdd_audio_1v8";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		vin-supply = <&vdd_3v3>;
+		regulator-always-on;
+		regulator-boot-on;
+	};
+};
+
+&main_pmx0 {
+	mcasp_codec_pins_default: mcasp-codec-pins-default {
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x0090, PIN_INPUT, 2) /* (M24) GPMC0_BE0n_CLE.MCASP1_ACLKX */
+			AM62X_IOPAD(0x0098, PIN_INPUT, 2) /* (U23) GPMC0_WAIT0.MCASP1_AFSX */
+			AM62X_IOPAD(0x008c, PIN_INPUT, 2) /* (L25) GPMC0_WEn.MCASP1_AXR0 */
+			AM62X_IOPAD(0x0088, PIN_OUTPUT, 2) /* (L24) GPMC0_OEn_REn.MCASP1_AXR1 */
+		>;
+	};
+};
+
+&mcu_pmx0 {
+	wkup_i2c0_pins_default: wkup-i2c0-pins-default {
+		pinctrl-single,pins = <
+			AM62X_MCU_IOPAD(0x004c, PIN_INPUT_PULLUP, 0) /* (B9) WKUP_I2C0_SCL */
+			AM62X_MCU_IOPAD(0x0050, PIN_INPUT_PULLUP, 0) /* (A9) WKUP_I2C0_SDA */
+		>;
+	};
+};
+
+&wkup_i2c0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&wkup_i2c0_pins_default>;
+	clock-frequency = <400000>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	tlv320aic3104: tlv320aic3104@18 {
+		#sound-dai-cells = <0>;
+		compatible = "ti,tlv320aic3104";
+		reg = <0x18>;
+		status = "okay";
+
+		ai3x-micbias-vg = <2>; // set MICBIAS to 2.5v
+		AVDD-supply = <&vdd_3v3>;
+		IOVDD-supply = <&vdd_3v3>;
+		DRVDD-supply = <&vdd_3v3>;
+		DVDD-supply = <&vdd_audio_1v8>;
+	};
+};
+
+&mcasp1 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&mcasp_codec_pins_default>;
+
+	#sound-dai-cells = <0>;
+
+	op-mode = <0>;          /* MCASP_IIS_MODE */
+	tdm-slots = <2>;
+
+	serial-dir = <  /* 0: INACTIVE, 1: TX, 2: RX */
+	       2 1 0 0
+	       0 0 0 0
+	       0 0 0 0
+	       0 0 0 0
+	>;
+	tx-num-evt = <32>;
+	rx-num-evt = <32>;
+};
