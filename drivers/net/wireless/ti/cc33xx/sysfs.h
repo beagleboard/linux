@@ -8,7 +8,9 @@
 #ifndef __SYSFS_H__
 #define __SYSFS_H__
 
+
 int wlcore_sysfs_init(struct cc33xx *wl);
 void wlcore_sysfs_free(struct cc33xx *wl);
 
-#endif
+
+#endif /* __SYSFS_H__ */

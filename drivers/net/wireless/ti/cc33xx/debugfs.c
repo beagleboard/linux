@@ -8,13 +8,6 @@
  */
 
 #include "debugfs.h"
-
-#include <linux/skbuff.h>
-#include <linux/slab.h>
-#include <linux/module.h>
-
-#include "wlcore.h"
-#include "debug.h"
 #include "acx.h"
 #include "ps.h"
 #include "io.h"
@@ -23,9 +16,9 @@
 
 
 #define CC33XX_DEBUGFS_FWSTATS_FILE(a, b, c) \
-	DEBUGFS_FWSTATS_FILE(a, b, c, cc33xx_acx_statistics)
+	DEBUGFS_FWSTATS_FILE(a, b, c, cc33xx_acx_statistics_t)
 #define CC33XX_DEBUGFS_FWSTATS_FILE_ARRAY(a, b, c) \
-	DEBUGFS_FWSTATS_FILE_ARRAY(a, b, c, cc33xx_acx_statistics)
+	DEBUGFS_FWSTATS_FILE_ARRAY(a, b, c, cc33xx_acx_statistics_t)
 
 
 CC33XX_DEBUGFS_FWSTATS_FILE(error, error_frame_non_ctrl, "%u");
@@ -186,17 +179,10 @@ struct cc33xx_cmd_dfs_radar_debug {
 	u8 padding[3];
 } __packed;
 
-
 /* ms */
 #define CC33XX_DEBUGFS_STATS_LIFETIME 1000
-
-#define WLCORE_MAX_BLOCK_SIZE ((size_t)(4*PAGE_SIZE))
-
 #define MAX_VERSIONS_LEN	59
-
 #define MAX_VERSIONS_EXTENDED_LEN	86
-
-
 
 int cc33xx_cmd_radar_detection_debug(struct cc33xx *wl, u8 channel)
 {
@@ -264,8 +250,8 @@ static const struct file_operations conf_ops = {
 };
 
 static ssize_t clear_fw_stats_write(struct file *file,
-			      const char __user *user_buf,
-			      size_t count, loff_t *ppos)
+				    const char __user *user_buf,
+				    size_t count, loff_t *ppos)
 {
 	struct cc33xx *wl = file->private_data;
 	int ret;
@@ -326,8 +312,8 @@ static const struct file_operations radar_detection_ops = {
 };
 
 static ssize_t dynamic_fw_traces_write(struct file *file,
-					const char __user *user_buf,
-					size_t count, loff_t *ppos)
+				       const char __user *user_buf,
+				       size_t count, loff_t *ppos)
 {
 	struct cc33xx *wl = file->private_data;
 	unsigned long value;
@@ -353,9 +339,8 @@ out:
 	return count;
 }
 
-static ssize_t dynamic_fw_traces_read(struct file *file,
-					char __user *userbuf,
-					size_t count, loff_t *ppos)
+static ssize_t dynamic_fw_traces_read(struct file *file, char __user *userbuf,
+				      size_t count, loff_t *ppos)
 {
 	struct cc33xx *wl = file->private_data;
 	return cc33xx_format_buffer(userbuf, count, ppos,
@@ -425,6 +410,13 @@ static const struct file_operations radar_debug_mode_ops = {
 	.open = simple_open,
 	.llseek = default_llseek,
 };
+
+static inline void cc33xx_debugfs_add_files_helper(struct dentry *moddir)
+{
+	DEBUGFS_ADD(radar_debug_mode, moddir);
+}
+#else
+static inline void cc33xx_debugfs_add_files_helper(struct dentry *moddir) {}
 #endif /* CFG80211_CERTIFICATION_ONUS */
 
 
@@ -451,9 +443,8 @@ void cc33xx_debugfs_update_stats(struct cc33xx *wl)
 		goto out;
 
 
-	if (!wl->plt &&
-	    time_after(jiffies, wl->stats.fw_stats_update +
-		       msecs_to_jiffies(CC33XX_DEBUGFS_STATS_LIFETIME))) {
+	if (!wl->plt && time_after(jiffies, wl->stats.fw_stats_update +
+		msecs_to_jiffies(CC33XX_DEBUGFS_STATS_LIFETIME))) {
 		cc33xx_acx_statistics(wl, wl->stats.fw_stats);
 		wl->stats.fw_stats_update = jiffies;
 	}
@@ -463,8 +454,7 @@ out:
 }
 
 DEBUGFS_READONLY_FILE(retry_count, "%u", wl->stats.retry_count);
-DEBUGFS_READONLY_FILE(excessive_retries, "%u",
-		      wl->stats.excessive_retries);
+DEBUGFS_READONLY_FILE(excessive_retries, "%u", wl->stats.excessive_retries);
 
 static ssize_t tx_queue_len_read(struct file *file, char __user *userbuf,
 				 size_t count, loff_t *ppos)
@@ -486,8 +476,7 @@ static const struct file_operations tx_queue_len_ops = {
 	.llseek = default_llseek,
 };
 
-static void chip_op_handler(struct cc33xx *wl, unsigned long value,
-			    void *arg)
+static void chip_op_handler(struct cc33xx *wl, unsigned long value, void *arg)
 {
 	int (*chip_op) (struct cc33xx *wl);
 
@@ -499,13 +488,6 @@ static void chip_op_handler(struct cc33xx *wl, unsigned long value,
 	chip_op = arg;
 	chip_op(wl);
 
-}
-
-
-static inline void no_write_handler(struct cc33xx *wl,
-				    unsigned long value,
-				    unsigned long param)
-{
 }
 
 #define CC33XX_CONF_DEBUGFS(param, conf_sub_struct,			\
@@ -541,7 +523,7 @@ static inline void no_write_handler(struct cc33xx *wl,
 	}								\
 									\
 	mutex_lock(&wl->mutex);						\
-	wl->conf.host_conf.conf_sub_struct.param = value;				\
+	wl->conf.host_conf.conf_sub_struct.param = value;		\
 									\
 	write_handler_locked(wl, value, write_handler_arg);		\
 									\
@@ -564,7 +546,7 @@ CC33XX_CONF_DEBUGFS(irq_timeout, rx, 0, 100,
 		    chip_op_handler, cc33xx_acx_init_rx_interrupt)
 
 static ssize_t gpio_power_read(struct file *file, char __user *user_buf,
-			  size_t count, loff_t *ppos)
+			       size_t count, loff_t *ppos)
 {
 	struct cc33xx *wl = file->private_data;
 	bool state = test_bit(CC33XX_FLAG_GPIO_POWER, &wl->flags);
@@ -577,9 +559,8 @@ static ssize_t gpio_power_read(struct file *file, char __user *user_buf,
 	return simple_read_from_buffer(user_buf, count, ppos, buf, res);
 }
 
-static ssize_t gpio_power_write(struct file *file,
-			   const char __user *user_buf,
-			   size_t count, loff_t *ppos)
+static ssize_t gpio_power_write(struct file *file, const char __user *user_buf,
+				size_t count, loff_t *ppos)
 {
 	struct cc33xx *wl = file->private_data;
 	unsigned long value;
@@ -628,19 +609,18 @@ static const struct file_operations start_recovery_ops = {
 	.llseek = default_llseek,
 };
 
-static ssize_t dynamic_ps_timeout_read(struct file *file, char __user *user_buf,
-			  size_t count, loff_t *ppos)
+static inline ssize_t dynamic_ps_timeout_read(struct file *file,
+					      char __user *user_buf,
+					      size_t count, loff_t *ppos)
 {
 	struct cc33xx *wl = file->private_data;
-
-	return cc33xx_format_buffer(user_buf, count,
-				    ppos, "%d\n",
+	return cc33xx_format_buffer(user_buf, count, ppos, "%d\n",
 				    wl->conf.host_conf.conn.dynamic_ps_timeout);
 }
 
 static ssize_t dynamic_ps_timeout_write(struct file *file,
-				    const char __user *user_buf,
-				    size_t count, loff_t *ppos)
+					const char __user *user_buf,
+					size_t count, loff_t *ppos)
 {
 	struct cc33xx *wl = file->private_data;
 	struct cc33xx_vif *wlvif;
@@ -686,19 +666,16 @@ static const struct file_operations dynamic_ps_timeout_ops = {
 	.llseek = default_llseek,
 };
 
-static ssize_t forced_ps_read(struct file *file, char __user *user_buf,
-			  size_t count, loff_t *ppos)
+static inline ssize_t forced_ps_read(struct file *file, char __user *user_buf,
+				     size_t count, loff_t *ppos)
 {
 	struct cc33xx *wl = file->private_data;
-
-	return cc33xx_format_buffer(user_buf, count,
-				    ppos, "%d\n",
+	return cc33xx_format_buffer(user_buf, count, ppos, "%d\n",
 				    wl->conf.host_conf.conn.forced_ps);
 }
 
-static ssize_t forced_ps_write(struct file *file,
-				    const char __user *user_buf,
-				    size_t count, loff_t *ppos)
+static ssize_t forced_ps_write(struct file *file, const char __user *user_buf,
+			       size_t count, loff_t *ppos)
 {
 	struct cc33xx *wl = file->private_data;
 	struct cc33xx_vif *wlvif;
@@ -749,19 +726,18 @@ static const struct file_operations forced_ps_ops = {
 	.llseek = default_llseek,
 };
 
-static ssize_t split_scan_timeout_read(struct file *file, char __user *user_buf,
-			  size_t count, loff_t *ppos)
+static inline ssize_t split_scan_timeout_read(struct file *file,
+					      char __user *user_buf,
+					      size_t count, loff_t *ppos)
 {
 	struct cc33xx *wl = file->private_data;
-
-	return cc33xx_format_buffer(user_buf, count,
-				    ppos, "%d\n",
+	return cc33xx_format_buffer(user_buf, count, ppos, "%d\n",
 				    wl->conf.host_conf.scan.split_scan_timeout / 1000);
 }
 
 static ssize_t split_scan_timeout_write(struct file *file,
-				    const char __user *user_buf,
-				    size_t count, loff_t *ppos)
+					const char __user *user_buf,
+					size_t count, loff_t *ppos)
 {
 	struct cc33xx *wl = file->private_data;
 	unsigned long value;
@@ -857,7 +833,6 @@ static ssize_t driver_state_read(struct file *file, char __user *user_buf,
 	DRIVER_STATE_PRINT_HEX(quirks);
 	/* TODO: ref_clock and tcxo_clock were moved to wl12xx priv */
 
-
 #undef DRIVER_STATE_PRINT_INT
 #undef DRIVER_STATE_PRINT_LONG
 #undef DRIVER_STATE_PRINT_HEX
@@ -880,7 +855,7 @@ static const struct file_operations driver_state_ops = {
 };
 
 static ssize_t vifs_state_read(struct file *file, char __user *user_buf,
-				 size_t count, loff_t *ppos)
+			       size_t count, loff_t *ppos)
 {
 	struct cc33xx *wl = file->private_data;
 	struct cc33xx_vif *wlvif;
@@ -1065,8 +1040,6 @@ static const struct file_operations dtim_interval_ops = {
 	.llseek = default_llseek,
 };
 
-
-
 static ssize_t suspend_dtim_interval_read(struct file *file,
 					  char __user *user_buf,
 					  size_t count, loff_t *ppos)
@@ -1114,7 +1087,6 @@ static ssize_t suspend_dtim_interval_write(struct file *file,
 	mutex_unlock(&wl->mutex);
 	return count;
 }
-
 
 static const struct file_operations suspend_dtim_interval_ops = {
 	.read = suspend_dtim_interval_read,
@@ -1182,8 +1154,8 @@ static const struct file_operations beacon_interval_ops = {
 };
 
 static ssize_t rx_streaming_interval_write(struct file *file,
-			   const char __user *user_buf,
-			   size_t count, loff_t *ppos)
+					   const char __user *user_buf,
+					   size_t count, loff_t *ppos)
 {
 	struct cc33xx *wl = file->private_data;
 	struct cc33xx_vif *wlvif;
@@ -1214,13 +1186,13 @@ static ssize_t rx_streaming_interval_write(struct file *file,
 	return count;
 }
 
-static ssize_t rx_streaming_interval_read(struct file *file,
-			    char __user *userbuf,
-			    size_t count, loff_t *ppos)
+static inline ssize_t rx_streaming_interval_read(struct file *file,
+						 char __user *userbuf,
+						 size_t count, loff_t *ppos)
 {
 	struct cc33xx *wl = file->private_data;
-	return cc33xx_format_buffer(userbuf, count, ppos,
-				    "%d\n", wl->conf.host_conf.rx_streaming.interval);
+	return cc33xx_format_buffer(userbuf, count, ppos, "%d\n",
+				    wl->conf.host_conf.rx_streaming.interval);
 }
 
 static const struct file_operations rx_streaming_interval_ops = {
@@ -1231,8 +1203,8 @@ static const struct file_operations rx_streaming_interval_ops = {
 };
 
 static ssize_t rx_streaming_always_write(struct file *file,
-			   const char __user *user_buf,
-			   size_t count, loff_t *ppos)
+					 const char __user *user_buf,
+					 size_t count, loff_t *ppos)
 {
 	struct cc33xx *wl = file->private_data;
 	struct cc33xx_vif *wlvif;
@@ -1263,13 +1235,13 @@ static ssize_t rx_streaming_always_write(struct file *file,
 	return count;
 }
 
-static ssize_t rx_streaming_always_read(struct file *file,
-			    char __user *userbuf,
-			    size_t count, loff_t *ppos)
+static inline ssize_t rx_streaming_always_read(struct file *file,
+					       char __user *userbuf,
+					       size_t count, loff_t *ppos)
 {
 	struct cc33xx *wl = file->private_data;
-	return cc33xx_format_buffer(userbuf, count, ppos,
-				    "%d\n", wl->conf.host_conf.rx_streaming.always);
+	return cc33xx_format_buffer(userbuf, count, ppos, "%d\n",
+				    wl->conf.host_conf.rx_streaming.always);
 }
 
 static const struct file_operations rx_streaming_always_ops = {
@@ -1310,8 +1282,7 @@ static const struct file_operations beacon_filtering_ops = {
 	.llseek = default_llseek,
 };
 
-static ssize_t fw_stats_raw_read(struct file *file,
-				 char __user *userbuf,
+static ssize_t fw_stats_raw_read(struct file *file, char __user *userbuf,
 				 size_t count, loff_t *ppos)
 {
 	struct cc33xx *wl = file->private_data;
@@ -1320,7 +1291,7 @@ static ssize_t fw_stats_raw_read(struct file *file,
 
 	return simple_read_from_buffer(userbuf, count, ppos,
 				       wl->stats.fw_stats,
-				       wl->stats.fw_stats_len);
+				       sizeof(struct cc33xx_acx_statistics_t));
 }
 
 static const struct file_operations fw_stats_raw_ops = {
@@ -1329,18 +1300,15 @@ static const struct file_operations fw_stats_raw_ops = {
 	.llseek = default_llseek,
 };
 
-static ssize_t sleep_auth_read(struct file *file, char __user *user_buf,
-			       size_t count, loff_t *ppos)
+static inline ssize_t sleep_auth_read(struct file *file, char __user *user_buf,
+				      size_t count, loff_t *ppos)
 {
 	struct cc33xx *wl = file->private_data;
-
-	return cc33xx_format_buffer(user_buf, count,
-				    ppos, "%d\n",
+	return cc33xx_format_buffer(user_buf, count, ppos, "%d\n",
 				    wl->sleep_auth);
 }
 
-static ssize_t sleep_auth_write(struct file *file,
-				const char __user *user_buf,
+static ssize_t sleep_auth_write(struct file *file, const char __user *user_buf,
 				size_t count, loff_t *ppos)
 {
 	struct cc33xx *wl = file->private_data;
@@ -1384,18 +1352,15 @@ static const struct file_operations sleep_auth_ops = {
 };
 
 //ble_enable
-static ssize_t ble_enable_read(struct file *file, char __user *user_buf,
-			       size_t count, loff_t *ppos)
+static inline ssize_t ble_enable_read(struct file *file, char __user *user_buf,
+				      size_t count, loff_t *ppos)
 {
 	struct cc33xx *wl = file->private_data;
-
-	return cc33xx_format_buffer(user_buf, count,
-				    ppos, "%d\n",
+	return cc33xx_format_buffer(user_buf, count, ppos, "%d\n",
 				    wl->ble_enable);
 }
 
-static ssize_t ble_enable_write(struct file *file,
-				const char __user *user_buf,
+static ssize_t ble_enable_write(struct file *file, const char __user *user_buf,
 				size_t count, loff_t *ppos)
 {
 	struct cc33xx *wl = file->private_data;
@@ -1416,7 +1381,6 @@ static ssize_t ble_enable_write(struct file *file,
 		return -EINVAL;
 	}
 
-
 	mutex_lock(&wl->mutex);
 
 	if (unlikely(wl->state != WLCORE_STATE_ON)) {
@@ -1431,10 +1395,7 @@ out:
 	return count;
 }
 
-
-
 //ble_enable
-
 
 static const struct file_operations ble_enable_ops = {
 	.read = ble_enable_read,
@@ -1443,16 +1404,14 @@ static const struct file_operations ble_enable_ops = {
 	.llseek = default_llseek,
 };
 
-static ssize_t set_tsf_read(struct file *file, char __user *user_buf,
-			       size_t count, loff_t *ppos)
+static inline ssize_t set_tsf_read(struct file *file, char __user *user_buf,
+			           size_t count, loff_t *ppos)
 {
-	return cc33xx_format_buffer(user_buf, count,
-				    ppos, "%llx\n", 0LL);
+	return cc33xx_format_buffer(user_buf, count, ppos, "%llx\n", 0LL);
 }
 
-static ssize_t set_tsf_write(struct file *file,
-				const char __user *user_buf,
-				size_t count, loff_t *ppos)
+static ssize_t set_tsf_write(struct file *file, const char __user *user_buf,
+			     size_t count, loff_t *ppos)
 {
 	struct cc33xx *wl = file->private_data;
 	unsigned long long value;
@@ -1470,7 +1429,6 @@ static ssize_t set_tsf_write(struct file *file,
 		goto out;
 	}
 
-
 	cc33xx_acx_set_tsf(wl, value);
 
 out:
@@ -1485,15 +1443,175 @@ static const struct file_operations set_tsf_ops = {
 	.llseek = default_llseek,
 };
 
-static ssize_t dev_mem_read(struct file *file,
-	     char __user *user_buf, size_t count,
-	     loff_t *ppos)
+
+static ssize_t twt_action_read(struct file *file, char __user *user_buf,
+			       size_t count, loff_t *ppos)
+{
+	struct cc33xx *wl = file->private_data;
+
+	return cc33xx_format_buffer(user_buf, count, ppos, "%d %d %d %d %d\n",
+				wl->min_wake_duration_usec,
+				wl->min_wake_interval_mantissa, wl->min_wake_interval_exponent,
+				wl->max_wake_interval_mantissa, wl->max_wake_interval_exponent);
+}
+
+static ssize_t twt_action_write(struct file *file,
+				const char __user *user_buf,
+				size_t count, loff_t *ppos)
+{
+	struct cc33xx *wl = file->private_data;
+
+	int min_wake_duration_usec = 0;
+	int min_wake_interval_mantissa = 0;
+	int min_wake_interval_exponent = 0;
+	int max_wake_interval_mantissa = 0;
+	int max_wake_interval_exponent = 0;
+	int twt_action_type;
+	u8 valid_params;
+	int ret;
+	int arg_count;
+	char* buffer;
+
+	buffer = kzalloc(count, GFP_KERNEL);
+	if (!buffer) {
+		ret = -ENOMEM;
+		cc33xx_warning("error in twt_action: %d", ret);
+		return ret;
+	}
+
+	ret = strncpy_from_user(buffer, user_buf, count);
+	if(-EFAULT == ret){
+		cc33xx_warning("error in twt_action: %d", ret);
+		kfree(buffer);
+		return ret;
+	}
+
+	arg_count = sscanf(buffer, "%d %d %d %d %d %d", &twt_action_type, &min_wake_duration_usec,
+					&min_wake_interval_mantissa, &min_wake_interval_exponent,
+					&max_wake_interval_mantissa, &max_wake_interval_exponent);
+
+	kfree(buffer);
+
+#define TWT_ACTION_SETUP 		(1)
+#define TWT_ACTION_SUSPEND 		(2)
+#define TWT_ACTION_RESUME 		(3)
+#define TWT_ACTION_TERMINATE 	(4)
+
+	valid_params = 0;
+	if( (twt_action_type == TWT_ACTION_SETUP) && (arg_count > 1) )
+	{
+		if( min_wake_duration_usec < 256)
+		{
+			cc33xx_warning("error in twt_action: duration cannot be under 256 ");
+			return count;
+		}
+
+		if(min_wake_interval_mantissa <= 0)
+		{
+			cc33xx_warning("error in twt_action: interval mantissa must be over 0 ");
+			return count;
+		}
+		if((min_wake_interval_exponent < 0) || (max_wake_interval_mantissa < 0 ) || (max_wake_interval_exponent < 0 ))
+		{
+			cc33xx_warning("error in twt_action: negative value not allowed ");
+			return count;
+		}
+	}
+
+	mutex_lock(&wl->mutex);
+
+	if (unlikely(wl->state != WLCORE_STATE_ON)) {
+		goto out;
+	}
+
+	// valid input is twt_action [min_wake_duration_usec min_wake_interval_mantissa
+	//			min_wake_interval_exponent [max_wake_interval_mantissa max_wake_interval_exponent]]
+	if(twt_action_type != TWT_ACTION_SETUP && arg_count != 1)
+	{
+		cc33xx_warning("illegal arguments in twt_action");
+		cc33xx_warning("twt_action_type: %d",twt_action_type);
+		goto out;
+	}
+	switch (twt_action_type)
+	{
+		case TWT_ACTION_SETUP:{
+			if(arg_count == 1)
+			{
+
+			}
+			else if(arg_count == 4)
+			{
+				valid_params |= (MIN_WAKE_DURATION_VALID | MIN_WAKE_INTERVAL_MANTISSA_VALID |
+						MIN_WAKE_INTERVAL_EXPONENT_VALID);
+			}
+
+			else if(arg_count == 6)
+			{
+				valid_params |= (MIN_WAKE_DURATION_VALID | MIN_WAKE_INTERVAL_MANTISSA_VALID |
+					MIN_WAKE_INTERVAL_EXPONENT_VALID | MAX_WAKE_INTERVAL_MANTISSA_VALID |
+					MAX_WAKE_INTERVAL_EXPONENT_VALID);
+			}
+			else
+			{
+				cc33xx_warning("illegal number of params for twt action setup");
+				goto out;
+			}
+
+			ret = cc33xx_acx_twt_setup(wl, min_wake_duration_usec,
+					min_wake_interval_mantissa, min_wake_interval_exponent,
+					max_wake_interval_mantissa, max_wake_interval_exponent,
+					valid_params);
+
+
+			break;
+		}
+		case TWT_ACTION_SUSPEND: {
+
+			ret = cc33xx_acx_twt_suspend(wl);
+			break;
+		}
+		case TWT_ACTION_RESUME: {
+
+			ret = cc33xx_acx_twt_resume(wl);
+
+			break;
+		}
+		case TWT_ACTION_TERMINATE: {
+
+			ret = cc33xx_acx_twt_terminate(wl);
+
+			break;
+		}
+
+		default : {
+			cc33xx_warning("illegal twt command");
+			goto out;
+		}
+	}
+
+
+out:
+	mutex_unlock(&wl->mutex);
+	return count;
+}
+
+static const struct file_operations twt_action_ops = {
+	.open = simple_open,
+	.read = twt_action_read,
+	.write = twt_action_write,
+	.llseek = default_llseek,
+};
+
+
+static inline ssize_t dev_mem_read(struct file *file, char __user *user_buf,
+				   size_t count, loff_t *ppos)
 {
 	return 0;
 }
 
-static ssize_t dev_mem_write(struct file *file, const char __user *user_buf,
-		size_t count, loff_t *ppos)
+static inline ssize_t dev_mem_write(struct file *file,
+				    const char __user *user_buf,
+				    size_t count, loff_t *ppos)
 {
 	return 0;
 }
@@ -1514,18 +1632,15 @@ static const struct file_operations dev_mem_ops = {
 	.llseek = dev_mem_seek,
 };
 
-static ssize_t fw_logger_read(struct file *file, char __user *user_buf,
-			      size_t count, loff_t *ppos)
+static inline ssize_t fw_logger_read(struct file *file, char __user *user_buf,
+				     size_t count, loff_t *ppos)
 {
 	struct cc33xx *wl = file->private_data;
-
-	return cc33xx_format_buffer(user_buf, count,
-					ppos, "%d\n",
-					wl->conf.host_conf.fwlog.output);
+	return cc33xx_format_buffer(user_buf, count, ppos, "%d\n",
+				    wl->conf.host_conf.fwlog.output);
 }
 
-static ssize_t fw_logger_write(struct file *file,
-			       const char __user *user_buf,
+static ssize_t fw_logger_write(struct file *file, const char __user *user_buf,
 			       size_t count, loff_t *ppos)
 {
 	struct cc33xx *wl = file->private_data;
@@ -1544,7 +1659,8 @@ static ssize_t fw_logger_write(struct file *file,
 	}
 
 	if (wl->conf.host_conf.fwlog.output == 0) {
-		cc33xx_warning("invalid operation - fw logger disabled by default, please change mode via wlconf");
+		cc33xx_warning("invalid operation - fw logger disabled by default, "
+			       "please change mode via wlconf");
 		return -EINVAL;
 	}
 
@@ -1565,17 +1681,18 @@ static const struct file_operations fw_logger_ops = {
 	.llseek = default_llseek,
 };
 
-static ssize_t antenna_select_read(struct file *file, char __user *user_buf,
-			       size_t count, loff_t *ppos)
+static inline ssize_t antenna_select_read(struct file *file,
+					  char __user *user_buf,
+					  size_t count, loff_t *ppos)
 {
 	struct cc33xx *wl = file->private_data;
-
-	return cc33xx_format_buffer(user_buf, count,
-					ppos, "%d\n", wl->antenna_selection);
+	return cc33xx_format_buffer(user_buf, count, ppos, "%d\n",
+				    wl->antenna_selection);
 }
 
 static ssize_t antenna_select_write(struct file *file,
-				const char __user *user_buf, size_t count, loff_t *ppos)
+				    const char __user *user_buf,
+				    size_t count, loff_t *ppos)
 {
 	struct cc33xx *wl = file->private_data;
 	int ret;
@@ -1615,21 +1732,27 @@ static const struct file_operations antenna_select_ops = {
 	.llseek = default_llseek,
 };
 
-static ssize_t get_versions_extended_read(struct file *file, char __user *user_buf,
-			       size_t count, loff_t *ppos)
+static ssize_t get_versions_extended_read(struct file *file,
+					  char __user *user_buf,
+					  size_t count, loff_t *ppos)
 {
 	struct cc33xx *wl = file->private_data;
+	struct driver_versions *driver_ver = &wl->all_versions.driver_ver;
+	struct cc33xx_acx_fw_versions *fw_ver = wl->all_versions.fw_ver;
 
 	char all_versions_str [MAX_VERSIONS_EXTENDED_LEN];
 
-	sprintf(all_versions_str, "Driver Version: %u.%u.%u.%u\nFirmware Version: %u.%u.%u.%u\nPhy Version: %u.%u.%u.%u.%u.%u",
-		wl->all_versions.driver_ver.major_version, wl->all_versions.driver_ver.minor_version, wl->all_versions.driver_ver.api_version, wl->all_versions.driver_ver.build_version,
-		wl->all_versions.fw_ver->major_version, wl->all_versions.fw_ver->minor_version, wl->all_versions.fw_ver->api_version, wl->all_versions.fw_ver->build_version,
-		wl->all_versions.fw_ver->phy_version[5], wl->all_versions.fw_ver->phy_version[4], wl->all_versions.fw_ver->phy_version[3], wl->all_versions.fw_ver->phy_version[2],
-		wl->all_versions.fw_ver->phy_version[1], wl->all_versions.fw_ver->phy_version[0]);
+	sprintf(all_versions_str, "Driver Version: %u.%u.%u.%u\n"
+		"Firmware Version: %u.%u.%u.%u\nPhy Version: %u.%u.%u.%u.%u.%u",
+		driver_ver->major_version, driver_ver->minor_version,
+		driver_ver->api_version, driver_ver->build_version,
+		fw_ver->major_version, fw_ver->minor_version,
+		fw_ver->api_version, fw_ver->build_version,
+		fw_ver->phy_version[5], fw_ver->phy_version[4],
+		fw_ver->phy_version[3], fw_ver->phy_version[2],
+		fw_ver->phy_version[1], fw_ver->phy_version[0]);
 
-	return cc33xx_format_buffer(user_buf, count,
-				    ppos, "%s\n",
+	return cc33xx_format_buffer(user_buf, count, ppos, "%s\n",
 				    all_versions_str);
 }
 
@@ -1640,18 +1763,21 @@ static const struct file_operations get_versions_extended_ops = {
 };
 
 static ssize_t get_versions_read(struct file *file, char __user *user_buf,
-			       size_t count, loff_t *ppos)
+				 size_t count, loff_t *ppos)
 {
 	struct cc33xx *wl = file->private_data;
+	struct driver_versions *driver_ver = &wl->all_versions.driver_ver;
+	struct cc33xx_acx_fw_versions *fw_ver = wl->all_versions.fw_ver;
 
 	char all_versions_str [MAX_VERSIONS_LEN];
 
-	sprintf(all_versions_str, "Driver Version: %u.%u.%u\nFirmware Version: %u.%u.%u",
-		wl->all_versions.driver_ver.major_version, wl->all_versions.driver_ver.minor_version, wl->all_versions.driver_ver.api_version,
-		wl->all_versions.fw_ver->major_version, wl->all_versions.fw_ver->minor_version, wl->all_versions.fw_ver->api_version);
+	sprintf(all_versions_str,
+		"Driver Version: %u.%u.%u\nFirmware Version: %u.%u.%u",
+		driver_ver->major_version, driver_ver->minor_version,
+		driver_ver->api_version, fw_ver->major_version,
+		fw_ver->minor_version, fw_ver->api_version);
 
-	return cc33xx_format_buffer(user_buf, count,
-				    ppos, "%s\n",
+	return cc33xx_format_buffer(user_buf, count, ppos, "%s\n",
 				    all_versions_str);
 }
 
@@ -1662,7 +1788,8 @@ static const struct file_operations get_versions_ops = {
 };
 
 static ssize_t trigger_fw_assert_write(struct file *file,
-				const char __user *user_buf, size_t count, loff_t *ppos)
+				       const char __user *user_buf,
+				       size_t count, loff_t *ppos)
 {
 	struct cc33xx *wl = file->private_data;
 
@@ -1685,17 +1812,17 @@ static const struct file_operations trigger_fw_assert_ops = {
 	.llseek = default_llseek,
 };
 
-static ssize_t burst_mode_read(struct file *file, char __user *user_buf,
-				size_t count, loff_t *ppos)
+static inline ssize_t burst_mode_read(struct file *file, char __user *user_buf,
+				      size_t count, loff_t *ppos)
 {
 	struct cc33xx *wl = file->private_data;
 
-	return cc33xx_format_buffer(user_buf, count,
-					ppos, "%d\n", wl->burst_disable);
+	return cc33xx_format_buffer(user_buf, count, ppos,
+				    "%d\n", wl->burst_disable);
 }
 
-static ssize_t burst_mode_write(struct file *file,
-				const char __user *user_buf, size_t count, loff_t *ppos)
+static ssize_t burst_mode_write(struct file *file, const char __user *user_buf,
+				size_t count, loff_t *ppos)
 {
 	struct cc33xx *wl = file->private_data;
 	int ret;
@@ -1735,6 +1862,317 @@ static const struct file_operations burst_mode_ops = {
 	.llseek = default_llseek,
 };
 
+/* coex entities bitmap */
+#define  COEX_WIFI_ENABLE        (0x1)
+#define  COEX_BLE_ENABLE         (0x2)
+#define  COEX_SOC_ENABLE         (0x4)
+
+#define  MAX_COEX_STATISTICS_LEN (850)
+
+static ssize_t coex_statistics_read(struct file *file, char __user *user_buf,
+				    size_t count, loff_t *ppos)
+{
+	struct cc33xx *wl = file->private_data;
+	struct cc33xx_acx_coex_statistics *coex_stats_cmd;
+	char coex_statistics_str[MAX_COEX_STATISTICS_LEN];
+	struct cc33xx_coex_stat_and_entities *coex_stat_ent;
+	struct cc33xx_coex_statistics *coex_stats;
+	int res, restot = 0, ret = 0;
+
+	cc33xx_debug(DEBUG_CMD, "coex_statistics_read");
+
+	coex_stats_cmd = kzalloc(sizeof(struct cc33xx_acx_coex_statistics),
+					GFP_KERNEL);
+	if (!coex_stats_cmd)
+		return -ENOMEM;
+
+	coex_stat_ent = &coex_stats_cmd->coex_stat;
+	coex_stats = &coex_stat_ent->coex_statistics;
+
+	ret = cc33xx_cmd_interrogate(wl, READ_COEX_STATISTICS, coex_stats_cmd,
+				     sizeof(struct cc33xx_acx_coex_statistics),
+				     sizeof(struct cc33xx_acx_coex_statistics));
+
+	if (ret < 0) {
+		cc33xx_error("failed to send interrogate command");
+		goto out_free;
+	}
+
+	if (coex_stats_cmd->header.cmd.status == CMD_STATUS_INVALID_PARAM) {
+		cc33xx_error("Coex statistics are disabled");
+		goto out_free;
+	}
+
+	res = 0;
+
+	if (coex_stat_ent->coex_entities_bitmap & COEX_WIFI_ENABLE) {
+		res = snprintf(coex_statistics_str, MAX_COEX_STATISTICS_LEN,
+			       "wifi:\nrequest assertion/deassertion: %d/%d\r\n"
+			       "grant assertion/deassertion: %d/%d\r\n"
+			       "prio reject: %d\r\n"
+			       "grant during dual ant assertion/deassertion: "
+			       "%d/%d\r\n\n",
+			       cpu_to_le32(coex_stats->wifi_request_assertion_log),
+			       cpu_to_le32(coex_stats->wifi_request_de_assertion_log),
+			       cpu_to_le32(coex_stats->wifi_grant_assertion_log),
+			       cpu_to_le32(coex_stats->wifi_grant_deassertion_log),
+			       cpu_to_le32(coex_stats->wifi_prio_reject_log),
+			       cpu_to_le32(coex_stats->wifi_grant_during_dual_ant_assertion_log),
+			       cpu_to_le32(coex_stats->wifi_grant_during_dual_ant_deassertion_log));
+		restot = res;
+	}
+
+	if (coex_stat_ent->coex_entities_bitmap & COEX_BLE_ENABLE) {
+		res = snprintf(coex_statistics_str + restot,
+			       MAX_COEX_STATISTICS_LEN - restot, "ble:\n"
+			       "request assertion/deassertion: %d/%d\r\n"
+			       "grant assertion/deassertion: %d/%d\r\n"
+			       "tx high/low prio reject: %d/%d\r\n"
+			       "rx high/low prio reject: %d/%d\r\n\n",
+			       cpu_to_le32(coex_stats->ble_request_assertion_log),
+			       cpu_to_le32(coex_stats->ble_request_deassertion_log),
+			       cpu_to_le32(coex_stats->ble_grant_assertion_log),
+			       cpu_to_le32(coex_stats->ble_grant_deassertion_log),
+			       cpu_to_le32(coex_stats->ble_tx_high_prio_reject_log),
+			       cpu_to_le32(coex_stats->ble_tx_low_prio_reject_log),
+			       cpu_to_le32(coex_stats->ble_rx_high_prio_reject_log),
+			       cpu_to_le32(coex_stats->ble_rx_low_prio_reject_log));
+		restot += res;
+	}
+
+	if (coex_stat_ent->coex_entities_bitmap & COEX_SOC_ENABLE) {
+		res = snprintf(coex_statistics_str + restot,
+			       MAX_COEX_STATISTICS_LEN - restot,
+			       "External SoC:\n"
+			       "request assertion/deassertion: %d/%d\r\n"
+			       "grant assertion/deassertion: %d/%d\r\n"
+			       "high/low prio reject: %d/%d\r\n\n",
+			       cpu_to_le32(coex_stats->soc_request_assertion_log),
+			       cpu_to_le32(coex_stats->soc_request_deassertion_log),
+			       cpu_to_le32(coex_stats->soc_grant_assertion_log),
+			       cpu_to_le32(coex_stats->soc_grant_deassertion_log),
+			       cpu_to_le32(coex_stats->soc_high_prio_reject_log),
+			       cpu_to_le32(coex_stats->soc_low_prio_reject_log));
+		restot += res;
+	}
+
+	ret = simple_read_from_buffer(user_buf, count, ppos,
+				      coex_statistics_str, restot);
+
+out_free:
+	kfree(coex_stats_cmd);
+
+	return ret;
+}
+
+static ssize_t coex_statistics_write(struct file *file,
+				     const char __user *user_buf,
+				     size_t count, loff_t *ppos)
+{
+	struct cc33xx *wl = file->private_data;
+	unsigned int value;
+	struct cc33xx_acx_coex_statistics_cfg *pCoexStatictics;
+	int ret;
+
+	ret = kstrtouint_from_user(user_buf, count, 0, &value);
+	if (value > 2) {
+		cc33xx_warning("Parameter value must be 0-Disable Coex counters, "
+			       "1-Enable Coex counters, 2-Reset Coex counters");
+		return -ERANGE;
+	}
+
+	cc33xx_debug(DEBUG_CMD, "coex statistics (%d)", value);
+
+	pCoexStatictics = kzalloc(sizeof(struct cc33xx_acx_coex_statistics_cfg),
+				  GFP_KERNEL);
+	if (!pCoexStatictics) {
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	pCoexStatictics->coex_statictics = value;
+
+	mutex_lock(&wl->mutex);
+
+	ret = cc33xx_cmd_configure(wl, START_COEX_STATISTICS_CFG,
+				   pCoexStatictics,
+				   sizeof(struct cc33xx_acx_coex_statistics_cfg));
+	if (ret < 0) {
+		cc33xx_error("failed to initiate coex statictics");
+		goto out_free;
+	}
+
+out_free:
+	kfree(pCoexStatictics);
+
+out:
+	mutex_unlock(&wl->mutex);
+
+	return count;
+}
+
+static const struct file_operations coex_statistics_ops = {
+	.open = simple_open,
+	.read = coex_statistics_read,
+	.write = coex_statistics_write,
+	.llseek = default_llseek,
+};
+
+static ssize_t antenna_diversity_enable_read(struct file *file,
+					char __user *user_buf, size_t count, loff_t *ppos)
+{
+	struct cc33xx *wl = file->private_data;
+
+	return cc33xx_format_buffer(user_buf, count,
+					ppos, "%d\n", wl->diversity.diversity_enable);
+}
+
+static ssize_t antenna_diversity_enable_write(struct file *file,
+				const char __user *user_buf, size_t count, loff_t *ppos)
+{
+	struct cc33xx *wl = file->private_data;
+	int ret;
+	u8 diversity_enable;
+
+	ret = kstrtou8_from_user(user_buf, count, 0, &diversity_enable);
+	if (ret < 0) {
+		cc33xx_warning("illegal value in antenna_diversity_enable");
+		return -EINVAL;
+	}
+
+	if ((wl->conf.phy.num_of_antennas == 1) && (diversity_enable == 1)) {
+		cc33xx_warning("diversity cannot be enabled when only one antenna on board");
+		return -EINVAL;
+	}
+
+	if (diversity_enable > 1) {
+		cc33xx_warning("diversity_enable should be either 0 or 1");
+		return -ERANGE;
+	}
+
+	mutex_lock(&wl->mutex);
+
+	if (unlikely(wl->state != WLCORE_STATE_ON)) {
+		goto out;
+	}
+
+	ret = cc33xx_acx_antenna_diversity_enable(wl, diversity_enable);
+	if (ret == 0) {
+		wl->diversity.diversity_enable = diversity_enable;
+	}
+
+out:
+	mutex_unlock(&wl->mutex);
+	return count;
+}
+
+static const struct file_operations antenna_diversity_enable_ops = {
+	.open = simple_open,
+	.read = antenna_diversity_enable_read,
+	.write = antenna_diversity_enable_write,
+	.llseek = default_llseek,
+};
+
+static ssize_t antenna_diversity_set_rssi_threshold_read(struct file *file, char __user *user_buf,
+				size_t count, loff_t *ppos)
+{
+	struct cc33xx *wl = file->private_data;
+
+	return cc33xx_format_buffer(user_buf, count,
+					ppos, "%d\n", wl->diversity.rssi_threshold);
+}
+
+static ssize_t antenna_diversity_set_rssi_threshold_write(struct file *file,
+				const char __user *user_buf, size_t count, loff_t *ppos)
+{
+	struct cc33xx *wl = file->private_data;
+	int ret;
+	s8 rssi_threshold;
+
+	ret = kstrtos8_from_user(user_buf, count, 0, &rssi_threshold);
+	if (ret < 0) {
+		cc33xx_warning("illegal value in antenna_diversity_set_rssi_threshold");
+		return -EINVAL;
+	}
+
+	mutex_lock(&wl->mutex);
+
+	if (unlikely(wl->state != WLCORE_STATE_ON)) {
+		goto out;
+	}
+
+	ret = cc33xx_acx_antenna_diversity_set_rssi_threshold(wl, rssi_threshold);
+	if (ret == 0) {
+		wl->diversity.rssi_threshold = rssi_threshold;
+	}
+
+out:
+	mutex_unlock(&wl->mutex);
+	return count;
+}
+
+static const struct file_operations antenna_diversity_set_rssi_threshold_ops = {
+	.open = simple_open,
+	.read = antenna_diversity_set_rssi_threshold_read,
+	.write = antenna_diversity_set_rssi_threshold_write,
+	.llseek = default_llseek,
+};
+
+static ssize_t antenna_diversity_select_default_antenna_read(struct file *file, char __user *user_buf,
+				size_t count, loff_t *ppos)
+{
+	struct cc33xx *wl = file->private_data;
+
+	return cc33xx_format_buffer(user_buf, count,
+					ppos, "%d\n", wl->diversity.default_antenna);
+}
+
+static ssize_t antenna_diversity_select_default_antenna_write(struct file *file,
+				const char __user *user_buf, size_t count, loff_t *ppos)
+{
+	struct cc33xx *wl = file->private_data;
+	int ret;
+	u8 default_antenna;
+
+	ret = kstrtou8_from_user(user_buf, count, 0, &default_antenna);
+	if (ret < 0) {
+		cc33xx_warning("illegal value in antenna_diversity_select_default_antenna");
+		return -EINVAL;
+	}
+
+	if (wl->conf.phy.num_of_antennas == 1) {
+		cc33xx_warning("cannot change default antenna in board with only one antenna");
+		return -EINVAL;
+	}
+
+	if (default_antenna > 1) {
+		cc33xx_warning("default_antenna should be either 0 or 1");
+		return -ERANGE;
+	}
+
+	mutex_lock(&wl->mutex);
+
+	if (unlikely(wl->state != WLCORE_STATE_ON)) {
+		goto out;
+	}
+
+	ret = cc33xx_acx_antenna_diversity_select_default_antenna(wl, default_antenna);
+	if (ret == 0) {
+		wl->diversity.default_antenna = default_antenna;
+	}
+
+out:
+	mutex_unlock(&wl->mutex);
+	return count;
+}
+
+static const struct file_operations antenna_diversity_select_default_antenna_ops = {
+	.open = simple_open,
+	.read = antenna_diversity_select_default_antenna_read,
+	.write = antenna_diversity_select_default_antenna_write,
+	.llseek = default_llseek,
+};
+
 int cc33xx_debugfs_add_files(struct cc33xx *wl,
 			     struct dentry *rootdir)
 {
@@ -1746,7 +2184,6 @@ int cc33xx_debugfs_add_files(struct cc33xx *wl,
 	DEBUGFS_ADD(tx_queue_len, rootdir);
 	DEBUGFS_ADD(retry_count, rootdir);
 	DEBUGFS_ADD(excessive_retries, rootdir);
-
 	DEBUGFS_ADD(gpio_power, rootdir);
 	DEBUGFS_ADD(start_recovery, rootdir);
 	DEBUGFS_ADD(driver_state, rootdir);
@@ -1765,21 +2202,24 @@ int cc33xx_debugfs_add_files(struct cc33xx *wl,
 	DEBUGFS_ADD(sleep_auth, rootdir);
 	DEBUGFS_ADD(ble_enable, rootdir);
 	DEBUGFS_ADD(set_tsf, rootdir);
+	DEBUGFS_ADD(twt_action, rootdir);
 	DEBUGFS_ADD(fw_logger, rootdir);
 	DEBUGFS_ADD(antenna_select, rootdir);
 	DEBUGFS_ADD(get_versions, rootdir);
 	DEBUGFS_ADD(get_versions_extended, rootdir);
 	DEBUGFS_ADD(trigger_fw_assert, rootdir);
 	DEBUGFS_ADD(burst_mode, rootdir);
+	DEBUGFS_ADD(coex_statistics, rootdir);
+	DEBUGFS_ADD(clear_fw_stats, stats);
+	DEBUGFS_ADD(antenna_diversity_enable, rootdir);
+	DEBUGFS_ADD(antenna_diversity_set_rssi_threshold, rootdir);
+	DEBUGFS_ADD(antenna_diversity_select_default_antenna, rootdir);
 
 	streaming = debugfs_create_dir("rx_streaming", rootdir);
 
 	DEBUGFS_ADD_PREFIX(rx_streaming, interval, streaming);
 	DEBUGFS_ADD_PREFIX(rx_streaming, always, streaming);
-
 	DEBUGFS_ADD_PREFIX(dev, mem, rootdir);
-
-	DEBUGFS_ADD(clear_fw_stats, stats);
 
 	DEBUGFS_FWSTATS_ADD(error, error_frame_non_ctrl);
 	DEBUGFS_FWSTATS_ADD(error, error_frame_ctrl);
@@ -1798,7 +2238,6 @@ int cc33xx_debugfs_add_files(struct cc33xx *wl,
 	DEBUGFS_FWSTATS_ADD(error, rx_excessive_frame_len);
 	DEBUGFS_FWSTATS_ADD(error, burst_mismatch);
 	DEBUGFS_FWSTATS_ADD(error, tbc_exch_mismatch);
-
 	DEBUGFS_FWSTATS_ADD(tx, tx_prepared_descs);
 	DEBUGFS_FWSTATS_ADD(tx, tx_cmplt);
 	DEBUGFS_FWSTATS_ADD(tx, tx_template_prepared);
@@ -1835,7 +2274,6 @@ int cc33xx_debugfs_add_files(struct cc33xx *wl,
 	DEBUGFS_FWSTATS_ADD(tx, frag_failed);
 	DEBUGFS_FWSTATS_ADD(tx, frag_cache_hit);
 	DEBUGFS_FWSTATS_ADD(tx, frag_cache_miss);
-
 	DEBUGFS_FWSTATS_ADD(rx, rx_beacon_early_term);
 	DEBUGFS_FWSTATS_ADD(rx, rx_out_of_mpdu_nodes);
 	DEBUGFS_FWSTATS_ADD(rx, rx_hdr_overflow);
@@ -1860,9 +2298,7 @@ int cc33xx_debugfs_add_files(struct cc33xx *wl,
 	DEBUGFS_FWSTATS_ADD(rx, defrag_need_decrypt);
 	DEBUGFS_FWSTATS_ADD(rx, rx_tkip_replays);
 	DEBUGFS_FWSTATS_ADD(rx, rx_xfr);
-
 	DEBUGFS_FWSTATS_ADD(isr, irqs);
-
 	DEBUGFS_FWSTATS_ADD(pwr, missing_bcns_cnt);
 	DEBUGFS_FWSTATS_ADD(pwr, rcvd_bcns_cnt);
 	DEBUGFS_FWSTATS_ADD(pwr, connection_out_of_sync);
@@ -1875,7 +2311,6 @@ int cc33xx_debugfs_add_files(struct cc33xx *wl,
 	DEBUGFS_FWSTATS_ADD(pwr, ap_sleep_active_conf);
 	DEBUGFS_FWSTATS_ADD(pwr, ap_sleep_user_conf);
 	DEBUGFS_FWSTATS_ADD(pwr, ap_sleep_counter);
-
 	DEBUGFS_FWSTATS_ADD(rx_filter, beacon_filter);
 	DEBUGFS_FWSTATS_ADD(rx_filter, arp_filter);
 	DEBUGFS_FWSTATS_ADD(rx_filter, mc_filter);
@@ -1885,13 +2320,10 @@ int cc33xx_debugfs_add_files(struct cc33xx *wl,
 	DEBUGFS_FWSTATS_ADD(rx_filter, protection_filter);
 	DEBUGFS_FWSTATS_ADD(rx_filter, accum_arp_pend_requests);
 	DEBUGFS_FWSTATS_ADD(rx_filter, max_arp_queue_dep);
-
 	DEBUGFS_FWSTATS_ADD(rx_rate, rx_frames_per_rates);
-
 	DEBUGFS_FWSTATS_ADD(aggr_size, tx_agg_rate);
 	DEBUGFS_FWSTATS_ADD(aggr_size, tx_agg_len);
 	DEBUGFS_FWSTATS_ADD(aggr_size, rx_size);
-
 	DEBUGFS_FWSTATS_ADD(pipeline, hs_tx_stat_fifo_int);
 	DEBUGFS_FWSTATS_ADD(pipeline, enc_tx_stat_fifo_int);
 	DEBUGFS_FWSTATS_ADD(pipeline, enc_rx_stat_fifo_int);
@@ -1905,42 +2337,33 @@ int cc33xx_debugfs_add_files(struct cc33xx *wl,
 	DEBUGFS_FWSTATS_ADD(pipeline, dec_packet_in_fifo_full);
 	DEBUGFS_FWSTATS_ADD(pipeline, dec_packet_out);
 	DEBUGFS_FWSTATS_ADD(pipeline, pipeline_fifo_full);
-
 	DEBUGFS_FWSTATS_ADD(diversity, num_of_packets_per_ant);
 	DEBUGFS_FWSTATS_ADD(diversity, total_num_of_toggles);
-
 	DEBUGFS_FWSTATS_ADD(thermal, irq_thr_low);
 	DEBUGFS_FWSTATS_ADD(thermal, irq_thr_high);
 	DEBUGFS_FWSTATS_ADD(thermal, tx_stop);
 	DEBUGFS_FWSTATS_ADD(thermal, tx_resume);
 	DEBUGFS_FWSTATS_ADD(thermal, false_irq);
 	DEBUGFS_FWSTATS_ADD(thermal, adc_source_unexpected);
-
 	DEBUGFS_FWSTATS_ADD(calib, fail_count);
-
 	DEBUGFS_FWSTATS_ADD(calib, calib_count);
-
 	DEBUGFS_FWSTATS_ADD(roaming, rssi_level);
-
 	DEBUGFS_FWSTATS_ADD(dfs, num_of_radar_detections);
 
 	DEBUGFS_ADD(conf, moddir);
 	DEBUGFS_ADD(radar_detection, moddir);
-#ifdef CONFIG_CFG80211_CERTIFICATION_ONUS
-	DEBUGFS_ADD(radar_debug_mode, moddir);
-#endif
+	cc33xx_debugfs_add_files_helper(moddir);
 	DEBUGFS_ADD(dynamic_fw_traces, moddir);
 
 	return 0;
 }
-
 
 void cc33xx_debugfs_reset(struct cc33xx *wl)
 {
 	if (!wl->stats.fw_stats)
 		return;
 
-	memset(wl->stats.fw_stats, 0, wl->stats.fw_stats_len);
+	memset(wl->stats.fw_stats, 0, sizeof(struct cc33xx_acx_statistics_t));
 	wl->stats.retry_count = 0;
 	wl->stats.excessive_retries = 0;
 }
@@ -1950,10 +2373,10 @@ int cc33xx_debugfs_init(struct cc33xx *wl)
 	int ret;
 	struct dentry *rootdir;
 
-	rootdir = debugfs_create_dir(KBUILD_MODNAME,
-				     wl->hw->wiphy->debugfsdir);
+	rootdir = debugfs_create_dir(KBUILD_MODNAME, wl->hw->wiphy->debugfsdir);
 
-	wl->stats.fw_stats = kzalloc(wl->stats.fw_stats_len, GFP_KERNEL);
+	wl->stats.fw_stats = kzalloc(sizeof(struct cc33xx_acx_statistics_t),
+				     GFP_KERNEL);
 	if (!wl->stats.fw_stats) {
 		ret = -ENOMEM;
 		goto out_remove;
