@@ -54,7 +54,7 @@ enum {
 	SMART_CONFIG_SYNC_EVENT_ID               = BIT(22),
 	SMART_CONFIG_DECODE_EVENT_ID             = BIT(23),
 	TIME_SYNC_EVENT_ID                       = BIT(24),
-	FW_LOGGER_INDICATION			= BIT(25),
+	FW_LOGGER_INDICATION                     = BIT(25),
 };
 
 /* events the driver might want to wait for */
@@ -64,47 +64,15 @@ enum wlcore_wait_event {
 	WLCORE_EVENT_DFS_CONFIG_COMPLETE
 };
 
-enum {
-	EVENT_ENTER_POWER_SAVE_FAIL = 0,
-	EVENT_ENTER_POWER_SAVE_SUCCESS,
-};
-
-
 #define NUM_OF_RSSI_SNR_TRIGGERS 8
-
-struct fw_logger_information {
-	__le32 max_buff_size;
-	__le32 actual_buff_size;
-	__le32 num_trace_drop;
-	__le32 buff_read_ptr;
-	__le32 buff_write_ptr;
-} __packed;
 
 struct cc33xx;
 
-int cc33xx_event_unmask(struct cc33xx *wl);
-
-void wlcore_event_soft_gemini_sense(struct cc33xx *wl, u8 enable);
-void wlcore_event_sched_scan_completed(struct cc33xx *wl,
-				       u8 status);
-void wlcore_event_ba_rx_constraint(struct cc33xx *wl,
-				   unsigned long roles_bitmap,
-				   unsigned long allowed_bitmap);
-void wlcore_event_channel_switch(struct cc33xx *wl,
-				 unsigned long roles_bitmap,
-				 bool success);
-void wlcore_event_beacon_loss(struct cc33xx *wl, unsigned long roles_bitmap);
-void wlcore_event_dummy_packet(struct cc33xx *wl);
-void wlcore_event_max_tx_failure(struct cc33xx *wl, unsigned long sta_bitmap);
-void wlcore_event_inactive_sta(struct cc33xx *wl, unsigned long sta_bitmap);
-void wlcore_event_roc_complete(struct cc33xx *wl);
-void wlcore_event_rssi_trigger(struct cc33xx *wl, s8 *metric_arr);
-int  wlcore_event_fw_logger(struct cc33xx *wl);
-
 int cc33xx_wait_for_event(struct cc33xx *wl, enum wlcore_wait_event event,
 			  bool *timeout);
-
 void deffer_event(struct cc33xx *wl, const void *event_payload, size_t event_length);
 void process_deferred_events(struct cc33xx *wl);
 void flush_deferred_event_list(struct cc33xx *wl);
-#endif
+
+
+#endif /* __EVENT_H__ */
