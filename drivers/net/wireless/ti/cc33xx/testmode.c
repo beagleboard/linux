@@ -6,15 +6,14 @@
  *
  * Contact: Luciano Coelho <luciano.coelho@nokia.com>
  */
-#include "testmode.h"
 
-#include <linux/slab.h>
+
 #include <net/genetlink.h>
 
 #include "wlcore.h"
-#include "debug.h"
 #include "acx.h"
 #include "io.h"
+#include "testmode.h"
 
 #define CC33XX_TM_MAX_DATA_LENGTH 1024
 
@@ -42,6 +41,7 @@ enum cc33xx_tm_attrs {
 
 	__CC33XX_TM_ATTR_AFTER_LAST
 };
+
 #define CC33XX_TM_ATTR_MAX (__CC33XX_TM_ATTR_AFTER_LAST - 1)
 
 static struct nla_policy cc33xx_tm_policy[CC33XX_TM_ATTR_MAX + 1] = {
@@ -52,7 +52,6 @@ static struct nla_policy cc33xx_tm_policy[CC33XX_TM_ATTR_MAX + 1] = {
 	[CC33XX_TM_ATTR_IE_ID] =	{ .type = NLA_U32 },
 	[CC33XX_TM_ATTR_PLT_MODE] =	{ .type = NLA_U32 },
 };
-
 
 static int cc33xx_tm_cmd_test(struct cc33xx *wl, struct nlattr *tb[])
 {
@@ -95,7 +94,8 @@ static int cc33xx_tm_cmd_test(struct cc33xx *wl, struct nlattr *tb[])
 		s16 radio_status = (s16) le16_to_cpu(params->radio_status);
 
 		if (params->test.id == TEST_CMD_P2G_CAL && radio_status < 0)
-			cc33xx_warning("testmode cmd: radio status=%d", radio_status);
+			cc33xx_warning("testmode cmd: radio status=%d",
+				       radio_status);
 		else
 			cc33xx_info("testmode cmd: radio status=%d",
 					radio_status);
@@ -307,7 +307,8 @@ static int cc33xx_tm_cmd_get_mac(struct cc33xx *wl, struct nlattr *tb[])
 		goto out;
 	}
 
-	if (nla_put(skb, CC33XX_TM_ATTR_DATA, ETH_ALEN, wl->efuse_mac_address)) {
+	if (nla_put(skb, CC33XX_TM_ATTR_DATA,
+		    ETH_ALEN, wl->efuse_mac_address)) {
 		kfree_skb(skb);
 		ret = -EMSGSIZE;
 		goto out;

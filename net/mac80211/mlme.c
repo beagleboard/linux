@@ -235,11 +235,20 @@ ieee80211_determine_chantype(struct ieee80211_sub_if_data *sdata,
 	if (sta_ht_cap.cap & IEEE80211_HT_CAP_SUP_WIDTH_20_40) {
 		ieee80211_chandef_ht_oper(ht_oper, chandef);
 	} else {
+
 		mlme_dbg(sdata, "40 MHz not supported\n");
-		/* 40 MHz (and 80 MHz) must be supported for VHT */
-		ret = IEEE80211_CONN_DISABLE_VHT;
-		/* also mark 40 MHz disabled */
-		ret |= IEEE80211_CONN_DISABLE_40MHZ;
+
+		/* 40 MHz (and 80 MHz) must be supported for 5GHZ VHT
+			unless peer allows operating mode notification. If so a 20MHz
+			station can ask from peer to lower bandwidth. */
+		if (channel->band != NL80211_BAND_2GHZ){
+				ret = IEEE80211_CONN_DISABLE_40MHZ;
+		}else{
+				ret = IEEE80211_CONN_DISABLE_VHT;
+				/* also mark 40 MHz disabled */
+				ret |= IEEE80211_CONN_DISABLE_40MHZ;
+		}
+
 		goto out;
 	}
 
@@ -972,6 +981,9 @@ static size_t ieee80211_assoc_link_elems(struct ieee80211_sub_if_data *sdata,
 	int present_elems_len = 0;
 	u8 *pos;
 	int i;
+	u8 opmode_notif = 0;
+	u8 rx_nss = 0;
+	u8 rx_nss_type = 0;
 
 #define ADD_PRESENT_ELEM(id) do {					\
 	/* need a last for termination - we use 0 == SSID */		\
@@ -1078,6 +1090,25 @@ static size_t ieee80211_assoc_link_elems(struct ieee80211_sub_if_data *sdata,
 			ieee80211_add_vht_ie(sdata, skb, sband,
 					     &assoc_data->link[link_id].ap_vht_cap,
 					     assoc_data->link[link_id].conn_flags);
+
+		//Add operation mode notification element when operating at 20 MHz bandwidth
+		if(chanctx_conf->def.width == NL80211_CHAN_WIDTH_20)
+		{
+			/*  Operating Mode Notification element */
+			rx_nss = 0;
+			rx_nss_type= 0;
+			opmode_notif |= IEEE80211_OPMODE_NOTIF_CHANWIDTH_20MHZ;
+			rx_nss <<= IEEE80211_OPMODE_NOTIF_RX_NSS_SHIFT;
+			rx_nss_type <<= (IEEE80211_OPMODE_NOTIF_RX_NSS_SHIFT + 3);
+			opmode_notif |= rx_nss;
+			opmode_notif |= rx_nss_type;
+
+			pos = skb_put(skb, 2 + sizeof(u8));
+
+			*pos++ = WLAN_EID_OPMODE_NOTIF;
+			*pos++ = sizeof(u8);
+			*pos++ = opmode_notif;
+		}
 
 		if (link)
 			link->conf->mu_mimo_owner = mu_mimo_owner;
@@ -1368,6 +1399,7 @@ static int ieee80211_send_assoc(struct ieee80211_sub_if_data *sdata)
 		/* HT, VHT, HE, EHT */
 		size += 2 + sizeof(struct ieee80211_ht_cap);
 		size += 2 + sizeof(struct ieee80211_vht_cap);
+		size += 2 + sizeof(u8); /*VHT operating mode Notification elem*/
 		size += 2 + 1 + sizeof(struct ieee80211_he_cap_elem) +
 			sizeof(struct ieee80211_he_mcs_nss_supp) +
 			IEEE80211_HE_PPE_THRES_MAX_LEN;
@@ -4638,6 +4670,7 @@ static int ieee80211_prep_channel(struct ieee80211_sub_if_data *sdata,
 	int ret;
 	u32 i;
 	bool have_80mhz;
+	bool operating_mode_notif_capable = false;
 
 	rcu_read_lock();
 
@@ -4780,8 +4813,14 @@ static int ieee80211_prep_channel(struct ieee80211_sub_if_data *sdata,
 		break;
 	}
 
-	if (!have_80mhz) {
-		sdata_info(sdata, "80 MHz not supported, disabling VHT\n");
+	//get operating mode notification capable element
+	const u8* extended_cap_ie = ieee80211_bss_get_ie(cbss,WLAN_EID_EXT_CAPABILITY);
+	if ( (extended_cap_ie)  && (extended_cap_ie[1] >= 8) &&
+			(extended_cap_ie[9] & WLAN_EXT_CAPA8_OPMODE_NOTIF))
+			operating_mode_notif_capable = true;
+
+	if ((!have_80mhz) && (!operating_mode_notif_capable)) {
+		sdata_info(sdata, "80 MHz not supported nor operating mode notification capable, disabling VHT\n");
 		*conn_flags |= IEEE80211_CONN_DISABLE_VHT;
 	}
 
