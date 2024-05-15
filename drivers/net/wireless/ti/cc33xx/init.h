@@ -12,12 +12,11 @@
 
 #include "wlcore.h"
 
-int cc33xx_init_energy_detection(struct cc33xx *wl);
+
 int cc33xx_hw_init(struct cc33xx *wl);
 int cc33xx_download_ini_params_and_wait(struct cc33xx *wl);
 int cc33xx_init_vif_specific(struct cc33xx *wl, struct ieee80211_vif *vif);
-int cc33xx_ap_init_templates(struct cc33xx *wl, struct ieee80211_vif *vif);
-int cc33xx_sta_hw_init(struct cc33xx *wl, struct cc33xx_vif *wlvif);
 int download_static_calibration_data(struct cc33xx *wl);
 
-#endif
+
+#endif /* __INIT_H__ */
