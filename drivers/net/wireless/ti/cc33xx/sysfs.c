@@ -1,13 +1,11 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * This file is part of wlcore
+ * This file is part of cc33xx
  *
  * Copyright (C) 2013 Texas Instruments Inc.
  */
 
 #include "acx.h"
-#include "wlcore.h"
-#include "debug.h"
 #include "sysfs.h"
 
 
@@ -51,7 +49,6 @@ static const struct bin_attribute fwlog_attr = {
 int wlcore_sysfs_init(struct cc33xx *wl)
 {
 	int ret;
-
 
 	/* Create sysfs file for the FW log */
 	ret = device_create_bin_file(wl->dev, &fwlog_attr);
