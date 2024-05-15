@@ -11,15 +11,11 @@
 #ifndef __WLCORE_I_H__
 #define __WLCORE_I_H__
 
-#include <linux/mutex.h>
-#include <linux/completion.h>
-#include <linux/spinlock.h>
-#include <linux/list.h>
-#include <linux/bitops.h>
 #include <net/mac80211.h>
+#include <linux/platform_device.h>
 
 #include "conf.h"
-#include "ini.h"
+
 
 struct cc33xx_family_data {
 	const char *name;
@@ -27,30 +23,23 @@ struct cc33xx_family_data {
 	const char *cfg_name;	/* cfg file */
 };
 
-
 #define CC33XX_TX_SECURITY_LO16(s) ((u16)((s) & 0xffff))
 #define CC33XX_TX_SECURITY_HI32(s) ((u32)(((s) >> 16) & 0xffffffff))
 #define CC33XX_TX_SQN_POST_RECOVERY_PADDING 0xff
 /* Use smaller padding for GEM, as some  APs have issues when it's too big */
 #define CC33XX_TX_SQN_POST_RECOVERY_PADDING_GEM 0x20
 
-
 #define CC33XX_CIPHER_SUITE_GEM 0x00147201
 
 #define CC33XX_BUSY_WORD_LEN (sizeof(u32))
 
-#define CC33XX_ELP_HW_STATE_ASLEEP 0
-#define CC33XX_ELP_HW_STATE_IRQ    1
-
 #define CC33XX_DEFAULT_BEACON_INT  100
-#define CC33XX_DEFAULT_DTIM_PERIOD 1
 
 #define CC33XX_MAX_ROLES           4
 #define CC33XX_INVALID_ROLE_ID     0xff
 #define CC33XX_INVALID_LINK_ID     0xff
 
 #define CC33XX_MAX_LINKS 21
-
 
 /* the driver supports the 2.4Ghz and 5Ghz bands */
 #define WLCORE_NUM_BANDS           2
@@ -79,16 +68,6 @@ enum wlcore_state {
 };
 
 struct cc33xx;
-
-enum {
-	FW_VER_CHIP,
-	FW_VER_IF_TYPE,
-	FW_VER_MAJOR,
-	FW_VER_SUBTYPE,
-	FW_VER_MINOR,
-
-	NUM_FW_VER
-};
 
 #define NUM_TX_QUEUES              4
 
@@ -126,8 +105,6 @@ struct wlcore_platdev_data {
 	int  gpio_irq_num;
 
 	bool ref_clock_xtal;	/* specify whether the clock is XTAL or not */
-	u32 ref_clock_freq;	/* in Hertz */
-	u32 tcxo_clock_freq;	/* in Hertz, tcxo is always XTAL */
 	bool pwr_in_suspend;
 };
 
@@ -146,10 +123,8 @@ struct cc33xx_ap_key {
 
 enum cc33xx_flags {
 	CC33XX_FLAG_GPIO_POWER,
-	CC33XX_FLAG_TX_QUEUE_STOPPED,
 	CC33XX_FLAG_TX_PENDING,
 	CC33XX_FLAG_IN_ELP,
-	CC33XX_FLAG_IRQ_RUNNING,
 	CC33XX_FLAG_FW_TX_BUSY,
 	CC33XX_FLAG_DUMMY_PACKET_PENDING,
 	CC33XX_FLAG_SUSPENDED,
@@ -221,7 +196,6 @@ struct cc33xx_link {
 #define CC33XX_RX_FILTER_MAX_PATTERN_SIZE			\
 	(CC33XX_RX_FILTER_MAX_FIELDS_SIZE - RX_FILTER_FIELD_OVERHEAD)
 
-#define CC33XX_RX_FILTER_FLAG_MASK                BIT(0)
 #define CC33XX_RX_FILTER_FLAG_IP_HEADER           0
 #define CC33XX_RX_FILTER_FLAG_ETHERNET_HEADER     BIT(1)
 
@@ -436,7 +410,6 @@ struct cc33xx_vif {
 	};
 };
 
-
 static inline struct cc33xx_vif *cc33xx_vif_to_data(struct ieee80211_vif *vif)
 {
 	WARN_ON(!vif);
@@ -474,7 +447,6 @@ int cc33xx_plt_start(struct cc33xx *wl, const enum plt_mode plt_mode);
 int cc33xx_plt_stop(struct cc33xx *wl);
 int cc33xx_recalc_rx_streaming(struct cc33xx *wl, struct cc33xx_vif *wlvif);
 void cc33xx_queue_recovery_work(struct cc33xx *wl);
-size_t cc33xx_copy_fwlog(struct cc33xx *wl, u8 *memblock, size_t maxlen);
 int cc33xx_rx_filter_alloc_field(struct cc33xx_rx_filter *filter,
 				 u16 offset, u8 flags,
 				 const u8 *pattern, u8 len);
@@ -485,9 +457,6 @@ void cc33xx_rx_filter_flatten_fields(struct cc33xx_rx_filter *filter,
 				     u8 *buf);
 void cc33xx_flush_deferred_work(struct cc33xx *wl);
 
-#define JOIN_TIMEOUT 5000 /* 5000 milliseconds to join */
-
-#define SESSION_COUNTER_MAX 6 /* maximum value for the session counter */
 #define SESSION_COUNTER_INVALID 7 /* used with dummy_packet */
 
 #define CC33XX_MAX_TXPWR 21 /* maximum power limit is 21dBm */
@@ -504,8 +473,8 @@ void cc33xx_flush_deferred_work(struct cc33xx *wl);
 #define CC33XX_POWER_ON_SLEEP 200 /* in milliseconds */
 
 /* Macros to handle cc33xx.sta_rate_set */
-#define HW_BG_RATES_MASK	0xffff
 #define HW_HT_RATES_OFFSET	16
 #define HW_MIMO_RATES_OFFSET	24
+
 
 #endif /* __WLCORE_I_H__ */
