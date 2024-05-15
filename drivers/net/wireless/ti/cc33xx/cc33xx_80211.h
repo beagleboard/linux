@@ -2,13 +2,8 @@
 #ifndef __CC33XX_80211_H__
 #define __CC33XX_80211_H__
 
-#include <linux/if_ether.h>	/* ETH_ALEN */
 #include <linux/if_arp.h>
 
-
-/* This really should be 8, but not for our firmware */
-#define MAX_SUPPORTED_RATES 32
-#define MAX_COUNTRY_TRIPLETS 32
 
 /* Headers */
 struct ieee80211_header {
@@ -21,12 +16,7 @@ struct ieee80211_header {
 	u8 payload[0];
 } __packed;
 
-
 /* Templates */
-
-struct cc33xx_null_data_template {
-	struct ieee80211_header header;
-} __packed;
 
 struct cc33xx_arp_rsp_template {
 	/* not including ieee80211 header */
@@ -46,4 +36,5 @@ struct cc33xx_disconn_template {
 	__le16 disconn_reason;
 } __packed;
 
-#endif
+
+#endif /* __CC33XX_80211_H__ */

@@ -7,48 +7,40 @@
  * Contact: Luciano Coelho <luciano.coelho@nokia.com>
  */
 
-#include <linux/interrupt.h>
-#include <linux/irq.h>
-#include <linux/module.h>
-#include <linux/slab.h>
-#include <linux/swab.h>
 #include <linux/crc7.h>
 #include <linux/spi/spi.h>
-#include <linux/wl12xx.h>
-#include <linux/platform_device.h>
-#include <linux/of_gpio.h>
 #include <linux/of_irq.h>
 #include <linux/regulator/consumer.h>
 
 #include "wlcore.h"
-#include "cc33xx_80211.h"
 #include "io.h"
 
-#define WSPI_CMD_READ			0x40000000
-#define WSPI_CMD_WRITE			0x00000000
-#define WSPI_CMD_FIXED			0x20000000
-#define WSPI_CMD_BYTE_LENGTH		0x1FFE0000
-#define WSPI_CMD_BYTE_LENGTH_OFFSET	17
-#define WSPI_CMD_BYTE_ADDR		0x0001FFFF
 
-#define WSPI_INIT_CMD_CRC_LEN		5
+enum {
+	WSPI_CMD_READ				= 0x40000000,
+	WSPI_CMD_WRITE				= 0x00000000,
+	WSPI_CMD_FIXED				= 0x20000000,
+	WSPI_CMD_BYTE_LENGTH		= 0x1FFE0000,
+	WSPI_CMD_BYTE_LENGTH_OFFSET	= 17,
+	WSPI_CMD_BYTE_ADDR			= 0x0001FFFF
+};
 
-#define WSPI_INIT_CMD_START		0x00
-#define WSPI_INIT_CMD_TX		0x40
-/* the extra bypass bit is sampled by the TNET as '1' */
-#define WSPI_INIT_CMD_BYPASS_BIT	0x80
-#define WSPI_INIT_CMD_FIXEDBUSY_LEN	0x07
-#define WSPI_INIT_CMD_EN_FIXEDBUSY	0x80
-#define WSPI_INIT_CMD_DIS_FIXEDBUSY	0x00
-#define WSPI_INIT_CMD_OPS		0x08
-#define WSPI_INIT_CMD_IOD		0x40
-#define WSPI_INIT_CMD_IP		0x20
-#define WSPI_INIT_CMD_CS		0x10
-#define WSPI_INIT_CMD_WS		0x08
-#define WSPI_INIT_CMD_WSPI		0x01
-#define WSPI_INIT_CMD_END		0x01
-
-#define WSPI_INIT_CMD_LEN		8
+enum {
+	WSPI_INIT_CMD_CRC_LEN		= 5,
+	WSPI_INIT_CMD_START			= 0x00,
+	WSPI_INIT_CMD_TX			= 0x40,
+	WSPI_INIT_CMD_FIXEDBUSY_LEN	= 0x07,
+	WSPI_INIT_CMD_EN_FIXEDBUSY	= 0x80,
+	WSPI_INIT_CMD_DIS_FIXEDBUSY	= 0x00,
+	WSPI_INIT_CMD_OPS			= 0x08,
+	WSPI_INIT_CMD_IOD			= 0x40,
+	WSPI_INIT_CMD_IP			= 0x20,
+	WSPI_INIT_CMD_CS			= 0x10,
+	WSPI_INIT_CMD_WS			= 0x08,
+	WSPI_INIT_CMD_WSPI			= 0x01,
+	WSPI_INIT_CMD_END			= 0x01,
+	WSPI_INIT_CMD_LEN			= 8,
+};
 
 #define HW_ACCESS_WSPI_FIXED_BUSY_LEN \
 		((CC33XX_BUSY_WORD_LEN - 4) / sizeof(u32))
@@ -57,17 +49,6 @@
 /* HW limitation: maximum possible chunk size is 4095 bytes */
 /* Actual size will have to be 32 bit aligned */
 #define WSPI_MAX_CHUNK_SIZE		4092
-
-/*
- * wl18xx driver aggregation buffer size is (13 * 4K) compared to
- * (4 * 4K) for wl12xx, so use the larger buffer needed for wl18xx
- */
-#define SPI_AGGR_BUFFER_SIZE (13 * SZ_4K)
-
-/* Maximum number of SPI write chunks */
-#define WSPI_MAX_NUM_OF_CHUNKS \
-	((SPI_AGGR_BUFFER_SIZE / WSPI_MAX_CHUNK_SIZE) + 1)
-
 
 static const struct cc33xx_family_data cc33xx_data = {
 	.name = "cc33xx",
@@ -409,16 +390,10 @@ out:
 	return ret;
 }
 
-static int __must_check cc33xx_spi_raw_write(struct device *child, int addr,
-					     void *buf, size_t len, bool fixed)
+static inline int __must_check cc33xx_spi_raw_write(struct device *child,
+						    int addr, void *buf,
+						    size_t len, bool fixed)
 {
-	/* The ELP wakeup write may fail the first time due to internal
-	 * hardware latency. It is safer to send the wakeup command twice to
-	 * avoid unexpected failures.
-	 */
-	if (addr == HW_ACCESS_ELP_CTRL_REG)
-		__cc33xx_spi_raw_write(child, addr, buf, len, fixed);
-
 	return __cc33xx_spi_raw_write(child, addr, buf, len, fixed);
 }
 
@@ -576,11 +551,6 @@ static int wlcore_probe_of(struct spi_device *spi, struct cc33xx_spi_glue *glue,
 
 	if (of_find_property(dt_node, "clock-xtal", NULL))
 		pdev_data->ref_clock_xtal = true;
-	/* optional clock frequency params */
-	of_property_read_u32(dt_node, "ref-clock-frequency",
-			     &pdev_data->ref_clock_freq);
-	of_property_read_u32(dt_node, "tcxo-clock-frequency",
-			     &pdev_data->tcxo_clock_freq);
 
 	return 0;
 }

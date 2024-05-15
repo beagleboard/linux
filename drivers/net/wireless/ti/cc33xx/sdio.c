@@ -7,25 +7,15 @@
  * Contact: Luciano Coelho <luciano.coelho@nokia.com>
  */
 
-#include <linux/irq.h>
-#include <linux/module.h>
-#include <linux/vmalloc.h>
-#include <linux/platform_device.h>
-#include <linux/mmc/sdio.h>
 #include <linux/mmc/sdio_func.h>
-#include <linux/mmc/sdio_ids.h>
-#include <linux/mmc/card.h>
 #include <linux/mmc/host.h>
 #include <linux/gpio.h>
 #include <linux/pm_runtime.h>
-#include <linux/printk.h>
-#include <linux/of.h>
-#include <linux/of_gpio.h>
 #include <linux/of_irq.h>
 
 #include "wlcore.h"
-#include "cc33xx_80211.h"
 #include "io.h"
+
 
 #ifndef SDIO_VENDOR_ID_TI
 #define SDIO_VENDOR_ID_TI		0x0097
@@ -83,15 +73,12 @@ static int __must_check cc33xx_sdio_raw_read(struct device *child, int addr,
 	struct cc33xx_sdio_glue *glue = dev_get_drvdata(child->parent);
 	struct sdio_func *func = dev_to_sdio_func(glue->dev);
 
-
 	sdio_claim_host(func);
-
 
 	if (unlikely(addr == HW_ACCESS_ELP_CTRL_REG)) {
 		((u8 *)buf)[0] = sdio_f0_readb(func, addr, &ret);
 		dev_dbg(child->parent, "sdio read 52 addr 0x%x, byte 0x%02x\n",
 			addr, ((u8 *)buf)[0]);
-
 	} else {
 		if (fixed)
 			ret = sdio_readsb(func, buf, addr, len);
@@ -100,7 +87,6 @@ static int __must_check cc33xx_sdio_raw_read(struct device *child, int addr,
 
 		dev_dbg(child->parent, "sdio read 53 addr 0x%x, %zu bytes\n",
 			addr, len);
-
 	}
 
 	sdio_release_host(func);
@@ -111,8 +97,7 @@ static int __must_check cc33xx_sdio_raw_read(struct device *child, int addr,
 	if (unlikely(dump)) {
 		printk(KERN_DEBUG "wlcore_sdio: READ from 0x%04x\n", addr);
 		print_hex_dump(KERN_DEBUG, "wlcore_sdio: READ ",
-			       DUMP_PREFIX_OFFSET, 16, 1,
-			       buf, len, false);
+			       DUMP_PREFIX_OFFSET, 16, 1, buf, len, false);
 	}
 
 	return ret;
@@ -129,10 +114,11 @@ static int __must_check cc33xx_sdio_raw_write(struct device *child, int addr,
 
 	if (unlikely(dump)) {
 		printk(KERN_DEBUG "wlcore_sdio: "
-			"WRITE to 0x%04x length 0x%x (first 64 Bytes):\n", addr, len);
+		       "WRITE to 0x%04x length 0x%x (first 64 Bytes):\n",
+		       addr, len);
 		print_hex_dump(KERN_DEBUG, "wlcore_sdio: WRITE ",
-				DUMP_PREFIX_OFFSET, 16, 1,
-				buf, min(len, (size_t)64), false);
+			       DUMP_PREFIX_OFFSET,16, 1, buf,
+			       min(len, (size_t)64), false);
 	}
 
 	if (unlikely(addr == HW_ACCESS_ELP_CTRL_REG)) {
@@ -203,12 +189,11 @@ static int cc33xx_sdio_set_power(struct device *child, bool enable)
 		return cc33xx_sdio_power_off(glue);
 }
 
-
 /**
  *	inband_irq_handler - Called from the MMC subsystem when the
  *	function's IRQ is signaled.
  *	@func: an SDIO function of the card
-
+ *
  *	Note that the host is already claimed when handler is invoked.
  */
 static void inband_irq_handler(struct sdio_func *func)
@@ -270,7 +255,7 @@ static void cc33xx_disable_line_irq(struct device *child)
 	struct platform_device *pdev = glue->core;
 	struct wlcore_platdev_data *pdev_data = dev_get_platdata(&pdev->dev);
 
-	disable_irq(pdev_data->gpio_irq_num);
+	disable_irq_nosync(pdev_data->gpio_irq_num);
 }
 
 static void cc33xx_set_irq_handler(struct device *child, void* handler)
@@ -281,7 +266,6 @@ static void cc33xx_set_irq_handler(struct device *child, void* handler)
 
 	pdev_data->irq_handler = handler;
 }
-
 
 static struct cc33xx_if_operations sdio_ops_gpio_irq = {
 	.interface_claim	= cc33xx_sdio_claim,
@@ -308,7 +292,6 @@ static struct cc33xx_if_operations sdio_ops_inband_irq = {
 };
 
 #ifdef CONFIG_OF
-
 static const struct cc33xx_family_data cc33xx_data = {
 	.name = "cc33xx",
 	.cfg_name = "ti-connectivity/cc33xx-conf.bin",
@@ -336,12 +319,6 @@ static int wlcore_probe_of(struct device *dev, int *irq, int *wakeirq,
 
 	*wakeirq = irq_of_parse_and_map(np, 1);
 
-	/* optional clock frequency params */
-	of_property_read_u32(np, "ref-clock-frequency",
-			     &pdev_data->ref_clock_freq);
-	of_property_read_u32(np, "tcxo-clock-frequency",
-			     &pdev_data->tcxo_clock_freq);
-
 	return 0;
 }
 #else
@@ -350,7 +327,7 @@ static int wlcore_probe_of(struct device *dev, int *irq, int *wakeirq,
 {
 	return -ENODATA;
 }
-#endif
+#endif /* CONFIG_OF */
 
 static irqreturn_t gpio_irq_hard_handler(int irq, void *cookie)
 {
@@ -437,9 +414,9 @@ static int sdio_cc33xx_probe(struct sdio_func *func,
 		if (irq_flags & (IRQF_TRIGGER_HIGH | IRQF_TRIGGER_LOW))
 			irq_flags |= IRQF_ONESHOT;
 
-		ret = request_threaded_irq(
-			gpio_irq, gpio_irq_hard_handler, gpio_irq_thread_handler,
-			irq_flags, glue->core->name, func);
+		ret = request_threaded_irq(gpio_irq, gpio_irq_hard_handler,
+					   gpio_irq_thread_handler,
+					   irq_flags, glue->core->name, func);
 		if (ret) {
 			dev_err(glue->dev, "can't register GPIO IRQ handler\n");
 			goto out_dev_put;
@@ -447,7 +424,8 @@ static int sdio_cc33xx_probe(struct sdio_func *func,
 
 		pdev_data->gpio_irq_num = gpio_irq;
 
-		if ((mmcflags & MMC_PM_KEEP_POWER) && (enable_irq_wake(gpio_irq)==0))
+		if ((mmcflags & MMC_PM_KEEP_POWER) &&
+		    (enable_irq_wake(gpio_irq)==0))
 			pdev_data->pwr_in_suspend = true;
 
 		pdev_data->if_ops = &sdio_ops_gpio_irq;
@@ -506,7 +484,8 @@ static void sdio_cc33xx_remove(struct sdio_func *func)
 
 	if (pdev_data->gpio_irq_num){
 		free_irq(pdev_data->gpio_irq_num, func);
-		disable_irq_wake(pdev_data->gpio_irq_num);
+		if (pdev_data->pwr_in_suspend)
+			disable_irq_wake(pdev_data->gpio_irq_num);
 	}
 	else{
 		sdio_claim_host(func);
@@ -566,19 +545,24 @@ static const struct dev_pm_ops cc33xx_sdio_pm_ops = {
 	.suspend	= cc33xx_suspend,
 	.resume		= cc33xx_resume,
 };
-#endif
 
 static struct sdio_driver cc33xx_sdio_driver = {
 	.name		= "cc33xx_sdio",
 	.id_table	= cc33xx_devices,
 	.probe		= sdio_cc33xx_probe,
 	.remove		= sdio_cc33xx_remove,
-#ifdef CONFIG_PM
 	.drv = {
 		.pm = &cc33xx_sdio_pm_ops,
 	},
-#endif
 };
+#else
+static struct sdio_driver cc33xx_sdio_driver = {
+	.name		= "cc33xx_sdio",
+	.id_table	= cc33xx_devices,
+	.probe		= sdio_cc33xx_probe,
+	.remove		= sdio_cc33xx_remove,
+};
+#endif /* CONFIG_PM */
 
 static int __init sdio_cc33xx_init(void)
 {

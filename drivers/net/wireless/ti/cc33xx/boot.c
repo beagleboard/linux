@@ -7,18 +7,13 @@
  * Contact: Luciano Coelho <luciano.coelho@nokia.com>
  */
 
-#include <linux/slab.h>
-#include <linux/export.h>
 #include <linux/firmware.h>
 
-#include "debug.h"
-#include "acx.h"
 #include "boot.h"
-#include "io.h"
-#include "event.h"
-#include "rx.h"
-#include "tx.h"
+#include "cmd.h"
+#include "debug.h"
 #include "init.h"
+#include "io.h"
 
 
 #define CC33XX_BOOT_TIMEOUT 2000
@@ -45,15 +40,11 @@ struct hwinfo_bitmap
     u32 reserved                    : 13u;
 } /* Aligned with boot code, must not be __packed */;
 
-
 union hw_info
 {
     struct hwinfo_bitmap	bitmap;
     u8 				bytes[sizeof (struct hwinfo_bitmap)] ;
 };
-
-
-int wlcore_boot_upload_nvs(struct cc33xx *wl);
 
 int cc33xx_hw_init(struct cc33xx *wl);
 
@@ -69,20 +60,10 @@ void cc33xx_handle_boot_irqs(struct cc33xx *wl, u32 pending_interrupts)
 	complete(&wl->fw_download->wait_on_irq);
 }
 
-int wlcore_boot_run_firmware(struct cc33xx *wl)
-{
-	cc33xx_debug(DEBUG_CC33xx, "FW reset not implemented");
-
-
-	cc33xx_debug(DEBUG_CC33xx, "Skipping wait for init complete");
-
-	return 0;
-}
-
 static u8 * fetch_container(struct cc33xx *wl, const char* container_name,
-						size_t *container_len)
+			    size_t *container_len)
 {
-	u8 *container_data=NULL;
+	u8 *container_data = NULL;
 	const struct firmware *container;
 	int ret;
 
@@ -90,7 +71,7 @@ static u8 * fetch_container(struct cc33xx *wl, const char* container_name,
 
 	if (ret < 0) {
 		cc33xx_error("could not get container %s: (%d)",
-				container_name, ret);
+			     container_name, ret);
 		return NULL;
 	}
 
@@ -99,7 +80,6 @@ static u8 * fetch_container(struct cc33xx *wl, const char* container_name,
 			     container->size);
 		goto out;
 	}
-
 
 	*container_len = container->size;
 	container_data = vmalloc(container->size);
@@ -132,7 +112,6 @@ out:
 	return ret;
 }
 
-
 static int cc33xx_chip_wakeup(struct cc33xx *wl)
 {
 	int ret = 0;
@@ -163,8 +142,8 @@ out:
 	return ret;
 }
 
-static int wait_for_boot_irq(struct cc33xx *wl,
-				u32 boot_irq_mask, unsigned long timeout)
+static int wait_for_boot_irq(struct cc33xx *wl, u32 boot_irq_mask,
+			     unsigned long timeout)
 {
 	int ret;
 	u32 pending_irqs;
@@ -175,7 +154,7 @@ static int wait_for_boot_irq(struct cc33xx *wl,
 	ret = wait_for_completion_interruptible_timeout(
 			&fw_download->wait_on_irq, msecs_to_jiffies(timeout));
 
-	// Fetch pending IRQs while clearing them in fw_download
+	/* Fetch pending IRQs while clearing them in fw_download */
 	pending_irqs = atomic_fetch_and(0, &fw_download->pending_irqs);
 	pending_irqs &= ~HINT_COMMAND_COMPLETE;
 
@@ -192,7 +171,7 @@ static int wait_for_boot_irq(struct cc33xx *wl,
 
 	if (boot_irq_mask != pending_irqs){
 		cc33xx_error("Unexpected IRQ received @ boot: 0x%x",
-		pending_irqs);
+			     pending_irqs);
 		return -3;
 	}
 
@@ -232,10 +211,9 @@ out:
 	return ret;
 }
 
-static int container_download_and_wait(
-	struct cc33xx *wl,
-	const char* container_name,
-	const u32 irq_wait_mask)
+static int container_download_and_wait(struct cc33xx *wl,
+				       const char* container_name,
+				       const u32 irq_wait_mask)
 {
 	int ret=-1;
 	u8 *container_data;
@@ -293,7 +271,7 @@ static void fw_download_free(struct cc33xx *wl)
 	wl->fw_download = NULL;
 }
 
-int get_device_info(struct cc33xx *wl)
+static int get_device_info(struct cc33xx *wl)
 {
 	int ret;
 	union hw_info hw_info;
@@ -303,12 +281,15 @@ int get_device_info(struct cc33xx *wl)
 	if (ret < 0)
 		return ret;
 
-	cc33xx_debug(DEBUG_BOOT, "CC33XX device info: "
-		"PG version: %d, Metal version: %d, Boot ROM version: %d "
-		"M3 ROM version: %d, MAC address: 0x%llx, Device part number: %d",
-		hw_info.bitmap.pg_version, hw_info.bitmap.metal_version,
-		hw_info.bitmap.boot_rom_version, hw_info.bitmap.m3_rom_version,
-		(u64) hw_info.bitmap.mac_address, hw_info.bitmap.device_part_number);
+	cc33xx_debug(DEBUG_BOOT,
+		     "CC33XX device info: PG version: %d, Metal version: %d, "
+		     "Boot ROM version: %d, M3 ROM version: %d, "
+		     "MAC address: 0x%llx, Device part number: %d",
+		     hw_info.bitmap.pg_version, hw_info.bitmap.metal_version,
+		     hw_info.bitmap.boot_rom_version,
+		     hw_info.bitmap.m3_rom_version,
+		     (u64) hw_info.bitmap.mac_address,
+		     hw_info.bitmap.device_part_number);
 
 	wl->fw_download->max_transfer_size = 640;
 
@@ -347,9 +328,8 @@ int cc33xx_init_fw(struct cc33xx *wl)
 
 	wlcore_enable_interrupts(wl);
 
-	ret = wait_for_boot_irq(wl,
-		HINT_ROM_LOADER_INIT_COMPLETE,
-		CC33XX_BOOT_TIMEOUT);
+	ret = wait_for_boot_irq(wl, HINT_ROM_LOADER_INIT_COMPLETE,
+				CC33XX_BOOT_TIMEOUT);
 	if (ret < 0)
 		goto disable_irq;
 
@@ -357,15 +337,13 @@ int cc33xx_init_fw(struct cc33xx *wl)
 	if (ret < 0)
 		goto disable_irq;
 
-	ret = container_download_and_wait(wl,
-		SECOND_LOADER_NAME,
-		HINT_SECOND_LOADER_INIT_COMPLETE);
+	ret = container_download_and_wait(wl, SECOND_LOADER_NAME,
+					  HINT_SECOND_LOADER_INIT_COMPLETE);
 	if (ret < 0)
 		goto disable_irq;
 
-	ret = container_download_and_wait(wl,
-		FW_NAME,
-		HINT_FW_WAKEUP_COMPLETE);
+	ret = container_download_and_wait(wl,  FW_NAME,
+					  HINT_FW_WAKEUP_COMPLETE);
 	if (ret < 0)
 		goto disable_irq;
 
@@ -374,7 +352,7 @@ int cc33xx_init_fw(struct cc33xx *wl)
 	if (ret < 0)
 		goto disable_irq;
 
-	ret = wait_for_boot_irq(wl, HINT_FW_INIT_COMPLETE , CC33XX_BOOT_TIMEOUT);
+	ret = wait_for_boot_irq(wl, HINT_FW_INIT_COMPLETE, CC33XX_BOOT_TIMEOUT);
 
 
 	if (ret < 0)
@@ -398,7 +376,10 @@ int cc33xx_init_fw(struct cc33xx *wl)
 	cc33xx_debug(DEBUG_MAC80211, "11a is %ssupported",
 		     wl->enable_11a ? "" : "not ");
 
-	wl->state = WLCORE_STATE_ON;
+	if (wl->state != WLCORE_STATE_RESTARTING){
+		wl->state = WLCORE_STATE_ON;
+	}
+
 	ret = 0;
 	goto out;
 
