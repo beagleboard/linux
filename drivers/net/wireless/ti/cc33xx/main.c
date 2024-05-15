@@ -6,21 +6,16 @@
  * Copyright (C) 2011-2013 Texas Instruments Inc.
  */
 
-#include <linux/module.h>
 #include <linux/mod_devicetable.h>
 #include <linux/platform_device.h>
 #include <linux/firmware.h>
-#include <linux/etherdevice.h>
-#include <linux/ip.h>
-#include <linux/vmalloc.h>
-#include <linux/interrupt.h>
 #include <linux/irq.h>
 #include <linux/pm_wakeirq.h>
-#include <linux/gpio.h>
+
+#include "../net/mac80211/ieee80211_i.h"
 
 #include "acx.h"
-#include "wlcore.h"
-#include "debug.h"
+#include "boot.h"
 #include "cc33xx_80211.h"
 #include "io.h"
 #include "tx.h"
@@ -30,22 +25,15 @@
 #include "testmode.h"
 #include "scan.h"
 #include "sysfs.h"
-#include "../net/mac80211/ieee80211_i.h"
+#include "event.h"
 
 
 #define CC33XX_WAKEUP_TIMEOUT 500
 #define CC33XX_FW_RX_PACKET_RAM (9 * 1024)
 static char *fwlog_param;
-static int fwlog_mem_blocks = -1;
 static int no_recovery     = -1;
 
 static char *ht_mode_param = NULL;
-
-static int num_rx_desc_param = -1;
-
-/* phy paramters */
-
-static int pwr_limit_reference_11_abg_param = -1;
 
 /* HT cap appropriate for wide channels in 2Ghz */
 static struct ieee80211_sta_ht_cap cc33xx_siso40_ht_cap_2ghz = {
@@ -59,7 +47,7 @@ static struct ieee80211_sta_ht_cap cc33xx_siso40_ht_cap_2ghz = {
 		.rx_mask = { 0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0, },
 		.rx_highest = cpu_to_le16(150),
 		.tx_params = IEEE80211_HT_MCS_TX_DEFINED,
-		},
+	},
 };
 
 /* HT cap appropriate for wide channels in 5Ghz */
@@ -74,7 +62,7 @@ static struct ieee80211_sta_ht_cap cc33xx_siso40_ht_cap_5ghz = {
 		.rx_mask = { 0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0, },
 		.rx_highest = cpu_to_le16(150),
 		.tx_params = IEEE80211_HT_MCS_TX_DEFINED,
-		},
+	},
 };
 
 /* HT cap appropriate for SISO 20 */
@@ -88,42 +76,56 @@ static struct ieee80211_sta_ht_cap cc33xx_siso20_ht_cap = {
 		.rx_mask = { 0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0, },
 		.rx_highest = cpu_to_le16(72),
 		.tx_params = IEEE80211_HT_MCS_TX_DEFINED,
-		},
+	},
 };
 
-/* HT cap appropriate for MIMO rates in 20mhz channel */
-static struct ieee80211_sta_ht_cap cc33xx_mimo_ht_cap_2ghz = {
-	.cap = IEEE80211_HT_CAP_SGI_20 |
-	       IEEE80211_HT_CAP_GRN_FLD,
-	.ht_supported = true,
-	.ampdu_factor = IEEE80211_HT_MAX_AMPDU_8K,
-	.ampdu_density = IEEE80211_HT_MPDU_DENSITY_16,
-	.mcs = {
-		.rx_mask = { 0xff, 0xff, 0, 0, 0, 0, 0, 0, 0, 0, },
-		.rx_highest = cpu_to_le16(144),
-		.tx_params = IEEE80211_HT_MCS_TX_DEFINED,
-		},
-};
-
+#ifdef CONFIG_MAC80211_MESH
 static const struct ieee80211_iface_limit cc33xx_iface_limits[] = {
 	{
 		.max = 2,
-		.types =  BIT(NL80211_IFTYPE_STATION)
-			| BIT(NL80211_IFTYPE_P2P_CLIENT),
+		.types = BIT(NL80211_IFTYPE_STATION)
+		       | BIT(NL80211_IFTYPE_P2P_CLIENT),
 	},
 	{
 		.max = 1,
-		.types =   BIT(NL80211_IFTYPE_AP)
-			 | BIT(NL80211_IFTYPE_P2P_GO)
-#ifdef CONFIG_MAC80211_MESH
-			 | BIT(NL80211_IFTYPE_MESH_POINT)
-#endif
+		.types = BIT(NL80211_IFTYPE_AP) | BIT(NL80211_IFTYPE_P2P_GO)
+		       | BIT(NL80211_IFTYPE_MESH_POINT)
 	},
 	{
 		.max = 1,
 		.types = BIT(NL80211_IFTYPE_P2P_DEVICE),
 	},
 };
+
+static inline u16 cc33xx_wiphy_interface_modes(void)
+{
+	return BIT(NL80211_IFTYPE_STATION) | BIT(NL80211_IFTYPE_P2P_GO) |
+	       BIT(NL80211_IFTYPE_MESH_POINT) | BIT(NL80211_IFTYPE_AP) |
+	       BIT(NL80211_IFTYPE_P2P_CLIENT) | BIT(NL80211_IFTYPE_P2P_DEVICE);
+}
+#else
+static const struct ieee80211_iface_limit cc33xx_iface_limits[] = {
+	{
+		.max = 2,
+		.types = BIT(NL80211_IFTYPE_STATION)
+		       | BIT(NL80211_IFTYPE_P2P_CLIENT),
+	},
+	{
+		.max = 1,
+		.types = BIT(NL80211_IFTYPE_AP) | BIT(NL80211_IFTYPE_P2P_GO)
+	},
+	{
+		.max = 1,
+		.types = BIT(NL80211_IFTYPE_P2P_DEVICE),
+	},
+};
+static inline u16 cc33xx_wiphy_interface_modes(void)
+{
+	return BIT(NL80211_IFTYPE_STATION) | BIT(NL80211_IFTYPE_P2P_GO) |
+	       BIT(NL80211_IFTYPE_P2P_CLIENT) | BIT(NL80211_IFTYPE_AP) |
+	       BIT(NL80211_IFTYPE_P2P_DEVICE);
+}
+#endif /* CONFIG_MAC80211_MESH */
 
 static const struct ieee80211_iface_combination
 cc33xx_iface_combinations[] = {
@@ -270,95 +272,90 @@ static struct ieee80211_channel cc33xx_channels[] = {
 	{ .hw_value = 11, .center_freq = 2462, .max_power = CC33XX_MAX_TXPWR },
 	{ .hw_value = 12, .center_freq = 2467, .max_power = CC33XX_MAX_TXPWR },
 	{ .hw_value = 13, .center_freq = 2472, .max_power = CC33XX_MAX_TXPWR },
-	{ .hw_value = 14, .center_freq = 2484, .max_power = CC33XX_MAX_TXPWR },
 };
 
-
-static struct ieee80211_sband_iftype_data iftype_data_2ghz[] = {
-	{
-		.types_mask = BIT(NL80211_IFTYPE_STATION),
-		.he_cap = {
-			.has_he = true,
-			.he_cap_elem = {
-				.mac_cap_info[0] =
-					IEEE80211_HE_MAC_CAP0_HTC_HE,
-				.mac_cap_info[1] =
-					IEEE80211_HE_MAC_CAP1_TF_MAC_PAD_DUR_16US |
-					IEEE80211_HE_MAC_CAP1_MULTI_TID_AGG_RX_QOS_8,
-				.mac_cap_info[2] =
-					IEEE80211_HE_MAC_CAP2_32BIT_BA_BITMAP |
-					IEEE80211_HE_MAC_CAP2_ALL_ACK |
-					IEEE80211_HE_MAC_CAP2_TRS |
-					IEEE80211_HE_MAC_CAP2_BSR |
-					IEEE80211_HE_MAC_CAP2_ACK_EN,
-				.mac_cap_info[3] =
-					IEEE80211_HE_MAC_CAP3_OMI_CONTROL |
-					IEEE80211_HE_MAC_CAP3_RX_CTRL_FRAME_TO_MULTIBSS,
-				.mac_cap_info[4] =
-					IEEE80211_HE_MAC_CAP4_AMSDU_IN_AMPDU |
-					IEEE80211_HE_MAC_CAP4_NDP_FB_REP |
-					IEEE80211_HE_MAC_CAP4_MULTI_TID_AGG_TX_QOS_B39,
-				.mac_cap_info[5] =
-					IEEE80211_HE_MAC_CAP5_HT_VHT_TRIG_FRAME_RX,
-				.phy_cap_info[0] = 0,
-				.phy_cap_info[1] =
-					IEEE80211_HE_PHY_CAP1_DEVICE_CLASS_A |
-					IEEE80211_HE_PHY_CAP1_HE_LTF_AND_GI_FOR_HE_PPDUS_0_8US,
-				.phy_cap_info[2] =
-					IEEE80211_HE_PHY_CAP2_NDP_4x_LTF_AND_3_2US,
-				.phy_cap_info[3] =
-					IEEE80211_HE_PHY_CAP3_DCM_MAX_CONST_TX_NO_DCM |
-					IEEE80211_HE_PHY_CAP3_DCM_MAX_TX_NSS_1 |
-					IEEE80211_HE_PHY_CAP3_DCM_MAX_CONST_RX_16_QAM |
-					IEEE80211_HE_PHY_CAP3_DCM_MAX_RX_NSS_1,
-				.phy_cap_info[4] =
-					IEEE80211_HE_PHY_CAP4_SU_BEAMFORMEE |
-					IEEE80211_HE_PHY_CAP4_BEAMFORMEE_MAX_STS_UNDER_80MHZ_4 ,
-				.phy_cap_info[5] =
-					IEEE80211_HE_PHY_CAP5_NG16_SU_FEEDBACK |
-					IEEE80211_HE_PHY_CAP5_NG16_MU_FEEDBACK,
-				.phy_cap_info[6] =
-					IEEE80211_HE_PHY_CAP6_CODEBOOK_SIZE_42_SU  |
-					IEEE80211_HE_PHY_CAP6_CODEBOOK_SIZE_75_MU  |
-					IEEE80211_HE_PHY_CAP6_TRIG_SU_BEAMFORMING_FB  |
-					IEEE80211_HE_PHY_CAP6_TRIG_MU_BEAMFORMING_PARTIAL_BW_FB |
-					IEEE80211_HE_PHY_CAP6_TRIG_CQI_FB |
-					IEEE80211_HE_PHY_CAP6_PARTIAL_BW_EXT_RANGE,
-				.phy_cap_info[7] =
-					IEEE80211_HE_PHY_CAP7_HE_SU_MU_PPDU_4XLTF_AND_08_US_GI ,
-				.phy_cap_info[8] =
-					IEEE80211_HE_PHY_CAP8_HE_ER_SU_PPDU_4XLTF_AND_08_US_GI |
-					IEEE80211_HE_PHY_CAP8_20MHZ_IN_40MHZ_HE_PPDU_IN_2G |
-					IEEE80211_HE_PHY_CAP8_HE_ER_SU_1XLTF_AND_08_US_GI,
-				.phy_cap_info[9] =
-					IEEE80211_HE_PHY_CAP9_NON_TRIGGERED_CQI_FEEDBACK |
-					IEEE80211_HE_PHY_CAP9_RX_FULL_BW_SU_USING_MU_WITH_COMP_SIGB |
-					IEEE80211_HE_PHY_CAP9_RX_FULL_BW_SU_USING_MU_WITH_NON_COMP_SIGB |
-					IEEE80211_HE_PHY_CAP9_NOMINAL_PKT_PADDING_16US,
-			},
-			/*
-			 * Set default Tx/Rx HE MCS NSS Support field.
-			 * Indicate support for up to 2 spatial streams and all
-			 * MCS, without any special cases
-			 */
-			.he_mcs_nss_supp = {
-				.rx_mcs_80 = cpu_to_le16(0xfffc),
-				.tx_mcs_80 = cpu_to_le16(0xfffc),
-				.rx_mcs_160 = cpu_to_le16(0xffff),
-				.tx_mcs_160 = cpu_to_le16(0xffff),
-				.rx_mcs_80p80 = cpu_to_le16(0xffff),
-				.tx_mcs_80p80 = cpu_to_le16(0xffff),
-			},
-			/*
-			 * Set default PPE thresholds, with PPET16 set to 0,
-			 * PPET8 set to 7
-			 */
-			.ppe_thres = {0xff, 0xff, 0xff, 0xff},
+static struct ieee80211_sband_iftype_data iftype_data_2ghz[] = {{
+	.types_mask = BIT(NL80211_IFTYPE_STATION),
+	.he_cap = {
+		.has_he = true,
+		.he_cap_elem = {
+		.mac_cap_info[0] =
+			IEEE80211_HE_MAC_CAP0_HTC_HE |
+			IEEE80211_HE_MAC_CAP0_TWT_REQ,
+		.mac_cap_info[1] =
+			IEEE80211_HE_MAC_CAP1_TF_MAC_PAD_DUR_16US |
+			IEEE80211_HE_MAC_CAP1_MULTI_TID_AGG_RX_QOS_8,
+		.mac_cap_info[2] =
+			IEEE80211_HE_MAC_CAP2_32BIT_BA_BITMAP |
+			IEEE80211_HE_MAC_CAP2_ALL_ACK |
+			IEEE80211_HE_MAC_CAP2_TRS |
+			IEEE80211_HE_MAC_CAP2_BSR |
+			IEEE80211_HE_MAC_CAP2_ACK_EN,
+		.mac_cap_info[3] =
+			IEEE80211_HE_MAC_CAP3_OMI_CONTROL |
+			IEEE80211_HE_MAC_CAP3_RX_CTRL_FRAME_TO_MULTIBSS,
+		.mac_cap_info[4] =
+			IEEE80211_HE_MAC_CAP4_AMSDU_IN_AMPDU |
+			IEEE80211_HE_MAC_CAP4_NDP_FB_REP |
+			IEEE80211_HE_MAC_CAP4_MULTI_TID_AGG_TX_QOS_B39,
+		.mac_cap_info[5] =
+			IEEE80211_HE_MAC_CAP5_HT_VHT_TRIG_FRAME_RX,
+		.phy_cap_info[0] = 0,
+		.phy_cap_info[1] =
+			IEEE80211_HE_PHY_CAP1_DEVICE_CLASS_A |
+			IEEE80211_HE_PHY_CAP1_HE_LTF_AND_GI_FOR_HE_PPDUS_0_8US,
+		.phy_cap_info[2] =
+			IEEE80211_HE_PHY_CAP2_NDP_4x_LTF_AND_3_2US,
+		.phy_cap_info[3] =
+			IEEE80211_HE_PHY_CAP3_DCM_MAX_CONST_TX_NO_DCM |
+			IEEE80211_HE_PHY_CAP3_DCM_MAX_TX_NSS_1 |
+			IEEE80211_HE_PHY_CAP3_DCM_MAX_CONST_RX_16_QAM |
+			IEEE80211_HE_PHY_CAP3_DCM_MAX_RX_NSS_1,
+		.phy_cap_info[4] =
+			IEEE80211_HE_PHY_CAP4_SU_BEAMFORMEE |
+			IEEE80211_HE_PHY_CAP4_BEAMFORMEE_MAX_STS_UNDER_80MHZ_4 ,
+		.phy_cap_info[5] =
+			IEEE80211_HE_PHY_CAP5_NG16_SU_FEEDBACK |
+			IEEE80211_HE_PHY_CAP5_NG16_MU_FEEDBACK,
+		.phy_cap_info[6] =
+			IEEE80211_HE_PHY_CAP6_CODEBOOK_SIZE_42_SU  |
+			IEEE80211_HE_PHY_CAP6_CODEBOOK_SIZE_75_MU  |
+			IEEE80211_HE_PHY_CAP6_TRIG_SU_BEAMFORMING_FB  |
+			IEEE80211_HE_PHY_CAP6_TRIG_MU_BEAMFORMING_PARTIAL_BW_FB |
+			IEEE80211_HE_PHY_CAP6_TRIG_CQI_FB |
+			IEEE80211_HE_PHY_CAP6_PARTIAL_BW_EXT_RANGE,
+		.phy_cap_info[7] =
+			IEEE80211_HE_PHY_CAP7_HE_SU_MU_PPDU_4XLTF_AND_08_US_GI ,
+		.phy_cap_info[8] =
+			IEEE80211_HE_PHY_CAP8_HE_ER_SU_PPDU_4XLTF_AND_08_US_GI |
+			IEEE80211_HE_PHY_CAP8_20MHZ_IN_40MHZ_HE_PPDU_IN_2G |
+			IEEE80211_HE_PHY_CAP8_HE_ER_SU_1XLTF_AND_08_US_GI,
+		.phy_cap_info[9] =
+			IEEE80211_HE_PHY_CAP9_NON_TRIGGERED_CQI_FEEDBACK |
+			IEEE80211_HE_PHY_CAP9_RX_FULL_BW_SU_USING_MU_WITH_COMP_SIGB |
+			IEEE80211_HE_PHY_CAP9_RX_FULL_BW_SU_USING_MU_WITH_NON_COMP_SIGB |
+			IEEE80211_HE_PHY_CAP9_NOMINAL_PKT_PADDING_16US,
 		},
+		/*
+		* Set default Tx/Rx HE MCS NSS Support field.
+		* Indicate support for up to 2 spatial streams and all
+		* MCS, without any special cases
+		*/
+		.he_mcs_nss_supp = {
+			.rx_mcs_80 = cpu_to_le16(0xfffc),
+			.tx_mcs_80 = cpu_to_le16(0xfffc),
+			.rx_mcs_160 = cpu_to_le16(0xffff),
+			.tx_mcs_160 = cpu_to_le16(0xffff),
+			.rx_mcs_80p80 = cpu_to_le16(0xffff),
+			.tx_mcs_80p80 = cpu_to_le16(0xffff),
+		},
+		/*
+		* Set default PPE thresholds, with PPET16 set to 0,
+		* PPET8 set to 7
+		*/
+		.ppe_thres = {0xff, 0xff, 0xff, 0xff},
 	},
-};
-
-
+}};
 
 /* can't be const, mac80211 writes to this */
 static struct ieee80211_supported_band cc33xx_band_2ghz = {
@@ -368,6 +365,22 @@ static struct ieee80211_supported_band cc33xx_band_2ghz = {
 	.n_bitrates = ARRAY_SIZE(cc33xx_rates),
 	.iftype_data = iftype_data_2ghz,
 	.n_iftype_data = ARRAY_SIZE(iftype_data_2ghz),
+};
+
+static const u8 he_if_types_ext_capa_sta[] = {
+	 [0] = WLAN_EXT_CAPA1_EXT_CHANNEL_SWITCHING,
+	 [2] = WLAN_EXT_CAPA3_MULTI_BSSID_SUPPORT,
+	 [7] = WLAN_EXT_CAPA8_OPMODE_NOTIF,
+	 [9] = WLAN_EXT_CAPA10_TWT_REQUESTER_SUPPORT,
+};
+
+static const struct wiphy_iftype_ext_capab he_iftypes_ext_capa[] = {
+	{
+		.iftype = NL80211_IFTYPE_STATION,
+		.extended_capabilities = he_if_types_ext_capa_sta,
+		.extended_capabilities_mask = he_if_types_ext_capa_sta,
+		.extended_capabilities_len = sizeof(he_if_types_ext_capa_sta),
+	},
 };
 
 /* 5 GHz data rates for cc33xx */
@@ -400,16 +413,9 @@ static struct ieee80211_rate cc33xx_rates_5ghz[] = {
 
 /* 5 GHz band channels for cc33xx */
 static struct ieee80211_channel cc33xx_channels_5ghz[] = {
-	{ .hw_value = 8, .center_freq = 5040, .max_power = CC33XX_MAX_TXPWR },
-	{ .hw_value = 12, .center_freq = 5060, .max_power = CC33XX_MAX_TXPWR },
-	{ .hw_value = 16, .center_freq = 5080, .max_power = CC33XX_MAX_TXPWR },
-	{ .hw_value = 34, .center_freq = 5170, .max_power = CC33XX_MAX_TXPWR },
 	{ .hw_value = 36, .center_freq = 5180, .max_power = CC33XX_MAX_TXPWR },
-	{ .hw_value = 38, .center_freq = 5190, .max_power = CC33XX_MAX_TXPWR },
 	{ .hw_value = 40, .center_freq = 5200, .max_power = CC33XX_MAX_TXPWR },
-	{ .hw_value = 42, .center_freq = 5210, .max_power = CC33XX_MAX_TXPWR },
 	{ .hw_value = 44, .center_freq = 5220, .max_power = CC33XX_MAX_TXPWR },
-	{ .hw_value = 46, .center_freq = 5230, .max_power = CC33XX_MAX_TXPWR },
 	{ .hw_value = 48, .center_freq = 5240, .max_power = CC33XX_MAX_TXPWR },
 	{ .hw_value = 52, .center_freq = 5260, .max_power = CC33XX_MAX_TXPWR },
 	{ .hw_value = 56, .center_freq = 5280, .max_power = CC33XX_MAX_TXPWR },
@@ -432,89 +438,89 @@ static struct ieee80211_channel cc33xx_channels_5ghz[] = {
 	{ .hw_value = 161, .center_freq = 5805, .max_power = CC33XX_MAX_TXPWR },
 	{ .hw_value = 165, .center_freq = 5825, .max_power = CC33XX_MAX_TXPWR },
 };
-static struct ieee80211_sband_iftype_data iftype_data_5ghz[] = {
-	{
-		.types_mask = BIT(NL80211_IFTYPE_STATION),
-		.he_cap = {
-			.has_he = true,
-			.he_cap_elem = {
-				.mac_cap_info[0] =
-					IEEE80211_HE_MAC_CAP0_HTC_HE,
-				.mac_cap_info[1] =
-					IEEE80211_HE_MAC_CAP1_TF_MAC_PAD_DUR_16US |
-					IEEE80211_HE_MAC_CAP1_MULTI_TID_AGG_RX_QOS_8,
-				.mac_cap_info[2] =
-					IEEE80211_HE_MAC_CAP2_32BIT_BA_BITMAP |
-					IEEE80211_HE_MAC_CAP2_ALL_ACK |
-					IEEE80211_HE_MAC_CAP2_TRS |
-					IEEE80211_HE_MAC_CAP2_BSR |
-					IEEE80211_HE_MAC_CAP2_ACK_EN,
-				.mac_cap_info[3] =
-					IEEE80211_HE_MAC_CAP3_OMI_CONTROL |
-					IEEE80211_HE_MAC_CAP3_RX_CTRL_FRAME_TO_MULTIBSS,
-				.mac_cap_info[4] =
-					IEEE80211_HE_MAC_CAP4_AMSDU_IN_AMPDU |
-					IEEE80211_HE_MAC_CAP4_NDP_FB_REP |
-					IEEE80211_HE_MAC_CAP4_MULTI_TID_AGG_TX_QOS_B39,
-				.mac_cap_info[5] =
-					IEEE80211_HE_MAC_CAP5_HT_VHT_TRIG_FRAME_RX,
-				.phy_cap_info[0] = 0,
-				.phy_cap_info[1] =
-					IEEE80211_HE_PHY_CAP1_DEVICE_CLASS_A |
-					IEEE80211_HE_PHY_CAP1_HE_LTF_AND_GI_FOR_HE_PPDUS_0_8US,
-				.phy_cap_info[2] =
-					IEEE80211_HE_PHY_CAP2_NDP_4x_LTF_AND_3_2US,
-				.phy_cap_info[3] =
-					IEEE80211_HE_PHY_CAP3_DCM_MAX_CONST_TX_NO_DCM |
-					IEEE80211_HE_PHY_CAP3_DCM_MAX_TX_NSS_1 |
-					IEEE80211_HE_PHY_CAP3_DCM_MAX_CONST_RX_16_QAM |
-					IEEE80211_HE_PHY_CAP3_DCM_MAX_RX_NSS_1,
-				.phy_cap_info[4] =
-					IEEE80211_HE_PHY_CAP4_SU_BEAMFORMEE |
-					IEEE80211_HE_PHY_CAP4_BEAMFORMEE_MAX_STS_UNDER_80MHZ_4 ,
-				.phy_cap_info[5] =
-					IEEE80211_HE_PHY_CAP5_NG16_SU_FEEDBACK |
-					IEEE80211_HE_PHY_CAP5_NG16_MU_FEEDBACK,
-				.phy_cap_info[6] =
-					IEEE80211_HE_PHY_CAP6_CODEBOOK_SIZE_42_SU  |
-					IEEE80211_HE_PHY_CAP6_CODEBOOK_SIZE_75_MU  |
-					IEEE80211_HE_PHY_CAP6_TRIG_SU_BEAMFORMING_FB  |
-					IEEE80211_HE_PHY_CAP6_TRIG_MU_BEAMFORMING_PARTIAL_BW_FB |
-					IEEE80211_HE_PHY_CAP6_TRIG_CQI_FB |
-					IEEE80211_HE_PHY_CAP6_PARTIAL_BW_EXT_RANGE,
-				.phy_cap_info[7] =
-					IEEE80211_HE_PHY_CAP7_HE_SU_MU_PPDU_4XLTF_AND_08_US_GI ,
-				.phy_cap_info[8] =
-					IEEE80211_HE_PHY_CAP8_HE_ER_SU_PPDU_4XLTF_AND_08_US_GI |
-					IEEE80211_HE_PHY_CAP8_20MHZ_IN_40MHZ_HE_PPDU_IN_2G |
-					IEEE80211_HE_PHY_CAP8_HE_ER_SU_1XLTF_AND_08_US_GI,
-				.phy_cap_info[9] =
-					IEEE80211_HE_PHY_CAP9_NON_TRIGGERED_CQI_FEEDBACK |
-					IEEE80211_HE_PHY_CAP9_RX_FULL_BW_SU_USING_MU_WITH_COMP_SIGB |
-					IEEE80211_HE_PHY_CAP9_RX_FULL_BW_SU_USING_MU_WITH_NON_COMP_SIGB |
-					IEEE80211_HE_PHY_CAP9_NOMINAL_PKT_PADDING_16US,
-			},
-			/*
-			 * Set default Tx/Rx HE MCS NSS Support field.
-			 * Indicate support for up to 2 spatial streams and all
-			 * MCS, without any special cases
-			 */
-			.he_mcs_nss_supp = {
-				.rx_mcs_80 = cpu_to_le16(0xfffc),
-				.tx_mcs_80 = cpu_to_le16(0xfffc),
-				.rx_mcs_160 = cpu_to_le16(0xffff),
-				.tx_mcs_160 = cpu_to_le16(0xffff),
-				.rx_mcs_80p80 = cpu_to_le16(0xffff),
-				.tx_mcs_80p80 = cpu_to_le16(0xffff),
-			},
-			/*
-			 * Set default PPE thresholds, with PPET16 set to 0,
-			 * PPET8 set to 7
-			 */
-			.ppe_thres = {0xff, 0xff, 0xff, 0xff},
+
+static struct ieee80211_sband_iftype_data iftype_data_5ghz[] = {{
+	.types_mask = BIT(NL80211_IFTYPE_STATION),
+	.he_cap = {
+		.has_he = true,
+		.he_cap_elem = {
+		.mac_cap_info[0] =
+			IEEE80211_HE_MAC_CAP0_HTC_HE |
+			IEEE80211_HE_MAC_CAP0_TWT_REQ,
+		.mac_cap_info[1] =
+			IEEE80211_HE_MAC_CAP1_TF_MAC_PAD_DUR_16US |
+			IEEE80211_HE_MAC_CAP1_MULTI_TID_AGG_RX_QOS_8,
+		.mac_cap_info[2] =
+			IEEE80211_HE_MAC_CAP2_32BIT_BA_BITMAP |
+			IEEE80211_HE_MAC_CAP2_ALL_ACK |
+			IEEE80211_HE_MAC_CAP2_TRS |
+			IEEE80211_HE_MAC_CAP2_BSR |
+			IEEE80211_HE_MAC_CAP2_ACK_EN,
+		.mac_cap_info[3] =
+			IEEE80211_HE_MAC_CAP3_OMI_CONTROL |
+			IEEE80211_HE_MAC_CAP3_RX_CTRL_FRAME_TO_MULTIBSS,
+		.mac_cap_info[4] =
+			IEEE80211_HE_MAC_CAP4_AMSDU_IN_AMPDU |
+			IEEE80211_HE_MAC_CAP4_NDP_FB_REP |
+			IEEE80211_HE_MAC_CAP4_MULTI_TID_AGG_TX_QOS_B39,
+		.mac_cap_info[5] =
+			IEEE80211_HE_MAC_CAP5_HT_VHT_TRIG_FRAME_RX,
+		.phy_cap_info[0] = 0,
+		.phy_cap_info[1] =
+			IEEE80211_HE_PHY_CAP1_DEVICE_CLASS_A |
+			IEEE80211_HE_PHY_CAP1_HE_LTF_AND_GI_FOR_HE_PPDUS_0_8US,
+		.phy_cap_info[2] =
+			IEEE80211_HE_PHY_CAP2_NDP_4x_LTF_AND_3_2US,
+		.phy_cap_info[3] =
+			IEEE80211_HE_PHY_CAP3_DCM_MAX_CONST_TX_NO_DCM |
+			IEEE80211_HE_PHY_CAP3_DCM_MAX_TX_NSS_1 |
+			IEEE80211_HE_PHY_CAP3_DCM_MAX_CONST_RX_16_QAM |
+			IEEE80211_HE_PHY_CAP3_DCM_MAX_RX_NSS_1,
+		.phy_cap_info[4] =
+			IEEE80211_HE_PHY_CAP4_SU_BEAMFORMEE |
+			IEEE80211_HE_PHY_CAP4_BEAMFORMEE_MAX_STS_UNDER_80MHZ_4 ,
+		.phy_cap_info[5] =
+			IEEE80211_HE_PHY_CAP5_NG16_SU_FEEDBACK |
+			IEEE80211_HE_PHY_CAP5_NG16_MU_FEEDBACK,
+		.phy_cap_info[6] =
+			IEEE80211_HE_PHY_CAP6_CODEBOOK_SIZE_42_SU  |
+			IEEE80211_HE_PHY_CAP6_CODEBOOK_SIZE_75_MU  |
+			IEEE80211_HE_PHY_CAP6_TRIG_SU_BEAMFORMING_FB  |
+			IEEE80211_HE_PHY_CAP6_TRIG_MU_BEAMFORMING_PARTIAL_BW_FB |
+			IEEE80211_HE_PHY_CAP6_TRIG_CQI_FB |
+			IEEE80211_HE_PHY_CAP6_PARTIAL_BW_EXT_RANGE,
+		.phy_cap_info[7] =
+			IEEE80211_HE_PHY_CAP7_HE_SU_MU_PPDU_4XLTF_AND_08_US_GI ,
+		.phy_cap_info[8] =
+			IEEE80211_HE_PHY_CAP8_HE_ER_SU_PPDU_4XLTF_AND_08_US_GI |
+			IEEE80211_HE_PHY_CAP8_20MHZ_IN_40MHZ_HE_PPDU_IN_2G |
+			IEEE80211_HE_PHY_CAP8_HE_ER_SU_1XLTF_AND_08_US_GI,
+		.phy_cap_info[9] =
+			IEEE80211_HE_PHY_CAP9_NON_TRIGGERED_CQI_FEEDBACK |
+			IEEE80211_HE_PHY_CAP9_RX_FULL_BW_SU_USING_MU_WITH_COMP_SIGB |
+			IEEE80211_HE_PHY_CAP9_RX_FULL_BW_SU_USING_MU_WITH_NON_COMP_SIGB |
+			IEEE80211_HE_PHY_CAP9_NOMINAL_PKT_PADDING_16US,
 		},
+		/*
+			* Set default Tx/Rx HE MCS NSS Support field.
+			* Indicate support for up to 2 spatial streams and all
+			* MCS, without any special cases
+			*/
+		.he_mcs_nss_supp = {
+			.rx_mcs_80 = cpu_to_le16(0xfffc),
+			.tx_mcs_80 = cpu_to_le16(0xfffc),
+			.rx_mcs_160 = cpu_to_le16(0xffff),
+			.tx_mcs_160 = cpu_to_le16(0xffff),
+			.rx_mcs_80p80 = cpu_to_le16(0xffff),
+			.tx_mcs_80p80 = cpu_to_le16(0xffff),
+		},
+		/*
+			* Set default PPE thresholds, with PPET16 set to 0,
+			* PPET8 set to 7
+			*/
+		.ppe_thres = {0xff, 0xff, 0xff, 0xff},
 	},
-};
+}};
 
 static struct ieee80211_supported_band cc33xx_band_5ghz = {
 	.channels = cc33xx_channels_5ghz,
@@ -523,8 +529,8 @@ static struct ieee80211_supported_band cc33xx_band_5ghz = {
 	.n_bitrates = ARRAY_SIZE(cc33xx_rates_5ghz),
 	.vht_cap = {
 		.vht_supported = true,
-		.cap = (IEEE80211_VHT_CAP_MAX_MPDU_LENGTH_7991 |
-			(1 << IEEE80211_VHT_CAP_MAX_A_MPDU_LENGTH_EXPONENT_SHIFT)),
+		.cap = (IEEE80211_VHT_CAP_MAX_MPDU_LENGTH_7991 | (1 <<
+			IEEE80211_VHT_CAP_MAX_A_MPDU_LENGTH_EXPONENT_SHIFT)),
 		.vht_mcs = {
 			.rx_mcs_map = cpu_to_le16(0xfffc),
 			.rx_highest = 7,
@@ -537,14 +543,13 @@ static struct ieee80211_supported_band cc33xx_band_5ghz = {
 
 };
 
-
-
 static void __cc33xx_op_remove_interface(struct cc33xx *wl,
 					 struct ieee80211_vif *vif,
 					 bool reset_tx_queues);
 static void cc33xx_turn_off(struct cc33xx *wl);
 static void cc33xx_free_ap_keys(struct cc33xx *wl, struct cc33xx_vif *wlvif);
-static int process_core_status(struct cc33xx *wl, struct core_status *core_status);
+static int process_core_status(struct cc33xx *wl,
+			       struct core_status *core_status);
 static int cc33xx_setup(struct cc33xx *wl);
 
 static int cc33xx_set_authorized(struct cc33xx *wl, struct cc33xx_vif *wlvif)
@@ -581,8 +586,8 @@ static void cc33xx_reg_notify(struct wiphy *wiphy,
 	wlcore_regdomain_config(wl);
 }
 
-static int cc33xx_set_rx_streaming(struct cc33xx *wl, struct cc33xx_vif *wlvif,
-				   bool enable)
+static int cc33xx_set_rx_streaming(struct cc33xx *wl,
+				   struct cc33xx_vif *wlvif, bool enable)
 {
 	int ret = 0;
 
@@ -613,12 +618,11 @@ int cc33xx_recalc_rx_streaming(struct cc33xx *wl, struct cc33xx_vif *wlvif)
 		goto out;
 
 	/* reconfigure/disable according to new streaming_period */
-	if (period &&
-	    test_bit(WLVIF_FLAG_STA_ASSOCIATED, &wlvif->flags) &&
+	if (period && test_bit(WLVIF_FLAG_STA_ASSOCIATED, &wlvif->flags) &&
 	    (wl->conf.host_conf.rx_streaming.always ||
-	     test_bit(CC33XX_FLAG_SOFT_GEMINI, &wl->flags)))
+	    test_bit(CC33XX_FLAG_SOFT_GEMINI, &wl->flags))) {
 		ret = cc33xx_set_rx_streaming(wl, wlvif, true);
-	else {
+	} else {
 		ret = cc33xx_set_rx_streaming(wl, wlvif, false);
 		/* don't cancel_work_sync since we might deadlock */
 		del_timer_sync(&wlvif->rx_streaming_timer);
@@ -639,7 +643,7 @@ static void cc33xx_rx_streaming_enable_work(struct work_struct *work)
 	if (test_bit(WLVIF_FLAG_RX_STREAMING_STARTED, &wlvif->flags) ||
 	    !test_bit(WLVIF_FLAG_STA_ASSOCIATED, &wlvif->flags) ||
 	    (!wl->conf.host_conf.rx_streaming.always &&
-	     !test_bit(CC33XX_FLAG_SOFT_GEMINI, &wl->flags)))
+	    !test_bit(CC33XX_FLAG_SOFT_GEMINI, &wl->flags)))
 		goto out;
 
 	if (!wl->conf.host_conf.rx_streaming.interval)
@@ -650,8 +654,8 @@ static void cc33xx_rx_streaming_enable_work(struct work_struct *work)
 		goto out;
 
 	/* stop it after some time of inactivity */
-	mod_timer(&wlvif->rx_streaming_timer,
-		  jiffies + msecs_to_jiffies(wl->conf.host_conf.rx_streaming.duration));
+	mod_timer(&wlvif->rx_streaming_timer, jiffies +
+		msecs_to_jiffies( wl->conf.host_conf.rx_streaming.duration));
 
 out:
 	mutex_unlock(&wl->mutex);
@@ -677,9 +681,9 @@ out:
 	mutex_unlock(&wl->mutex);
 }
 
-static void cc33xx_rx_streaming_timer(struct timer_list *t)
+static void cc33xx_rx_streaming_timer(struct timer_list *timers)
 {
-	struct cc33xx_vif *wlvif = from_timer(wlvif, t, rx_streaming_timer);
+	struct cc33xx_vif *wlvif = from_timer(wlvif,timers, rx_streaming_timer);
 	struct cc33xx *wl = wlvif->wl;
 	ieee80211_queue_work(wl->hw, &wlvif->rx_streaming_disable_work);
 }
@@ -696,8 +700,7 @@ void cc33xx_rearm_tx_watchdog_locked(struct cc33xx *wl)
 		msecs_to_jiffies(wl->conf.host_conf.tx.tx_watchdog_timeout));
 }
 
-static void cc33xx_sta_rc_update(struct cc33xx *wl,
-				 struct cc33xx_vif *wlvif)
+static void cc33xx_sta_rc_update(struct cc33xx *wl, struct cc33xx_vif *wlvif)
 {
 	bool wide = wlvif->rc_update_bw >= IEEE80211_STA_RX_BW_40;
 
@@ -748,85 +751,24 @@ out:
 	mutex_unlock(&wl->mutex);
 }
 
-static void cc33xx_tx_watchdog_work(struct work_struct *work)
+static inline void cc33xx_tx_watchdog_work(struct work_struct *work)
 {
-	struct delayed_work *dwork;
-	struct cc33xx *wl;
-
-	dwork = to_delayed_work(work);
-	wl = container_of(dwork, struct cc33xx, tx_watchdog_work);
-
-
-	mutex_lock(&wl->mutex);
-
-	// michal temp - ignore watchdog
-	    goto out;
-
-	if (unlikely(wl->state != WLCORE_STATE_ON))
-		goto out;
-
-	/* Tx went out in the meantime - everything is ok */
-	if (unlikely(wl->tx_allocated_blocks == 0))
-		goto out;
-
-	/*
-	 * if a ROC is in progress, we might not have any Tx for a long
-	 * time (e.g. pending Tx on the non-ROC channels)
-	 */
-	if (find_first_bit(wl->roc_map, CC33XX_MAX_ROLES) < CC33XX_MAX_ROLES) {
-		cc33xx_debug(DEBUG_TX, "No Tx (in FW) for %d ms due to ROC",
-			     wl->conf.host_conf.tx.tx_watchdog_timeout);
-		cc33xx_rearm_tx_watchdog_locked(wl);
-		goto out;
-	}
-
-	/*
-	 * if a scan is in progress, we might not have any Tx for a long
-	 * time
-	 */
-	if (wl->scan.state != CC33XX_SCAN_STATE_IDLE) {
-		cc33xx_debug(DEBUG_TX, "No Tx (in FW) for %d ms due to scan",
-			     wl->conf.host_conf.tx.tx_watchdog_timeout);
-		cc33xx_rearm_tx_watchdog_locked(wl);
-		goto out;
-	}
-
-	/*
-	* AP might cache a frame for a long time for a sleeping station,
-	* so rearm the timer if there's an AP interface with stations. If
-	* Tx is genuinely stuck we will most hopefully discover it when all
-	* stations are removed due to inactivity.
-	*/
-	if (wl->active_sta_count) {
-		cc33xx_debug(DEBUG_TX, "No Tx (in FW) for %d ms. AP has "
-			     " %d stations",
-			      wl->conf.host_conf.tx.tx_watchdog_timeout,
-			      wl->active_sta_count);
-		cc33xx_rearm_tx_watchdog_locked(wl);
-		goto out;
-	}
-
-	cc33xx_error("Tx stuck (in FW) for %d ms. Starting recovery",
-		     wl->conf.host_conf.tx.tx_watchdog_timeout);
-	cc33xx_queue_recovery_work(wl);
-
-out:
-	mutex_unlock(&wl->mutex);
+	container_of(to_delayed_work(work), struct cc33xx, tx_watchdog_work);
 }
 
 static void wlcore_adjust_conf(struct cc33xx *wl)
 {
-
+	struct conf_fwlog *fw_log = &wl->conf.host_conf.fwlog;
 	if (fwlog_param) {
 		if (!strcmp(fwlog_param, "continuous")) {
-			wl->conf.host_conf.fwlog.mode = CC33XX_FWLOG_CONTINUOUS;
-			wl->conf.host_conf.fwlog.output = CC33XX_FWLOG_OUTPUT_HOST;
+			fw_log->mode = CC33XX_FWLOG_CONTINUOUS;
+			fw_log->output = CC33XX_FWLOG_OUTPUT_HOST;
 		} else if (!strcmp(fwlog_param, "dbgpins")) {
-			wl->conf.host_conf.fwlog.mode = CC33XX_FWLOG_CONTINUOUS;
-			wl->conf.host_conf.fwlog.output = CC33XX_FWLOG_OUTPUT_DBG_PINS;
+			fw_log->mode = CC33XX_FWLOG_CONTINUOUS;
+			fw_log->output = CC33XX_FWLOG_OUTPUT_DBG_PINS;
 		} else if (!strcmp(fwlog_param, "disable")) {
-			wl->conf.host_conf.fwlog.mem_blocks = 0;
-			wl->conf.host_conf.fwlog.output = CC33XX_FWLOG_OUTPUT_NONE;
+			fw_log->mem_blocks = 0;
+			fw_log->output = CC33XX_FWLOG_OUTPUT_NONE;
 		} else {
 			cc33xx_error("Unknown fwlog parameter %s", fwlog_param);
 		}
@@ -841,9 +783,9 @@ void cc33xx_flush_deferred_work(struct cc33xx *wl)
 	struct sk_buff *skb;
 
 	/* Pass all received frames to the network stack */
-	while ((skb = skb_dequeue(&wl->deferred_rx_queue)))
-	{
-	    cc33xx_debug(DEBUG_RX, "cc33xx_flush_deferred_work rx skb 0x%p", skb);
+	while ((skb = skb_dequeue(&wl->deferred_rx_queue))) {
+		cc33xx_debug(DEBUG_RX,
+			     "cc33xx_flush_deferred_work rx skb 0x%p", skb);
 		ieee80211_rx_ni(wl->hw, skb);
 	}
 
@@ -854,15 +796,12 @@ void cc33xx_flush_deferred_work(struct cc33xx *wl)
 
 static void cc33xx_netstack_work(struct work_struct *work)
 {
-	struct cc33xx *wl =
-		container_of(work, struct cc33xx, netstack_work);
+	struct cc33xx *wl = container_of(work, struct cc33xx, netstack_work);
 
 	do {
 		cc33xx_flush_deferred_work(wl);
 	} while (skb_queue_len(&wl->deferred_rx_queue));
 }
-
-
 
 static int wlcore_irq_locked(struct cc33xx *wl)
 {
@@ -891,65 +830,64 @@ static int wlcore_irq_locked(struct cc33xx *wl)
 		const int read_headers_len = sizeof(struct core_status)
 			+ sizeof(struct NAB_rx_header);
 
-		// Read aggressively as more data might be coming in
+		/* Read aggressively as more data might be coming in */
 		rx_byte_count *= 2;
 
 		read_data_len = rx_byte_count + read_headers_len;
 
-		if (wl->max_transaction_len) // Used in SPI interface
-		{
+		if (wl->max_transaction_len) { /* Used in SPI interface */
 			const int spi_alignment = sizeof (u32) - 1;
-			read_data_len = __ALIGN_MASK(read_data_len, spi_alignment);
-			read_data_len = min(read_data_len, wl->max_transaction_len);
-		}
-		else // SDIO
-		{
+			read_data_len = __ALIGN_MASK(read_data_len,
+						     spi_alignment);
+			read_data_len = min(read_data_len,
+					    wl->max_transaction_len);
+		} else { /* SDIO */
 			const int sdio_alignment = CC33XX_BUS_BLOCK_SIZE-1;
-			read_data_len = __ALIGN_MASK(read_data_len, sdio_alignment);
-			read_data_len = min(read_data_len, maximum_rx_packet_size);
+			read_data_len = __ALIGN_MASK(read_data_len,
+						     sdio_alignment);
+			read_data_len = min(read_data_len,
+					    maximum_rx_packet_size);
 		}
 
-		ret = wlcore_raw_read(wl, NAB_DATA_ADDR,
-					wl->aggr_buf, read_data_len, true);
-		if (ret < 0)
-		{
-			cc33xx_debug(DEBUG_IRQ, "rx read Error response 0x%x", ret);
+		ret = wlcore_raw_read(wl, NAB_DATA_ADDR, wl->aggr_buf,
+				      read_data_len, true);
+		if (ret < 0) {
+			cc33xx_debug(DEBUG_IRQ,
+				     "rx read Error response 0x%x", ret);
 			release_core_status_lock(wl);
 			return ret;
 		}
 
-		core_status_ptr = (struct core_status *)
-			((u8 *)wl->aggr_buf + read_data_len - sizeof(struct core_status));
+		core_status_ptr = (struct core_status *)((u8 *)wl->aggr_buf +
+				    read_data_len - sizeof(struct core_status));
 
 		memcpy(wl->core_status,
 			core_status_ptr, sizeof(struct core_status));
 
-		cc33xx_debug(DEBUG_IRQ, "IRQ locked work: call process_core_status");
+		cc33xx_debug(DEBUG_IRQ,
+			     "IRQ locked work: call process_core_status");
 		process_core_status(wl, wl->core_status);
 
-		cc33xx_debug(DEBUG_IRQ, "IRQ locked work: Releasing core-status lock");
+		cc33xx_debug(DEBUG_IRQ,
+			     "IRQ locked work: Releasing core-status lock");
 		release_core_status_lock(wl);
 
 		cc33xx_debug(DEBUG_IRQ, "read rx data 0x%x", ret);
 		NAB_rx_header = (struct NAB_rx_header *)wl->aggr_buf;
 		rx_buf_len = NAB_rx_header->len - 8; // michal fix
-		if (rx_buf_len != 0)
-		{
-			rx_buf_ptr = (u8 *)wl->aggr_buf + sizeof(struct NAB_rx_header);
+		if (rx_buf_len != 0) {
+			rx_buf_ptr = (u8 *)wl->aggr_buf +
+						sizeof(struct NAB_rx_header);
 			cc33xx_debug(DEBUG_IRQ,"calling rx code!");
 			wlcore_rx(wl, rx_buf_ptr, rx_buf_len);
 			cc33xx_debug(DEBUG_IRQ,"finished rx code!");
-		}
-		else
-		{
+		} else {
 			cc33xx_error("Rx buffer length is 0");
 			cc33xx_queue_recovery_work(wl);
 		}
-	}
-	else
-	{
-		cc33xx_debug(DEBUG_IRQ,
-			"IRQ locked work: No rx data, releasing core-status lock");
+	} else {
+		cc33xx_debug(DEBUG_IRQ, "IRQ locked work: No rx data, "
+			     "releasing core-status lock");
 		release_core_status_lock(wl);
 	}
 
@@ -963,11 +901,11 @@ static int read_core_status(struct cc33xx *wl, struct core_status *core_status)
 	cc33xx_debug(DEBUG_CORE_STATUS, "Reading core status");
 
 	return wlcore_raw_read(wl, NAB_STATUS_ADDR, core_status,
-				sizeof *core_status, false);
+			       sizeof *core_status, false);
 }
 
 static int parse_control_message(struct cc33xx *wl,
-				const u8 *buffer, size_t buffer_length)
+				 const u8 *buffer, size_t buffer_length)
 {
 	u8 *const end_of_payload = (u8 *const) buffer + buffer_length;
 	u8 *const start_of_payload = (u8 *const) buffer;
@@ -977,7 +915,7 @@ static int parse_control_message(struct cc33xx *wl,
 
 	while(buffer < end_of_payload){
 		control_info_descriptor =
-			(struct control_info_descriptor *) buffer;
+				(struct control_info_descriptor *) buffer;
 
 		ctrl_info_type = le16_to_cpu(control_info_descriptor->type);
 		ctrl_info_length = le16_to_cpu(control_info_descriptor->length);
@@ -994,14 +932,15 @@ static int parse_control_message(struct cc33xx *wl,
 			break;
 
 		case CTRL_MSG_COMMND_COMPLETE:
-			cmd_result_data =
-				buffer + sizeof *control_info_descriptor;
+			cmd_result_data = buffer;
+			cmd_result_data += sizeof *control_info_descriptor;
 
 			if (ctrl_info_length > sizeof wl->command_result){
 
 				print_hex_dump(KERN_DEBUG, "message dump:",
-					DUMP_PREFIX_OFFSET, 16, 1,
-					cmd_result_data, ctrl_info_length, false);
+					       DUMP_PREFIX_OFFSET, 16, 1,
+					       cmd_result_data,
+					       ctrl_info_length, false);
 
 				WARN(1, "Error device response exceeds result "
 					"buffer size");
@@ -1009,7 +948,8 @@ static int parse_control_message(struct cc33xx *wl,
 				goto message_parse_error;
 			}
 
-			memcpy(wl->command_result, cmd_result_data, ctrl_info_length);
+			memcpy(wl->command_result,
+			       cmd_result_data, ctrl_info_length);
 
 			wl->result_length = ctrl_info_length;
 
@@ -1047,10 +987,11 @@ static int read_control_message(struct cc33xx *wl, u8 *read_buffer,
 	cc33xx_debug(DEBUG_CMD, "Reading control info");
 
 	ret = wlcore_raw_read(wl, NAB_CONTROL_ADDR, read_buffer,
-				buffer_size, false);
+			      buffer_size, false);
 
 	if (ret < 0){
-		cc33xx_debug(DEBUG_CMD, "control read Error response 0x%x", ret);
+		cc33xx_debug(DEBUG_CMD,
+			     "control read Error response 0x%x", ret);
 		return ret;
 	}
 
@@ -1058,13 +999,12 @@ static int read_control_message(struct cc33xx *wl, u8 *read_buffer,
 
 	if (nab_header->sync_pattern != DEVICE_SYNC_PATTERN){
 		cc33xx_error("Wrong device sync pattern: 0x%x",
-			nab_header->sync_pattern);
+			     nab_header->sync_pattern);
 		return -EIO;
 	}
 
-	device_message_size = 	sizeof *nab_header +
-				NAB_EXTRA_BYTES +
-				nab_header->len;
+	device_message_size = sizeof *nab_header + NAB_EXTRA_BYTES
+							+ nab_header->len;
 
 	if (device_message_size > buffer_size){
 		cc33xx_error("Invalid NAB length field: %x", nab_header->len);
@@ -1120,10 +1060,9 @@ static int verify_padding(struct core_status *core_status)
 	for (i=0; i<ARRAY_SIZE(core_status->block_pad); i++){
 		if (core_status->block_pad[i] != valid_padding){
 			cc33xx_error("Error in core status padding:");
-			print_hex_dump(KERN_DEBUG, "",
-				DUMP_PREFIX_OFFSET, 16, 1,
-				core_status,
-				sizeof *core_status, false);
+			print_hex_dump(KERN_DEBUG, "", DUMP_PREFIX_OFFSET, 16,
+				       1, core_status, sizeof *core_status,
+				       false);
 			return -1;
 		}
 	}
@@ -1132,7 +1071,7 @@ static int verify_padding(struct core_status *core_status)
 }
 
 static int process_core_status(struct cc33xx *wl,
-				struct core_status *core_status)
+			       struct core_status *core_status)
 {
 	bool 	core_status_idle;
 	u32	shadow_host_interrupt_status;
@@ -1142,17 +1081,16 @@ static int process_core_status(struct cc33xx *wl,
 		core_status_idle = true;
 
 		shadow_host_interrupt_status =
-			core_status->host_interrupt_status;
+					core_status->host_interrupt_status;
 
 		/* Interrupts are aggregated (ORed) in this filed with each
 		   read operation from the device. */
-		core_status->host_interrupt_status=0;
+		core_status->host_interrupt_status = 0;
 
 		cc33xx_debug(DEBUG_IRQ,
-			"HINT_STATUS: 0x%x, TSF: 0x%x, rx status: 0x%x",
-			shadow_host_interrupt_status,
-			core_status->tsf,
-			core_status->rx_status);
+			     "HINT_STATUS: 0x%x, TSF: 0x%x, rx status: 0x%x",
+			     shadow_host_interrupt_status, core_status->tsf,
+			     core_status->rx_status);
 
 		if (shadow_host_interrupt_status & HINT_COMMAND_COMPLETE){
 			ret = process_event_and_cmd_result(wl, core_status);
@@ -1164,21 +1102,21 @@ static int process_core_status(struct cc33xx *wl,
 		}
 
 		if ((core_status->rx_status & RX_BYTE_COUNT_MASK) != 0){
-			cc33xx_debug(DEBUG_RX,
-				"Rx data pending, triggering deferred work");
+			cc33xx_debug(DEBUG_RX, "Rx data pending, "
+				     "triggering deferred work");
 			queue_work(wl->freezable_wq, &wl->irq_deferred_work);
 		}
 
 		if (core_status->fwInfo.txResultQueueIndex
 						!= wl->last_fw_rls_idx){
-			cc33xx_debug(DEBUG_TX,
-			"Tx new result, triggering deferred work");
+			cc33xx_debug(DEBUG_TX, "Tx new result, "
+				     "triggering deferred work");
 			queue_work(wl->freezable_wq, &wl->irq_deferred_work);
 		}
 
 		if (shadow_host_interrupt_status &  HINT_NEW_TX_RESULT){
-			cc33xx_debug(DEBUG_TX,
-			"Tx complete, triggering deferred work");
+			cc33xx_debug(DEBUG_TX, "Tx complete, "
+				     "triggering deferred work");
 			queue_work(wl->freezable_wq, &wl->irq_deferred_work);
 		}
 
@@ -1191,22 +1129,30 @@ static int process_core_status(struct cc33xx *wl,
 			cc33xx_error("FW is stuck, triggering recovery");
 			cc33xx_queue_recovery_work(wl);
 		}
-
-	}while (!core_status_idle);
+	} while (!core_status_idle);
 
 	return 0;
 }
 
-
 void wlcore_irq(void *cookie)
 {
 	struct cc33xx *wl = cookie;
+	unsigned long flags;
 	int ret;
 
 	cc33xx_debug(DEBUG_IRQ, "wlcore_irq invoked");
 	claim_core_status_lock(wl);
 	cc33xx_debug(DEBUG_IRQ, "wlcore_irq: Core-status locked");
 
+	if (test_bit(CC33XX_FLAG_SUSPENDED, &wl->flags)) {
+		/* don't enqueue a work right now. mark it as pending */
+		set_bit(CC33XX_FLAG_PENDING_WORK, &wl->flags);
+		spin_lock_irqsave(&wl->wl_lock, flags);
+		wlcore_disable_interrupts_nosync(wl);
+		pm_wakeup_hard_event(wl->dev);
+		spin_unlock_irqrestore(&wl->wl_lock, flags);
+		goto out;
+	}
 
 	ret = read_core_status(wl, wl->core_status);
 	if (unlikely(ret < 0)){
@@ -1247,8 +1193,8 @@ static void cc33xx_vif_count_iter(void *data, u8 *mac,
 
 /* caller must not hold wl->mutex, as it might deadlock */
 static void cc33xx_get_vif_count(struct ieee80211_hw *hw,
-			       struct ieee80211_vif *cur_vif,
-			       struct vif_counter_data *data)
+				 struct ieee80211_vif *cur_vif,
+				 struct vif_counter_data *data)
 {
 	memset(data, 0, sizeof(*data));
 	data->cur_vif = cur_vif;
@@ -1261,25 +1207,10 @@ void cc33xx_queue_recovery_work(struct cc33xx *wl)
 {
 	/* Avoid a recursive recovery */
 	if (wl->state == WLCORE_STATE_ON) {
-
 		wl->state = WLCORE_STATE_RESTARTING;
 		set_bit(CC33XX_FLAG_RECOVERY_IN_PROGRESS, &wl->flags);
 		ieee80211_queue_work(wl->hw, &wl->recovery_work);
 	}
-}
-
-size_t cc33xx_copy_fwlog(struct cc33xx *wl, u8 *memblock, size_t maxlen)
-{
-	size_t len;
-
-	/* Make sure we have enough room */
-	len = min_t(size_t, maxlen, PAGE_SIZE - wl->fwlog_size);
-
-	/* Fill the FW log file, consumed by the sysfs fwlog entry */
-	memcpy(wl->fwlog + wl->fwlog_size, memblock, len);
-	wl->fwlog_size += len;
-
-	return len;
 }
 
 static void wlcore_save_freed_pkts(struct cc33xx *wl, struct cc33xx_vif *wlvif,
@@ -1315,9 +1246,17 @@ static void wlcore_save_freed_pkts_addr(struct cc33xx *wl,
 
 	rcu_read_lock();
 	sta = ieee80211_find_sta(vif, addr);
+
 	if (sta)
 		wlcore_save_freed_pkts(wl, wlvif, hlid, sta);
+
 	rcu_read_unlock();
+}
+
+static void cc33xx_finalize_recovery(struct cc33xx *wl)
+{
+	wl->state = WLCORE_STATE_ON;
+	cc33xx_notice("Recovery complete");
 }
 
 static void cc33xx_recovery_work(struct work_struct *work)
@@ -1325,11 +1264,13 @@ static void cc33xx_recovery_work(struct work_struct *work)
 	struct cc33xx *wl = container_of(work, struct cc33xx, recovery_work);
 	struct cc33xx_vif *wlvif;
 	struct ieee80211_vif *vif;
+	u8 active_interfaces = wl->ap_count + wl->sta_count;
 
 	cc33xx_notice("Recovery work");
 
 	if (wl->conf.core.no_recovery) {
-		cc33xx_info("Recovery disabled by configuration, driver will not restart.");
+		cc33xx_info("Recovery disabled by configuration, "
+			    "driver will not restart.");
 		return;
 	}
 
@@ -1337,9 +1278,6 @@ static void cc33xx_recovery_work(struct work_struct *work)
 		cc33xx_info("Driver being removed, recovery disabled");
 		return;
 	}
-
-	wl->state = WLCORE_STATE_RESTARTING;
-	set_bit(CC33XX_FLAG_RECOVERY_IN_PROGRESS, &wl->flags);
 
 	mutex_lock(&wl->mutex);
 	while (!list_empty(&wl->wlvif_list)) {
@@ -1349,6 +1287,24 @@ static void cc33xx_recovery_work(struct work_struct *work)
 
 		if (test_bit(WLVIF_FLAG_STA_ASSOCIATED, &wlvif->flags))
 			ieee80211_connection_loss(vif);
+
+		if (test_bit(WLVIF_FLAG_AP_STARTED, &wlvif->flags)) {
+			struct ieee80211_sta *sta;
+			const u8 *addr;
+			int link_index;
+
+			for_each_set_bit(link_index, wlvif->ap.sta_hlid_map, CC33XX_MAX_LINKS) {
+				addr = wl->links[link_index].addr;
+
+				rcu_read_lock();
+				sta = ieee80211_find_sta(vif, addr);
+				if (sta) {
+					cc33xx_info("remove sta %d", link_index);
+					ieee80211_report_low_ack(sta, 0);
+				}
+				rcu_read_unlock();
+			}
+		}
 
 		__cc33xx_op_remove_interface(wl, vif, false);
 	}
@@ -1366,6 +1322,9 @@ static void cc33xx_recovery_work(struct work_struct *work)
 	mutex_lock(&wl->mutex);
 	clear_bit(CC33XX_FLAG_RECOVERY_IN_PROGRESS, &wl->flags);
 	mutex_unlock(&wl->mutex);
+
+	if(!active_interfaces)
+		cc33xx_finalize_recovery(wl);
 }
 
 static void irq_deferred_work(struct work_struct *work)
@@ -1393,7 +1352,8 @@ static void irq_deferred_work(struct work_struct *work)
 		ieee80211_queue_work(wl->hw, &wl->tx_work);
 	spin_unlock_irqrestore(&wl->wl_lock, flags);
 
-	cc33xx_debug(DEBUG_IRQ,"Finish IRQ deffered work. going to release semaphore");
+	cc33xx_debug(DEBUG_IRQ,
+		     "Finish IRQ deffered work. going to release semaphore");
 
 	mutex_unlock(&wl->mutex);
 }
@@ -1407,7 +1367,7 @@ static void irq_wrapper(struct platform_device *pdev)
 	wlcore_irq(wl);
 }
 
- int cc33xx_plt_init(struct cc33xx *wl)
+int cc33xx_plt_init(struct cc33xx *wl)
 {
 	/* PLT init: Role enable + Role start + plt Init  */
 	int ret=0;
@@ -1418,18 +1378,16 @@ static void irq_wrapper(struct platform_device *pdev)
 
 	ret = cc33xx_cmd_role_enable(wl, bcast_addr,
 					ROLE_TRANSCEIVER, &returned_role_id);
-	if(ret < 0)
-	{
+	if(ret < 0) {
 		cc33xx_info("PLT init Role Enable FAILED! , PLT roleID is: %u ",
-				returned_role_id);
+			    returned_role_id);
 		goto out;
 	}
 
 	ret = cc33xx_cmd_role_start_transceiver(wl, returned_role_id);
-	if(ret < 0)
-	{
+	if(ret < 0) {
 		cc33xx_info("PLT init Role Start FAILED! , PLT roleID is: %u ",
-				returned_role_id);
+			    returned_role_id);
 		cc33xx_cmd_role_disable(wl, &returned_role_id);
 		goto out;
 	}
@@ -1437,15 +1395,12 @@ static void irq_wrapper(struct platform_device *pdev)
 	wl->plt_role_id = returned_role_id;
 	ret = cc33xx_cmd_plt_enable(wl, returned_role_id);
 
-	if(ret >= 0)
-	{
+	if(ret >= 0) {
 		cc33xx_info("PLT init Role Start succeed!, PLT roleID is: %u ",
-				returned_role_id);
-	}
-	else
-	{
+			    returned_role_id);
+	} else {
 		cc33xx_info("PLT init Role Start FAILED! , PLT roleID is: %u ",
-				returned_role_id);
+			    returned_role_id);
 	}
 
 out:
@@ -1458,8 +1413,7 @@ int cc33xx_plt_start(struct cc33xx *wl, const enum plt_mode plt_mode)
 
 	mutex_lock(&wl->mutex);
 
-	if(plt_mode == PLT_ON && wl->plt_mode == PLT_ON)
-	{
+	if(plt_mode == PLT_ON && wl->plt_mode == PLT_ON) {
 		cc33xx_error("PLT already on");
 		ret = 0;
 		goto out;
@@ -1469,7 +1423,7 @@ int cc33xx_plt_start(struct cc33xx *wl, const enum plt_mode plt_mode)
 
 	if (plt_mode != PLT_CHIP_AWAKE) {
 		ret = cc33xx_plt_init(wl);
-		if (ret < 0){
+		if (ret < 0) {
 			cc33xx_error("PLT start failed");
 			goto out;
 		}
@@ -1523,6 +1477,7 @@ static void cc33xx_op_tx(struct ieee80211_hw *hw,
 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
 	struct ieee80211_vif *vif = info->control.vif;
 	struct cc33xx_vif *wlvif = NULL;
+	enum queue_stop_reason stop_reason = WLCORE_QUEUE_STOP_REASON_WATERMARK;
 	unsigned long flags;
 	int q, mapping;
 	u8 hlid;
@@ -1547,11 +1502,11 @@ static void cc33xx_op_tx(struct ieee80211_hw *hw,
 	 * allow these packets through.
 	 */
 
-	if (hlid == CC33XX_INVALID_LINK_ID ||
+	if ((hlid == CC33XX_INVALID_LINK_ID) ||
 	    (!test_bit(hlid, wlvif->links_map)) ||
-	     (wlcore_is_queue_stopped_locked(wl, wlvif, q) &&
-	      !wlcore_is_queue_stopped_by_reason_locked(wl, wlvif, q,
-			WLCORE_QUEUE_STOP_REASON_WATERMARK))) {
+	    (wlcore_is_queue_stopped_locked(wl, wlvif, q) &&
+	    !wlcore_is_queue_stopped_by_reason_locked(wl, wlvif, q,
+						      stop_reason))) {
 		cc33xx_debug(DEBUG_TX, "DROP skb hlid %d q %d ", hlid, q);
 		ieee80211_free_txskb(hw, skb);
 		goto out;
@@ -1570,10 +1525,9 @@ static void cc33xx_op_tx(struct ieee80211_hw *hw,
 	 */
 	if (wlvif->tx_queue_count[q] >= CC33XX_TX_QUEUE_HIGH_WATERMARK &&
 	    !wlcore_is_queue_stopped_by_reason_locked(wl, wlvif, q,
-					WLCORE_QUEUE_STOP_REASON_WATERMARK)) {
+						      stop_reason)) {
 		cc33xx_debug(DEBUG_TX, "op_tx: stopping queues for q %d", q);
-		wlcore_stop_queue_locked(wl, wlvif, q,
-					 WLCORE_QUEUE_STOP_REASON_WATERMARK);
+		wlcore_stop_queue_locked(wl, wlvif, q, stop_reason);
 	}
 
 	/*
@@ -1582,45 +1536,16 @@ static void cc33xx_op_tx(struct ieee80211_hw *hw,
 	 */
 	cc33xx_debug(DEBUG_TX, "TX Call queue work");
 	if (!test_bit(CC33XX_FLAG_FW_TX_BUSY, &wl->flags) &&
-	    !test_bit(CC33XX_FLAG_TX_PENDING, &wl->flags))
-	{
-	    cc33xx_debug(DEBUG_TX, "trigger tx thread!");
+	    !test_bit(CC33XX_FLAG_TX_PENDING, &wl->flags)) {
+		cc33xx_debug(DEBUG_TX, "trigger tx thread!");
 		ieee80211_queue_work(wl->hw, &wl->tx_work);
-	}
-	else
-	{
-	    cc33xx_debug(DEBUG_TX, "dont trigger tx thread! wl->flags 0x%lx",wl->flags);
+	} else {
+		cc33xx_debug(DEBUG_TX,"dont trigger tx thread! wl->flags 0x%lx",
+			     wl->flags);
 	}
 
 out:
 	spin_unlock_irqrestore(&wl->wl_lock, flags);
-}
-
-int cc33xx_tx_dummy_packet(struct cc33xx *wl)
-{
-	unsigned long flags;
-	int q;
-
-	/* no need to queue a new dummy packet if one is already pending */
-	if (test_bit(CC33XX_FLAG_DUMMY_PACKET_PENDING, &wl->flags))
-		return 0;
-
-	q = cc33xx_tx_get_queue(skb_get_queue_mapping(wl->dummy_packet));
-
-	spin_lock_irqsave(&wl->wl_lock, flags);
-	set_bit(CC33XX_FLAG_DUMMY_PACKET_PENDING, &wl->flags);
-	wl->tx_queue_count[q]++;
-	spin_unlock_irqrestore(&wl->wl_lock, flags);
-
-	/* The FW is low on RX memory blocks, so send the dummy packet asap */
-	if (!test_bit(CC33XX_FLAG_FW_TX_BUSY, &wl->flags))
-		return wlcore_tx_work_locked(wl);
-
-	/*
-	 * If the FW TX is busy, TX work will be scheduled by the threaded
-	 * interrupt handler function
-	 */
-	return 0;
 }
 
 /*
@@ -1664,9 +1589,7 @@ static struct sk_buff *cc33xx_alloc_dummy_packet(struct cc33xx *wl)
 	return skb;
 }
 
-
-static int
-cc33xx_validate_wowlan_pattern(struct cfg80211_pkt_pattern *p)
+static int cc33xx_validate_wowlan_pattern(struct cfg80211_pkt_pattern *p)
 {
 	int num_fields = 0, in_field = 0, fields_size = 0;
 	int i, pattern_len = 0;
@@ -1690,22 +1613,18 @@ cc33xx_validate_wowlan_pattern(struct cfg80211_pkt_pattern *p)
 			if (!in_field) {
 				in_field = 1;
 				pattern_len = 1;
-			} else {
-				if (i == CC33XX_RX_FILTER_ETH_HEADER_SIZE) {
+			} else if (i == CC33XX_RX_FILTER_ETH_HEADER_SIZE) {
 					num_fields++;
 					fields_size += pattern_len +
 						RX_FILTER_FIELD_OVERHEAD;
 					pattern_len = 1;
-				} else
-					pattern_len++;
+			} else {
+				pattern_len++;
 			}
-		} else {
-			if (in_field) {
-				in_field = 0;
-				fields_size += pattern_len +
-					RX_FILTER_FIELD_OVERHEAD;
-				num_fields++;
-			}
+		} else if (in_field) {
+			in_field = 0;
+			fields_size += pattern_len + RX_FILTER_FIELD_OVERHEAD;
+			num_fields++;
 		}
 	}
 
@@ -1745,9 +1664,8 @@ void cc33xx_rx_filter_free(struct cc33xx_rx_filter *filter)
 	kfree(filter);
 }
 
-int cc33xx_rx_filter_alloc_field(struct cc33xx_rx_filter *filter,
-				 u16 offset, u8 flags,
-				 const u8 *pattern, u8 len)
+int cc33xx_rx_filter_alloc_field(struct cc33xx_rx_filter *filter, u16 offset,
+				 u8 flags, const u8 *pattern, u8 len)
 {
 	struct cc33xx_rx_filter_field *field;
 
@@ -1778,16 +1696,15 @@ int cc33xx_rx_filter_get_fields_size(struct cc33xx_rx_filter *filter)
 {
 	int i, fields_size = 0;
 
-	for (i = 0; i < filter->num_fields; i++)
-		fields_size += filter->fields[i].len +
-			sizeof(struct cc33xx_rx_filter_field) -
-			sizeof(u8 *);
+	for (i = 0; i < filter->num_fields; i++) {
+		fields_size += filter->fields[i].len - sizeof(u8*)
+					+ sizeof(struct cc33xx_rx_filter_field);
+	}
 
 	return fields_size;
 }
 
-void cc33xx_rx_filter_flatten_fields(struct cc33xx_rx_filter *filter,
-				    u8 *buf)
+void cc33xx_rx_filter_flatten_fields(struct cc33xx_rx_filter *filter, u8 *buf)
 {
 	int i;
 	struct cc33xx_rx_filter_field *field;
@@ -1800,8 +1717,8 @@ void cc33xx_rx_filter_flatten_fields(struct cc33xx_rx_filter *filter,
 		field->len = filter->fields[i].len;
 
 		memcpy(&field->pattern, filter->fields[i].pattern, field->len);
-		buf += sizeof(struct cc33xx_rx_filter_field) -
-			sizeof(u8 *) + field->len;
+		buf += sizeof(struct cc33xx_rx_filter_field) - sizeof(u8 *);
+		buf += field->len;
 	}
 }
 
@@ -1851,9 +1768,7 @@ cc33xx_convert_wowlan_pattern_to_rx_filter(struct cfg80211_pkt_pattern *p,
 
 		len = j - i;
 
-		ret = cc33xx_rx_filter_alloc_field(filter,
-						   offset,
-						   flags,
+		ret = cc33xx_rx_filter_alloc_field(filter, offset, flags,
 						   &p->pattern[i], len);
 		if (ret)
 			goto err;
@@ -1864,12 +1779,13 @@ cc33xx_convert_wowlan_pattern_to_rx_filter(struct cfg80211_pkt_pattern *p,
 	filter->action = FILTER_SIGNAL;
 
 	*f = filter;
-	return 0;
+	ret = 0;
+	goto out;
 
 err:
 	cc33xx_rx_filter_free(filter);
 	*f = NULL;
-
+out:
 	return ret;
 }
 
@@ -1878,8 +1794,25 @@ static int cc33xx_configure_wowlan(struct cc33xx *wl,
 {
 	int i, ret;
 
-	if (!wow || wow->any || !wow->n_patterns) {
+	if (!wow || (!wow->any && !wow->n_patterns)){
+		if (wow)
+			cc33xx_warning("invalid wow configuration -"
+			" set to pattern trigger without setting pattern");
+
 		ret = cc33xx_acx_default_rx_filter_enable(wl, 0,
+							  FILTER_SIGNAL);
+		if (ret)
+			goto out;
+
+		ret = cc33xx_rx_filter_clear_all(wl);
+		if (ret)
+			goto out;
+
+		return 0;
+	}
+
+	if (wow->any) {
+		ret = cc33xx_acx_default_rx_filter_enable(wl, 1,
 							  FILTER_SIGNAL);
 		if (ret)
 			goto out;
@@ -1942,6 +1875,7 @@ static int cc33xx_configure_suspend_sta(struct cc33xx *wl,
 					struct cc33xx_vif *wlvif,
 					struct cfg80211_wowlan *wow)
 {
+	struct cc33xx_core_conf *core_conf = &wl->conf.core;
 	int ret = 0;
 
 	if (!test_bit(WLVIF_FLAG_STA_ASSOCIATED, &wlvif->flags))
@@ -1951,26 +1885,23 @@ static int cc33xx_configure_suspend_sta(struct cc33xx *wl,
 	if (ret < 0)
 		goto out;
 
-	if ((wl->conf.core.suspend_wake_up_event ==
-	     wl->conf.core.wake_up_event) &&
-	    (wl->conf.core.suspend_listen_interval ==
-	     wl->conf.core.listen_interval))
+	if ((core_conf->suspend_wake_up_event == core_conf->wake_up_event) &&
+	    (core_conf->suspend_listen_interval == core_conf->listen_interval))
 		goto out;
 
 	ret = cc33xx_acx_wake_up_conditions(wl, wlvif,
-				    wl->conf.core.suspend_wake_up_event,
-				    wl->conf.core.suspend_listen_interval);
+					    core_conf->suspend_wake_up_event,
+					    core_conf->suspend_listen_interval);
 
 	if (ret < 0)
 		cc33xx_error("suspend: set wake up conditions failed: %d", ret);
 out:
 	return ret;
-
 }
 
 static int cc33xx_configure_suspend_ap(struct cc33xx *wl,
-					struct cc33xx_vif *wlvif,
-					struct cfg80211_wowlan *wow)
+				       struct cc33xx_vif *wlvif,
+				       struct cfg80211_wowlan *wow)
 {
 	int ret = 0;
 
@@ -1987,17 +1918,17 @@ static int cc33xx_configure_suspend_ap(struct cc33xx *wl,
 
 out:
 	return ret;
-
 }
 
-static int cc33xx_configure_suspend(struct cc33xx *wl,
-				    struct cc33xx_vif *wlvif,
+static int cc33xx_configure_suspend(struct cc33xx *wl, struct cc33xx_vif *wlvif,
 				    struct cfg80211_wowlan *wow)
 {
 	if (wlvif->bss_type == BSS_TYPE_STA_BSS)
 		return cc33xx_configure_suspend_sta(wl, wlvif, wow);
+
 	if (wlvif->bss_type == BSS_TYPE_AP_BSS)
 		return cc33xx_configure_suspend_ap(wl, wlvif, wow);
+
 	return 0;
 }
 
@@ -2006,6 +1937,7 @@ static void cc33xx_configure_resume(struct cc33xx *wl, struct cc33xx_vif *wlvif)
 	int ret = 0;
 	bool is_ap = wlvif->bss_type == BSS_TYPE_AP_BSS;
 	bool is_sta = wlvif->bss_type == BSS_TYPE_STA_BSS;
+	struct cc33xx_core_conf *core_conf = &wl->conf.core;
 
 	if ((!is_ap) && (!is_sta))
 		return;
@@ -2017,15 +1949,15 @@ static void cc33xx_configure_resume(struct cc33xx *wl, struct cc33xx_vif *wlvif)
 	cc33xx_configure_wowlan(wl, NULL);
 
 	if (is_sta) {
-		if ((wl->conf.core.suspend_wake_up_event ==
-		     wl->conf.core.wake_up_event) &&
-		    (wl->conf.core.suspend_listen_interval ==
-		     wl->conf.core.listen_interval))
+		if ((core_conf->suspend_wake_up_event ==
+		    core_conf->wake_up_event) &&
+		    (core_conf->suspend_listen_interval ==
+		    core_conf->listen_interval))
 			return;
 
 		ret = cc33xx_acx_wake_up_conditions(wl, wlvif,
-				    wl->conf.core.wake_up_event,
-				    wl->conf.core.listen_interval);
+						    core_conf->wake_up_event,
+						    core_conf->listen_interval);
 
 		if (ret < 0)
 			cc33xx_error("resume: wake up conditions failed: %d",
@@ -2077,7 +2009,7 @@ static int __maybe_unused cc33xx_op_suspend(struct ieee80211_hw *hw,
 
 	/* if filtering is enabled, configure the FW to drop all RX BA frames */
 	ret = cc33xx_acx_rx_ba_filter(wl,
-				     !!wl->conf.host_conf.conn.suspend_rx_ba_activity);
+			      !!wl->conf.host_conf.conn.suspend_rx_ba_activity);
 	if (ret < 0)
 		goto out;
 
@@ -2129,8 +2061,7 @@ static int __maybe_unused cc33xx_op_resume(struct ieee80211_hw *hw)
 	 */
 	spin_lock_irqsave(&wl->wl_lock, flags);
 	clear_bit(CC33XX_FLAG_SUSPENDED, &wl->flags);
-	if (test_and_clear_bit(CC33XX_FLAG_PENDING_WORK, &wl->flags))
-		run_irq_work = true;
+	run_irq_work = test_and_clear_bit(CC33XX_FLAG_PENDING_WORK, &wl->flags);
 	spin_unlock_irqrestore(&wl->wl_lock, flags);
 
 	mutex_lock(&wl->mutex);
@@ -2140,8 +2071,7 @@ static int __maybe_unused cc33xx_op_resume(struct ieee80211_hw *hw)
 				    &wl->flags);
 
 	if (run_irq_work) {
-		cc33xx_debug(DEBUG_MAC80211,
-			     "run postponed irq_work directly");
+		cc33xx_debug(DEBUG_MAC80211, "run postponed irq_work directly");
 
 		/* don't talk to the HW if recovery is pending */
 		if (!pending_recovery) {
@@ -2213,7 +2143,7 @@ static void cc33xx_turn_off(struct cc33xx *wl)
 
 	if (wl->state == WLCORE_STATE_OFF) {
 		if (test_and_clear_bit(CC33XX_FLAG_RECOVERY_IN_PROGRESS,
-					&wl->flags))
+				       &wl->flags))
 			wlcore_enable_interrupts(wl);
 
 		return;
@@ -2227,7 +2157,8 @@ static void cc33xx_turn_off(struct cc33xx *wl)
 	 * this must be before the cancel_work calls below, so that the work
 	 * functions don't perform further work.
 	 */
-	wl->state = WLCORE_STATE_OFF;
+	if (wl->state == WLCORE_STATE_ON)
+		wl->state = WLCORE_STATE_OFF;
 
 	/*
 	 * Use the nosync variant to disable interrupts, so the mutex could be
@@ -2283,12 +2214,8 @@ static void cc33xx_turn_off(struct cc33xx *wl)
 	 */
 	wl->flags = 0;
 
-
-
-	for (i = 0; i < NUM_TX_QUEUES; i++) {
-
+	for (i = 0; i < NUM_TX_QUEUES; i++)
 		wl->tx_allocated_pkts[i] = 0;
-	}
 
 	cc33xx_debugfs_reset(wl);
 
@@ -2306,14 +2233,13 @@ static void cc33xx_turn_off(struct cc33xx *wl)
 	mutex_unlock(&wl->mutex);
 }
 
-static void cc33xx_op_stop(struct ieee80211_hw *hw)
+static inline void cc33xx_op_stop(struct ieee80211_hw *hw)
 {
-
 	cc33xx_debug(DEBUG_MAC80211, "mac80211 stop");
 	return;
 }
 
-static void wlcore_channel_switch_work(struct work_struct *work)
+static void cc33xx_channel_switch_work(struct work_struct *work)
 {
 	struct delayed_work *dwork;
 	struct cc33xx *wl;
@@ -2396,13 +2322,14 @@ static void wlcore_pending_auth_complete_work(struct work_struct *work)
 	 * Check for a little less than the timeout to protect from scheduler
 	 * irregularities.
 	 */
-	time_spare = jiffies +
-			msecs_to_jiffies(WLCORE_PEND_AUTH_ROC_TIMEOUT - 50);
+	time_spare = msecs_to_jiffies(WLCORE_PEND_AUTH_ROC_TIMEOUT - 50);
+	time_spare += jiffies;
 	if (!time_after(time_spare, wlvif->pending_auth_reply_time))
 		goto out;
 
 	/* cancel the ROC if active */
-	cc33xx_debug(DEBUG_CMD, "pending_auth t/o expired - cancel ROC if active");
+	cc33xx_debug(DEBUG_CMD,
+		     "pending_auth t/o expired - cancel ROC if active");
 
 	wlcore_update_inconn_sta(wl, wlvif, NULL, false);
 
@@ -2418,8 +2345,7 @@ static void cc33xx_roc_timeout_work(struct work_struct *work)
 	unsigned long time_spare;
 
 	dwork = to_delayed_work(work);
-	wlvif = container_of(dwork, struct cc33xx_vif,
-			     roc_timeout_work);
+	wlvif = container_of(dwork, struct cc33xx_vif, roc_timeout_work);
 	wl = wlvif->wl;
 
 	mutex_lock(&wl->mutex);
@@ -2428,18 +2354,19 @@ static void cc33xx_roc_timeout_work(struct work_struct *work)
 		goto out;
 
 	/*
-	 * Make sure that requested timeout really passed. Maybe
-	 * a association completed and croc arrived while we were stuck on the mutex.
+	 * Make sure that requested timeout really passed. Maybe an association
+	 * completed and croc arrived while we were stuck on the mutex.
 	 * Check for a little less than the timeout to protect from scheduler
 	 * irregularities.
 	 */
-	time_spare = jiffies +
-			msecs_to_jiffies(CC33xx_PEND_ROC_COMPLETE_TIMEOUT - 50);
+	time_spare = msecs_to_jiffies(CC33xx_PEND_ROC_COMPLETE_TIMEOUT - 50);
+	time_spare += jiffies;
 	if (!time_after(time_spare, wlvif->pending_auth_reply_time))
 		goto out;
 
 	/* cancel the ROC if active */
-	cc33xx_debug(DEBUG_CMD, "Waiting for CROC Timeout has expired -> cancel ROC if exist");
+	cc33xx_debug(DEBUG_CMD, "Waiting for CROC Timeout has expired -> "
+		     "cancel ROC if exist");
 
 	if (test_bit(wlvif->role_id, wl->roc_map))
 		cc33xx_croc(wl, wlvif->role_id);
@@ -2500,6 +2427,7 @@ static u8 cc33xx_get_role_type(struct cc33xx *wl, struct cc33xx_vif *wlvif)
 static int cc33xx_init_vif_data(struct cc33xx *wl, struct ieee80211_vif *vif)
 {
 	struct cc33xx_vif *wlvif = cc33xx_vif_to_data(vif);
+	struct conf_tx_settings *tx_settings = &wl->conf.host_conf.tx;
 	int i;
 
 	/* clear everything but the persistent data */
@@ -2508,7 +2436,7 @@ static int cc33xx_init_vif_data(struct cc33xx *wl, struct ieee80211_vif *vif)
 	switch (ieee80211_vif_type_p2p(vif)) {
 	case NL80211_IFTYPE_P2P_CLIENT:
 		wlvif->p2p = 1;
-		/* fall-through */
+		fallthrough;
 	case NL80211_IFTYPE_STATION:
 	case NL80211_IFTYPE_P2P_DEVICE:
 		wlvif->bss_type = BSS_TYPE_STA_BSS;
@@ -2518,7 +2446,7 @@ static int cc33xx_init_vif_data(struct cc33xx *wl, struct ieee80211_vif *vif)
 		break;
 	case NL80211_IFTYPE_P2P_GO:
 		wlvif->p2p = 1;
-		/* fall-through */
+		fallthrough;
 	case NL80211_IFTYPE_AP:
 	case NL80211_IFTYPE_MESH_POINT:
 		wlvif->bss_type = BSS_TYPE_AP_BSS;
@@ -2562,8 +2490,8 @@ static int cc33xx_init_vif_data(struct cc33xx *wl, struct ieee80211_vif *vif)
 		wlvif->rate_set = CONF_TX_ENABLED_RATES;
 	}
 
-	wlvif->bitrate_masks[NL80211_BAND_2GHZ] = wl->conf.host_conf.tx.basic_rate;
-	wlvif->bitrate_masks[NL80211_BAND_5GHZ] = wl->conf.host_conf.tx.basic_rate_5;
+	wlvif->bitrate_masks[NL80211_BAND_2GHZ] = tx_settings->basic_rate;
+	wlvif->bitrate_masks[NL80211_BAND_5GHZ] = tx_settings->basic_rate_5;
 	wlvif->beacon_int = CC33XX_DEFAULT_BEACON_INT;
 
 	/*
@@ -2579,7 +2507,7 @@ static int cc33xx_init_vif_data(struct cc33xx *wl, struct ieee80211_vif *vif)
 		  cc33xx_rx_streaming_disable_work);
 	INIT_WORK(&wlvif->rc_update_work, wlcore_rc_update_work);
 	INIT_DELAYED_WORK(&wlvif->channel_switch_work,
-			  wlcore_channel_switch_work);
+			  cc33xx_channel_switch_work);
 	INIT_DELAYED_WORK(&wlvif->connection_loss_work,
 			  wlcore_connection_loss_work);
 	INIT_DELAYED_WORK(&wlvif->pending_auth_complete_work,
@@ -2592,21 +2520,17 @@ static int cc33xx_init_vif_data(struct cc33xx *wl, struct ieee80211_vif *vif)
 	return 0;
 }
 
-static bool cc33xx_dev_role_started(struct cc33xx_vif *wlvif)
-{
-	return wlvif->dev_hlid != CC33XX_INVALID_LINK_ID;
-}
-
 struct wlcore_hw_queue_iter_data {
 	unsigned long hw_queue_map[BITS_TO_LONGS(WLCORE_NUM_MAC_ADDRESSES)];
+
 	/* current vif */
 	struct ieee80211_vif *vif;
+
 	/* is the current vif among those iterated */
 	bool cur_running;
 };
 
-static void wlcore_hw_queue_iter(void *data, u8 *mac,
-				 struct ieee80211_vif *vif)
+static void wlcore_hw_queue_iter(void *data, u8 *mac, struct ieee80211_vif *vif)
 {
 	struct wlcore_hw_queue_iter_data *iter_data = data;
 
@@ -2669,11 +2593,12 @@ static int wlcore_allocate_hw_queue_base(struct cc33xx *wl,
 
 adjust_cab_queue:
 	/* the last places are reserved for cab queues per interface */
-	if (wlvif->bss_type == BSS_TYPE_AP_BSS)
+	if (wlvif->bss_type == BSS_TYPE_AP_BSS) {
 		vif->cab_queue = NUM_TX_QUEUES * WLCORE_NUM_MAC_ADDRESSES +
-				 wlvif->hw_queue_base / NUM_TX_QUEUES;
-	else
+					wlvif->hw_queue_base / NUM_TX_QUEUES;
+	} else {
 		vif->cab_queue = IEEE80211_INVAL_HW_QUEUE;
+	}
 
 	return 0;
 }
@@ -2714,7 +2639,6 @@ static int cc33xx_op_add_interface(struct ieee80211_hw *hw,
 		goto out;
 	}
 
-
 	ret = cc33xx_init_vif_data(wl, vif);
 	if (ret < 0)
 		goto out;
@@ -2739,7 +2663,6 @@ static int cc33xx_op_add_interface(struct ieee80211_hw *hw,
 		ret = cc33xx_init_vif_specific(wl, vif);
 		if (ret < 0)
 			goto out;
-
 	} else {
 		ret = cc33xx_cmd_role_enable(wl, vif->addr, CC33XX_ROLE_DEVICE,
 					     &wlvif->dev_role_id);
@@ -2747,7 +2670,7 @@ static int cc33xx_op_add_interface(struct ieee80211_hw *hw,
 			goto out;
 
 		/* needed mainly for configuring rate policies */
-		ret = cc33xx_sta_hw_init(wl, wlvif);
+		ret = cc33xx_acx_config_ps(wl, wlvif);
 		if (ret < 0)
 			goto out;
 	}
@@ -2759,6 +2682,11 @@ static int cc33xx_op_add_interface(struct ieee80211_hw *hw,
 		wl->ap_count++;
 	else
 		wl->sta_count++;
+
+	if ((wl->state == WLCORE_STATE_RESTARTING) &&
+	    (wl->ap_count + wl->sta_count) == vif_count.counter){
+		cc33xx_finalize_recovery(wl);
+	}
 
 out:
 	mutex_unlock(&wl->mutex);
@@ -2820,7 +2748,7 @@ static void __cc33xx_op_remove_interface(struct cc33xx *wl,
 
 		if (wlvif->bss_type == BSS_TYPE_STA_BSS ||
 		    wlvif->bss_type == BSS_TYPE_IBSS) {
-			if (cc33xx_dev_role_started(wlvif))
+			if (wlvif->dev_hlid != CC33XX_INVALID_LINK_ID)
 				cc33xx_stop_dev(wl, wlvif);
 		}
 
@@ -2878,11 +2806,9 @@ deinit:
 	if (test_bit(CC33XX_FLAG_RECOVERY_IN_PROGRESS, &wl->flags))
 		goto unlock;
 
-	if (wl->ap_count == 0 && is_ap) {
-		/* mask ap events */
+	/* mask ap events */
+	if (wl->ap_count == 0 && is_ap)
 		wl->event_mask &= ~wl->ap_event_mask;
-		cc33xx_event_unmask(wl);
-	}
 
 	if (wl->ap_count == 0 && is_ap && wl->sta_count) {
 		u8 sta_auth = wl->conf.host_conf.conn.sta_sleep_auth;
@@ -2979,9 +2905,9 @@ static int wlcore_join(struct cc33xx *wl, struct cc33xx_vif *wlvif)
 	/* clear encryption type */
 	wlvif->encryption_type = KEY_NONE;
 
-	if (is_ibss)
+	if (is_ibss) {
 		ret = cc33xx_cmd_role_start_ibss(wl, wlvif);
-	else {
+	} else {
 		if (wl->quirks & WLCORE_QUIRK_START_STA_FAILS) {
 			/*
 			 * TODO: this is an ugly workaround for wl12xx fw
@@ -3000,8 +2926,8 @@ static int wlcore_join(struct cc33xx *wl, struct cc33xx_vif *wlvif)
 	return ret;
 }
 
-static int cc33xx_ssid_set(struct cc33xx_vif *wlvif, struct sk_buff *skb,
-			    int offset)
+static int cc33xx_ssid_set(struct cc33xx_vif *wlvif,
+			   struct sk_buff *skb, int offset)
 {
 	u8 ssid_len;
 	const u8 *ptr = cfg80211_find_ie(WLAN_EID_SSID, skb->data + offset,
@@ -3037,8 +2963,7 @@ static int wlcore_set_ssid(struct cc33xx *wl, struct cc33xx_vif *wlvif)
 	if (!skb)
 		return -EINVAL;
 
-	ieoffset = offsetof(struct ieee80211_mgmt,
-			    u.probe_req.variable);
+	ieoffset = offsetof(struct ieee80211_mgmt, u.probe_req.variable);
 	cc33xx_ssid_set(wlvif, skb, ieoffset);
 	dev_kfree_skb(skb);
 
@@ -3046,7 +2971,8 @@ static int wlcore_set_ssid(struct cc33xx *wl, struct cc33xx_vif *wlvif)
 }
 
 static int wlcore_set_assoc(struct cc33xx *wl, struct cc33xx_vif *wlvif,
-			    struct ieee80211_bss_conf *bss_conf,struct ieee80211_sta *sta,
+			    struct ieee80211_bss_conf *bss_conf,
+			    struct ieee80211_sta *sta,
 			    struct ieee80211_vif *vif, u32 sta_rate_set)
 {
 	int ret;
@@ -3057,30 +2983,26 @@ static int wlcore_set_assoc(struct cc33xx *wl, struct cc33xx_vif *wlvif,
 	wlvif->wmm_enabled = bss_conf->qos;
 
 	wlvif->nontransmitted = bss_conf->nontransmitted;
-	cc33xx_debug(DEBUG_MAC80211,
-	     "set_assoc mbssid params: nonTxbssid: %d, idx: %d, max_ind: %d, trans_bssid: %pM, ema_ap: %d",
-	     bss_conf->nontransmitted,
-	     bss_conf->bssid_index,
-	     bss_conf->bssid_indicator,
-	     bss_conf->transmitter_bssid,
-	     bss_conf->ema_ap);
+	cc33xx_debug(DEBUG_MAC80211, "set_assoc mbssid params: nonTxbssid: %d, "
+		     "idx: %d, max_ind: %d, trans_bssid: %pM, ema_ap: %d",
+		     bss_conf->nontransmitted, bss_conf->bssid_index,
+		     bss_conf->bssid_indicator, bss_conf->transmitter_bssid,
+		     bss_conf->ema_ap);
 	wlvif->bssid_index = bss_conf->bssid_index;
 	wlvif->bssid_indicator = bss_conf->bssid_indicator;
-	memcpy(wlvif->transmitter_bssid,
-		bss_conf->transmitter_bssid,
-		ETH_ALEN);
+	memcpy(wlvif->transmitter_bssid, bss_conf->transmitter_bssid, ETH_ALEN);
 
 	set_bit(WLVIF_FLAG_STA_ASSOCIATED, &wlvif->flags);
 
 	ret = cc33xx_assoc_info_cfg(wl, wlvif, sta,wlvif->aid);
 	if (ret < 0)
 		return ret;
+
 	if (sta_rate_set) {
-		wlvif->rate_set =
-			cc33xx_tx_enabled_rates_get(wl,
-						    sta_rate_set,
-						    wlvif->band);
+		wlvif->rate_set = cc33xx_tx_enabled_rates_get(wl, sta_rate_set,
+							      wlvif->band);
 	}
+
 	return ret;
 }
 
@@ -3090,13 +3012,12 @@ static int wlcore_unset_assoc(struct cc33xx *wl, struct cc33xx_vif *wlvif)
 	bool sta = wlvif->bss_type == BSS_TYPE_STA_BSS;
 
 	/* make sure we are connected (sta) joined */
-	if (sta &&
-	    !test_and_clear_bit(WLVIF_FLAG_STA_ASSOCIATED, &wlvif->flags))
+	if (sta && !test_and_clear_bit(WLVIF_FLAG_STA_ASSOCIATED,
+				       &wlvif->flags))
 		return false;
 
 	/* make sure we are joined (ibss) */
-	if (!sta &&
-	    test_and_clear_bit(WLVIF_FLAG_IBSS_JOINED, &wlvif->flags))
+	if (!sta && test_and_clear_bit(WLVIF_FLAG_IBSS_JOINED, &wlvif->flags))
 		return false;
 
 	if (sta) {
@@ -3135,8 +3056,8 @@ static void cc33xx_set_band_rate(struct cc33xx *wl, struct cc33xx_vif *wlvif)
 	wlvif->rate_set = wlvif->basic_rate_set;
 }
 
-static void cc33xx_sta_handle_idle(struct cc33xx *wl, struct cc33xx_vif *wlvif,
-				   bool idle)
+static void cc33xx_sta_handle_idle(struct cc33xx *wl,
+				   struct cc33xx_vif *wlvif, bool idle)
 {
 	bool cur_idle = !test_bit(WLVIF_FLAG_ACTIVE, &wlvif->flags);
 
@@ -3159,7 +3080,6 @@ static int cc33xx_config_vif(struct cc33xx *wl, struct cc33xx_vif *wlvif,
 {
 	int ret;
 
-
 	if (wlcore_is_p2p_mgmt(wlvif))
 		return 0;
 
@@ -3180,12 +3100,12 @@ static int cc33xx_op_config(struct ieee80211_hw *hw, u32 changed)
 	struct ieee80211_conf *conf = &hw->conf;
 	int ret = 0;
 
-	cc33xx_debug(DEBUG_MAC80211, "mac80211 config psm %s power %d %s"
-		     " changed 0x%x",
+	cc33xx_debug(DEBUG_MAC80211,
+		     "mac80211 config psm %s power %d %s changed 0x%x",
 		     conf->flags & IEEE80211_CONF_PS ? "on" : "off",
 		     conf->power_level,
 		     conf->flags & IEEE80211_CONF_IDLE ? "idle" : "in use",
-			 changed);
+		     changed);
 
 	mutex_lock(&wl->mutex);
 
@@ -3227,12 +3147,13 @@ static u64 cc33xx_op_prepare_multicast(struct ieee80211_hw *hw,
 	fp->mc_list_length = 0;
 	if (netdev_hw_addr_list_count(mc_list) > ACX_MC_ADDRESS_GROUP_MAX) {
 		fp->enabled = false;
-		cc33xx_debug(DEBUG_MAC80211, "mac80211 prepare multicast: too many addresses received, disable multicast filtering");
+		cc33xx_debug(DEBUG_MAC80211, "mac80211 prepare multicast: "
+			     "too many addresses received, disable multicast filtering");
 	} else {
 		fp->enabled = true;
 		netdev_hw_addr_list_for_each(ha, mc_list) {
 			memcpy(fp->mc_list[fp->mc_list_length],
-					ha->addr, ETH_ALEN);
+			       ha->addr, ETH_ALEN);
 			fp->mc_list_length++;
 		}
 	}
@@ -3254,7 +3175,9 @@ static void cc33xx_op_configure_filter(struct ieee80211_hw *hw,
 	struct cc33xx *wl = hw->priv;
 	struct cc33xx_vif *wlvif;
 
-	cc33xx_debug(DEBUG_MAC80211, "mac80211 configure filter, FIF_ALLMULTI = %d", *total & FIF_ALLMULTI);
+	cc33xx_debug(DEBUG_MAC80211,
+		     "mac80211 configure filter, FIF_ALLMULTI = %d",
+		     *total & FIF_ALLMULTI);
 
 	mutex_lock(&wl->mutex);
 
@@ -3268,18 +3191,18 @@ static void cc33xx_op_configure_filter(struct ieee80211_hw *hw,
 	} else if (*total & FIF_ALLMULTI || fp->enabled == false) {
 		cc33xx_acx_group_address_tbl(wl, wlvif, false, NULL, 0);
 	} else {
-		cc33xx_acx_group_address_tbl(wl, wlvif, true, fp->mc_list, fp->mc_list_length);
+		cc33xx_acx_group_address_tbl(wl, wlvif, true,
+					     fp->mc_list, fp->mc_list_length);
 	}
 
 out:
-		mutex_unlock(&wl->mutex);
-		kfree(fp);
+	mutex_unlock(&wl->mutex);
+	kfree(fp);
 }
 
 static int cc33xx_record_ap_key(struct cc33xx *wl, struct cc33xx_vif *wlvif,
-				u8 id, u8 key_type, u8 key_size,
-				const u8 *key, u8 hlid, u32 tx_seq_32,
-				u16 tx_seq_16)
+				u8 id, u8 key_type, u8 key_size, const u8 *key,
+				u8 hlid, u32 tx_seq_32,	u16 tx_seq_16)
 {
 	struct cc33xx_ap_key *ap_key;
 	int i;
@@ -3350,9 +3273,8 @@ static int cc33xx_ap_init_hwenc(struct cc33xx *wl, struct cc33xx_vif *wlvif)
 
 		ret = cc33xx_cmd_set_ap_key(wl, wlvif, KEY_ADD_OR_REPLACE,
 					    key->id, key->key_type,
-					    key->key_size, key->key,
-					    hlid, key->tx_seq_32,
-					    key->tx_seq_16);
+					    key->key_size, key->key, hlid,
+					    key->tx_seq_32, key->tx_seq_16);
 		if (ret < 0)
 			goto out;
 
@@ -3373,9 +3295,9 @@ out:
 }
 
 static int cc33xx_config_key(struct cc33xx *wl, struct cc33xx_vif *wlvif,
-		       u16 action, u8 id, u8 key_type,
-		       u8 key_size, const u8 *key, u32 tx_seq_32,
-		       u16 tx_seq_16, struct ieee80211_sta *sta)
+			     u16 action, u8 id, u8 key_type, u8 key_size,
+			     const u8 *key, u32 tx_seq_32,u16 tx_seq_16,
+			     struct ieee80211_sta *sta)
 {
 	int ret;
 	bool is_ap = (wlvif->bss_type == BSS_TYPE_AP_BSS);
@@ -3399,15 +3321,13 @@ static int cc33xx_config_key(struct cc33xx *wl, struct cc33xx_vif *wlvif,
 			if (action != KEY_ADD_OR_REPLACE)
 				return 0;
 
-			ret = cc33xx_record_ap_key(wl, wlvif, id,
-					     key_type, key_size,
-					     key, hlid, tx_seq_32,
-					     tx_seq_16);
+			ret = cc33xx_record_ap_key(wl, wlvif, id, key_type,
+						   key_size, key, hlid,
+						   tx_seq_32, tx_seq_16);
 		} else {
-			ret = cc33xx_cmd_set_ap_key(wl, wlvif, action,
-					     id, key_type, key_size,
-					     key, hlid, tx_seq_32,
-					     tx_seq_16);
+			ret = cc33xx_cmd_set_ap_key(wl, wlvif, action, id,
+						    key_type, key_size, key,
+						    hlid, tx_seq_32, tx_seq_16);
 		}
 
 		if (ret < 0)
@@ -3437,13 +3357,11 @@ static int cc33xx_config_key(struct cc33xx *wl, struct cc33xx_vif *wlvif,
 		    wlvif->sta.hlid == CC33XX_INVALID_LINK_ID)
 			return 0;
 
-		ret = cc33xx_cmd_set_sta_key(wl, wlvif, action,
-					     id, key_type, key_size,
-					     key, addr, tx_seq_32,
+		ret = cc33xx_cmd_set_sta_key(wl, wlvif, action, id, key_type,
+					     key_size, key, addr, tx_seq_32,
 					     tx_seq_16);
 		if (ret < 0)
 			return ret;
-
 	}
 
 	return 0;
@@ -3454,7 +3372,7 @@ static int cc33xx_set_host_cfg_bitmap(struct cc33xx *wl, u32 extra_mem_blk)
 	int ret;
 	u32 sdio_align_size = 0;
 	u32 host_cfg_bitmap = HOST_IF_CFG_RX_FIFO_ENABLE |
-			      HOST_IF_CFG_ADD_RX_ALIGNMENT;
+						HOST_IF_CFG_ADD_RX_ALIGNMENT;
 
 	/* Enable Tx SDIO padding */
 	if (wl->quirks & WLCORE_QUIRK_TX_BLOCKSIZE_ALIGN) {
@@ -3478,8 +3396,7 @@ static int cc33xx_set_host_cfg_bitmap(struct cc33xx *wl, u32 extra_mem_blk)
 }
 
 static int cc33xx_set_key(struct cc33xx *wl, enum set_key_cmd cmd,
-			  struct ieee80211_vif *vif,
-			  struct ieee80211_sta *sta,
+			  struct ieee80211_vif *vif, struct ieee80211_sta *sta,
 			  struct ieee80211_key_conf *key_conf)
 {
 	bool change_spare = false, special_enc;
@@ -3520,10 +3437,9 @@ static int cc33xx_set_key(struct cc33xx *wl, enum set_key_cmd cmd,
 	/* key is now set, change the spare blocks */
 	if (wl->extra_spare_key_count)
 		ret = cc33xx_set_host_cfg_bitmap(wl,
-					CC33XX_TX_HW_EXTRA_BLOCK_SPARE);
+						CC33XX_TX_HW_EXTRA_BLOCK_SPARE);
 	else
-		ret = cc33xx_set_host_cfg_bitmap(wl,
-					CC33XX_TX_HW_BLOCK_SPARE);
+		ret = cc33xx_set_host_cfg_bitmap(wl, CC33XX_TX_HW_BLOCK_SPARE);
 
 out:
 	return ret;
@@ -3536,9 +3452,8 @@ static int cc33xx_op_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
 {
 	struct cc33xx *wl = hw->priv;
 	int ret;
-	bool might_change_spare =
-		key_conf->cipher == CC33XX_CIPHER_SUITE_GEM ||
-		key_conf->cipher == WLAN_CIPHER_SUITE_TKIP;
+	bool might_change_spare = key_conf->cipher == CC33XX_CIPHER_SUITE_GEM
+				|| key_conf->cipher == WLAN_CIPHER_SUITE_TKIP;
 
 	if (might_change_spare) {
 		/*
@@ -3568,8 +3483,7 @@ out_wake_queues:
 }
 
 int wlcore_set_key(struct cc33xx *wl, enum set_key_cmd cmd,
-		   struct ieee80211_vif *vif,
-		   struct ieee80211_sta *sta,
+		   struct ieee80211_vif *vif, struct ieee80211_sta *sta,
 		   struct ieee80211_key_conf *key_conf)
 {
 	struct cc33xx_vif *wlvif = cc33xx_vif_to_data(vif);
@@ -3607,7 +3521,6 @@ int wlcore_set_key(struct cc33xx *wl, enum set_key_cmd cmd,
 	case WLAN_CIPHER_SUITE_WEP40:
 	case WLAN_CIPHER_SUITE_WEP104:
 		key_type = KEY_WEP;
-
 		key_conf->hw_key_idx = key_conf->keyidx;
 		break;
 	case WLAN_CIPHER_SUITE_TKIP:
@@ -3654,9 +3567,8 @@ int wlcore_set_key(struct cc33xx *wl, enum set_key_cmd cmd,
 	switch (cmd) {
 	case SET_KEY:
 		ret = cc33xx_config_key(wl, wlvif, KEY_ADD_OR_REPLACE,
-				 key_conf->keyidx, key_type,
-				 key_conf->keylen, key_conf->key,
-				 tx_seq_32, tx_seq_16, sta);
+				 key_conf->keyidx, key_type, key_conf->keylen,
+				 key_conf->key, tx_seq_32, tx_seq_16, sta);
 		if (ret < 0) {
 			cc33xx_error("Could not add or replace key");
 			return ret;
@@ -3670,7 +3582,6 @@ int wlcore_set_key(struct cc33xx *wl, enum set_key_cmd cmd,
 		    (sta || key_type == KEY_WEP) &&
 		    wlvif->encryption_type != key_type) {
 			wlvif->encryption_type = key_type;
-			ret = cc33xx_cmd_build_arp_rsp(wl, wlvif);
 			if (ret < 0) {
 				cc33xx_warning("build arp rsp failed: %d", ret);
 				return ret;
@@ -3679,10 +3590,9 @@ int wlcore_set_key(struct cc33xx *wl, enum set_key_cmd cmd,
 		break;
 
 	case DISABLE_KEY:
-		ret = cc33xx_config_key(wl, wlvif, KEY_REMOVE,
-				     key_conf->keyidx, key_type,
-				     key_conf->keylen, key_conf->key,
-				     0, 0, sta);
+		ret = cc33xx_config_key(wl, wlvif, KEY_REMOVE, key_conf->keyidx,
+					key_type, key_conf->keylen,
+					key_conf->key, 0, 0, sta);
 		if (ret < 0) {
 			cc33xx_error("Could not remove key");
 			return ret;
@@ -3704,8 +3614,8 @@ static void cc33xx_op_set_default_key_idx(struct ieee80211_hw *hw,
 	struct cc33xx *wl = hw->priv;
 	struct cc33xx_vif *wlvif = cc33xx_vif_to_data(vif);
 
-	cc33xx_debug(DEBUG_MAC80211, "mac80211 set default key idx %d",
-		     key_idx);
+	cc33xx_debug(DEBUG_MAC80211,
+		     "mac80211 set default key idx %d", key_idx);
 
 	/* we don't handle unsetting of default key */
 	if (key_idx == -1)
@@ -3713,18 +3623,14 @@ static void cc33xx_op_set_default_key_idx(struct ieee80211_hw *hw,
 
 	mutex_lock(&wl->mutex);
 
-	if (unlikely(wl->state != WLCORE_STATE_ON)) {
+	if (unlikely(wl->state != WLCORE_STATE_ON))
 		goto out_unlock;
-	}
 
 	wlvif->default_key = key_idx;
 
 	/* the default WEP key needs to be configured at least once */
-	if (wlvif->encryption_type == KEY_WEP) {
-		cc33xx_cmd_set_default_wep_key(wl,
-				key_idx,
-				wlvif->sta.hlid);
-	}
+	if (wlvif->encryption_type == KEY_WEP)
+		cc33xx_cmd_set_default_wep_key(wl, key_idx, wlvif->sta.hlid);
 
 out_unlock:
 	mutex_unlock(&wl->mutex);
@@ -3742,7 +3648,6 @@ void wlcore_regdomain_config(struct cc33xx *wl)
 	if (unlikely(wl->state != WLCORE_STATE_ON))
 		goto out;
 
-	//ret = wlcore_cmd_regdomain_config_locked(wl);
 	if (ret < 0) {
 		cc33xx_queue_recovery_work(wl);
 		goto out;
@@ -3752,8 +3657,7 @@ out:
 	mutex_unlock(&wl->mutex);
 }
 
-static int cc33xx_op_hw_scan(struct ieee80211_hw *hw,
-			     struct ieee80211_vif *vif,
+static int cc33xx_op_hw_scan(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 			     struct ieee80211_scan_request *hw_req)
 {
 	struct cfg80211_scan_request *req = &hw_req->req;
@@ -3882,9 +3786,8 @@ static int cc33xx_op_sched_scan_stop(struct ieee80211_hw *hw,
 	if (unlikely(wl->state != WLCORE_STATE_ON))
 		goto out;
 
-	// command to stop periodic scan was sent from mac80211
-	// mark than stop command is from mac80211 and release
-	// sched_vif
+	/* command to stop periodic scan was sent from mac80211
+	   mark than stop command is from mac80211 and release sched_vif */
 	wl->mac80211_scan_stopped = true;
 	wl->sched_vif = NULL;
 	cc33xx_scan_sched_scan_stop(wl, wlvif);
@@ -3969,12 +3872,14 @@ static int cc33xx_bss_erp_info_changed(struct cc33xx *wl,
 	}
 
 	if (changed & BSS_CHANGED_ERP_CTS_PROT) {
-		if (bss_conf->use_cts_prot)
+		if (bss_conf->use_cts_prot) {
 			ret = cc33xx_acx_cts_protect(wl, wlvif,
 						     CTSPROTECT_ENABLE);
-		else
+		} else {
 			ret = cc33xx_acx_cts_protect(wl, wlvif,
 						     CTSPROTECT_DISABLE);
+		}
+
 		if (ret < 0) {
 			cc33xx_warning("Set ctsprotect failed %d", ret);
 			goto out;
@@ -3986,8 +3891,7 @@ out:
 }
 
 static int wlcore_set_beacon_template(struct cc33xx *wl,
-				      struct ieee80211_vif *vif,
-				      bool is_ap)
+				     struct ieee80211_vif *vif, bool is_ap)
 {
 	struct cc33xx_vif *wlvif = cc33xx_vif_to_data(vif);
 	int ret;
@@ -3997,7 +3901,7 @@ static int wlcore_set_beacon_template(struct cc33xx *wl,
 	struct cc33xx_cmd_set_beacon_info *cmd;
 
 	cmd = kzalloc(sizeof(*cmd), GFP_KERNEL);
-	 if (!cmd) {
+	if (!cmd) {
 		ret = -ENOMEM;
 		goto out;
 	}
@@ -4010,9 +3914,8 @@ static int wlcore_set_beacon_template(struct cc33xx *wl,
 	cc33xx_debug(DEBUG_MASTER, "beacon updated");
 
 	ret = cc33xx_ssid_set(wlvif, beacon, ieoffset);
-	if (ret < 0) {
+	if (ret < 0)
 		goto end_bcn;
-	}
 
 	cmd->role_id =  wlvif->role_id;
 	cmd->beacon_len = cpu_to_le16(beacon->len);
@@ -4020,9 +3923,8 @@ static int wlcore_set_beacon_template(struct cc33xx *wl,
 	memcpy(cmd->beacon, beacon->data, beacon->len);
 
 	ret = cc33xx_cmd_send(wl, CMD_AP_SET_BEACON_INFO, cmd, sizeof(*cmd), 0);
-	if (ret < 0) {
+	if (ret < 0)
 		goto end_bcn;
-	}
 
 end_bcn:
 	dev_kfree_skb(beacon);
@@ -4042,7 +3944,7 @@ static int cc33xx_bss_beacon_info_changed(struct cc33xx *wl,
 
 	if (changed & BSS_CHANGED_BEACON_INT) {
 		cc33xx_debug(DEBUG_MASTER, "beacon interval updated: %d",
-			bss_conf->beacon_int);
+			     bss_conf->beacon_int);
 
 		wlvif->beacon_int = bss_conf->beacon_int;
 	}
@@ -4062,6 +3964,7 @@ static int cc33xx_bss_beacon_info_changed(struct cc33xx *wl,
 out:
 	if (ret != 0)
 		cc33xx_error("beacon info change failed: %d", ret);
+
 	return ret;
 }
 
@@ -4080,10 +3983,12 @@ static void cc33xx_bss_info_changed_ap(struct cc33xx *wl,
 		wlvif->basic_rate_set = cc33xx_tx_enabled_rates_get(wl, rates,
 								 wlvif->band);
 		wlvif->basic_rate = cc33xx_tx_min_rate_get(wl,
-							wlvif->basic_rate_set);
+							 wlvif->basic_rate_set);
 
 		supported_rates = CONF_TX_ENABLED_RATES | CONF_TX_MCS_RATES ;
-		ret = cc33xx_update_ap_rates(wl,wlvif->role_id,wlvif->basic_rate_set,supported_rates);
+		ret = cc33xx_update_ap_rates(wl, wlvif->role_id,
+					     wlvif->basic_rate_set,
+					     supported_rates);
 
 		ret = wlcore_set_beacon_template(wl, vif, true);
 		if (ret < 0)
@@ -4138,43 +4043,36 @@ out:
 }
 
 static int wlcore_set_bssid(struct cc33xx *wl, struct cc33xx_vif *wlvif,
-			    struct ieee80211_bss_conf *bss_conf,
-				struct ieee80211_vif *vif,
-			    u32 sta_rate_set)
+			struct ieee80211_bss_conf *bss_conf,
+			struct ieee80211_vif *vif,
+			u32 sta_rate_set)
 {
 	u32 rates;
-	int ret;
 
-	cc33xx_debug(DEBUG_MAC80211,
-	     "changed_bssid: %pM, aid: %d, bcn_int: %d, brates: 0x%x sta_rate_set: 0x%x, nontx: %d",
-	     bss_conf->bssid, vif->cfg.aid,
-	     bss_conf->beacon_int,
-	     bss_conf->basic_rates, sta_rate_set,
-	     bss_conf->nontransmitted);
+	cc33xx_debug(DEBUG_MAC80211, "changed_bssid: %pM, aid: %d, bcn_int: %d,"
+			" brates: 0x%x sta_rate_set: 0x%x, nontx: %d",
+			bss_conf->bssid, vif->cfg.aid, bss_conf->beacon_int,
+			bss_conf->basic_rates, sta_rate_set,
+			bss_conf->nontransmitted);
 
 	wlvif->beacon_int = bss_conf->beacon_int;
 	rates = bss_conf->basic_rates;
-	wlvif->basic_rate_set =
-		cc33xx_tx_enabled_rates_get(wl, rates,
-					    wlvif->band);
-	wlvif->basic_rate =
-		cc33xx_tx_min_rate_get(wl,
-				       wlvif->basic_rate_set);
+	wlvif->basic_rate_set =	cc33xx_tx_enabled_rates_get(wl, rates,
+							    wlvif->band);
+	wlvif->basic_rate = cc33xx_tx_min_rate_get(wl, wlvif->basic_rate_set);
 
-	if (sta_rate_set)
-		wlvif->rate_set =
-			cc33xx_tx_enabled_rates_get(wl,
-						sta_rate_set,
-						wlvif->band);
+	if (sta_rate_set) {
+		wlvif->rate_set = cc33xx_tx_enabled_rates_get(wl, sta_rate_set,
+							      wlvif->band);
+	}
 
 	wlvif->nontransmitted = bss_conf->nontransmitted;
-	cc33xx_debug(DEBUG_MAC80211,
-	     "changed_mbssid: nonTxbssid: %d, idx: %d, max_ind: %d, trans_bssid: %pM, ema_ap: %d",
-	     bss_conf->nontransmitted,
-	     bss_conf->bssid_index,
-	     bss_conf->bssid_indicator,
-	     bss_conf->transmitter_bssid,
-	     bss_conf->ema_ap);
+	cc33xx_debug(DEBUG_MAC80211, "changed_mbssid: nonTxbssid: %d, idx: %d, "
+		     "max_ind: %d, trans_bssid: %pM, ema_ap: %d",
+		     bss_conf->nontransmitted, bss_conf->bssid_index,
+		     bss_conf->bssid_indicator, bss_conf->transmitter_bssid,
+		     bss_conf->ema_ap);
+
 	if (bss_conf->nontransmitted)
 	{
 		wlvif->bssid_index = bss_conf->bssid_index;
@@ -4183,35 +4081,16 @@ static int wlcore_set_bssid(struct cc33xx *wl, struct cc33xx_vif *wlvif,
 			bss_conf->transmitter_bssid,
 			ETH_ALEN);
 	}
+
 	/* we only support sched_scan while not connected */
 	if (wl->sched_vif == wlvif)
 		cc33xx_scan_sched_scan_stop(wl, wlvif);
-
-	ret = cc33xx_cmd_build_null_data(wl, wlvif);
-	if (ret < 0)
-		return ret;
-
-	ret = cc33xx_build_qos_null_data(wl, cc33xx_wlvif_to_vif(wlvif));
-	if (ret < 0)
-		return ret;
 
 	wlcore_set_ssid(wl, wlvif);
 
 	set_bit(WLVIF_FLAG_IN_USE, &wlvif->flags);
 
 	return 0;
-}
-
-static int cc33xx_set_peer_cap(struct cc33xx *wl,
-			       struct ieee80211_sta_ht_cap *ht_cap,
-			       struct ieee80211_sta_he_cap *he_cap,
-			       struct cc33xx_vif *wlvif,
-			       bool allow_ht_operation,
-			       u32 rate_set, u8 hlid)
-{
-
-    return cc33xx_acx_set_peer_cap(wl, ht_cap, he_cap, wlvif, allow_ht_operation,
-			   rate_set, hlid);
 }
 
 static int wlcore_clear_bssid(struct cc33xx *wl, struct cc33xx_vif *wlvif)
@@ -4232,13 +4111,13 @@ static int wlcore_clear_bssid(struct cc33xx *wl, struct cc33xx_vif *wlvif)
 	clear_bit(WLVIF_FLAG_IN_USE, &wlvif->flags);
 	return 0;
 }
+
 /* STA/IBSS mode changes */
 static void cc33xx_bss_info_changed_sta(struct cc33xx *wl,
 					struct ieee80211_vif *vif,
 					struct ieee80211_bss_conf *bss_conf,
 					u64 changed)
 {
-
 	struct cc33xx_vif *wlvif = cc33xx_vif_to_data(vif);
 	bool do_join = false;
 	bool is_ibss = (wlvif->bss_type == BSS_TYPE_IBSS);
@@ -4251,15 +4130,14 @@ static void cc33xx_bss_info_changed_sta(struct cc33xx *wl,
 	struct ieee80211_sta_he_cap sta_he_cap;
 
 	if (is_ibss) {
-		ret = cc33xx_bss_beacon_info_changed(wl, vif, bss_conf,
-						     changed);
+		ret = cc33xx_bss_beacon_info_changed(wl, vif,
+						     bss_conf, changed);
 		if (ret < 0)
 			goto out;
 	}
 
-
 	if (changed & BSS_CHANGED_IBSS) {
-		if (vif->cfg.ibss_joined) {
+		if (vif->cfg.ibss_joined){
 			set_bit(WLVIF_FLAG_IBSS_JOINED, &wlvif->flags);
 			ibss_joined = true;
 		} else {
@@ -4286,19 +4164,17 @@ static void cc33xx_bss_info_changed_sta(struct cc33xx *wl,
 		cc33xx_sta_handle_idle(wl, wlvif, vif->cfg.idle);
 
 	if (changed & BSS_CHANGED_CQM) {
-		bool enable = false;
-		if (bss_conf->cqm_rssi_thold)
-			enable = true;
+		bool enable = bss_conf->cqm_rssi_thold;
 		ret = cc33xx_acx_rssi_snr_trigger(wl, wlvif, enable,
 						  bss_conf->cqm_rssi_thold,
 						  bss_conf->cqm_rssi_hyst);
 		if (ret < 0)
 			goto out;
+
 		wlvif->rssi_thold = bss_conf->cqm_rssi_thold;
 	}
 
-	if (changed & (BSS_CHANGED_BSSID | BSS_CHANGED_HT |
-		       BSS_CHANGED_ASSOC)) {
+	if (changed & (BSS_CHANGED_BSSID | BSS_CHANGED_HT | BSS_CHANGED_ASSOC)){
 		rcu_read_lock();
 		sta = ieee80211_find_sta(vif, bss_conf->bssid);
 		if (sta) {
@@ -4306,10 +4182,11 @@ static void cc33xx_bss_info_changed_sta(struct cc33xx *wl,
 
 			/* save the supp_rates of the ap */
 			sta_rate_set = sta->deflink.supp_rates[wlvif->band];
-			if (sta->deflink.ht_cap.ht_supported)
+			if (sta->deflink.ht_cap.ht_supported) {
 				sta_rate_set |=
 					(rx_mask[0] << HW_HT_RATES_OFFSET) |
 					(rx_mask[1] << HW_MIMO_RATES_OFFSET);
+			}
 			sta_ht_cap = sta->deflink.ht_cap;
 			sta_he_cap = sta->deflink.he_cap;
 			sta_exists = true;
@@ -4320,8 +4197,8 @@ static void cc33xx_bss_info_changed_sta(struct cc33xx *wl,
 
 	if (changed & BSS_CHANGED_BSSID) {
 		if (!is_zero_ether_addr(bss_conf->bssid)) {
-			ret = wlcore_set_bssid(wl, wlvif, bss_conf,
-					       vif, sta_rate_set);
+			ret = wlcore_set_bssid(wl, wlvif,
+					       bss_conf, vif, sta_rate_set);
 			if (ret < 0)
 				goto out;
 
@@ -4380,30 +4257,33 @@ static void cc33xx_bss_info_changed_sta(struct cc33xx *wl,
 
 			if (test_bit(WLVIF_FLAG_STA_AUTHORIZED, &wlvif->flags))
 				cc33xx_set_authorized(wl, wlvif);
+
 			if (sta) {
 				struct cc33xx_vif *wlvif_itr;
 				u8 he_count = 0;
 
 				wlvif->sta_has_he = sta->deflink.he_cap.has_he;
 
-				if (sta->deflink.he_cap.has_he) {
+				if (sta->deflink.he_cap.has_he)
 					cc33xx_info("HE Enabled");
-				} else {
+				else
 					cc33xx_info("HE Disabled");
-				}
 
 				cc33xx_for_each_wlvif_sta(wl, wlvif_itr) {
-					//check for all valid link id's
+					/* check for all valid link id's */
 					if (wlvif_itr->role_id != 0xFF) {
 						if (wlvif_itr->sta_has_he)
 							he_count++;
 					}
 				}
-				/* There can't be two stations connected with HE supported links*/
-				if (he_count > 1)
-					cc33xx_error("WARNING: Both station interfaces has HE enabled!");
-			}
 
+				/* There can't be two stations connected
+				   with HE supported links */
+				if (he_count > 1) {
+					cc33xx_error("WARNING: Both station "
+						  "interfaces has HE enabled!");
+				}
+			}
 		} else {
 			wlcore_unset_assoc(wl, wlvif);
 		}
@@ -4430,8 +4310,8 @@ static void cc33xx_bss_info_changed_sta(struct cc33xx *wl,
 			if (ret < 0)
 				cc33xx_warning("enter %s ps failed %d",
 					       ps_mode_str, ret);
-		} else if (!vif->cfg.ps &&
-			   test_bit(WLVIF_FLAG_IN_PS, &wlvif->flags)) {
+		} else if (!vif->cfg.ps && test_bit(WLVIF_FLAG_IN_PS,
+						     &wlvif->flags)) {
 			cc33xx_debug(DEBUG_PSM, "auto ps disabled");
 
 			ret = cc33xx_ps_set_mode(wl, wlvif,
@@ -4443,20 +4323,16 @@ static void cc33xx_bss_info_changed_sta(struct cc33xx *wl,
 
 	/* Handle new association with HT. Do this after join. */
 	if (sta_exists) {
-		bool enabled =
-			bss_conf->chandef.width != NL80211_CHAN_WIDTH_20_NOHT;
-		cc33xx_debug(DEBUG_CMD, " +++Debug wlcore_hw_set_peer_cap %x", wlvif->rate_set);
-		ret = cc33xx_set_peer_cap(	wl,
-						&sta_ht_cap,
-						&sta_he_cap,
-						wlvif,
-						enabled,
-						wlvif->rate_set,
-						wlvif->sta.hlid);
+		bool enabled = bss_conf->chandef.width !=
+						NL80211_CHAN_WIDTH_20_NOHT;
+		cc33xx_debug(DEBUG_CMD, "+++Debug wlcore_hw_set_peer_cap %x",
+					wlvif->rate_set);
+		ret = cc33xx_acx_set_peer_cap(wl, &sta_ht_cap, &sta_he_cap,
+					      wlvif, enabled, wlvif->rate_set,
+					      wlvif->sta.hlid);
 		if (ret < 0) {
 			cc33xx_warning("Set ht cap failed %d", ret);
 			goto out;
-
 		}
 
 		if (enabled) {
@@ -4487,19 +4363,17 @@ static void cc33xx_bss_info_changed_sta(struct cc33xx *wl,
 			 * isn't being set (when sending), so we have to
 			 * reconfigure the template upon every ip change.
 			 */
-			ret = cc33xx_cmd_build_arp_rsp(wl, wlvif);
 			if (ret < 0) {
 				cc33xx_warning("build arp rsp failed: %d", ret);
 				goto out;
 			}
 
-			ret = cc33x_acx_arp_ip_filter(wl, wlvif,
+			ret = cc33xx_acx_arp_ip_filter(wl, wlvif,
 				(ACX_ARP_FILTER_ARP_FILTERING |
-				 ACX_ARP_FILTER_AUTO_ARP),
-				addr);
+				ACX_ARP_FILTER_AUTO_ARP), addr);
 		} else {
 			wlvif->ip_addr = 0;
-			ret = cc33x_acx_arp_ip_filter(wl, wlvif, 0, addr);
+			ret = cc33xx_acx_arp_ip_filter(wl, wlvif, 0, addr);
 		}
 
 		if (ret < 0)
@@ -4519,7 +4393,6 @@ static void cc33xx_op_bss_info_changed(struct ieee80211_hw *hw,
 	struct cc33xx_vif *wlvif = cc33xx_vif_to_data(vif);
 	bool is_ap = (wlvif->bss_type == BSS_TYPE_AP_BSS);
 	int ret, set_power;
-
 
 	cc33xx_debug(DEBUG_MAC80211, "mac80211 bss info role %d changed 0x%x",
 		     wlvif->role_id, (int)changed);
@@ -4543,14 +4416,13 @@ static void cc33xx_op_bss_info_changed(struct ieee80211_hw *hw,
 	if (unlikely(!test_bit(WLVIF_FLAG_INITIALIZED, &wlvif->flags)))
 		goto out;
 
-
 	if ((changed & BSS_CHANGED_TXPOWER) &&
 	    (bss_conf->txpower != wlvif->power_level)) {
 		/* bss_conf->txpower is initialized with a default value,
 		meaning the power has not been set and should be ignored, use
 		max value instead */
-		set_power = (bss_conf->txpower == INT_MIN) ? CC33XX_MAX_TXPWR :
-							     bss_conf->txpower;
+		set_power = (bss_conf->txpower == INT_MIN) ?
+					   CC33XX_MAX_TXPWR : bss_conf->txpower;
 		ret = cc33xx_acx_tx_power(wl, wlvif, set_power);
 
 		if (ret < 0)
@@ -4589,8 +4461,7 @@ static void cc33xx_op_change_chanctx(struct ieee80211_hw *hw,
 {
 	struct cc33xx *wl = hw->priv;
 	struct cc33xx_vif *wlvif;
-	int channel = ieee80211_frequency_to_channel(
-		ctx->def.chan->center_freq);
+	int channel =ieee80211_frequency_to_channel(ctx->def.chan->center_freq);
 
 	cc33xx_debug(DEBUG_MAC80211,
 		     "mac80211 change chanctx %d (type %d) changed 0x%x",
@@ -4629,14 +4500,11 @@ static int cc33xx_op_assign_vif_chanctx(struct ieee80211_hw *hw,
 {
 	struct cc33xx *wl = hw->priv;
 	struct cc33xx_vif *wlvif = cc33xx_vif_to_data(vif);
-	int channel = ieee80211_frequency_to_channel(
-		ctx->def.chan->center_freq);
+	int channel =ieee80211_frequency_to_channel(ctx->def.chan->center_freq);
 
-	cc33xx_debug(DEBUG_MAC80211,
-		     "mac80211 assign chanctx (role %d) %d (type %d)"
-		     "(radar %d dfs_state %d)",
-		     wlvif->role_id, channel,
-		     cfg80211_get_chandef_type(&ctx->def),
+	cc33xx_debug(DEBUG_MAC80211, "mac80211 assign chanctx (role %d) %d "
+		     "(type %d) (radar %d dfs_state %d)",wlvif->role_id,
+		     channel, cfg80211_get_chandef_type(&ctx->def),
 		     ctx->radar_enabled, ctx->def.chan->dfs_state);
 
 	mutex_lock(&wl->mutex);
@@ -4655,7 +4523,7 @@ static int cc33xx_op_assign_vif_chanctx(struct ieee80211_hw *hw,
 	cc33xx_set_band_rate(wl, wlvif);
 
 	if (ctx->radar_enabled &&
-	    ctx->def.chan->dfs_state == NL80211_DFS_USABLE) {
+	    (ctx->def.chan->dfs_state == NL80211_DFS_USABLE)) {
 		cc33xx_debug(DEBUG_MAC80211, "Start radar detection");
 		cmd_set_cac(wl, wlvif, true);
 		wlvif->radar_enabled = true;
@@ -4701,9 +4569,8 @@ out:
 	mutex_unlock(&wl->mutex);
 }
 
-static int __wlcore_switch_vif_chan(struct cc33xx *wl,
-				    struct cc33xx_vif *wlvif,
-				    struct ieee80211_chanctx_conf *new_ctx)
+static int cc33xx_switch_vif_chan(struct cc33xx *wl, struct cc33xx_vif *wlvif,
+				  struct ieee80211_chanctx_conf *new_ctx)
 {
 	int channel = ieee80211_frequency_to_channel(
 		new_ctx->def.chan->center_freq);
@@ -4713,7 +4580,13 @@ static int __wlcore_switch_vif_chan(struct cc33xx *wl,
 		     wlvif->role_id, wlvif->channel, channel,
 		     cfg80211_get_chandef_type(&new_ctx->def));
 
-	if (WARN_ON_ONCE(wlvif->bss_type != BSS_TYPE_AP_BSS))
+	cc33xx_debug(DEBUG_MAC80211, "switch vif bss_type: %d", wlvif->bss_type);
+
+	wlvif->band = new_ctx->def.chan->band;
+	wlvif->channel = channel;
+	wlvif->channel_type = cfg80211_get_chandef_type(&new_ctx->def);
+
+	if (wlvif->bss_type != BSS_TYPE_AP_BSS)
 		return 0;
 
 	WARN_ON(!test_bit(WLVIF_FLAG_BEACON_DISABLED, &wlvif->flags));
@@ -4724,9 +4597,6 @@ static int __wlcore_switch_vif_chan(struct cc33xx *wl,
 		wlvif->radar_enabled = false;
 	}
 
-	wlvif->band = new_ctx->def.chan->band;
-	wlvif->channel = channel;
-	wlvif->channel_type = cfg80211_get_chandef_type(&new_ctx->def);
 
 	/* start radar if needed */
 	if (new_ctx->radar_enabled) {
@@ -4738,25 +4608,23 @@ static int __wlcore_switch_vif_chan(struct cc33xx *wl,
 	return 0;
 }
 
-static int
-cc33xx_op_switch_vif_chanctx(struct ieee80211_hw *hw,
-			     struct ieee80211_vif_chanctx_switch *vifs,
-			     int n_vifs,
-			     enum ieee80211_chanctx_switch_mode mode)
+static int cc33xx_op_switch_vif_chanctx(struct ieee80211_hw *hw,
+					struct ieee80211_vif_chanctx_switch *vifs,
+					int n_vifs,
+					enum ieee80211_chanctx_switch_mode mode)
 {
 	struct cc33xx *wl = hw->priv;
 	int i, ret;
 
 	cc33xx_debug(DEBUG_MAC80211,
-		     "mac80211 switch chanctx n_vifs %d mode %d",
-		     n_vifs, mode);
+		     "mac80211 switch chanctx n_vifs %d mode %d", n_vifs, mode);
 
 	mutex_lock(&wl->mutex);
 
 	for (i = 0; i < n_vifs; i++) {
 		struct cc33xx_vif *wlvif = cc33xx_vif_to_data(vifs[i].vif);
 
-		ret = __wlcore_switch_vif_chan(wl, wlvif, vifs[i].new_ctx);
+		ret = cc33xx_switch_vif_chan(wl, wlvif, vifs[i].new_ctx);
 		if (ret)
 			goto out;
 	}
@@ -4768,7 +4636,8 @@ out:
 }
 
 static int cc33xx_op_conf_tx(struct ieee80211_hw *hw,
-			     struct ieee80211_vif *vif, unsigned int link_id, u16 queue,
+			     struct ieee80211_vif *vif,
+			     unsigned int link_id, u16 queue,
 			     const struct ieee80211_tx_queue_params *params)
 {
 	struct cc33xx *wl = hw->priv;
@@ -4796,12 +4665,11 @@ static int cc33xx_op_conf_tx(struct ieee80211_hw *hw,
 	 * we need us
 	 */
     ret = cc33xx_tx_param_cfg(wl, wlvif, cc33xx_tx_get_queue(queue),
-		params->cw_min, params->cw_max,
-		params->aifs, params->txop << 5, params->acm,
-		ps_scheme, params->mu_edca,
-		params->mu_edca_param_rec.aifsn,
-		params->mu_edca_param_rec.ecw_min_max,
-		params->mu_edca_param_rec.mu_edca_timer);
+			      params->cw_min, params->cw_max, params->aifs,
+			      params->txop << 5, params->acm, ps_scheme,
+			      params->mu_edca, params->mu_edca_param_rec.aifsn,
+			      params->mu_edca_param_rec.ecw_min_max,
+			      params->mu_edca_param_rec.mu_edca_timer);
 
 out:
 	mutex_unlock(&wl->mutex);
@@ -4809,8 +4677,7 @@ out:
 	return ret;
 }
 
-static u64 cc33xx_op_get_tsf(struct ieee80211_hw *hw,
-			     struct ieee80211_vif *vif)
+static u64 cc33xx_op_get_tsf(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 {
 
 	struct cc33xx *wl = hw->priv;
@@ -4828,6 +4695,7 @@ static u64 cc33xx_op_get_tsf(struct ieee80211_hw *hw,
 
 out:
 	mutex_unlock(&wl->mutex);
+
 	return mactime;
 }
 
@@ -4851,8 +4719,7 @@ static int cc33xx_allocate_sta(struct cc33xx *wl,
 	struct cc33xx_station *wl_sta;
 	int ret;
 
-
-	if (wl->active_sta_count >= wl->max_ap_stations) {
+	if (wl->active_sta_count >= CC33XX_MAX_AP_STATIONS) {
 		cc33xx_warning("could not allocate HLID - too much stations");
 		return -EBUSY;
 	}
@@ -4944,11 +4811,9 @@ static int cc33xx_sta_remove(struct cc33xx *wl,
 	return ret;
 }
 
-static void wlcore_roc_if_possible(struct cc33xx *wl,
-				   struct cc33xx_vif *wlvif)
+static void wlcore_roc_if_possible(struct cc33xx *wl, struct cc33xx_vif *wlvif)
 {
-	if (find_first_bit(wl->roc_map,
-			   CC33XX_MAX_ROLES) < CC33XX_MAX_ROLES)
+	if (find_first_bit(wl->roc_map, CC33XX_MAX_ROLES) < CC33XX_MAX_ROLES)
 		return;
 
 	if (WARN_ON(wlvif->role_id == CC33XX_INVALID_ROLE_ID))
@@ -4966,25 +4831,28 @@ static void wlcore_roc_if_possible(struct cc33xx *wl,
 void wlcore_update_inconn_sta(struct cc33xx *wl, struct cc33xx_vif *wlvif,
 			      struct cc33xx_station *wl_sta, bool in_conn)
 {
-	cc33xx_debug(DEBUG_CMD, "Enter update_inconn_sta: in_conn=%d count=%d, pending_auth=%d",
-		     in_conn, wlvif->inconn_count, wlvif->ap_pending_auth_reply);
+	cc33xx_debug(DEBUG_CMD, "Enter update_inconn_sta: "
+		     "in_conn=%d count=%d, pending_auth=%d", in_conn,
+		     wlvif->inconn_count, wlvif->ap_pending_auth_reply);
+
 	if (in_conn) {
 		if (WARN_ON(wl_sta && wl_sta->in_connection))
 			return;
 
-		if (!wlvif->ap_pending_auth_reply &&
-		    !wlvif->inconn_count){
+		if (!wlvif->ap_pending_auth_reply && !wlvif->inconn_count){
 			wlcore_roc_if_possible(wl, wlvif);
 			if (test_bit(wlvif->role_id, wl->roc_map)){
-				// set timer on croc timeout
+				/* set timer on croc timeout */
 				wlvif->pending_auth_reply_time = jiffies;
 				cancel_delayed_work(&wlvif->roc_timeout_work);
-				cc33xx_debug(DEBUG_AP, "delay queue roc_timeout_work");
+				cc33xx_debug(DEBUG_AP,
+					     "delay queue roc_timeout_work");
 				ieee80211_queue_delayed_work(wl->hw,
-					&wlvif->roc_timeout_work,
-					msecs_to_jiffies(CC33xx_PEND_ROC_COMPLETE_TIMEOUT));
+						&wlvif->roc_timeout_work,
+						msecs_to_jiffies(
+					     CC33xx_PEND_ROC_COMPLETE_TIMEOUT));
 			}
-		    }
+		}
 
 		if (wl_sta) {
 			wl_sta->in_connection = true;
@@ -5012,13 +4880,14 @@ void wlcore_update_inconn_sta(struct cc33xx *wl, struct cc33xx_vif *wlvif,
 		if (!wlvif->inconn_count && !wlvif->ap_pending_auth_reply &&
 		    test_bit(wlvif->role_id, wl->roc_map)) {
 			cc33xx_croc(wl, wlvif->role_id);
-			//remove timer for croc t/o
+			/* remove timer for croc t/o */
 			cc33xx_debug(DEBUG_AP, "Cancel pending_roc timeout");
 			cancel_delayed_work(&wlvif->roc_timeout_work);
-		    }
+		}
 	}
-	cc33xx_debug(DEBUG_CMD, "Exit update_inconn_sta: in_conn=%d count=%d, pending_auth=%d",
-		     in_conn, wlvif->inconn_count, wlvif->ap_pending_auth_reply);
+	cc33xx_debug(DEBUG_CMD, "Exit update_inconn_sta: in_conn=%d count=%d, "
+		     "pending_auth=%d", in_conn, wlvif->inconn_count,
+		     wlvif->ap_pending_auth_reply);
 }
 
 static int cc33xx_update_sta_state(struct cc33xx *wl,
@@ -5035,9 +4904,8 @@ static int cc33xx_update_sta_state(struct cc33xx *wl,
 	wl_sta = (struct cc33xx_station *)sta->drv_priv;
 
 	/* Add station (AP mode) */
-	if (is_ap &&
-	    old_state == IEEE80211_STA_NOTEXIST &&
-	    new_state == IEEE80211_STA_NONE) {
+	if (is_ap && (old_state == IEEE80211_STA_NOTEXIST) &&
+	    (new_state == IEEE80211_STA_NONE)) {
 		ret = cc33xx_sta_add(wl, wlvif, sta);
 		if (ret)
 			return ret;
@@ -5046,9 +4914,8 @@ static int cc33xx_update_sta_state(struct cc33xx *wl,
 	}
 
 	/* Remove station (AP mode) */
-	if (is_ap &&
-	    old_state == IEEE80211_STA_NONE &&
-	    new_state == IEEE80211_STA_NOTEXIST) {
+	if (is_ap && (old_state == IEEE80211_STA_NONE) &&
+	    (new_state == IEEE80211_STA_NOTEXIST)) {
 		/* must not fail */
 		cc33xx_sta_remove(wl, wlvif, sta);
 
@@ -5056,9 +4923,7 @@ static int cc33xx_update_sta_state(struct cc33xx *wl,
 	}
 
 	/* Authorize station (AP mode) */
-	if (is_ap &&
-	    new_state == IEEE80211_STA_AUTHORIZED) {
-
+	if (is_ap && (new_state == IEEE80211_STA_AUTHORIZED)) {
 		/* reconfigure peer */
 		ret = cc33xx_cmd_add_peer(wl, wlvif, sta, NULL, true);
 		if (ret < 0)
@@ -5068,47 +4933,41 @@ static int cc33xx_update_sta_state(struct cc33xx *wl,
 	}
 
 	/* Authorize station */
-	if (is_sta &&
-	    new_state == IEEE80211_STA_AUTHORIZED) {
+	if (is_sta && (new_state == IEEE80211_STA_AUTHORIZED)) {
 		set_bit(WLVIF_FLAG_STA_AUTHORIZED, &wlvif->flags);
 		ret = cc33xx_set_authorized(wl, wlvif);
 		if (ret)
 			return ret;
 	}
 
-	if (is_sta &&
-	    old_state == IEEE80211_STA_AUTHORIZED &&
-	    new_state == IEEE80211_STA_ASSOC) {
+	if (is_sta && (old_state == IEEE80211_STA_AUTHORIZED) &&
+	    (new_state == IEEE80211_STA_ASSOC)) {
 		clear_bit(WLVIF_FLAG_STA_AUTHORIZED, &wlvif->flags);
 		clear_bit(WLVIF_FLAG_STA_STATE_SENT, &wlvif->flags);
 	}
 
 	/* save seq number on disassoc (suspend) */
-	if (is_sta &&
-	    old_state == IEEE80211_STA_ASSOC &&
-	    new_state == IEEE80211_STA_AUTH) {
+	if (is_sta && (old_state == IEEE80211_STA_ASSOC) &&
+	    (new_state == IEEE80211_STA_AUTH)) {
 		wlcore_save_freed_pkts(wl, wlvif, wlvif->sta.hlid, sta);
 		wlvif->total_freed_pkts = 0;
 	}
 
 	/* restore seq number on assoc (resume) */
-	if (is_sta &&
-	    old_state == IEEE80211_STA_AUTH &&
-	    new_state == IEEE80211_STA_ASSOC) {
+	if (is_sta && (old_state == IEEE80211_STA_AUTH) &&
+	    (new_state == IEEE80211_STA_ASSOC)) {
 		wlvif->total_freed_pkts = wl_sta->total_freed_pkts;
 	}
 
 	/* clear ROCs on failure or authorization */
-	if (is_sta &&
-	    (new_state == IEEE80211_STA_AUTHORIZED ||
-	     new_state == IEEE80211_STA_NOTEXIST)) {
+	if (is_sta && ((new_state == IEEE80211_STA_AUTHORIZED) ||
+	     (new_state == IEEE80211_STA_NOTEXIST))) {
 		if (test_bit(wlvif->role_id, wl->roc_map))
 			cc33xx_croc(wl, wlvif->role_id);
 	}
 
-	if (is_sta &&
-	    old_state == IEEE80211_STA_NOTEXIST &&
-	    new_state == IEEE80211_STA_NONE) {
+	if (is_sta && (old_state == IEEE80211_STA_NOTEXIST &&
+	    new_state == IEEE80211_STA_NONE)) {
 		if (find_first_bit(wl->roc_map,
 				   CC33XX_MAX_ROLES) >= CC33XX_MAX_ROLES) {
 			WARN_ON(wlvif->role_id == CC33XX_INVALID_ROLE_ID);
@@ -5116,6 +4975,7 @@ static int cc33xx_update_sta_state(struct cc33xx *wl,
 				   wlvif->band, wlvif->channel);
 		}
 	}
+
 	return 0;
 }
 
@@ -5161,8 +5021,8 @@ static int cc33xx_op_ampdu_action(struct ieee80211_hw *hw,
 	u16 tid = params->tid;
 	u16 *ssn = &params->ssn;
 
-	cc33xx_debug(DEBUG_MAC80211, "mac80211 ampdu action %d tid %d", action,
-		     tid);
+	cc33xx_debug(DEBUG_MAC80211, "mac80211 ampdu action %d tid %d",
+		     action, tid);
 
 	/* sanity check - the fields in FW are only 8bits wide */
 	if (WARN_ON(tid > 0xFF))
@@ -5187,6 +5047,16 @@ static int cc33xx_op_ampdu_action(struct ieee80211_hw *hw,
 		goto out;
 	}
 
+	if (hlid == CC33XX_INVALID_LINK_ID) {
+        ret = 0;
+        goto out;
+    }
+
+	if (WARN_ON(hlid >= CC33XX_MAX_LINKS)) {
+		ret = -EINVAL;
+		goto out;
+	}
+
 	ba_bitmap = &wl->links[hlid].ba_bitmap;
 
 	cc33xx_debug(DEBUG_MAC80211, "mac80211 ampdu: Rx tid %d action %d",
@@ -5199,7 +5069,7 @@ static int cc33xx_op_ampdu_action(struct ieee80211_hw *hw,
 			break;
 		}
 
-		if (wl->ba_rx_session_count >= wl->ba_rx_session_count_max) {
+		if (wl->ba_rx_session_count >= CC33XX_RX_BA_MAX_SESSIONS) {
 			ret = -EBUSY;
 			cc33xx_error("exceeded max RX BA sessions");
 			break;
@@ -5212,9 +5082,9 @@ static int cc33xx_op_ampdu_action(struct ieee80211_hw *hw,
 			break;
 		}
 
-		ret = cc33xx_acx_set_ba_receiver_session(wl, tid, *ssn, true,
-				hlid,
-				params->buf_size);
+		ret = cc33xx_acx_set_ba_receiver_session(wl, tid, *ssn,
+							 true, hlid,
+							 params->buf_size);
 
 		if (!ret) {
 			*ba_bitmap |= BIT(tid);
@@ -5229,14 +5099,13 @@ static int cc33xx_op_ampdu_action(struct ieee80211_hw *hw,
 			 * message for now, and don't fail the function.
 			 */
 			cc33xx_debug(DEBUG_MAC80211,
-				     "no active RX BA session on tid: %d",
-				     tid);
+				     "no active RX BA session on tid: %d", tid);
 			ret = 0;
 			break;
 		}
 
-		ret = cc33xx_acx_set_ba_receiver_session(wl, tid, 0, false,
-							 hlid, 0);
+		ret = cc33xx_acx_set_ba_receiver_session(wl, tid, 0,
+							 false, hlid, 0);
 		if (!ret) {
 			*ba_bitmap &= ~BIT(tid);
 			wl->ba_rx_session_count--;
@@ -5280,19 +5149,9 @@ static int cc33xx_set_bitrate_mask(struct ieee80211_hw *hw,
 
 	mutex_lock(&wl->mutex);
 
-#ifdef WL8_ORIGINAL_CODE
-	int i;
-	for (i = 0; i < WLCORE_NUM_BANDS; i++)
-		wlvif->bitrate_masks[i] =
-			cc33xx_tx_enabled_rates_get(wl,
-						    mask->control[i].legacy,
-						    i);
-#else
-	wlvif->bitrate_masks[0] =
-		cc33xx_tx_enabled_rates_get(wl,
-					    mask->control[0].legacy,
-					    0);
-#endif
+	wlvif->bitrate_masks[0] = cc33xx_tx_enabled_rates_get(wl,
+						mask->control[0].legacy, 0);
+
 	if (unlikely(wl->state != WLCORE_STATE_ON))
 		goto out;
 
@@ -5300,8 +5159,8 @@ static int cc33xx_set_bitrate_mask(struct ieee80211_hw *hw,
 	    !test_bit(WLVIF_FLAG_STA_ASSOCIATED, &wlvif->flags)) {
 
 		cc33xx_set_band_rate(wl, wlvif);
-		wlvif->basic_rate =
-			cc33xx_tx_min_rate_get(wl, wlvif->basic_rate_set);
+		wlvif->basic_rate = cc33xx_tx_min_rate_get(wl,
+							 wlvif->basic_rate_set);
 	}
 out:
 	mutex_unlock(&wl->mutex);
@@ -5344,7 +5203,7 @@ static void cc33xx_op_channel_switch(struct ieee80211_hw *hw,
 
 		/* indicate failure 5 seconds after channel switch time */
 		delay_usec = ieee80211_tu_to_usec(wlvif->beacon_int) *
-			ch_switch->count;
+							       ch_switch->count;
 		ieee80211_queue_delayed_work(hw, &wlvif->channel_switch_work,
 					     usecs_to_jiffies(delay_usec) +
 					     msecs_to_jiffies(5000));
@@ -5354,82 +5213,17 @@ out:
 	mutex_unlock(&wl->mutex);
 }
 
-static const void *wlcore_get_beacon_ie(struct cc33xx *wl,
-					struct cc33xx_vif *wlvif,
-					u8 eid)
-{
-	int ieoffset = offsetof(struct ieee80211_mgmt, u.beacon.variable);
-	struct sk_buff *beacon =
-		ieee80211_beacon_get(wl->hw, cc33xx_wlvif_to_vif(wlvif), 0);
-
-	if (!beacon)
-		return NULL;
-
-	return cfg80211_find_ie(eid,
-				beacon->data + ieoffset,
-				beacon->len - ieoffset);
-}
-
-static int wlcore_get_csa_count(struct cc33xx *wl, struct cc33xx_vif *wlvif,
-				u8 *csa_count)
-{
-	const u8 *ie;
-	const struct ieee80211_channel_sw_ie *ie_csa;
-
-	ie = wlcore_get_beacon_ie(wl, wlvif, WLAN_EID_CHANNEL_SWITCH);
-	if (!ie)
-		return -EINVAL;
-
-	ie_csa = (struct ieee80211_channel_sw_ie *)&ie[2];
-	*csa_count = ie_csa->count;
-
-	return 0;
-}
-
 static void cc33xx_op_channel_switch_beacon(struct ieee80211_hw *hw,
 					    struct ieee80211_vif *vif,
 					    struct cfg80211_chan_def *chandef)
 {
-	struct cc33xx *wl = hw->priv;
-	struct cc33xx_vif *wlvif = cc33xx_vif_to_data(vif);
-	struct ieee80211_channel_switch ch_switch = {
-		.block_tx = true,
-		.chandef = *chandef,
-	};
-	int ret;
-
-	cc33xx_debug(DEBUG_MAC80211,
-		     "mac80211 channel switch beacon (role %d)",
-		     wlvif->role_id);
-
-	ret = wlcore_get_csa_count(wl, wlvif, &ch_switch.count);
-	if (ret < 0) {
-		cc33xx_error("error getting beacon (for CSA counter)");
-		return;
-	}
-
-	mutex_lock(&wl->mutex);
-
-	if (unlikely(wl->state != WLCORE_STATE_ON)) {
-		ret = -EBUSY;
-		goto out;
-	}
-
-	ret = cmd_channel_switch(wl, wlvif, &ch_switch);
-	if (ret)
-		goto out;
-
-	set_bit(WLVIF_FLAG_CS_PROGRESS, &wlvif->flags);
-
-out:
-	mutex_unlock(&wl->mutex);
+	cc33xx_error("AP channel switch is not supported");
 }
 
 static void cc33xx_op_flush(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
-			    u32 queues, bool drop)
+		u32 queues, bool drop)
 {
 	struct cc33xx *wl = hw->priv;
-
 	cc33xx_tx_flush(wl);
 }
 
@@ -5445,8 +5239,8 @@ static int cc33xx_op_remain_on_channel(struct ieee80211_hw *hw,
 
 	channel = ieee80211_frequency_to_channel(chan->center_freq);
 
-	cc33xx_debug(DEBUG_MAC80211, "mac80211 roc %d (role %d)",
-		     channel, wlvif->role_id);
+	cc33xx_debug(DEBUG_MAC80211,
+		     "mac80211 roc %d (role %d)", channel, wlvif->role_id);
 
 	mutex_lock(&wl->mutex);
 
@@ -5461,8 +5255,9 @@ static int cc33xx_op_remain_on_channel(struct ieee80211_hw *hw,
 		goto out;
 	}
 
-	cc33xx_debug(DEBUG_MAC80211, "call cc33xx_start_dev, band = %d,"
-				     " channel = %d", chan->band, channel);
+	cc33xx_debug(DEBUG_MAC80211,
+		     "call cc33xx_start_dev, band = %d, channel = %d",
+		     chan->band, channel);
 	ret = cc33xx_start_dev(wl, wlvif, chan->band, channel);
 	if (ret < 0)
 		goto out;
@@ -5473,10 +5268,6 @@ static int cc33xx_op_remain_on_channel(struct ieee80211_hw *hw,
 
 out:
 	mutex_unlock(&wl->mutex);
-
-// Temporary workaround - ROC complete event from driver,
-// need to be sent from FW
-	//ieee80211_ready_on_channel(wl->hw);
 	return ret;
 }
 
@@ -5600,6 +5391,10 @@ static void cc33xx_op_sta_statistics(struct ieee80211_hw *hw,
 	sinfo->filled |= BIT_ULL(NL80211_STA_INFO_SIGNAL);
 	sinfo->signal = rssi_dbm;
 
+	ret = wlcore_acx_get_tx_rate(wl, wlvif, sinfo);
+	if (ret < 0)
+		goto out;
+
 out:
 	mutex_unlock(&wl->mutex);
 }
@@ -5633,18 +5428,16 @@ out:
 	return ret;
 }
 
-#undef CONFIG_PM // Not supported yet
 
+#ifdef CONFIG_PM
 static const struct ieee80211_ops cc33xx_ops = {
 	.start = cc33xx_op_start,
 	.stop = cc33xx_op_stop,
 	.add_interface = cc33xx_op_add_interface,
 	.remove_interface = cc33xx_op_remove_interface,
 	.change_interface = cc33xx_op_change_interface,
-#ifdef CONFIG_PM
 	.suspend = cc33xx_op_suspend,
 	.resume = cc33xx_op_resume,
-#endif
 	.config = cc33xx_op_config,
 	.prepare_multicast = cc33xx_op_prepare_multicast,
 	.configure_filter = cc33xx_op_configure_filter,
@@ -5682,6 +5475,87 @@ static const struct ieee80211_ops cc33xx_ops = {
 	CFG80211_TESTMODE_CMD(cc33xx_tm_cmd)
 };
 
+static const struct wiphy_wowlan_support wlcore_wowlan_support = {
+	.flags = WIPHY_WOWLAN_ANY,
+	.n_patterns = CC33XX_MAX_RX_FILTERS,
+	.pattern_min_len = 1,
+	.pattern_max_len = CC33XX_RX_FILTER_MAX_PATTERN_SIZE,
+};
+
+static void setup_wake_irq(struct cc33xx *wl)
+{
+	struct platform_device *pdev = wl->pdev;
+	struct wlcore_platdev_data *pdev_data = dev_get_platdata(&pdev->dev);
+
+	struct resource *res;
+	int ret;
+
+	device_init_wakeup(wl->dev, true);
+
+	if (pdev_data->pwr_in_suspend)
+		wl->hw->wiphy->wowlan = &wlcore_wowlan_support;
+
+	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
+	if (res) {
+		wl->wakeirq = res->start;
+		ret = dev_pm_set_dedicated_wake_irq(wl->dev, wl->wakeirq);
+		if (ret)
+			wl->wakeirq = -ENODEV;
+	} else {
+		wl->wakeirq = -ENODEV;
+	}
+
+	wl->keep_device_power = true;
+}
+#else
+static const struct ieee80211_ops cc33xx_ops = {
+	.start = cc33xx_op_start,
+	.stop = cc33xx_op_stop,
+	.add_interface = cc33xx_op_add_interface,
+	.remove_interface = cc33xx_op_remove_interface,
+	.change_interface = cc33xx_op_change_interface,
+	.config = cc33xx_op_config,
+	.prepare_multicast = cc33xx_op_prepare_multicast,
+	.configure_filter = cc33xx_op_configure_filter,
+	.tx = cc33xx_op_tx,
+	.set_key = cc33xx_op_set_key,
+	.hw_scan = cc33xx_op_hw_scan,
+	.cancel_hw_scan = cc33xx_op_cancel_hw_scan,
+	.sched_scan_start = cc33xx_op_sched_scan_start,
+	.sched_scan_stop = cc33xx_op_sched_scan_stop,
+	.bss_info_changed = cc33xx_op_bss_info_changed,
+	.set_frag_threshold = cc33xx_op_set_frag_threshold,
+	.set_rts_threshold = cc33xx_op_set_rts_threshold,
+	.conf_tx = cc33xx_op_conf_tx,
+	.get_tsf = cc33xx_op_get_tsf,
+	.get_survey = cc33xx_op_get_survey,
+	.sta_state = cc33xx_op_sta_state,
+	.ampdu_action = cc33xx_op_ampdu_action,
+	.tx_frames_pending = cc33xx_tx_frames_pending,
+	.set_bitrate_mask = cc33xx_set_bitrate_mask,
+	.set_default_unicast_key = cc33xx_op_set_default_key_idx,
+	.channel_switch = cc33xx_op_channel_switch,
+	.channel_switch_beacon = cc33xx_op_channel_switch_beacon,
+	.flush = cc33xx_op_flush,
+	.remain_on_channel = cc33xx_op_remain_on_channel,
+	.cancel_remain_on_channel = cc33xx_op_cancel_remain_on_channel,
+	.add_chanctx = cc33xx_op_add_chanctx,
+	.remove_chanctx = cc33xx_op_remove_chanctx,
+	.change_chanctx = cc33xx_op_change_chanctx,
+	.assign_vif_chanctx = cc33xx_op_assign_vif_chanctx,
+	.unassign_vif_chanctx = cc33xx_op_unassign_vif_chanctx,
+	.switch_vif_chanctx = cc33xx_op_switch_vif_chanctx,
+	.sta_rc_update = cc33xx_op_sta_rc_update,
+	.sta_statistics = cc33xx_op_sta_statistics,
+	.get_expected_throughput = cc33xx_op_get_expected_throughput,
+	CFG80211_TESTMODE_CMD(cc33xx_tm_cmd)
+};
+
+static inline void setup_wake_irq(struct cc33xx *wl)
+{
+	wl->keep_device_power = true;
+}
+#endif /* CONFIG_PM */
 
 u8 wlcore_rate_to_idx(struct cc33xx *wl, u8 rate, enum nl80211_band band)
 {
@@ -5689,12 +5563,12 @@ u8 wlcore_rate_to_idx(struct cc33xx *wl, u8 rate, enum nl80211_band band)
 
 	BUG_ON(band >= 2);
 
-	if (unlikely(rate > wl->hw_tx_rate_tbl_size)) {
+	if (unlikely(rate > CONF_HW_RATE_INDEX_MAX)) {
 		cc33xx_error("Illegal RX rate from HW: %d", rate);
 		return 0;
 	}
 
-	idx = wl->band_rate_to_idx[band][rate];
+	idx = cc33xx_band_rate_to_idx[band][rate];
 	if (unlikely(idx == CONF_HW_RXTX_RATE_UNSUPPORTED)) {
 		cc33xx_error("Unsupported RX rate from HW: %d", rate);
 		return 0;
@@ -5714,12 +5588,14 @@ static void cc33xx_derive_mac_addresses(struct cc33xx *wl)
 
 	if (wl->nvs_mac_addr_len != ETH_ALEN){
 		if (unlikely(wl->nvs_mac_addr_len > 0))
-			cc33xx_warning("NVS MAC address present but has a wrong size, ignoring.");
+			cc33xx_warning("NVS MAC address present "
+				       "but has a wrong size, ignoring.");
 
 		if (!ether_addr_equal(zero_mac, wl->efuse_mac_address)){
 			use_efuse = true;
 			ether_addr_copy(base_addr, wl->efuse_mac_address);
-			cc33xx_debug(DEBUG_BOOT, "MAC address derived from EFUSE");
+			cc33xx_debug(DEBUG_BOOT,
+				     "MAC address derived from EFUSE");
 		} else {
 			use_random = true;
 			eth_random_addr(base_addr);
@@ -5728,26 +5604,29 @@ static void cc33xx_derive_mac_addresses(struct cc33xx *wl)
 		}
 	} else {
 		u8 *nvs_addr = wl->nvs_mac_addr;
-		const u8 efuse_magic_addr[ETH_ALEN] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-		const u8 random_magic_addr[ETH_ALEN] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x01};
+		const u8 efuse_magic_addr[ETH_ALEN] =
+					{0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+		const u8 random_magic_addr[ETH_ALEN] =
+					{0x00, 0x00, 0x00, 0x00, 0x00, 0x01};
 
-		// In NVS, addresses 00-00-00-00-00-00 and 00-00-00-00-00-01
-		// have special meaning:
+		/* In NVS, addresses 00-00-00-00-00-00 and 00-00-00-00-00-01
+		   have special meaning: */
 
 		if (ether_addr_equal(nvs_addr, efuse_magic_addr)){
 			use_efuse = true;
 			ether_addr_copy(base_addr, wl->efuse_mac_address);
-			cc33xx_debug(DEBUG_BOOT, "NVS file selects address from EFUSE");
-
+			cc33xx_debug(DEBUG_BOOT,
+				     "NVS file selects address from EFUSE");
 		} else if (ether_addr_equal(nvs_addr, random_magic_addr)){
 			use_random = true;
 			eth_random_addr(base_addr);
-			cc33xx_debug(DEBUG_BOOT, "NVS file sets random MAC address");
-
+			cc33xx_debug(DEBUG_BOOT,
+				     "NVS file sets random MAC address");
 		} else {
 			use_nvs = true;
 			ether_addr_copy(base_addr, nvs_addr);
-			cc33xx_debug(DEBUG_BOOT, "NVS file sets explicit MAC address");
+			cc33xx_debug(DEBUG_BOOT,
+				     "NVS file sets explicit MAC address");
 		}
 	}
 
@@ -5766,9 +5645,7 @@ static void cc33xx_derive_mac_addresses(struct cc33xx *wl)
 		wl->addresses[2].addr[0] |= oui_laa_bit;
 
 		eth_addr_inc(wl->addresses[2].addr);
-
 		eth_addr_inc(bd_addr);
-
 	} else if (use_random) {
 		ether_addr_copy(wl->addresses[0].addr, base_addr);
 		ether_addr_copy(wl->addresses[1].addr, base_addr);
@@ -5776,26 +5653,23 @@ static void cc33xx_derive_mac_addresses(struct cc33xx *wl)
 		ether_addr_copy(bd_addr, base_addr);
 
 		eth_addr_inc(bd_addr);
-
 		eth_addr_inc(wl->addresses[1].addr);
 		eth_addr_inc(wl->addresses[1].addr);
-
 		eth_addr_inc(wl->addresses[2].addr);
 		eth_addr_inc(wl->addresses[2].addr);
 		eth_addr_inc(wl->addresses[2].addr);
-
 	} else {
 		BUG_ON(1);
 	}
 
-	cc33xx_debug(DEBUG_BOOT, "Base MAC address: %pM", wl->addresses[0].addr);
+	cc33xx_debug(DEBUG_BOOT, "Base MAC address: %pM",
+		     wl->addresses[0].addr);
 
 	wl->hw->wiphy->n_addresses = WLCORE_NUM_MAC_ADDRESSES;
 	wl->hw->wiphy->addresses = wl->addresses;
 
 	cmd_set_bd_addr(wl, bd_addr);
 }
-
 
 static int cc33xx_register_hw(struct cc33xx *wl)
 {
@@ -5827,7 +5701,6 @@ static void cc33xx_unregister_hw(struct cc33xx *wl)
 
 	ieee80211_unregister_hw(wl->hw);
 	wl->mac80211_registered = false;
-
 }
 
 static int cc33xx_init_ieee80211(struct cc33xx *wl)
@@ -5868,7 +5741,8 @@ static int cc33xx_init_ieee80211(struct cc33xx *wl)
 
 	/* unit us */
 	/* FIXME: find a proper value */
-	wl->hw->max_listen_interval = wl->conf.host_conf.conn.max_listen_interval;
+	wl->hw->max_listen_interval =
+				wl->conf.host_conf.conn.max_listen_interval;
 
 	ieee80211_hw_set(wl->hw, SUPPORT_FAST_XMIT);
 	ieee80211_hw_set(wl->hw, CHANCTX_STA_CSA);
@@ -5887,17 +5761,7 @@ static int cc33xx_init_ieee80211(struct cc33xx *wl)
 	ieee80211_hw_set(wl->hw, SUPPORTS_MULTI_BSSID);
 	ieee80211_hw_set(wl->hw, SUPPORTS_AMSDU_IN_AMPDU);
 
-	// wl->hw->wiphy->cipher_suites = cipher_suites;
-	// wl->hw->wiphy->n_cipher_suites = ARRAY_SIZE(cipher_suites);
-
-	wl->hw->wiphy->interface_modes = BIT(NL80211_IFTYPE_STATION) |
-					 BIT(NL80211_IFTYPE_AP) |
-					 BIT(NL80211_IFTYPE_P2P_DEVICE) |
-					 BIT(NL80211_IFTYPE_P2P_CLIENT) |
-#ifdef CONFIG_MAC80211_MESH
-					 BIT(NL80211_IFTYPE_MESH_POINT) |
-#endif
-					 BIT(NL80211_IFTYPE_P2P_GO);
+	wl->hw->wiphy->interface_modes = cc33xx_wiphy_interface_modes();
 
 	wl->hw->wiphy->max_scan_ssids = 1;
 	wl->hw->wiphy->max_sched_scan_ssids = 16;
@@ -5919,9 +5783,9 @@ static int cc33xx_init_ieee80211(struct cc33xx *wl)
 	wl->hw->wiphy->features |= NL80211_FEATURE_AP_SCAN;
 
 	/*
-	* clear channel flags from the previous usage
-	* and restore max_power & max_antenna_gain values.
-	*/
+	 * clear channel flags from the previous usage
+	 * and restore max_power & max_antenna_gain values.
+	 */
 	for (i = 0; i < ARRAY_SIZE(cc33xx_channels); i++) {
 		cc33xx_band_2ghz.channels[i].flags = 0;
 		cc33xx_band_2ghz.channels[i].max_power = CC33XX_MAX_TXPWR;
@@ -5943,7 +5807,12 @@ static int cc33xx_init_ieee80211(struct cc33xx *wl)
 		cc33xx_band_5ghz.iftype_data = NULL;
 		cc33xx_band_5ghz.n_iftype_data = 0;
 	}
-
+	else
+	{
+		wl->hw->wiphy->iftype_ext_capab = he_iftypes_ext_capa;
+		wl->hw->wiphy->num_iftype_ext_capab =
+			ARRAY_SIZE(he_iftypes_ext_capa);
+	}
 
 	/*
 	 * We keep local copies of the band structs because we need to
@@ -5981,8 +5850,8 @@ static int cc33xx_init_ieee80211(struct cc33xx *wl)
 	wl->hw->wiphy->reg_notifier = cc33xx_reg_notify;
 
 	/* allowed interface combinations */
-	wl->hw->wiphy->iface_combinations = wl->iface_combinations;
-	wl->hw->wiphy->n_iface_combinations = wl->n_iface_combinations;
+	wl->hw->wiphy->iface_combinations = cc33xx_iface_combinations;
+	wl->hw->wiphy->n_iface_combinations = ARRAY_SIZE(cc33xx_iface_combinations);
 
 	SET_IEEE80211_DEV(wl->hw, wl->dev);
 
@@ -6004,11 +5873,10 @@ static int cc33xx_init_ieee80211(struct cc33xx *wl)
 		wl->hw->uapsd_queues = 0;
 	}
 
-
 	return 0;
 }
 
-#define create_high_prio_freezable_workqueue(name)				\
+#define create_high_prio_freezable_workqueue(name)			\
 	alloc_workqueue("%s", __WQ_LEGACY | WQ_FREEZABLE | WQ_UNBOUND |	\
 			WQ_MEM_RECLAIM | WQ_HIGHPRI, 1, (name))
 
@@ -6037,9 +5905,11 @@ struct ieee80211_hw *wlcore_alloc_hw(u32 aggr_buf_size)
 	 * wl->num_links is not configured yet, so just use CC33XX_MAX_LINKS.
 	 * we don't allocate any additional resource here, so that's fine.
 	 */
-	for (i = 0; i < NUM_TX_QUEUES; i++)
-		for (j = 0; j < CC33XX_MAX_LINKS; j++)
+	for (i = 0; i < NUM_TX_QUEUES; i++)	{
+		for (j = 0; j < CC33XX_MAX_LINKS; j++) {
 			skb_queue_head_init(&wl->links[j].tx_queue[i]);
+		}
+	}
 
 	skb_queue_head_init(&wl->deferred_rx_queue);
 	skb_queue_head_init(&wl->deferred_tx_queue);
@@ -6054,9 +5924,10 @@ struct ieee80211_hw *wlcore_alloc_hw(u32 aggr_buf_size)
 	INIT_DELAYED_WORK(&wl->roc_complete_work, wlcore_roc_complete_work);
 	INIT_DELAYED_WORK(&wl->tx_watchdog_work, cc33xx_tx_watchdog_work);
 
-	wl->freezable_netstack_wq  = create_freezable_workqueue("cc33xx_netstack_wq");
+	wl->freezable_netstack_wq =
+			create_freezable_workqueue("cc33xx_netstack_wq");
 
-	wl->freezable_wq =  create_high_prio_freezable_workqueue("cc33xx_wq");
+	wl->freezable_wq = create_high_prio_freezable_workqueue("cc33xx_wq");
 
 	if (!wl->freezable_wq || !wl->freezable_netstack_wq) {
 		ret = -ENOMEM;
@@ -6080,7 +5951,7 @@ struct ieee80211_hw *wlcore_alloc_hw(u32 aggr_buf_size)
 	__set_bit(CC33XX_SYSTEM_HLID, wl->links_map);
 
 	memset(wl->tx_frames_map, 0, sizeof(wl->tx_frames_map));
-	for (i = 0; i < wl->num_tx_desc; i++)
+	for (i = 0; i < CC33XX_NUM_TX_DESCRIPTORS; i++)
 		wl->tx_frames[i] = NULL;
 
 	spin_lock_init(&wl->wl_lock);
@@ -6121,8 +5992,6 @@ struct ieee80211_hw *wlcore_alloc_hw(u32 aggr_buf_size)
 	if (!wl->core_status)
 		goto err_buf32;
 
-
-
 	return hw;
 
 err_buf32:
@@ -6145,7 +6014,6 @@ err_hw:
 	cc33xx_debugfs_exit(wl);
 
 err_hw_alloc:
-
 	return ERR_PTR(ret);
 }
 
@@ -6178,17 +6046,6 @@ int wlcore_free_hw(struct cc33xx *wl)
 	return 0;
 }
 
-#ifdef CONFIG_PM
-static const struct wiphy_wowlan_support wlcore_wowlan_support = {
-	.flags = WIPHY_WOWLAN_ANY,
-	.n_patterns = CC33XX_MAX_RX_FILTERS,
-	.pattern_min_len = 1,
-	.pattern_max_len = CC33XX_RX_FILTER_MAX_PATTERN_SIZE,
-};
-#endif
-
-
-
 static int cc33xx_identify_chip(struct cc33xx *wl)
 {
 	int ret = 0;
@@ -6199,14 +6056,6 @@ static int cc33xx_identify_chip(struct cc33xx *wl)
 		      WLCORE_QUIRK_TX_PAD_LAST_FRAME |
 		      WLCORE_QUIRK_REGDOMAIN_CONF |
 		      WLCORE_QUIRK_DUAL_PROBE_TMPL;
-
-
-	wl->scan_templ_id_2_4 = CMD_TEMPL_CFG_PROBE_REQ_2_4;
-	wl->scan_templ_id_5 = CMD_TEMPL_CFG_PROBE_REQ_5;
-	wl->sched_scan_templ_id_2_4 = CMD_TEMPL_PROBE_REQ_2_4_PERIODIC;
-	wl->sched_scan_templ_id_5 = CMD_TEMPL_PROBE_REQ_5_PERIODIC;
-	wl->max_channels_5 = MAX_CHANNELS_5GHZ;
-	wl->ba_rx_session_count_max = CC33XX_RX_BA_MAX_SESSIONS;
 
 	if (wl->if_ops->get_max_transaction_len)
 		wl->max_transaction_len =
@@ -6234,18 +6083,18 @@ static int read_version_info(struct cc33xx *wl)
 	}
 
 	cc33xx_info("Wireless firmware version %u.%u.%u.%u",
-		wl->all_versions.fw_ver->major_version,
-		wl->all_versions.fw_ver->minor_version,
-		wl->all_versions.fw_ver->api_version,
-		wl->all_versions.fw_ver->build_version);
+		    wl->all_versions.fw_ver->major_version,
+		    wl->all_versions.fw_ver->minor_version,
+		    wl->all_versions.fw_ver->api_version,
+		    wl->all_versions.fw_ver->build_version);
 
 	cc33xx_info("Wireless PHY version %u.%u.%u.%u.%u.%u",
-		wl->all_versions.fw_ver->phy_version[5],
-		wl->all_versions.fw_ver->phy_version[4],
-		wl->all_versions.fw_ver->phy_version[3],
-		wl->all_versions.fw_ver->phy_version[2],
-		wl->all_versions.fw_ver->phy_version[1],
-		wl->all_versions.fw_ver->phy_version[0]);
+		    wl->all_versions.fw_ver->phy_version[5],
+		    wl->all_versions.fw_ver->phy_version[4],
+		    wl->all_versions.fw_ver->phy_version[3],
+		    wl->all_versions.fw_ver->phy_version[2],
+		    wl->all_versions.fw_ver->phy_version[1],
+		    wl->all_versions.fw_ver->phy_version[0]);
 
 	wl->all_versions.driver_ver.major_version = MAJOR_VERSION;
 	wl->all_versions.driver_ver.minor_version = MINOR_VERSION;
@@ -6260,9 +6109,6 @@ static void wlcore_nvs_cb(const struct firmware *fw, void *context)
 	struct cc33xx *wl = context;
 	struct platform_device *pdev = wl->pdev;
 	struct wlcore_platdev_data *pdev_data = dev_get_platdata(&pdev->dev);
-#ifdef CONFIG_PM
-	struct resource *res;
-#endif
 
 	int ret;
 
@@ -6287,7 +6133,7 @@ static void wlcore_nvs_cb(const struct firmware *fw, void *context)
 	if (ret < 0)
 		goto out_free_nvs;
 
-	BUG_ON(wl->num_tx_desc > WLCORE_MAX_TX_DESCRIPTORS);
+	BUG_ON(CC33XX_NUM_TX_DESCRIPTORS > WLCORE_MAX_TX_DESCRIPTORS);
 
 	/* adjust some runtime configuration parameters */
 	wlcore_adjust_conf(wl);
@@ -6297,25 +6143,7 @@ static void wlcore_nvs_cb(const struct firmware *fw, void *context)
 
 	cc33xx_power_off(wl);
 
-#ifdef CONFIG_PM
-	device_init_wakeup(wl->dev, true);
-
-	if (pdev_data->pwr_in_suspend)
-		wl->hw->wiphy->wowlan = &wlcore_wowlan_support;
-
-	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
-	if (res) {
-		wl->wakeirq = res->start;
-		ret = dev_pm_set_dedicated_wake_irq(wl->dev, wl->wakeirq);
-		if (ret)
-			wl->wakeirq = -ENODEV;
-	} else {
-		wl->wakeirq = -ENODEV;
-	}
-#else
-	wl->keep_device_power = true;
-#endif
-
+	setup_wake_irq(wl);
 
 	ret = cc33xx_init_fw(wl);
 	if (ret < 0) {
@@ -6373,7 +6201,6 @@ int wlcore_probe(struct cc33xx *wl, struct platform_device *pdev)
 	cc33xx_debug(DEBUG_CC33xx, "Wireless Driver Version %d.%d.%d.%d",
 		MAJOR_VERSION, MINOR_VERSION, API_VERSION, BUILD_VERSION);
 
-
 	if (!pdev_data)
 		return -EINVAL;
 
@@ -6387,8 +6214,9 @@ int wlcore_probe(struct cc33xx *wl, struct platform_device *pdev)
 					      nvs_name, &pdev->dev, GFP_KERNEL,
 					      wl, wlcore_nvs_cb);
 		if (ret < 0) {
-			cc33xx_error("request_firmware_nowait failed for %s: %d",
-				     nvs_name, ret);
+			cc33xx_error(
+				    "request_firmware_nowait failed for %s: %d",
+				    nvs_name, ret);
 			complete_all(&wl->nvs_loading_complete);
 		}
 	} else {
@@ -6419,27 +6247,17 @@ int wlcore_remove(struct platform_device *pdev)
 	}
 
 	device_init_wakeup(wl->dev, false);
-
 	cc33xx_unregister_hw(wl);
 	cc33xx_turn_off(wl);
 
 out:
 	wlcore_free_hw(wl);
-
 	return 0;
 }
 
-bool cc33xx_is_mimo_supported(struct cc33xx *wl)
-{
-	/* only support MIMO with multiple antennas, and when SISO
-	 * is not forced through config
-	 */
-	return (wl->conf.host_conf.ht.mode != HT_MODE_WIDE) &&
-	       (wl->conf.host_conf.ht.mode != HT_MODE_SISO20);
-}
-
-static int cc33xx_load_ini_bin_file(struct device *dev, struct cc33xx_conf_file *conf,
-				 const char *file)
+static int cc33xx_load_ini_bin_file(struct device *dev,
+				    struct cc33xx_conf_file *conf,
+				    const char *file)
 {
 	struct cc33xx_conf_file *conf_file;
 	const struct firmware *fw;
@@ -6453,8 +6271,9 @@ static int cc33xx_load_ini_bin_file(struct device *dev, struct cc33xx_conf_file 
 	}
 
 	if (fw->size != CC33X_CONF_SIZE) {
-		cc33xx_error("%s configuration binary size is wrong, expected %zu got %zu",
-			     file, CC33X_CONF_SIZE, fw->size);
+		cc33xx_error("%s configuration binary size is wrong, "
+			     "expected %zu got %zu", file, CC33X_CONF_SIZE,
+			     fw->size);
 		ret = -EINVAL;
 		goto out_release;
 	}
@@ -6481,15 +6300,18 @@ static int cc33xx_ini_bin_init(struct cc33xx *wl, struct device *dev)
 	struct platform_device *pdev = wl->pdev;
 	struct wlcore_platdev_data *pdata = dev_get_platdata(&pdev->dev);
 
-	if (cc33xx_load_ini_bin_file(dev, &wl->conf, pdata->family->cfg_name) < 0){
+	if (cc33xx_load_ini_bin_file(dev, &wl->conf,
+				     pdata->family->cfg_name) < 0)
 		cc33xx_warning("falling back to default config");
-
-
-	}
 
 	return 0;
 }
 
+static inline void wlcore_set_ht_cap(struct cc33xx *wl, enum nl80211_band band,
+				     struct ieee80211_sta_ht_cap *ht_cap)
+{
+	memcpy(&wl->ht_cap[band], ht_cap, sizeof(*ht_cap));
+}
 
 static int cc33xx_setup(struct cc33xx *wl)
 {
@@ -6497,48 +6319,26 @@ static int cc33xx_setup(struct cc33xx *wl)
 
 	BUILD_BUG_ON(CC33XX_MAX_AP_STATIONS > CC33XX_MAX_LINKS);
 
-	wl->num_tx_desc = CC33XX_NUM_TX_DESCRIPTORS;
-	wl->num_rx_desc = CC33XX_NUM_RX_DESCRIPTORS;
-	wl->num_links = CC33XX_MAX_LINKS;
-	wl->max_ap_stations = CC33XX_MAX_AP_STATIONS;
-	wl->iface_combinations = cc33xx_iface_combinations;
-	wl->n_iface_combinations = ARRAY_SIZE(cc33xx_iface_combinations);
-	wl->band_rate_to_idx = cc33xx_band_rate_to_idx;
-	wl->hw_tx_rate_tbl_size = CONF_HW_RATE_INDEX_MAX;
-	wl->stats.fw_stats_len = sizeof(struct cc33xx_acx_statistics);
-
-	if (num_rx_desc_param != -1)
-		wl->num_rx_desc = num_rx_desc_param;
-
 	ret = cc33xx_ini_bin_init(wl, wl->dev);
 	if (ret < 0)
 		return ret;
 
-
 	if (ht_mode_param) {
-		if (!strcmp(ht_mode_param, "default"))
+		if (!strcmp(ht_mode_param, "default")) {
 			wl->conf.host_conf.ht.mode = HT_MODE_DEFAULT;
-		else if (!strcmp(ht_mode_param, "wide"))
+		} else if (!strcmp(ht_mode_param, "wide")) {
 			wl->conf.host_conf.ht.mode = HT_MODE_WIDE;
-		else if (!strcmp(ht_mode_param, "siso20"))
+		} else if (!strcmp(ht_mode_param, "siso20")) {
 			wl->conf.host_conf.ht.mode = HT_MODE_SISO20;
-		else {
+		} else {
 			cc33xx_error("invalid ht_mode '%s'", ht_mode_param);
 			return -EINVAL;
 		}
 	}
 
 	if (wl->conf.host_conf.ht.mode == HT_MODE_DEFAULT) {
-		/*
-		 * Only support mimo with multiple antennas. Fall back to
-		 * siso40.
-		 */
-		if (cc33xx_is_mimo_supported(wl))
-			wlcore_set_ht_cap(wl, NL80211_BAND_2GHZ,
-					  &cc33xx_mimo_ht_cap_2ghz);
-		else
-			wlcore_set_ht_cap(wl, NL80211_BAND_2GHZ,
-					  &cc33xx_siso40_ht_cap_2ghz);
+		wlcore_set_ht_cap(wl, NL80211_BAND_2GHZ,
+				  &cc33xx_siso40_ht_cap_2ghz);
 
 		/* 5Ghz is always wide */
 		wlcore_set_ht_cap(wl, NL80211_BAND_5GHZ,
@@ -6549,30 +6349,22 @@ static int cc33xx_setup(struct cc33xx *wl)
 		wlcore_set_ht_cap(wl, NL80211_BAND_5GHZ,
 				  &cc33xx_siso40_ht_cap_5ghz);
 	} else if (wl->conf.host_conf.ht.mode == HT_MODE_SISO20) {
-		wlcore_set_ht_cap(wl, NL80211_BAND_2GHZ,
-				  &cc33xx_siso20_ht_cap);
-		wlcore_set_ht_cap(wl, NL80211_BAND_5GHZ,
-				  &cc33xx_siso20_ht_cap);
+		wlcore_set_ht_cap(wl, NL80211_BAND_2GHZ, &cc33xx_siso20_ht_cap);
+		wlcore_set_ht_cap(wl, NL80211_BAND_5GHZ, &cc33xx_siso20_ht_cap);
 	}
 
-	wl->event_mask = BSS_LOSS_EVENT_ID |
-		SCAN_COMPLETE_EVENT_ID |
-		RADAR_DETECTED_EVENT_ID |
-		RSSI_SNR_TRIGGER_0_EVENT_ID |
-		PERIODIC_SCAN_COMPLETE_EVENT_ID |
-		PERIODIC_SCAN_REPORT_EVENT_ID |
-		DUMMY_PACKET_EVENT_ID |
-		PEER_REMOVE_COMPLETE_EVENT_ID |
-		BA_SESSION_RX_CONSTRAINT_EVENT_ID |
-		REMAIN_ON_CHANNEL_COMPLETE_EVENT_ID |
-		INACTIVE_STA_EVENT_ID |
-		CHANNEL_SWITCH_COMPLETE_EVENT_ID |
-		DFS_CHANNELS_CONFIG_COMPLETE_EVENT |
-		SMART_CONFIG_SYNC_EVENT_ID |
-		SMART_CONFIG_DECODE_EVENT_ID |
-		TIME_SYNC_EVENT_ID |
-		FW_LOGGER_INDICATION |
-		RX_BA_WIN_SIZE_CHANGE_EVENT_ID;
+	wl->event_mask = BSS_LOSS_EVENT_ID | SCAN_COMPLETE_EVENT_ID |
+			 RADAR_DETECTED_EVENT_ID | RSSI_SNR_TRIGGER_0_EVENT_ID |
+			 PERIODIC_SCAN_COMPLETE_EVENT_ID |
+			 PERIODIC_SCAN_REPORT_EVENT_ID | DUMMY_PACKET_EVENT_ID |
+			 PEER_REMOVE_COMPLETE_EVENT_ID |
+			 BA_SESSION_RX_CONSTRAINT_EVENT_ID |
+			 REMAIN_ON_CHANNEL_COMPLETE_EVENT_ID |
+			 CHANNEL_SWITCH_COMPLETE_EVENT_ID |
+			 DFS_CHANNELS_CONFIG_COMPLETE_EVENT |
+			 SMART_CONFIG_SYNC_EVENT_ID | INACTIVE_STA_EVENT_ID |
+			 SMART_CONFIG_DECODE_EVENT_ID | TIME_SYNC_EVENT_ID |
+			 FW_LOGGER_INDICATION | RX_BA_WIN_SIZE_CHANGE_EVENT_ID;
 
 	wl->ap_event_mask = MAX_TX_FAILURE_EVENT_ID;
 
@@ -6635,23 +6427,11 @@ MODULE_PARM_DESC(secure_boot_enable, "Enables secure boot and FW downlaod");
 module_param_named(fwlog, fwlog_param, charp, 0);
 MODULE_PARM_DESC(fwlog, "FW logger options: continuous, dbgpins or disable");
 
-module_param(fwlog_mem_blocks, int, 0600);
-MODULE_PARM_DESC(fwlog_mem_blocks, "fwlog mem_blocks");
-
 module_param(no_recovery, int, 0600);
 MODULE_PARM_DESC(no_recovery, "Prevent HW recovery. FW will remain stuck.");
 
 module_param_named(ht_mode, ht_mode_param, charp, 0400);
 MODULE_PARM_DESC(ht_mode, "Force HT mode: wide or siso20");
-
-module_param_named(pwr_limit_reference_11_abg,
-		   pwr_limit_reference_11_abg_param, int, 0400);
-MODULE_PARM_DESC(pwr_limit_reference_11_abg, "Power limit reference: u8 "
-		 "(default is 0xc8)");
-
-module_param_named(num_rx_desc, num_rx_desc_param, int, 0400);
-MODULE_PARM_DESC(num_rx_desc_param,
-		 "Number of Rx descriptors: u8 (default is 32)");
 
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Luciano Coelho <coelho@ti.com>");
