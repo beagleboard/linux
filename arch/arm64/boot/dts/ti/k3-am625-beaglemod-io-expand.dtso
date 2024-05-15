@@ -1,0 +1,33 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (C) 2022 Texas Instruments Incorporated - https://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+ */
+&{/chosen} {
+        overlays {
+                k3-am625-beaglemod-io-expand.kernel = __TIMESTAMP__;
+        };
+};
+
+&main_i2c1 {
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	pca953x: pca@21 {
+		compatible = "nxp,pca9535";
+		reg = <0x21>;
+		status = "okay";
+
+		gpio-controller;
+		#gpio-cells = <2>;
+		//We don't use interrupt here?
+		//Because all the expand IO are output.
+	};
+};
