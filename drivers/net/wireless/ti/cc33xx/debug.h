@@ -11,8 +11,7 @@
 #ifndef __DEBUG_H__
 #define __DEBUG_H__
 
-#include <linux/bitops.h>
-#include <linux/printk.h>
+
 
 #define DRIVER_NAME "wlcore"
 #define DRIVER_PREFIX DRIVER_NAME ": "
@@ -75,7 +74,7 @@ extern u32 cc33xx_debug_level;
 			printk(KERN_DEBUG pr_fmt(DRIVER_PREFIX fmt "\n"), \
 			       ##arg); \
 	} while (0)
-#endif
+#endif /* CONFIG_DYNAMIC_DEBUG */
 
 #define cc33xx_dump(level, prefix, buf, len)				      \
 	do {								      \
@@ -96,5 +95,6 @@ extern u32 cc33xx_debug_level;
 					min_t(size_t, len, DEBUG_DUMP_LIMIT), \
 					true);				      \
 	} while (0)
+
 
 #endif /* __DEBUG_H__ */
