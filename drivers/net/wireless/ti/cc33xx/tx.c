@@ -169,7 +169,7 @@ u8 cc33xx_tx_get_hlid(struct cc33xx *wl, struct cc33xx_vif *wlvif,
 	return wlvif->sta.hlid;
 }
 
-unsigned int wlcore_calc_packet_alignment(struct cc33xx *wl,
+unsigned int wlcore_cc33xx_calc_packet_alignment(struct cc33xx *wl,
 					  unsigned int packet_length)
 {
 	if ((wl->quirks & WLCORE_QUIRK_TX_PAD_LAST_FRAME) ||
@@ -178,7 +178,7 @@ unsigned int wlcore_calc_packet_alignment(struct cc33xx *wl,
 	else
 		return ALIGN(packet_length, CC33XX_BUS_BLOCK_SIZE);
 }
-EXPORT_SYMBOL(wlcore_calc_packet_alignment);
+EXPORT_SYMBOL(wlcore_cc33xx_calc_packet_alignment);
 
 static u32 cc33xx_calc_tx_blocks(struct cc33xx *wl, u32 len, u32 spare_blks)
 {
@@ -525,8 +525,8 @@ static int cc33xx_prepare_tx_frame(struct cc33xx *wl, struct cc33xx_vif *wlvif,
 	 * In special cases, we want to align to a specific block size
 	 * (eg. for wl128x with SDIO we align to 256).
 	 */
-	total_len = wlcore_calc_packet_alignment(wl, skb->len);
-	cc33xx_debug(DEBUG_TX, "wlcore_calc_packet_alignment ");
+	total_len = wlcore_cc33xx_calc_packet_alignment(wl, skb->len);
+	cc33xx_debug(DEBUG_TX, "wlcore_cc33xx_calc_packet_alignment ");
 
 	memcpy(wl->aggr_buf + buf_offset,
 	       &nab_cmd, sizeof(struct NAB_tx_header));
