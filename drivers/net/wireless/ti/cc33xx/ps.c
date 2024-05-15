@@ -8,12 +8,12 @@
  */
 
 #include "ps.h"
-#include "io.h"
 #include "tx.h"
 #include "debug.h"
 
+
 int cc33xx_ps_set_mode(struct cc33xx *wl, struct cc33xx_vif *wlvif,
-		       enum cc33xx_cmd_ps_mode mode)
+		       enum cc33xx_cmd_ps_mode_e mode)
 {
 	int ret;
 	u16 timeout = wl->conf.host_conf.conn.dynamic_ps_timeout;
@@ -41,6 +41,7 @@ int cc33xx_ps_set_mode(struct cc33xx *wl, struct cc33xx_vif *wlvif,
 				return ret;
 		}
 		break;
+
 	case STATION_ACTIVE_MODE:
 		cc33xx_debug(DEBUG_PSM, "leaving psm");
 
@@ -58,6 +59,7 @@ int cc33xx_ps_set_mode(struct cc33xx *wl, struct cc33xx_vif *wlvif,
 
 		clear_bit(WLVIF_FLAG_IN_PS, &wlvif->flags);
 		break;
+
 	default:
 		cc33xx_warning("trying to set ps to unsupported mode %d", mode);
 		ret = -EINVAL;
@@ -97,8 +99,8 @@ static void cc33xx_ps_filter_frames(struct cc33xx *wl, u8 hlid)
 		if (lnk->wlvif)
 			lnk->wlvif->tx_queue_count[i] -= filtered[i];
 	}
-	spin_unlock_irqrestore(&wl->wl_lock, flags);
 
+	spin_unlock_irqrestore(&wl->wl_lock, flags);
 	cc33xx_handle_tx_low_watermark(wl);
 }
 
@@ -115,9 +117,9 @@ void cc33xx_ps_link_start(struct cc33xx *wl, struct cc33xx_vif *wlvif,
 	    test_bit(hlid, &wl->ap_ps_map))
 		return;
 
-	cc33xx_debug(DEBUG_PSM, "start mac80211 PSM on hlid %d pkts %d "
-		     "clean_queues %d", hlid, wl->links[hlid].allocated_pkts,
-		     clean_queues);
+	cc33xx_debug(DEBUG_PSM,
+		     "start mac80211 PSM on hlid %d pkts %d clean_queues %d",
+		     hlid, wl->links[hlid].allocated_pkts, clean_queues);
 
 	rcu_read_lock();
 	sta = ieee80211_find_sta(vif, wl->links[hlid].addr);
@@ -136,29 +138,4 @@ void cc33xx_ps_link_start(struct cc33xx *wl, struct cc33xx_vif *wlvif,
 		cc33xx_ps_filter_frames(wl, hlid);
 
 	__set_bit(hlid, &wl->ap_ps_map);
-}
-
-void cc33xx_ps_link_end(struct cc33xx *wl, struct cc33xx_vif *wlvif, u8 hlid)
-{
-	struct ieee80211_sta *sta;
-	struct ieee80211_vif *vif = cc33xx_wlvif_to_vif(wlvif);
-
-	if (!test_bit(hlid, &wl->ap_ps_map))
-		return;
-
-	cc33xx_debug(DEBUG_PSM, "end mac80211 PSM on hlid %d", hlid);
-
-	__clear_bit(hlid, &wl->ap_ps_map);
-
-	rcu_read_lock();
-	sta = ieee80211_find_sta(vif, wl->links[hlid].addr);
-	if (!sta) {
-		cc33xx_error("could not find sta %pM for ending ps",
-			     wl->links[hlid].addr);
-		goto end;
-	}
-
-	ieee80211_sta_ps_transition_ni(sta, false);
-end:
-	rcu_read_unlock();
 }
