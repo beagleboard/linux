@@ -7,23 +7,13 @@
  * Contact: Luciano Coelho <luciano.coelho@nokia.com>
  */
 
-#include <linux/kernel.h>
-#include <linux/module.h>
-#include <linux/etherdevice.h>
-#include <linux/spinlock.h>
-
-#include "wlcore.h"
+#include "acx.h"
 #include "debug.h"
 #include "io.h"
 #include "ps.h"
 #include "tx.h"
-#include "event.h"
+#include "wlcore.h"
 
-/*
- * TODO: this is here just for now, it must be removed when the data
- * operations are in place.
- */
-#include "../wl12xx/reg.h"
 
 static int cc33xx_set_default_wep_key(struct cc33xx *wl,
 				      struct cc33xx_vif *wlvif, u8 id)
@@ -48,27 +38,29 @@ static int cc33xx_alloc_tx_id(struct cc33xx *wl, struct sk_buff *skb)
 {
 	int id;
 
-	id = find_first_zero_bit(wl->tx_frames_map, wl->num_tx_desc);
-	if (id >= wl->num_tx_desc)
+	id = find_first_zero_bit(wl->tx_frames_map, CC33XX_NUM_TX_DESCRIPTORS);
+	if (id >= CC33XX_NUM_TX_DESCRIPTORS)
 		return -EBUSY;
 
 	__set_bit(id, wl->tx_frames_map);
 	wl->tx_frames[id] = skb;
 	wl->tx_frames_cnt++;
-	cc33xx_debug(DEBUG_TX, "alloc desc ID. id - %d, frames count %d",id,wl->tx_frames_cnt);
+	cc33xx_debug(DEBUG_TX, "alloc desc ID. id - %d, frames count %d",
+		     id, wl->tx_frames_cnt);
 	return id;
 }
 
 void cc33xx_free_tx_id(struct cc33xx *wl, int id)
 {
 	if (__test_and_clear_bit(id, wl->tx_frames_map)) {
-		if (unlikely(wl->tx_frames_cnt == wl->num_tx_desc))
+		if (unlikely(wl->tx_frames_cnt == CC33XX_NUM_TX_DESCRIPTORS))
 			clear_bit(CC33XX_FLAG_FW_TX_BUSY, &wl->flags);
 
 		wl->tx_frames[id] = NULL;
 		wl->tx_frames_cnt--;
 	}
-	cc33xx_debug(DEBUG_TX, "free desc ID. id - %d, frames count %d",id,wl->tx_frames_cnt);
+	cc33xx_debug(DEBUG_TX, "free desc ID. id - %d, frames count %d",
+		     id, wl->tx_frames_cnt);
 
 }
 EXPORT_SYMBOL(cc33xx_free_tx_id);
@@ -100,7 +92,7 @@ static void cc33xx_tx_ap_update_inconnection_sta(struct cc33xx *wl,
 	wlvif->pending_auth_reply_time = jiffies;
 	cancel_delayed_work(&wlvif->pending_auth_complete_work);
 	ieee80211_queue_delayed_work(wl->hw,
-				&wlvif->pending_auth_complete_work,
+				     &wlvif->pending_auth_complete_work,
 				msecs_to_jiffies(WLCORE_PEND_AUTH_ROC_TIMEOUT));
 }
 
@@ -132,7 +124,7 @@ static void cc33xx_tx_regulate_link(struct cc33xx *wl,
 		cc33xx_ps_link_start(wl, wlvif, hlid, true);
 }
 
-bool cc33xx_is_dummy_packet(struct cc33xx *wl, struct sk_buff *skb)
+inline bool cc33xx_is_dummy_packet(struct cc33xx *wl, struct sk_buff *skb)
 {
 	return wl->dummy_packet == skb;
 }
@@ -190,25 +182,25 @@ EXPORT_SYMBOL(wlcore_calc_packet_alignment);
 
 static u32 cc33xx_calc_tx_blocks(struct cc33xx *wl, u32 len, u32 spare_blks)
 {
-    u32 blk_size = CC33XX_TX_HW_BLOCK_SIZE;
-    /* In CC33xx the packet will be stored along with its internal descriptor.
-     * the descriptor is not part of the host transaction, but should be considered as part of
-     * the allocate memory blocks in the device
-     */
-    len = len + CC33xx_INTERNAL_DESC_SIZE;
-    return (len + blk_size - 1) / blk_size + spare_blks;
+	u32 blk_size = CC33XX_TX_HW_BLOCK_SIZE;
+	/* In CC33xx the packet will be stored along with its internal descriptor.
+	* the descriptor is not part of the host transaction, but should be
+	* considered as part of the allocate memory blocks in the device
+	*/
+	len = len + CC33xx_INTERNAL_DESC_SIZE;
+	return (len + blk_size - 1) / blk_size + spare_blks;
 }
 
-static void
-cc33xx_set_tx_desc_blocks(struct cc33xx *wl, struct cc33xx_tx_hw_descr *desc,
-			  u32 blks, u32 spare_blks)
+static inline void cc33xx_set_tx_desc_blocks(struct cc33xx *wl,
+					     struct cc33xx_tx_hw_descr *desc,
+					     u32 blks, u32 spare_blks)
 {
 	desc->cc33xx_mem.total_mem_blocks = blks;
 }
 
-static void
-cc33xx_set_tx_desc_data_len(struct cc33xx *wl, struct cc33xx_tx_hw_descr *desc,
-			    struct sk_buff *skb)
+static void cc33xx_set_tx_desc_data_len(struct cc33xx *wl,
+					struct cc33xx_tx_hw_descr *desc,
+					struct sk_buff *skb)
 {
 	desc->length = cpu_to_le16(skb->len);
 
@@ -218,13 +210,11 @@ cc33xx_set_tx_desc_data_len(struct cc33xx *wl, struct cc33xx_tx_hw_descr *desc,
 	else
 		desc->cc33xx_mem.ctrl = 0;
 
-	cc33xx_debug(DEBUG_TX, "tx_fill_hdr: hlid: %d "
-		     "len: %d life: %d mem: %d", desc->hlid,
-		     le16_to_cpu(desc->length),
+	cc33xx_debug(DEBUG_TX,"tx_fill_hdr: hlid: %d  len: %d life: %d mem: %d",
+		     desc->hlid, le16_to_cpu(desc->length),
 		     le16_to_cpu(desc->life_time),
 		     desc->cc33xx_mem.total_mem_blocks);
 }
-
 
 static int cc33xx_get_spare_blocks(struct cc33xx *wl, bool is_gem)
 {
@@ -235,35 +225,53 @@ static int cc33xx_get_spare_blocks(struct cc33xx *wl, bool is_gem)
 	return CC33XX_TX_HW_BLOCK_SPARE;
 }
 
+int cc33xx_tx_get_queue(int queue)
+{
+	switch (queue) {
+	case 0:
+		return CONF_TX_AC_VO;
+	case 1:
+		return CONF_TX_AC_VI;
+	case 2:
+		return CONF_TX_AC_BE;
+	case 3:
+		return CONF_TX_AC_BK;
+	default:
+		return CONF_TX_AC_BE;
+	}
+}
 
 static int cc33xx_tx_allocate(struct cc33xx *wl, struct cc33xx_vif *wlvif,
 			      struct sk_buff *skb, u32 extra, u32 buf_offset,
-			      u8 hlid, bool is_gem, struct NAB_tx_header *nab_cmd)
+			      u8 hlid, bool is_gem,
+			      struct NAB_tx_header *nab_cmd)
 {
 	struct cc33xx_tx_hw_descr *desc;
-
 	u32 total_blocks;
 	int id, ret = -EBUSY, ac;
 	u32 spare_blocks;
-	u32 total_skb_len = skb->len + sizeof(struct cc33xx_tx_hw_descr) + extra;
-	// Add  NAB command required for CC33xx architecture
-	u32 total_len = total_skb_len + sizeof(struct NAB_tx_header);
+	u32 total_skb_len = skb->len + extra;
+	/* Add NAB command required for CC33xx architecture */
+	u32 total_len = sizeof(struct NAB_tx_header);
 
-    cc33xx_debug(DEBUG_TX,"michal1 wl->tx_blocks_available %d", wl->tx_blocks_available);
+	total_skb_len += sizeof(struct cc33xx_tx_hw_descr);
+	total_len += total_skb_len;
 
-	if (buf_offset + total_len > wl->aggr_buf_size)
-	{
-	    cc33xx_debug(DEBUG_TX,"michal2");
+	cc33xx_debug(DEBUG_TX, "michal1 wl->tx_blocks_available %d",
+		     wl->tx_blocks_available);
 
+	if (buf_offset + total_len > wl->aggr_buf_size) {
+		cc33xx_debug(DEBUG_TX,"michal2");
 		return -EAGAIN;
 	}
+
 	spare_blocks = cc33xx_get_spare_blocks(wl, is_gem);
 
 	/* allocate free identifier for the packet */
 	id = cc33xx_alloc_tx_id(wl, skb);
 	if (id < 0)
 	{
-	    cc33xx_debug(DEBUG_TX,"michal3");
+		cc33xx_debug(DEBUG_TX,"michal3");
 		return id;
 	}
 
@@ -272,33 +280,42 @@ static int cc33xx_tx_allocate(struct cc33xx *wl, struct cc33xx_vif *wlvif,
 	cc33xx_debug(DEBUG_TX,"michal1 total blocks %d", total_blocks);
 
 	if (total_blocks <= wl->tx_blocks_available) {
+		/**
+		 * In CC33XX the packet starts with NAB command,
+		 * only then the descriptor.
+		 */
+		nab_cmd->sync = cpu_to_le32(HOST_SYNC_PATTERN);
+		nab_cmd->opcode = cpu_to_le16(NAB_SEND_CMD);
 
-	    // In CC33XX the packet starts with NAB command, only then the descriptor.
+		/**
+		 * length should include the following 4 bytes
+		 * of the NAB comand.
+		 */
+		nab_cmd->len = cpu_to_le16(total_len -
+						sizeof(struct NAB_header));
+		nab_cmd->desc_length = cpu_to_le16(total_len -
+						sizeof(struct NAB_tx_header));
+		nab_cmd->sd = 0;
+		nab_cmd->flags = NAB_SEND_FLAGS;
 
-	    nab_cmd->sync = cpu_to_le32(HOST_SYNC_PATTERN);
-	    nab_cmd->opcode = cpu_to_le16(NAB_SEND_CMD);
-	    nab_cmd->len = cpu_to_le16(total_len - sizeof(struct NAB_header)); // length should include the following 4 bytes of the NAB comand.
-	    nab_cmd->desc_length = cpu_to_le16(total_len - sizeof(struct NAB_tx_header));
-	    nab_cmd->sd = 0;
-	    nab_cmd->flags = NAB_SEND_FLAGS;
-
-	    desc = skb_push(skb, total_skb_len - skb->len);
+		desc = skb_push(skb, total_skb_len - skb->len);
 
 		cc33xx_set_tx_desc_blocks(wl, desc, total_blocks, spare_blocks);
 
 		desc->id = id;
 
-		cc33xx_debug(DEBUG_TX, "tx alocate id %u skb 0x%p tx_memblocks %d",
-		             id, skb,desc->cc33xx_mem.total_mem_blocks);
+		cc33xx_debug(DEBUG_TX,
+			     "tx alocate id %u skb 0x%p tx_memblocks %d",
+			     id, skb, desc->cc33xx_mem.total_mem_blocks);
 
 		wl->tx_blocks_available -= total_blocks;
 		wl->tx_allocated_blocks += total_blocks;
 
 		/*
-		 * If the FW was empty before, arm the Tx watchdog. Also do
-		 * this on the first Tx after resume, as we always cancel the
-		 * watchdog on suspend.
-		 */
+		* If the FW was empty before, arm the Tx watchdog. Also do
+		* this on the first Tx after resume, as we always cancel the
+		* watchdog on suspend.
+		*/
 		if (wl->tx_allocated_blocks == total_blocks ||
 		    test_and_clear_bit(CC33XX_FLAG_REINIT_TX_WDOG, &wl->flags))
 			cc33xx_rearm_tx_watchdog_locked(wl);
@@ -335,7 +352,6 @@ static void cc33xx_tx_fill_hdr(struct cc33xx *wl, struct cc33xx_vif *wlvif,
 	struct ieee80211_hdr *hdr;
 	u8 *frame_start;
 	bool is_dummy;
-
 
 	desc = (struct cc33xx_tx_hw_descr *) skb->data;
 
@@ -431,7 +447,6 @@ static void cc33xx_tx_fill_hdr(struct cc33xx *wl, struct cc33xx_vif *wlvif,
 
 	desc->tx_attr = cpu_to_le16(tx_attr);
 
-
 	cc33xx_set_tx_desc_data_len(wl, desc, skb);
 }
 
@@ -483,7 +498,9 @@ static int cc33xx_prepare_tx_frame(struct cc33xx *wl, struct cc33xx_vif *wlvif,
 
 		is_gem = (cipher == CC33XX_CIPHER_SUITE_GEM);
 	}
-	extra += IEEE80211_HT_CTL_LEN; // Add 4 bytes gap, may be filled later on by the PMAC.
+
+	/* Add 4 bytes gap, may be filled later on by the PMAC. */
+	extra += IEEE80211_HT_CTL_LEN;
 	ret = cc33xx_tx_allocate(wl, wlvif, skb, extra, buf_offset, hlid,
 				 is_gem, &nab_cmd);
 	cc33xx_debug(DEBUG_TX, "cc33xx_tx_allocate %d", ret);
@@ -511,9 +528,12 @@ static int cc33xx_prepare_tx_frame(struct cc33xx *wl, struct cc33xx_vif *wlvif,
 	total_len = wlcore_calc_packet_alignment(wl, skb->len);
 	cc33xx_debug(DEBUG_TX, "wlcore_calc_packet_alignment ");
 
-	memcpy(wl->aggr_buf + buf_offset, &nab_cmd, sizeof(struct NAB_tx_header));
-	memcpy(wl->aggr_buf + buf_offset + sizeof(struct NAB_tx_header), skb->data, skb->len);
-	memset(wl->aggr_buf + buf_offset + sizeof(struct NAB_tx_header) + skb->len, 0, total_len - skb->len);
+	memcpy(wl->aggr_buf + buf_offset,
+	       &nab_cmd, sizeof(struct NAB_tx_header));
+	memcpy(wl->aggr_buf + buf_offset + sizeof(struct NAB_tx_header),
+	       skb->data, skb->len);
+	memset(wl->aggr_buf + buf_offset + sizeof(struct NAB_tx_header)
+		+ skb->len, 0, total_len - skb->len);
 
 	/* Revert side effects in the dummy packet skb, so it can be reused */
 	if (is_dummy)
@@ -546,6 +566,45 @@ u32 cc33xx_tx_enabled_rates_get(struct cc33xx *wl, u32 rate_set,
 	}
 
 	return enabled_rates;
+}
+
+static inline int wlcore_tx_get_mac80211_queue(struct cc33xx_vif *wlvif,
+					       int queue)
+{
+	int mac_queue = wlvif->hw_queue_base;
+
+	switch (queue) {
+	case CONF_TX_AC_VO:
+		return mac_queue + 0;
+	case CONF_TX_AC_VI:
+		return mac_queue + 1;
+	case CONF_TX_AC_BE:
+		return mac_queue + 2;
+	case CONF_TX_AC_BK:
+		return mac_queue + 3;
+	default:
+		return mac_queue + 2;
+	}
+}
+
+static void wlcore_wake_queue(struct cc33xx *wl, struct cc33xx_vif *wlvif,
+			      u8 queue, enum wlcore_queue_stop_reason reason)
+{
+	unsigned long flags;
+	int hwq = wlcore_tx_get_mac80211_queue(wlvif, queue);
+
+	spin_lock_irqsave(&wl->wl_lock, flags);
+
+	/* queue should not be clear for this reason */
+	WARN_ON_ONCE(!test_and_clear_bit(reason, &wl->queue_stop_reasons[hwq]));
+
+	if (wl->queue_stop_reasons[hwq])
+		goto out;
+
+	ieee80211_wake_queue(wl->hw, hwq);
+
+out:
+	spin_unlock_irqrestore(&wl->wl_lock, flags);
 }
 
 void cc33xx_handle_tx_low_watermark(struct cc33xx *wl)
@@ -614,7 +673,6 @@ static struct sk_buff *wlcore_lnk_dequeue(struct cc33xx *wl,
 static bool cc33xx_lnk_high_prio(struct cc33xx *wl, u8 hlid,
 				 struct cc33xx_link *lnk)
 {
-
 	u8 thold;
 	struct core_fw_status * core_fw_status = &wl->core_status->fwInfo;
 	unsigned long suspend_bitmap, fast_bitmap, ps_bitmap;
@@ -628,8 +686,7 @@ static bool cc33xx_lnk_high_prio(struct cc33xx *wl, u8 hlid,
 		return false;
 
 	/* the priority thresholds are taken from FW */
-	if (test_bit(hlid, &fast_bitmap) &&
-		!test_bit(hlid, &ps_bitmap))
+	if (test_bit(hlid, &fast_bitmap) && !test_bit(hlid, &ps_bitmap))
 		thold = core_fw_status->tx_fast_link_prio_threshold;
 	else
 		thold = core_fw_status->tx_slow_link_prio_threshold;
@@ -650,8 +707,7 @@ static bool cc33xx_lnk_low_prio(struct cc33xx *wl, u8 hlid,
 
 	if (test_bit(hlid, &suspend_bitmap))
 		thold = core_fw_status->tx_suspend_threshold;
-	else if (test_bit(hlid, &fast_bitmap) &&
-		 !test_bit(hlid, &ps_bitmap))
+	else if (test_bit(hlid, &fast_bitmap) && !test_bit(hlid, &ps_bitmap))
 		thold = core_fw_status->tx_fast_stop_threshold;
 	else
 		thold = core_fw_status->tx_slow_stop_threshold;
@@ -687,18 +743,17 @@ static struct sk_buff *wlcore_vif_dequeue_high_prio(struct cc33xx *wl,
 	int i, h, start_hlid;
 
 	/* start from the link after the last one */
-	start_hlid = (wlvif->last_tx_hlid + 1) % wl->num_links;
+	start_hlid = (wlvif->last_tx_hlid + 1) % CC33XX_MAX_LINKS;
 
 	/* dequeue according to AC, round robin on each link */
-	for (i = 0; i < wl->num_links; i++) {
-		h = (start_hlid + i) % wl->num_links;
+	for (i = 0; i < CC33XX_MAX_LINKS; i++) {
+		h = (start_hlid + i) % CC33XX_MAX_LINKS;
 
 		/* only consider connected stations */
 		if (!test_bit(h, wlvif->links_map))
 			continue;
 
-		skb = wlcore_lnk_dequeue_high_prio(wl, h, ac,
-						   low_prio_hlid);
+		skb = wlcore_lnk_dequeue_high_prio(wl, h, ac, low_prio_hlid);
 		if (!skb)
 			continue;
 
@@ -815,8 +870,8 @@ static void cc33xx_skb_queue_head(struct cc33xx *wl, struct cc33xx_vif *wlvif,
 		skb_queue_head(&wl->links[hlid].tx_queue[q], skb);
 
 		/* make sure we dequeue the same packet next time */
-		wlvif->last_tx_hlid = (hlid + wl->num_links - 1) %
-				      wl->num_links;
+		wlvif->last_tx_hlid = (hlid + CC33XX_MAX_LINKS - 1) %
+				      CC33XX_MAX_LINKS;
 	}
 
 	spin_lock_irqsave(&wl->wl_lock, flags);
@@ -826,14 +881,14 @@ static void cc33xx_skb_queue_head(struct cc33xx *wl, struct cc33xx_vif *wlvif,
 	spin_unlock_irqrestore(&wl->wl_lock, flags);
 }
 
-static bool cc33xx_tx_is_data_present(struct sk_buff *skb)
+static inline bool cc33xx_tx_is_data_present(struct sk_buff *skb)
 {
 	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)(skb->data);
-
 	return ieee80211_is_data_present(hdr->frame_control);
 }
 
-void cc33xx_rearm_rx_streaming(struct cc33xx *wl, unsigned long *active_hlids)
+static void cc33xx_rearm_rx_streaming(struct cc33xx *wl,
+				      unsigned long *active_hlids)
 {
 	struct cc33xx_vif *wlvif;
 	u32 timeout;
@@ -849,7 +904,7 @@ void cc33xx_rearm_rx_streaming(struct cc33xx *wl, unsigned long *active_hlids)
 	timeout = wl->conf.host_conf.rx_streaming.duration;
 	cc33xx_for_each_wlvif_sta(wl, wlvif) {
 		bool found = false;
-		for_each_set_bit(hlid, active_hlids, wl->num_links) {
+		for_each_set_bit(hlid, active_hlids, CC33XX_MAX_LINKS) {
 			if (test_bit(hlid, wlvif->links_map)) {
 				found  = true;
 				break;
@@ -860,9 +915,10 @@ void cc33xx_rearm_rx_streaming(struct cc33xx *wl, unsigned long *active_hlids)
 			continue;
 
 		/* enable rx streaming */
-		if (!test_bit(WLVIF_FLAG_RX_STREAMING_STARTED, &wlvif->flags))
+		if (!test_bit(WLVIF_FLAG_RX_STREAMING_STARTED, &wlvif->flags)) {
 			ieee80211_queue_work(wl->hw,
 					     &wlvif->rx_streaming_enable_work);
+		}
 
 		mod_timer(&wlvif->rx_streaming_timer,
 			  jiffies + msecs_to_jiffies(timeout));
@@ -893,8 +949,6 @@ int wlcore_tx_work_locked(struct cc33xx *wl)
 	int bus_ret = 0;
 	u8 hlid;
 
-
-
 	cc33xx_debug(DEBUG_TX, " Tx work locked");
 
 	memset(wl->aggr_buf,0,0x300);
@@ -905,16 +959,15 @@ int wlcore_tx_work_locked(struct cc33xx *wl)
 		struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
 		bool has_data = false;
 
-		cc33xx_debug(DEBUG_TX, " skb dequeue skb: 0x%p data %#lx head %#lx tail %#lx end %#lx", skb, (unsigned long)skb->data, (unsigned long)skb->head, (unsigned long)skb->tail, (unsigned long)skb->end);
+		cc33xx_debug(DEBUG_TX, "skb dequeue skb: 0x%p data %#lx "
+			     "head %#lx tail %#lx end %#lx", skb,
+			     (unsigned long)skb->data, (unsigned long)skb->head,
+			     (unsigned long)skb->tail,(unsigned long)skb->end);
 		wlvif = NULL;
 		if (!cc33xx_is_dummy_packet(wl, skb))
-		{
 			wlvif = cc33xx_vif_to_data(info->control.vif);
-		}
 		else
-		{
 			hlid = CC33XX_SYSTEM_HLID;
-		}
 
 		has_data = wlvif && cc33xx_tx_is_data_present(skb);
 		ret = cc33xx_prepare_tx_frame(wl, wlvif, skb, buf_offset,
@@ -937,7 +990,7 @@ int wlcore_tx_work_locked(struct cc33xx *wl)
 					transfer_len);
 
 			bus_ret = wlcore_write(wl, NAB_DATA_ADDR, wl->aggr_buf,
-			                       transfer_len, true);
+					       transfer_len, true);
 			if (bus_ret < 0)
 				goto out;
 
@@ -964,6 +1017,7 @@ int wlcore_tx_work_locked(struct cc33xx *wl)
 				ieee80211_free_txskb(wl->hw, skb);
 			goto out_ack;
 		}
+
 		last_len = ret;
 		buf_offset += last_len;
 
@@ -975,7 +1029,6 @@ int wlcore_tx_work_locked(struct cc33xx *wl)
 
 out_ack:
 	if (buf_offset) {
-
 		transfer_len = __ALIGN_MASK(buf_offset,
 						CC33XX_BUS_BLOCK_SIZE*2 - 1);
 
@@ -983,15 +1036,16 @@ out_ack:
 		memset(wl->aggr_buf + buf_offset, 0x33, padding_size);
 
 		cc33xx_debug(DEBUG_TX, "sdio transaction (926) length: %d ",
-			transfer_len);
+			     transfer_len);
 
 		bus_ret = wlcore_write(wl, NAB_DATA_ADDR, wl->aggr_buf,
-		                       transfer_len, true);
+				       transfer_len, true);
 		if (bus_ret < 0)
 			goto out;
 
 		sent_packets = true;
 	}
+
 	if (sent_packets)
 		cc33xx_handle_tx_low_watermark(wl);
 
@@ -1060,9 +1114,10 @@ void cc33xx_tx_reset_wlvif(struct cc33xx *wl, struct cc33xx_vif *wlvif)
 	int i;
 
 	/* TX failure */
-	for_each_set_bit(i, wlvif->links_map, wl->num_links) {
-		if (wlvif->bss_type == BSS_TYPE_AP_BSS &&
-		    i != wlvif->ap.bcast_hlid && i != wlvif->ap.global_hlid) {
+	for_each_set_bit(i, wlvif->links_map, CC33XX_MAX_LINKS) {
+		if ((wlvif->bss_type == BSS_TYPE_AP_BSS) &&
+		    (i != wlvif->ap.bcast_hlid) &&
+		    (i != wlvif->ap.global_hlid)) {
 			/* this calls cc33xx_clear_link */
 			cc33xx_free_sta(wl, wlvif, i);
 		} else {
@@ -1070,11 +1125,23 @@ void cc33xx_tx_reset_wlvif(struct cc33xx *wl, struct cc33xx_vif *wlvif)
 			cc33xx_clear_link(wl, wlvif, &hlid);
 		}
 	}
+
 	wlvif->last_tx_hlid = 0;
 
 	for (i = 0; i < NUM_TX_QUEUES; i++)
 		wlvif->tx_queue_count[i] = 0;
 }
+
+int cc33xx_tx_total_queue_count(struct cc33xx *wl)
+{
+	int i, count = 0;
+
+	for (i = 0; i < NUM_TX_QUEUES; i++)
+		count += wl->tx_queue_count[i];
+
+	return count;
+}
+
 /* caller must hold wl->mutex and TX must be stopped */
 void cc33xx_tx_reset(struct cc33xx *wl)
 {
@@ -1084,7 +1151,7 @@ void cc33xx_tx_reset(struct cc33xx *wl)
 
 	/* only reset the queues if something bad happened */
 	if (cc33xx_tx_total_queue_count(wl) != 0) {
-		for (i = 0; i < wl->num_links; i++)
+		for (i = 0; i < CC33XX_MAX_LINKS; i++)
 			cc33xx_tx_reset_link_queues(wl, i);
 
 		for (i = 0; i < NUM_TX_QUEUES; i++)
@@ -1098,7 +1165,7 @@ void cc33xx_tx_reset(struct cc33xx *wl)
 	 */
 	cc33xx_handle_tx_low_watermark(wl);
 
-	for (i = 0; i < wl->num_tx_desc; i++) {
+	for (i = 0; i < CC33XX_NUM_TX_DESCRIPTORS; i++) {
 		if (wl->tx_frames[i] == NULL)
 			continue;
 
@@ -1177,7 +1244,7 @@ void cc33xx_tx_flush(struct cc33xx *wl)
 		       CC33XX_TX_FLUSH_TIMEOUT / 1000);
 
 	/* forcibly flush all Tx buffers on our queues */
-	for (i = 0; i < wl->num_links; i++)
+	for (i = 0; i < CC33XX_MAX_LINKS; i++)
 		cc33xx_tx_reset_link_queues(wl, i);
 
 out_wake:
@@ -1210,36 +1277,6 @@ void wlcore_stop_queue_locked(struct cc33xx *wl, struct cc33xx_vif *wlvif,
 	ieee80211_stop_queue(wl->hw, hwq);
 }
 
-void wlcore_stop_queue(struct cc33xx *wl, struct cc33xx_vif *wlvif, u8 queue,
-		       enum wlcore_queue_stop_reason reason)
-{
-	unsigned long flags;
-
-	spin_lock_irqsave(&wl->wl_lock, flags);
-	wlcore_stop_queue_locked(wl, wlvif, queue, reason);
-	spin_unlock_irqrestore(&wl->wl_lock, flags);
-}
-
-void wlcore_wake_queue(struct cc33xx *wl, struct cc33xx_vif *wlvif, u8 queue,
-		       enum wlcore_queue_stop_reason reason)
-{
-	unsigned long flags;
-	int hwq = wlcore_tx_get_mac80211_queue(wlvif, queue);
-
-	spin_lock_irqsave(&wl->wl_lock, flags);
-
-	/* queue should not be clear for this reason */
-	WARN_ON_ONCE(!test_and_clear_bit(reason, &wl->queue_stop_reasons[hwq]));
-
-	if (wl->queue_stop_reasons[hwq])
-		goto out;
-
-	ieee80211_wake_queue(wl->hw, hwq);
-
-out:
-	spin_unlock_irqrestore(&wl->wl_lock, flags);
-}
-
 void wlcore_stop_queues(struct cc33xx *wl,
 			enum wlcore_queue_stop_reason reason)
 {
@@ -1249,9 +1286,10 @@ void wlcore_stop_queues(struct cc33xx *wl,
 	spin_lock_irqsave(&wl->wl_lock, flags);
 
 	/* mark all possible queues as stopped */
-        for (i = 0; i < WLCORE_NUM_MAC_ADDRESSES * NUM_TX_QUEUES; i++)
-                WARN_ON_ONCE(test_and_set_bit(reason,
+	for (i = 0; i < WLCORE_NUM_MAC_ADDRESSES * NUM_TX_QUEUES; i++) {
+		WARN_ON_ONCE(test_and_set_bit(reason,
 					      &wl->queue_stop_reasons[i]));
+	}
 
 	/* use the global version to make sure all vifs in mac80211 we don't
 	 * know are stopped.
@@ -1270,9 +1308,10 @@ void wlcore_wake_queues(struct cc33xx *wl,
 	spin_lock_irqsave(&wl->wl_lock, flags);
 
 	/* mark all possible queues as awake */
-        for (i = 0; i < WLCORE_NUM_MAC_ADDRESSES * NUM_TX_QUEUES; i++)
+	for (i = 0; i < WLCORE_NUM_MAC_ADDRESSES * NUM_TX_QUEUES; i++) {
 		WARN_ON_ONCE(!test_and_clear_bit(reason,
 						 &wl->queue_stop_reasons[i]));
+	}
 
 	/* use the global version to make sure all vifs in mac80211 we don't
 	 * know are woken up.
@@ -1316,7 +1355,8 @@ bool wlcore_is_queue_stopped_locked(struct cc33xx *wl, struct cc33xx_vif *wlvif,
 	return !!wl->queue_stop_reasons[hwq];
 }
 
-static void cc33xx_tx_complete_packet(struct cc33xx *wl, u8 tx_stat_byte,struct core_fw_status *pCoreFwStatus)
+static void cc33xx_tx_complete_packet(struct cc33xx *wl, u8 tx_stat_byte,
+				      struct core_fw_status *pCoreFwStatus)
 {
 	struct ieee80211_tx_info *info;
 	struct sk_buff *skb;
@@ -1325,15 +1365,14 @@ static void cc33xx_tx_complete_packet(struct cc33xx *wl, u8 tx_stat_byte,struct 
 	struct cc33xx_tx_hw_descr *tx_desc;
 	u16 desc_session_idx;
 
-
 	/* check for id legality */
-	if (unlikely(id >= wl->num_tx_desc || wl->tx_frames[id] == NULL)) {
+	if (unlikely(id >= CC33XX_NUM_TX_DESCRIPTORS
+	    || wl->tx_frames[id] == NULL)) {
 		cc33xx_warning("illegal id in tx completion: %d", id);
 
 		print_hex_dump(KERN_DEBUG, "fwInfo local:",
-		            DUMP_PREFIX_OFFSET, 16, 4,
-		            (u8*)(pCoreFwStatus),
-		            sizeof (struct core_fw_status), false);
+			       DUMP_PREFIX_OFFSET, 16, 4, (u8*)(pCoreFwStatus),
+			       sizeof(struct core_fw_status), false);
 
 		cc33xx_queue_recovery_work(wl);
 		return;
@@ -1367,7 +1406,8 @@ static void cc33xx_tx_complete_packet(struct cc33xx *wl, u8 tx_stat_byte,struct 
 	 * TODO: update sequence number for encryption? seems to be
 	 * unsupported for now. needed for recovery with encryption.
 	 */
-	/* todo michal - should we fix header ? should we remove the space we added for the ht header? */
+	// todo michal - should we fix header?
+	//should we remove the space we added for the ht header?
 	/* remove private header from packet */
 	skb_pull(skb, sizeof(struct cc33xx_tx_hw_descr));
 
@@ -1380,24 +1420,28 @@ static void cc33xx_tx_complete_packet(struct cc33xx *wl, u8 tx_stat_byte,struct 
 		skb_pull(skb, CC33XX_EXTRA_SPACE_TKIP);
 	}
 
-	cc33xx_debug(DEBUG_TX, "tx status id %u skb 0x%p success %d, tx_memblocks %d",
-		     id, skb, tx_success,tx_desc->cc33xx_mem.total_mem_blocks);
+	cc33xx_debug(DEBUG_TX,
+		     "tx status id %u skb 0x%p success %d, tx_memblocks %d",
+		     id, skb, tx_success, tx_desc->cc33xx_mem.total_mem_blocks);
 
-
-	/* in order to update the memory managemetn we should have total_blocks, ac, and hlid */
-	/* update memory managemetn variables - michal michal michal*/
+	/**
+	 * in order to update the memory management
+	 * we should have total_blocks, ac, and hlid
+	 */
+	/* update memory management variables - michal michal michal*/
 	wl->tx_blocks_available += tx_desc->cc33xx_mem.total_mem_blocks;
 	wl->tx_allocated_blocks -= tx_desc->cc33xx_mem.total_mem_blocks;
-	// per queue
+	/* per queue */
 
 	/* prevent wrap-around in freed-packets counter */
 	wl->tx_allocated_pkts[tx_desc->ac]--;
 
 	/* per link */
-	desc_session_idx = (tx_desc->tx_attr & TX_HW_ATTR_SESSION_COUNTER) >> TX_HW_ATTR_OFST_SESSION_COUNTER;
-	if (wl->session_ids[tx_desc->hlid] == desc_session_idx) {
+	desc_session_idx = (tx_desc->tx_attr & TX_HW_ATTR_SESSION_COUNTER) >>
+					TX_HW_ATTR_OFST_SESSION_COUNTER;
+
+	if (wl->session_ids[tx_desc->hlid] == desc_session_idx)
 		wl->links[tx_desc->hlid].allocated_pkts--;
-	}
 
 	cc33xx_free_tx_id(wl, id);
 
@@ -1407,7 +1451,6 @@ static void cc33xx_tx_complete_packet(struct cc33xx *wl, u8 tx_stat_byte,struct 
 	/* return the packet to the stack */
 	skb_queue_tail(&wl->deferred_tx_queue, skb);
 	queue_work(wl->freezable_wq, &wl->netstack_work);
-
 }
 
 void cc33xx_tx_immediate_complete(struct cc33xx *wl)
@@ -1417,7 +1460,8 @@ void cc33xx_tx_immediate_complete(struct cc33xx *wl)
 	u8 i;
 
 	claim_core_status_lock(wl);
-	memcpy(&coreFwStatus,&wl->core_status->fwInfo,sizeof(struct core_fw_status));
+	memcpy(&coreFwStatus, &wl->core_status->fwInfo,
+	       sizeof(struct core_fw_status));
 
 	txResultQueueIndex = wl->core_status->fwInfo.txResultQueueIndex;
 	/* Lock guarantees we shadow txResultQueueIndex NOT during
@@ -1426,7 +1470,7 @@ void cc33xx_tx_immediate_complete(struct cc33xx *wl)
 	release_core_status_lock(wl);
 
 	cc33xx_debug(DEBUG_TX, "last released desc = %d, current idx = %d",
-	             wl->last_fw_rls_idx, txResultQueueIndex);
+		     wl->last_fw_rls_idx, txResultQueueIndex);
 
 	/* nothing to do here */
 	if (wl->last_fw_rls_idx == txResultQueueIndex)
@@ -1436,20 +1480,19 @@ void cc33xx_tx_immediate_complete(struct cc33xx *wl)
 
 	if (txResultQueueIndex >= TX_RESULT_QUEUE_SIZE) {
 		cc33xx_error("invalid desc release index %d",
-		             txResultQueueIndex);
+			     txResultQueueIndex);
 		WARN_ON(1);
 		return;
 	}
 
-	cc33xx_debug(DEBUG_TX, "TX result queue! priv last fw idx %d, current resut index %d ",wl->last_fw_rls_idx, txResultQueueIndex);
-	for (i = wl->last_fw_rls_idx;
-	     i != txResultQueueIndex;
+	cc33xx_debug(DEBUG_TX, "TX result queue! priv last fw idx %d, "
+		     "current resut index %d ",
+		     wl->last_fw_rls_idx, txResultQueueIndex);
+
+	for (i = wl->last_fw_rls_idx; i != txResultQueueIndex;
 	     i = (i + 1) % TX_RESULT_QUEUE_SIZE) {
-		cc33xx_tx_complete_packet(wl,
-		                          coreFwStatus.txResultQueue[i],&coreFwStatus);
-		                          //wl->core_status->fwInfo.txResultQueue[i],&coreFwStatus);
-
-
+		cc33xx_tx_complete_packet(wl, coreFwStatus.txResultQueue[i],
+					  &coreFwStatus);
 	}
 
 	wl->last_fw_rls_idx = txResultQueueIndex;
