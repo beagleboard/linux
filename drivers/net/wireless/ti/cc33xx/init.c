@@ -7,115 +7,19 @@
  * Contact: Luciano Coelho <luciano.coelho@nokia.com>
  */
 
-#include <linux/kernel.h>
-#include <linux/module.h>
-#include <linux/slab.h>
 #include <linux/firmware.h>
-
-#include "debug.h"
-#include "init.h"
-#include "cc33xx_80211.h"
 #include "acx.h"
+#include "cc33xx_80211.h"
 #include "cmd.h"
+#include "conf.h"
+#include "event.h"
 #include "tx.h"
-#include "io.h"
 
 #define PG2_CHIP_VERSION    2
 
-static int cc33xx_ap_init_deauth_template(struct cc33xx *wl,
-					  struct cc33xx_vif *wlvif)
-{
-	struct cc33xx_disconn_template *tmpl;
-	int ret;
-	u32 rate;
-
-	tmpl = kzalloc(sizeof(*tmpl), GFP_KERNEL);
-	if (!tmpl) {
-		ret = -ENOMEM;
-		goto out;
-	}
-
-	tmpl->header.frame_ctl = cpu_to_le16(IEEE80211_FTYPE_MGMT |
-					     IEEE80211_STYPE_DEAUTH);
-
-	rate = cc33xx_tx_min_rate_get(wl, wlvif->basic_rate_set);
-	ret = cc33xx_cmd_template_set(wl, wlvif->role_id,
-				      CMD_TEMPL_DEAUTH_AP,
-				      tmpl, sizeof(*tmpl), 0, rate);
-
-out:
-	kfree(tmpl);
-	return ret;
-}
-
-static int cc33xx_ap_init_null_template(struct cc33xx *wl,
-					struct ieee80211_vif *vif)
-{
-	struct cc33xx_vif *wlvif = cc33xx_vif_to_data(vif);
-	struct ieee80211_hdr_3addr *nullfunc;
-	int ret;
-	u32 rate;
-
-	nullfunc = kzalloc(sizeof(*nullfunc), GFP_KERNEL);
-	if (!nullfunc) {
-		ret = -ENOMEM;
-		goto out;
-	}
-
-	nullfunc->frame_control = cpu_to_le16(IEEE80211_FTYPE_DATA |
-					      IEEE80211_STYPE_NULLFUNC |
-					      IEEE80211_FCTL_FROMDS);
-
-	/* nullfunc->addr1 is filled by FW */
-
-	memcpy(nullfunc->addr2, vif->addr, ETH_ALEN);
-	memcpy(nullfunc->addr3, vif->addr, ETH_ALEN);
-
-	rate = cc33xx_tx_min_rate_get(wl, wlvif->basic_rate_set);
-	ret = cc33xx_cmd_template_set(wl, wlvif->role_id,
-				      CMD_TEMPL_NULL_DATA, nullfunc,
-				      sizeof(*nullfunc), 0, rate);
-
-out:
-	kfree(nullfunc);
-	return ret;
-}
-
-static int cc33xx_ap_init_qos_null_template(struct cc33xx *wl,
-					    struct ieee80211_vif *vif)
-{
-	struct cc33xx_vif *wlvif = cc33xx_vif_to_data(vif);
-	struct ieee80211_qos_hdr *qosnull;
-	int ret;
-	u32 rate;
-
-	qosnull = kzalloc(sizeof(*qosnull), GFP_KERNEL);
-	if (!qosnull) {
-		ret = -ENOMEM;
-		goto out;
-	}
-
-	qosnull->frame_control = cpu_to_le16(IEEE80211_FTYPE_DATA |
-					     IEEE80211_STYPE_QOS_NULLFUNC |
-					     IEEE80211_FCTL_FROMDS);
-
-	/* qosnull->addr1 is filled by FW */
-
-	memcpy(qosnull->addr2, vif->addr, ETH_ALEN);
-	memcpy(qosnull->addr3, vif->addr, ETH_ALEN);
-
-	rate = cc33xx_tx_min_rate_get(wl, wlvif->basic_rate_set);
-	ret = cc33xx_cmd_template_set(wl, wlvif->role_id,
-				      CMD_TEMPL_QOS_NULL_DATA, qosnull,
-				      sizeof(*qosnull), 0, rate);
-
-out:
-	kfree(qosnull);
-	return ret;
-}
 
 static int cc33xx_init_phy_vif_config(struct cc33xx *wl,
-					    struct cc33xx_vif *wlvif)
+				      struct cc33xx_vif *wlvif)
 {
 	int ret;
 
@@ -151,17 +55,6 @@ static int cc33xx_init_sta_beacon_filter(struct cc33xx *wl,
 	return 0;
 }
 
-int cc33xx_init_energy_detection(struct cc33xx *wl)
-{
-	int ret;
-
-	ret = cc33xx_acx_cca_threshold(wl);
-	if (ret < 0)
-		return ret;
-
-	return 0;
-}
-
 static int cc33xx_init_beacon_broadcast(struct cc33xx *wl,
 					struct cc33xx_vif *wlvif)
 {
@@ -175,7 +68,7 @@ static int cc33xx_init_beacon_broadcast(struct cc33xx *wl,
 }
 
 /* generic sta initialization (non vif-specific) */
-int cc33xx_sta_hw_init(struct cc33xx *wl, struct cc33xx_vif *wlvif)
+static int cc33xx_sta_hw_init(struct cc33xx *wl, struct cc33xx_vif *wlvif)
 {
 	int ret;
 
@@ -199,22 +92,11 @@ static int cc33xx_ap_hw_init(struct cc33xx *wl)
 	return 0;
 }
 
-int cc33xx_ap_init_templates(struct cc33xx *wl, struct ieee80211_vif *vif)
+static int cc33xx_ap_init_templates(struct cc33xx *wl,
+				    struct ieee80211_vif *vif)
 {
 	struct cc33xx_vif *wlvif = cc33xx_vif_to_data(vif);
 	int ret;
-
-	ret = cc33xx_ap_init_deauth_template(wl, wlvif);
-	if (ret < 0)
-		return ret;
-
-	ret = cc33xx_ap_init_null_template(wl, vif);
-	if (ret < 0)
-		return ret;
-
-	ret = cc33xx_ap_init_qos_null_template(wl, vif);
-	if (ret < 0)
-		return ret;
 
 	/*
 	 * when operating as AP we want to receive external beacons for
@@ -226,14 +108,6 @@ int cc33xx_ap_init_templates(struct cc33xx *wl, struct ieee80211_vif *vif)
 
 	return 0;
 }
-
-static int cc33xx_ap_hw_init_post_mem(struct cc33xx *wl,
-				      struct ieee80211_vif *vif)
-{
-	return cc33xx_ap_init_templates(wl, vif);
-}
-
-
 
 static int cc33xx_set_ba_policies(struct cc33xx *wl, struct cc33xx_vif *wlvif)
 {
@@ -257,9 +131,7 @@ static int cc33xx_set_ba_policies(struct cc33xx *wl, struct cc33xx_vif *wlvif)
 /* Applies when MAC address is other than 0x0.
  * Routine for actual search in file
  * data_ptr returned contains the pointer to entry. */
-static bool find_calibration_entry(u8 *id,
-				  u8 **data_ptr,
-				  u8 *stop_address)
+static bool find_calibration_entry(u8 *id, u8 **data_ptr, u8 *stop_address)
 {
 	u8 default_mac_address[ETH_ALEN] = {0xFF,0xFF,0xFF,0xFF,0xFF,0xFF};
 	struct calibration_header *calibration_header;
@@ -271,17 +143,18 @@ static bool find_calibration_entry(u8 *id,
 
 	while (*data_ptr < stop_address)
 	{
-		// Cast to a struct for convenient fields reading
+		/* Cast to a struct for convenient fields reading */
 		calibration_header = (struct calibration_header *)(*data_ptr);
 		calibration_header_fw = &(calibration_header->cal_header_fw);
 
 		if (le16_to_cpu(calibration_header->static_pattern) != 0x7F7F) {
-		cc33xx_debug(DEBUG_BOOT, "Problem with sync pattern, read: %x",
-					 le16_to_cpu(calibration_header->static_pattern));
-		break;
+			cc33xx_debug(DEBUG_BOOT,
+				     "Problem with sync pattern, read: %x",
+				     le16_to_cpu(calibration_header->static_pattern));
+			break;
 		}
 
-		// Compare with actual mac address
+		/* Compare with actual mac address */
 		compare_result = memcmp(calibration_header_fw->chip_id, id,
 					ETH_ALEN);
 		if (0 == compare_result) {
@@ -290,15 +163,15 @@ static bool find_calibration_entry(u8 *id,
 			break;
 		}
 
-		// Compare with default mac address, if it's found save it for
-		// later if necessary (if no calibration for id is found)
+		/* Compare with default mac address, if it's found save it for
+		 * later if necessary (if no calibration for id is found) */
 		compare_result = memcmp(calibration_header_fw->chip_id,
 					default_mac_address,
 					ETH_ALEN);
 		if (0 == compare_result)
 			default_calibration = (u8 *)calibration_header;
 
-		// advance ptr by specified payload length to next entry in file
+		/* advance ptr by specified payload length to next entry in file */
 		*data_ptr = (u8 *)((u32)calibration_header
 				+ sizeof(struct calibration_header)
 				+ le16_to_cpu(calibration_header_fw->length));
@@ -307,9 +180,9 @@ static bool find_calibration_entry(u8 *id,
 	if (false == mac_match) {
 		if (NULL != default_calibration) {
 			cc33xx_warning("No calibration for device address, "
-			               "using default calibration"
+				       "using default calibration"
 				       "(labeled mac FF:FF:FF:FF:FF:FF)");
-			// Take default calibration
+			/* Take default calibration */
 			*data_ptr = default_calibration;
 			valid_data = true;
 		} else {
@@ -340,16 +213,16 @@ int download_static_calibration_data(struct cc33xx *wl)
 
 	if(wl->pg_version >= PG2_CHIP_VERSION)
 	{
-		cc33xx_debug(DEBUG_BOOT, "Chip is PG2, No static calibration needed");
+		cc33xx_debug(DEBUG_BOOT,
+			     "Chip is PG2, No static calibration needed");
 		return 1;
 	}
-
 
 	ret = request_firmware(&fw, calibration_file, wl->dev);
 	if (ret < 0) {
 		cc33xx_warning("Could not get firmware %s: %d,"
-				" proceeding with no calibration",
-				calibration_file, ret);
+			       " proceeding with no calibration",
+			       calibration_file, ret);
 		valid_calibration_data = false;
 		file_loaded = false;
 		ret = 0; /* Don't kill driver over this */
@@ -361,12 +234,10 @@ int download_static_calibration_data(struct cc33xx *wl)
 
 	file_header = (struct calibration_file_header *)file_ptr;
 	cc33xx_debug(DEBUG_BOOT, "Parsing static calibration file version: %d, "
-				 "payload struct ver: %d, entries count: %d, "
-				 "file size: %d",
-				 file_header->file_version,
-				 file_header->payload_struct_version,
-				 le16_to_cpu(file_header->entries_count),
-				 fw->size);
+		     "payload struct ver: %d, entries count: %d, file size: %d",
+		     file_header->file_version,
+		     file_header->payload_struct_version,
+		     le16_to_cpu(file_header->entries_count), fw->size);
 
 	/* Limit the search to the file's length and skip 4 file header bytes */
 	mac_address = (u8 *)wl->efuse_mac_address;
@@ -378,8 +249,7 @@ int download_static_calibration_data(struct cc33xx *wl)
 							stop_search_address);
 
 out:
-	ret = cc33xx_acx_static_calibration_configure(wl,
-						      file_header,
+	ret = cc33xx_acx_static_calibration_configure(wl, file_header,
 						      calibration_entry_ptr,
 						      valid_calibration_data);
 	if (file_loaded)
@@ -391,9 +261,7 @@ out:
 /* vif-specifc initialization */
 static int cc33xx_init_sta_role(struct cc33xx *wl, struct cc33xx_vif *wlvif)
 {
-	int ret;
-
-	ret = cc33xx_acx_group_address_tbl(wl, wlvif, true, NULL, 0);
+	int ret = cc33xx_acx_group_address_tbl(wl, wlvif, true, NULL, 0);
 	if (ret < 0)
 		return ret;
 
@@ -450,8 +318,9 @@ int cc33xx_init_vif_specific(struct cc33xx *wl, struct ieee80211_vif *vif)
 	struct conf_tx_tid *conf_tid;
 	struct conf_tx_ac_category ac_conf[4];
 	struct conf_tx_tid tid_conf[8];
-	struct conf_tx_ac_category* p_wl_host_ac_conf = &wl->conf.host_conf.tx.ac_conf0;
-	struct conf_tx_tid* p_wl_host_tid_conf = &wl->conf.host_conf.tx.tid_conf0;
+	struct conf_tx_settings *tx_settings = &wl->conf.host_conf.tx;
+	struct conf_tx_ac_category* p_wl_host_ac_conf = &tx_settings->ac_conf0;
+	struct conf_tx_tid* p_wl_host_tid_conf = &tx_settings->tid_conf0;
 	bool is_ap = (wlvif->bss_type == BSS_TYPE_AP_BSS);
 	u8 ps_scheme = wl->conf.mac.ps_scheme;
 	int ret, i;
@@ -465,9 +334,7 @@ int cc33xx_init_vif_specific(struct cc33xx *wl, struct ieee80211_vif *vif)
 
 		/* unmask ap events */
 		wl->event_mask |= wl->ap_event_mask;
-		ret = cc33xx_event_unmask(wl);
-		if (ret < 0)
-			return ret;
+
 	/* first STA, no APs */
 	} else if (wl->sta_count == 0 && wl->ap_count == 0 && !is_ap) {
 		u8 sta_auth = wl->conf.host_conf.conn.sta_sleep_auth;
@@ -481,8 +348,6 @@ int cc33xx_init_vif_specific(struct cc33xx *wl, struct ieee80211_vif *vif)
 		if (ret < 0)
 			return ret;
 	}
-
-
 
 	/* Mode specific init */
 	if (is_ap) {
@@ -506,11 +371,11 @@ int cc33xx_init_vif_specific(struct cc33xx *wl, struct ieee80211_vif *vif)
 	cc33xx_init_phy_vif_config(wl, wlvif);
 
 	/* Default TID/AC configuration */
-	BUG_ON(wl->conf.host_conf.tx.tid_conf_count != wl->conf.host_conf.tx.ac_conf_count);
+	BUG_ON(tx_settings->tid_conf_count != tx_settings->ac_conf_count);
 	memcpy(ac_conf,p_wl_host_ac_conf,4*sizeof(struct conf_tx_ac_category));
 	memcpy(tid_conf,p_wl_host_tid_conf,8*sizeof(struct conf_tx_tid));
 
-	for (i = 0; i < wl->conf.host_conf.tx.tid_conf_count; i++) {
+	for (i = 0; i < tx_settings->tid_conf_count; i++) {
 		conf_ac =  &ac_conf[i];
 		conf_tid = &tid_conf[i];
 
@@ -520,14 +385,15 @@ int cc33xx_init_vif_specific(struct cc33xx *wl, struct ieee80211_vif *vif)
 
 		//TODO: RazB - need to configure MUEDCA
 		ret = cc33xx_tx_param_cfg(wl, wlvif, conf_ac->ac,
-		            conf_ac->cw_min, conf_ac->cw_max,
-		            conf_ac->aifsn, conf_ac->tx_op_limit, false,
-		            ps_scheme, conf_ac->is_mu_edca,
-			    conf_ac->mu_edca_aifs, conf_ac->mu_edca_ecw_min_max,
-			    conf_ac->mu_edca_timer);
+					  conf_ac->cw_min, conf_ac->cw_max,
+					  conf_ac->aifsn, conf_ac->tx_op_limit,
+					  false, ps_scheme, conf_ac->is_mu_edca,
+					  conf_ac->mu_edca_aifs,
+					  conf_ac->mu_edca_ecw_min_max,
+					  conf_ac->mu_edca_timer);
 
 		if (ret < 0)
-		        return ret;
+			return ret;
 	}
 
 	/* Configure HW encryption */
@@ -537,8 +403,7 @@ int cc33xx_init_vif_specific(struct cc33xx *wl, struct ieee80211_vif *vif)
 
 	/* Mode specific init - post mem init */
 	if (is_ap)
-		ret = cc33xx_ap_hw_init_post_mem(wl, vif);
-	else
+		ret = cc33xx_ap_init_templates(wl, vif);
 
 	if (ret < 0)
 		return ret;
@@ -569,38 +434,37 @@ int cc33xx_download_ini_params_and_wait(struct cc33xx *wl)
 	size_t command_size = ALIGN((sizeof(*cmd) + sizeof(wl->conf)),4);
 	int ret;
 
-	if (wl->conf.core.enable_FlowCtrl == 0){
+	if (wl->conf.core.enable_FlowCtrl == 0)
 		cc33xx_warning("flow control disable - BLE will not work");
-	}
 
 	cc33xx_set_max_buffer_size(wl,INI_MAX_BUFFER_SIZE);
 
-	cc33xx_debug(DEBUG_ACX, "Downloading INI Params and Configurations to FW, INI Bin File Payload Length: %d",sizeof(wl->conf));
+	cc33xx_debug(DEBUG_ACX,
+		     "Downloading INI Params and Configurations to FW, "
+		     "INI Bin File Payload Length: %d", sizeof(wl->conf));
 	cmd = kzalloc(command_size, GFP_KERNEL);
 	if (!cmd) {
 		cc33xx_error("INI Params Download: "
-				"process failed due to memory allocation "
-				"failure");
+			     "process failed due to memory allocation failure");
 		cc33xx_set_max_buffer_size(wl,CMD_MAX_BUFFER_SIZE);
 		return -ENOMEM;
 	}
 
-    cmd->length = cpu_to_le32(sizeof(wl->conf));
+	cmd->length = cpu_to_le32(sizeof(wl->conf));
 
 	/* copy INI file params payload */
-	memcpy((cmd->payload), &(wl->conf),
-	       sizeof(wl->conf));
+	memcpy((cmd->payload), &(wl->conf), sizeof(wl->conf));
 
-
-	ret = cc33xx_cmd_send(wl,CMD_DOWNLOAD_INI_PARAMS,cmd,command_size,0);
-	if (ret < 0)
-		cc33xx_warning("download INI params to FW command sending failed: %d", ret);
-	else
+	ret = cc33xx_cmd_send(wl, CMD_DOWNLOAD_INI_PARAMS,
+			      cmd, command_size, 0);
+	if (ret < 0) {
+		cc33xx_warning("download INI params to FW command "
+			       "sending failed: %d", ret);
+	} else {
 		cc33xx_debug(DEBUG_BOOT, "INI Params downloaded successfully");
+	}
 
-
-	cc33xx_set_max_buffer_size(wl,CMD_MAX_BUFFER_SIZE);
+	cc33xx_set_max_buffer_size(wl, CMD_MAX_BUFFER_SIZE);
 	kfree(cmd);
 	return ret;
-
 }
