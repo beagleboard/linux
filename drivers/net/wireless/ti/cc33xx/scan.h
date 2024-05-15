@@ -14,6 +14,7 @@
 
 #define CC33XX_SCAN_TIMEOUT    30000 /* msec */
 
+
 enum {
 	CC33XX_SCAN_STATE_IDLE,
 	CC33XX_SCAN_STATE_2GHZ_ACTIVE,
@@ -42,31 +43,12 @@ enum {
 	SCAN_SSID_TYPE_HIDDEN = 1,
 };
 
-
-struct tracking_ch_params {
-	struct conn_scan_ch_params channel;
-
-	__le32 bssid_lsb;
-	__le16 bssid_msb;
-
-	u8 padding[2];
-} __packed;
-
-
 #define MAX_CHANNELS_2GHZ	14
 #define MAX_CHANNELS_4GHZ	4
 #define MAX_CHANNELS_5GHZ	32
 
 #define SCAN_MAX_CYCLE_INTERVALS 16
-
-/* The FW intervals can take up to 16 entries.
- * The 1st entry isn't used (scan is immediate). The last
- * entry should be used for the long_interval
- */
-#define SCAN_MAX_SHORT_INTERVALS (SCAN_MAX_CYCLE_INTERVALS - 2)
 #define SCAN_MAX_BANDS 3
-
-
 #define SCHED_SCAN_MAX_SSIDS 16
 
 /******************************************************************************
@@ -75,20 +57,17 @@ struct tracking_ch_params {
 * ** ***                                                               *** ** *
 *******************************************************************************/
 
-#define CONN_SCAN_MAX_NUMBER_OF_SSID_ENTRIES        (16)
 #define CONN_SCAN_MAX_BAND                          (2)
 #define CONN_SCAN_MAX_CHANNELS_ALL_BANDS            (46)
-
-// Maximum number of supported scan plans for scheduled scan, supported by the driver
 #define SCAN_MAX_SCHED_SCAN_PLANS           (12)
 
 typedef enum
 {
-    SCAN_REQUEST_NONE,
-    SCAN_REQUEST_CONNECT_PERIODIC_SCAN,
-    SCAN_REQUEST_ONE_SHOT,
-    SCAN_REQUEST_SURVEY_SCAN,
-    SCAN_NUM_OF_REQUEST_TYPE
+	SCAN_REQUEST_NONE,
+	SCAN_REQUEST_CONNECT_PERIODIC_SCAN,
+	SCAN_REQUEST_ONE_SHOT,
+	SCAN_REQUEST_SURVEY_SCAN,
+	SCAN_NUM_OF_REQUEST_TYPE
 } EScanRequestType;
 
 /******************************************************************************
@@ -106,14 +85,12 @@ typedef enum
 *
 * @ssid: SSID
 */
- struct cc33xx_ssid
+struct cc33xx_ssid
 {
-    u8 type;
+	u8 type;
 	u8 len;
 	u8 ssid[IEEE80211_MAX_SSID_LEN];
-
-    u8 padding[2];
-
+	u8 padding[2];
 } __packed;
 
 /**
@@ -127,13 +104,13 @@ typedef enum
 */
 struct cc33xx_cmd_ssid_list
 {
-    struct cc33xx_cmd_header header;
+	struct cc33xx_cmd_header header;
 
-    u8 role_id;
-    u8 scan_type;
+	u8 role_id;
+	u8 scan_type;
 	u8 n_ssids;
-    struct cc33xx_ssid ssids[SCHED_SCAN_MAX_SSIDS];
-    u8 padding;
+	struct cc33xx_ssid ssids[SCHED_SCAN_MAX_SSIDS];
+	u8 padding;
 }__packed;
 
 /**
@@ -147,9 +124,9 @@ struct cc33xx_cmd_ssid_list
 */
 struct conn_scan_dwell_info
 {
-    __le16  min_duration;
-    __le16  max_duration;
-    __le16  passive_duration;
+	__le16  min_duration;
+	__le16  max_duration;
+	__le16  passive_duration;
 } __packed ;
 
 /**
@@ -163,9 +140,9 @@ struct conn_scan_dwell_info
 */
 struct conn_scan_ch_info
 {
-    u8   channel;
-    u8   tx_power_att;
-    u8   flags;
+	u8   channel;
+	u8   tx_power_att;
+	u8   flags;
 } __packed;
 
 /**
@@ -189,14 +166,13 @@ struct conn_scan_ch_info
 */
 struct scan_one_shot_info
 {
-    u8  passive[CONN_SCAN_MAX_BAND];
-    u8  active[CONN_SCAN_MAX_BAND];
-    u8  dfs;
+	u8  passive[CONN_SCAN_MAX_BAND];
+	u8  active[CONN_SCAN_MAX_BAND];
+	u8  dfs;
 
-    struct conn_scan_ch_info    channel_list[ CONN_SCAN_MAX_CHANNELS_ALL_BANDS ];
-    struct conn_scan_dwell_info dwell_info[CONN_SCAN_MAX_BAND];
-    u8  reserved;
-
+	struct conn_scan_ch_info    channel_list[ CONN_SCAN_MAX_CHANNELS_ALL_BANDS ];
+	struct conn_scan_dwell_info dwell_info[CONN_SCAN_MAX_BAND];
+	u8  reserved;
 };
 
 /**
@@ -212,9 +188,10 @@ struct scan_one_shot_info
  * iterations.
  */
 struct sched_scan_plan_cmd {
-     u32 interval; /* In seconds */
-     u32 iterations; /* Zero to run infinitely */
+	u32 interval; /* In seconds */
+	u32 iterations; /* Zero to run infinitely */
  } ;
+
  /**
  * struct periodicScanParams_t - Periodic scan param
  *
@@ -239,16 +216,15 @@ struct sched_scan_plan_cmd {
 */
 struct scan_periodic_info
 {
-    struct sched_scan_plan_cmd  sched_scan_plans[SCAN_MAX_SCHED_SCAN_PLANS];
-    u16 sched_scan_plans_num;
+	struct sched_scan_plan_cmd  sched_scan_plans[SCAN_MAX_SCHED_SCAN_PLANS];
+	u16 sched_scan_plans_num;
 
-    u8 passive[CONN_SCAN_MAX_BAND];
-    u8 active[CONN_SCAN_MAX_BAND];
-    u8 dfs;
+	u8 passive[CONN_SCAN_MAX_BAND];
+	u8 active[CONN_SCAN_MAX_BAND];
+	u8 dfs;
 
-    struct conn_scan_ch_info      channel_list[ CONN_SCAN_MAX_CHANNELS_ALL_BANDS ];
-    struct conn_scan_dwell_info   dwell_info[CONN_SCAN_MAX_BAND];
-
+	struct conn_scan_ch_info      channel_list[ CONN_SCAN_MAX_CHANNELS_ALL_BANDS ];
+	struct conn_scan_dwell_info   dwell_info[CONN_SCAN_MAX_BAND];
 }__packed;
 
 /**
@@ -260,11 +236,11 @@ struct scan_periodic_info
 */
 struct scan_param
 {
-    union
-    {
-        struct scan_one_shot_info    one_shot;
-        struct scan_periodic_info    periodic;
-    } u;
+	union
+	{
+		struct scan_one_shot_info    one_shot;
+		struct scan_periodic_info    periodic;
+	} u;
 }__packed;
 
 /**
@@ -280,6 +256,8 @@ struct scan_param
  *
  * @snr_threshold:      SNR threshold for basic filter
  *
+ * @bssid:              BSSID to scan for
+ *
  * @ssid_from_list:     0 - if there are more than 5 SSIDs entries, (list was sent SSID CONFIGURE COMMAND),
  * 						1 - 5 or less SSIDs entries, the list is at the end of the scan command
  *
@@ -289,20 +267,23 @@ struct scan_param
  * @num_of_ssids: 		Number of SSIDs
 */
 struct cc33xx_cmd_scan_params{
-    struct cc33xx_cmd_header header;
-    u8 scan_type;
-    u8 role_id;
+	struct cc33xx_cmd_header header;
+	u8 scan_type;
+	u8 role_id;
 
-    struct scan_param   params;
-    s8 rssi_threshold; /* for filtering (in dBm) */
-    s8 snr_threshold;  /* for filtering (in dB) */
+	struct scan_param   params;
+	s8 rssi_threshold; /* for filtering (in dBm) */
+	s8 snr_threshold;  /* for filtering (in dB) */
 
-    u8 ssid_from_list; /* use ssid from configured ssid list */
-    u8 filter;         /* forward only results with matching ssids */
+	u8 bssid[ETH_ALEN];
+	u8 padding[2];
 
-    u8 num_of_ssids;
+	u8 ssid_from_list; /* use ssid from configured ssid list */
+	u8 filter;         /* forward only results with matching ssids */
 
+	u8 num_of_ssids;
 } __packed;
+
 /******************************************************************************
         ID:     CMD_SET_PROBE_IE
         Desc:   This command will  set the Info elements data for
@@ -322,12 +303,13 @@ struct cc33xx_cmd_scan_params{
  * @len:          info element length
 */
 struct cc33xx_cmd_set_ies{
-    struct cc33xx_cmd_header header;
-    u8 scan_type;
-    u8 role_id;
-    __le16 len;
-    u8                   data[MAX_EXTRA_IES_LEN];
+	struct cc33xx_cmd_header header;
+	u8 scan_type;
+	u8 role_id;
+	__le16 len;
+	u8                   data[MAX_EXTRA_IES_LEN];
 } __packed;
+
 /******************************************************************************
         ID:     CMD_STOP_SCAN
         Desc:   This command will stop scan process depending scan request
@@ -344,12 +326,12 @@ struct cc33xx_cmd_set_ies{
  * @is_ET:               TRUE - Early termination is on, FALSE - no ET
 */
 struct cc33xx_cmd_scan_stop {
-    struct cc33xx_cmd_header header;
+	struct cc33xx_cmd_header header;
 
-    u8 scan_type;
-    u8 role_id;
-    u8 is_ET;
-    u8 padding;
+	u8 scan_type;
+	u8 role_id;
+	u8 is_ET;
+	u8 padding;
 } __packed;
 
 
@@ -373,12 +355,6 @@ enum {
 	SCAN_SSID_FILTER_DISABLED = 3
 };
 
-enum {
-	SCAN_BSS_TYPE_INDEPENDENT,
-	SCAN_BSS_TYPE_INFRASTRUCTURE,
-	SCAN_BSS_TYPE_ANY,
-};
-
 #define SCAN_CHANNEL_FLAGS_DFS		BIT(0) /* channel is passive until an
 						  activity is detected on it */
 #define SCAN_CHANNEL_FLAGS_DFS_ENABLED	BIT(1)
@@ -399,13 +375,5 @@ enum {
 	SCAN_TYPE_PERIODIC	= 1,
 	SCAN_TYPE_TRACKING	= 2,
 };
-
-bool
-wlcore_set_scan_chan_params(struct cc33xx *wl,
-			    struct wlcore_scan_channels *cfg,
-			    struct ieee80211_channel *channels[],
-			    u32 n_channels,
-			    u32 n_ssids,
-			    int scan_type);
 
 #endif /* __CC33XX_SCAN_H__ */
