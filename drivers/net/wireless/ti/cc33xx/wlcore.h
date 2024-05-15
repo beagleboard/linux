@@ -8,11 +8,7 @@
 #ifndef __WLCORE_H__
 #define __WLCORE_H__
 
-#include <linux/platform_device.h>
-
 #include "wlcore_i.h"
-#include "event.h"
-#include "boot.h"
 #include "rx.h"
 
 
@@ -20,7 +16,7 @@
 #define MAJOR_VERSION 	1
 #define MINOR_VERSION 	7
 #define API_VERSION 	0
-#define BUILD_VERSION	27
+#define BUILD_VERSION	114
 
 
 /* The maximum number of Tx descriptors in all chip families */
@@ -30,12 +26,10 @@
 #define CC33XX_INI_PARAM_COMMAND_SIZE (16UL)//size of struct cc33xx_cmd_ini_params_download
 #define CC33XX_INI_CMD_MAX_SIZE      (CC33X_CONF_SIZE + CC33XX_INI_PARAM_COMMAND_SIZE + sizeof(int))
 
-#define CC33XX_CMD_BUFFER_SIZE ((CC33XX_INI_CMD_MAX_SIZE > CC33XX_CMD_MAX_SIZE) ? CC33XX_INI_CMD_MAX_SIZE : CC33XX_CMD_MAX_SIZE)
+#define CC33XX_CMD_BUFFER_SIZE ((CC33XX_INI_CMD_MAX_SIZE > CC33XX_CMD_MAX_SIZE)\
+				? CC33XX_INI_CMD_MAX_SIZE : CC33XX_CMD_MAX_SIZE)
 
 #define WLCORE_NUM_MAC_ADDRESSES 3
-
-/* Texas Instruments pre assigned OUI */
-#define WLCORE_TI_OUI_ADDRESS 0x080028
 
 #define CC33XX_AGGR_BUFFER_SIZE		(8 * PAGE_SIZE)
 
@@ -65,18 +59,21 @@ struct driver_versions{
 struct driver_fw_versions{
 	struct driver_versions driver_ver;
 	struct cc33xx_acx_fw_versions *fw_ver;
-
 };
 
 struct cc33xx_stats {
 	void *fw_stats;
 	unsigned long fw_stats_update;
-	size_t fw_stats_len;
-
 	unsigned int retry_count;
 	unsigned int excessive_retries;
 };
 
+struct cc33xx_ant_diversity {
+	u8 diversity_enable;
+	s8 rssi_threshold;
+	u8 default_antenna;
+	u8 padding[1];
+};
 
 struct cc33xx {
 	bool initialized;
@@ -86,11 +83,9 @@ struct cc33xx {
 	struct device *dev;
 	struct platform_device *pdev;
 
-
 	struct cc33xx_if_operations *if_ops;
 
 	int wakeirq;
-
 
 	spinlock_t wl_lock;
 
@@ -130,7 +125,7 @@ struct cc33xx {
 	u8 sta_count;
 	u8 ap_count;
 
-	struct cc33xx_acx_mem_map *target_mem_map;
+	struct cc33xx_acx_mem_map_t *target_mem_map;
 
 	/* Accounting for allocated / available TX blocks on HW */
 
@@ -139,12 +134,9 @@ struct cc33xx {
 
 	/* Accounting for allocated / available Tx packets in HW */
 
-
 	u32 tx_allocated_pkts[NUM_TX_QUEUES];
 
-
 	/* Time-offset between host and chipset clocks */
-
 
 	/* Frames scheduled for transmission, not handled yet */
 	int tx_queue_count[NUM_TX_QUEUES];
@@ -236,8 +228,9 @@ struct cc33xx {
 
 	/*
 	 * wowlan trigger was configured during suspend.
-	 * (currently, only "ANY" trigger is supported)
+	 * (currently, only "ANY" and "PATTERN" trigger is supported)
 	 */
+
 	bool keep_device_power;
 
 	/*
@@ -261,9 +254,6 @@ struct cc33xx {
 	/* number of currently active RX BA sessions */
 	int ba_rx_session_count;
 
-	/* Maximum number of supported RX BA sessions */
-	int ba_rx_session_count_max;
-
 	/* AP-mode - number of currently connected stations */
 	int active_sta_count;
 
@@ -273,27 +263,6 @@ struct cc33xx {
 	/* work to fire when Tx is stuck */
 	struct delayed_work tx_watchdog_work;
 
-	u8 scan_templ_id_2_4;
-	u8 scan_templ_id_5;
-	u8 sched_scan_templ_id_2_4;
-	u8 sched_scan_templ_id_5;
-	u8 max_channels_5;
-
-	/* number of TX descriptors the HW supports. */
-	u32 num_tx_desc;
-	/* number of RX descriptors the HW supports. */
-	u32 num_rx_desc;
-	/* number of links the HW supports */
-	u8 num_links;
-	/* max stations a single AP can support */
-	u8 max_ap_stations;
-
-	/* translate HW Tx rates to standard rate-indices */
-	const u8 **band_rate_to_idx;
-
-	/* size of table for HW rates that can be received from chip */
-	u8 hw_tx_rate_tbl_size;
-
 	/* HW HT (11n) capabilities */
 	struct ieee80211_sta_ht_cap ht_cap[WLCORE_NUM_BANDS];
 
@@ -302,7 +271,8 @@ struct cc33xx {
 	bool radar_debug_mode;
 
 	/* RX Data filter rule state - enabled/disabled */
-	unsigned long rx_filter_enabled[BITS_TO_LONGS(CC33XX_MAX_RX_FILTERS)];//used in CONFIG PM AND W8 Code
+	/* used in CONFIG PM AND W8 Code */
+	unsigned long rx_filter_enabled[BITS_TO_LONGS(CC33XX_MAX_RX_FILTERS)];
 
 	/* mutex for protecting the tx_flush function */
 	struct mutex flush_mutex;
@@ -313,6 +283,16 @@ struct cc33xx {
 	/*ble_enable value - if 0 ble not enabled , if 1 is enabled..cant be disabled after enable*/
 	int ble_enable;
 
+	/* parameters for joining a TWT agreement */
+	int min_wake_duration_usec;
+	int min_wake_interval_mantissa;
+	int min_wake_interval_exponent;
+	int max_wake_interval_mantissa;
+	int max_wake_interval_exponent;
+
+	/* the number of allocated MAC addresses in this chip */
+	int num_mac_addr;
+
 	/* sta role index - if 0 - wlan0 primary station interface, if 1 - wlan2 - secondary station interface*/
 
 	u8 sta_role_idx;
@@ -321,10 +301,6 @@ struct cc33xx {
 
 	struct completion nvs_loading_complete;
 	struct completion command_complete;
-
-	/* interface combinations supported by the hw */
-	const struct ieee80211_iface_combination *iface_combinations;
-	u8 n_iface_combinations;
 
 	/* dynamic fw traces */
 	u32 dynamic_fw_traces;
@@ -345,13 +321,12 @@ struct cc33xx {
 
 	struct driver_fw_versions all_versions;
 
-	char* all_versions_str;
-
 	u8 antenna_selection;
 
 	/* burst mode cfg */
 	u8 burst_disable;
 
+	struct cc33xx_ant_diversity diversity;
 };
 
 int wlcore_probe(struct cc33xx *wl, struct platform_device *pdev);
@@ -359,32 +334,13 @@ int wlcore_remove(struct platform_device *pdev);
 struct ieee80211_hw *wlcore_alloc_hw(u32 aggr_buf_size);
 int wlcore_free_hw(struct cc33xx *wl);
 int wlcore_set_key(struct cc33xx *wl, enum set_key_cmd cmd,
-		   struct ieee80211_vif *vif,
-		   struct ieee80211_sta *sta,
+		   struct ieee80211_vif *vif, struct ieee80211_sta *sta,
 		   struct ieee80211_key_conf *key_conf);
 void wlcore_regdomain_config(struct cc33xx *wl);
 void wlcore_update_inconn_sta(struct cc33xx *wl, struct cc33xx_vif *wlvif,
 			      struct cc33xx_station *wl_sta, bool in_conn);
-bool cc33xx_is_mimo_supported(struct cc33xx *wl);
-
-static inline void
-wlcore_set_ht_cap(struct cc33xx *wl, enum nl80211_band band,
-		  struct ieee80211_sta_ht_cap *ht_cap)
-{
-	memcpy(&wl->ht_cap[band], ht_cap, sizeof(*ht_cap));
-}
-
-/* Tell wlcore not to care about this element when checking the version */
-#define WLCORE_FW_VER_IGNORE	-1
-
-
-/* Firmware image load chunk size */
-#define CHUNK_SIZE	16384
 
 /* Quirks */
-
-/* Each RX/TX transaction requires an end-of-transaction transfer */
-#define WLCORE_QUIRK_END_OF_TRANSACTION		BIT(0)
 
 /* the first start_role(sta) sometimes doesn't work on wl12xx */
 #define WLCORE_QUIRK_START_STA_FAILS		BIT(1)
@@ -394,12 +350,6 @@ wlcore_set_ht_cap(struct cc33xx *wl, enum nl80211_band band,
 
 /* means aggregated Rx packets are aligned to a SDIO block */
 #define WLCORE_QUIRK_RX_BLOCKSIZE_ALIGN		BIT(3)
-
-/* Older firmwares did not implement the FW logger over bus feature */
-#define WLCORE_QUIRK_FWLOG_NOT_IMPLEMENTED	BIT(4)
-
-/* Older firmwares use an old NVS format */
-#define WLCORE_QUIRK_LEGACY_NVS			BIT(5)
 
 /* pad only the last frame in the aggregate buffer */
 #define WLCORE_QUIRK_TX_PAD_LAST_FRAME		BIT(7)
@@ -422,75 +372,18 @@ wlcore_set_ht_cap(struct cc33xx *wl, enum nl80211_band band,
 /* TODO: move all these common registers and values elsewhere */
 #define HW_ACCESS_ELP_CTRL_REG		0x1FFFC
 
-/* ELP register commands */
-#define ELPCTRL_WAKE_UP             0x1
-#define ELPCTRL_WAKE_UP_WLAN_READY  0x5
-#define ELPCTRL_SLEEP               0x0
-/* ELP WLAN_READY bit */
-#define ELPCTRL_WLAN_READY          0x2
-
-/*************************************************************************
-
-    Interrupt Trigger Register (Host -> WiLink)
-
-**************************************************************************/
-
-/* Hardware to Embedded CPU Interrupts - first 32-bit register set */
-
-/*
- * The host sets this bit to inform the Wlan
- * FW that a TX packet is in the XFER
- * Buffer #0.
- */
-#define INTR_TRIG_TX_PROC0 BIT(2)
-
-/*
- * The host sets this bit to inform the FW
- * that it read a packet from RX XFER
- * Buffer #0.
- */
-#define INTR_TRIG_RX_PROC0 BIT(3)
-
-#define INTR_TRIG_DEBUG_ACK BIT(4)
-
-#define INTR_TRIG_STATE_CHANGED BIT(5)
-
-/* Hardware to Embedded CPU Interrupts - second 32-bit register set */
-
-/*
- * The host sets this bit to inform the FW
- * that it read a packet from RX XFER
- * Buffer #1.
- */
-#define INTR_TRIG_RX_PROC1 BIT(17)
-
-/*
- * The host sets this bit to inform the Wlan
- * hardware that a TX packet is in the XFER
- * Buffer #1.
- */
-#define INTR_TRIG_TX_PROC1 BIT(18)
-
-#define ACX_SLV_SOFT_RESET_BIT	BIT(1)
-#define SOFT_RESET_MAX_TIME	1000000
-#define SOFT_RESET_STALL_TIME	1000
-
-#define ECPU_CONTROL_HALT	0x00000101
-
-#define WELP_ARM_COMMAND_VAL	0x4
-
 enum CC33xx_FRAME_FORMAT {
- CC33xx_B_SHORT = 0,
- CC33xx_B_LONG,
- CC33xx_LEGACY_OFDM,
- CC33xx_HT_MF,
- CC33xx_HT_GF,
- CC33xx_HE_SU,
- CC33xx_HE_MU,
- CC33xx_HE_SU_ER,
- CC33xx_HE_TB,
- CC33xx_HE_TB_NDP_FB,
- CC33xx_VHT
+	CC33xx_B_SHORT = 0,
+	CC33xx_B_LONG,
+	CC33xx_LEGACY_OFDM,
+	CC33xx_HT_MF,
+	CC33xx_HT_GF,
+	CC33xx_HE_SU,
+	CC33xx_HE_MU,
+	CC33xx_HE_SU_ER,
+	CC33xx_HE_TB,
+	CC33xx_HE_TB_NDP_FB,
+	CC33xx_VHT
 };
 
 /* CC33xx HW Common Definitions */
@@ -501,7 +394,6 @@ enum CC33xx_FRAME_FORMAT {
 #define NAB_CONTROL_ADDR	0x0000BFF8
 #define NAB_STATUS_ADDR		0x0000BFFC
 
-
 #define NAB_SEND_CMD        0x940d // 0x900D
 #define NAB_SEND_FLAGS      0x08
 #define CC33xx_INTERNAL_DESC_SIZE   200
@@ -509,47 +401,68 @@ enum CC33xx_FRAME_FORMAT {
 
 #define TX_RESULT_QUEUE_SIZE  108
 
-
-
 struct control_info_descriptor
 {
-    __le16 type 	:4;
-    __le16 length 	:12;
+	__le16 type 	:4;
+	__le16 length 	:12;
 };
 
 enum control_message_type
 {
-    CTRL_MSG_NONE = 0,
-    CTRL_MSG_EVENT = 1,
-    CTRL_MSG_COMMND_COMPLETE = 2
+	CTRL_MSG_NONE = 0,
+	CTRL_MSG_EVENT = 1,
+	CTRL_MSG_COMMND_COMPLETE = 2
 };
 
 struct core_fw_status
 {
-    u8   txResultQueueIndex;
-    u8   reserved1[3];
-    u8   txResultQueue[TX_RESULT_QUEUE_SIZE];
-    __le32	link_ps_bitmap;                     /* A bitmap (where each bit represents a single HLID) to indicate PS/Active mode of the link */
-    __le32	link_fast_bitmap;                   /* A bitmap (where each bit represents a single HLID) to indicate if the station is in Fast mode */
-    __le32	link_suspend_bitmap;                /* A bitmap (where each bit represents a single HLID) to indicate if a links is suspended/aboout to be suspended*/
-    u8      TxFlowControlAcThreshold;           /* Host TX Flow Control descriptor per AC threshold */
-    u8      tx_ps_threshold;                    /* Host TX Flow Control descriptor PS link threshold */
-    u8      tx_suspend_threshold;               /* Host TX Flow Control descriptor Suspended link threshold */
-    u8      tx_slow_link_prio_threshold;        /* Host TX Flow Control descriptor Slow link threshold */
-    u8      tx_fast_link_prio_threshold;        /* Host TX Flow Control descriptor Fast link threshold */
-    u8      tx_slow_stop_threshold;             /* Host TX Flow Control descriptor Stop Slow link threshold */
-    u8      tx_fast_stop_threshold;             /* Host TX Flow Control descriptor Stop Fast link threshold */
-    u8      reserved2;
-    // Additional information can be added here
+	u8	txResultQueueIndex;
+	u8	reserved1[3];
+	u8	txResultQueue[TX_RESULT_QUEUE_SIZE];
+
+	/* A bitmap (where each bit represents a single HLID)
+	to indicate PS/Active mode of the link */
+	__le32	link_ps_bitmap;
+
+	/* A bitmap (where each bit represents a single HLID)
+	to indicate if the station is in Fast mode */
+	__le32	link_fast_bitmap;
+
+	/* A bitmap (where each bit represents a single HLID)
+	to indicate if a links is suspended/aboout to be suspended */
+	__le32	link_suspend_bitmap;
+
+	/* Host TX Flow Control descriptor per AC threshold */
+	u8      TxFlowControlAcThreshold;
+
+	/* Host TX Flow Control descriptor PS link threshold */
+	u8      tx_ps_threshold;
+
+	/* Host TX Flow Control descriptor Suspended link threshold */
+	u8      tx_suspend_threshold;
+
+	/* Host TX Flow Control descriptor Slow link threshold */
+	u8      tx_slow_link_prio_threshold;
+
+	/* Host TX Flow Control descriptor Fast link threshold */
+	u8      tx_fast_link_prio_threshold;
+
+	/* Host TX Flow Control descriptor Stop Slow link threshold */
+	u8      tx_slow_stop_threshold;
+
+	/* Host TX Flow Control descriptor Stop Fast link threshold */
+	u8      tx_fast_stop_threshold;
+
+	u8      reserved2;
+	/* Additional information can be added here */
 } __packed;
 
 struct core_status {
-    //__le32 bloc_pad[92];
-    __le32 block_pad[28];
-    __le32 host_interrupt_status;
-    __le32 rx_status;
-    struct core_fw_status fwInfo;
-    __le32 tsf;
+	__le32 block_pad[28];
+	__le32 host_interrupt_status;
+	__le32 rx_status;
+	struct core_fw_status fwInfo;
+	__le32 tsf;
 } __packed;
 
 struct NAB_header{
@@ -561,12 +474,8 @@ struct NAB_header{
 /* rx_status lower bytes hold the rx byte count */
 #define RX_BYTE_COUNT_MASK 0xFFFF
 
-
-
-
 #define HINT_NEW_TX_RESULT						0x1
 #define HINT_COMMAND_COMPLETE 					0x2
-#define HINT_RX_DATA_PENDING 					0x4
 #define HINT_ROM_LOADER_INIT_COMPLETE 			0x8
 #define HINT_SECOND_LOADER_INIT_COMPLETE 		0x10
 #define HINT_FW_WAKEUP_COMPLETE 				0x20
@@ -580,25 +489,21 @@ struct NAB_header{
 	HINT_FW_INIT_COMPLETE )
 
 struct NAB_tx_header{
-    __le32 sync;
-    __le16 opcode;
-    __le16 len;
-    __le16 desc_length;
-    u8     sd;
-    u8     flags;
+	__le32 sync;
+	__le16 opcode;
+	__le16 len;
+	__le16 desc_length;
+	u8     sd;
+	u8     flags;
 } __packed;
 
 struct NAB_rx_header{
-    __le32 cnys;
-    __le16 opcode;
-    __le16 len;
-    __le32 rx_desc;
-    __le32 reserved;
+	__le32 cnys;
+	__le16 opcode;
+	__le16 len;
+	__le32 rx_desc;
+	__le32 reserved;
 } __packed;
-
-
-
-
 
 
 #endif /* __WLCORE_H__ */
