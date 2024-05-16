@@ -2764,7 +2764,7 @@ static void dispc_init_errata(struct dispc_device *dispc)
 static int dispc_softreset(struct dispc_device *dispc)
 {
 	u32 val;
-	int ret = 0;
+	int ret;
 
 	/* K2G display controller does not support soft reset */
 	if (dispc->feat->subrev == DISPC_K2G)
