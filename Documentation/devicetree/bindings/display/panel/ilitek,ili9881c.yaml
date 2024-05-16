@@ -30,7 +30,6 @@ properties:
 
 required:
   - compatible
-  - power-supply
   - reg
 
 additionalProperties: false
