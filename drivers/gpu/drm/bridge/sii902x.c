@@ -173,6 +173,8 @@ struct sii902x {
 	struct i2c_mux_core *i2cmux;
 	bool sink_is_hdmi;
 	struct device_link *link;
+	unsigned int ctx_tpi;
+	unsigned int ctx_interrupt;
 
 	/*
 	 * Mutex protects audio and video functions from interfering
@@ -1062,6 +1064,58 @@ static const struct drm_bridge_timings default_sii902x_timings = {
 		 | DRM_BUS_FLAG_DE_HIGH,
 };
 
+static int __maybe_unused sii902x_resume(struct device *dev)
+{
+	struct sii902x *sii902x = dev_get_drvdata(dev);
+	unsigned int tpi_reg, status;
+	int ret;
+
+	ret = regmap_read(sii902x->regmap, SII902X_REG_TPI_RQB, &tpi_reg);
+	if (ret)
+		return ret;
+
+	if (tpi_reg != sii902x->ctx_tpi) {
+		/*
+		 * TPI register context has changed. SII902X power supply
+		 * device has been turned off and on.
+		 */
+
+		sii902x_reset(sii902x);
+
+		/* Configure the device to enter TPI mode. */
+		ret = regmap_write(sii902x->regmap, SII902X_REG_TPI_RQB, 0x0);
+		if (ret)
+			return ret;
+
+		/* Re enable the interrupts */
+		regmap_write(sii902x->regmap, SII902X_INT_ENABLE,
+			     sii902x->ctx_interrupt);
+	}
+
+	/* Clear all pending interrupts */
+	regmap_read(sii902x->regmap, SII902X_INT_STATUS, &status);
+	regmap_write(sii902x->regmap, SII902X_INT_STATUS, status);
+
+	return 0;
+}
+
+static int __maybe_unused sii902x_suspend(struct device *dev)
+{
+	struct sii902x *sii902x = dev_get_drvdata(dev);
+
+	regmap_read(sii902x->regmap, SII902X_REG_TPI_RQB,
+		    &sii902x->ctx_tpi);
+
+	regmap_read(sii902x->regmap, SII902X_INT_ENABLE,
+		    &sii902x->ctx_interrupt);
+
+	return 0;
+}
+
+static const struct dev_pm_ops sii902x_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(sii902x_suspend, sii902x_resume)
+};
+
 static int sii902x_init(struct sii902x *sii902x)
 {
 	struct device *dev = &sii902x->i2c->dev;
@@ -1235,6 +1289,7 @@ static struct i2c_driver sii902x_driver = {
 	.remove = sii902x_remove,
 	.driver = {
 		.name = "sii902x",
+		.pm = &sii902x_pm_ops,
 		.of_match_table = sii902x_dt_ids,
 	},
 	.id_table = sii902x_i2c_ids,
