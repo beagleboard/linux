@@ -11,6 +11,7 @@
 
 #define TIDSS_MAX_PORTS 4
 #define TIDSS_MAX_PLANES 4
+#define TIDSS_MAX_OLDI_TXES 2
 
 typedef u32 dispc_irq_t;
 
@@ -26,6 +27,9 @@ struct tidss_device {
 
 	unsigned int num_planes;
 	struct drm_plane *planes[TIDSS_MAX_PLANES];
+
+	unsigned int num_oldis;
+	struct tidss_oldi *oldis[TIDSS_MAX_OLDI_TXES];
 
 	unsigned int irq;
 
