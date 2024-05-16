@@ -799,6 +799,32 @@
 		interrupts = <GIC_SPI 84 IRQ_TYPE_LEVEL_HIGH>;
 		status = "disabled";
 
+		oldi-txes {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			oldi0: oldi@0 {
+				reg = <0>;
+				clocks = <&k3_clks 186 0>;
+				clock-names = "s_clk";
+				ti,companion-oldi = <&oldi1>;
+				ti,oldi-io-ctrl = <&dss_oldi_io_ctrl>;
+				status = "disabled";
+
+				oldi0_ports: ports {
+				};
+			};
+
+			oldi1: oldi@1 {
+				reg = <1>;
+				ti,secondary-oldi;
+				status = "disabled";
+
+				oldi1_ports: ports {
+				};
+			};
+		};
+
 		dss_ports: ports {
 			#address-cells = <1>;
 			#size-cells = <0>;
