@@ -20,6 +20,7 @@ properties:
           - feixin,k101-im2byl02
           - tdo,tl050hdv35
           - wanchanglong,w552946aba
+          - microtips,mf-070zimacaa0
       - const: ilitek,ili9881c
 
   backlight: true
