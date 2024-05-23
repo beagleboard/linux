@@ -143,3 +143,7 @@
 #include "k3-am62p-main.dtsi"
 #include "k3-am62p-mcu.dtsi"
 #include "k3-am62p-wakeup.dtsi"
+
+&dmsc {
+	ti,partial-io-wakeup-sources = <&mcu_mcan0>, <&mcu_mcan1>, <&mcu_uart0>, <&wkup_uart0>;
+};
