@@ -61,6 +61,12 @@ properties:
   mboxes:
     minItems: 2
 
+  ti,partial-io-wakeup-sources:
+    $ref: /schemas/types.yaml#/definitions/phandle-array
+    description: |
+      List of phandles to devicetree nodes that can wakeup the SoC from the
+      Partial IO poweroff mode.
+
   ti,host-id:
     $ref: /schemas/types.yaml#/definitions/uint32
     description: |
