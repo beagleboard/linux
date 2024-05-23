@@ -1667,6 +1667,13 @@ static int omap8250_suspend(struct device *dev)
 	struct generic_pm_domain *genpd = pd_to_genpd(dev->pm_domain);
 	int err = 0;
 
+	err = omap8250_select_wakeup_pinctrl(dev, priv);
+	if (err) {
+		dev_err(dev, "Failed to select wakeup pinctrl, aborting suspend %pe\n",
+			ERR_PTR(err));
+		return err;
+	}
+
 	serial8250_suspend_port(priv->line);
 
 	err = pm_runtime_resume_and_get(dev);
@@ -1699,6 +1706,13 @@ static int omap8250_resume(struct device *dev)
 	struct uart_8250_port *up = serial8250_get_port(priv->line);
 	struct generic_pm_domain *genpd = pd_to_genpd(dev->pm_domain);
 	int err;
+
+	err = pinctrl_select_default_state(dev);
+	if (err) {
+		dev_err(dev, "Failed to select default pinctrl state on resume: %pe\n",
+			ERR_PTR(err));
+		return err;
+	}
 
 	if (uart_console(&up->port) && console_suspend_enabled) {
 		if (console_suspend_enabled) {
