@@ -139,7 +139,6 @@ struct omap8250_priv {
 	u8 rx_trigger;
 	bool is_suspending;
 	int wakeirq;
-	int wakeups_enabled;
 	u32 latency;
 	u32 calc_latency;
 	struct pm_qos_request pm_qos_request;
