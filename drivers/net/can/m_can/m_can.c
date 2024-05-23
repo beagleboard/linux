@@ -1912,11 +1912,21 @@ static void m_can_get_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
 static int m_can_set_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
 {
 	struct m_can_classdev *cdev = netdev_priv(dev);
+	struct pinctrl_state *new_pinctrl_state = NULL;
+	bool wol_enable = !!wol->wolopts & WAKE_PHY;
 
 	if ((wol->wolopts & WAKE_PHY) != wol->wolopts)
 		return -EINVAL;
 
-	device_set_wakeup_enable(cdev->dev, !!wol->wolopts & WAKE_PHY);
+	if (wol_enable)
+		new_pinctrl_state = cdev->pinctrl_state_wakeup;
+	else
+		new_pinctrl_state = cdev->pinctrl_state_default;
+
+	if (!IS_ERR_OR_NULL(new_pinctrl_state))
+		pinctrl_select_state(cdev->pinctrl, new_pinctrl_state);
+
+	device_set_wakeup_enable(cdev->dev, wol_enable);
 
 	return 0;
 }
@@ -2067,6 +2077,14 @@ struct m_can_classdev *m_can_class_allocate_dev(struct device *dev,
 	SET_NETDEV_DEV(net_dev, dev);
 
 	m_can_of_parse_mram(class_dev, mram_config_vals);
+
+	class_dev->pinctrl = devm_pinctrl_get(dev);
+	if (!IS_ERR_OR_NULL(class_dev->pinctrl)) {
+		class_dev->pinctrl_state_default =
+			pinctrl_lookup_state(class_dev->pinctrl, "default");
+		class_dev->pinctrl_state_wakeup =
+			pinctrl_lookup_state(class_dev->pinctrl, "wakeup");
+	}
 out:
 	return class_dev;
 }
