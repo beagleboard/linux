@@ -42,6 +42,7 @@ dtb-$(CONFIG_ARCH_K3) += k3-am62x-sk-csi2-ov5640.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-am62x-sk-csi2-tevi-ov5640.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-am62x-sk-csi2-imx219.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-am62x-sk-hdmi-audio.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-am62x-sk-mcan.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-am62x-sk-microtips-mf103hie-lcd2.dtbo
 
 # Boards with AM64x SoC
