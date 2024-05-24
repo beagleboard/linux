@@ -1,0 +1,62 @@
+// SPDX-License-Identifier: GPL-2.0
+/**
+ * DT Overlay for enabling PWM output on RPi header on AM625-SK
+ *
+ * Copyright (C) 2023 Texas Instruments Incorporated - https://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include "k3-pinctrl.h"
+
+&main_pmx0 {
+	main_epwm0_pins_default: main-epwm0-pins-default {
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x01ac, PIN_OUTPUT, 6) /* (E19) MCASP0_AFSR.EHRPWM0_A */
+			AM62X_IOPAD(0x01b0, PIN_OUTPUT, 6) /* (A20) MCASP0_ACLKR.EHRPWM0_B */
+		>;
+	};
+	main_epwm1_pins_default: main-epwm1-pins-default {
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x019c, PIN_OUTPUT, 6) /* (B18) MCASP0_AXR1.EHRPWM1_A */
+			AM62X_IOPAD(0x01a0, PIN_OUTPUT, 6) /* (E18) MCASP0_AXR0.EHRPWM1_B */
+		>;
+	};
+	main_ecap2_pins_default: main-ecap2-pins-default {
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x01a4, PIN_OUTPUT, 2) /* (B20) MCASP0_ACLKX.ECAP2_IN_APWM_OUT */
+		>;
+	};
+};
+
+&main_i2c1 {
+	gpio@22 {
+		fet_sel {
+			gpio-hog;
+			gpios = <21 GPIO_ACTIVE_HIGH>;
+			output-low;
+			line-name = "UART1_FET_SEL";
+		};
+	};
+};
+
+&epwm0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_epwm0_pins_default>;
+	status = "okay";
+};
+
+&epwm1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_epwm1_pins_default>;
+	status = "okay";
+};
+
+&ecap2 {
+	/* ECAP in APWM mode */
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_ecap2_pins_default>;
+	status = "okay";
+};
