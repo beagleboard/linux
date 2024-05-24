@@ -34,6 +34,7 @@ dtb-$(CONFIG_ARCH_K3) += k3-am62-lp-sk-microtips-mf101hie-panel.dtbo
 # Boards with AM62Ax SoC
 dtb-$(CONFIG_ARCH_K3) += k3-am62a7-sk.dtb
 dtb-$(CONFIG_ARCH_K3) += k3-am62a7-sk-ethernet-dc01.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-am62a7-sk-rpi-hdr-ehrpwm.dtbo
 
 # Boards with AM62Px SoC
 dtb-$(CONFIG_ARCH_K3) += k3-am62p5-sk.dtb
