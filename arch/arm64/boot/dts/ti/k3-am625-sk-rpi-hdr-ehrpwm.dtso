@@ -1,0 +1,100 @@
+// SPDX-License-Identifier: GPL-2.0
+/**
+ * DT Overlay for enabling RPi header with GPIOs and ePWMs for AM625-SK
+ *
+ * Copyright (C) 2023 Texas Instruments Incorporated - https://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include "k3-pinctrl.h"
+
+&main_pmx0 {
+	rpi_header_gpio0_pins_default: rpi-header-gpio0-pins-default {
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x0038, PIN_INPUT, 7) /* (E24) OSPI0_CSn3.GPIO0_14 */
+			AM62X_IOPAD(0x0088, PIN_INPUT, 7) /* (L24) GPMC0_OEn_REn.GPIO0_33 */
+			AM62X_IOPAD(0x0094, PIN_INPUT, 7) /* (N20) GPMC0_BE1n.GPIO0_36 */
+			AM62X_IOPAD(0x009c, PIN_INPUT, 7) /* (V25) GPMC0_WAIT1.GPIO0_38 */
+			AM62X_IOPAD(0x00a0, PIN_INPUT, 7) /* (K25) GPMC0_WPn.GPIO0_39 */
+			AM62X_IOPAD(0x00a4, PIN_INPUT, 7) /* (M22) GPMC0_DIR.GPIO0_40 */
+			AM62X_IOPAD(0x00a8, PIN_INPUT, 7) /* (M21) GPMC0_CSn0.GPIO0_41 */
+			AM62X_IOPAD(0x00ac, PIN_INPUT, 7) /* (L21) GPMC0_CSn1.GPIO0_42 */
+		>;
+	};
+
+	rpi_header_gpio1_pins_default: rpi-header-gpio1-pins-default {
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x01d0, PIN_INPUT, 7) /* (A15) UART0_CTSn.GPIO1_22 */
+		>;
+	};
+
+	rpi_header_ehrpwm0_pins_default: rpi-header-ehrpwm0-pins-default {
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x01ac, PIN_OUTPUT, 6) /* (E19) MCASP0_AFSR.EHRPWM0_A */
+			AM62X_IOPAD(0x01b0, PIN_OUTPUT, 6) /* (A20) MCASP0_ACLKR.EHRPWM0_B */
+		>;
+	};
+
+	rpi_header_ehrpwm1_pins_default: rpi-header-ehrpwm1-pins-default {
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x019c, PIN_OUTPUT, 6) /* (B18) MCASP0_AXR1.EHRPWM1_A */
+			AM62X_IOPAD(0x01a0, PIN_OUTPUT, 6) /* (E18) MCASP0_AXR0.EHRPWM1_B */
+		>;
+	};
+};
+
+&main_i2c1 {
+	gpio@22 {
+		p05-hog {
+			/* P05 - EXP_PS_3V3_EN */
+			gpio-hog;
+			gpios = <5 GPIO_ACTIVE_HIGH>;
+			output-high;
+			line-name = "EXP_PS_3V3_EN";
+		};
+
+		p06-hog {
+			/* P06 - EXP_PS_5V0_EN */
+			gpio-hog;
+			gpios = <6 GPIO_ACTIVE_HIGH>;
+			output-high;
+			line-name = "EXP_PS_5V0_EN";
+		};
+
+		p25-hog {
+			/* P25 - UART1_FET_SEL */
+			gpio-hog;
+			gpios = <21 GPIO_ACTIVE_HIGH>;
+			output-low;
+			line-name = "UART1_FET_SEL";
+		};
+	};
+};
+
+&epwm0 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&rpi_header_ehrpwm0_pins_default>;
+};
+
+&epwm1 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&rpi_header_ehrpwm1_pins_default>;
+};
+
+
+&main_gpio0 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&rpi_header_gpio0_pins_default>;
+};
+
+&main_gpio1 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&rpi_header_gpio1_pins_default>;
+};
