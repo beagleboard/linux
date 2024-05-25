@@ -411,7 +411,7 @@
 	bootph-all;
 };
 
-&serdes0_ln_ctrl {
+&serdes_ln_ctrl {
 	idle-states = <J722S_SERDES0_LANE0_USB>,
 		      <J722S_SERDES1_LANE0_PCIE0_LANE0>;
 };
