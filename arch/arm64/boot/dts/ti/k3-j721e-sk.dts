@@ -954,7 +954,7 @@
 		resets = <&serdes_wiz4 1>;
 		cdns,phy-type = <PHY_TYPE_DP>;
 		cdns,num-lanes = <4>;
-		cdns,max-bit-rate = <5400>;
+		cdns,max-bit-rate = <2700>;
 		#phy-cells = <0>;
 	};
 };
