@@ -1723,6 +1723,36 @@ static const struct panel_desc starry_kr122ea0sra = {
 	},
 };
 
+static const struct drm_display_mode ti_panel_edp_mode = {
+	.clock = 40000,
+	.hdisplay = 800,
+	.hsync_start = 800 + 40,
+	.hsync_end = 800 + 40 + 128,
+	.htotal = 800 + 40 + 128 + 88,
+	.vdisplay = 600,
+	.vsync_start = 600 + 1,
+	.vsync_end = 600 + 1 + 4,
+	.vtotal = 600 + 1 + 4 + 23,
+
+	.crtc_clock = 40000,
+	.crtc_hdisplay = 800,
+	.crtc_hsync_start = 800 + 40,
+	.crtc_hsync_end = 800 + 40 + 128,
+	.crtc_htotal = 800 + 40 + 128 + 88,
+	.crtc_vdisplay = 600,
+	.crtc_vsync_start = 600 + 1,
+	.crtc_vsync_end = 600 + 1 + 4,
+	.crtc_vtotal = 600 + 1 + 4 + 23,
+
+	.flags = DRM_MODE_FLAG_NVSYNC | DRM_MODE_FLAG_NHSYNC,
+};
+
+static const struct panel_desc ti_panel_edp = {
+	.modes = &ti_panel_edp_mode,
+	.num_modes = 1,
+	.bpc = 8,
+};
+
 static const struct of_device_id platform_of_match[] = {
 	{
 		/* Must be first */
@@ -1811,6 +1841,9 @@ static const struct of_device_id platform_of_match[] = {
 	}, {
 		.compatible = "starry,kr122ea0sra",
 		.data = &starry_kr122ea0sra,
+	}, {
+		.compatible = "ti,panel-edp",
+		.data = &ti_panel_edp,
 	}, {
 		/* sentinel */
 	}
