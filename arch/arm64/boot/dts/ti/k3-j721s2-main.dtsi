@@ -4,6 +4,7 @@
  *
  * Copyright (C) 2021 Texas Instruments Incorporated - https://www.ti.com/
  */
+#include <dt-bindings/phy/phy.h>
 
 #include <dt-bindings/phy/phy-cadence.h>
 #include <dt-bindings/phy/phy-ti.h>
@@ -69,6 +70,14 @@
 			compatible = "ti,am654-ehrpwm-tbclk";
 			reg = <0x140 0x18>;
 			#clock-cells = <1>;
+		};
+
+		edp_serdes_mux: mux-controller@310 {
+			compatible = "mmio-mux";
+			reg = <0x310 0x4>;
+			#mux-control-cells = <1>;
+			/* EDP0 to SERDES0 lane 0/1 or 2/3 mux */
+			mux-reg-masks = <0x310 0x10000000>;
 		};
 	};
 
@@ -1383,15 +1392,21 @@
 		num-lanes = <4>;
 		#reset-cells = <1>;
 		#clock-cells = <1>;
-		ranges = <0x5060000 0x0 0x5060000 0x10000>;
+		ranges = <0x5060000 0x0 0x5060000 0x10000>,
+			 <0xa030a00 0x0 0xa030a00 0x40>; /* DPTX PHY */
 
 		assigned-clocks = <&k3_clks 365 3>;
 		assigned-clock-parents = <&k3_clks 365 7>;
 
 		serdes0: serdes@5060000 {
+			/*
+			 * Note: we also map DPTX PHY registers as the Torrent
+			 * needs to manage those.
+			 */
 			compatible = "ti,j721e-serdes-10g";
-			reg = <0x05060000 0x00010000>;
-			reg-names = "torrent_phy";
+			reg = <0x05060000 0x00010000>,
+			      <0xa030a00 0x40>; /* DPTX PHY */
+			reg-names = "torrent_phy", "dptx_phy";
 			resets = <&serdes_wiz0 0>;
 			reset-names = "torrent_reset";
 			clocks = <&serdes_wiz0 TI_WIZ_PLL0_REFCLK>,
@@ -1408,6 +1423,15 @@
 			#clock-cells = <1>;
 
 			status = "disabled"; /* Needs lane config */
+
+			torrent_phy_dp: phy@2 {
+				reg = <2>;
+				resets = <&serdes_wiz0 3>;
+				cdns,phy-type = <PHY_TYPE_DP>;
+				cdns,num-lanes = <2>;
+				cdns,max-bit-rate = <5400>;
+				#phy-cells = <0>;
+			};
 		};
 	};
 
@@ -1810,6 +1834,34 @@
 		power-domains = <&k3_pds 346 TI_SCI_PD_EXCLUSIVE>;
 		clocks = <&k3_clks 346 1>;
 		status = "disabled";
+	};
+
+	mhdp: dp-bridge@a000000 {
+		compatible = "ti,j721e-mhdp8546";
+		/*
+		 * Note: we do not map DPTX PHY area, as that is handled by
+		 * the PHY driver.
+		 */
+		reg = <0x0 0xa000000 0x0 0x30a00>, /* DSS_EDP0_V2A_CORE_VP_REGS_APB */
+		      <0x0 0x4f40000 0x0 0x20>;    /* DSS_EDP0_INTG_CFG_VP */
+		reg-names = "mhdptx", "j721e-intg";
+
+		clocks = <&k3_clks 156 19>;
+
+		phys = <&torrent_phy_dp>;
+		phy-names = "dpphy";
+
+		interrupt-parent = <&gic500>;
+		interrupts = <GIC_SPI 614 IRQ_TYPE_LEVEL_HIGH>;
+
+		power-domains = <&k3_pds 156 TI_SCI_PD_EXCLUSIVE>;
+
+		status = "disabled";
+
+		dp0_ports: ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
 	};
 
 	dss: dss@4a00000 {
