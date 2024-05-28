@@ -35,6 +35,8 @@ struct tidss_device {
 
 	spinlock_t wait_lock;	/* protects the irq masks */
 	dispc_irq_t irq_mask;	/* enabled irqs in addition to wait_list */
+
+	u32 boot_enabled_vp_mask;
 };
 
 #define to_tidss(__dev) container_of(__dev, struct tidss_device, ddev)
