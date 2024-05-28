@@ -912,13 +912,15 @@ static int panel_edp_probe(struct device *dev, const struct panel_desc *desc,
 		dev_warn(dev, "Expected bpc in {6,8,10} but got: %u\n", desc->bpc);
 	}
 
-	if (!panel->base.backlight && panel->aux) {
-		pm_runtime_get_sync(dev);
-		err = drm_panel_dp_aux_backlight(&panel->base, panel->aux);
-		pm_runtime_mark_last_busy(dev);
-		pm_runtime_put_autosuspend(dev);
-		if (err)
-			goto err_finished_pm_runtime;
+	if (!of_device_is_compatible(dev->of_node, "ti,panel-edp")) {
+		if (!panel->base.backlight && panel->aux) {
+			pm_runtime_get_sync(dev);
+			err = drm_panel_dp_aux_backlight(&panel->base, panel->aux);
+			pm_runtime_mark_last_busy(dev);
+			pm_runtime_put_autosuspend(dev);
+			if (err)
+				goto err_finished_pm_runtime;
+		}
 	}
 
 	drm_panel_add(&panel->base);
