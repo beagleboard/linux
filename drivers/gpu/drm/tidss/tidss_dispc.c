@@ -2671,9 +2671,17 @@ void dispc_vp_setup(struct dispc_device *dispc, u32 hw_videoport,
 	dispc_vp_set_color_mgmt(dispc, hw_videoport, state, newmodeset);
 }
 
+static bool dispc_is_idle(struct dispc_device *dispc)
+{
+	return REG_GET(dispc, DSS_SYSSTATUS, 9, 9);
+}
+
 int dispc_runtime_suspend(struct dispc_device *dispc)
 {
 	dev_dbg(dispc->dev, "suspend\n");
+
+	if (!dispc_is_idle(dispc))
+		dev_warn(dispc->dev, "Bad HW state: DSS not idle when suspending");
 
 	dispc->is_enabled = false;
 
@@ -2687,6 +2695,9 @@ int dispc_runtime_resume(struct dispc_device *dispc)
 	dev_dbg(dispc->dev, "resume\n");
 
 	clk_prepare_enable(dispc->fclk);
+
+	if (!dispc_is_idle(dispc))
+		dev_warn(dispc->dev, "Bad HW state: DSS not idle when resuming");
 
 	if (REG_GET(dispc, DSS_SYSSTATUS, 0, 0) == 0)
 		dev_warn(dispc->dev, "DSS FUNC RESET not done!\n");
