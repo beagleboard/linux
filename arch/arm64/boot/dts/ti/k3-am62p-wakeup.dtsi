@@ -6,7 +6,7 @@
 
 &cbass_wakeup {
 	wkup_conf: bus@43000000 {
-		compatible = "simple-bus";
+		compatible = "syscon", "simple-mfd";
 		reg = <0x00 0x43000000 0x00 0x20000>;
 		#address-cells = <1>;
 		#size-cells = <1>;
