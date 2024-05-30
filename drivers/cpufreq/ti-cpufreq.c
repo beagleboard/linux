@@ -42,6 +42,8 @@
 #define AM625_EFUSE_K_MPU_OPP			11
 #define AM625_EFUSE_S_MPU_OPP			19
 #define AM625_EFUSE_T_MPU_OPP			20
+#define AM625_EFUSE_U_MPU_OPP			21
+#define AM625_EFUSE_V_MPU_OPP			22
 
 #define AM625_SUPPORT_K_MPU_OPP			BIT(0)
 #define AM625_SUPPORT_S_MPU_OPP			BIT(1)
@@ -118,6 +120,8 @@ static unsigned long am625_efuse_xlate(struct ti_cpufreq_data *opp_data,
 	unsigned long calculated_efuse = AM625_SUPPORT_K_MPU_OPP;
 
 	switch (efuse) {
+	case AM625_EFUSE_V_MPU_OPP:
+	case AM625_EFUSE_U_MPU_OPP:
 	case AM625_EFUSE_T_MPU_OPP:
 		calculated_efuse |= AM625_SUPPORT_T_MPU_OPP;
 		fallthrough;
