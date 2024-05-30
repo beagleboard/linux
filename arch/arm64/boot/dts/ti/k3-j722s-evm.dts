@@ -34,7 +34,7 @@
 		reg = <0x00000000 0x80000000 0x00000000 0x80000000>,
 		      <0x00000008 0x80000000 0x00000001 0x80000000>;
 		device_type = "memory";
-		bootph-pre-ram;
+		bootph-all;
 	};
 
 	reserved_memory: reserved-memory {
