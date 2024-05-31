@@ -409,6 +409,7 @@ struct ub960_hw_data {
 	u8 num_txports;
 	bool is_ub9702;
 	bool is_fpdlink4;
+	bool ignore_strobe_pos;
 };
 
 enum ub960_rxport_mode {
@@ -1423,7 +1424,7 @@ static void ub960_rxport_config_eq(struct ub960_data *priv, unsigned int nport)
 
 	if (priv->strobe.manual)
 		ub960_rxport_set_strobe_pos(priv, nport, rxport->eq.strobe_pos);
-	else
+	else if (!priv->hw_data->ignore_strobe_pos)
 		ub960_rxport_set_strobe_pos(priv, nport, 0);
 
 	if (rxport->eq.manual_eq) {
@@ -4017,6 +4018,13 @@ static void ub960_remove(struct i2c_client *client)
 	mutex_destroy(&priv->reg_lock);
 }
 
+static const struct ub960_hw_data ds90ub954_hw = {
+	.model = "ub954",
+	.num_rxports = 2,
+	.num_txports = 1,
+	.ignore_strobe_pos = true,
+};
+
 static const struct ub960_hw_data ds90ub960_hw = {
 	.model = "ub960",
 	.num_rxports = 4,
@@ -4032,6 +4040,7 @@ static const struct ub960_hw_data ds90ub9702_hw = {
 };
 
 static const struct i2c_device_id ub960_id[] = {
+	{ "ds90ub954-q1", (kernel_ulong_t)&ds90ub954_hw },
 	{ "ds90ub960-q1", (kernel_ulong_t)&ds90ub960_hw },
 	{ "ds90ub9702-q1", (kernel_ulong_t)&ds90ub9702_hw },
 	{}
@@ -4039,6 +4048,7 @@ static const struct i2c_device_id ub960_id[] = {
 MODULE_DEVICE_TABLE(i2c, ub960_id);
 
 static const struct of_device_id ub960_dt_ids[] = {
+	{ .compatible = "ti,ds90ub954-q1", .data = &ds90ub954_hw },
 	{ .compatible = "ti,ds90ub960-q1", .data = &ds90ub960_hw },
 	{ .compatible = "ti,ds90ub9702-q1", .data = &ds90ub9702_hw },
 	{}
