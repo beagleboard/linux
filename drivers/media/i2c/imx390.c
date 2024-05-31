@@ -643,7 +643,7 @@ static int imx390_probe(struct i2c_client *client)
 	imx390->clk_rate = clk_get_rate(imx390->clk);
 	dev_info(imx390->dev, "inck rate: %lu Hz\n", imx390->clk_rate);
 
-	if (imx390->clk_rate < 6000000 || imx390->clk_rate > 27000000)
+	if (imx390->clk_rate < 5900000 || imx390->clk_rate > 27100000)
 		return -EINVAL;
 
 	ret = imx390_power_on(imx390);
