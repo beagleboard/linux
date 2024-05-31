@@ -366,6 +366,12 @@ static int csi2rx_s_stream(struct v4l2_subdev *subdev, int enable)
 	struct csi2rx_priv *csi2rx = v4l2_subdev_to_csi2rx(subdev);
 	int ret = 0;
 
+	if (enable) {
+		ret = pm_runtime_resume_and_get(csi2rx->dev);
+		if (ret < 0)
+			return ret;
+	}
+
 	mutex_lock(&csi2rx->lock);
 
 	if (enable) {
@@ -375,8 +381,10 @@ static int csi2rx_s_stream(struct v4l2_subdev *subdev, int enable)
 		 */
 		if (!csi2rx->count) {
 			ret = csi2rx_start(csi2rx);
-			if (ret)
+			if (ret) {
+				pm_runtime_put(csi2rx->dev);
 				goto out;
+			}
 		}
 
 		csi2rx->count++;
@@ -388,6 +396,8 @@ static int csi2rx_s_stream(struct v4l2_subdev *subdev, int enable)
 		 */
 		if (!csi2rx->count)
 			csi2rx_stop(csi2rx);
+
+		pm_runtime_put(csi2rx->dev);
 	}
 
 out:
@@ -645,6 +655,29 @@ static int csi2rx_parse_dt(struct csi2rx_priv *csi2rx)
 	return ret;
 }
 
+static int csi2rx_suspend(struct device *dev)
+{
+	struct csi2rx_priv *csi2rx = dev_get_drvdata(dev);
+
+	mutex_lock(&csi2rx->lock);
+	if (csi2rx->count)
+		csi2rx_stop(csi2rx);
+	mutex_unlock(&csi2rx->lock);
+
+	return 0;
+}
+
+static int csi2rx_resume(struct device *dev)
+{
+	struct csi2rx_priv *csi2rx = dev_get_drvdata(dev);
+
+	mutex_lock(&csi2rx->lock);
+	if (csi2rx->count)
+		csi2rx_start(csi2rx);
+	mutex_unlock(&csi2rx->lock);
+	return 0;
+}
+
 static int csi2rx_probe(struct platform_device *pdev)
 {
 	struct csi2rx_priv *csi2rx;
@@ -690,6 +723,7 @@ static int csi2rx_probe(struct platform_device *pdev)
 	if (ret)
 		goto err_cleanup;
 
+	pm_runtime_enable(csi2rx->dev);
 	ret = v4l2_async_register_subdev(&csi2rx->subdev);
 	if (ret < 0)
 		goto err_free_state;
@@ -704,6 +738,7 @@ static int csi2rx_probe(struct platform_device *pdev)
 
 err_free_state:
 	v4l2_subdev_cleanup(&csi2rx->subdev);
+	pm_runtime_disable(csi2rx->dev);
 err_cleanup:
 	v4l2_async_nf_unregister(&csi2rx->notifier);
 	v4l2_async_nf_cleanup(&csi2rx->notifier);
@@ -722,8 +757,13 @@ static void csi2rx_remove(struct platform_device *pdev)
 	v4l2_async_unregister_subdev(&csi2rx->subdev);
 	v4l2_subdev_cleanup(&csi2rx->subdev);
 	media_entity_cleanup(&csi2rx->subdev.entity);
+	pm_runtime_disable(csi2rx->dev);
 	kfree(csi2rx);
 }
+
+static const struct dev_pm_ops csi2rx_pm_ops = {
+	SET_RUNTIME_PM_OPS(csi2rx_suspend, csi2rx_resume, NULL)
+};
 
 static const struct of_device_id csi2rx_of_table[] = {
 	{ .compatible = "starfive,jh7110-csi2rx" },
@@ -739,6 +779,7 @@ static struct platform_driver csi2rx_driver = {
 	.driver	= {
 		.name		= "cdns-csi2rx",
 		.of_match_table	= csi2rx_of_table,
+		.pm		= &csi2rx_pm_ops,
 	},
 };
 module_platform_driver(csi2rx_driver);
