@@ -1415,6 +1415,14 @@ static void v4l_fill_fmtdesc(struct v4l2_fmtdesc *fmt)
 	case V4L2_PIX_FMT_SGBRG16:	descr = "16-bit Bayer GBGB/RGRG"; break;
 	case V4L2_PIX_FMT_SGRBG16:	descr = "16-bit Bayer GRGR/BGBG"; break;
 	case V4L2_PIX_FMT_SRGGB16:	descr = "16-bit Bayer RGRG/GBGB"; break;
+	case V4L2_PIX_FMT_SRGGI10:      descr = "10-bit Bayer RGBG/GIrGIr"; break;
+	case V4L2_PIX_FMT_SGRIG10:      descr = "10-bit Bayer GRGB/IrGIrG"; break;
+	case V4L2_PIX_FMT_SBGGI10:      descr = "10-bit Bayer BGRG/GIrGIr"; break;
+	case V4L2_PIX_FMT_SGBIG10:      descr = "10-bit Bayer GBGR/IrGIrG"; break;
+	case V4L2_PIX_FMT_SGIRG10:      descr = "10-bit Bayer GIrGIr/RGBG"; break;
+	case V4L2_PIX_FMT_SIGGR10:      descr = "10-bit Bayer IrGIrG/GRGB"; break;
+	case V4L2_PIX_FMT_SGIBG10:      descr = "10-bit Bayer GIrGIr/BGRG"; break;
+	case V4L2_PIX_FMT_SIGGB10:      descr = "10-bit Bayer IrGIrG/GBGR"; break;
 	case V4L2_PIX_FMT_SN9C20X_I420:	descr = "GSPCA SN9C20X I420"; break;
 	case V4L2_PIX_FMT_SPCA501:	descr = "GSPCA SPCA501"; break;
 	case V4L2_PIX_FMT_SPCA505:	descr = "GSPCA SPCA505"; break;
