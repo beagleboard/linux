@@ -1,0 +1,89 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * IMX390 FPD-Link 3 Camera Module
+ * Copyright (c) 2023 Texas Instruments Incorporated - http://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+
+&ds90ub960_0_ports {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	/* FPDLink RX 3 */
+	port@3 {
+		reg = <3>;
+
+		ub960_fpd3_1_in: endpoint {
+			remote-endpoint = <&ub953_1_out>;
+		};
+	};
+};
+
+&ds90ub960_0_links {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	link@3 {
+		reg = <3>;
+		i2c-alias = <0x47>;
+
+		ti,rx-mode = <3>;
+
+		serializer: serializer {
+			compatible = "ti,ds90ub953-q1";
+			gpio-controller;
+			#gpio-cells = <2>;
+
+			#clock-cells = <0>;
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				port@0 {
+					reg = <0>;
+					ub953_1_in: endpoint {
+						data-lanes = <1 2>;
+						/*clock-noncontinuous;*/
+						remote-endpoint = <&sensor_1_out>;
+					};
+				};
+
+				port@1 {
+					reg = <1>;
+
+					ub953_1_out: endpoint {
+						remote-endpoint = <&ub960_fpd3_1_in>;
+					};
+				};
+			};
+
+			i2c {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				sensor@60 {
+					compatible = "ovti,ov2312";
+					reg = <0x60>;
+
+					clocks = <&serializer>;
+					clock-names = "xvclk";
+					assigned-clocks = <&serializer>;
+					assigned-clock-rates = <24000000>;
+
+					reset-gpios = <&serializer 2 GPIO_ACTIVE_HIGH>;
+
+					port {
+						sensor_1_out: endpoint {
+							remote-endpoint = <&ub953_1_in>;
+						};
+					};
+				};
+			};
+		};
+	};
+};
