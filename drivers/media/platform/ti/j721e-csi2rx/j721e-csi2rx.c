@@ -212,6 +212,30 @@ static const struct ti_csi2rx_fmt ti_csi2rx_formats[] = {
 		.bpp			= 16,
 		.size			= SHIM_DMACNTX_SIZE_16,
 	}, {
+		.fourcc			= V4L2_PIX_FMT_SBGGR12,
+		.code			= MEDIA_BUS_FMT_SBGGR12_1X12,
+		.csi_dt			= MIPI_CSI2_DT_RAW12,
+		.bpp			= 16,
+		.size			= SHIM_DMACNTX_SIZE_16,
+	}, {
+		.fourcc			= V4L2_PIX_FMT_SGBRG12,
+		.code			= MEDIA_BUS_FMT_SGBRG12_1X12,
+		.csi_dt			= MIPI_CSI2_DT_RAW12,
+		.bpp			= 16,
+		.size			= SHIM_DMACNTX_SIZE_16,
+	}, {
+		.fourcc			= V4L2_PIX_FMT_SGRBG12,
+		.code			= MEDIA_BUS_FMT_SGRBG12_1X12,
+		.csi_dt			= MIPI_CSI2_DT_RAW12,
+		.bpp			= 16,
+		.size			= SHIM_DMACNTX_SIZE_16,
+	}, {
+		.fourcc			= V4L2_PIX_FMT_SRGGB12,
+		.code			= MEDIA_BUS_FMT_SRGGB12_1X12,
+		.csi_dt			= MIPI_CSI2_DT_RAW12,
+		.bpp			= 16,
+		.size			= SHIM_DMACNTX_SIZE_16,
+	}, {
 		.fourcc			= V4L2_PIX_FMT_RGB565X,
 		.code			= MEDIA_BUS_FMT_RGB565_1X16,
 		.csi_dt			= MIPI_CSI2_DT_RGB565,
