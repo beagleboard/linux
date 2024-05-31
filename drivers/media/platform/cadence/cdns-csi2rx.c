@@ -222,9 +222,17 @@ static int csi2rx_configure_ext_dphy(struct csi2rx_priv *csi2rx)
 static int csi2rx_start(struct csi2rx_priv *csi2rx)
 {
 	unsigned int i;
+	struct media_pad *remote_pad;
 	unsigned long lanes_used = 0;
 	u32 reg;
 	int ret;
+
+	remote_pad = media_pad_remote_pad_first(&csi2rx->pads[CSI2RX_PAD_SINK]);
+	if (!remote_pad) {
+		dev_err(csi2rx->dev,
+			"Failed to find connected source\n");
+		return -ENODEV;
+	}
 
 	ret = clk_prepare_enable(csi2rx->p_clk);
 	if (ret)
@@ -309,7 +317,8 @@ static int csi2rx_start(struct csi2rx_priv *csi2rx)
 
 	reset_control_deassert(csi2rx->sys_rst);
 
-	ret = v4l2_subdev_call(csi2rx->source_subdev, video, s_stream, true);
+	ret = v4l2_subdev_enable_streams(csi2rx->source_subdev,
+					 remote_pad->index, BIT(0));
 	if (ret)
 		goto err_disable_sysclk;
 
@@ -337,6 +346,7 @@ err_disable_pclk:
 
 static void csi2rx_stop(struct csi2rx_priv *csi2rx)
 {
+	struct media_pad *remote_pad;
 	unsigned int i;
 	u32 val;
 	int ret;
@@ -365,8 +375,12 @@ static void csi2rx_stop(struct csi2rx_priv *csi2rx)
 	reset_control_assert(csi2rx->p_rst);
 	clk_disable_unprepare(csi2rx->p_clk);
 
-	if (v4l2_subdev_call(csi2rx->source_subdev, video, s_stream, false))
+	remote_pad = media_pad_remote_pad_first(&csi2rx->pads[CSI2RX_PAD_SINK]);
+	if (!remote_pad ||
+	    v4l2_subdev_disable_streams(csi2rx->source_subdev,
+					remote_pad->index, BIT(0))) {
 		dev_warn(csi2rx->dev, "Couldn't disable our subdev\n");
+	}
 
 	if (csi2rx->dphy) {
 		writel(0, csi2rx->base + CSI2RX_DPHY_LANE_CTRL_REG);
