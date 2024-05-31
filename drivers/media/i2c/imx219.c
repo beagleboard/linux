@@ -28,6 +28,7 @@
 #include <media/v4l2-event.h>
 #include <media/v4l2-fwnode.h>
 #include <media/v4l2-mediabus.h>
+#include <media/v4l2-subdev.h>
 
 /* Chip ID */
 #define IMX219_REG_CHIP_ID		CCI_REG16(0x0000)
@@ -595,6 +596,48 @@ static void imx219_update_pad_format(struct imx219 *imx219,
 	fmt->xfer_func = V4L2_XFER_FUNC_NONE;
 }
 
+static int imx219_get_frame_desc(struct v4l2_subdev *sd, unsigned int pad,
+				 struct v4l2_mbus_frame_desc *fd)
+{
+	struct v4l2_mbus_framefmt *format;
+	struct v4l2_subdev_state *state;
+	u32 bpp;
+	int ret = 0;
+
+	if (pad != 0)
+		return -EINVAL;
+
+	memset(fd, 0, sizeof(*fd));
+
+	fd->type = V4L2_MBUS_FRAME_DESC_TYPE_CSI2;
+
+	state = v4l2_subdev_lock_and_get_active_state(sd);
+	format = v4l2_subdev_get_pad_format(sd, state, 0);
+
+	/* pixel stream */
+
+	if (format->code == MEDIA_BUS_FMT_SRGGB10_1X10)
+		bpp = 10;
+	else
+		bpp = 8;
+
+	fd->entry[fd->num_entries].stream = 0;
+
+	fd->entry[fd->num_entries].flags = V4L2_MBUS_FRAME_DESC_FL_LEN_MAX;
+	fd->entry[fd->num_entries].length = (format->width * format->height * bpp) / 8;
+	fd->entry[fd->num_entries].pixelcode = format->code;
+	fd->entry[fd->num_entries].bus.csi2.vc = 0;
+	if (format->code == MEDIA_BUS_FMT_SRGGB8_1X8)
+		fd->entry[fd->num_entries].bus.csi2.dt = 0x2a; /* SRGGB8 */
+	else if (format->code == MEDIA_BUS_FMT_SRGGB10_1X10)
+		fd->entry[fd->num_entries].bus.csi2.dt = 0x2b; /* SRGGB10 */
+	fd->num_entries++;
+
+	v4l2_subdev_unlock_state(state);
+
+	return ret;
+}
+
 static int imx219_init_cfg(struct v4l2_subdev *sd,
 			   struct v4l2_subdev_state *state)
 {
@@ -1043,6 +1086,7 @@ static const struct v4l2_subdev_pad_ops imx219_pad_ops = {
 	.get_fmt = v4l2_subdev_get_fmt,
 	.set_fmt = imx219_set_pad_format,
 	.get_selection = imx219_get_selection,
+	.get_frame_desc = imx219_get_frame_desc,
 	.enum_frame_size = imx219_enum_frame_size,
 };
 
