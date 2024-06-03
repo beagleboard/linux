@@ -413,7 +413,7 @@ static void csi2rx_update_vc_select(struct csi2rx_priv *csi2rx,
 	/* If source provides per-stream VC info, use it to filter by VC */
 	for_each_active_route(&state->routing, route) {
 		int cdns_stream = route->source_pad - CSI2RX_PAD_SOURCE_STREAM0;
-		u8 used_vc;
+		u8 used_vc = 0;
 
 		for (i = 0; i < fd.num_entries; i++) {
 			if (fd.entry[i].stream == route->sink_stream) {
