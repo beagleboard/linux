@@ -24,6 +24,8 @@ properties:
     enum:
       - ti,am625-dss
       - ti,am62a7,dss
+      - ti,am62p51,dss
+      - ti,am62p52,dss
       - ti,am65x-dss
 
   reg:
@@ -74,7 +76,8 @@ properties:
     maxItems: 1
 
   power-domains:
-    maxItems: 1
+    minItems: 1
+    maxItems: 3
     description: phandle to the associated power domain
 
   dma-coherent:
@@ -88,20 +91,21 @@ properties:
         $ref: /schemas/graph.yaml#/properties/port
         description:
           For AM65x DSS, the OLDI output port node from video port 1.
-          For AM625 DSS, the internal DPI output port node from video
-          port 1.
+          For AM625, and AM62P5-1/2 DSS, the internal DPI output port
+          node from video port 1.
           For AM62A7 DSS, the port is tied off inside the SoC.
         properties:
           endpoint@0:
             $ref: /schemas/graph.yaml#/properties/endpoint
             description:
-              For AM625 DSS, VP Connection to OLDI0.
+              For AM625/AM62P5-1 DSS, VP Connection to OLDI0.
+              For AM62P5-2 DSS, VP Connection to OLDI1 or the DPI pipe.
               For AM65X DSS, OLDI output from the SoC.
 
           endpoint@1:
             $ref: /schemas/graph.yaml#/properties/endpoint
             description:
-              For AM625 DSS, VP Connection to OLDI1.
+              For AM625/AM62P5-1 DSS, VP Connection to OLDI1.
 
         anyOf:
           - required:
@@ -113,7 +117,8 @@ properties:
       port@1:
         $ref: /schemas/graph.yaml#/properties/port
         description:
-          The DSS DPI output port node from video port 2
+          The DSS DPI output port node from video port 2.
+          For AM62P5-2 DSS, VP Connection to DSI Tx or the DPI pipe.
 
   ti,am65x-oldi-io-ctrl:
     $ref: /schemas/types.yaml#/definitions/phandle
@@ -163,7 +168,9 @@ allOf:
       properties:
         compatible:
           contains:
-            const: ti,am65x-dss
+            enum:
+              - ti,am65x-dss
+              - ti,am62p52-dss
     then:
       properties:
         oldi_txes: false
