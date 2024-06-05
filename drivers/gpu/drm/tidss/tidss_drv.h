@@ -35,6 +35,10 @@ struct tidss_device {
 
 	spinlock_t wait_lock;	/* protects the irq masks */
 	dispc_irq_t irq_mask;	/* enabled irqs in addition to wait_list */
+
+	int num_domains; /* Handle attached PM domains */
+	struct device **pd_dev;
+	struct device_link **pd_link;
 };
 
 #define to_tidss(__dev) container_of(__dev, struct tidss_device, ddev)
