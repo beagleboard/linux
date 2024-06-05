@@ -178,6 +178,17 @@
 			clocks = <&tlv320_mclk>;
 		};
 	};
+
+	hdmi0: connector-hdmi {
+		compatible = "hdmi-connector";
+		label = "hdmi";
+		type = "a";
+		port {
+			hdmi_connector_in: endpoint {
+				remote-endpoint = <&sii9022_out>;
+			};
+		};
+	};
 };
 
 &main_gpio0 {
@@ -362,6 +373,40 @@
 			AM62PX_IOPAD(0x0124, PIN_INPUT, 7) /* (J25) MMC2_SDCD.GPIO0_71 */
 		>;
 	};
+
+	main_dpi_pins_default: main-dpi-default-pins {
+		pinctrl-single,pins = <
+			AM62PX_IOPAD(0x0100, PIN_OUTPUT, 0) /* (W20) VOUT0_VSYNC */
+			AM62PX_IOPAD(0x00f8, PIN_OUTPUT, 0) /* (AC20) VOUT0_HSYNC */
+			AM62PX_IOPAD(0x0104, PIN_OUTPUT, 0) /* (Y21) VOUT0_PCLK */
+			AM62PX_IOPAD(0x00fc, PIN_OUTPUT, 0) /* (W21) VOUT0_DE */
+			AM62PX_IOPAD(0x00b8, PIN_OUTPUT, 0) /* (AE24) VOUT0_DATA0 */
+			AM62PX_IOPAD(0x00bc, PIN_OUTPUT, 0) /* (W23) VOUT0_DATA1 */
+			AM62PX_IOPAD(0x00c0, PIN_OUTPUT, 0) /* (AA23) VOUT0_DATA2 */
+			AM62PX_IOPAD(0x00c4, PIN_OUTPUT, 0) /* (Y23) VOUT0_DATA3 */
+			AM62PX_IOPAD(0x00c8, PIN_OUTPUT, 0) /* (AB23) VOUT0_DATA4 */
+			AM62PX_IOPAD(0x00cc, PIN_OUTPUT, 0) /* (AD23) VOUT0_DATA5 */
+			AM62PX_IOPAD(0x00d0, PIN_OUTPUT, 0) /* (AC23) VOUT0_DATA6 */
+			AM62PX_IOPAD(0x00d4, PIN_OUTPUT, 0) /* (AE23) VOUT0_DATA7 */
+			AM62PX_IOPAD(0x00d8, PIN_OUTPUT, 0) /* (AE22) VOUT0_DATA8 */
+			AM62PX_IOPAD(0x00dc, PIN_OUTPUT, 0) /* (AC22) VOUT0_DATA9 */
+			AM62PX_IOPAD(0x00e0, PIN_OUTPUT, 0) /* (W22) VOUT0_DATA10 */
+			AM62PX_IOPAD(0x00e4, PIN_OUTPUT, 0) /* (AE21) VOUT0_DATA11 */
+			AM62PX_IOPAD(0x00e8, PIN_OUTPUT, 0) /* (AD21) VOUT0_DATA12 */
+			AM62PX_IOPAD(0x00ec, PIN_OUTPUT, 0) /* (AC21) VOUT0_DATA13 */
+			AM62PX_IOPAD(0x00f0, PIN_OUTPUT, 0) /* (AA20) VOUT0_DATA14 */
+			AM62PX_IOPAD(0x00f4, PIN_OUTPUT, 0) /* (Y20) VOUT0_DATA15 */
+			AM62PX_IOPAD(0x005c, PIN_OUTPUT, 1) /* (AC25) GPMC0_AD8.VOUT0_DATA16 */
+			AM62PX_IOPAD(0x0060, PIN_OUTPUT, 1) /* (AB25) GPMC0_AD9.VOUT0_DATA17 */
+			AM62PX_IOPAD(0x0064, PIN_OUTPUT, 1) /* (AA25) GPMC0_AD10.VOUT0_DATA18 */
+			AM62PX_IOPAD(0x0068, PIN_OUTPUT, 1) /* (W24) GPMC0_AD11.VOUT0_DATA19 */
+			AM62PX_IOPAD(0x006c, PIN_OUTPUT, 1) /* (Y24) GPMC0_AD12.VOUT0_DATA20 */
+			AM62PX_IOPAD(0x0070, PIN_OUTPUT, 1) /* (AD25) GPMC0_AD13.VOUT0_DATA21 */
+			AM62PX_IOPAD(0x0074, PIN_OUTPUT, 1) /* (AB24) GPMC0_AD14.VOUT0_DATA22 */
+			AM62PX_IOPAD(0x0078, PIN_OUTPUT, 1) /* (AC24) GPMC0_AD15.VOUT0_DATA23 */
+			AM62PX_IOPAD(0x009c, PIN_OUTPUT, 1) /* (AD24) GPMC0_WAIT1.VOUT0_EXTPCLKIN */
+		>;
+	};
 };
 
 &main_i2c0 {
@@ -453,6 +498,41 @@
 				   "GPIO_CPSW2_RST", "GPIO_CPSW1_RST",
 				   "GPIO_OLDI_RSTn", "GPIO_AUD_RSTn",
 				   "GPIO_eMMC_RSTn", "SoC_WLAN_SDIO_RST";
+	};
+
+	sii9022: bridge-hdmi@3b {
+		compatible = "sil,sii9022";
+		reg = <0x3b>;
+		interrupt-parent = <&exp1>;
+		interrupts = <16 IRQ_TYPE_EDGE_FALLING>;
+		#sound-dai-cells = <0>;
+		sil,i2s-data-lanes = < 0 >;
+
+		hdmi_tx_ports: ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			/*
+			 * HDMI can be serviced with 3 potential VPs -
+			 * (DSS0 VP1 / DSS1 VP0 / DSS1 VP1).
+			 * For now, we will service it with DSS0 VP1.
+			 */
+			port@0 {
+				reg = <0>;
+
+				sii9022_in: endpoint {
+					remote-endpoint = <&dss0_dpi1_out>;
+				};
+			};
+
+			port@1 {
+				reg = <1>;
+
+				sii9022_out: endpoint {
+					remote-endpoint = <&hdmi_connector_in>;
+				};
+			};
+		};
 	};
 };
 
@@ -692,4 +772,21 @@
 
 &mcu_gpio_intr {
 	status = "reserved";
+};
+
+&dss0 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_dpi_pins_default>;
+};
+
+&dss0_ports {
+	/* DSS0-VP2: DPI/HDMI Output */
+	port@1 {
+		reg = <1>;
+
+		dss0_dpi1_out: endpoint {
+			remote-endpoint = <&sii9022_in>;
+		};
+	};
 };
