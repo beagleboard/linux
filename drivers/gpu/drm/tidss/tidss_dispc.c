@@ -425,6 +425,55 @@ const struct dispc_features dispc_am62p51_feats = {
 	.vid_order = { 1, 0 },
 };
 
+const struct dispc_features dispc_am62p52_feats = {
+	.max_pclk_khz = {
+		[DISPC_VP_DPI] = 165000,
+		[DISPC_VP_INTERNAL] = 300000,
+	},
+
+	.scaling = {
+		.in_width_max_5tap_rgb = 1280,
+		.in_width_max_3tap_rgb = 2560,
+		.in_width_max_5tap_yuv = 2560,
+		.in_width_max_3tap_yuv = 4096,
+		.upscale_limit = 16,
+		.downscale_limit_5tap = 4,
+		.downscale_limit_3tap = 2,
+		/*
+		 * The max supported pixel inc value is 255. The value
+		 * of pixel inc is calculated like this: 1+(xinc-1)*bpp.
+		 * The maximum bpp of all formats supported by the HW
+		 * is 8. So the maximum supported xinc value is 32,
+		 * because 1+(32-1)*8 < 255 < 1+(33-1)*4.
+		 */
+		.xinc_max = 32,
+	},
+
+	.subrev = DISPC_AM62P52,
+
+	.common = "common",
+	.common_regs = tidss_am65x_common_regs,
+
+	.num_vps = 2,
+	.vp_name = { "vp1", "vp2" },
+	.ovr_name = { "ovr1", "ovr2" },
+	.vpclk_name =  { "vp1", "vp2" },
+	.vp_bus_type = { DISPC_VP_INTERNAL, DISPC_VP_INTERNAL },
+
+	.vp_feat = { .color = {
+			.has_ctm = true,
+			.gamma_size = 256,
+			.gamma_type = TIDSS_GAMMA_8BIT,
+		},
+	},
+
+	.num_planes = 2,
+	/* note: vid is plane_id 0 and vidl1 is plane_id 1 */
+	.vid_name = { "vid", "vidl1" },
+	.vid_lite = { false, true, },
+	.vid_order = { 1, 0 },
+};
+
 static const u16 *dispc_common_regmap;
 
 struct dss_vp_data {
@@ -939,6 +988,7 @@ dispc_irq_t dispc_read_and_clear_irqstatus(struct dispc_device *dispc)
 	case DISPC_AM625:
 	case DISPC_AM62A7:
 	case DISPC_AM62P51:
+	case DISPC_AM62P52:
 	case DISPC_AM65X:
 	case DISPC_J721E:
 		return dispc_k3_read_and_clear_irqstatus(dispc);
@@ -957,6 +1007,7 @@ void dispc_set_irqenable(struct dispc_device *dispc, dispc_irq_t mask)
 	case DISPC_AM625:
 	case DISPC_AM62A7:
 	case DISPC_AM62P51:
+	case DISPC_AM62P52:
 	case DISPC_AM65X:
 	case DISPC_J721E:
 		dispc_k3_set_irqenable(dispc, mask);
@@ -1450,6 +1501,7 @@ void dispc_ovr_set_plane(struct dispc_device *dispc, u32 hw_plane,
 	case DISPC_AM625:
 	case DISPC_AM62A7:
 	case DISPC_AM62P51:
+	case DISPC_AM62P52:
 	case DISPC_AM65X:
 		dispc_am65x_ovr_set_plane(dispc, hw_plane, hw_videoport,
 					  x, y, layer);
@@ -2371,6 +2423,7 @@ static void dispc_plane_init(struct dispc_device *dispc)
 	case DISPC_AM625:
 	case DISPC_AM62A7:
 	case DISPC_AM62P51:
+	case DISPC_AM62P52:
 	case DISPC_AM65X:
 	case DISPC_J721E:
 		dispc_k3_plane_init(dispc);
@@ -2480,6 +2533,7 @@ static void dispc_vp_write_gamma_table(struct dispc_device *dispc,
 	case DISPC_AM625:
 	case DISPC_AM62A7:
 	case DISPC_AM62P51:
+	case DISPC_AM62P52:
 	case DISPC_AM65X:
 		dispc_am65x_vp_write_gamma_table(dispc, hw_videoport);
 		break;
