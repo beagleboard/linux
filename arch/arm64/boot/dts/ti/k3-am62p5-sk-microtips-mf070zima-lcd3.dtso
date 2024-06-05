@@ -1,0 +1,88 @@
+// SPDX-License-Identifier: GPL-2.0-or-later OR MIT
+/**
+ * Microtips integrated DSI panel (MF-070ZIMACAA0) and touch DT overlay for AM62P5-SK
+ *
+ * AM62P5-SK EVM: https://www.ti.com/tool/SK-AM62P-LP
+ * Panel: https://simplespec.microtipsusa.com/uploads/spec/datasheetFile/3004/13-070ZIMACAA0-S_V1.1_20231120.pdf
+ *
+ * Copyright (C) 2024 Texas Instruments Incorporated - http://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+
+&dphy_tx0 {
+	status = "okay";
+};
+
+&dss1 {
+	status = "okay";
+};
+
+&dss1_ports {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	/* DSS1-VP1: DSI Output */
+	port@1 {
+		reg = <1>;
+
+		dss1_dpi1_out: endpoint {
+			remote-endpoint = <&dsi0_in>;
+		};
+	};
+};
+
+&dsi0 {
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+
+			dsi0_out: endpoint {
+				remote-endpoint = <&panel_in>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+
+			dsi0_in: endpoint {
+				remote-endpoint = <&dss1_dpi1_out>;
+			};
+		};
+	};
+
+	dsi_panel0: panel-dsi@0 {
+		compatible = "microtips,mf-070zimacaa0", "ilitek,ili9881c";
+		reg = <0>;
+
+		port {
+			panel_in: endpoint {
+				remote-endpoint = <&dsi0_out>;
+			};
+		};
+	};
+};
+
+&main_i2c0 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	touchscreen@41 {
+		compatible = "ilitek,ili251x";
+		reg = <0x41>;
+		reset-gpios = <&exp1 8 GPIO_ACTIVE_LOW>;
+		interrupt-parent = <&exp1>;
+		interrupts = <9 IRQ_TYPE_EDGE_FALLING>;
+	};
+};
