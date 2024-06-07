@@ -410,12 +410,28 @@ static int ti_eqep_direction_read(struct counter_device *counter,
 	return 0;
 }
 
+static int ti_eqep_position_latched_count_read(struct counter_device *counter,
+					       struct counter_count *count,
+					       u64 *value)
+{
+	struct ti_eqep_cnt *priv = ti_eqep_count_from_counter(counter);
+	u32 qposlat;
+
+	regmap_read(priv->regmap32, QPOSLAT, &qposlat);
+
+	*value = qposlat;
+
+	return 0;
+}
+
 static struct counter_comp ti_eqep_position_ext[] = {
 	COUNTER_COMP_CEILING(ti_eqep_position_ceiling_read,
 			     ti_eqep_position_ceiling_write),
 	COUNTER_COMP_ENABLE(ti_eqep_position_enable_read,
 			    ti_eqep_position_enable_write),
 	COUNTER_COMP_DIRECTION(ti_eqep_direction_read),
+	COUNTER_COMP_COUNT_U64("latched_count",
+			       ti_eqep_position_latched_count_read, NULL),
 };
 
 static struct counter_signal ti_eqep_signals[] = {
@@ -467,6 +483,38 @@ static struct counter_count ti_eqep_counts[] = {
 		.num_ext	= ARRAY_SIZE(ti_eqep_position_ext),
 	},
 };
+
+static int ti_eqep_latch_mode_read(struct counter_device *counter,
+					    u32 *value)
+{
+	struct ti_eqep_cnt *priv = ti_eqep_count_from_counter(counter);
+	u32 qepctl;
+
+	regmap_read(priv->regmap16, QEPCTL, &qepctl);
+	*value = !!(qepctl & QEPCTL_QCLM);
+
+	return 0;
+}
+
+static int ti_eqep_latch_mode_write(struct counter_device *counter,
+					     u32 value)
+{
+	struct ti_eqep_cnt *priv = ti_eqep_count_from_counter(counter);
+
+	if (value)
+		regmap_set_bits(priv->regmap16, QEPCTL, QEPCTL_QCLM);
+	else
+		regmap_clear_bits(priv->regmap16, QEPCTL, QEPCTL_QCLM);
+
+	return 0;
+}
+
+static const char *const ti_eqep_latch_mode_names[] = {
+	"Read count",
+	"Unit timeout",
+};
+
+static DEFINE_COUNTER_ENUM(ti_eqep_latch_modes, ti_eqep_latch_mode_names);
 
 static int ti_eqep_unit_timer_time_read(struct counter_device *counter,
 				       u64 *value)
@@ -558,6 +606,8 @@ static int ti_eqep_unit_timer_enable_write(struct counter_device *counter,
 }
 
 static struct counter_comp ti_eqep_device_ext[] = {
+	COUNTER_COMP_DEVICE_ENUM("latch_mode", ti_eqep_latch_mode_read,
+				ti_eqep_latch_mode_write, ti_eqep_latch_modes),
 	COUNTER_COMP_DEVICE_U64("unit_timer_time", ti_eqep_unit_timer_time_read,
 				ti_eqep_unit_timer_time_write),
 	COUNTER_COMP_DEVICE_U64("unit_timer_period",
