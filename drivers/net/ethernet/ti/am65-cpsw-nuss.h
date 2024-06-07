@@ -108,6 +108,7 @@ struct am65_cpsw_rx_chn {
 
 #define AM65_CPSW_QUIRK_I2027_NO_TX_CSUM BIT(0)
 #define AM64_CPSW_QUIRK_DMA_RX_TDOWN_IRQ BIT(1)
+#define AM64_CPSW_QUIRK_CUT_THRU	 BIT(2)
 
 struct am65_cpsw_pdata {
 	u32	quirks;
@@ -163,6 +164,7 @@ struct am65_cpsw_common {
 	struct am65_cpts	*cpts;
 	int			est_enabled;
 	bool			iet_enabled;
+	unsigned int		cut_thru_enabled;
 
 	bool		is_emac_mode;
 	u16			br_members;

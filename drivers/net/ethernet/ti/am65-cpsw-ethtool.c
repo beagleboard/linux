@@ -374,6 +374,8 @@ static const struct am65_cpsw_ethtool_stat am65_slave_stats[] = {
 static const char am65_cpsw_ethtool_priv_flags[][ETH_GSTRING_LEN] = {
 #define	AM65_CPSW_PRIV_P0_RX_PTYPE_RROBIN	BIT(0)
 	"p0-rx-ptype-rrobin",
+#define AM65_CPSW_PRIV_CUT_THRU			BIT(1)
+	"cut-thru",
 };
 
 static int am65_cpsw_ethtool_op_begin(struct net_device *ndev)
@@ -726,20 +728,25 @@ static int am65_cpsw_get_ethtool_ts_info(struct net_device *ndev,
 static u32 am65_cpsw_get_ethtool_priv_flags(struct net_device *ndev)
 {
 	struct am65_cpsw_common *common = am65_ndev_to_common(ndev);
+	struct am65_cpsw_port *port = am65_ndev_to_port(ndev);
 	u32 priv_flags = 0;
 
 	if (common->pf_p0_rx_ptype_rrobin)
 		priv_flags |= AM65_CPSW_PRIV_P0_RX_PTYPE_RROBIN;
 
+	if (port->qos.cut_thru.enable)
+		priv_flags |= AM65_CPSW_PRIV_CUT_THRU;
 	return priv_flags;
 }
 
 static int am65_cpsw_set_ethtool_priv_flags(struct net_device *ndev, u32 flags)
 {
 	struct am65_cpsw_common *common = am65_ndev_to_common(ndev);
-	int rrobin;
+	struct am65_cpsw_port *port = am65_ndev_to_port(ndev);
+	int rrobin, cut_thru;
 
 	rrobin = !!(flags & AM65_CPSW_PRIV_P0_RX_PTYPE_RROBIN);
+	cut_thru =  !!(flags & AM65_CPSW_PRIV_CUT_THRU);
 
 	if (common->usage_count)
 		return -EBUSY;
@@ -750,7 +757,18 @@ static int am65_cpsw_set_ethtool_priv_flags(struct net_device *ndev, u32 flags)
 		return -EINVAL;
 	}
 
+	if (cut_thru && !(common->pdata.quirks & AM64_CPSW_QUIRK_CUT_THRU)) {
+		netdev_err(ndev, "Cut-Thru not supported\n");
+		return -EOPNOTSUPP;
+	}
+
+	if (cut_thru && common->is_emac_mode) {
+		netdev_err(ndev, "Enable switch mode for cut-thru\n");
+		return -EINVAL;
+	}
+
 	common->pf_p0_rx_ptype_rrobin = rrobin;
+	port->qos.cut_thru.enable = cut_thru;
 
 	return 0;
 }
