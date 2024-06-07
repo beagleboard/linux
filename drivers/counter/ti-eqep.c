@@ -7,6 +7,7 @@
 
 #include <linux/bitops.h>
 #include <linux/counter.h>
+#include <linux/interrupt.h>
 #include <linux/kernel.h>
 #include <linux/mod_devicetable.h>
 #include <linux/module.h>
@@ -66,6 +67,44 @@
 #define QEPCTL_QCLM		BIT(2)
 #define QEPCTL_UTE		BIT(1)
 #define QEPCTL_WDE		BIT(0)
+
+#define QEINT_UTO		BIT(11)
+#define QEINT_IEL		BIT(10)
+#define QEINT_SEL		BIT(9)
+#define QEINT_PCM		BIT(8)
+#define QEINT_PCR		BIT(7)
+#define QEINT_PCO		BIT(6)
+#define QEINT_PCU		BIT(5)
+#define QEINT_WTO		BIT(4)
+#define QEINT_QDC		BIT(3)
+#define QEINT_PHE		BIT(2)
+#define QEINT_PCE		BIT(1)
+
+#define QFLG_UTO		BIT(11)
+#define QFLG_IEL		BIT(10)
+#define QFLG_SEL		BIT(9)
+#define QFLG_PCM		BIT(8)
+#define QFLG_PCR		BIT(7)
+#define QFLG_PCO		BIT(6)
+#define QFLG_PCU		BIT(5)
+#define QFLG_WTO		BIT(4)
+#define QFLG_QDC		BIT(3)
+#define QFLG_PHE		BIT(2)
+#define QFLG_PCE		BIT(1)
+#define QFLG_INT		BIT(0)
+
+#define QCLR_UTO		BIT(11)
+#define QCLR_IEL		BIT(10)
+#define QCLR_SEL		BIT(9)
+#define QCLR_PCM		BIT(8)
+#define QCLR_PCR		BIT(7)
+#define QCLR_PCO		BIT(6)
+#define QCLR_PCU		BIT(5)
+#define QCLR_WTO		BIT(4)
+#define QCLR_QDC		BIT(3)
+#define QCLR_PHE		BIT(2)
+#define QCLR_PCE		BIT(1)
+#define QCLR_INT		BIT(0)
 
 /* EQEP Inputs */
 enum {
@@ -238,12 +277,46 @@ static int ti_eqep_action_read(struct counter_device *counter,
 	}
 }
 
+static int ti_eqep_events_configure(struct counter_device *counter)
+{
+	struct ti_eqep_cnt *priv = ti_eqep_count_from_counter(counter);
+	struct counter_event_node *event_node;
+	u32 qeint = 0;
+
+	list_for_each_entry(event_node, &counter->events_list, l) {
+		switch (event_node->event) {
+		case COUNTER_EVENT_OVERFLOW:
+			qeint |= QEINT_PCO;
+			break;
+		case COUNTER_EVENT_UNDERFLOW:
+			qeint |= QEINT_PCU;
+			break;
+		}
+	}
+
+	return regmap_write_bits(priv->regmap16, QEINT, qeint, ~0);
+}
+
+static int ti_eqep_watch_validate(struct counter_device *counter,
+				  const struct counter_watch *watch)
+{
+	switch (watch->event) {
+	case COUNTER_EVENT_OVERFLOW:
+	case COUNTER_EVENT_UNDERFLOW:
+		return 0;
+	default:
+		return -EINVAL;
+	}
+}
+
 static const struct counter_ops ti_eqep_counter_ops = {
 	.count_read	= ti_eqep_count_read,
 	.count_write	= ti_eqep_count_write,
 	.function_read	= ti_eqep_function_read,
 	.function_write	= ti_eqep_function_write,
 	.action_read	= ti_eqep_action_read,
+	.events_configure = ti_eqep_events_configure,
+	.watch_validate	= ti_eqep_watch_validate,
 };
 
 static int ti_eqep_position_ceiling_read(struct counter_device *counter,
@@ -265,11 +338,17 @@ static int ti_eqep_position_ceiling_write(struct counter_device *counter,
 					  u64 ceiling)
 {
 	struct ti_eqep_cnt *priv = ti_eqep_count_from_counter(counter);
+	u32 qposmax = ceiling;
 
-	if (ceiling != (u32)ceiling)
+	/* ensure that value fits in 32-bit register */
+	if (qposmax != ceiling)
 		return -ERANGE;
 
-	regmap_write(priv->regmap32, QPOSMAX, ceiling);
+	/* protect against infinite overflow interrupts */
+	if (qposmax == 0)
+		return -EINVAL;
+
+	regmap_write(priv->regmap32, QPOSMAX, qposmax);
 
 	return 0;
 }
@@ -354,6 +433,31 @@ static struct counter_count ti_eqep_counts[] = {
 	},
 };
 
+static irqreturn_t ti_eqep_irq_handler(int irq, void *dev_id)
+{
+	struct ti_eqep_cnt *priv = dev_id;
+	struct counter_device *counter = &priv->counter;
+	u32 qflg;
+	u32 qclr = 0;
+
+	regmap_read(priv->regmap16, QFLG, &qflg);
+
+	if (qflg & QFLG_PCO) {
+		qclr |= QFLG_PCO;
+		counter_push_event(counter, COUNTER_EVENT_OVERFLOW, 0);
+	}
+
+	if (qflg & QFLG_PCU) {
+		qclr |= QFLG_PCU;
+		counter_push_event(counter, COUNTER_EVENT_UNDERFLOW, 0);
+	}
+
+	qclr |= QCLR_INT;
+	regmap_write_bits(priv->regmap16, QCLR, qclr, ~0);
+
+	return IRQ_HANDLED;
+}
+
 static const struct regmap_config ti_eqep_regmap32_config = {
 	.name = "32-bit",
 	.reg_bits = 32,
@@ -377,6 +481,7 @@ static int ti_eqep_probe(struct platform_device *pdev)
 	struct ti_eqep_cnt *priv;
 	void __iomem *base;
 	int err;
+	int irq;
 
 	counter = devm_counter_alloc(dev, sizeof(*priv));
 	if (!counter)
@@ -397,6 +502,15 @@ static int ti_eqep_probe(struct platform_device *pdev)
 	if (IS_ERR(priv->regmap16))
 		return PTR_ERR(priv->regmap16);
 
+	irq = platform_get_irq(pdev, 0);
+	if (irq < 0)
+		return irq;
+
+	err = devm_request_threaded_irq(dev, irq, NULL, ti_eqep_irq_handler,
+					IRQF_ONESHOT, dev_name(dev), priv);
+	if (err < 0)
+		return err;
+
 	counter->name = dev_name(dev);
 	counter->parent = dev;
 	counter->ops = &ti_eqep_counter_ops;
@@ -414,6 +528,13 @@ static int ti_eqep_probe(struct platform_device *pdev)
 	 */
 	pm_runtime_enable(dev);
 	pm_runtime_get_sync(dev);
+
+	/*
+	 * We can end up with an interrupt infinite loop (interrupts triggered
+	 * as soon as they are cleared) if we leave these at the default value
+	 * of 0 and events are enabled.
+	 */
+	regmap_write(priv->regmap32, QPOSMAX, UINT_MAX);
 
 	err = counter_add(counter);
 	if (err < 0) {
