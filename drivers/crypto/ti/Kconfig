@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: GPL-2.0-only
+config CRYPTO_DEV_TI_MCRC64
+	tristate "Texas Instruments MCRC64 engine support"
+	depends on ARCH_K3 || COMPILE_TEST
+	select CRYPTO_HASH
+	select CRYPTO_CRC64_ISO3309
+	help
+	  This enables support for the MCRC64 engine
+	  which can be found on all AM62* and J722S devices.
+	  MCRC64 engine calculates 64-bit cyclic redundancy checks (CRC)
+	  according to the ISO 3309 standard.
