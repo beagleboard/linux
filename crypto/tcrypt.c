@@ -2327,6 +2327,12 @@ static int do_test(const char *alg, u32 type, u32 mask, int m, u32 num_mb)
 				generic_hash_speed_template);
 		if (mode > 300 && mode < 400) break;
 		fallthrough;
+	case 329:
+		test_hash_speed("crc64-iso3309", sec,
+				generic_hash_speed_template);
+		if (mode > 300 && mode < 400)
+			break;
+		fallthrough;
 	case 399:
 		break;
 
