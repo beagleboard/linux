@@ -1,0 +1,47 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * DT Overlay for enabling EQEP on AM62P5-SK
+ *
+ * Copyright (C) 2023 Texas Instruments Incorporated - https://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include "k3-pinctrl.h"
+
+&main_pmx0 {
+	main_eqep0_pins_default: main-eqep0-pins-default {
+		pinctrl-single,pins = <
+			AM62PX_IOPAD(0x0194, PIN_INPUT, 8) /* (D25) MCASP0_AXR3.EQEP0_A */
+			AM62PX_IOPAD(0x0198, PIN_INPUT, 8) /* (E25) MCASP0_AXR2.EQEP0_B */
+			AM62PX_IOPAD(0x01a0, PIN_INPUT, 8) /* (F23) MCASP0_AXR0.EQEP0_I */
+			AM62PX_IOPAD(0x019c, PIN_INPUT, 8) /* (E24) MCASP0_AXR1.EQEP0_S */
+		>;
+	};
+};
+
+&main_i2c1 {
+	gpio@22 {
+		p02-hog {
+			/* P02 - UART1_FET_SEL */
+			gpio-hog;
+			gpios = <2 GPIO_ACTIVE_HIGH>;
+			output-low;
+			line-name = "UART1_FET_SEL";
+		};
+	};
+};
+
+&main_uart1 {
+	/* Disable FW debug logs */
+	status = "disabled";
+};
+
+&eqep0 {
+	status = "okay";
+	/* EQEP0 A & B available on pins 40 & 38 of J4 header */
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_eqep0_pins_default>;
+};
