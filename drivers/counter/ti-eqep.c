@@ -6,6 +6,7 @@
  */
 
 #include <linux/bitops.h>
+#include <linux/clk.h>
 #include <linux/counter.h>
 #include <linux/interrupt.h>
 #include <linux/kernel.h>
@@ -131,6 +132,7 @@ enum ti_eqep_count_func {
 
 struct ti_eqep_cnt {
 	struct counter_device counter;
+	unsigned long clock_rate;
 	struct regmap *regmap32;
 	struct regmap *regmap16;
 };
@@ -303,6 +305,9 @@ static int ti_eqep_events_configure(struct counter_device *counter)
 		case COUNTER_EVENT_DIRECTION_CHANGE:
 			qeint |= QEINT_QDC;
 			break;
+		case COUNTER_EVENT_TIMEOUT:
+			qeint |= QEINT_UTO;
+			break;
 		}
 	}
 
@@ -316,6 +321,7 @@ static int ti_eqep_watch_validate(struct counter_device *counter,
 	case COUNTER_EVENT_OVERFLOW:
 	case COUNTER_EVENT_UNDERFLOW:
 	case COUNTER_EVENT_DIRECTION_CHANGE:
+	case COUNTER_EVENT_TIMEOUT:
 		return 0;
 	default:
 		return -EINVAL;
@@ -462,6 +468,106 @@ static struct counter_count ti_eqep_counts[] = {
 	},
 };
 
+static int ti_eqep_unit_timer_time_read(struct counter_device *counter,
+				       u64 *value)
+{
+	struct ti_eqep_cnt *priv = ti_eqep_count_from_counter(counter);
+	u32 qutmr;
+
+	regmap_read(priv->regmap32, QUTMR, &qutmr);
+
+	/* convert timer ticks to nanoseconds */
+	*value = mul_u64_u32_div(qutmr, NSEC_PER_SEC, priv->clock_rate);
+
+	return 0;
+}
+
+static int ti_eqep_unit_timer_time_write(struct counter_device *counter,
+					u64 value)
+{
+	struct ti_eqep_cnt *priv = ti_eqep_count_from_counter(counter);
+	u32 qutmr;
+
+	/* convert nanoseconds to timer ticks */
+	qutmr = value = mul_u64_u32_div(value, priv->clock_rate, NSEC_PER_SEC);
+	if (qutmr != value)
+		return -ERANGE;
+
+	regmap_write(priv->regmap32, QUTMR, qutmr);
+
+	return 0;
+}
+
+static int ti_eqep_unit_timer_period_read(struct counter_device *counter,
+					  u64 *value)
+{
+	struct ti_eqep_cnt *priv = ti_eqep_count_from_counter(counter);
+	u32 quprd;
+
+	regmap_read(priv->regmap32, QUPRD, &quprd);
+
+	/* convert timer ticks to nanoseconds */
+	*value = mul_u64_u32_div(quprd, NSEC_PER_SEC, priv->clock_rate);
+
+	return 0;
+}
+
+static int ti_eqep_unit_timer_period_write(struct counter_device *counter,
+					   u64 value)
+{
+	struct ti_eqep_cnt *priv = ti_eqep_count_from_counter(counter);
+	u32 quprd;
+
+	/* convert nanoseconds to timer ticks */
+	quprd = value = mul_u64_u32_div(value, priv->clock_rate, NSEC_PER_SEC);
+	if (quprd != value)
+		return -ERANGE;
+
+	/* protect against infinite unit timeout interrupts */
+	if (quprd == 0)
+		return -EINVAL;
+
+	regmap_write(priv->regmap32, QUPRD, quprd);
+
+	return 0;
+}
+
+static int ti_eqep_unit_timer_enable_read(struct counter_device *counter,
+					  u8 *value)
+{
+	struct ti_eqep_cnt *priv = ti_eqep_count_from_counter(counter);
+	u32 qepctl;
+
+	regmap_read(priv->regmap16, QEPCTL, &qepctl);
+	*value = !!(qepctl & QEPCTL_UTE);
+
+	return 0;
+}
+
+static int ti_eqep_unit_timer_enable_write(struct counter_device *counter,
+					   u8 value)
+{
+	struct ti_eqep_cnt *priv = ti_eqep_count_from_counter(counter);
+
+	if (value)
+		regmap_set_bits(priv->regmap16, QEPCTL, QEPCTL_UTE);
+	else
+		regmap_clear_bits(priv->regmap16, QEPCTL, QEPCTL_UTE);
+
+	return 0;
+}
+
+static struct counter_comp ti_eqep_device_ext[] = {
+	COUNTER_COMP_DEVICE_U64("unit_timer_time", ti_eqep_unit_timer_time_read,
+				ti_eqep_unit_timer_time_write),
+	COUNTER_COMP_DEVICE_U64("unit_timer_period",
+				ti_eqep_unit_timer_period_read,
+				ti_eqep_unit_timer_period_write),
+	COUNTER_COMP_DEVICE_BOOL("unit_timer_enable",
+				 ti_eqep_unit_timer_enable_read,
+				 ti_eqep_unit_timer_enable_write),
+};
+
 static irqreturn_t ti_eqep_irq_handler(int irq, void *dev_id)
 {
 	struct ti_eqep_cnt *priv = dev_id;
@@ -484,6 +590,11 @@ static irqreturn_t ti_eqep_irq_handler(int irq, void *dev_id)
 	if (qflg & QFLG_QDC) {
 		qclr |= QFLG_QDC;
 		counter_push_event(counter, COUNTER_EVENT_DIRECTION_CHANGE, 0);
+	}
+
+	if (qflg & QFLG_UTO) {
+		qclr |= QFLG_UTO;
+		counter_push_event(counter, COUNTER_EVENT_TIMEOUT, 0);
 	}
 
 	qclr |= QCLR_INT;
@@ -513,6 +624,7 @@ static int ti_eqep_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct counter_device *counter;
 	struct ti_eqep_cnt *priv;
+	struct clk *clk;
 	void __iomem *base;
 	int err;
 	int irq;
@@ -521,6 +633,19 @@ static int ti_eqep_probe(struct platform_device *pdev)
 	if (!counter)
 		return -ENOMEM;
 	priv = counter_priv(counter);
+
+	clk = devm_clk_get(dev, NULL);
+	if (IS_ERR(clk)) {
+		if (PTR_ERR(clk) != -EPROBE_DEFER)
+			dev_err(dev, "failed to get clock");
+		return PTR_ERR(clk);
+	}
+
+	priv->clock_rate = clk_get_rate(clk);
+	if (priv->clock_rate == 0) {
+		dev_err(dev, "failed to get clock rate");
+		return -EINVAL;
+	}
 
 	base = devm_platform_ioremap_resource(pdev, 0);
 	if (IS_ERR(base))
@@ -550,6 +675,8 @@ static int ti_eqep_probe(struct platform_device *pdev)
 	counter->ops = &ti_eqep_counter_ops;
 	counter->counts = ti_eqep_counts;
 	counter->num_counts = ARRAY_SIZE(ti_eqep_counts);
+	counter->ext = ti_eqep_device_ext;
+	counter->num_ext = ARRAY_SIZE(ti_eqep_device_ext);
 	counter->signals = ti_eqep_signals;
 	counter->num_signals = ARRAY_SIZE(ti_eqep_signals);
 
@@ -569,6 +696,7 @@ static int ti_eqep_probe(struct platform_device *pdev)
 	 * of 0 and events are enabled.
 	 */
 	regmap_write(priv->regmap32, QPOSMAX, UINT_MAX);
+	regmap_write(priv->regmap32, QUPRD, UINT_MAX);
 
 	err = counter_add(counter);
 	if (err < 0) {
