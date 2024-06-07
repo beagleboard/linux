@@ -3590,6 +3590,11 @@ static int ti_sci_suspend(struct device *dev)
 	struct ti_sci_info *info = dev_get_drvdata(dev);
 	int ret;
 
+	ret = ti_sci_cmd_set_io_isolation(&info->handle, TISCI_MSG_VALUE_IO_ENABLE);
+	if (ret)
+		return ret;
+	dev_dbg(dev, "%s: set isolation: %d\n", __func__, ret);
+
 	ret = ti_sci_prepare_system_suspend(info);
 	if (ret)
 		return ret;
@@ -3598,6 +3603,24 @@ static int ti_sci_suspend(struct device *dev)
 }
 
 static DEFINE_SIMPLE_DEV_PM_OPS(ti_sci_pm_ops, ti_sci_suspend, NULL);
+
+static int ti_sci_resume(struct device *dev)
+{
+	struct ti_sci_info *info = dev_get_drvdata(dev);
+	u32 source;
+	u64 time;
+	int ret = 0;
+
+	ret = ti_sci_cmd_set_io_isolation(&info->handle, TISCI_MSG_VALUE_IO_DISABLE);
+	if (ret)
+		return ret;
+	dev_dbg(dev, "%s: disable isolation: %d\n", __func__, ret);
+
+	ti_sci_msg_cmd_lpm_wake_reason(&info->handle, &source, &time);
+	dev_info(dev, "%s: wakeup source: 0x%X\n", __func__, source);
+
+	return 0;
+}
 
 static int ti_sci_init_suspend(struct platform_device *pdev,
 			       struct ti_sci_info *info)
