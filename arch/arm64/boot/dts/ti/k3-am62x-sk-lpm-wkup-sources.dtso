@@ -1,0 +1,150 @@
+// SPDX-License-Identifier: GPL-2.0
+/**
+ * AM62 family of devices can wakeup from Low Power Modes via
+ * multiple wakeup sources. This overlay enables MAIN GPIO, MCU GPIO,
+ * and MCU MCAN pins.
+ *
+ * Copyright (C) 2023 Texas Instruments Incorporated - http://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/input/input.h>
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+
+#include "k3-pinctrl.h"
+
+&{/} {
+	gpio_key {
+		compatible = "gpio-keys";
+		autorepeat;
+		pinctrl-names = "default";
+		pinctrl-0 = <&main_gpio1_pins_default>;
+		switch {
+			label = "WKGPIO";
+			linux,code = <KEY_WAKEUP>;
+			interrupts-extended = <&main_gpio1 10 IRQ_TYPE_EDGE_RISING>,
+				<&main_pmx0 0x1a0>;
+			interrupt-names = "irq", "wakeup";
+		};
+	};
+
+	mcu_gpio_key {
+		compatible = "gpio-keys";
+			autorepeat;
+		pinctrl-names = "default";
+		pinctrl-0 = <&wake_mcugpio1_pins_default>;
+		interrupt-parent = <&mcu_gpio0>;
+		interrupts = <4 IRQ_TYPE_EDGE_RISING>;
+		switch {
+			label = "MCUGPIO";
+			linux,code = <143>;
+			gpios = <&mcu_gpio0 4 GPIO_ACTIVE_LOW>;
+			wakeup-source;
+		};
+	};
+};
+
+&main_pmx0 {
+	main_gpio1_pins_default: main-gpio1-pins-default {
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x1a0, PIN_INPUT_PULLUP, 7) /* (E18) MCASP0_AXR0.EHRPWM1_B */
+		>;
+	};
+};
+
+&mcu_pmx0 {
+	wake_mcugpio1_pins_default: wake-mcugpio1-pins-default {
+		pinctrl-single,pins = <
+			AM62X_MCU_IOPAD(0x0010, PIN_INPUT, 7) /* (D8) MCU_SPI0_D1.MCU_GPIO0_4 */
+		>;
+	};
+
+	mcu_mcan0_tx_pins_default: mcu-mcan0-tx-pins-default {
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x034, PIN_OUTPUT, 0) /* (D6) MCU_MCAN0_TX */
+		>;
+	};
+
+	mcu_mcan0_rx_pins_default: mcu-mcan0-rx-pins-default {
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x038, PIN_INPUT, 0) /* (B3) MCU_MCAN0_RX */
+		>;
+	};
+
+	mcu_mcan0_rx_pins_wakeup: mcu-mcan0-rx-pins-wakeup {
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x038, PIN_INPUT | WKUP_EN, 0) /* (B3) MCU_MCAN0_RX */
+		>;
+	};
+
+	mcu_mcan1_tx_pins_default: mcu-mcan1-tx-pins-default {
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x03c, PIN_OUTPUT, 0) /* (E5) MCU_MCAN1_TX */
+		>;
+	};
+
+	mcu_mcan1_rx_pins_default: mcu-mcan1-rx-pins-default {
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x040, PIN_INPUT, 0) /* (D4) MCU_MCAN1_RX */
+		>;
+	};
+
+	mcu_mcan1_rx_pins_wakeup: mcu-mcan1-rx-pins-wakeup {
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x040, PIN_INPUT | WKUP_EN, 0) /* (D4) MCU_MCAN1_RX */
+		>;
+	};
+
+	mcu_uart0_pins_default: mcu-uart0-pins-default {
+		pinctrl-single,pins = <
+			AM62X_MCU_IOPAD(0x001c, PIN_INPUT, 0) /* MCU_UART0_CTSn */
+			AM62X_MCU_IOPAD(0x0020, PIN_OUTPUT, 0) /* MCU_UART0_RTSn */
+			AM62X_MCU_IOPAD(0x0018, PIN_OUTPUT, 0) /* MCU_UART0_TXD */
+		>;
+	};
+
+	mcu_uart0_rxd_pins_default: mcu-uart0-rxd-pins-default {
+		pinctrl-single,pins = <
+			AM62X_MCU_IOPAD(0x0014, PIN_INPUT, 0) /* MCU_UART0_RXD */
+		>;
+	};
+
+	mcu_uart0_rxd_pins_wakeup: mcu-uart0-rxd-pins-wakeup {
+		pinctrl-single,pins = <
+			AM62X_MCU_IOPAD(0x0014, PIN_INPUT | WKUP_EN, 0) /* MCU_UART0_RXD */
+		>;
+	};
+};
+
+&mcu_gpio0 {
+	status = "okay";
+};
+
+&mcu_gpio_intr {
+	status = "okay";
+};
+
+&mcu_mcan0 {
+	pinctrl-names = "default", "wakeup";
+	pinctrl-0 = <&mcu_mcan0_tx_pins_default>, <&mcu_mcan0_rx_pins_default>;
+	pinctrl-1 = <&mcu_mcan0_tx_pins_default>, <&mcu_mcan0_rx_pins_wakeup>;
+	status = "okay";
+};
+
+&mcu_mcan1 {
+	pinctrl-names = "default", "wakeup";
+	pinctrl-0 = <&mcu_mcan1_tx_pins_default>, <&mcu_mcan1_rx_pins_default>;
+	pinctrl-1 = <&mcu_mcan1_tx_pins_default>, <&mcu_mcan1_rx_pins_wakeup>;
+	status = "okay";
+};
+
+&mcu_uart0 {
+	pinctrl-names = "default", "wakeup";
+	pinctrl-0 = <&mcu_uart0_pins_default>, <&mcu_uart0_rxd_pins_default>;
+	pinctrl-1 = <&mcu_uart0_pins_default>, <&mcu_uart0_rxd_pins_wakeup>;
+	status = "ok";
+};
