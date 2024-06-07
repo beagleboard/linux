@@ -3602,8 +3602,6 @@ static int ti_sci_suspend(struct device *dev)
 	return 0;
 }
 
-static DEFINE_SIMPLE_DEV_PM_OPS(ti_sci_pm_ops, ti_sci_suspend, NULL);
-
 static int ti_sci_resume(struct device *dev)
 {
 	struct ti_sci_info *info = dev_get_drvdata(dev);
@@ -3621,6 +3619,11 @@ static int ti_sci_resume(struct device *dev)
 
 	return 0;
 }
+
+static const struct dev_pm_ops ti_sci_pm_ops = {
+	.suspend_noirq = ti_sci_suspend,
+	.resume_noirq = ti_sci_resume,
+};
 
 static int ti_sci_init_suspend(struct platform_device *pdev,
 			       struct ti_sci_info *info)
