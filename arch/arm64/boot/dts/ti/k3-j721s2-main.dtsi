@@ -234,6 +234,7 @@
 		assigned-clock-parents = <&k3_clks 63 2>;
 		power-domains = <&k3_pds 63 TI_SCI_PD_EXCLUSIVE>;
 		ti,timer-pwm;
+		status = "reserved";
 	};
 
 	main_timer1: timer@2410000 {
@@ -246,6 +247,7 @@
 		assigned-clock-parents = <&k3_clks 64 2>;
 		power-domains = <&k3_pds 64 TI_SCI_PD_EXCLUSIVE>;
 		ti,timer-pwm;
+		status = "reserved";
 	};
 
 	main_timer2: timer@2420000 {
@@ -258,6 +260,7 @@
 		assigned-clock-parents = <&k3_clks 65 2>;
 		power-domains = <&k3_pds 65 TI_SCI_PD_EXCLUSIVE>;
 		ti,timer-pwm;
+		status = "reserved";
 	};
 
 	main_timer3: timer@2430000 {
@@ -270,6 +273,7 @@
 		assigned-clock-parents = <&k3_clks 66 2>;
 		power-domains = <&k3_pds 66 TI_SCI_PD_EXCLUSIVE>;
 		ti,timer-pwm;
+		status = "reserved";
 	};
 
 	main_timer4: timer@2440000 {
@@ -282,6 +286,7 @@
 		assigned-clock-parents = <&k3_clks 67 2>;
 		power-domains = <&k3_pds 67 TI_SCI_PD_EXCLUSIVE>;
 		ti,timer-pwm;
+		status = "reserved";
 	};
 
 	main_timer5: timer@2450000 {
@@ -294,6 +299,7 @@
 		assigned-clock-parents = <&k3_clks 68 2>;
 		power-domains = <&k3_pds 68 TI_SCI_PD_EXCLUSIVE>;
 		ti,timer-pwm;
+		status = "reserved";
 	};
 
 	main_timer6: timer@2460000 {

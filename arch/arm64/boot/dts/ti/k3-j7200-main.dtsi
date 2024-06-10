@@ -1264,6 +1264,7 @@
 		assigned-clock-parents = <&k3_clks 49 2>;
 		power-domains = <&k3_pds 49 TI_SCI_PD_EXCLUSIVE>;
 		ti,timer-pwm;
+		status = "reserved";
 	};
 
 	main_timer1: timer@2410000 {
@@ -1276,6 +1277,7 @@
 		assigned-clock-parents = <&k3_clks 50 2>, <&k3_clks 313 1>;
 		power-domains = <&k3_pds 50 TI_SCI_PD_EXCLUSIVE>;
 		ti,timer-pwm;
+		status = "reserved";
 	};
 
 	main_timer2: timer@2420000 {
