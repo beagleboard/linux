@@ -568,6 +568,7 @@ struct enc_wave_param {
 	u32 mb_level_rc_enable: 1; /* enable MB-level rate control */
 	u32 forced_idr_header_enable: 1; /* enable header encoding before IDR frame */
 	u32 constraint_set1_flag: 1; /* enable CBP */
+	u32 forced_idr_pictype_enable: 1;
 };
 
 struct enc_open_param {
@@ -617,6 +618,8 @@ struct enc_param {
 	struct enc_code_opt code_option;
 	u64 pts; /* presentation timestamp (PTS) of the input source */
 	bool src_end_flag;
+	s32  force_pictype_enable; /* A flag to use a force picture type (WAVE only) */
+	s32  force_pic_type;       /* A force picture type (I, P, B, IDR). It is valid when forcePicTypeEnable is 1. (WAVE only) */
 };
 
 struct enc_output_info {

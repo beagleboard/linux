@@ -192,6 +192,11 @@ static int start_encode(struct vpu_instance *inst, u32 *fail_res)
 	pic_param.source_frame = &frame_buf;
 	pic_param.code_option.implicit_header_encode = 1;
 	pic_param.code_option.encode_aud = inst->encode_aud;
+	if (inst->enc_param.forced_idr_pictype_enable) {
+		pic_param.force_pic_type = 3;  /* IDR Frame */
+		pic_param.force_pictype_enable = 1;
+		inst->enc_param.forced_idr_pictype_enable = 0;
+	}
 	ret = wave5_vpu_enc_start_one_frame(inst, &pic_param, fail_res);
 	if (ret) {
 		if (*fail_res == WAVE5_SYSERR_QUEUEING_FAIL)
@@ -1069,6 +1074,9 @@ static int wave5_vpu_enc_s_ctrl(struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MPEG_VIDEO_PREPEND_SPSPPS_TO_IDR:
 		inst->enc_param.forced_idr_header_enable = ctrl->val;
 		break;
+	case V4L2_CID_MPEG_VIDEO_FORCE_KEY_FRAME:
+		inst->enc_param.forced_idr_pictype_enable = 1;
+		break;
 	case V4L2_CID_MIN_BUFFERS_FOR_OUTPUT:
 		break;
 	default:
@@ -1742,6 +1750,9 @@ static int wave5_vpu_open_enc(struct file *filp)
 	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops,
 			  V4L2_CID_MPEG_VIDEO_PREPEND_SPSPPS_TO_IDR,
 			  0, 1, 1, 0);
+	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave5_vpu_enc_ctrl_ops,
+			  V4L2_CID_MPEG_VIDEO_FORCE_KEY_FRAME,
+			  0, 0, 0, 0);
 
 	if (v4l2_ctrl_hdl->error) {
 		ret = -ENODEV;

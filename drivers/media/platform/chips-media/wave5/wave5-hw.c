@@ -2021,7 +2021,11 @@ int wave5_vpu_encode(struct vpu_instance *inst, struct enc_param *option, u32 *f
 			      (option->code_option.encode_eos << 6) |
 			      (option->code_option.encode_eob << 7));
 
-	vpu_write_reg(inst->dev, W5_CMD_ENC_PIC_PIC_PARAM, 0);
+	vpu_write_reg(inst->dev, W5_CMD_ENC_PIC_PIC_PARAM, (option->force_pictype_enable<<20) |
+								(option->force_pic_type<<21));
+
+	option->force_pictype_enable = 0;
+	option->force_pic_type = 0;
 
 	if (option->src_end_flag)
 		/* no more source images. */
