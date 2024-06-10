@@ -825,6 +825,21 @@ static int wave5_check_enc_param(struct vpu_instance *inst, struct enc_param *pa
 	return 0;
 }
 
+int wave5_vpu_enc_change_param(struct vpu_instance *inst, u32 *fail_res)
+{
+	int ret;
+	struct vpu_device *vpu_dev = inst->dev;
+
+	ret = mutex_lock_interruptible(&vpu_dev->hw_lock);
+	if (ret)
+		return ret;
+
+	ret = wave5_vpu_enc_apply_change_param(inst, fail_res);
+	mutex_unlock(&vpu_dev->hw_lock);
+
+	return ret;
+}
+
 int wave5_vpu_enc_start_one_frame(struct vpu_instance *inst, struct enc_param *param, u32 *fail_res)
 {
 	struct enc_info *p_enc_info = &inst->codec_info->enc_info;

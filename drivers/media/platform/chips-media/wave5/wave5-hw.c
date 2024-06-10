@@ -1973,6 +1973,18 @@ free_vb_fbc_y_tbl:
 	return ret;
 }
 
+int wave5_vpu_enc_apply_change_param(struct vpu_instance *inst, u32 *fail_res)
+{
+	/* SET_PARAM + COMMON */
+	vpu_write_reg(inst->dev, W5_CMD_ENC_SEQ_SET_PARAM_OPTION, OPT_CHANGE_PARAM);
+	vpu_write_reg(inst->dev, W5_CMD_ENC_SEQ_SET_PARAM_ENABLE, inst->change_param_flags);
+
+	if (inst->change_param_flags & W5_ENC_CHANGE_PARAM_RC_TARGET_RATE)
+		vpu_write_reg(inst->dev, W5_CMD_ENC_SEQ_RC_TARGET_RATE, inst->bit_rate);
+
+	return send_firmware_command(inst, W5_ENC_SET_PARAM, true, NULL, fail_res);
+}
+
 int wave5_vpu_encode(struct vpu_instance *inst, struct enc_param *option, u32 *fail_res)
 {
 	u32 src_frame_format;
