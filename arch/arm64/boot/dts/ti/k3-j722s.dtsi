@@ -88,6 +88,14 @@
 	ranges = <0x00 0x00 0x70000000 0x40000>;
 };
 
+&main_gpio0 {
+	ti,ngpio = <87>;
+};
+
+&main_gpio1 {
+	ti,ngpio = <73>;
+};
+
 /* Include bus peripherals that are additionally
  * present in J722S
  */
