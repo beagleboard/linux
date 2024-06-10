@@ -1496,7 +1496,7 @@
 
 	main_r5fss0: r5fss@5c00000 {
 		compatible = "ti,j7200-r5fss";
-		ti,cluster-mode = <1>;
+		ti,cluster-mode = <0>;
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges = <0x5c00000 0x00 0x5c00000 0x20000>,
