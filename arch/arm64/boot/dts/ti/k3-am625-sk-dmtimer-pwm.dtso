@@ -1,0 +1,77 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * DT Overlay to enable DM timer in PWM mode for AM625-SK
+ *
+ * Copyright (C) 2023 Texas Instruments Incorporated - https://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/leds/common.h>
+#include "k3-pinctrl.h"
+
+&{/} {
+	leds {
+		compatible = "pwm-leds";
+		pinctrl-names;
+		pinctrl-0;
+
+		led-0 {
+			pwms = <&main_pwm7 0 7812500 0>;
+			max-brightness = <255>;
+		};
+	};
+
+	main_pwm7: dmtimer-main-pwm-7 {
+		compatible = "ti,omap-dmtimer-pwm";
+		#pwm-cells = <3>;
+		ti,timers = <&main_timer7>;
+		pinctrl-0 = <&usr_led_pins_default>;
+		pinctrl-names = "default";
+	};
+
+	main_pwm3: dmtimer-main-pwm-3 {
+		/* PWM signal routed to pin 8 of J3 header */
+		compatible = "ti,omap-dmtimer-pwm";
+		#pwm-cells = <3>;
+		ti,timers = <&main_timer3>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&main_timer3_pins_default>;
+	};
+
+	mcu_pwm0: dmtimer-mcu-pwm-0 {
+		compatible = "ti,omap-dmtimer-pwm";
+		#pwm-cells = <3>;
+		ti,timers = <&mcu_timer0>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&mcu_timer0_pins_default>;
+	};
+};
+
+&main_pmx0 {
+	usr_led_pins_default: usr-led-pins-default {
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x244, PIN_OUTPUT, 2) /* (C17) MMC1_SDWP.TIMER_IO7 */
+		>;
+	};
+
+	main_timer3_pins_default: main_timer3-default-pins {
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x01dc, PIN_OUTPUT, 2) /* (A15) MCAN0_RX.TIMER_IO3 */
+		>;
+	};
+};
+
+&mcu_pmx0 {
+	mcu_timer0_pins_default: mcu_timer0-default-pins {
+		pinctrl-single,pins = <
+			AM62X_MCU_IOPAD(0x0038, PIN_OUTPUT, 1) /* (C4) MCU_MCAN0_RX.MCU_TIMER_IO0 */
+		>;
+	};
+};
+
+&mcu_timer0 {
+	/* Caution: ESM might use a MCU_TIMER in an ESM example */
+	status = "okay";
+};
