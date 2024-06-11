@@ -37,6 +37,7 @@ dtb-$(CONFIG_ARCH_K3) += k3-am625-sk-mcspi-loopback.dtbo
 
 # Boards with AM62Ax SoC
 dtb-$(CONFIG_ARCH_K3) += k3-am62a7-sk.dtb
+dtb-$(CONFIG_ARCH_K3) += k3-am62a7-sk-csi2-ox05b1s.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-am62a7-sk-ethernet-dc01.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-am62a7-sk-fusion.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-am62a7-sk-rpi-hdr-ehrpwm.dtbo
