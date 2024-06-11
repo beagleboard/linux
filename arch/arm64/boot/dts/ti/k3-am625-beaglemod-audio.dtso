@@ -1,0 +1,92 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (C) 2022 Texas Instruments Incorporated - https://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include "k3-pinctrl.h"
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+ */
+&{/chosen} {
+	overlays {
+		k3-am625-beaglemod-audio.kernel = __TIMESTAMP__;
+	};
+};
+
+&{/} {
+	tlv320aic3104_mclk: tlv320aic3104_mclk {
+		#clock-cells = <0>;
+		compatible = "fixed-clock";
+		clock-frequency = <24576000>;
+	};
+
+	sound {
+		compatible = "simple-audio-card";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,name = "beaglemod voice";
+		simple-audio-card,bitclock-master = <&dailink0_master>;
+		simple-audio-card,frame-master = <&dailink0_master>;
+		status = "okay";
+
+		simple-audio-card,widgets =
+			"Headphone", "Headphone Jack",
+			"Line", "Line In";
+		simple-audio-card,routing =
+			"Headphone Jack",       "HPLOUT",
+			"Headphone Jack",       "HPROUT",
+			"LINE1L",               "Line In",
+			"LINE1R",               "Line In";
+		dailink0_master: simple-audio-card,cpu {
+			sound-dai = <&mcasp1>;
+			system-clock-direction-out;
+		};
+		simple-audio-card,codec {
+			sound-dai = <&tlv320aic3104>;
+			clocks = <&tlv320aic3104_mclk>;
+		};
+	};
+
+	vdd_audio_1v8: regulator-audio {
+		compatible = "regulator-fixed";
+		regulator-name = "vdd_audio_1v8";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		vin-supply = <&vdd_3v3>;
+		regulator-always-on;
+		regulator-boot-on;
+	};
+};
+
+&wkup_i2c0 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	tlv320aic3104: tlv320aic3104@18 {
+		#sound-dai-cells = <0>;
+		compatible = "ti,tlv320aic3104";
+		reg = <0x18>;
+		status = "okay";
+
+		ai3x-micbias-vg = <2>; // set MICBIAS to 2.5v
+		AVDD-supply = <&vdd_3v3>;
+		IOVDD-supply = <&vdd_3v3>;
+		DRVDD-supply = <&vdd_3v3>;
+		DVDD-supply = <&vdd_audio_1v8>;
+	};
+};
+
+&mcasp1 {
+	status = "okay";
+
+	serial-dir = <  /* 0: INACTIVE, 1: TX, 2: RX */
+	       2 1 0 0
+	       0 0 0 0
+	       0 0 0 0
+	       0 0 0 0
+	>;
+};
