@@ -582,6 +582,19 @@ config VIDEO_OV9734
 	  To compile this driver as a module, choose M here: the
 	  module's name is ov9734.
 
+config VIDEO_OX05B1S
+	tristate "OmniVision OX05B1S sensor support"
+	depends on OF_GPIO
+	depends on I2C && VIDEO_DEV
+	select MEDIA_CONTROLLER
+	select VIDEO_V4L2_SUBDEV_API
+	help
+	  This is a Video4Linux2 sensor driver for the OmniVision
+	  OX05B1S camera.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called OX05B1S.
+
 config VIDEO_RDACM20
 	tristate "IMI RDACM20 camera support"
 	select VIDEO_MAX9271_LIB
