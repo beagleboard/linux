@@ -702,6 +702,11 @@
 	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&main_rgmii1_pins_default>;
+
+	cpts@3d000 {
+		/* MAP HW3_TS_PUSH to GENF1 */
+		ti,pps = <2 1>;
+	};
 };
 
 &cpsw_port1 {
@@ -801,4 +806,20 @@
 	mboxes = <&mailbox0_cluster2>, <&mbox_mcu_r5_0>;
 	memory-region = <&mcu_r5fss0_core0_dma_memory_region>,
 			<&mcu_r5fss0_core0_memory_region>;
+};
+
+#define K3_TS_OFFSET(pa, val)	(0x4+(pa)*4) (0x10000 | val)
+
+&timesync_router {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&cpsw_cpts>;
+
+	/* Use Time Sync Router to map GENF1 input to HW3_TS_PUSH output */
+	cpsw_cpts: cpsw-cpts {
+		pinctrl-single,pins = <
+			/* pps [cpsw cpts genf1] in17 -> out12 [cpsw cpts hw3_push] */
+			K3_TS_OFFSET(12, 17)
+			>;
+	};
 };
