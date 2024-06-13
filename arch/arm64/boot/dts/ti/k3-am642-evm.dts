@@ -611,6 +611,11 @@
 	bootph-all;
 	pinctrl-names = "default";
 	pinctrl-0 = <&rgmii1_pins_default>, <&rgmii2_pins_default>;
+
+	/* Map HW8_TS_PUSH to GENF1 */
+	cpts@3d000 {
+		ti,pps = <7 1>;
+	};
 };
 
 &cpsw_port1 {
@@ -816,5 +821,26 @@
 		reg = <0xf>;
 		tx-internal-delay-ps = <250>;
 		rx-internal-delay-ps = <2000>;
+	};
+};
+
+#define TS_OFFSET(pa, val)     (0x4+(pa)*4) (0x10000 | val)
+
+&timesync_router {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&cpsw_cpts_pps>;
+
+	/*
+	 * Use Time Sync Router to map GENF1 input to HW8_TS_PUSH output as well
+	 * as the PRU ICSSG0 SYNC1 output.
+	 */
+	cpsw_cpts_pps: cpsw-cpts-pps {
+		pinctrl-single,pins = <
+			/* pps [cpts genf1] in22 -> out37 [cpts hw8_push] */
+			TS_OFFSET(37, 22)
+			/* pps [cpts genf1] in22 -> out26 [SYNC1_OUT pin] */
+			TS_OFFSET(26, 22)
+			>;
 	};
 };
