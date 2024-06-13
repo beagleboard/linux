@@ -2303,6 +2303,17 @@
 		status = "disabled";
 	};
 
+	timesync_router: pinctrl@a40000 {
+		compatible = "pinctrl-single";
+		reg = <0x0 0xa40000 0x0 0x800>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		#pinctrl-cells = <1>;
+		pinctrl-single,register-width = <32>;
+		pinctrl-single,function-mask = <0x000107ff>;
+		status = "disabled";
+	};
+
 	icssg0: icssg@b000000 {
 		compatible = "ti,j721e-icssg";
 		reg = <0x00 0xb000000 0x00 0x80000>;
