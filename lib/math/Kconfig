@@ -15,3 +15,17 @@ config PRIME_NUMBERS
 
 config RATIONAL
 	tristate
+
+config MATH_KUNIT_TEST
+	tristate "KUnit test for math helper functions"
+	depends on KUNIT
+	default KUNIT_ALL_TESTS
+
+	help
+	  This builds unit test for math helper functions as defined in lib/math
+	  and math.h.
+
+	  For more information on KUNIT and unit tests in general, please refer
+	  to the KUnit documentation in Documentation/dev-tools/kunit/.
+
+	  If unsure, say N.
