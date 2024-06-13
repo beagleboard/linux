@@ -140,9 +140,14 @@
  */
 #define roundclosest(x, y) rounddown((x) + (y) / 2, (y))
 
-/*
- * Divide positive or negative dividend by positive or negative divisor
- * and round to closest integer. Result is undefined for negative
+/**
+ * DIV_ROUND_CLOSEST - Divide positive or negative dividend by positive or
+ *		       negative divisor and round to closest value
+ * @x: dividend value
+ * @divisor: divisor value
+ *
+ * Divide positive or negative dividend value @x by positive or negative
+ * @divisor value and round to closest integer. Result is undefined for negative
  * divisors if the dividend variable type is unsigned and for negative
  * dividends if the divisor variable type is unsigned.
  */
@@ -157,9 +162,15 @@
 		(((__x) - ((__d) / 2)) / (__d));	\
 }							\
 )
-/*
- * Same as above but for u64 dividends. divisor must be a 32-bit
- * number.
+
+/**
+ * DIV_ROUND_CLOSEST_ULL - Divide 64-bit unsigned dividend by 32-bit divisor and
+ *			   round to closest value
+ * @x: unsigned 64-bit dividend
+ * @divisor: 32-bit divisor
+ *
+ * Divide unsigned 64-bit dividend value @x by 32-bit @divisor value
+ * and round to closest integer. Result is undefined for negative divisors.
  */
 #define DIV_ROUND_CLOSEST_ULL(x, divisor)(		\
 {							\
