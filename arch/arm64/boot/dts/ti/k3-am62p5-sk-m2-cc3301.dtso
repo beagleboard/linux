@@ -1,0 +1,64 @@
+// SPDX-License-Identifier: GPL-2.0-or-later OR MIT
+/**
+ * DT Overlay for M.2-CC3301 board to connect to the M.2 connector on AM625-SK.
+ *
+ * Product page for board: https://www.ti.com/tool/M2-CC3301
+ * CC3301 Datasheet: https://www.ti.com/lit/ds/symlink/cc3301.pdf
+ *
+ * Copyright (C) 2024 Texas Instruments Incorporated - http://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+
+&{/} {
+	wlan_lten: regulator-30 {
+		compatible = "regulator-fixed";
+		regulator-name = "wlan_lten";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		vin-supply = <&vdd_mmc1>;
+		gpios = <&exp2 8 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+	};
+
+	wlan_en: regulator-31 {
+		compatible = "regulator-fixed";
+		regulator-name = "wlan_en";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		vin-supply = <&wlan_lten>;
+		enable-active-high;
+		gpios = <&main_gpio0 71 GPIO_ACTIVE_HIGH>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&wlan_en_pins_default>;
+	};
+};
+
+&sdhci2 {
+	status = "okay";
+	bootph-all;
+	vmmc-supply = <&wlan_en>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_mmc2_pins_default>;
+	bus-width = <4>;
+	non-removable;
+	ti,fails-without-test-cd;
+	cap-power-off-card;
+	keep-power-in-suspend;
+	ti,driver-strength-ohm = <50>;
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+	cc33xx: cc33xx@0 {
+		compatible = "ti,cc3301";
+		reg = <2>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&main_wlirq_pins_default>;
+		interrupt-parent = <&main_gpio0>;
+		interrupts = <72 IRQ_TYPE_EDGE_FALLING>;
+	};
+};
