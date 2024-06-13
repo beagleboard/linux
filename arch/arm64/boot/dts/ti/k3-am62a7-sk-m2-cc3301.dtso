@@ -1,0 +1,91 @@
+// SPDX-License-Identifier: GPL-2.0-or-later OR MIT
+/**
+ * DT Overlay for M.2-CC3301 board to connect to the M.2 connector on AM625-SK.
+ *
+ * Product page for board: https://www.ti.com/tool/M2-CC3301
+ * CC3301 Datasheet: https://www.ti.com/lit/ds/symlink/cc3301.pdf
+ *
+ * Copyright (C) 2024 Texas Instruments Incorporated - http://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+#include "k3-pinctrl.h"
+
+&{/} {
+	wlan_lten: regulator-30 {
+		compatible = "regulator-fixed";
+		regulator-name = "wlan_lten";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		vin-supply = <&vdd_mmc1>;
+		gpios = <&exp1 11 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+	};
+
+	wlan_en: regulator-31 {
+		compatible = "regulator-fixed";
+		regulator-name = "wlan_en";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		vin-supply = <&wlan_lten>;
+		enable-active-high;
+		gpios = <&main_gpio0 71 GPIO_ACTIVE_HIGH>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&wlan_en_pins_default>;
+	};
+};
+
+&main_pmx0 {
+	wlan_en_pins_default: wlan-en-pins-default {
+		pinctrl-single,pins = <
+				AM62X_IOPAD(0x124, PIN_OUTPUT, 7) /* (A23) MMC2_SDCD.GPIO0_71 */
+		>;
+	};
+
+	main_mmc2_pins_default: main-mmc2-pins-default {
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x120, PIN_INPUT, 0) /* (C24) MMC2_CMD */
+			AM62X_IOPAD(0x118, PIN_INPUT, 0) /* (D25) MMC2_CLK */
+			AM62X_IOPAD(0x114, PIN_INPUT, 0) /* (B24) MMC2_DAT0 */
+			AM62X_IOPAD(0x110, PIN_INPUT, 0) /* (C25) MMC2_DAT1 */
+			AM62X_IOPAD(0x10c, PIN_INPUT, 0) /* (E23) MMC2_DAT2 */
+			AM62X_IOPAD(0x108, PIN_INPUT, 0) /* (D24) MMC2_DAT3 */
+			AM62X_IOPAD(0x11c, PIN_INPUT, 0) /* (#N/A) MMC2_CLKB */
+		>;
+	};
+
+	main_wlirq_pins_default: main-wlirq-pins-default {
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x128, PIN_INPUT, 7) /* (B23) MMC2_SDWP.GPIO0_72 */
+		>;
+	};
+};
+
+&sdhci2 {
+	status = "okay";
+	bootph-all;
+	vmmc-supply = <&wlan_en>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_mmc2_pins_default>;
+	bus-width = <4>;
+	non-removable;
+	ti,fails-without-test-cd;
+	cap-power-off-card;
+	keep-power-in-suspend;
+	ti,driver-strength-ohm = <50>;
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+	cc33xx: cc33xx@2 {
+		compatible = "ti,cc3301";
+		reg = <2>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&main_wlirq_pins_default>;
+		interrupt-parent = <&main_gpio0>;
+		interrupts = <72 IRQ_TYPE_EDGE_FALLING>;
+	};
+};
