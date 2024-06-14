@@ -1177,6 +1177,53 @@ static int vport_rx_poll(struct napi_struct *napi_rx, int budget)
 const struct ethtool_ops cpsw_proxy_client_ethtool_ops = {
 };
 
+static int register_mac(struct virtual_port *vport)
+{
+	struct cpsw_proxy_priv *proxy_priv = vport->proxy_priv;
+	struct rx_dma_chan *rx_chn = &vport->rx_chans[0];
+	struct cpsw_proxy_req_params *req_p;
+	struct message resp_msg;
+	int ret;
+
+	/* Register MAC Address only for RX DMA Channel 0 */
+	mutex_lock(&proxy_priv->req_params_mutex);
+	req_p = &proxy_priv->req_params;
+	req_p->request_type = ETHFW_MAC_REGISTER;
+	req_p->token = vport->port_token;
+	req_p->rx_flow_base = rx_chn->flow_base;
+	req_p->rx_flow_offset = rx_chn->flow_offset;
+	ether_addr_copy(req_p->mac_addr, vport->mac_addr);
+	ret = send_request_get_response(proxy_priv, &resp_msg);
+	mutex_unlock(&proxy_priv->req_params_mutex);
+	if (ret)
+		dev_err(proxy_priv->dev, "failed to register MAC Address\n");
+
+	return ret;
+}
+
+static int deregister_mac(struct virtual_port *vport)
+{
+	struct cpsw_proxy_priv *proxy_priv = vport->proxy_priv;
+	struct rx_dma_chan *rx_chn = &vport->rx_chans[0];
+	struct cpsw_proxy_req_params *req_p;
+	struct message resp_msg;
+	int ret;
+
+	mutex_lock(&proxy_priv->req_params_mutex);
+	req_p = &proxy_priv->req_params;
+	req_p->request_type = ETHFW_MAC_DEREGISTER;
+	req_p->token = vport->port_token;
+	req_p->rx_flow_base = rx_chn->flow_base;
+	req_p->rx_flow_offset = rx_chn->flow_offset;
+	ether_addr_copy(req_p->mac_addr, vport->mac_addr);
+	ret = send_request_get_response(proxy_priv, &resp_msg);
+	mutex_unlock(&proxy_priv->req_params_mutex);
+	if (ret)
+		dev_err(proxy_priv->dev, "failed to deregister MAC Address\n");
+
+	return ret;
+}
+
 static const struct net_device_ops cpsw_proxy_client_netdev_ops = {
 };
 
