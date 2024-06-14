@@ -11,6 +11,7 @@
 
 #define ICSSG_TX_PACKET_OFFSET	0xA0
 #define ICSSG_TX_BYTE_OFFSET	0xEC
+#define ICSSG_IET_STATS_BASE	0x180
 
 static u32 stats_base[] = {	0x54c,	/* Slice 0 stats start */
 				0xb18,	/* Slice 1 stats start */
@@ -22,8 +23,8 @@ void emac_update_hardware_stats(struct prueth_emac *emac)
 	int slice = prueth_emac_slice(emac);
 	u32 base = stats_base[slice];
 	u32 tx_pkt_cnt = 0;
+	int i, j;
 	u32 val;
-	int i;
 
 	for (i = 0; i < ARRAY_SIZE(icssg_all_stats); i++) {
 		regmap_read(prueth->miig_rt,
@@ -40,6 +41,13 @@ void emac_update_hardware_stats(struct prueth_emac *emac)
 		if (icssg_all_stats[i].offset == ICSSG_TX_BYTE_OFFSET)
 			emac->stats[i] -= tx_pkt_cnt * 8;
 	}
+
+	for (j = 0; j < ICSSG_NUM_PA_STATS; j++) {
+		regmap_read(prueth->pa_stats, ICSSG_IET_STATS_BASE +
+			    ((j * PRUETH_NUM_MACS) + slice) * sizeof(u32),
+			    &val);
+		emac->stats[i + j] += val;
+	}
 }
 
 void emac_stats_work_handler(struct work_struct *work)
@@ -54,11 +62,16 @@ void emac_stats_work_handler(struct work_struct *work)
 
 int emac_get_stat_by_name(struct prueth_emac *emac, char *stat_name)
 {
-	int i;
+	int i, j;
 
 	for (i = 0; i < ARRAY_SIZE(icssg_all_stats); i++) {
 		if (!strcmp(icssg_all_stats[i].name, stat_name))
 			return emac->stats[icssg_all_stats[i].offset / sizeof(u32)];
+	}
+
+	for (j = 0; j < ICSSG_NUM_PA_STATS; j++) {
+		if (!strcmp(icssg_all_pa_stats[j].name, stat_name))
+			return emac->stats[i + icssg_all_pa_stats[j].offset / sizeof(u32)];
 	}
 
 	netdev_err(emac->ndev, "Invalid stats %s\n", stat_name);

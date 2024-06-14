@@ -77,6 +77,14 @@ struct miig_stats_regs {
 	u32 tx_bytes;
 };
 
+struct pa_stats_regs {
+	u32 iet_bad_frag;
+	u32 iet_asm_err;
+	u32 iet_tx_frag;
+	u32 iet_asm_ok;
+	u32 iet_rx_frag;
+};
+
 #define ICSSG_STATS(field, stats_type)			\
 {							\
 	#field,						\
@@ -84,10 +92,21 @@ struct miig_stats_regs {
 	stats_type					\
 }
 
+#define ICSSG_PA_STATS(field)			\
+{						\
+	#field,					\
+	offsetof(struct pa_stats_regs, field),	\
+}
+
 struct icssg_stats {
 	char name[ETH_GSTRING_LEN];
 	u32 offset;
 	bool standard_stats;
+};
+
+struct icssg_pa_stats {
+	char name[ETH_GSTRING_LEN];
+	u32 offset;
 };
 
 static const struct icssg_stats icssg_all_stats[] = {
@@ -153,6 +172,14 @@ static const struct icssg_stats icssg_all_stats[] = {
 	ICSSG_STATS(tx_bucket4_frames, true),
 	ICSSG_STATS(tx_bucket5_frames, true),
 	ICSSG_STATS(tx_bytes, true),
+};
+
+static const struct icssg_pa_stats icssg_all_pa_stats[] = {
+	ICSSG_PA_STATS(iet_bad_frag),
+	ICSSG_PA_STATS(iet_asm_err),
+	ICSSG_PA_STATS(iet_tx_frag),
+	ICSSG_PA_STATS(iet_asm_ok),
+	ICSSG_PA_STATS(iet_rx_frag),
 };
 
 #endif /* __NET_TI_ICSSG_STATS_H */
