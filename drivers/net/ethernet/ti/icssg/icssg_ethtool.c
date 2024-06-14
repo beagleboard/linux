@@ -288,6 +288,61 @@ static int emac_set_per_queue_coalesce(struct net_device *ndev, u32 queue,
 	return 0;
 }
 
+static int emac_get_mm(struct net_device *ndev, struct ethtool_mm_state *state)
+{
+	struct prueth_emac *emac = netdev_priv(ndev);
+	struct prueth_qos_iet *iet = &emac->qos.iet;
+	void __iomem *config;
+
+	config = emac->dram.va + ICSSG_CONFIG_OFFSET;
+
+	state->tx_enabled = iet->fpe_enabled;
+	state->pmac_enabled = true;
+	state->verify_status = readb(config + PRE_EMPTION_VERIFY_STATUS);
+	state->tx_min_frag_size = iet->tx_min_frag_size;
+	state->rx_min_frag_size = 124;
+	state->tx_active = readb(config + PRE_EMPTION_ACTIVE_TX) ? true : false;
+	state->verify_enabled = readb(config + PRE_EMPTION_ENABLE_VERIFY) ? true : false;
+	state->verify_time = iet->verify_time_ms;
+
+	/* 802.3-2018 clause 30.14.1.6, says that the aMACMergeVerifyTime
+	 * variable has a range between 1 and 128 ms inclusive. Limit to that.
+	 */
+	state->max_verify_time = 128;
+
+	return 0;
+}
+
+static int emac_set_mm(struct net_device *ndev, struct ethtool_mm_cfg *cfg,
+		       struct netlink_ext_ack *extack)
+{
+	struct prueth_emac *emac = netdev_priv(ndev);
+	struct prueth_qos_iet *iet = &emac->qos.iet;
+
+	if (!cfg->pmac_enabled)
+		netdev_err(ndev, "preemptible MAC is alway enabled");
+
+	iet->verify_time_ms = cfg->verify_time;
+	iet->tx_min_frag_size = cfg->tx_min_frag_size;
+
+	iet->fpe_configured = cfg->tx_enabled;
+	iet->mac_verify_configured = cfg->verify_enabled;
+
+	return 0;
+}
+
+static void emac_get_mm_stats(struct net_device *ndev,
+			      struct ethtool_mm_stats *s)
+{
+	struct prueth_emac *emac = netdev_priv(ndev);
+
+	s->MACMergeFrameAssOkCount = emac_get_stat_by_name(emac, "iet_asm_ok");
+	s->MACMergeFrameAssErrorCount = emac_get_stat_by_name(emac, "iet_asm_err");
+	s->MACMergeFrameSmdErrorCount = emac_get_stat_by_name(emac, "iet_bad_frag");
+	s->MACMergeFragCountRx = emac_get_stat_by_name(emac, "iet_rx_frag");
+	s->MACMergeFragCountTx = emac_get_stat_by_name(emac, "iet_tx_frag");
+}
+
 const struct ethtool_ops icssg_ethtool_ops = {
 	.get_drvinfo = emac_get_drvinfo,
 	.get_msglevel = emac_get_msglevel,
@@ -311,4 +366,7 @@ const struct ethtool_ops icssg_ethtool_ops = {
 	.set_eee = emac_set_eee,
 	.nway_reset = emac_nway_reset,
 	.get_rmon_stats = emac_get_rmon_stats,
+	.get_mm = emac_get_mm,
+	.set_mm = emac_set_mm,
+	.get_mm_stats = emac_get_mm_stats,
 };
