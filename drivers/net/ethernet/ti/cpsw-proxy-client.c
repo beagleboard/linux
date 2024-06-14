@@ -106,6 +106,9 @@ struct virtual_port {
 	struct net_device		*ndev;
 	struct rx_dma_chan		*rx_chans;
 	struct tx_dma_chan		*tx_chans;
+	struct netdev_hw_addr_list	mcast_list;
+	struct workqueue_struct		*vport_wq;
+	struct work_struct		rx_mode_work;
 	struct completion		tdown_complete;
 	struct notifier_block		inetaddr_nb;
 	enum virtual_port_type		port_type;
@@ -1423,6 +1426,70 @@ static void vport_rx_cleanup(void *data, dma_addr_t desc_dma)
 	dev_kfree_skb_any(skb);
 }
 
+static int vport_add_mcast(struct net_device *ndev, const u8 *addr)
+{
+	struct virtual_port *vport = vport_ndev_to_vport(ndev);
+	struct cpsw_proxy_priv *proxy_priv = vport->proxy_priv;
+	struct rx_dma_chan *rx_chn = &vport->rx_chans[0];
+	struct cpsw_proxy_req_params *req_p;
+	struct message resp_msg;
+	int ret;
+
+	mutex_lock(&proxy_priv->req_params_mutex);
+	req_p = &proxy_priv->req_params;
+	req_p->request_type = ETHFW_MCAST_FILTER_ADD;
+	req_p->token = vport->port_token;
+	req_p->vlan_id = ETHFW_DFLT_VLAN;
+	req_p->rx_flow_base = rx_chn->flow_base;
+	req_p->rx_flow_offset = rx_chn->flow_offset;
+	ether_addr_copy(req_p->mac_addr, addr);
+	ret = send_request_get_response(proxy_priv, &resp_msg);
+	mutex_unlock(&proxy_priv->req_params_mutex);
+
+	if (ret == ETHFW_RES_EBADARGS) {
+		dev_info(proxy_priv->dev, "%02x:%02x:%02x:%02x:%02x:%02x is reserved for EthFw\n",
+			 addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
+
+		return 0;
+	} else if (ret) {
+		dev_err(proxy_priv->dev, "adding %02x:%02x:%02x:%02x:%02x:%02x failed: %d\n",
+			addr[0], addr[1], addr[2], addr[3], addr[4], addr[5], ret);
+		return -EIO;
+	}
+
+	return 0;
+}
+
+static int vport_del_mcast(struct net_device *ndev, const u8 *addr)
+{
+	struct virtual_port *vport = vport_ndev_to_vport(ndev);
+	struct cpsw_proxy_priv *proxy_priv = vport->proxy_priv;
+	struct cpsw_proxy_req_params *req_p;
+	struct message resp_msg;
+	int ret;
+
+	mutex_lock(&proxy_priv->req_params_mutex);
+	req_p = &proxy_priv->req_params;
+	req_p->request_type = ETHFW_MCAST_FILTER_DEL;
+	req_p->token = vport->port_token;
+	req_p->vlan_id = ETHFW_DFLT_VLAN;
+	ether_addr_copy(req_p->mac_addr, addr);
+	ret = send_request_get_response(proxy_priv, &resp_msg);
+	mutex_unlock(&proxy_priv->req_params_mutex);
+
+	if (ret == ETHFW_RES_EBADARGS) {
+		dev_info(proxy_priv->dev, "%02x:%02x:%02x:%02x:%02x:%02x is reserved for EthFw\n",
+			 addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
+		return 0;
+	} else if (ret) {
+		dev_err(proxy_priv->dev, "deleting %02x:%02x:%02x:%02x:%02x:%02x failed: %d\n",
+			addr[0], addr[1], addr[2], addr[3], addr[4], addr[5], ret);
+		return -EIO;
+	}
+
+	return 0;
+}
+
 static void vport_stop(struct virtual_port *vport)
 {
 	struct cpsw_proxy_priv *proxy_priv = vport->proxy_priv;
@@ -1461,6 +1528,9 @@ static void vport_stop(struct virtual_port *vport)
 		napi_disable(&rx_chn->napi_rx);
 		hrtimer_cancel(&rx_chn->rx_hrtimer);
 	}
+
+	if (vport->port_features & ETHFW_MCAST_FILTERING)
+		cancel_work_sync(&vport->rx_mode_work);
 }
 
 static int vport_open(struct virtual_port *vport, netdev_features_t features)
@@ -1528,6 +1598,8 @@ static int vport_ndo_stop(struct net_device *ndev)
 		netdev_err(ndev, "failed to deregister MAC for port %u\n",
 			   vport->port_id);
 
+	__dev_mc_unsync(ndev, vport_del_mcast);
+	__hw_addr_init(&vport->mcast_list);
 	vport_stop(vport);
 
 	dev_info(proxy_priv->dev, "stopped port %u on interface %s\n",
@@ -1781,6 +1853,31 @@ static void vport_ndo_tx_timeout(struct net_device *ndev, unsigned int txqueue)
 	}
 }
 
+static void vport_set_rx_mode_work(struct work_struct *work)
+{
+	struct virtual_port *vport = container_of(work, struct virtual_port, rx_mode_work);
+	struct net_device *ndev;
+
+	if (likely(vport->port_features & ETHFW_MCAST_FILTERING)) {
+		ndev = vport->ndev;
+
+		netif_addr_lock_bh(ndev);
+		__hw_addr_sync(&vport->mcast_list, &ndev->mc, ndev->addr_len);
+		netif_addr_unlock_bh(ndev);
+
+		__hw_addr_sync_dev(&vport->mcast_list, ndev,
+				   vport_add_mcast, vport_del_mcast);
+	}
+}
+
+static void vport_set_rx_mode(struct net_device *ndev)
+{
+	struct virtual_port *vport = vport_ndev_to_vport(ndev);
+
+	if (vport->port_features & ETHFW_MCAST_FILTERING)
+		queue_work(vport->vport_wq, &vport->rx_mode_work);
+}
+
 static const struct net_device_ops cpsw_proxy_client_netdev_ops = {
 	.ndo_open		= vport_ndo_open,
 	.ndo_stop		= vport_ndo_stop,
@@ -1789,6 +1886,7 @@ static const struct net_device_ops cpsw_proxy_client_netdev_ops = {
 	.ndo_tx_timeout		= vport_ndo_tx_timeout,
 	.ndo_validate_addr	= eth_validate_addr,
 	.ndo_set_mac_address	= eth_mac_addr,
+	.ndo_set_rx_mode	= vport_set_rx_mode,
 };
 
 static int init_netdev(struct cpsw_proxy_priv *proxy_priv, struct virtual_port *vport)
@@ -1866,11 +1964,55 @@ static void unreg_netdevs(struct cpsw_proxy_priv *proxy_priv)
 	}
 }
 
+static void destroy_vport_wqs(struct cpsw_proxy_priv *proxy_priv)
+{
+	struct virtual_port *vport;
+	u32 i;
+
+	for (i = 0; i < proxy_priv->num_virt_ports; i++) {
+		vport = &proxy_priv->virt_ports[i];
+		if (vport->vport_wq)
+			destroy_workqueue(vport->vport_wq);
+	}
+}
+
+static int create_vport_wqs(struct cpsw_proxy_priv *proxy_priv)
+{
+	struct virtual_port *vport;
+	char wq_name[IFNAMSIZ];
+	u32 i;
+
+	for (i = 0; i < proxy_priv->num_virt_ports; i++) {
+		vport = &proxy_priv->virt_ports[i];
+		if (!(vport->port_features & ETHFW_MCAST_FILTERING))
+			continue;
+
+		snprintf(wq_name, sizeof(wq_name), "vport_%d", vport->port_id);
+		__hw_addr_init(&vport->mcast_list);
+		INIT_WORK(&vport->rx_mode_work, vport_set_rx_mode_work);
+		vport->vport_wq = create_singlethread_workqueue(wq_name);
+		if (!vport->vport_wq) {
+			dev_err(proxy_priv->dev, "failed to create wq %s\n", wq_name);
+			goto err;
+		}
+	}
+
+	return 0;
+
+err:
+	destroy_vport_wqs(proxy_priv);
+	return -ENOMEM;
+}
+
 static int init_netdevs(struct cpsw_proxy_priv *proxy_priv)
 {
 	struct virtual_port *vport;
 	int ret;
 	u32 i;
+
+	ret = create_vport_wqs(proxy_priv);
+	if (ret)
+		return ret;
 
 	for (i = 0; i < proxy_priv->num_virt_ports; i++) {
 		vport = &proxy_priv->virt_ports[i];
