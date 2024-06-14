@@ -1,0 +1,60 @@
+// SPDX-License-Identifier: GPL-2.0-only OR MIT
+/**
+ * DT Overlay for CPSW9G functionality with Ethernet Switch Firmware (EthFw)
+ * and CPSW Proxy Client driver.
+ *
+ * Copyright (C) 2024 Texas Instruments Incorporated - https://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include "k3-serdes.h"
+
+&serdes_ln_ctrl {
+	idle-states = <J721E_SERDES0_LANE0_PCIE0_LANE0>, <J721E_SERDES0_LANE1_QSGMII_LANE2>,
+		      <J721E_SERDES1_LANE0_PCIE1_LANE0>, <J721E_SERDES1_LANE1_PCIE1_LANE1>,
+		      <J721E_SERDES2_LANE0_PCIE2_LANE0>, <J721E_SERDES2_LANE1_PCIE2_LANE1>,
+		      <J721E_SERDES3_LANE0_USB3_0_SWAP>, <J721E_SERDES3_LANE1_USB3_0>,
+		      <J721E_SERDES4_LANE0_EDP_LANE0>, <J721E_SERDES4_LANE1_EDP_LANE1>,
+		      <J721E_SERDES4_LANE2_EDP_LANE2>, <J721E_SERDES4_LANE3_EDP_LANE3>;
+};
+
+/* uart2 is assigned to EthFw running on remote CPU core */
+&main_uart2 {
+	status = "reserved";
+};
+
+/* Reserve shared memory for inter-core network communication */
+&reserved_memory {
+	#address-cells = <2>;
+	#size-cells = <2>;
+
+	main_r5fss0_core0_shared_memory_queue_region:r5f-virtual-eth-queues@ac000000 {
+		compatible = "shared-dma-pool";
+		reg = <0x00 0xac000000 0x00 0x200000>;
+		no-map;
+	};
+
+	main_r5fss0_core0_shared_memory_bufpool_region:r5f-virtual-eth-buffers@ac200000 {
+		compatible = "shared-dma-pool";
+		reg = <0x00 0xac200000 0x00 0x1e00000>;
+		no-map;
+	};
+};
+
+&main_r5fss0_core0 {
+	memory-region = <&main_r5fss0_core0_dma_memory_region>,
+			<&main_r5fss0_core0_memory_region>,
+			<&main_r5fss0_core0_shared_memory_queue_region>,
+			<&main_r5fss0_core0_shared_memory_bufpool_region>;
+};
+
+/* EthFw uses timers so mark them reserved */
+&main_timer12 {
+	status = "reserved";
+};
+
+&main_timer13 {
+	status = "reserved";
+};
