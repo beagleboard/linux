@@ -1622,6 +1622,8 @@ static const struct net_device_ops cpsw_proxy_client_netdev_ops = {
 	.ndo_start_xmit		= vport_ndo_xmit,
 	.ndo_get_stats64	= vport_ndo_get_stats,
 	.ndo_tx_timeout		= vport_ndo_tx_timeout,
+	.ndo_validate_addr	= eth_validate_addr,
+	.ndo_set_mac_address	= eth_mac_addr,
 };
 
 static int init_netdev(struct cpsw_proxy_priv *proxy_priv, struct virtual_port *vport)
