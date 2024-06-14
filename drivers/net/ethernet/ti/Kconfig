@@ -79,6 +79,20 @@ config TI_CPSW_SWITCHDEV
 	  To compile this driver as a module, choose M here: the module
 	  will be called cpsw_new.
 
+config TI_CPSW_PROXY_CLIENT
+	tristate "TI CPSW Proxy Client"
+	depends on ARCH_K3 && OF && TI_K3_UDMA_GLUE_LAYER
+	help
+		This driver supports Ethernet functionality for CPSWnG
+		Ethernet Subsystem which is configured by Ethernet Switch
+		Firmware (EthFw).
+
+		The Ethernet Switch Firmware acts as a proxy to the Linux
+		Client driver by performing all the necessary configuration
+		of the CPSW Peripheral while enabling network data transfer
+		to/from the Linux Client to CPSW over the allocated TX DMA
+		Channels and RX DMA Flows.
+
 config TI_CPTS
 	tristate "TI Common Platform Time Sync (CPTS) Support"
 	depends on ARCH_OMAP2PLUS || ARCH_KEYSTONE || COMPILE_TEST

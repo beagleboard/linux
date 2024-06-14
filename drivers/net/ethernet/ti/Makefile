@@ -7,6 +7,9 @@ obj-$(CONFIG_TI_CPSW) += cpsw-common.o
 obj-$(CONFIG_TI_DAVINCI_EMAC) += cpsw-common.o
 obj-$(CONFIG_TI_CPSW_SWITCHDEV) += cpsw-common.o
 
+obj-$(CONFIG_TI_CPSW_PROXY_CLIENT) += ti-cpsw-proxy-client.o
+ti-cpsw-proxy-client-y := cpsw-proxy-client.o
+
 obj-$(CONFIG_TLAN) += tlan.o
 obj-$(CONFIG_CPMAC) += cpmac.o
 obj-$(CONFIG_TI_DAVINCI_EMAC) += ti_davinci_emac.o
