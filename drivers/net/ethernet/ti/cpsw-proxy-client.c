@@ -6,7 +6,9 @@
  */
 
 #include <linux/etherdevice.h>
+#include <linux/if_vlan.h>
 #include <linux/kernel.h>
+#include <linux/kmemleak.h>
 #include <linux/module.h>
 #include <linux/rpmsg.h>
 #include <linux/dma/k3-udma-glue.h>
@@ -22,6 +24,8 @@
 #define MAX_TX_DESC	500
 #define MAX_RX_DESC	500
 #define MAX_RX_FLOWS	1
+
+#define MAX_PACKET_SIZE	(VLAN_ETH_FRAME_LEN + ETH_FCS_LEN)
 
 #define CHAN_NAME_LEN	128
 
@@ -51,6 +55,7 @@ struct rx_dma_chan {
 	struct device			*dev;
 	struct k3_cppi_desc_pool	*desc_pool;
 	struct k3_udma_glue_rx_channel	*rx_chan;
+	struct napi_struct		napi_rx;
 	u32				rel_chan_idx;
 	u32				flow_base;
 	u32				flow_offset;
@@ -90,6 +95,7 @@ struct vport_netdev_priv {
 
 struct virtual_port {
 	struct cpsw_proxy_priv		*proxy_priv;
+	struct net_device		*ndev;
 	struct rx_dma_chan		*rx_chans;
 	struct tx_dma_chan		*tx_chans;
 	struct completion		tdown_complete;
@@ -981,6 +987,189 @@ static int vport_tx_poll(struct napi_struct *napi_tx, int budget)
 		enable_irq(tx_chn->irq);
 
 	return 0;
+}
+
+/* RX psdata[2] word format - checksum information */
+#define RX_PSD_CSUM_ERR		BIT(16)
+#define RX_PSD_IS_FRAGMENT	BIT(17)
+#define RX_PSD_IPV6_VALID	BIT(19)
+#define RX_PSD_IPV4_VALID	BIT(20)
+
+static void vport_rx_csum(struct sk_buff *skb, u32 csum_info)
+{
+	/* HW can verify IPv4/IPv6 TCP/UDP packets checksum
+	 * csum information provides in psdata[2] word:
+	 * RX_PSD_CSUM_ERR bit - indicates csum error
+	 * RX_PSD_IPV6_VALID and CPSW_RX_PSD_IPV4_VALID
+	 * bits - indicates IPv4/IPv6 packet
+	 * RX_PSD_IS_FRAGMENT bit - indicates fragmented packet
+	 * RX_PSD_CSUM_ADD has value 0xFFFF for non fragmented packets
+	 * or csum value for fragmented packets if !RX_PSD_CSUM_ERR
+	 */
+	skb_checksum_none_assert(skb);
+
+	if (unlikely(!(skb->dev->features & NETIF_F_RXCSUM)))
+		return;
+
+	if ((csum_info & (RX_PSD_IPV6_VALID |
+			  RX_PSD_IPV4_VALID)) &&
+			  !(csum_info & RX_PSD_CSUM_ERR)) {
+		/* csum for fragmented packets is unsupported */
+		if (!(csum_info & RX_PSD_IS_FRAGMENT))
+			skb->ip_summed = CHECKSUM_UNNECESSARY;
+	}
+}
+
+static int vport_rx_push(struct virtual_port *vport, struct sk_buff *skb,
+			 u32 rx_chan_idx)
+{
+	struct rx_dma_chan *rx_chn = &vport->rx_chans[rx_chan_idx];
+	struct cpsw_proxy_priv *proxy_priv = vport->proxy_priv;
+	struct device *dev = proxy_priv->dev;
+	struct cppi5_host_desc_t *desc_rx;
+	u32 pkt_len = skb_tailroom(skb);
+	dma_addr_t desc_dma;
+	dma_addr_t buf_dma;
+	void *swdata;
+
+	desc_rx = k3_cppi_desc_pool_alloc(rx_chn->desc_pool);
+	if (!desc_rx) {
+		dev_err(dev, "Failed to allocate RXFDQ descriptor\n");
+		return -ENOMEM;
+	}
+	desc_dma = k3_cppi_desc_pool_virt2dma(rx_chn->desc_pool, desc_rx);
+
+	buf_dma = dma_map_single(dev, skb->data, pkt_len, DMA_FROM_DEVICE);
+	if (unlikely(dma_mapping_error(dev, buf_dma))) {
+		k3_cppi_desc_pool_free(rx_chn->desc_pool, desc_rx);
+		dev_err(dev, "Failed to map rx skb buffer\n");
+		return -EINVAL;
+	}
+
+	cppi5_hdesc_init(desc_rx, CPPI5_INFO0_HDESC_EPIB_PRESENT,
+			 PS_DATA_SIZE);
+	cppi5_hdesc_attach_buf(desc_rx, 0, 0, buf_dma, skb_tailroom(skb));
+	swdata = cppi5_hdesc_get_swdata(desc_rx);
+	*((void **)swdata) = skb;
+
+	return k3_udma_glue_push_rx_chn(rx_chn->rx_chan, 0, desc_rx, desc_dma);
+}
+
+static int vport_rx_packets(struct virtual_port *vport, u32 rx_chan_idx)
+{
+	struct rx_dma_chan *rx_chn = &vport->rx_chans[rx_chan_idx];
+	struct cpsw_proxy_priv *proxy_priv = vport->proxy_priv;
+	u32 buf_dma_len, pkt_len, port_id = 0, csum_info;
+	struct device *dev = proxy_priv->dev;
+	struct vport_netdev_priv *ndev_priv;
+	struct cppi5_host_desc_t *desc_rx;
+	struct vport_netdev_stats *stats;
+	struct sk_buff *skb, *new_skb;
+	dma_addr_t desc_dma, buf_dma;
+	struct net_device *ndev;
+	u32 flow_idx = 0;
+	void **swdata;
+	int ret = 0;
+	u32 *psdata;
+
+	ret = k3_udma_glue_pop_rx_chn(rx_chn->rx_chan, flow_idx, &desc_dma);
+	if (ret) {
+		if (ret != -ENODATA)
+			dev_err(dev, "RX: pop chn fail %d\n", ret);
+		return ret;
+	}
+
+	if (desc_dma & 0x1) {
+		dev_dbg(dev, "%s RX tdown flow: %u\n", __func__, flow_idx);
+		return 0;
+	}
+
+	desc_rx = k3_cppi_desc_pool_dma2virt(rx_chn->desc_pool, desc_dma);
+	dev_dbg(dev, "%s flow_idx: %u desc %pad\n",
+		__func__, flow_idx, &desc_dma);
+
+	swdata = cppi5_hdesc_get_swdata(desc_rx);
+	skb = *swdata;
+	cppi5_hdesc_get_obuf(desc_rx, &buf_dma, &buf_dma_len);
+	pkt_len = cppi5_hdesc_get_pktlen(desc_rx);
+	cppi5_desc_get_tags_ids(&desc_rx->hdr, &port_id, NULL);
+	/* read port for dbg */
+	dev_dbg(dev, "%s rx port_id:%d\n", __func__, port_id);
+	ndev = vport->ndev;
+	skb->dev = ndev;
+
+	psdata = cppi5_hdesc_get_psdata(desc_rx);
+	csum_info = psdata[2];
+	dev_dbg(dev, "%s rx csum_info:%#x\n", __func__, csum_info);
+
+	dma_unmap_single(dev, buf_dma, buf_dma_len, DMA_FROM_DEVICE);
+
+	k3_cppi_desc_pool_free(rx_chn->desc_pool, desc_rx);
+
+	if (unlikely(!netif_running(skb->dev))) {
+		dev_kfree_skb_any(skb);
+		return -ENODEV;
+	}
+
+	new_skb = netdev_alloc_skb_ip_align(ndev, MAX_PACKET_SIZE);
+	if (new_skb) {
+		skb_put(skb, pkt_len);
+		skb->protocol = eth_type_trans(skb, ndev);
+		vport_rx_csum(skb, csum_info);
+		napi_gro_receive(&rx_chn->napi_rx, skb);
+
+		ndev_priv = netdev_priv(ndev);
+		stats = this_cpu_ptr(ndev_priv->stats);
+
+		u64_stats_update_begin(&stats->syncp);
+		stats->rx_packets++;
+		stats->rx_bytes += pkt_len;
+		u64_stats_update_end(&stats->syncp);
+		kmemleak_not_leak(new_skb);
+	} else {
+		ndev->stats.rx_dropped++;
+		new_skb = skb;
+	}
+
+	if (netif_dormant(ndev)) {
+		dev_kfree_skb_any(new_skb);
+		ndev->stats.rx_dropped++;
+		return -ENODEV;
+	}
+
+	ret = vport_rx_push(vport, new_skb, rx_chn->rel_chan_idx);
+	if (WARN_ON(ret < 0)) {
+		dev_kfree_skb_any(new_skb);
+		ndev->stats.rx_errors++;
+		ndev->stats.rx_dropped++;
+	}
+
+	return ret;
+}
+
+static int vport_rx_poll(struct napi_struct *napi_rx, int budget)
+{
+	struct rx_dma_chan *rx_chn = container_of(napi_rx, struct rx_dma_chan,
+							 napi_rx);
+	struct virtual_port *vport = rx_chn->vport;
+	int num_rx = 0;
+	int cur_budget;
+	int ret;
+
+	/* process every flow */
+	cur_budget = budget;
+
+	while (cur_budget--) {
+		ret = vport_rx_packets(vport, rx_chn->rel_chan_idx);
+		if (ret)
+			break;
+		num_rx++;
+	}
+
+	if (num_rx < budget && napi_complete_done(napi_rx, num_rx))
+		enable_irq(rx_chn->irq);
+
+	return num_rx;
 }
 
 static int cpsw_proxy_client_probe(struct rpmsg_device *rpdev)
