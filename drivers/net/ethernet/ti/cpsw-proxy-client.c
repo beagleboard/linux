@@ -9,10 +9,19 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/rpmsg.h>
+#include <linux/dma/k3-udma-glue.h>
 
 #include "ethfw_abi.h"
+#include "k3-cppi-desc-pool.h"
 
 #define ETHFW_RESPONSE_TIMEOUT_MS	500
+
+#define PS_DATA_SIZE	16
+#define SW_DATA_SIZE	16
+
+#define MAX_TX_DESC	500
+
+#define CHAN_NAME_LEN	128
 
 enum virtual_port_type {
 	VIRT_SWITCH_PORT,
@@ -46,8 +55,14 @@ struct rx_dma_chan {
 
 struct tx_dma_chan {
 	struct virtual_port		*vport;
+	struct device			*dev;
+	struct k3_cppi_desc_pool	*desc_pool;
+	struct k3_udma_glue_tx_channel	*tx_chan;
 	u32				rel_chan_idx;
 	u32				thread_id;
+	u32				num_descs;
+	unsigned int			irq;
+	char				tx_chan_name[CHAN_NAME_LEN];
 	bool				in_use;
 };
 
@@ -68,6 +83,7 @@ struct virtual_port {
 struct cpsw_proxy_priv {
 	struct rpmsg_device		*rpdev;
 	struct device			*dev;
+	struct device_node		*dma_node;
 	struct virtual_port		*virt_ports;
 	struct cpsw_proxy_req_params	req_params;
 	struct mutex			req_params_mutex; /* Request params mutex */
@@ -79,6 +95,7 @@ struct cpsw_proxy_priv {
 	u32				num_switch_ports;
 	u32				num_mac_ports;
 	u32				num_virt_ports;
+	u32				num_active_tx_chans;
 };
 
 static int cpsw_proxy_client_cb(struct rpmsg_device *rpdev, void *data,
@@ -598,6 +615,104 @@ static int allocate_port_resources(struct cpsw_proxy_priv *proxy_priv)
 err:
 	free_port_resources(proxy_priv);
 	return -EIO;
+}
+
+static void free_tx_chns(void *data)
+{
+	struct cpsw_proxy_priv *proxy_priv = data;
+	struct tx_dma_chan *tx_chn;
+	struct virtual_port *vport;
+	u32 i, j;
+
+	for (i = 0; i < proxy_priv->num_virt_ports; i++) {
+		vport = &proxy_priv->virt_ports[i];
+		for (j = 0; j < vport->num_tx_chan; j++) {
+			tx_chn = &vport->tx_chans[j];
+
+			if (!IS_ERR_OR_NULL(tx_chn->desc_pool))
+				k3_cppi_desc_pool_destroy(tx_chn->desc_pool);
+
+			if (!IS_ERR_OR_NULL(tx_chn->tx_chan))
+				k3_udma_glue_release_tx_chn(tx_chn->tx_chan);
+
+			memset(tx_chn, 0, sizeof(*tx_chn));
+		}
+	}
+}
+
+static int init_tx_chans(struct cpsw_proxy_priv *proxy_priv)
+{
+	u32 max_desc_num = ALIGN(MAX_TX_DESC, MAX_SKB_FRAGS);
+	struct k3_udma_glue_tx_channel_cfg tx_cfg = { 0 };
+	struct device *dev = proxy_priv->dev;
+	u32 hdesc_size, tx_chn_num, i, j;
+	char tx_chn_name[CHAN_NAME_LEN];
+	struct k3_ring_cfg ring_cfg = {
+		.elm_size = K3_RINGACC_RING_ELSIZE_8,
+		.mode = K3_RINGACC_RING_MODE_RING,
+		.flags = 0
+	};
+	struct tx_dma_chan *tx_chn;
+	struct virtual_port *vport;
+	int ret = 0, ret1;
+
+	for (i = 0; i < proxy_priv->num_virt_ports; i++) {
+		vport = &proxy_priv->virt_ports[i];
+
+		for (j = 0; j < vport->num_tx_chan; j++) {
+			tx_chn = &vport->tx_chans[j];
+
+			tx_chn_num = proxy_priv->num_active_tx_chans++;
+			snprintf(tx_chn_name, sizeof(tx_chn_name), "tx%u-virt-port-%u",
+				 tx_chn_num, vport->port_id);
+			strscpy(tx_chn->tx_chan_name, tx_chn_name, sizeof(tx_chn->tx_chan_name));
+
+			hdesc_size = cppi5_hdesc_calc_size(true, PS_DATA_SIZE, SW_DATA_SIZE);
+
+			tx_cfg.swdata_size = SW_DATA_SIZE;
+			tx_cfg.tx_cfg = ring_cfg;
+			tx_cfg.txcq_cfg = ring_cfg;
+			tx_cfg.tx_cfg.size = max_desc_num;
+			tx_cfg.txcq_cfg.size = max_desc_num;
+
+			tx_chn->dev = dev;
+			tx_chn->num_descs = max_desc_num;
+			tx_chn->desc_pool = k3_cppi_desc_pool_create_name(dev,
+									  tx_chn->num_descs,
+									  hdesc_size,
+									  tx_chn_name);
+			if (IS_ERR(tx_chn->desc_pool)) {
+				ret = PTR_ERR(tx_chn->desc_pool);
+				dev_err(dev, "failed to create tx pool %d\n", ret);
+				goto err;
+			}
+
+			tx_chn->tx_chan =
+				k3_udma_glue_request_tx_chn_for_thread_id(dev, &tx_cfg,
+									  proxy_priv->dma_node,
+									  tx_chn->thread_id);
+			if (IS_ERR(tx_chn->tx_chan)) {
+				ret = PTR_ERR(tx_chn->tx_chan);
+				dev_err(dev, "Failed to request tx dma channel %d\n", ret);
+				goto err;
+			}
+
+			tx_chn->irq = k3_udma_glue_tx_get_irq(tx_chn->tx_chan);
+			if (tx_chn->irq <= 0) {
+				dev_err(dev, "Failed to get tx dma irq %d\n", tx_chn->irq);
+				ret = -ENXIO;
+			}
+		}
+	}
+
+err:
+	ret1 = devm_add_action(dev, free_tx_chns, proxy_priv);
+	if (ret1) {
+		dev_err(dev, "failed to add free_tx_chns action %d", ret1);
+		return ret1;
+	}
+
+	return ret;
 }
 
 static int cpsw_proxy_client_probe(struct rpmsg_device *rpdev)
