@@ -58,13 +58,16 @@ struct rx_dma_chan {
 	struct k3_cppi_desc_pool	*desc_pool;
 	struct k3_udma_glue_rx_channel	*rx_chan;
 	struct napi_struct		napi_rx;
+	struct hrtimer			rx_hrtimer;
 	u32				rel_chan_idx;
 	u32				flow_base;
 	u32				flow_offset;
 	u32				thread_id;
 	u32				num_descs;
 	unsigned int			irq;
+	unsigned long			rx_pace_timeout;
 	char				rx_chan_name[CHAN_NAME_LEN];
+	bool				rx_irq_disabled;
 	bool				in_use;
 };
 
@@ -74,10 +77,12 @@ struct tx_dma_chan {
 	struct k3_cppi_desc_pool	*desc_pool;
 	struct k3_udma_glue_tx_channel	*tx_chan;
 	struct napi_struct		napi_tx;
+	struct hrtimer			tx_hrtimer;
 	u32				rel_chan_idx;
 	u32				thread_id;
 	u32				num_descs;
 	unsigned int			irq;
+	unsigned long			tx_pace_timeout;
 	char				tx_chan_name[CHAN_NAME_LEN];
 	bool				in_use;
 };
@@ -991,8 +996,15 @@ static int vport_tx_poll(struct napi_struct *napi_tx, int budget)
 	if (num_tx >= budget)
 		return budget;
 
-	if (napi_complete_done(napi_tx, num_tx))
-		enable_irq(tx_chn->irq);
+	if (napi_complete_done(napi_tx, num_tx)) {
+		if (unlikely(tx_chn->tx_pace_timeout && !tdown)) {
+			hrtimer_start(&tx_chn->tx_hrtimer,
+				      ns_to_ktime(tx_chn->tx_pace_timeout),
+				      HRTIMER_MODE_REL_PINNED);
+		} else {
+			enable_irq(tx_chn->irq);
+		}
+	}
 
 	return 0;
 }
@@ -1174,10 +1186,36 @@ static int vport_rx_poll(struct napi_struct *napi_rx, int budget)
 		num_rx++;
 	}
 
-	if (num_rx < budget && napi_complete_done(napi_rx, num_rx))
-		enable_irq(rx_chn->irq);
+	if (num_rx < budget && napi_complete_done(napi_rx, num_rx)) {
+		if (rx_chn->rx_irq_disabled) {
+			rx_chn->rx_irq_disabled = false;
+			if (unlikely(rx_chn->rx_pace_timeout)) {
+				hrtimer_start(&rx_chn->rx_hrtimer,
+					      ns_to_ktime(rx_chn->rx_pace_timeout),
+					      HRTIMER_MODE_REL_PINNED);
+			} else {
+				enable_irq(rx_chn->irq);
+			}
+		}
+	}
 
 	return num_rx;
+}
+
+static enum hrtimer_restart vport_tx_timer_cb(struct hrtimer *timer)
+{
+	struct tx_dma_chan *tx_chn = container_of(timer, struct tx_dma_chan, tx_hrtimer);
+
+	enable_irq(tx_chn->irq);
+	return HRTIMER_NORESTART;
+}
+
+static enum hrtimer_restart vport_rx_timer_cb(struct hrtimer *timer)
+{
+	struct rx_dma_chan *rx_chn = container_of(timer, struct rx_dma_chan, rx_hrtimer);
+
+	enable_irq(rx_chn->irq);
+	return HRTIMER_NORESTART;
 }
 
 static u32 vport_get_link(struct net_device *ndev)
@@ -1321,6 +1359,7 @@ static void vport_stop(struct virtual_port *vport)
 		k3_udma_glue_reset_tx_chn(tx_chn->tx_chan, tx_chn, vport_tx_cleanup);
 		k3_udma_glue_disable_tx_chn(tx_chn->tx_chan);
 		napi_disable(&tx_chn->napi_tx);
+		hrtimer_cancel(&tx_chn->tx_hrtimer);
 	}
 
 	for (i = 0; i < vport->num_rx_chan; i++) {
@@ -1331,6 +1370,7 @@ static void vport_stop(struct virtual_port *vport)
 		k3_udma_glue_reset_rx_chn(rx_chn->rx_chan, 0, rx_chn, vport_rx_cleanup,
 					  false);
 		napi_disable(&rx_chn->napi_rx);
+		hrtimer_cancel(&rx_chn->rx_hrtimer);
 	}
 }
 
@@ -1376,6 +1416,10 @@ static int vport_open(struct virtual_port *vport, netdev_features_t features)
 	for (i = 0; i < vport->num_rx_chan; i++) {
 		rx_chn = &vport->rx_chans[i];
 		napi_enable(&rx_chn->napi_rx);
+		if (rx_chn->rx_irq_disabled) {
+			rx_chn->rx_irq_disabled = false;
+			enable_irq(rx_chn->irq);
+		}
 	}
 
 	return 0;
@@ -1703,11 +1747,15 @@ static int init_netdev(struct cpsw_proxy_priv *proxy_priv, struct virtual_port *
 	for (i = 0; i < vport->num_tx_chan; i++) {
 		tx_chn = &vport->tx_chans[i];
 		netif_napi_add_tx(vport->ndev, &tx_chn->napi_tx, vport_tx_poll);
+		hrtimer_init(&tx_chn->tx_hrtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL_PINNED);
+		tx_chn->tx_hrtimer.function = &vport_tx_timer_cb;
 	}
 
 	for (i = 0; i < vport->num_rx_chan; i++) {
 		rx_chn = &vport->rx_chans[i];
 		netif_napi_add(vport->ndev, &rx_chn->napi_rx, vport_rx_poll);
+		hrtimer_init(&rx_chn->rx_hrtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL_PINNED);
+		rx_chn->rx_hrtimer.function = &vport_rx_timer_cb;
 	}
 
 	ret = register_netdev(vport->ndev);
@@ -1766,6 +1814,7 @@ static irqreturn_t rx_irq_handler(int irq, void *dev_id)
 {
 	struct rx_dma_chan *rx_chn = dev_id;
 
+	rx_chn->rx_irq_disabled = true;
 	disable_irq_nosync(irq);
 	napi_schedule(&rx_chn->napi_rx);
 
