@@ -35,10 +35,26 @@ struct cpsw_proxy_req_params {
 	u8		ipv4_addr[ETHFW_IPV4ADDRLEN];
 };
 
+struct rx_dma_chan {
+	struct virtual_port		*vport;
+	u32				rel_chan_idx;
+};
+
+struct tx_dma_chan {
+	struct virtual_port		*vport;
+	u32				rel_chan_idx;
+};
+
 struct virtual_port {
 	struct cpsw_proxy_priv		*proxy_priv;
+	struct rx_dma_chan		*rx_chans;
+	struct tx_dma_chan		*tx_chans;
 	enum virtual_port_type		port_type;
 	u32				port_id;
+	u32				port_token;
+	u32				port_features;
+	u32				num_rx_chan;
+	u32				num_tx_chan;
 };
 
 struct cpsw_proxy_priv {
@@ -343,6 +359,80 @@ static int get_virtual_port_info(struct cpsw_proxy_priv *proxy_priv)
 	}
 
 	return 0;
+}
+
+static int attach_virtual_ports(struct cpsw_proxy_priv *proxy_priv)
+{
+	struct cpsw_proxy_req_params *req_p;
+	struct attach_response *att_resp;
+	struct rx_dma_chan *rx_chn;
+	struct tx_dma_chan *tx_chn;
+	struct virtual_port *vport;
+	struct message resp_msg;
+	unsigned int i, j;
+	u32 port_id;
+	int ret;
+
+	for (i = 0; i < proxy_priv->num_virt_ports; i++) {
+		vport = &proxy_priv->virt_ports[i];
+		port_id = vport->port_id;
+
+		mutex_lock(&proxy_priv->req_params_mutex);
+		req_p = &proxy_priv->req_params;
+		req_p->port_id = port_id;
+		req_p->request_type = ETHFW_VIRT_PORT_ATTACH;
+		ret = send_request_get_response(proxy_priv, &resp_msg);
+		mutex_unlock(&proxy_priv->req_params_mutex);
+
+		if (ret) {
+			dev_err(proxy_priv->dev, "attaching virtual port failed\n");
+			goto err;
+		}
+
+		att_resp = (struct attach_response *)&resp_msg;
+		vport->port_token = att_resp->response_msg_hdr.msg_hdr.token;
+		vport->port_features = att_resp->features;
+		vport->num_tx_chan = att_resp->num_tx_chan;
+		vport->num_rx_chan = att_resp->num_rx_flow;
+
+		vport->rx_chans = devm_kcalloc(proxy_priv->dev,
+					       vport->num_rx_chan,
+					       sizeof(*vport->rx_chans),
+					       GFP_KERNEL);
+		for (j = 0; j < vport->num_rx_chan; j++) {
+			rx_chn = &vport->rx_chans[j];
+			rx_chn->vport = vport;
+			rx_chn->rel_chan_idx = j;
+		}
+
+		vport->tx_chans = devm_kcalloc(proxy_priv->dev,
+					       vport->num_tx_chan,
+					       sizeof(*vport->tx_chans),
+					       GFP_KERNEL);
+		for (j = 0; j < vport->num_tx_chan; j++) {
+			tx_chn = &vport->tx_chans[j];
+			tx_chn->vport = vport;
+			tx_chn->rel_chan_idx = j;
+		}
+	}
+
+	return 0;
+
+err:
+	/* Detach virtual ports which were successfully attached */
+	while (i--) {
+		vport = &proxy_priv->virt_ports[i];
+		port_id = vport->port_id;
+		mutex_lock(&proxy_priv->req_params_mutex);
+		req_p = &proxy_priv->req_params;
+		req_p->request_type = ETHFW_VIRT_PORT_DETACH;
+		req_p->token = vport->port_token;
+		ret = send_request_get_response(proxy_priv, &resp_msg);
+		mutex_unlock(&proxy_priv->req_params_mutex);
+		if (ret)
+			dev_err(proxy_priv->dev, "detaching virtual port %u failed\n", port_id);
+	}
+	return -EIO;
 }
 
 static int cpsw_proxy_client_probe(struct rpmsg_device *rpdev)
