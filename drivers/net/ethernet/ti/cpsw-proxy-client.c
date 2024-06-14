@@ -5,11 +5,28 @@
  *
  */
 
+#include <linux/etherdevice.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/rpmsg.h>
 
 #include "ethfw_abi.h"
+
+struct cpsw_proxy_req_params {
+	struct message	req_msg;	/* Request message to be filled */
+	u32		token;
+	u32		client_id;
+	u32		request_id;
+	u32		request_type;
+	u32		rx_tx_idx; /* RX or TX Channel index */
+	u32		rx_flow_base; /* RX DMA Flow base */
+	u32		rx_flow_offset; /* RX DMA Flow offset */
+	u32		tx_thread_id; /* PSI-L Thread ID of TX Channel */
+	u32		port_id; /* Virtual Port ID */
+	u16		vlan_id;
+	u8		mac_addr[ETH_ALEN];
+	u8		ipv4_addr[ETHFW_IPV4ADDRLEN];
+};
 
 struct cpsw_proxy_priv {
 	struct rpmsg_device		*rpdev;
@@ -22,6 +39,130 @@ static int cpsw_proxy_client_cb(struct rpmsg_device *rpdev, void *data,
 	struct device *dev = &rpdev->dev;
 
 	dev_dbg(dev, "callback invoked\n");
+
+	return 0;
+}
+
+static int create_request_message(struct cpsw_proxy_req_params *req_params)
+{
+	struct mac_register_deregister_request *mac_reg_dereg_req;
+	struct ipv4_deregister_request *ipv4_dereg_req;
+	struct common_request_message *common_req_msg;
+	struct tx_thread_release_request *tx_free_req;
+	struct tx_thread_alloc_request *tx_alloc_req;
+	struct add_multicast_request *mcast_add_req;
+	struct del_multicast_request *mcast_del_req;
+	struct rx_flow_release_request *rx_free_req;
+	struct ipv4_register_request *ipv4_reg_req;
+	struct request_message_header *req_msg_hdr;
+	struct rx_flow_alloc_request *rx_alloc_req;
+	struct message *msg = &req_params->req_msg;
+	struct mac_release_request *mac_free_req;
+	struct attach_request *attach_req;
+	u32 req_type;
+
+	/* Set message header fields */
+	msg->msg_hdr.token = req_params->token;
+	msg->msg_hdr.client_id = req_params->client_id;
+	msg->msg_hdr.msg_type = ETHFW_MSG_REQUEST;
+
+	req_type = req_params->request_type;
+
+	switch (req_type) {
+	case ETHFW_ALLOC_RX:
+		rx_alloc_req = (struct rx_flow_alloc_request *)msg;
+		req_msg_hdr = &rx_alloc_req->request_msg_hdr;
+		rx_alloc_req->rx_flow_idx = req_params->rx_tx_idx;
+		break;
+
+	case ETHFW_ALLOC_TX:
+		tx_alloc_req = (struct tx_thread_alloc_request *)msg;
+		req_msg_hdr = &tx_alloc_req->request_msg_hdr;
+		tx_alloc_req->tx_chan_idx = req_params->rx_tx_idx;
+		break;
+
+	case ETHFW_VIRT_PORT_ATTACH:
+		attach_req = (struct attach_request *)msg;
+		req_msg_hdr = &attach_req->request_msg_hdr;
+		attach_req->virt_port = req_params->port_id;
+		break;
+
+	case ETHFW_FREE_MAC:
+		mac_free_req = (struct mac_release_request *)msg;
+		req_msg_hdr = &mac_free_req->request_msg_hdr;
+		ether_addr_copy(mac_free_req->mac_addr, req_params->mac_addr);
+		break;
+
+	case ETHFW_FREE_RX:
+		rx_free_req = (struct rx_flow_release_request *)msg;
+		req_msg_hdr = &rx_free_req->request_msg_hdr;
+		rx_free_req->rx_flow_idx_base = req_params->rx_flow_base;
+		rx_free_req->rx_flow_idx_offset = req_params->rx_flow_offset;
+		break;
+
+	case ETHFW_FREE_TX:
+		tx_free_req = (struct tx_thread_release_request *)msg;
+		req_msg_hdr = &tx_free_req->request_msg_hdr;
+		tx_free_req->tx_psil_dest_id = req_params->tx_thread_id;
+		break;
+
+	case ETHFW_IPv4_DEREGISTER:
+		ipv4_dereg_req = (struct ipv4_deregister_request *)msg;
+		req_msg_hdr = &ipv4_dereg_req->request_msg_hdr;
+		memcpy(&ipv4_dereg_req->ipv4_addr, req_params->ipv4_addr,
+		       ETHFW_IPV4ADDRLEN);
+		break;
+
+	case ETHFW_IPv4_REGISTER:
+		ipv4_reg_req = (struct ipv4_register_request *)msg;
+		req_msg_hdr = &ipv4_reg_req->request_msg_hdr;
+		memcpy(&ipv4_reg_req->ipv4_addr, req_params->ipv4_addr,
+		       ETHFW_IPV4ADDRLEN);
+		ether_addr_copy(ipv4_reg_req->mac_addr,
+				req_params->mac_addr);
+		break;
+
+	case ETHFW_MAC_DEREGISTER:
+	case ETHFW_MAC_REGISTER:
+		mac_reg_dereg_req = (struct mac_register_deregister_request *)msg;
+		req_msg_hdr = &mac_reg_dereg_req->request_msg_hdr;
+		ether_addr_copy(mac_reg_dereg_req->mac_addr,
+				req_params->mac_addr);
+		mac_reg_dereg_req->rx_flow_idx_base = req_params->rx_flow_base;
+		mac_reg_dereg_req->rx_flow_idx_offset = req_params->rx_flow_offset;
+		break;
+
+	case ETHFW_MCAST_FILTER_ADD:
+		mcast_add_req = (struct add_multicast_request *)msg;
+		req_msg_hdr = &mcast_add_req->request_msg_hdr;
+		ether_addr_copy(mcast_add_req->mac_addr, req_params->mac_addr);
+		mcast_add_req->vlan_id = req_params->vlan_id;
+		mcast_add_req->rx_flow_idx_base = req_params->rx_flow_base;
+		mcast_add_req->rx_flow_idx_offset = req_params->rx_flow_offset;
+		break;
+
+	case ETHFW_MCAST_FILTER_DEL:
+		mcast_del_req = (struct del_multicast_request *)msg;
+		req_msg_hdr = &mcast_del_req->request_msg_hdr;
+		ether_addr_copy(mcast_del_req->mac_addr, req_params->mac_addr);
+		mcast_del_req->vlan_id = req_params->vlan_id;
+		break;
+
+	case ETHFW_ALLOC_MAC:
+	case ETHFW_TEARDOWN_COMPLETE:
+	case ETHFW_VIRT_PORT_DETACH:
+	case ETHFW_VIRT_PORT_INFO:
+		common_req_msg = (struct common_request_message *)msg;
+		req_msg_hdr = &common_req_msg->request_msg_hdr;
+		break;
+
+	default:
+		return -EOPNOTSUPP;
+	}
+
+	/* Set request message header fields */
+	req_msg_hdr->request_id = req_params->request_id;
+	req_msg_hdr->request_type = req_params->request_type;
 
 	return 0;
 }
