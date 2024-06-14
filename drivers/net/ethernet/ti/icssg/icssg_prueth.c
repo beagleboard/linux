@@ -254,6 +254,12 @@ static void emac_adjust_link(struct net_device *ndev)
 		} else {
 			emac_set_port_state(emac, ICSSG_EMAC_PORT_DISABLE);
 		}
+
+		if (emac->link) {
+			icssg_qos_link_up(ndev);
+		} else {
+			icssg_qos_link_down(ndev);
+		}
 	}
 
 	if (emac->link) {
@@ -573,6 +579,8 @@ static int emac_ndo_open(struct net_device *ndev)
 		napi_enable(&emac->tx_chns[i].napi_tx);
 	napi_enable(&emac->napi_rx);
 
+	icssg_qos_init(ndev);
+
 	/* start PHY */
 	phy_start(ndev->phydev);
 
@@ -874,8 +882,6 @@ static int prueth_netdev_init(struct prueth *prueth,
 		     HRTIMER_MODE_REL_PINNED);
 	emac->rx_hrtimer.function = &emac_rx_timer_callback;
 	prueth->emac[mac] = emac;
-
-	icssg_qos_tas_init(ndev);
 
 	return 0;
 

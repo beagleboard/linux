@@ -103,11 +103,35 @@ struct prueth_qos_tas {
 	struct tas_config config;
 };
 
+struct prueth_qos_iet {
+	struct work_struct fpe_config_task;
+	struct completion fpe_config_compl;
+	struct prueth_emac *emac;
+	atomic_t cancel_fpe_config;
+	/* Set through priv flags to enable IET frame preemption */
+	bool fpe_configured;
+	/* Set through priv flags to enable IET MAC Verify state machine
+	 * in firmware
+	 */
+	bool mac_verify_configured;
+	/* Min TX fragment size, set via ethtool */
+	u32 tx_min_frag_size;
+	/* wait time between verification attempts in ms (according to clause
+	 * 30.14.1.6 aMACMergeVerifyTime), set via ethtool
+	 */
+	u32 verify_time_ms;
+	/* Set if IET FPE is active */
+	bool fpe_enabled;
+};
+
 struct prueth_qos {
+	struct prueth_qos_iet iet;
 	struct prueth_qos_tas tas;
 };
 
-void icssg_qos_tas_init(struct net_device *ndev);
+void icssg_qos_init(struct net_device *ndev);
 int icssg_qos_ndo_setup_tc(struct net_device *ndev, enum tc_setup_type type,
 			   void *type_data);
+void icssg_qos_link_up(struct net_device *ndev);
+void icssg_qos_link_down(struct net_device *ndev);
 #endif /* __NET_TI_ICSSG_QOS_H */
