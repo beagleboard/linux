@@ -1406,9 +1406,161 @@ static int vport_ndo_open(struct net_device *ndev)
 	return 0;
 }
 
+static netdev_tx_t vport_ndo_xmit(struct sk_buff *skb, struct net_device *ndev)
+{
+	struct virtual_port *vport = vport_ndev_to_vport(ndev);
+	struct cppi5_host_desc_t *first_desc, *next_desc, *cur_desc;
+	struct cpsw_proxy_priv *proxy_priv = vport->proxy_priv;
+	struct device *dev = proxy_priv->dev;
+	struct netdev_queue *netif_txq;
+	dma_addr_t desc_dma, buf_dma;
+	struct tx_dma_chan *tx_chn;
+	void **swdata;
+	int ret, i, q;
+	u32 pkt_len;
+	u32 *psdata;
+
+	/* padding enabled in hw */
+	pkt_len = skb_headlen(skb);
+
+	/* Get Queue / TX DMA Channel for the SKB */
+	q = skb_get_queue_mapping(skb);
+	tx_chn = &vport->tx_chans[q];
+	netif_txq = netdev_get_tx_queue(ndev, q);
+
+	/* Map the linear buffer */
+	buf_dma = dma_map_single(dev, skb->data, pkt_len,
+				 DMA_TO_DEVICE);
+	if (unlikely(dma_mapping_error(dev, buf_dma))) {
+		dev_err(dev, "Failed to map tx skb buffer\n");
+		ndev->stats.tx_errors++;
+		goto drop_free_skb;
+	}
+
+	first_desc = k3_cppi_desc_pool_alloc(tx_chn->desc_pool);
+	if (!first_desc) {
+		dev_dbg(dev, "Failed to allocate descriptor\n");
+		dma_unmap_single(dev, buf_dma, pkt_len, DMA_TO_DEVICE);
+		goto busy_stop_q;
+	}
+
+	cppi5_hdesc_init(first_desc, CPPI5_INFO0_HDESC_EPIB_PRESENT,
+			 PS_DATA_SIZE);
+	cppi5_desc_set_pktids(&first_desc->hdr, 0, 0x3FFF);
+	cppi5_hdesc_set_pkttype(first_desc, 0x7);
+	/* target port has to be 0 */
+	cppi5_desc_set_tags_ids(&first_desc->hdr, 0, vport->port_type);
+
+	cppi5_hdesc_attach_buf(first_desc, buf_dma, pkt_len, buf_dma, pkt_len);
+	swdata = cppi5_hdesc_get_swdata(first_desc);
+	*(swdata) = skb;
+	psdata = cppi5_hdesc_get_psdata(first_desc);
+
+	/* HW csum offload if enabled */
+	psdata[2] = 0;
+	if (likely(skb->ip_summed == CHECKSUM_PARTIAL)) {
+		unsigned int cs_start, cs_offset;
+
+		cs_start = skb_transport_offset(skb);
+		cs_offset = cs_start + skb->csum_offset;
+		/* HW numerates bytes starting from 1 */
+		psdata[2] = ((cs_offset + 1) << 24) |
+			    ((cs_start + 1) << 16) | (skb->len - cs_start);
+		dev_dbg(dev, "%s tx psdata:%#x\n", __func__, psdata[2]);
+	}
+
+	if (!skb_is_nonlinear(skb))
+		goto done_tx;
+
+	dev_dbg(dev, "fragmented SKB\n");
+
+	/* Handle the case where skb is fragmented in pages */
+	cur_desc = first_desc;
+	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
+		skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
+		u32 frag_size = skb_frag_size(frag);
+
+		next_desc = k3_cppi_desc_pool_alloc(tx_chn->desc_pool);
+		if (!next_desc) {
+			dev_err(dev, "Failed to allocate descriptor\n");
+			goto busy_free_descs;
+		}
+
+		buf_dma = skb_frag_dma_map(dev, frag, 0, frag_size,
+					   DMA_TO_DEVICE);
+		if (unlikely(dma_mapping_error(dev, buf_dma))) {
+			dev_err(dev, "Failed to map tx skb page\n");
+			k3_cppi_desc_pool_free(tx_chn->desc_pool, next_desc);
+			ndev->stats.tx_errors++;
+			goto drop_free_descs;
+		}
+
+		cppi5_hdesc_reset_hbdesc(next_desc);
+		cppi5_hdesc_attach_buf(next_desc,
+				       buf_dma, frag_size, buf_dma, frag_size);
+
+		desc_dma = k3_cppi_desc_pool_virt2dma(tx_chn->desc_pool,
+						      next_desc);
+		cppi5_hdesc_link_hbdesc(cur_desc, desc_dma);
+
+		pkt_len += frag_size;
+		cur_desc = next_desc;
+	}
+	WARN_ON(pkt_len != skb->len);
+
+done_tx:
+	skb_tx_timestamp(skb);
+
+	/* report bql before sending packet */
+	dev_dbg(dev, "push 0 %d Bytes\n", pkt_len);
+
+	netdev_tx_sent_queue(netif_txq, pkt_len);
+
+	cppi5_hdesc_set_pktlen(first_desc, pkt_len);
+	desc_dma = k3_cppi_desc_pool_virt2dma(tx_chn->desc_pool, first_desc);
+	ret = k3_udma_glue_push_tx_chn(tx_chn->tx_chan, first_desc, desc_dma);
+	if (ret) {
+		dev_err(dev, "can't push desc %d\n", ret);
+		/* inform bql */
+		netdev_tx_completed_queue(netif_txq, 1, pkt_len);
+		ndev->stats.tx_errors++;
+		goto drop_free_descs;
+	}
+
+	if (k3_cppi_desc_pool_avail(tx_chn->desc_pool) < MAX_SKB_FRAGS) {
+		netif_tx_stop_queue(netif_txq);
+		/* Barrier, so that stop_queue visible to other cpus */
+		smp_mb__after_atomic();
+		dev_dbg(dev, "netif_tx_stop_queue %d\n", q);
+
+		/* re-check for smp */
+		if (k3_cppi_desc_pool_avail(tx_chn->desc_pool) >=
+		    MAX_SKB_FRAGS) {
+			netif_tx_wake_queue(netif_txq);
+			dev_dbg(dev, "netif_tx_wake_queue %d\n", q);
+		}
+	}
+
+	return NETDEV_TX_OK;
+
+drop_free_descs:
+	vport_xmit_free(tx_chn, dev, first_desc);
+drop_free_skb:
+	ndev->stats.tx_dropped++;
+	dev_kfree_skb_any(skb);
+	return NETDEV_TX_OK;
+
+busy_free_descs:
+	vport_xmit_free(tx_chn, dev, first_desc);
+busy_stop_q:
+	netif_tx_stop_queue(netif_txq);
+	return NETDEV_TX_BUSY;
+}
+
 static const struct net_device_ops cpsw_proxy_client_netdev_ops = {
 	.ndo_open		= vport_ndo_open,
 	.ndo_stop		= vport_ndo_stop,
+	.ndo_start_xmit		= vport_ndo_xmit,
 };
 
 static int init_netdev(struct cpsw_proxy_priv *proxy_priv, struct virtual_port *vport)
