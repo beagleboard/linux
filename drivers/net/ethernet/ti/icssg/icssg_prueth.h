@@ -37,6 +37,7 @@
 #include "icssg_config.h"
 #include "icss_iep.h"
 #include "icssg_switch_map.h"
+#include "icssg_qos.h"
 
 #define PRUETH_MAX_MTU          (2000 - ETH_HLEN - ETH_FCS_LEN)
 #define PRUETH_MIN_PKT_SIZE     (VLAN_ETH_ZLEN)
@@ -188,6 +189,8 @@ struct prueth_emac {
 
 	bool offload_fwd_mark;
 	int port_vlan;
+
+	struct prueth_qos qos;
 
 	struct delayed_work stats_work;
 	u64 stats[ICSSG_NUM_STATS];

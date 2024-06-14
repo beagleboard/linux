@@ -740,6 +740,7 @@ static const struct net_device_ops emac_netdev_ops = {
 	.ndo_eth_ioctl = emac_ndo_ioctl,
 	.ndo_get_stats64 = emac_ndo_get_stats64,
 	.ndo_get_phys_port_name = emac_ndo_get_phys_port_name,
+	.ndo_setup_tc = icssg_qos_ndo_setup_tc,
 };
 
 static int prueth_netdev_init(struct prueth *prueth,
@@ -873,6 +874,8 @@ static int prueth_netdev_init(struct prueth *prueth,
 		     HRTIMER_MODE_REL_PINNED);
 	emac->rx_hrtimer.function = &emac_rx_timer_callback;
 	prueth->emac[mac] = emac;
+
+	icssg_qos_tas_init(ndev);
 
 	return 0;
 

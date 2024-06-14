@@ -41,7 +41,8 @@ icssg-prueth-y := icssg/icssg_prueth.o \
 		  icssg/icssg_mii_cfg.o \
 		  icssg/icssg_stats.o \
 		  icssg/icssg_ethtool.o \
-		  icssg/icssg_switchdev.o
+		  icssg/icssg_switchdev.o \
+		  icssg/icssg_qos.o
 obj-$(CONFIG_TI_ICSSG_PRUETH_SR1) += icssg-prueth-sr1.o
 icssg-prueth-sr1-y := icssg/icssg_prueth_sr1.o \
 		      icssg/icssg_common.o \
