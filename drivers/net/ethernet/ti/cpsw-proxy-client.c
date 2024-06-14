@@ -131,6 +131,11 @@ struct cpsw_proxy_priv {
 	u32				num_active_rx_chans;
 };
 
+#define vport_netdev_to_priv(ndev) \
+	((struct vport_netdev_priv *)netdev_priv(ndev))
+#define vport_ndev_to_vport(ndev) \
+	(vport_netdev_to_priv(ndev)->vport)
+
 static int cpsw_proxy_client_cb(struct rpmsg_device *rpdev, void *data,
 				int len, void *priv, u32 src)
 {
@@ -1224,7 +1229,163 @@ static int deregister_mac(struct virtual_port *vport)
 	return ret;
 }
 
+static void vport_tx_cleanup(void *data, dma_addr_t desc_dma)
+{
+	struct tx_dma_chan *tx_chn = data;
+	struct cppi5_host_desc_t *desc_tx;
+	struct sk_buff *skb;
+	void **swdata;
+
+	desc_tx = k3_cppi_desc_pool_dma2virt(tx_chn->desc_pool, desc_dma);
+	swdata = cppi5_hdesc_get_swdata(desc_tx);
+	skb = *(swdata);
+	vport_xmit_free(tx_chn, tx_chn->dev, desc_tx);
+
+	dev_kfree_skb_any(skb);
+}
+
+static void vport_rx_cleanup(void *data, dma_addr_t desc_dma)
+{
+	struct rx_dma_chan *rx_chn = data;
+	struct cppi5_host_desc_t *desc_rx;
+	struct sk_buff *skb;
+	dma_addr_t buf_dma;
+	u32 buf_dma_len;
+	void **swdata;
+
+	desc_rx = k3_cppi_desc_pool_dma2virt(rx_chn->desc_pool, desc_dma);
+	swdata = cppi5_hdesc_get_swdata(desc_rx);
+	skb = *swdata;
+	cppi5_hdesc_get_obuf(desc_rx, &buf_dma, &buf_dma_len);
+
+	dma_unmap_single(rx_chn->dev, buf_dma, buf_dma_len, DMA_FROM_DEVICE);
+	k3_cppi_desc_pool_free(rx_chn->desc_pool, desc_rx);
+
+	dev_kfree_skb_any(skb);
+}
+
+static void vport_stop(struct virtual_port *vport)
+{
+	struct cpsw_proxy_priv *proxy_priv = vport->proxy_priv;
+	struct rx_dma_chan *rx_chn;
+	struct tx_dma_chan *tx_chn;
+	int i;
+
+	/* shutdown tx channels */
+	atomic_set(&vport->tdown_cnt, vport->num_tx_chan);
+	/* ensure new tdown_cnt value is visible */
+	smp_mb__after_atomic();
+	reinit_completion(&vport->tdown_complete);
+
+	for (i = 0; i < vport->num_tx_chan; i++)
+		k3_udma_glue_tdown_tx_chn(vport->tx_chans[i].tx_chan, false);
+
+	i = wait_for_completion_timeout(&vport->tdown_complete, msecs_to_jiffies(1000));
+	if (!i)
+		dev_err(proxy_priv->dev, "tx teardown timeout\n");
+
+	for (i = 0; i < vport->num_tx_chan; i++) {
+		tx_chn = &vport->tx_chans[i];
+		k3_udma_glue_reset_tx_chn(tx_chn->tx_chan, tx_chn, vport_tx_cleanup);
+		k3_udma_glue_disable_tx_chn(tx_chn->tx_chan);
+		napi_disable(&tx_chn->napi_tx);
+	}
+
+	for (i = 0; i < vport->num_rx_chan; i++) {
+		rx_chn = &vport->rx_chans[i];
+		k3_udma_glue_rx_flow_disable(rx_chn->rx_chan, 0);
+		/* Need some delay to process RX ring before reset */
+		msleep(100);
+		k3_udma_glue_reset_rx_chn(rx_chn->rx_chan, 0, rx_chn, vport_rx_cleanup,
+					  false);
+		napi_disable(&rx_chn->napi_rx);
+	}
+}
+
+static int vport_open(struct virtual_port *vport, netdev_features_t features)
+{
+	struct rx_dma_chan *rx_chn;
+	struct tx_dma_chan *tx_chn;
+	struct sk_buff *skb;
+	u32 i, j;
+	int ret;
+
+	for (i = 0; i < vport->num_rx_chan; i++) {
+		rx_chn = &vport->rx_chans[i];
+
+		for (j = 0; j < rx_chn->num_descs; j++) {
+			skb = __netdev_alloc_skb_ip_align(NULL, MAX_PACKET_SIZE, GFP_KERNEL);
+			if (!skb)
+				return -ENOMEM;
+
+			ret = vport_rx_push(vport, skb, i);
+			if (ret < 0) {
+				netdev_err(vport->ndev,
+					   "cannot submit skb to rx channel\n");
+				kfree_skb(skb);
+				return ret;
+			}
+			kmemleak_not_leak(skb);
+		}
+
+		ret = k3_udma_glue_rx_flow_enable(rx_chn->rx_chan, 0);
+		if (ret)
+			return ret;
+	}
+
+	for (i = 0; i < vport->num_tx_chan; i++) {
+		tx_chn = &vport->tx_chans[i];
+		ret = k3_udma_glue_enable_tx_chn(tx_chn->tx_chan);
+		if (ret)
+			return ret;
+		napi_enable(&tx_chn->napi_tx);
+	}
+
+	for (i = 0; i < vport->num_rx_chan; i++) {
+		rx_chn = &vport->rx_chans[i];
+		napi_enable(&rx_chn->napi_rx);
+	}
+
+	return 0;
+}
+
+static int vport_ndo_open(struct net_device *ndev)
+{
+	struct virtual_port *vport = vport_ndev_to_vport(ndev);
+	struct cpsw_proxy_priv *proxy_priv = vport->proxy_priv;
+	int ret;
+	u32 i;
+
+	ret = netif_set_real_num_tx_queues(ndev, vport->num_tx_chan);
+	if (ret)
+		return ret;
+
+	for (i = 0; i < vport->num_tx_chan; i++)
+		netdev_tx_reset_queue(netdev_get_tx_queue(ndev, i));
+
+	ret = vport_open(vport, ndev->features);
+	if (ret)
+		return ret;
+
+	ret = register_mac(vport);
+	if (ret) {
+		netdev_err(ndev, "failed to register MAC for port: %u\n",
+			   vport->port_id);
+		vport_stop(vport);
+		return -EIO;
+	}
+
+	netif_tx_wake_all_queues(ndev);
+	netif_carrier_on(ndev);
+
+	dev_info(proxy_priv->dev, "started port %u on interface %s\n",
+		 vport->port_id, ndev->name);
+
+	return 0;
+}
+
 static const struct net_device_ops cpsw_proxy_client_netdev_ops = {
+	.ndo_open		= vport_ndo_open,
 };
 
 static int init_netdev(struct cpsw_proxy_priv *proxy_priv, struct virtual_port *vport)
