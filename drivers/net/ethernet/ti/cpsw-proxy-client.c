@@ -148,6 +148,58 @@ struct cpsw_proxy_priv {
 #define vport_ndev_to_vport(ndev) \
 	(vport_netdev_to_priv(ndev)->vport)
 
+static int send_request_get_response(struct cpsw_proxy_priv *proxy_priv,
+				     struct message *response);
+static int server_recovery_handler(void *data)
+{
+	struct virtual_port *vport = (struct virtual_port *)data;
+	struct net_device *ndev;
+
+	ndev = vport->ndev;
+	netif_device_attach(ndev);
+	if (!netif_running(ndev)) {
+		rtnl_lock();
+		dev_open(ndev, NULL);
+		rtnl_unlock();
+	}
+
+	return 0;
+}
+
+static int server_error_handler(void *data)
+{
+	struct virtual_port *vport = (struct virtual_port *)data;
+	struct cpsw_proxy_priv *proxy_priv = vport->proxy_priv;
+	struct cpsw_proxy_req_params *req_p;
+	struct net_device *ndev;
+	struct message resp_msg;
+	int ret;
+
+	ndev = vport->ndev;
+	netif_device_detach(ndev);
+	if (netif_running(ndev)) {
+		rtnl_lock();
+		dev_close(ndev);
+		rtnl_unlock();
+	}
+
+	mutex_lock(&proxy_priv->req_params_mutex);
+	req_p = &proxy_priv->req_params;
+	req_p->request_type = ETHFW_TEARDOWN_COMPLETE;
+	req_p->token = vport->port_token;
+	ret = send_request_get_response(proxy_priv, &resp_msg);
+	mutex_unlock(&proxy_priv->req_params_mutex);
+
+	if (ret) {
+		dev_err(proxy_priv->dev,
+			"Virt Port: %u teardown completion notify err: %d\n",
+			vport->port_id, ret);
+		return ret;
+	}
+
+	return 0;
+}
+
 static int cpsw_proxy_client_cb(struct rpmsg_device *rpdev, void *data,
 				int len, void *priv, u32 src)
 {
