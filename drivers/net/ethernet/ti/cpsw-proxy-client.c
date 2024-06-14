@@ -1248,8 +1248,94 @@ static u32 vport_get_link(struct net_device *ndev)
 	return link_up;
 }
 
+static int vport_get_coal(struct net_device *ndev, struct ethtool_coalesce *coal,
+			  struct kernel_ethtool_coalesce *kernel_coal,
+			  struct netlink_ext_ack *extack)
+{
+	struct virtual_port *vport = vport_ndev_to_vport(ndev);
+
+	coal->tx_coalesce_usecs = vport->tx_chans[0].tx_pace_timeout / 1000;
+	coal->rx_coalesce_usecs = vport->rx_chans[0].rx_pace_timeout / 1000;
+	return 0;
+}
+
+static int vport_set_coal(struct net_device *ndev, struct ethtool_coalesce *coal,
+			  struct kernel_ethtool_coalesce *kernel_coal,
+			  struct netlink_ext_ack *extack)
+{
+	struct virtual_port *vport = vport_ndev_to_vport(ndev);
+	struct cpsw_proxy_priv *proxy_priv = vport->proxy_priv;
+	struct device *dev = proxy_priv->dev;
+	u32 i;
+
+	if (coal->tx_coalesce_usecs && coal->tx_coalesce_usecs < 20) {
+		dev_err(dev, "TX coalesce must be at least 20 usecs. Defaulting to 20 usecs\n");
+		coal->tx_coalesce_usecs = 20;
+	}
+
+	if (coal->rx_coalesce_usecs && coal->rx_coalesce_usecs < 20) {
+		dev_err(dev, "RX coalesce must be at least 20 usecs. Defaulting to 20 usecs\n");
+		coal->rx_coalesce_usecs = 20;
+	}
+
+	/* Since it is possible to set pacing values per TX and RX queue, if per queue value is
+	 * not specified, apply it to all available TX and RX queues.
+	 */
+
+	for (i = 0; i < vport->num_tx_chan; i++)
+		vport->tx_chans[i].tx_pace_timeout = coal->tx_coalesce_usecs * 1000;
+
+	for (i = 0; i < vport->num_rx_chan; i++)
+		vport->rx_chans[i].rx_pace_timeout = coal->rx_coalesce_usecs * 1000;
+
+	return 0;
+}
+
+static int vport_get_per_q_coal(struct net_device *ndev, u32 q,
+				struct ethtool_coalesce *coal)
+{
+	struct virtual_port *vport = vport_ndev_to_vport(ndev);
+
+	if (q >= vport->num_tx_chan || q >= vport->num_rx_chan)
+		return -EINVAL;
+
+	coal->tx_coalesce_usecs = vport->tx_chans[q].tx_pace_timeout / 1000;
+	coal->rx_coalesce_usecs = vport->rx_chans[q].rx_pace_timeout / 1000;
+
+	return 0;
+}
+
+static int vport_set_per_q_coal(struct net_device *ndev, u32 q,
+				struct ethtool_coalesce *coal)
+{	struct virtual_port *vport = vport_ndev_to_vport(ndev);
+	struct device *dev = vport->proxy_priv->dev;
+
+	if (q >= vport->num_tx_chan || q >= vport->num_rx_chan)
+		return -EINVAL;
+
+	if (coal->tx_coalesce_usecs && coal->tx_coalesce_usecs < 20) {
+		dev_err(dev, "TX coalesce must be at least 20 usecs. Defaulting to 20 usecs\n");
+		coal->tx_coalesce_usecs = 20;
+	}
+
+	if (coal->rx_coalesce_usecs && coal->rx_coalesce_usecs < 20) {
+		dev_err(dev, "RX coalesce must be at least 20 usecs. Defaulting to 20 usecs\n");
+		coal->rx_coalesce_usecs = 20;
+	}
+
+	vport->tx_chans[q].tx_pace_timeout = coal->tx_coalesce_usecs * 1000;
+	vport->rx_chans[q].rx_pace_timeout = coal->rx_coalesce_usecs * 1000;
+
+	return 0;
+}
+
 const struct ethtool_ops cpsw_proxy_client_ethtool_ops = {
 	.get_link		= vport_get_link,
+	.supported_coalesce_params = ETHTOOL_COALESCE_USECS,
+	.get_coalesce           = vport_get_coal,
+	.set_coalesce           = vport_set_coal,
+	.get_per_queue_coalesce = vport_get_per_q_coal,
+	.set_per_queue_coalesce = vport_set_per_q_coal,
 };
 
 static int register_mac(struct virtual_port *vport)
