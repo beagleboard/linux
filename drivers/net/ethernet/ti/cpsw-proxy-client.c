@@ -8,6 +8,7 @@
 #include <linux/etherdevice.h>
 #include <linux/ethtool.h>
 #include <linux/if_vlan.h>
+#include <linux/inetdevice.h>
 #include <linux/kernel.h>
 #include <linux/kmemleak.h>
 #include <linux/module.h>
@@ -106,6 +107,7 @@ struct virtual_port {
 	struct rx_dma_chan		*rx_chans;
 	struct tx_dma_chan		*tx_chans;
 	struct completion		tdown_complete;
+	struct notifier_block		inetaddr_nb;
 	enum virtual_port_type		port_type;
 	atomic_t			tdown_cnt;
 	u32				port_id;
@@ -113,6 +115,7 @@ struct virtual_port {
 	u32				port_features;
 	u32				num_rx_chan;
 	u32				num_tx_chan;
+	u8				ipv4_addr[ETHFW_IPV4ADDRLEN];
 	u8				mac_addr[ETH_ALEN];
 	bool				mac_in_use;
 };
@@ -1945,6 +1948,126 @@ static int register_dma_irq_handlers(struct cpsw_proxy_priv *proxy_priv)
 	}
 
 	return 0;
+}
+
+static int register_ipv4(struct virtual_port *vport)
+{
+	struct cpsw_proxy_priv *proxy_priv = vport->proxy_priv;
+	struct device *dev = proxy_priv->dev;
+	struct cpsw_proxy_req_params *req_p;
+	struct message resp_msg;
+	int ret;
+
+	mutex_lock(&proxy_priv->req_params_mutex);
+	req_p = &proxy_priv->req_params;
+	req_p->request_type = ETHFW_IPv4_REGISTER;
+	req_p->token = vport->port_token;
+	memcpy(req_p->ipv4_addr, vport->ipv4_addr, ETHFW_IPV4ADDRLEN);
+	ether_addr_copy(req_p->mac_addr, vport->mac_addr);
+	ret = send_request_get_response(proxy_priv, &resp_msg);
+	mutex_unlock(&proxy_priv->req_params_mutex);
+
+	if (ret) {
+		dev_err(dev, "failed to register IPv4 Address err: %d\n", ret);
+		return -EIO;
+	}
+
+	return 0;
+}
+
+static int deregister_ipv4(struct virtual_port *vport)
+{
+	struct cpsw_proxy_priv *proxy_priv = vport->proxy_priv;
+	struct device *dev = proxy_priv->dev;
+	struct cpsw_proxy_req_params *req_p;
+	struct message resp_msg;
+	int ret;
+
+	mutex_lock(&proxy_priv->req_params_mutex);
+	req_p = &proxy_priv->req_params;
+	req_p->request_type = ETHFW_IPv4_DEREGISTER;
+	req_p->token = vport->port_token;
+	memcpy(req_p->ipv4_addr, vport->ipv4_addr, ETHFW_IPV4ADDRLEN);
+	ret = send_request_get_response(proxy_priv, &resp_msg);
+	mutex_unlock(&proxy_priv->req_params_mutex);
+
+	if (ret) {
+		dev_err(dev, "failed to deregister IPv4 Address err: %d\n", ret);
+		return -EIO;
+	}
+
+	return 0;
+}
+
+static bool cpsw_proxy_client_check(const struct net_device *ndev)
+{
+	struct virtual_port *vport = vport_ndev_to_vport(ndev);
+
+	return ndev->netdev_ops == &cpsw_proxy_client_netdev_ops &&
+				   vport->port_type == VIRT_SWITCH_PORT;
+}
+
+static int cpsw_proxy_client_inetaddr(struct notifier_block *unused,
+				      unsigned long event, void *ptr)
+{
+	struct in_ifaddr *ifa = (struct in_ifaddr *)ptr;
+	struct virtual_port *vport;
+	struct net_device *ndev;
+	int ret = 0;
+
+	ndev = ifa->ifa_dev ? ifa->ifa_dev->dev : NULL;
+	if (!ndev)
+		return NOTIFY_DONE;
+
+	if (!cpsw_proxy_client_check(ndev))
+		return NOTIFY_DONE;
+
+	vport = vport_ndev_to_vport(ndev);
+	memcpy(vport->ipv4_addr, &ifa->ifa_address, ETHFW_IPV4ADDRLEN);
+
+	switch (event) {
+	case NETDEV_UP:
+	case NETDEV_CHANGEADDR:
+		ret = register_ipv4(vport);
+		if (ret)
+			netdev_err(ndev, "IPv4 register failed: %d\n", ret);
+		break;
+
+	case NETDEV_DOWN:
+	case NETDEV_PRE_CHANGEADDR:
+		ret = deregister_ipv4(vport);
+		if (ret)
+			netdev_err(ndev, "IPv4 deregister failed: %d\n", ret);
+		break;
+	}
+
+	return notifier_from_errno(ret);
+}
+
+static void unregister_notifiers(struct cpsw_proxy_priv *proxy_priv)
+{
+	struct virtual_port *vport;
+	u32 i;
+
+	for (i = 0; i < proxy_priv->num_virt_ports; i++) {
+		vport = &proxy_priv->virt_ports[i];
+		if (vport->port_type == VIRT_SWITCH_PORT)
+			unregister_inetaddr_notifier(&vport->inetaddr_nb);
+	}
+}
+
+static void register_notifiers(struct cpsw_proxy_priv *proxy_priv)
+{
+	struct virtual_port *vport;
+	u32 i;
+
+	for (i = 0; i < proxy_priv->num_virt_ports; i++) {
+		vport = &proxy_priv->virt_ports[i];
+		if (vport->port_type == VIRT_SWITCH_PORT) {
+			vport->inetaddr_nb.notifier_call = cpsw_proxy_client_inetaddr;
+			register_inetaddr_notifier(&vport->inetaddr_nb);
+		}
+	}
 }
 
 static int cpsw_proxy_client_probe(struct rpmsg_device *rpdev)
