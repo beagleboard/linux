@@ -1591,11 +1591,37 @@ static void vport_ndo_get_stats(struct net_device *ndev,
 	stats->tx_dropped	= ndev->stats.tx_dropped;
 }
 
+static void vport_ndo_tx_timeout(struct net_device *ndev, unsigned int txqueue)
+{
+	struct virtual_port *vport = vport_ndev_to_vport(ndev);
+	struct netdev_queue *netif_txq;
+	struct tx_dma_chan *tx_chn;
+	unsigned long trans_start;
+
+	/* process every txq */
+	netif_txq = netdev_get_tx_queue(ndev, txqueue);
+	tx_chn = &vport->tx_chans[txqueue];
+	trans_start = READ_ONCE(netif_txq->trans_start);
+
+	netdev_err(ndev, "txq:%d DRV_XOFF: %d tmo: %u dql_avail:%d free_desc:%zu\n",
+		   txqueue, netif_tx_queue_stopped(netif_txq),
+		   jiffies_to_msecs(jiffies - trans_start),
+		   dql_avail(&netif_txq->dql),
+		   k3_cppi_desc_pool_avail(tx_chn->desc_pool));
+
+	if (netif_tx_queue_stopped(netif_txq)) {
+		/* try to recover if it was stopped by driver */
+		txq_trans_update(netif_txq);
+		netif_tx_wake_queue(netif_txq);
+	}
+}
+
 static const struct net_device_ops cpsw_proxy_client_netdev_ops = {
 	.ndo_open		= vport_ndo_open,
 	.ndo_stop		= vport_ndo_stop,
 	.ndo_start_xmit		= vport_ndo_xmit,
 	.ndo_get_stats64	= vport_ndo_get_stats,
+	.ndo_tx_timeout		= vport_ndo_tx_timeout,
 };
 
 static int init_netdev(struct cpsw_proxy_priv *proxy_priv, struct virtual_port *vport)
