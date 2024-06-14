@@ -12,6 +12,7 @@
 #include <linux/kernel.h>
 #include <linux/kmemleak.h>
 #include <linux/module.h>
+#include <linux/of.h>
 #include <linux/rpmsg.h>
 #include <linux/dma/k3-udma-glue.h>
 
@@ -2235,9 +2236,33 @@ static void register_notifiers(struct cpsw_proxy_priv *proxy_priv)
 	}
 }
 
+static void show_info(struct cpsw_proxy_priv *proxy_priv)
+{
+	struct device *dev = proxy_priv->dev;
+	struct virtual_port *vport;
+	u32 i;
+
+	dev_info(dev, "%u Virtual Switch Port(s), %u Virtual MAC Only Port(s)\n",
+		 proxy_priv->num_switch_ports, proxy_priv->num_mac_ports);
+
+	for (i = 0; i < proxy_priv->num_virt_ports; i++) {
+		vport = &proxy_priv->virt_ports[i];
+
+		if (vport->port_type == VIRT_SWITCH_PORT)
+			dev_info(dev, "Virt Port: %u, Type: Switch Port, Iface: %s, Num TX: %u, Num RX: %u, Token: %u\n",
+				 vport->port_id, vport->ndev->name, vport->num_tx_chan,
+				 vport->num_rx_chan, vport->port_token);
+		else
+			dev_info(dev, "Virt Port: %u, Type: MAC Port, Iface: %s, Num TX: %u, Num RX: %u, Token: %u\n",
+				 vport->port_id, vport->ndev->name, vport->num_tx_chan,
+				 vport->num_rx_chan, vport->port_token);
+	}
+}
+
 static int cpsw_proxy_client_probe(struct rpmsg_device *rpdev)
 {
 	struct cpsw_proxy_priv *proxy_priv;
+	int ret;
 
 	proxy_priv = devm_kzalloc(&rpdev->dev, sizeof(struct cpsw_proxy_priv), GFP_KERNEL);
 	if (!proxy_priv)
@@ -2245,22 +2270,79 @@ static int cpsw_proxy_client_probe(struct rpmsg_device *rpdev)
 
 	proxy_priv->rpdev = rpdev;
 	proxy_priv->dev = &rpdev->dev;
+	proxy_priv->dma_node = of_find_compatible_node(NULL, NULL,
+						       (const char *)rpdev->id.driver_data);
 	dev_set_drvdata(proxy_priv->dev, proxy_priv);
 	dev_dbg(proxy_priv->dev, "driver probed\n");
 
+	proxy_priv->req_params.token = ETHFW_TOKEN_NONE;
+	proxy_priv->req_params.client_id = ETHFW_LINUX_CLIENT_TOKEN;
+	mutex_init(&proxy_priv->req_params_mutex);
+	init_completion(&proxy_priv->wait_for_response);
+
+	ret = get_virtual_port_info(proxy_priv);
+	if (ret)
+		return -EIO;
+
+	ret = attach_virtual_ports(proxy_priv);
+	if (ret)
+		return -EIO;
+
+	ret = allocate_port_resources(proxy_priv);
+	if (ret)
+		goto err_attach;
+
+	ret = dma_coerce_mask_and_coherent(proxy_priv->dev, DMA_BIT_MASK(48));
+	if (ret) {
+		dev_err(proxy_priv->dev, "error setting dma mask: %d\n", ret);
+		goto err_attach;
+	}
+
+	ret = init_tx_chans(proxy_priv);
+	if (ret)
+		goto err_attach;
+
+	ret = init_rx_chans(proxy_priv);
+	if (ret)
+		goto err_attach;
+
+	ret = init_netdevs(proxy_priv);
+	if (ret)
+		goto err_attach;
+
+	ret = register_dma_irq_handlers(proxy_priv);
+	if (ret)
+		goto err_netdevs;
+
+	register_notifiers(proxy_priv);
+	show_info(proxy_priv);
+
 	return 0;
+
+err_netdevs:
+	unreg_netdevs(proxy_priv);
+err_attach:
+	detach_virtual_ports(proxy_priv);
+	return ret;
 }
 
 static void cpsw_proxy_client_remove(struct rpmsg_device *rpdev)
 {
+	struct cpsw_proxy_priv *proxy_priv;
 	struct device *dev = &rpdev->dev;
 
 	dev_dbg(dev, "driver removed\n");
+	proxy_priv = dev_get_drvdata(&rpdev->dev);
+	unregister_notifiers(proxy_priv);
+	unreg_netdevs(proxy_priv);
+	destroy_vport_wqs(proxy_priv);
+	detach_virtual_ports(proxy_priv);
 }
 
 static struct rpmsg_device_id cpsw_proxy_client_id_table[] = {
 	{
 		.name = ETHFW_SERVICE_EP_NAME,
+		.driver_data = (kernel_ulong_t)"ti,j721e-navss-main-udmap",
 	},
 	{},
 };
