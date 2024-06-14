@@ -10,6 +10,7 @@
 #include <linux/if_vlan.h>
 #include <linux/inetdevice.h>
 #include <linux/kernel.h>
+#include <linux/kthread.h>
 #include <linux/kmemleak.h>
 #include <linux/module.h>
 #include <linux/of.h>
@@ -200,19 +201,68 @@ static int server_error_handler(void *data)
 	return 0;
 }
 
+static struct virtual_port *vport_from_token(struct cpsw_proxy_priv *proxy_priv, u32 token)
+{
+	struct virtual_port *vport;
+	u32 i;
+
+	for (i = 0; i < proxy_priv->num_virt_ports; i++) {
+		vport = &proxy_priv->virt_ports[i];
+
+		if (vport->port_token == token)
+			return vport;
+	}
+
+	return NULL;
+}
+
 static int cpsw_proxy_client_cb(struct rpmsg_device *rpdev, void *data,
 				int len, void *priv, u32 src)
 {
 	struct cpsw_proxy_priv *proxy_priv = dev_get_drvdata(&rpdev->dev);
 	struct response_message_header *resp_msg_hdr;
+	struct notify_message_header *notify_msg_hdr;
 	struct message *msg = (struct message *)data;
+	struct task_struct *server_notify_handler;
 	struct cpsw_proxy_req_params *req_params;
 	struct device *dev = &rpdev->dev;
+	struct virtual_port *vport;
+	u32 notify_type, token;
 	u32 msg_type, resp_id;
 
 	dev_dbg(dev, "callback invoked\n");
 	msg_type = msg->msg_hdr.msg_type;
 	switch (msg_type) {
+	case ETHFW_MSG_NOTIFY:
+		notify_msg_hdr = (struct notify_message_header *)msg;
+		notify_type = notify_msg_hdr->notify_type;
+		token = notify_msg_hdr->msg_hdr.token;
+		vport = vport_from_token(proxy_priv, token);
+		if (!vport) {
+			dev_err(dev, "invalid notification received\n");
+			return -EIO;
+		}
+
+		switch (notify_type) {
+		case ETHFW_NOTIFYCLIENT_HWERROR:
+			server_notify_handler = kthread_run(&server_error_handler, vport,
+							    "hwerr_handler");
+			if (IS_ERR(server_notify_handler))
+				return PTR_ERR(server_notify_handler);
+			return 0;
+
+		case ETHFW_NOTIFYCLIENT_RECOVERED:
+			server_notify_handler = kthread_run(&server_recovery_handler, vport,
+							    "recovery_handler");
+			if (IS_ERR(server_notify_handler))
+				return PTR_ERR(server_notify_handler);
+			return 0;
+
+		default:
+			dev_err(dev, "invalid notification received\n");
+			return -EIO;
+		}
+
 	case ETHFW_MSG_RESPONSE:
 		resp_msg_hdr = (struct response_message_header *)msg;
 		resp_id = resp_msg_hdr->response_id;
