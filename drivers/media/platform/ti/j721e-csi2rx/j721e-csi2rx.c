@@ -1613,7 +1613,7 @@ err_ctx:
 	i--;
 	for (; i >= 0; i--)
 		ti_csi2rx_cleanup_ctx(&csi->ctx[i]);
-
+	ti_csi2rx_cleanup_v4l2(csi);
 err_v4l2:
 	mutex_destroy(&csi->mutex);
 	dma_free_coherent(csi->dev, csi->drain.len, csi->drain.vaddr,
