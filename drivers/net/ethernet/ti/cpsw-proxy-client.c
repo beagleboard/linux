@@ -66,6 +66,7 @@ struct tx_dma_chan {
 	struct device			*dev;
 	struct k3_cppi_desc_pool	*desc_pool;
 	struct k3_udma_glue_tx_channel	*tx_chan;
+	struct napi_struct		napi_tx;
 	u32				rel_chan_idx;
 	u32				thread_id;
 	u32				num_descs;
@@ -74,11 +75,26 @@ struct tx_dma_chan {
 	bool				in_use;
 };
 
+struct vport_netdev_stats {
+	u64			tx_packets;
+	u64			tx_bytes;
+	u64			rx_packets;
+	u64			rx_bytes;
+	struct u64_stats_sync	syncp;
+};
+
+struct vport_netdev_priv {
+	struct vport_netdev_stats __percpu	*stats;
+	struct virtual_port			*vport;
+};
+
 struct virtual_port {
 	struct cpsw_proxy_priv		*proxy_priv;
 	struct rx_dma_chan		*rx_chans;
 	struct tx_dma_chan		*tx_chans;
+	struct completion		tdown_complete;
 	enum virtual_port_type		port_type;
+	atomic_t			tdown_cnt;
 	u32				port_id;
 	u32				port_token;
 	u32				port_features;
@@ -667,6 +683,7 @@ static int init_tx_chans(struct cpsw_proxy_priv *proxy_priv)
 
 	for (i = 0; i < proxy_priv->num_virt_ports; i++) {
 		vport = &proxy_priv->virt_ports[i];
+		init_completion(&vport->tdown_complete);
 
 		for (j = 0; j < vport->num_tx_chan; j++) {
 			tx_chn = &vport->tx_chans[j];
@@ -841,6 +858,129 @@ err:
 	}
 
 	return ret;
+}
+
+static void vport_xmit_free(struct tx_dma_chan *tx_chn, struct device *dev,
+			    struct cppi5_host_desc_t *desc)
+{
+	struct cppi5_host_desc_t *first_desc, *next_desc;
+	dma_addr_t buf_dma, next_desc_dma;
+	u32 buf_dma_len;
+
+	first_desc = desc;
+	next_desc = first_desc;
+
+	cppi5_hdesc_get_obuf(first_desc, &buf_dma, &buf_dma_len);
+
+	dma_unmap_single(dev, buf_dma, buf_dma_len,
+			 DMA_TO_DEVICE);
+
+	next_desc_dma = cppi5_hdesc_get_next_hbdesc(first_desc);
+	while (next_desc_dma) {
+		next_desc = k3_cppi_desc_pool_dma2virt(tx_chn->desc_pool,
+						       next_desc_dma);
+		cppi5_hdesc_get_obuf(next_desc, &buf_dma, &buf_dma_len);
+
+		dma_unmap_page(dev, buf_dma, buf_dma_len,
+			       DMA_TO_DEVICE);
+
+		next_desc_dma = cppi5_hdesc_get_next_hbdesc(next_desc);
+
+		k3_cppi_desc_pool_free(tx_chn->desc_pool, next_desc);
+	}
+
+	k3_cppi_desc_pool_free(tx_chn->desc_pool, first_desc);
+}
+
+static int tx_compl_packets(struct virtual_port *vport, unsigned int tx_chan_idx,
+			    unsigned int budget, bool *tdown)
+{
+	struct cpsw_proxy_priv *proxy_priv = vport->proxy_priv;
+	struct device *dev = proxy_priv->dev;
+	struct cppi5_host_desc_t *desc_tx;
+	struct netdev_queue *netif_txq;
+	unsigned int total_bytes = 0;
+	struct tx_dma_chan *tx_chn;
+	struct net_device *ndev;
+	struct sk_buff *skb;
+	dma_addr_t desc_dma;
+	int res, num_tx = 0;
+	void **swdata;
+
+	tx_chn = &vport->tx_chans[tx_chan_idx];
+
+	while (budget--) {
+		struct vport_netdev_priv *ndev_priv;
+		struct vport_netdev_stats *stats;
+
+		res = k3_udma_glue_pop_tx_chn(tx_chn->tx_chan, &desc_dma);
+		if (res == -ENODATA)
+			break;
+
+		if (desc_dma & 0x1) {
+			if (atomic_dec_and_test(&vport->tdown_cnt))
+				complete(&vport->tdown_complete);
+			*tdown = true;
+			break;
+		}
+
+		desc_tx = k3_cppi_desc_pool_dma2virt(tx_chn->desc_pool,
+						     desc_dma);
+		swdata = cppi5_hdesc_get_swdata(desc_tx);
+		skb = *(swdata);
+		vport_xmit_free(tx_chn, dev, desc_tx);
+
+		ndev = skb->dev;
+
+		ndev_priv = netdev_priv(ndev);
+		stats = this_cpu_ptr(ndev_priv->stats);
+		u64_stats_update_begin(&stats->syncp);
+		stats->tx_packets++;
+		stats->tx_bytes += skb->len;
+		u64_stats_update_end(&stats->syncp);
+
+		total_bytes += skb->len;
+		napi_consume_skb(skb, budget);
+		num_tx++;
+	}
+
+	if (!num_tx)
+		return 0;
+
+	netif_txq = netdev_get_tx_queue(ndev, tx_chan_idx);
+	netdev_tx_completed_queue(netif_txq, num_tx, total_bytes);
+
+	if (netif_tx_queue_stopped(netif_txq)) {
+		__netif_tx_lock(netif_txq, smp_processor_id());
+		if (netif_running(ndev) &&
+		    (k3_cppi_desc_pool_avail(tx_chn->desc_pool) >=
+		     MAX_SKB_FRAGS))
+			netif_tx_wake_queue(netif_txq);
+
+		__netif_tx_unlock(netif_txq);
+	}
+
+	return num_tx;
+}
+
+static int vport_tx_poll(struct napi_struct *napi_tx, int budget)
+{
+	struct tx_dma_chan *tx_chn = container_of(napi_tx, struct tx_dma_chan,
+							 napi_tx);
+	struct virtual_port *vport = tx_chn->vport;
+	bool tdown = false;
+	int num_tx;
+
+	/* process every unprocessed channel */
+	num_tx = tx_compl_packets(vport, tx_chn->rel_chan_idx, budget, &tdown);
+
+	if (num_tx >= budget)
+		return budget;
+
+	if (napi_complete_done(napi_tx, num_tx))
+		enable_irq(tx_chn->irq);
+
+	return 0;
 }
 
 static int cpsw_proxy_client_probe(struct rpmsg_device *rpdev)
