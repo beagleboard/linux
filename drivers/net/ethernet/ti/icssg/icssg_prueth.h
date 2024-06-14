@@ -356,6 +356,8 @@ void emac_stats_work_handler(struct work_struct *work);
 void emac_update_hardware_stats(struct prueth_emac *emac);
 int emac_get_stat_by_name(struct prueth_emac *emac, char *stat_name);
 
+u64 prueth_iep_gettime(void *clockops_data, struct ptp_system_timestamp *sts);
+
 /* Common functions */
 void prueth_cleanup_rx_chns(struct prueth_emac *emac,
 			    struct prueth_rx_chn *rx_chn,
