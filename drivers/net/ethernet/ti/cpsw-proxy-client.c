@@ -1274,6 +1274,66 @@ err:
 	return ret;
 }
 
+static irqreturn_t tx_irq_handler(int irq, void *dev_id)
+{
+	struct tx_dma_chan *tx_chn = dev_id;
+
+	disable_irq_nosync(irq);
+	napi_schedule(&tx_chn->napi_tx);
+
+	return IRQ_HANDLED;
+}
+
+static irqreturn_t rx_irq_handler(int irq, void *dev_id)
+{
+	struct rx_dma_chan *rx_chn = dev_id;
+
+	disable_irq_nosync(irq);
+	napi_schedule(&rx_chn->napi_rx);
+
+	return IRQ_HANDLED;
+}
+
+static int register_dma_irq_handlers(struct cpsw_proxy_priv *proxy_priv)
+{
+	struct device *dev = proxy_priv->dev;
+	struct rx_dma_chan *rx_chn;
+	struct tx_dma_chan *tx_chn;
+	struct virtual_port *vport;
+	u32 i, j;
+	int ret;
+
+	for (i = 0; i < proxy_priv->num_virt_ports; i++) {
+		vport = &proxy_priv->virt_ports[i];
+
+		for (j = 0; j < vport->num_tx_chan; j++) {
+			tx_chn = &vport->tx_chans[j];
+
+			ret = devm_request_irq(dev, tx_chn->irq, tx_irq_handler,
+					       IRQF_TRIGGER_HIGH, tx_chn->tx_chan_name, tx_chn);
+			if (ret) {
+				dev_err(dev, "failed to request tx irq: %u, err: %d\n",
+					tx_chn->irq, ret);
+				return ret;
+			}
+		}
+
+		for (j = 0; j < vport->num_rx_chan; j++) {
+			rx_chn = &vport->rx_chans[j];
+
+			ret = devm_request_irq(dev, rx_chn->irq, rx_irq_handler,
+					       IRQF_TRIGGER_HIGH, rx_chn->rx_chan_name, rx_chn);
+			if (ret) {
+				dev_err(dev, "failed to request rx irq: %u, err: %d\n",
+					rx_chn->irq, ret);
+				return ret;
+			}
+		}
+	}
+
+	return 0;
+}
+
 static int cpsw_proxy_client_probe(struct rpmsg_device *rpdev)
 {
 	struct cpsw_proxy_priv *proxy_priv;
