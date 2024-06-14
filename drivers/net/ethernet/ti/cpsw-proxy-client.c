@@ -20,6 +20,8 @@
 #define SW_DATA_SIZE	16
 
 #define MAX_TX_DESC	500
+#define MAX_RX_DESC	500
+#define MAX_RX_FLOWS	1
 
 #define CHAN_NAME_LEN	128
 
@@ -46,10 +48,16 @@ struct cpsw_proxy_req_params {
 
 struct rx_dma_chan {
 	struct virtual_port		*vport;
+	struct device			*dev;
+	struct k3_cppi_desc_pool	*desc_pool;
+	struct k3_udma_glue_rx_channel	*rx_chan;
 	u32				rel_chan_idx;
 	u32				flow_base;
 	u32				flow_offset;
 	u32				thread_id;
+	u32				num_descs;
+	unsigned int			irq;
+	char				rx_chan_name[CHAN_NAME_LEN];
 	bool				in_use;
 };
 
@@ -96,6 +104,7 @@ struct cpsw_proxy_priv {
 	u32				num_mac_ports;
 	u32				num_virt_ports;
 	u32				num_active_tx_chans;
+	u32				num_active_rx_chans;
 };
 
 static int cpsw_proxy_client_cb(struct rpmsg_device *rpdev, void *data,
@@ -709,6 +718,125 @@ err:
 	ret1 = devm_add_action(dev, free_tx_chns, proxy_priv);
 	if (ret1) {
 		dev_err(dev, "failed to add free_tx_chns action %d", ret1);
+		return ret1;
+	}
+
+	return ret;
+}
+
+static void free_rx_chns(void *data)
+{
+	struct cpsw_proxy_priv *proxy_priv = data;
+	struct rx_dma_chan *rx_chn;
+	struct virtual_port *vport;
+	u32 i, j;
+
+	for (i = 0; i < proxy_priv->num_virt_ports; i++) {
+		vport = &proxy_priv->virt_ports[i];
+
+		for (j = 0; j < vport->num_rx_chan; j++) {
+			rx_chn = &vport->rx_chans[j];
+
+			if (!IS_ERR_OR_NULL(rx_chn->desc_pool))
+				k3_cppi_desc_pool_destroy(rx_chn->desc_pool);
+
+			if (!IS_ERR_OR_NULL(rx_chn->rx_chan))
+				k3_udma_glue_release_rx_chn(rx_chn->rx_chan);
+		}
+	}
+}
+
+static int init_rx_chans(struct cpsw_proxy_priv *proxy_priv)
+{
+	struct k3_udma_glue_rx_channel_cfg rx_cfg = {0};
+	struct device *dev = proxy_priv->dev;
+	u32 hdesc_size, rx_chn_num, i, j;
+	u32  max_desc_num = MAX_RX_DESC;
+	char rx_chn_name[CHAN_NAME_LEN];
+	struct rx_dma_chan *rx_chn;
+	struct virtual_port *vport;
+	struct k3_ring_cfg rxring_cfg = {
+		.elm_size = K3_RINGACC_RING_ELSIZE_8,
+		.mode = K3_RINGACC_RING_MODE_MESSAGE,
+		.flags = 0,
+	};
+	struct k3_ring_cfg fdqring_cfg = {
+		.elm_size = K3_RINGACC_RING_ELSIZE_8,
+		.mode = K3_RINGACC_RING_MODE_MESSAGE,
+		.flags = 0,
+	};
+	struct k3_udma_glue_rx_flow_cfg rx_flow_cfg = {
+		.rx_cfg = rxring_cfg,
+		.rxfdq_cfg = fdqring_cfg,
+		.ring_rxq_id = K3_RINGACC_RING_ID_ANY,
+		.ring_rxfdq0_id = K3_RINGACC_RING_ID_ANY,
+		.src_tag_lo_sel = K3_UDMA_GLUE_SRC_TAG_LO_USE_REMOTE_SRC_TAG,
+	};
+	int ret = 0, ret1;
+
+	hdesc_size = cppi5_hdesc_calc_size(true, PS_DATA_SIZE, SW_DATA_SIZE);
+
+	rx_cfg.swdata_size = SW_DATA_SIZE;
+	rx_cfg.flow_id_num = MAX_RX_FLOWS;
+	rx_cfg.remote = true;
+
+	for (i = 0; i < proxy_priv->num_virt_ports; i++) {
+		vport = &proxy_priv->virt_ports[i];
+
+		for (j = 0; j < vport->num_rx_chan; j++) {
+			rx_chn = &vport->rx_chans[j];
+
+			rx_chn_num = proxy_priv->num_active_rx_chans++;
+			snprintf(rx_chn_name, sizeof(rx_chn_name), "rx%u-virt-port-%u", rx_chn_num,
+				 vport->port_id);
+			strscpy(rx_chn->rx_chan_name, rx_chn_name, sizeof(rx_chn->rx_chan_name));
+
+			rx_cfg.flow_id_base = rx_chn->flow_base + rx_chn->flow_offset;
+
+			/* init all flows */
+			rx_chn->dev = dev;
+			rx_chn->num_descs = max_desc_num;
+			rx_chn->desc_pool = k3_cppi_desc_pool_create_name(dev,
+									  rx_chn->num_descs,
+									  hdesc_size,
+									  rx_chn_name);
+			if (IS_ERR(rx_chn->desc_pool)) {
+				ret = PTR_ERR(rx_chn->desc_pool);
+				dev_err(dev, "Failed to create rx pool %d\n", ret);
+				goto err;
+			}
+
+			rx_chn->rx_chan =
+			k3_udma_glue_request_remote_rx_chn_for_thread_id(dev, &rx_cfg,
+									 proxy_priv->dma_node,
+									 rx_chn->thread_id);
+			if (IS_ERR(rx_chn->rx_chan)) {
+				ret = PTR_ERR(rx_chn->rx_chan);
+				dev_err(dev, "Failed to request rx dma channel %d\n", ret);
+				goto err;
+			}
+
+			rx_flow_cfg.rx_cfg.size = max_desc_num;
+			rx_flow_cfg.rxfdq_cfg.size = max_desc_num;
+			ret = k3_udma_glue_rx_flow_init(rx_chn->rx_chan,
+							0, &rx_flow_cfg);
+			if (ret) {
+				dev_err(dev, "Failed to init rx flow %d\n", ret);
+				goto err;
+			}
+
+			rx_chn->irq = k3_udma_glue_rx_get_irq(rx_chn->rx_chan, 0);
+			if (rx_chn->irq <= 0) {
+				ret = -ENXIO;
+				dev_err(dev, "Failed to get rx dma irq %d\n", rx_chn->irq);
+			}
+		}
+	}
+
+err:
+	ret1 = devm_add_action(dev, free_rx_chns, proxy_priv);
+	if (ret1) {
+		dev_err(dev, "failed to add free_rx_chns action %d", ret1);
 		return ret1;
 	}
 
