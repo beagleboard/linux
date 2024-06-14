@@ -12,6 +12,7 @@
 #include <linux/phy/phy.h>
 #include <linux/phy/phy-mipi-dphy.h>
 #include <linux/platform_device.h>
+#include <linux/pm_runtime.h>
 #include <linux/sys_soc.h>
 
 #define DPHY_PMA_CMN(reg)		(reg)
@@ -264,6 +265,12 @@ static int cdns_dphy_rx_probe(struct platform_device *pdev)
 			PTR_ERR(provider));
 		return PTR_ERR(provider);
 	}
+
+	/*
+	 * PHY framework handles calls to pm_runtime_(get|put) when
+	 * phy_power_(on|off) hooks are called
+	 */
+	devm_pm_runtime_enable(dev);
 
 	return 0;
 }
