@@ -154,6 +154,9 @@ static int wave5_pm_suspend(struct device *dev)
 	if (pm_runtime_suspended(dev))
 		return 0;
 
+	if (vpu->irq < 0)
+		hrtimer_cancel(&vpu->hrtimer);
+
 	wave5_vpu_sleep_wake(dev, true, NULL, 0);
 	clk_bulk_disable_unprepare(vpu->num_clks, vpu->clks);
 
@@ -171,6 +174,10 @@ static int wave5_pm_resume(struct device *dev)
 		dev_err(dev, "Enabling clocks, fail: %d\n", ret);
 		return ret;
 	}
+
+	if (vpu->irq < 0 && !hrtimer_active(&vpu->hrtimer))
+		hrtimer_start(&vpu->hrtimer, ns_to_ktime(vpu->vpu_poll_interval * NSEC_PER_MSEC),
+			      HRTIMER_MODE_REL_PINNED);
 
 	return ret;
 }
