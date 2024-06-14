@@ -285,6 +285,7 @@ static int create_request_message(struct cpsw_proxy_req_params *req_params)
 	case ETHFW_TEARDOWN_COMPLETE:
 	case ETHFW_VIRT_PORT_DETACH:
 	case ETHFW_VIRT_PORT_INFO:
+	case ETHFW_VIRT_PORT_LINK_STATUS:
 		common_req_msg = (struct common_request_message *)msg;
 		req_msg_hdr = &common_req_msg->request_msg_hdr;
 		break;
@@ -1179,7 +1180,38 @@ static int vport_rx_poll(struct napi_struct *napi_rx, int budget)
 	return num_rx;
 }
 
+static u32 vport_get_link(struct net_device *ndev)
+{
+	struct virtual_port *vport = vport_ndev_to_vport(ndev);
+	struct cpsw_proxy_priv *proxy_priv = vport->proxy_priv;
+	struct port_link_status_response *pls_resp;
+	struct cpsw_proxy_req_params *req_p;
+	struct message resp_msg;
+	bool link_up;
+	int ret;
+
+	if (vport->port_type != VIRT_MAC_ONLY_PORT)
+		return ethtool_op_get_link(ndev);
+
+	mutex_lock(&proxy_priv->req_params_mutex);
+	req_p = &proxy_priv->req_params;
+	req_p->request_type = ETHFW_VIRT_PORT_LINK_STATUS;
+	req_p->token = vport->port_token;
+	ret = send_request_get_response(proxy_priv, &resp_msg);
+	mutex_unlock(&proxy_priv->req_params_mutex);
+	if (ret) {
+		netdev_err(ndev, "failed to get link status\n");
+		/* Assume that link is down if status is unknown */
+		return 0;
+	}
+	pls_resp = (struct port_link_status_response *)&resp_msg;
+	link_up = pls_resp->link_up;
+
+	return link_up;
+}
+
 const struct ethtool_ops cpsw_proxy_client_ethtool_ops = {
+	.get_link		= vport_get_link,
 };
 
 static int register_mac(struct virtual_port *vport)
