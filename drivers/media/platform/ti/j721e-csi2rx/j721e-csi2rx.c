@@ -124,6 +124,7 @@ struct ti_csi2rx_dev {
 	struct v4l2_subdev		*source;
 	struct v4l2_subdev		subdev;
 	struct ti_csi2rx_ctx		ctx[TI_CSI2RX_MAX_CTX];
+	u64				enabled_streams_mask;
 	/* Buffer to drain stale data from PSI-L endpoint */
 	struct {
 		void			*vaddr;
@@ -1188,32 +1189,52 @@ static int ti_csi2rx_sd_init_cfg(struct v4l2_subdev *sd,
 	return _ti_csi2rx_sd_set_routing(sd, state, &routing);
 }
 
+static int ti_csi2rx_sd_all_sink_streams(struct v4l2_subdev_state *state)
+{
+	struct v4l2_subdev_krouting *routing = &state->routing;
+	u64 sink_streams = 0;
+	int i;
+
+	for (i = 0; i < routing->num_routes; i++) {
+		struct v4l2_subdev_route *r = &routing->routes[i];
+
+		if (r->sink_pad == TI_CSI2RX_PAD_SINK)
+			sink_streams |= BIT(r->sink_stream);
+	}
+
+	return sink_streams;
+}
+
 static int ti_csi2rx_sd_enable_streams(struct v4l2_subdev *sd,
 				       struct v4l2_subdev_state *state,
 				       u32 pad, u64 streams_mask)
 {
 	struct ti_csi2rx_dev *csi = to_csi2rx_dev(sd);
 	struct media_pad *remote_pad;
-	u64 sink_streams;
 	int ret = 0;
 
 	remote_pad = media_entity_remote_source_pad_unique(&csi->subdev.entity);
 	if (!remote_pad)
 		return -ENODEV;
-	sink_streams = v4l2_subdev_state_xlate_streams(state, pad,
-						       TI_CSI2RX_PAD_SINK,
-						       &streams_mask);
-
-	ret = v4l2_subdev_enable_streams(csi->source, remote_pad->index,
-					 sink_streams);
-	if (ret)
-		return ret;
 
 	mutex_lock(&csi->mutex);
-	csi->enable_count++;
-	mutex_unlock(&csi->mutex);
+	if (!csi->enable_count) {
+		u64 sink_streams;
 
-	return 0;
+		sink_streams = ti_csi2rx_sd_all_sink_streams(state);
+		dev_dbg(csi->dev, "Enabling all streams (%llx) on sink.\n",
+			sink_streams);
+		ret = v4l2_subdev_enable_streams(csi->source, remote_pad->index,
+						 sink_streams);
+		if (ret)
+			goto out;
+		csi->enabled_streams_mask = sink_streams;
+	}
+
+	csi->enable_count++;
+out:
+	mutex_unlock(&csi->mutex);
+	return ret;
 }
 
 static int ti_csi2rx_sd_disable_streams(struct v4l2_subdev *sd,
@@ -1222,15 +1243,11 @@ static int ti_csi2rx_sd_disable_streams(struct v4l2_subdev *sd,
 {
 	struct ti_csi2rx_dev *csi = to_csi2rx_dev(sd);
 	struct media_pad *remote_pad;
-	u64 sink_streams;
 	int ret = 0;
 
 	remote_pad = media_entity_remote_source_pad_unique(&csi->subdev.entity);
 	if (!remote_pad)
 		return -ENODEV;
-	sink_streams = v4l2_subdev_state_xlate_streams(state, pad,
-						       TI_CSI2RX_PAD_SINK,
-						       &streams_mask);
 
 	mutex_lock(&csi->mutex);
 	if (csi->enable_count == 0) {
@@ -1238,10 +1255,20 @@ static int ti_csi2rx_sd_disable_streams(struct v4l2_subdev *sd,
 		goto out;
 	}
 
-	ret = v4l2_subdev_disable_streams(csi->source, remote_pad->index,
-					  sink_streams);
-	if (!ret)
-		--csi->enable_count;
+	if (csi->enable_count == 1) {
+		u64 sink_streams;
+
+		sink_streams = ti_csi2rx_sd_all_sink_streams(state);
+		dev_dbg(csi->dev, "Disabling all streams (%llx) on sink.\n",
+			sink_streams);
+		ret = v4l2_subdev_disable_streams(csi->source, remote_pad->index,
+						  sink_streams);
+		if (ret)
+			goto out;
+		csi->enabled_streams_mask = 0;
+	}
+
+	--csi->enable_count;
 out:
 	mutex_unlock(&csi->mutex);
 	return ret;
