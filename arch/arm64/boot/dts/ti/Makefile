@@ -97,6 +97,7 @@ dtb-$(CONFIG_ARCH_K3) += k3-am654-pcie-usb3.dtbo
 # Boards with J7200 SoC
 k3-j7200-evm-dtbs := k3-j7200-common-proc-board.dtb k3-j7200-evm-quad-port-eth-exp.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-j7200-evm.dtb
+dtb-$(CONFIG_ARCH_K3) += k3-j7200-evm-ethfw.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-j7200-evm-mcspi-loopback.dtbo
 
 # Boards with J721e SoC
@@ -200,6 +201,8 @@ k3-am68-sk-base-board-csi2-dual-imx219-dtbs := k3-am68-sk-base-board.dtb \
 	k3-j721e-sk-csi2-dual-imx219.dtbo
 k3-am69-sk-csi2-dual-imx219-dtbs := k3-am69-sk.dtb \
 	k3-j721e-sk-csi2-dual-imx219.dtbo
+k3-j7200-evm-ethfw-dtbs := k3-j7200-common-proc-board.dtb \
+	k3-j7200-evm-ethfw.dtbo
 k3-j7200-evm-mcspi-loopback-dtbs := k3-j7200-common-proc-board.dtb \
 	k3-j7200-evm-mcspi-loopback.dtbo
 k3-j721e-beagleboneai64-dsi-rpi-7inch-panel-dtbs := k3-j721e-beagleboneai64.dtb \
@@ -263,6 +266,7 @@ dtb- += k3-am625-beagleplay-csi2-ov5640.dtb \
 	k3-am654-base-board-toshiba-tc358867-evm.dtb \
 	k3-am68-sk-base-board-csi2-dual-imx219-dtbs \
 	k3-am69-sk-csi2-dual-imx219-dtbs \
+	k3-j7200-evm-ethfw.dtb \
 	k3-j7200-evm-mcspi-loopback.dtb \
 	k3-j721e-beagleboneai64-dsi-rpi-7inch-panel.dtb \
 	k3-j721e-beagleboneai64-microtips-mf070zima-lcd3.dtb \

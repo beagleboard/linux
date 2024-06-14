@@ -1,0 +1,130 @@
+// SPDX-License-Identifier: GPL-2.0-only OR MIT
+/**
+ * DT Overlay for CPSW5G functionality with Ethernet Switch Firmware (EthFw)
+ * and CPSW Proxy Client driver.
+ *
+ * Copyright (C) 2024 Texas Instruments Incorporated - https://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+
+/* uart2 is assigned to EthFw running on remote CPU core */
+&main_uart2 {
+	status = "reserved";
+};
+
+/* Reserve shared memory for inter-core network communication */
+&reserved_memory {
+	#address-cells = <2>;
+	#size-cells = <2>;
+
+	main_r5fss0_core0_shared_memory_queue_region:r5f-virtual-eth-queues@a5000000 {
+		compatible = "shared-dma-pool";
+		reg = <0x00 0xa5000000 0x00 0x200000>;
+		no-map;
+	};
+
+	main_r5fss0_core0_shared_memory_bufpool_region:r5f-virtual-eth-buffers@a5200000 {
+		compatible = "shared-dma-pool";
+		reg = <0x00 0xa5200000 0x00 0x1e00000>;
+		no-map;
+	};
+};
+
+&main_r5fss0_core0 {
+	memory-region = <&main_r5fss0_core0_dma_memory_region>,
+			<&main_r5fss0_core0_memory_region>,
+			<&main_r5fss0_core0_shared_memory_queue_region>,
+			<&main_r5fss0_core0_shared_memory_bufpool_region>;
+};
+
+/* EthFw uses timers so mark them reserved */
+&main_timer0 {
+	status = "reserved";
+};
+
+&main_timer1 {
+	status = "reserved";
+};
+
+&main_timer2 {
+	status = "reserved";
+};
+
+&main_timer3 {
+	status = "reserved";
+};
+
+&main_timer4 {
+	status = "reserved";
+};
+
+&main_timer5 {
+	status = "reserved";
+};
+
+&main_timer6 {
+	status = "reserved";
+};
+
+&main_timer7 {
+	status = "reserved";
+};
+
+&main_timer8 {
+	status = "reserved";
+};
+
+&main_timer9 {
+	status = "reserved";
+};
+
+&main_timer10 {
+	status = "reserved";
+};
+
+&main_timer11 {
+	status = "reserved";
+};
+
+&main_timer12 {
+	status = "reserved";
+};
+
+&main_timer13 {
+	status = "reserved";
+};
+
+&main_timer14 {
+	status = "reserved";
+};
+
+&main_timer15 {
+	status = "reserved";
+};
+
+&main_timer16 {
+	status = "reserved";
+};
+
+&main_timer17 {
+	status = "reserved";
+};
+
+&main_timer18 {
+	status = "reserved";
+};
+
+&main_timer19 {
+	status = "reserved";
+};
+
+/* EthFw configures pin W16 (MCAN3_RX) for PPS demo */
+&main_mcan3 {
+	status = "disabled";
+};
+
+&transceiver3 {
+	status = "disabled";
+};
