@@ -130,6 +130,7 @@ dtb-$(CONFIG_ARCH_K3) += k3-j722s-evm-microtips-mf101hie-panel.dtbo
 # Boards with J784s4 SoC
 dtb-$(CONFIG_ARCH_K3) += k3-am69-sk.dtb
 dtb-$(CONFIG_ARCH_K3) += k3-j784s4-evm.dtb
+dtb-$(CONFIG_ARCH_K3) += k3-j784s4-evm-ethfw.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-j784s4-evm-pcie0-pcie1-ep.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-j784s4-evm-quad-port-eth-exp1.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-j784s4-evm-usxgmii-exp1-exp2.dtbo
@@ -227,6 +228,8 @@ k3-j722s-evm-dsi-rpi-7inch-panel-dtbs := k3-j722s-evm.dtb \
 	k3-j722s-evm-dsi-rpi-7inch-panel.dtbo
 k3-j722s-evm-microtips-mf101hie-panel-dtbs := k3-j722s-evm.dtb \
 	k3-j722s-evm-microtips-mf101hie-panel.dtbo
+k3-j784s4-evm-ethfw-dtbs := k3-j784s4-evm.dtb \
+	k3-j784s4-evm-ethfw.dtbo
 k3-j784s4-evm-mcspi-loopback-dtbs := k3-j784s4-evm.dtb \
 	k3-j7200-evm-mcspi-loopback.dtbo
 k3-j784s4-evm-pcie0-pcie1-ep-dtbs := k3-j784s4-evm.dtb \
@@ -279,6 +282,7 @@ dtb- += k3-am625-beagleplay-csi2-ov5640.dtb \
 	k3-j721s2-evm-mcspi-loopback.dtb \
 	k3-j722s-evm-dsi-rpi-7inch-panel.dtb \
 	k3-j722s-evm-microtips-mf101hie-panel.dtb \
+	k3-j784s4-evm-ethfw.dtb \
 	k3-j784s4-evm-mcspi-loopback.dtb \
 	k3-j784s4-evm-pcie0-pcie1-ep.dtb \
 	k3-j784s4-evm-quad-port-eth-exp1.dtb \
