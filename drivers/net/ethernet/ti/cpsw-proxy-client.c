@@ -667,6 +667,29 @@ err:
 	return -EIO;
 }
 
+static void detach_virtual_ports(struct cpsw_proxy_priv *proxy_priv)
+{
+	struct cpsw_proxy_req_params *req_p;
+	struct virtual_port *vport;
+	struct message resp_msg;
+	u32 port_id, i;
+	int ret;
+
+	free_port_resources(proxy_priv);
+	for (i = 0; i < proxy_priv->num_virt_ports; i++) {
+		vport = &proxy_priv->virt_ports[i];
+		port_id = vport->port_id;
+		mutex_lock(&proxy_priv->req_params_mutex);
+		req_p = &proxy_priv->req_params;
+		req_p->request_type = ETHFW_VIRT_PORT_DETACH;
+		req_p->token = vport->port_token;
+		ret = send_request_get_response(proxy_priv, &resp_msg);
+		mutex_unlock(&proxy_priv->req_params_mutex);
+		if (ret)
+			dev_err(proxy_priv->dev, "detaching virtual port %u failed\n", port_id);
+	}
+}
+
 static void free_tx_chns(void *data)
 {
 	struct cpsw_proxy_priv *proxy_priv = data;
