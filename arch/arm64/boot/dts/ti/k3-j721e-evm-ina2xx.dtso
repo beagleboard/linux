@@ -1,0 +1,139 @@
+// SPDX-License-Identifier: GPL-2.0-only OR MIT
+/**
+ * DT Overlay for INA2xx for J721E board
+ *
+ * Copyright (C) 2024 Texas Instruments Incorporated - https://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/net/ti-dp83867.h>
+
+#include "k3-pinctrl.h"
+
+&main_pmx0 {
+	main_i2c2_pins_default: main-i2c2-default-pins {
+		pinctrl-single,pins = <
+			J721E_IOPAD(0x1c8, PIN_INPUT_PULLUP, 2) /* (AB5) SPI0_CLK.I2C2_SCL */
+			J721E_IOPAD(0x1cc, PIN_INPUT_PULLUP, 2) /* (AA1) SPI0_D0.I2C2_SDA */
+		>;
+	};
+};
+
+&exp2 {
+	p08-hog {
+		/* P10 - PM_I2C_CTRL_OE */
+		gpio-hog;
+		gpios = <8 GPIO_ACTIVE_HIGH>;
+		output-high;
+		line-name = "CTRL_PM_I2C_OE";
+	};
+};
+
+&main_i2c2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_i2c2_pins_default>;
+	clock-frequency = <400000>;
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	ina226@40 {
+		compatible = "ti,ina226";
+		reg = <0x40>;
+		shunt-resistor = <10000>;
+	};
+
+	ina226@41 {
+		compatible = "ti,ina226";
+		reg = <0x41>;
+		shunt-resistor = <10000>;
+	};
+
+	ina226@42 {
+		compatible = "ti,ina226";
+		reg = <0x42>;
+		shunt-resistor = <10000>;
+	};
+
+	ina226@43 {
+		compatible = "ti,ina226";
+		reg = <0x43>;
+		shunt-resistor = <10000>;
+	};
+
+	ina226@44 {
+		compatible = "ti,ina226";
+		reg = <0x44>;
+		shunt-resistor = <10000>;
+	};
+
+	ina226@45 {
+		compatible = "ti,ina226";
+		reg = <0x45>;
+		shunt-resistor = <5000>;
+	};
+
+	ina226@46 {
+		compatible = "ti,ina226";
+		reg = <0x46>;
+		shunt-resistor = <10000>;
+	};
+
+	ina226@47 {
+		compatible = "ti,ina226";
+		reg = <0x47>;
+		shunt-resistor = <10000>;
+	};
+
+	ina226@48 {
+		compatible = "ti,ina226";
+		reg = <0x48>;
+		shunt-resistor = <10000>;
+	};
+
+	ina226@49 {
+		compatible = "ti,ina226";
+		reg = <0x49>;
+		shunt-resistor = <10000>;
+	};
+
+	ina226@4a {
+		compatible = "ti,ina226";
+		reg = <0x4a>;
+		shunt-resistor = <10000>;
+	};
+
+	ina226@4b {
+		compatible = "ti,ina226";
+		reg = <0x4b>;
+		shunt-resistor = <10000>;
+	};
+
+	ina226@4c {
+		compatible = "ti,ina226";
+		reg = <0x4c>;
+		shunt-resistor = <10000>;
+	};
+
+	ina226@4d {
+		compatible = "ti,ina226";
+		reg = <0x4d>;
+		shunt-resistor = <10000>;
+	};
+
+	ina226@4e {
+		compatible = "ti,ina226";
+		reg = <0x4e>;
+		shunt-resistor = <10000>;
+	};
+
+	ina226@4f {
+		compatible = "ti,ina226";
+		reg = <0x4f>;
+		shunt-resistor = <10000>;
+	};
+};
+
