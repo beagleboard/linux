@@ -6,6 +6,7 @@
  */
 
 #include <linux/etherdevice.h>
+#include <linux/ethtool.h>
 #include <linux/if_vlan.h>
 #include <linux/kernel.h>
 #include <linux/kmemleak.h>
@@ -25,6 +26,7 @@
 #define MAX_RX_DESC	500
 #define MAX_RX_FLOWS	1
 
+#define MIN_PACKET_SIZE	ETH_ZLEN
 #define MAX_PACKET_SIZE	(VLAN_ETH_FRAME_LEN + ETH_FCS_LEN)
 
 #define CHAN_NAME_LEN	128
@@ -1170,6 +1172,106 @@ static int vport_rx_poll(struct napi_struct *napi_rx, int budget)
 		enable_irq(rx_chn->irq);
 
 	return num_rx;
+}
+
+const struct ethtool_ops cpsw_proxy_client_ethtool_ops = {
+};
+
+static const struct net_device_ops cpsw_proxy_client_netdev_ops = {
+};
+
+static int init_netdev(struct cpsw_proxy_priv *proxy_priv, struct virtual_port *vport)
+{
+	struct device *dev = proxy_priv->dev;
+	struct vport_netdev_priv *ndev_priv;
+	struct rx_dma_chan *rx_chn;
+	struct tx_dma_chan *tx_chn;
+	int ret = 0;
+	u32 i;
+
+	vport->ndev = devm_alloc_etherdev_mqs(dev, sizeof(struct vport_netdev_priv),
+					      vport->num_tx_chan, vport->num_rx_chan);
+
+	if (!vport->ndev) {
+		dev_err(dev, "error allocating netdev for port %u\n", vport->port_id);
+		return -ENOMEM;
+	}
+
+	ndev_priv = netdev_priv(vport->ndev);
+	ndev_priv->vport = vport;
+	SET_NETDEV_DEV(vport->ndev, dev);
+
+	if (is_valid_ether_addr(vport->mac_addr))
+		eth_hw_addr_set(vport->ndev, vport->mac_addr);
+
+	vport->ndev->min_mtu = MIN_PACKET_SIZE;
+	vport->ndev->max_mtu = MAX_PACKET_SIZE;
+	vport->ndev->hw_features = NETIF_F_SG | NETIF_F_RXCSUM;
+	vport->ndev->features = vport->ndev->hw_features;
+	vport->ndev->vlan_features |= NETIF_F_SG;
+	vport->ndev->netdev_ops = &cpsw_proxy_client_netdev_ops;
+	vport->ndev->ethtool_ops = &cpsw_proxy_client_ethtool_ops;
+
+	ndev_priv->stats = netdev_alloc_pcpu_stats(struct vport_netdev_stats);
+	if (!ndev_priv->stats)
+		return -ENOMEM;
+
+	ret = devm_add_action_or_reset(dev, (void(*)(void *))free_percpu, ndev_priv->stats);
+	if (ret) {
+		dev_err(dev, "failed to add free_percpu action, err: %d\n", ret);
+		return ret;
+	}
+
+	for (i = 0; i < vport->num_tx_chan; i++) {
+		tx_chn = &vport->tx_chans[i];
+		netif_napi_add_tx(vport->ndev, &tx_chn->napi_tx, vport_tx_poll);
+	}
+
+	for (i = 0; i < vport->num_rx_chan; i++) {
+		rx_chn = &vport->rx_chans[i];
+		netif_napi_add(vport->ndev, &rx_chn->napi_rx, vport_rx_poll);
+	}
+
+	ret = register_netdev(vport->ndev);
+	if (ret)
+		dev_err(dev, "error registering net device, err: %d\n", ret);
+
+	return ret;
+}
+
+static void unreg_netdevs(struct cpsw_proxy_priv *proxy_priv)
+{
+	struct virtual_port *vport;
+	u32 i;
+
+	for (i = 0; i < proxy_priv->num_virt_ports; i++) {
+		vport = &proxy_priv->virt_ports[i];
+		if (vport->ndev)
+			unregister_netdev(vport->ndev);
+	}
+}
+
+static int init_netdevs(struct cpsw_proxy_priv *proxy_priv)
+{
+	struct virtual_port *vport;
+	int ret;
+	u32 i;
+
+	for (i = 0; i < proxy_priv->num_virt_ports; i++) {
+		vport = &proxy_priv->virt_ports[i];
+		ret = init_netdev(proxy_priv, vport);
+		if (ret) {
+			dev_err(proxy_priv->dev, "failed to initialize ndev for port %u\n",
+				vport->port_id);
+			goto err;
+		}
+	}
+
+	return 0;
+
+err:
+	unreg_netdevs(proxy_priv);
+	return ret;
 }
 
 static int cpsw_proxy_client_probe(struct rpmsg_device *rpdev)
