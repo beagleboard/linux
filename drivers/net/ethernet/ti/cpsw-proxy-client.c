@@ -1557,10 +1557,45 @@ busy_stop_q:
 	return NETDEV_TX_BUSY;
 }
 
+static void vport_ndo_get_stats(struct net_device *ndev,
+				struct rtnl_link_stats64 *stats)
+{
+	struct vport_netdev_priv *ndev_priv = netdev_priv(ndev);
+	unsigned int start;
+	int cpu;
+
+	for_each_possible_cpu(cpu) {
+		struct vport_netdev_stats *cpu_stats;
+		u64 rx_packets;
+		u64 rx_bytes;
+		u64 tx_packets;
+		u64 tx_bytes;
+
+		cpu_stats = per_cpu_ptr(ndev_priv->stats, cpu);
+		do {
+			start = u64_stats_fetch_begin(&cpu_stats->syncp);
+			rx_packets = cpu_stats->rx_packets;
+			rx_bytes   = cpu_stats->rx_bytes;
+			tx_packets = cpu_stats->tx_packets;
+			tx_bytes   = cpu_stats->tx_bytes;
+		} while (u64_stats_fetch_retry(&cpu_stats->syncp, start));
+
+		stats->rx_packets += rx_packets;
+		stats->rx_bytes   += rx_bytes;
+		stats->tx_packets += tx_packets;
+		stats->tx_bytes   += tx_bytes;
+	}
+
+	stats->rx_errors	= ndev->stats.rx_errors;
+	stats->rx_dropped	= ndev->stats.rx_dropped;
+	stats->tx_dropped	= ndev->stats.tx_dropped;
+}
+
 static const struct net_device_ops cpsw_proxy_client_netdev_ops = {
 	.ndo_open		= vport_ndo_open,
 	.ndo_stop		= vport_ndo_stop,
 	.ndo_start_xmit		= vport_ndo_xmit,
+	.ndo_get_stats64	= vport_ndo_get_stats,
 };
 
 static int init_netdev(struct cpsw_proxy_priv *proxy_priv, struct virtual_port *vport)
