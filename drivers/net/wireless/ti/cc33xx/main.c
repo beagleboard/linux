@@ -1940,7 +1940,7 @@ static void cc33xx_channel_switch_work(struct work_struct *work)
 		goto out;
 
 	vif = cc33xx_wlvif_to_vif(wlvif);
-	ieee80211_chswitch_done(vif, false, 0);
+	ieee80211_chswitch_done(vif, false);
 
 	cc33xx_cmd_stop_channel_switch(cc, wlvif);
 
@@ -2630,7 +2630,7 @@ static int cc33xx_set_assoc(struct cc33xx *cc, struct cc33xx_vif *wlvif,
 	int ret;
 
 	wlvif->aid = vif->cfg.aid;
-	wlvif->channel_type = cfg80211_get_chandef_type(&bss_conf->chanreq.oper);
+	wlvif->channel_type = cfg80211_get_chandef_type(&bss_conf->chandef);
 	wlvif->beacon_int = bss_conf->beacon_int;
 	wlvif->wmm_enabled = bss_conf->qos;
 
@@ -2689,7 +2689,7 @@ static int cc33xx_unset_assoc(struct cc33xx *cc, struct cc33xx_vif *wlvif)
 		struct ieee80211_vif *vif = cc33xx_wlvif_to_vif(wlvif);
 
 		cc33xx_cmd_stop_channel_switch(cc, wlvif);
-		ieee80211_chswitch_done(vif, false, 0);
+		ieee80211_chswitch_done(vif, false);
 		cancel_delayed_work(&wlvif->channel_switch_work);
 	}
 
@@ -3852,7 +3852,7 @@ static void cc33xx_bss_info_changed_sta(struct cc33xx *cc,
 
 	/* Handle new association with HT. Do this after join. */
 	if (sta_exists) {
-		bool enabled = bss_conf->chanreq.oper.width !=
+		bool enabled = bss_conf->chandef.width !=
 						NL80211_CHAN_WIDTH_20_NOHT;
 		cc33xx_debug(DEBUG_CMD, "cc33xx_hw_set_peer_cap %x",
 			     wlvif->rate_set);
@@ -4692,7 +4692,7 @@ static void cc33xx_op_channel_switch(struct ieee80211_hw *hw,
 
 	if (unlikely(cc->state == CC33XX_STATE_OFF)) {
 		if (test_bit(WLVIF_FLAG_STA_ASSOCIATED, &wlvif->flags))
-			ieee80211_chswitch_done(vif, false, 0);
+			ieee80211_chswitch_done(vif, false);
 		goto out;
 	} else if (unlikely(cc->state != CC33XX_STATE_ON)) {
 		goto out;
