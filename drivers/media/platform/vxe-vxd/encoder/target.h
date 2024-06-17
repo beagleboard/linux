@@ -57,7 +57,7 @@ struct mem_space {
 		struct mem_space_mem mem;  /* Device memory region info */
 	};
 
-	unsigned long long cpu_addr;      /* Cpu KM address for the mem space */
+	unsigned long cpu_addr;      /* Cpu KM address for the mem space */
 };
 
 struct target_config {
