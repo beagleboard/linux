@@ -199,10 +199,12 @@ static int ti_sci_inta_xlate_irq(struct ti_sci_inta_irq_domain *inta,
 /**
  * ti_sci_inta_alloc_parent_irq() - Allocate parent irq to Interrupt aggregator
  * @domain:	IRQ domain corresponding to Interrupt Aggregator
+ * @vint_id:	vint_id to which event is to be mapped to
  *
  * Return 0 if all went well else corresponding error value.
  */
-static struct ti_sci_inta_vint_desc *ti_sci_inta_alloc_parent_irq(struct irq_domain *domain)
+static struct ti_sci_inta_vint_desc *ti_sci_inta_alloc_parent_irq(struct irq_domain *domain,
+								  u16 vint_id)
 {
 	struct ti_sci_inta_irq_domain *inta = domain->host_data;
 	struct ti_sci_inta_vint_desc *vint_desc;
@@ -210,11 +212,6 @@ static struct ti_sci_inta_vint_desc *ti_sci_inta_alloc_parent_irq(struct irq_dom
 	struct device_node *parent_node;
 	unsigned int parent_virq;
 	int p_hwirq, ret;
-	u16 vint_id;
-
-	vint_id = ti_sci_get_free_resource(inta->vint);
-	if (vint_id == TI_SCI_RESOURCE_NULL)
-		return ERR_PTR(-EINVAL);
 
 	p_hwirq = ti_sci_inta_xlate_irq(inta, vint_id);
 	if (p_hwirq < 0) {
@@ -328,29 +325,40 @@ static struct ti_sci_inta_event_desc *ti_sci_inta_alloc_irq(struct irq_domain *d
 	struct ti_sci_inta_vint_desc *vint_desc = NULL;
 	struct ti_sci_inta_event_desc *event_desc;
 	u16 free_bit;
+	u16 vint_id;
 
 	mutex_lock(&inta->vint_mutex);
-	list_for_each_entry(vint_desc, &inta->vint_list, list) {
+	/*
+	 * Allocate new VINT each time until we runout, then start
+	 * aggregating
+	 */
+	vint_id = ti_sci_get_free_resource(inta->vint);
+	if (vint_id == TI_SCI_RESOURCE_NULL) {
+		list_for_each_entry(vint_desc, &inta->vint_list, list) {
+			free_bit = find_first_zero_bit(vint_desc->event_map,
+						       MAX_EVENTS_PER_VINT);
+			if (free_bit != MAX_EVENTS_PER_VINT) {
+				set_bit(free_bit, vint_desc->event_map);
+				break;
+			}
+		}
+	} else  {
+		vint_desc = ti_sci_inta_alloc_parent_irq(domain, vint_id);
+		if (IS_ERR(vint_desc)) {
+			event_desc = ERR_CAST(vint_desc);
+			goto unlock;
+		}
+
 		free_bit = find_first_zero_bit(vint_desc->event_map,
 					       MAX_EVENTS_PER_VINT);
-		if (free_bit != MAX_EVENTS_PER_VINT) {
-			set_bit(free_bit, vint_desc->event_map);
-			goto alloc_event;
-		}
+		set_bit(free_bit, vint_desc->event_map);
 	}
 
-	/* No free bits available. Allocate a new vint */
-	vint_desc = ti_sci_inta_alloc_parent_irq(domain);
-	if (IS_ERR(vint_desc)) {
-		event_desc = ERR_CAST(vint_desc);
+	if (free_bit == MAX_EVENTS_PER_VINT) {
+		event_desc = ERR_PTR(-EINVAL);
 		goto unlock;
 	}
 
-	free_bit = find_first_zero_bit(vint_desc->event_map,
-				       MAX_EVENTS_PER_VINT);
-	set_bit(free_bit, vint_desc->event_map);
-
-alloc_event:
 	event_desc = ti_sci_inta_alloc_event(vint_desc, free_bit, hwirq);
 	if (IS_ERR(event_desc))
 		clear_bit(free_bit, vint_desc->event_map);
