@@ -1379,11 +1379,10 @@ static int vxd_dec_try_fmt(struct file *file, void *priv, struct v4l2_format *f)
 			return -EINVAL;
 		}
 		/*
-		 * Allocation for worst case input frame size:
-		 * I frame with full YUV size (YUV422)
+		 * Allocation for NV12 input frame size:
 		 */
-		plane_fmt[0].sizeimage = ALIGN(pix_mp->width, HW_ALIGN) *
-			ALIGN(pix_mp->height, HW_ALIGN) * 2;
+		plane_fmt[0].sizeimage = (ALIGN(pix_mp->width, HW_ALIGN) *
+			ALIGN(pix_mp->height, HW_ALIGN) * 3)/2;
 	} else {
 		fmt = find_format(f, IMG_DEC_FMT_TYPE_CAPTURE);
 		if (!fmt) {
