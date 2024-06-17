@@ -1824,6 +1824,22 @@
 		status = "disabled";
 	};
 
+	vxe384: video-encoder@4200000 {
+		compatible = "img,vxe384";
+		reg = <0x00 0x04200000>,
+			<0x00 0x100000>;
+		power-domains = <&k3_pds 153 TI_SCI_PD_EXCLUSIVE>;
+		interrupts = <GIC_SPI 181 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	d5520: video-decoder@4300000 {
+		compatible = "img,d5500-vxd";
+		reg = <0x00 0x04300000>,
+			<0x00 0x100000>;
+		power-domains = <&k3_pds 144 TI_SCI_PD_EXCLUSIVE>;
+		interrupts = <GIC_SPI 180 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
 	ufs_wrapper: ufs-wrapper@4e80000 {
 		compatible = "ti,j721e-ufs";
 		reg = <0x0 0x4e80000 0x0 0x100>;
