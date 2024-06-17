@@ -838,10 +838,9 @@ static int vxe_open(struct file *file)
 
 	for (i = 0; i < ctx->cap_queue.fmt->num_planes; i++) {
 		ctx->cap_queue.size_image[i] = topaz_get_coded_buffer_max_size(NULL,
-									 ctx->cap_queue.fmt->fmt,
-									 ctx->cap_queue.width,
-									 ctx->cap_queue.height,
-									 &ctx->rc);
+						(enum img_standard) ctx->cap_queue.fmt->fmt,
+						ctx->cap_queue.width, ctx->cap_queue.height,
+						&ctx->rc);
 
 		ctx->cap_queue.bytesperline[i] = 0;
 	}
