@@ -168,6 +168,7 @@ static int vdeckm_handle_mtxtohost_msg(unsigned int *msg, struct lst_t *pend_pic
 {
 	struct dec_decpict *pdec_pict;
 
+	int ret = 0;
 	switch (msg_type) {
 	case FW_DEVA_COMPLETED:
 	{
@@ -263,6 +264,7 @@ static int vdeckm_handle_mtxtohost_msg(unsigned int *msg, struct lst_t *pend_pic
 			pr_err("TID=0x%08X [FIRMWARE PANIC %s]\n", trans_id, panic_reason);
 		else
 			pr_err("TID=NULL [GENERAL FIRMWARE PANIC %s]\n", panic_reason);
+		ret = IMG_ERROR_FATAL;
 
 		break;
 	}
@@ -274,6 +276,7 @@ static int vdeckm_handle_mtxtohost_msg(unsigned int *msg, struct lst_t *pend_pic
 
 		pr_err("ASSERT file name hash:0x%08X line number:%d\n",
 		       fwfile_namehash, fwfile_line);
+		ret = IMG_ERROR_FATAL;
 		break;
 	}
 
@@ -305,7 +308,7 @@ static int vdeckm_handle_mtxtohost_msg(unsigned int *msg, struct lst_t *pend_pic
 		break;
 	}
 
-	return 0;
+	return ret;
 }
 
 static int vdeckm_handle_hosttomtx_msg(unsigned int *msg, struct lst_t *pend_pict_list,
@@ -402,6 +405,7 @@ static int vdeckm_process_msg(const void *hndl_vxd, unsigned int *msg,
 	unsigned char msg_type;
 	unsigned char msg_group;
 	unsigned int trans_id = 0;
+	int ret = 0;
 	struct vdec_pict_hwcrc *pict_hwcrc = NULL;
 	struct dec_decpict *pdec_pict;
 
@@ -417,7 +421,7 @@ static int vdeckm_process_msg(const void *hndl_vxd, unsigned int *msg,
 
 	switch (msg_group) {
 	case MSG_TYPE_START_PSR_MTXHOST_MSG:
-		vdeckm_handle_mtxtohost_msg(msg, pend_pict_list, msg_attr,
+		ret = vdeckm_handle_mtxtohost_msg(msg, pend_pict_list, msg_attr,
 					    decpict, msg_type, trans_id);
 		break;
 	/*
@@ -426,7 +430,7 @@ static int vdeckm_process_msg(const void *hndl_vxd, unsigned int *msg,
 	 * it as decoded with errors.
 	 */
 	case MSG_TYPE_START_PSR_HOSTMTX_MSG:
-		vdeckm_handle_hosttomtx_msg(msg, pend_pict_list, msg_attr,
+		ret = vdeckm_handle_hosttomtx_msg(msg, pend_pict_list, msg_attr,
 					    decpict, msg_type, trans_id,
 					    msg_flags);
 		break;
@@ -519,7 +523,7 @@ static int vdeckm_process_msg(const void *hndl_vxd, unsigned int *msg,
 	}
 	}
 
-	return 0;
+	return ret;
 }
 
 static void vdeckm_vlr_copy(void *dst, void *src, unsigned int size)
@@ -895,6 +899,8 @@ int hwctrl_process_msg(void *hndl_hwctx, unsigned int msg_flags, unsigned int *m
 	pr_debug("[HWCTRL] : process message\n");
 	result = vdeckm_process_msg(hwctx->hndl_vxd, msg, &hwctx->pend_pict_list, msg_flags,
 				    &msg_attr, &pdecpict);
+	if (result != IMG_SUCCESS)
+		return result;
 
 	/* validate pointers before using them */
 	if (!pdecpict || !pdecpict->first_fld_fwmsg || !pdecpict->second_fld_fwmsg) {
@@ -929,10 +935,13 @@ int hwctrl_process_msg(void *hndl_hwctx, unsigned int msg_flags, unsigned int *m
 
 			for (pipe_minus1 = 0; pipe_minus1 < hwctx->num_pipes;
 				pipe_minus1++) {
+#ifdef DEBUG_DECODER_DRIVER
 				hwctrl_dump_state(&state.core_state, &state.core_state,
 						  pipe_minus1);
+#endif
 			}
 		}
+		pdecpict->state = DECODER_PICTURE_STATE_TO_DISCARD;
 	}
 	*decpict = pdecpict;
 
@@ -1080,6 +1089,8 @@ static int pvdec_create(struct vxd_dev *vxd, struct vxd_coreprops *core_props,
 	struct vdeckm_context  *corectx;
 	struct vxd_core_props hndl_core_props;
 	int result;
+	int iMapSize, pageSize;
+	void *phy_addr;
 
 	if (!hndl_vdeckm_context || !core_props)
 		return IMG_ERROR_INVALID_PARAMETERS;
@@ -1101,6 +1112,16 @@ static int pvdec_create(struct vxd_dev *vxd, struct vxd_coreprops *core_props,
 
 	memcpy(core_props, &corectx->props, sizeof(*core_props));
 
+	pageSize = PAGE_SIZE;
+	/* end aligned to page (ceiling), in pages */
+	iMapSize = (PVDEC_COMMS_RAM_OFFSET + PVDEC_COMMS_RAM_SIZE + pageSize - 1) / pageSize;
+	/* subtract start aligned to page (floor), in pages */
+	iMapSize -= PVDEC_COMMS_RAM_OFFSET / pageSize;
+	/* convert to bytes */
+	iMapSize *= pageSize;
+	phy_addr = (void *)(0x4300000);
+	phy_addr += (PVDEC_COMMS_RAM_OFFSET);
+	corectx->comms_ram_addr = ioremap((phys_addr_t)phy_addr, iMapSize);
 	*hndl_vdeckm_context = corectx;
 
 	return 0;
