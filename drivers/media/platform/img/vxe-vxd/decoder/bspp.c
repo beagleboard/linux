@@ -168,6 +168,7 @@ struct bspp_str_context {
 	int intra_frame_closed_gop;
 	struct bspp_pict_ctx pict_ctx;
 	struct bspp_parse_state parse_state;
+	unsigned int max_dec_frame_buffering;
 };
 
 /*
@@ -1186,6 +1187,8 @@ static int bspp_process_unit(struct bspp_str_context *str_ctx,
 	unit_data.str_res_handle = &str_ctx->str_alloc;
 	unit_data.unit_data_size = str_ctx->grp_bstr_ctx.total_data_size;
 	unit_data.intra_frm_as_closed_gop = str_ctx->intra_frame_closed_gop;
+
+	unit_data.max_dec_frame_buffering = str_ctx->max_dec_frame_buffering;
 
 	/* ponit to picture headers, check boundaries */
 	curr_pict_hdr_info = vidx < VDEC_H264_MVC_MAX_VIEWS ?
@@ -2232,6 +2235,8 @@ int bspp_stream_create(const struct vdec_str_configdata *str_config_data,
 	str_ctx->full_scan = str_config_data->full_scan;
 	str_ctx->immediate_decode = str_config_data->immediate_decode;
 	str_ctx->intra_frame_closed_gop = str_config_data->intra_frame_closed_gop;
+
+	str_ctx->max_dec_frame_buffering = str_config_data->max_dec_frame_buffering;
 
 	parse_state = &str_ctx->parse_state;
 

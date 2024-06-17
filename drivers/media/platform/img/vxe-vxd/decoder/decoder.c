@@ -31,8 +31,6 @@
 #include "vdec_mmu_wrapper.h"
 #include "vxd_dec.h"
 
-#define CORE_NUM_DECODE_SLOTS 2
-
 #define MAX_PLATFORM_SUPPORTED_HEIGHT 65536
 #define MAX_PLATFORM_SUPPORTED_WIDTH 65536
 

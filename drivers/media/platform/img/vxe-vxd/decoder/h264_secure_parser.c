@@ -1797,8 +1797,10 @@ static void bspp_h264_fwpps_populate(struct bspp_h264_pps_info *h264_pps_info,
 						h264_pps_info->second_chroma_qp_index_offset;
 }
 
-static void bspp_h264_fwseq_hdr_populate(struct bspp_h264_seq_hdr_info *h264_seq_hdr_info,
-					 struct h264fw_sequence_ps *h264_fwseq_hdr_info)
+static void
+bspp_h264_fwseq_hdr_populate(struct bspp_h264_seq_hdr_info *h264_seq_hdr_info,
+			     struct h264fw_sequence_ps *h264_fwseq_hdr_info,
+			     unsigned int max_dec_frame_buffering)
 {
 	/* Basic SPS */
 	h264_fwseq_hdr_info->profile_idc = h264_seq_hdr_info->sps_info.profile_idc;
@@ -1867,7 +1869,7 @@ static void bspp_h264_fwseq_hdr_populate(struct bspp_h264_seq_hdr_info *h264_seq
 		h264_fwseq_hdr_info->num_reorder_frames =
 			h264_seq_hdr_info->vui_info.num_reorder_frames;
 	} else {
-		h264_fwseq_hdr_info->max_dec_frame_buffering = 1;
+		h264_fwseq_hdr_info->max_dec_frame_buffering = max_dec_frame_buffering;
 		h264_fwseq_hdr_info->num_reorder_frames = 16;
 	}
 #endif
@@ -2396,7 +2398,9 @@ static int bspp_h264_unit_parser(void *swsr_context, struct bspp_unit_data *unit
 				bspp_h264_sps_parser(swsr_context, unit_data->str_res_handle,
 						     h264_seq_hdr_info);
 			/* From "Parse SPS Structure" populate the "FW SPS Data Structure" */
-			bspp_h264_fwseq_hdr_populate(h264_seq_hdr_info, h264_fwseq_hdr_info);
+			bspp_h264_fwseq_hdr_populate(
+				h264_seq_hdr_info, h264_fwseq_hdr_info,
+				unit_data->max_dec_frame_buffering);
 			/*
 			 * From "Parse SPS Structure" populate the
 			 * "Common Sequence Header Info"
