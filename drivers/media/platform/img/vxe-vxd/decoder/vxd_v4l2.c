@@ -945,6 +945,7 @@ static int vxd_dec_buf_prepare(struct vb2_buffer *vb)
 		mapping->buf_map_id = buf->buf_map_id;
 		list_add_tail(&mapping->list, &ctx->cap_mappings);
 		buf->mapping = mapping;
+		mapping->buf = buf;
 	}
 	buf->mapped = TRUE;
 
@@ -1085,6 +1086,7 @@ static void vxd_dec_stop_streaming(struct vb2_queue *vq)
 		list_for_each(list, &ctx->cap_mappings) {
 			mapping = list_entry(list, struct vxd_mapping, list);
 			core_stream_unmap_buf_sg(mapping->buf_map_id);
+			mapping->buf->mapped = FALSE;
 			__list_del_entry(&mapping->list);
 		}
 	}

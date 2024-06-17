@@ -322,13 +322,6 @@ struct vxd_stream {
 };
 
 
-struct vxd_mapping {
-	struct list_head list;
-	unsigned int buf_map_id;
-	unsigned char reuse;
-	unsigned long dma_addr;
-};
-
 /*
  * struct vxd_buffer - holds per buffer info.
  * @buffer: the vb2_v4l2_buffer
@@ -355,6 +348,14 @@ struct vxd_buffer {
 	struct vdecdd_str_unit pic_unit;
 	struct vdecdd_str_unit end_unit;
 	struct bspp_preparsed_data preparsed_data;
+};
+
+struct vxd_mapping {
+	struct list_head list;
+	unsigned int buf_map_id;
+	unsigned char reuse;
+	unsigned long dma_addr;
+	struct vxd_buffer *buf; /* point to the mapped buffer */
 };
 
 typedef void (*decode_cb)(int res_str_id, unsigned int *msg, unsigned int msg_size,
