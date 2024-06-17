@@ -39,9 +39,10 @@
  * MaxDpbFrames: 16, 16, 32, 48, 64
  */
 
-#define H264FW_MAX_NUM_VIEWS 1
-#define H264FW_MAX_DPB_SIZE 16
-#define H264FW_MAX_NUM_MVC_REFS 1
+/* firmware supports MVC - so need 16 refs */
+#define H264FW_MAX_NUM_VIEWS       4
+#define H264FW_MAX_DPB_SIZE        32
+#define H264FW_MAX_NUM_MVC_REFS    16
 
 /* Number of H264 VLC table configuration registers */
 #define H264FW_NUM_VLC_REG 22
