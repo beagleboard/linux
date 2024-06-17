@@ -451,8 +451,10 @@ int resource_list_replace(struct lst_t *list, void *item, unsigned int id, unsig
 				if (fn_freeitem)
 					fn_freeitem(listelem->item,
 						    free_cb_param);
-				else
-					kfree(listelem->item);
+				else {
+					if (!listelem->item)
+						kfree(listelem->item);
+				}
 				listelem->item = NULL;
 			}
 
