@@ -459,6 +459,8 @@ static void vxd_return_resource(void *ctx_handle, enum vxd_cb_type type,
 		if (!res->work)
 			return;
 
+		/* this is done because the v4l2 spec says can't call m2m_done from */
+		/* device_run,  this callback could come from device_run */
 		schedule_work(res->work);
 
 		break;
@@ -1103,6 +1105,13 @@ static int vxd_dec_open(struct file *file)
 		goto out_idr_remove;
 	}
 	mutex_init(ctx->mutex);
+
+	ctx->mutex2 = kzalloc(sizeof(*ctx->mutex), GFP_KERNEL);
+	if (!ctx->mutex2) {
+		ret = -ENOMEM;
+		goto out_idr_remove;
+	}
+	mutex_init(ctx->mutex2);
 
 	INIT_LIST_HEAD(&ctx->items_done);
 	INIT_LIST_HEAD(&ctx->reuse_queue);
@@ -1779,16 +1788,25 @@ static void device_run(void *priv)
 	static int cnt;
 	int i;
 
+	mutex_lock(ctx->mutex2);
 	mutex_lock_nested(ctx->mutex, SUBCLASS_VXD_V4L2);
 	ctx->num_decoding++;
 
 	src_vb = v4l2_m2m_src_buf_remove(ctx->fh.m2m_ctx);
-	if (!src_vb)
+	if (!src_vb) {
 		dev_err(dev, "Next src buffer is null\n");
+		mutex_unlock(ctx->mutex);
+		mutex_unlock(ctx->mutex2);
+		return;
+	}
 
 	dst_vb = v4l2_m2m_dst_buf_remove(ctx->fh.m2m_ctx);
-	if (!dst_vb)
+	if (!dst_vb) {
 		dev_err(dev, "Next dst buffer is null\n");
+		mutex_unlock(ctx->mutex);
+		mutex_unlock(ctx->mutex2);
+		return;
+	}
 
 
 	dst_vb->vb2_buf.timestamp = src_vb->vb2_buf.timestamp;
@@ -1905,6 +1923,8 @@ static void device_run(void *priv)
 	src_vxdb->end_unit.decode = FALSE;
 	src_vxdb->end_unit.features = 0;
 	core_stream_submit_unit(ctx->res_str_id, &src_vxdb->end_unit);
+	mutex_unlock(ctx->mutex2);
+
 }
 
 static int job_ready(void *priv)
