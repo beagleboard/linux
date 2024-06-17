@@ -1377,6 +1377,9 @@ static int vxd_dec_try_fmt(struct file *file, void *priv, struct v4l2_format *f)
 	unsigned int i = 0;
 	int ret = 0;
 
+	pix_mp->width = ALIGN(pix_mp->width, HW_ALIGN);
+	pix_mp->height = ALIGN(pix_mp->height, HW_ALIGN);
+
 	if (V4L2_TYPE_IS_OUTPUT(f->type)) {
 		fmt = find_format(f, IMG_DEC_FMT_TYPE_OUTPUT);
 		if (!fmt) {
