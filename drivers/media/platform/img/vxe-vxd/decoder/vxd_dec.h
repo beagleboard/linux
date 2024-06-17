@@ -431,6 +431,8 @@ struct vxd_dec_ctx {
 	unsigned char flag_last;
 	unsigned char num_decoding;
 	unsigned int max_num_ref_frames;
+	unsigned int cap_seq; /* sequence number for capture port */
+	unsigned int out_seq; /* sequence number for output port */
 	struct vdec_str_opconfig str_opcfg;
 	struct vdec_pict_bufconfig pict_bufcfg;
 	void *bspp_context;

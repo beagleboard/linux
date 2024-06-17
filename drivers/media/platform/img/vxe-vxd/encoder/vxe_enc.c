@@ -431,6 +431,7 @@ void vxe_fill_default_params(struct vxe_enc_ctx *ctx)
 	ctx->vparams.enable_scaler = FALSE;
 	ctx->vparams.line_counter_enabled = FALSE;
 
+	ctx->rc.intra_freq = 30;
 	ctx->rc.initial_qp_i = 0;
 	ctx->rc.initial_qp_p = 0;
 	ctx->rc.initial_qp_b = 0;

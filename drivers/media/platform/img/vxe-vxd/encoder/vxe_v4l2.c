@@ -86,76 +86,6 @@ static struct vxe_enc_fmt vxe_enc_formats[] = {
 	},
 };
 
-/* Note: Arrange in order of ascending CID # to simplify QUERYCTRL */
-static struct vxe_ctrl controls[] = {
-	{
-		/*
-		 * idr_period
-		 *
-		 * Period between IDR frames. Default to 60 * framerate.
-		 * Since default framerate is 30fps, default to 1800 frames
-		 * between IDR frames. IDR frames are a special I frame in
-		 * H.264 that specifies no frame after the IDR frame can
-		 * reference any frame before the IDR frame.
-		 *
-		 * This period is in number of frames.
-		 * ex. Default: 1800
-		 * Every 1800 frames is an IDR frame. At 30fps this means there
-		 * is an IDR frame every 60 seconds.
-		 */
-		.cid = V4L2_CID_MPEG_VIDEO_GOP_SIZE,
-		.type = V4L2_CTRL_TYPE_INTEGER,
-		.name = "GOP size",
-		.minimum = 1,
-		.maximum = 7200,
-		.step = 1,
-		.default_value = 1800,
-		.compound = FALSE,
-	},
-	{
-		/*
-		 * bits_per_second
-		 *
-		 * Bits per second for the encode. This will be the final
-		 * bitrate of the encoded stream. Warning, setting this too
-		 * low results in extreme loss of quality and choppy output.
-		 *
-		 * This is specified in bits per second
-		 */
-		.cid = V4L2_CID_MPEG_VIDEO_BITRATE,
-		.type = V4L2_CTRL_TYPE_INTEGER,
-		.name = "Video Bitrate",
-		.minimum = 50000,
-		.maximum = 100000000,
-		.step = 1,
-		.default_value = 500000,
-		.compound = FALSE,
-	},
-	{
-		/*
-		 * intra_freq
-		 *
-		 * Period between I-frames. I-frames are complete frames that
-		 * do not need to reference any other frames to decode. Named
-		 * intra_freq instead of intra_period due to naming in
-		 * underlying topaz_api layers.
-		 *
-		 * This frequency is actually the period between I-frames.
-		 * ex. Default: 30
-		 * This means there is an I-frame every 30 frames. At 30fps
-		 * this would mean one I-frame every second.
-		 */
-		.cid = V4L2_CID_MPEG_VIDEO_H264_I_PERIOD,
-		.type = V4L2_CTRL_TYPE_INTEGER,
-		.name = "H264 I period",
-		.minimum = 1,
-		.maximum = 600,
-		.step = 1,
-		.default_value = 30,
-		.compound = FALSE,
-	},
-};
-
 static struct v4l2_fract frmivals[] = {
 	{
 		.numerator = 1,
@@ -197,11 +127,12 @@ static void vxe_eos(struct vxe_enc_ctx *ctx)
 
 static void vxe_return_resource(void *ctx_handle, enum vxe_cb_type type,
 				void *img_buf_ref, unsigned int size,
-	unsigned int coded_frm_cnt)
+	unsigned int coded_frm_cnt, enum img_frame_type frame_type)
 {
 	struct vxe_enc_ctx *ctx = ctx_handle;
 	struct device *dev = ctx->dev->dev;
 	struct vxe_buffer *buf;
+
 #ifdef ENABLE_PROFILING
 	struct timespec64 time;
 #endif
@@ -221,6 +152,15 @@ static void vxe_return_resource(void *ctx_handle, enum vxe_cb_type type,
 		pr_err("driver encode time is %llu us\n", div_s64(ctx->drv_lat.end_time -
 		       ctx->drv_lat.start_time, 1000));
 #endif
+
+		if (frame_type == IMG_INTRA_FRAME)
+			buf->buffer.vb.flags |= V4L2_BUF_FLAG_KEYFRAME;
+		else if (frame_type == IMG_INTER_P)
+			buf->buffer.vb.flags |= V4L2_BUF_FLAG_PFRAME;
+		else if (frame_type == IMG_INTER_B)
+			buf->buffer.vb.flags |= V4L2_BUF_FLAG_BFRAME;
+		else
+			buf->buffer.vb.flags |= V4L2_BUF_FLAG_KEYFRAME;
 
 		v4l2_m2m_buf_done(&buf->buffer.vb, VB2_BUF_STATE_DONE);
 
@@ -278,6 +218,11 @@ static void device_run(void *priv)
 		src_vbuf = v4l2_m2m_src_buf_remove(ctx->fh.m2m_ctx);
 		if (!src_vbuf)
 			dev_err(dev, "Next src buffer is null\n");
+
+		v4l2_m2m_buf_copy_metadata(src_vbuf, dst_vbuf, true);
+		dst_vbuf->vb2_buf.timestamp = src_vbuf->vb2_buf.timestamp;
+		dst_vbuf->field = V4L2_FIELD_NONE;
+		src_vbuf->field = V4L2_FIELD_NONE;
 
 		/* Handle EOS */
 		if (ctx->eos && (v4l2_m2m_num_src_bufs_ready(ctx->fh.m2m_ctx) == 0)) {
@@ -577,6 +522,11 @@ static void vxe_buf_queue(struct vb2_buffer *vb)
 		vb2_set_plane_payload(&vbuf->vb2_buf, 0, 0);
 		v4l2_m2m_buf_done(vbuf, VB2_BUF_STATE_DONE);
 	} else {
+		if (vb->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
+			vbuf->sequence = ctx->out_seq++;
+		else
+			vbuf->sequence = ctx->cap_seq++;
+
 		v4l2_m2m_buf_queue(ctx->fh.m2m_ctx, vbuf);
 	}
 	mutex_unlock((struct mutex *)ctx->mutex);
@@ -689,11 +639,56 @@ static int queue_init(void *priv, struct vb2_queue *src_vq,
 	return 0;
 }
 
+static inline struct vxe_enc_ctx *vxe_ctrl_to_ctx(struct v4l2_ctrl *vctrl)
+{
+	return container_of(vctrl->handler, struct vxe_enc_ctx, v4l2_ctrl_hdl);
+}
+
+static int vxe_enc_s_ctrl(struct v4l2_ctrl *ctrl)
+{
+	struct vxe_enc_ctx *ctx = vxe_ctrl_to_ctx(ctrl);
+
+#ifdef DEBUG_ENCODER_DRIVER
+	pr_debug("%s: name: %s | value: %d | id 0x%x | ctx 0x%p\n", __func__,
+					ctrl->name, ctrl->val, ctrl->id, ctx);
+#endif
+
+	switch (ctrl->id) {
+	case V4L2_CID_MPEG_VIDEO_GOP_SIZE:
+		ctx->vparams.idr_period = ctrl->val;
+		break;
+	case V4L2_CID_MPEG_VIDEO_BITRATE:
+		ctx->rc.bits_per_second = ctrl->val;
+		break;
+	case V4L2_CID_MPEG_VIDEO_H264_I_PERIOD:
+		ctx->rc.intra_freq = ctrl->val;
+		ctx->vparams.intra_cnt = ctrl->val;
+		break;
+	case V4L2_CID_MPEG_VIDEO_H264_PROFILE:
+		ctx->sh_params.profile = ctrl->val;
+		break;
+	case V4L2_CID_MPEG_VIDEO_H264_LEVEL:
+		ctx->sh_params.level = ctrl->val;
+		break;
+	case V4L2_CID_MIN_BUFFERS_FOR_OUTPUT:
+		break;
+	default:
+		break;
+	}
+
+	return 0;
+}
+
+static const struct v4l2_ctrl_ops vxe_enc_ctrl_ops = {
+	.s_ctrl = vxe_enc_s_ctrl,
+};
+
 static int vxe_open(struct file *file)
 {
 	struct vxe_dev *vxe = video_drvdata(file);
 	struct vxe_enc_ctx *ctx;
 	int i, ret = 0;
+	struct v4l2_ctrl_handler *v4l2_ctrl_hdl;
 
 	dev_dbg(vxe->dev, "%s:%d vxe %p\n", __func__, __LINE__, vxe);
 
@@ -704,6 +699,8 @@ static int vxe_open(struct file *file)
 		mutex_unlock((struct mutex *)vxe->mutex);
 		return -ENOMEM;
 	}
+
+	v4l2_ctrl_hdl = &ctx->v4l2_ctrl_hdl;
 
 	ctx->mutex = kzalloc(sizeof(*ctx->mutex), GFP_KERNEL);
 	if (!ctx->mutex)
@@ -719,8 +716,20 @@ static int vxe_open(struct file *file)
 	ctx->available_source_frames = 0;
 	ctx->frames_encoding = 0;
 	ctx->frame_num = 0;
+	ctx->rc.frame_rate = VXE_ENCODER_DEFAULT_FRAMERATE;
+	ctx->rc.initial_qp_i = VXE_ENCODER_INITIAL_QP_I;
 	ctx->out_queue.streaming = FALSE;
 	ctx->cap_queue.streaming = FALSE;
+
+	/* set the sequence numbers to zero */
+	ctx->cap_seq = 0;
+	ctx->out_seq = 0;
+
+	/* set some default widths and heights */
+	ctx->cap_queue.height = VXE_ENCODER_DEFAULT_HEIGHT;
+	ctx->cap_queue.width = VXE_ENCODER_DEFAULT_WIDTH;
+	ctx->out_queue.height = VXE_ENCODER_DEFAULT_HEIGHT;
+	ctx->out_queue.width = VXE_ENCODER_DEFAULT_WIDTH;
 
 	for (i = 0; i < ARRAY_SIZE(vxe_enc_formats); i++) {
 		if (vxe_enc_formats[i].type ==
@@ -737,6 +746,23 @@ static int vxe_open(struct file *file)
 		}
 	}
 
+	for (i = 0; i < ctx->cap_queue.fmt->num_planes; i++) {
+		ctx->cap_queue.size_image[i] = topaz_get_coded_buffer_max_size(NULL,
+									 ctx->cap_queue.fmt->fmt,
+									 ctx->cap_queue.width,
+									 ctx->cap_queue.height,
+									 &ctx->rc);
+
+		ctx->cap_queue.bytesperline[i] = 0;
+	}
+
+	for (i = 0; i < ctx->out_queue.fmt->num_planes; i++) {
+		ctx->out_queue.bytesperline[i] = vxe_get_stride(ctx->out_queue.width,
+						ctx->out_queue.fmt);
+		ctx->out_queue.size_image[i] = vxe_get_sizeimage(ctx->out_queue.bytesperline[i],
+						ctx->out_queue.height, ctx->out_queue.fmt, i);
+	}
+
 	v4l2_fh_init(&ctx->fh, video_devdata(file));
 	file->private_data = &ctx->fh;
 
@@ -745,6 +771,39 @@ static int vxe_open(struct file *file)
 		ret = (long)(ctx->fh.m2m_ctx);
 		goto exit;
 	}
+
+	v4l2_ctrl_handler_init(v4l2_ctrl_hdl, 10);
+	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &vxe_enc_ctrl_ops,
+			  V4L2_CID_MPEG_VIDEO_BITRATE,
+			  0, 700000000, 1, 100000);
+	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &vxe_enc_ctrl_ops,
+			  V4L2_CID_MPEG_VIDEO_GOP_SIZE,
+			  0, 2047, 1, 30);
+	v4l2_ctrl_new_std_menu(v4l2_ctrl_hdl, &vxe_enc_ctrl_ops,
+			       V4L2_CID_MPEG_VIDEO_H264_PROFILE,
+			       V4L2_MPEG_VIDEO_H264_PROFILE_HIGH_444_PREDICTIVE, 0,
+			       V4L2_MPEG_VIDEO_H264_PROFILE_BASELINE);
+	v4l2_ctrl_new_std_menu(v4l2_ctrl_hdl, &vxe_enc_ctrl_ops,
+			       V4L2_CID_MPEG_VIDEO_H264_LEVEL,
+			       V4L2_MPEG_VIDEO_H264_LEVEL_5_1, 0,
+			       V4L2_MPEG_VIDEO_H264_LEVEL_1_0);
+	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &vxe_enc_ctrl_ops,
+			  V4L2_CID_MIN_BUFFERS_FOR_OUTPUT, 1, 32, 1, 2);
+
+	if (v4l2_ctrl_hdl->error) {
+		kfree(ctx->mutex);
+		kfree(ctx);
+		return -ENODEV;
+	}
+
+	ctx->fh.ctrl_handler = v4l2_ctrl_hdl;
+	v4l2_ctrl_handler_setup(v4l2_ctrl_hdl);
+
+	ctx->colorspace = V4L2_COLORSPACE_REC709;
+	ctx->ycbcr_enc = V4L2_YCBCR_ENC_DEFAULT;
+	ctx->hsv_enc = 0;
+	ctx->quantization = V4L2_QUANTIZATION_DEFAULT;
+	ctx->xfer_func = V4L2_XFER_FUNC_DEFAULT;
 
 	vxe_fill_default_params(ctx);
 
@@ -799,8 +858,6 @@ static int vxe_querycap(struct file *file, void *priv,
 	strncpy(cap->driver, IMG_VXE_ENC_MODULE_NAME, sizeof(cap->driver) - 1);
 	strncpy(cap->card, IMG_VXE_ENC_MODULE_NAME, sizeof(cap->card) - 1);
 	snprintf(cap->bus_info, sizeof(cap->bus_info), "platform:%s", IMG_VXE_ENC_MODULE_NAME);
-	cap->device_caps = V4L2_CAP_VIDEO_M2M_MPLANE | V4L2_CAP_STREAMING;
-	cap->capabilities = cap->device_caps | V4L2_CAP_DEVICE_CAPS;
 	return 0;
 }
 
@@ -835,6 +892,8 @@ static int vxe_enum_fmt(struct file *file, void *priv, struct v4l2_fmtdesc *f)
 		return -EINVAL;
 
 	f->pixelformat = fmt->fourcc;
+	f->flags = 0;
+
 	return 0;
 }
 
@@ -862,6 +921,12 @@ static int vxe_g_fmt(struct file *file, void *priv, struct v4l2_format *f)
 	}
 	pix_mp->num_planes = queue->fmt->num_planes;
 
+	f->fmt.pix_mp.colorspace = ctx->colorspace;
+	f->fmt.pix_mp.ycbcr_enc = ctx->ycbcr_enc;
+	f->fmt.pix_mp.hsv_enc = ctx->hsv_enc;
+	f->fmt.pix_mp.quantization = ctx->quantization;
+	f->fmt.pix_mp.xfer_func = ctx->xfer_func;
+
 	return 0;
 }
 
@@ -870,14 +935,26 @@ static int vxe_try_fmt(struct file *file, void *priv, struct v4l2_format *f)
 	struct vxe_enc_ctx *ctx = file2ctx(file);
 	struct vxe_enc_fmt *fmt;
 	struct vxe_enc_q_data *queue;
-	int i;
+	int i, width, height;
 	struct v4l2_pix_format_mplane *pix_mp = &f->fmt.pix_mp;
 	struct v4l2_plane_pix_format *plane_fmt = pix_mp->plane_fmt;
 	struct img_rc_params rc;
 
+	/* spec ambiguity see: http://www.mail-archive.com/linux-media@vger.kernel.org/msg56550.html*/
 	fmt = find_format(f);
-	if (!fmt)
-		return -EINVAL;
+	if (!fmt) {
+		if (V4L2_TYPE_IS_OUTPUT(f->type))
+			f->fmt.pix_mp.pixelformat = V4L2_PIX_FMT_NV12;
+		else
+			f->fmt.pix_mp.pixelformat = V4L2_PIX_FMT_H264;
+		/* try again now we have a default pixel type */
+		fmt = find_format(f);
+		if (!fmt)
+			return -EINVAL;  /* this should never happen */
+	}
+
+	width = clamp_t(u32, f->fmt.pix_mp.width, VXE_ENCODER_MIN_WIDTH, VXE_ENCODER_MAX_WIDTH);
+	height = clamp_t(u32, f->fmt.pix_mp.height, VXE_ENCODER_MIN_HEIGHT, VXE_ENCODER_MAX_HEIGHT);
 
 	queue = get_queue(ctx, f->type);
 	if (!queue)
@@ -885,29 +962,40 @@ static int vxe_try_fmt(struct file *file, void *priv, struct v4l2_format *f)
 
 	if (V4L2_TYPE_IS_OUTPUT(f->type)) {
 		pix_mp->num_planes = fmt->num_planes;
-		pix_mp->flags = 0;
+		pix_mp->width = width;
+		pix_mp->height = height;
+
 		for (i = 0; i < fmt->num_planes; i++) {
 			plane_fmt[i].bytesperline = vxe_get_stride(pix_mp->width, fmt);
 			plane_fmt[i].sizeimage = vxe_get_sizeimage(plane_fmt[i].bytesperline,
 								   pix_mp->height, fmt, i);
 		}
 	} else {
-		pix_mp->flags = 0;
 		/* Worst case estimation of sizeimage
 		 *plane_fmt[0].sizeimage = ALIGN(pix_mp->width, HW_ALIGN) *
 		 *			 ALIGN(pix_mp->height, HW_ALIGN) * 2;
 		 */
-		/* TODO: This is the only thing that matters here, make sure this is correct */
+		pix_mp->num_planes = 1;
 		rc.initial_qp_i = 18;
 		plane_fmt[0].bytesperline = 0;
+		pix_mp->width = width;
+		pix_mp->height = height;
 		plane_fmt[0].sizeimage = topaz_get_coded_buffer_max_size(NULL, fmt->std,
 									 pix_mp->width,
 									 pix_mp->height,
 									 &rc);
+
+		f->fmt.pix_mp.colorspace = ctx->colorspace;
+		f->fmt.pix_mp.ycbcr_enc = ctx->ycbcr_enc;
+		f->fmt.pix_mp.hsv_enc = ctx->hsv_enc;
+		f->fmt.pix_mp.quantization = ctx->quantization;
+		f->fmt.pix_mp.xfer_func = ctx->xfer_func;
 	}
 
-	if (pix_mp->field == V4L2_FIELD_ANY)
-		pix_mp->field = V4L2_FIELD_NONE;
+	pix_mp->field = V4L2_FIELD_NONE;
+	pix_mp->flags = 0;
+	pix_mp->xfer_func = V4L2_XFER_FUNC_DEFAULT;
+	memset(&f->fmt.pix_mp.reserved, 0, sizeof(f->fmt.pix_mp.reserved));
 
 	return 0;
 }
@@ -921,6 +1009,12 @@ static int vxe_s_fmt(struct file *file, void *priv, struct v4l2_format *f)
 	int i, ret = 0;
 	unsigned int level_h264;
 	static int base_pipe;
+
+	pix_mp = &f->fmt.pix_mp;
+
+#ifdef DEBUG_ENCODER_DRIVER
+	pr_debug("entering %s with context %p\n", __func__, ctx);
+#endif
 
 	ret = vxe_try_fmt(file, priv, f);
 	if (ret)
@@ -947,6 +1041,12 @@ static int vxe_s_fmt(struct file *file, void *priv, struct v4l2_format *f)
 		ctx->vparams.csc_preset = fmt->csc_preset;
 		if (ctx->vparams.csc_preset != IMG_CSC_NONE)
 			ctx->vparams.enable_scaler = TRUE;
+
+		ctx->colorspace = f->fmt.pix_mp.colorspace;
+		ctx->ycbcr_enc = f->fmt.pix_mp.ycbcr_enc;
+		ctx->hsv_enc = f->fmt.pix_mp.hsv_enc;
+		ctx->quantization = f->fmt.pix_mp.quantization;
+		ctx->xfer_func = f->fmt.pix_mp.xfer_func;
 
 		pr_debug("img_video_params: format=%d\n", ctx->vparams.format);
 		pr_debug("img_video_params: source_width=%d\n", ctx->vparams.source_width);
@@ -1192,7 +1292,11 @@ static int vxe_s_fmt(struct file *file, void *priv, struct v4l2_format *f)
 	pr_debug("s_fmt_flags=%#08x\n", ctx->s_fmt_flags);
 	if ((ctx->s_fmt_flags & S_FMT_FLAG_OUT_RECV) &&
 	    (ctx->s_fmt_flags & S_FMT_FLAG_CAP_RECV)) {
-		pr_debug("Calling topaz_stream_create()\n");
+		/* if the stream has already been created for this context */
+		/* better destroy the original, and create a new one */
+		if (ctx->s_fmt_flags & S_FMT_FLAG_STREAM_CREATED)
+			topaz_stream_destroy(ctx->topaz_str_context);
+
 		topaz_stream_create(ctx, &ctx->vparams, ((base_pipe++ % 2) ? 0 : 1), 2,
 				&ctx->rc, &ctx->topaz_str_context);
 
@@ -1216,19 +1320,16 @@ static int vxe_s_fmt(struct file *file, void *priv, struct v4l2_format *f)
 static int vxe_subscribe_event(struct v4l2_fh *fh,
 			       const struct v4l2_event_subscription *sub)
 {
-	if (sub->type != V4L2_EVENT_EOS)
+	switch (sub->type) {
+	case V4L2_EVENT_EOS:
+		return v4l2_event_subscribe(fh, sub, 0, NULL);
+	case V4L2_EVENT_SOURCE_CHANGE:
 		return -EINVAL;
-
-	v4l2_event_subscribe(fh, sub, 0, NULL);
-	return 0;
-}
-
-static int vxe_try_cmd(struct file *file, void *fh,
-		       struct v4l2_encoder_cmd *cmd)
-{
-	if (cmd->cmd != V4L2_DEC_CMD_STOP)
+	case V4L2_EVENT_CTRL:
+		return v4l2_ctrl_subscribe_event(fh, sub);
+	default:
 		return -EINVAL;
-	return 0;
+	}
 }
 
 static int vxe_cmd(struct file *file, void *fh, struct v4l2_encoder_cmd *cmd)
@@ -1261,282 +1362,32 @@ static int vxe_cmd(struct file *file, void *fh, struct v4l2_encoder_cmd *cmd)
 	return 0;
 }
 
-static int vxe_queryctrl(struct file *file, void *priv,
-			 struct v4l2_queryctrl *query)
-{
-	int i;
 
-	query->reserved[0] = 0;
-	query->reserved[1] = 0;
-
-	/* Enumerate controls */
-	if (query->id & V4L2_CTRL_FLAG_NEXT_CTRL) {
-		query->id &= ~V4L2_CTRL_FLAG_NEXT_CTRL;
-		for (i = 0; i < ARRAY_SIZE(controls); i++) {
-			if (!controls[i].compound && controls[i].cid > query->id) {
-				query->id = controls[i].cid;
-				query->type = controls[i].type;
-				strncpy(query->name, controls[i].name, sizeof(query->name));
-				query->minimum = controls[i].minimum;
-				query->maximum = controls[i].maximum;
-				query->step = controls[i].step;
-				query->default_value = controls[i].default_value;
-				query->flags = 0;
-				return 0;
-			}
-		}
-		return -EINVAL;
-	}
-
-	/* Return info on requested control */
-	for (i = 0; i < ARRAY_SIZE(controls); i++) {
-		if (controls[i].cid == query->id) {
-			query->id = controls[i].cid;
-			query->type = controls[i].type;
-			strncpy(query->name, controls[i].name, sizeof(query->name));
-			query->minimum = controls[i].minimum;
-			query->maximum = controls[i].maximum;
-			query->step = controls[i].step;
-			query->default_value = controls[i].default_value;
-			query->flags = 0;
-			return 0;
-		}
-	}
-
-	return -EINVAL;
-}
-
-static int vxe_query_ext_ctrl(struct file *file, void *priv,
-			      struct v4l2_query_ext_ctrl *query)
-{
-	unsigned int queryid;
-	int i, j;
-
-	query->reserved[0] = 0;
-	query->reserved[1] = 0;
-
-	/* Enumerate controls */
-	if ((query->id & V4L2_CTRL_FLAG_NEXT_CTRL) ||
-	    (query->id & V4L2_CTRL_FLAG_NEXT_COMPOUND)) {
-		queryid = query->id;
-		queryid &= ~V4L2_CTRL_FLAG_NEXT_CTRL;
-		queryid &= ~V4L2_CTRL_FLAG_NEXT_COMPOUND;
-		for (i = 0; i < ARRAY_SIZE(controls); i++) {
-			if (((!controls[i].compound && (query->id & V4L2_CTRL_FLAG_NEXT_CTRL)) ||
-			     (controls[i].compound &&
-				(query->id & V4L2_CTRL_FLAG_NEXT_COMPOUND))) &&
-				controls[i].cid > queryid) {
-				query->id = controls[i].cid;
-				query->type = controls[i].type;
-				strncpy(query->name, controls[i].name, sizeof(query->name));
-				query->minimum = controls[i].minimum;
-				query->maximum = controls[i].maximum;
-				query->step = controls[i].step;
-				query->default_value = controls[i].default_value;
-				/* Our supported controls use int values */
-				query->elem_size = 4;
-				query->elems  = 1;
-				query->nr_of_dims = 0;
-				for (j = 0; j < V4L2_CTRL_MAX_DIMS; j++)
-					query->dims[j] = 0;
-				query->flags = 0;
-				return 0;
-			}
-		}
-		return -EINVAL;
-	}
-
-	/* Return info on requested control */
-	for (i = 0; i < ARRAY_SIZE(controls); i++) {
-		if (controls[i].cid == query->id) {
-			query->id = controls[i].cid;
-			query->type = controls[i].type;
-			strncpy(query->name, controls[i].name, sizeof(query->name));
-			query->minimum = controls[i].minimum;
-			query->maximum = controls[i].maximum;
-			query->step = controls[i].step;
-			query->default_value = controls[i].default_value;
-			/* Our supported controls use int values */
-			query->elem_size = 4;
-			query->elems  = 1;
-			query->nr_of_dims = 0;
-			for (j = 0; j < V4L2_CTRL_MAX_DIMS; j++)
-				query->dims[j] = 0;
-			query->flags = 0;
-			return 0;
-		}
-	}
-
-	return -EINVAL;
-}
-
-static int vxe_g_ext_ctrls(struct file *file, void *priv,
-			   struct v4l2_ext_controls *ctrls)
-{
-	struct vxe_enc_ctx *ctx = file2ctx(file);
-	struct device *dev = ctx->dev->dev;
-	struct v4l2_queryctrl query;
-	int i;
-
-	ctrls->reserved[0] = 0;
-
-	if (ctrls->which == V4L2_CTRL_WHICH_DEF_VAL) {
-		for (i = 0; i < ctrls->count; i++) {
-			query.id = ctrls->controls[i].id;
-			if (vxe_queryctrl(NULL, NULL, &query)) {
-				dev_err(dev, "%s could not find default value for id=%#08x\n",
-					__func__, ctrls->controls[i].id);
-				return -EINVAL;
-			}
-			ctrls->controls[i].value = query.default_value;
-		}
-	}
-
-	for (i = 0; i < ctrls->count; i++) {
-		ctrls->controls[i].reserved2[0] = 0;
-
-		switch (ctrls->controls[i].id) {
-		case V4L2_CID_MPEG_VIDEO_GOP_SIZE:
-			ctrls->controls[i].size = 0;
-			ctrls->controls[i].value = ctx->vparams.idr_period;
-			break;
-		case V4L2_CID_MPEG_VIDEO_BITRATE:
-			ctrls->controls[i].size = 0;
-			ctrls->controls[i].value = ctx->rc.bits_per_second;
-			break;
-		case V4L2_CID_MPEG_VIDEO_H264_I_PERIOD:
-			ctrls->controls[i].size = 0;
-			ctrls->controls[i].value = ctx->rc.intra_freq;
-			break;
-		case V4L2_CID_MPEG_VIDEO_H264_PROFILE:
-			ctrls->controls[i].size = 0;
-			ctrls->controls[i].value = ctx->sh_params.profile;
-			break;
-		case V4L2_CID_MPEG_VIDEO_H264_LEVEL:
-			ctrls->controls[i].size = 0;
-			ctrls->controls[i].value = ctx->sh_params.level;
-			break;
-		default:
-			dev_err(dev, "%s Invalid control id %#08x\n",
-				__func__, ctrls->controls[i].id);
-			ctrls->error_idx = ctrls->count;
-			return -EINVAL;
-		}
-	}
-
-	return 0;
-}
-
-static int vxe_try_ext_ctrls(struct file *file, void *priv,
-			     struct v4l2_ext_controls *ctrls)
-{
-	struct vxe_enc_ctx *ctx = file2ctx(file);
-	struct device *dev = ctx->dev->dev;
-	struct v4l2_queryctrl query;
-	int i;
-
-	ctrls->reserved[0] = 0;
-
-	/* Can't write default values or support requests */
-	if (ctrls->which != V4L2_CTRL_WHICH_CUR_VAL)
-		return -EINVAL;
-
-	/* Cannot change values once context is created */
-	/* TODO: Handle controls after stream is created but before streamon */
-	if (ctx->s_fmt_flags & S_FMT_FLAG_STREAM_CREATED)
-		return -EBUSY;
-
-	for (i = 0; i < ctrls->count; i++) {
-		ctrls->controls[i].reserved2[0] = 0;
-
-		query.id = ctrls->controls[i].id;
-		if (vxe_queryctrl(NULL, NULL, &query)) {
-			dev_err(dev, "%s could not find control id=%#08x\n",
-				__func__, ctrls->controls[i].id);
-			ctrls->error_idx = i;
-			return -EINVAL;
-		}
-		if (ctrls->controls[i].value < query.minimum) {
-			dev_err(dev, "%s control id=%#08x value=%d less than minimum=%d\n",
-				__func__, ctrls->controls[i].id,
-				ctrls->controls[i].value, query.minimum);
-			ctrls->error_idx = i;
-			return -ERANGE;
-		}
-		if (ctrls->controls[i].value > query.maximum) {
-			dev_err(dev, "%s control id=%#08x value=%d greater than maximum=%d\n",
-				__func__, ctrls->controls[i].id,
-				ctrls->controls[i].value, query.maximum);
-			ctrls->error_idx = i;
-			return -ERANGE;
-		}
-	}
-
-	return 0;
-}
-
-static int vxe_s_ext_ctrls(struct file *file, void *priv,
-			   struct v4l2_ext_controls *ctrls)
-{
-	struct vxe_enc_ctx *ctx = file2ctx(file);
-	struct device *dev = ctx->dev->dev;
-	int i;
-	int ret;
-
-	ctrls->reserved[0] = 0;
-
-	if (ctrls->which != V4L2_CTRL_WHICH_CUR_VAL)
-		return -EINVAL;
-
-	/* Verify first with try_ext_ctrls */
-	ret = vxe_try_ext_ctrls(file, priv, ctrls);
-	if (ret) {
-		/* Indicate verification stage error */
-		ctrls->error_idx = ctrls->count;
-		return ret;
-	}
-
-	/* Set all values in this set of commands */
-	for (i = 0; i < ctrls->count; i++) {
-		ctrls->controls[i].reserved2[0] = 0;
-
-		switch (ctrls->controls[i].id) {
-		case V4L2_CID_MPEG_VIDEO_GOP_SIZE:
-			ctrls->controls[i].size = 0;
-			ctx->vparams.idr_period = ctrls->controls[i].value;
-			break;
-		case V4L2_CID_MPEG_VIDEO_BITRATE:
-			ctrls->controls[i].size = 0;
-			ctx->rc.bits_per_second = ctrls->controls[i].value;
-			break;
-		case V4L2_CID_MPEG_VIDEO_H264_I_PERIOD:
-			ctrls->controls[i].size = 0;
-			ctx->rc.intra_freq = ctrls->controls[i].value;
-			ctx->vparams.intra_cnt = ctrls->controls[i].value;
-			break;
-		default:
-			dev_err(dev, "%s Invalid control id %#08x\n",
-				__func__, ctrls->controls[i].id);
-			ctrls->error_idx = i;
-			return -EINVAL;
-		}
-	}
-
-	return 0;
-}
 
 static int vxe_enum_framesizes(struct file *file, void *priv,
 			       struct v4l2_frmsizeenum *fsize)
 {
+	int  i, found = 0;
+
 	if (fsize->index != 0)
 		return -EINVAL;
 
+	for (i = 0; i < ARRAY_SIZE(vxe_enc_formats); ++i) {
+		if (vxe_enc_formats[i].fourcc == fsize->pixel_format) {
+			found = 1;
+			break;
+		}
+	}
+	if (!found)
+		return -EINVAL;
+
+
 	fsize->type = V4L2_FRMSIZE_TYPE_CONTINUOUS;
-	fsize->stepwise.min_width = 1;
-	fsize->stepwise.max_width = 1920;
+	fsize->stepwise.min_width = VXE_ENCODER_MIN_WIDTH;
+	fsize->stepwise.max_width = VXE_ENCODER_MAX_WIDTH;
 	fsize->stepwise.step_width = 1;
-	fsize->stepwise.min_height = 1;
-	fsize->stepwise.max_height = 1080;
+	fsize->stepwise.min_height = VXE_ENCODER_MIN_HEIGHT;
+	fsize->stepwise.max_height = VXE_ENCODER_MAX_HEIGHT;
 	fsize->stepwise.step_height = 1;
 
 	fsize->reserved[0] = 0;
@@ -1548,7 +1399,23 @@ static int vxe_enum_framesizes(struct file *file, void *priv,
 static int vxe_enum_frameintervals(struct file *file, void *priv,
 				   struct v4l2_frmivalenum *fival)
 {
+	int i, found = 0;
 	if (fival->index)
+		return -EINVAL;
+
+	if (fival->width > VXE_ENCODER_MAX_WIDTH ||
+	    fival->width < VXE_ENCODER_MIN_WIDTH ||
+	    fival->height > VXE_ENCODER_MAX_HEIGHT ||
+	    fival->height < VXE_ENCODER_MIN_HEIGHT)
+		return -EINVAL;
+
+	for (i = 0; i < ARRAY_SIZE(vxe_enc_formats); ++i) {
+		if (vxe_enc_formats[i].fourcc == fival->pixel_format) {
+			found = 1;
+			break;
+		}
+	}
+	if (!found)
 		return -EINVAL;
 
 	fival->type = V4L2_FRMIVAL_TYPE_CONTINUOUS;
@@ -1557,7 +1424,7 @@ static int vxe_enum_frameintervals(struct file *file, void *priv,
 	fival->stepwise.step = frmivals[1];
 
 	fival->reserved[0] = 0;
-	fival->reserved[1] = 1;
+	fival->reserved[1] = 0;
 
 	return 0;
 }
@@ -1644,14 +1511,8 @@ static const struct v4l2_ioctl_ops vxe_enc_ioctl_ops = {
 
 	.vidioc_subscribe_event = vxe_subscribe_event,
 	.vidioc_unsubscribe_event = v4l2_event_unsubscribe,
-	.vidioc_try_encoder_cmd = vxe_try_cmd,
+	.vidioc_try_encoder_cmd = v4l2_m2m_ioctl_try_encoder_cmd,
 	.vidioc_encoder_cmd = vxe_cmd,
-
-	.vidioc_queryctrl = vxe_queryctrl,
-	.vidioc_query_ext_ctrl = vxe_query_ext_ctrl,
-	.vidioc_g_ext_ctrls = vxe_g_ext_ctrls,
-	.vidioc_s_ext_ctrls = vxe_s_ext_ctrls,
-	.vidioc_try_ext_ctrls = vxe_try_ext_ctrls,
 
 	.vidioc_enum_framesizes = vxe_enum_framesizes,
 	.vidioc_enum_frameintervals = vxe_enum_frameintervals,
