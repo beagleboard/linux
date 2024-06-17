@@ -160,4 +160,4 @@ ifeq ($(ENABLE_PROFILING),y)
 ccflags-y	+= -DENABLE_PROFILING
 endif
 
-ccflags-y += -I$(srctree)/drivers/media/platform/img/vxe-vxd/common/
+ccflags-y += -I$(srctree)/drivers/media/platform/imagination/vxe-vxd/common/
