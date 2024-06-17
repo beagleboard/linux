@@ -159,19 +159,11 @@ static struct vxe_ctrl controls[] = {
 static struct v4l2_fract frmivals[] = {
 	{
 		.numerator = 1,
-		.denominator = 15,
+		.denominator = 960,
 	},
 	{
 		.numerator = 1,
-		.denominator = 30,
-	},
-	{
-		.numerator = 1,
-		.denominator = 45,
-	},
-	{
-		.numerator = 1,
-		.denominator = 60,
+		.denominator = 1,
 	},
 };
 
@@ -1559,11 +1551,13 @@ static int vxe_enum_framesizes(struct file *file, void *priv,
 static int vxe_enum_frameintervals(struct file *file, void *priv,
 				   struct v4l2_frmivalenum *fival)
 {
-	if (fival->index > (ARRAY_SIZE(frmivals)))
+	if (fival->index)
 		return -EINVAL;
 
-	fival->type = V4L2_FRMIVAL_TYPE_DISCRETE;
-	fival->discrete = frmivals[fival->index];
+	fival->type = V4L2_FRMIVAL_TYPE_CONTINUOUS;
+	fival->stepwise.min = frmivals[0];
+	fival->stepwise.max = frmivals[1];
+	fival->stepwise.step = frmivals[1];
 
 	fival->reserved[0] = 0;
 	fival->reserved[1] = 1;
@@ -1594,7 +1588,6 @@ static int vxe_s_parm(struct file *file, void *priv,
 {
 	struct vxe_enc_ctx *ctx = file2ctx(file);
 	unsigned int num, den;
-	int i;
 
 	/* Cannot change values once context is created */
 	/* TODO: Handle controls after stream is created but before streamon */
@@ -1611,12 +1604,9 @@ static int vxe_s_parm(struct file *file, void *priv,
 		den = parm->parm.capture.timeperframe.denominator;
 	}
 
-	for (i = 0; i < (ARRAY_SIZE(frmivals)); i++) {
-		if (num == frmivals[i].numerator &&
-		    den == frmivals[i].denominator) {
-			/* Switch from frame interval to frame rate */
-			ctx->rc.frame_rate = den / num;
-		}
+	if (parm->parm.output.timeperframe.denominator &&
+			parm->parm.output.timeperframe.numerator) {
+		ctx->rc.frame_rate = den / num;
 	}
 
 	if (V4L2_TYPE_IS_OUTPUT(parm->type)) {
