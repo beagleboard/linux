@@ -175,6 +175,7 @@ struct vxe_enc_ctx {
 	void **enc_context;
 	void *topaz_str_context;
 	struct mutex *mutex;
+	unsigned char core_streaming;
 	struct img_enc_caps caps;
 	struct img_rc_params rc;
 	struct img_video_params vparams;
