@@ -168,14 +168,6 @@ static const int bspp_subheightc[] = { -1, 2, 1, 1 };
  */
 static const int bspp_subwidthc[] = { -1, 2, 2, 1 };
 
-/*
- * inline functions for Minimum and Maximum value
- */
-static inline unsigned int umin(unsigned int a, unsigned int b)
-{
-	return (((a) < (b)) ? (a) : (b));
-}
-
 static inline int smin(int a, int b)
 {
 	return (((a) < (b)) ? (a) : (b));

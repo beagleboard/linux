@@ -1392,7 +1392,7 @@ int vxd_prepare_fw(struct vxd_dev *vxd)
 		return -ENOMEM;
 
 	vxd->firmware.ready = FALSE;
-	ret = request_firmware_nowait(THIS_MODULE, FW_ACTION_HOTPLUG,
+	ret = request_firmware_nowait(THIS_MODULE, FW_ACTION_UEVENT,
 				      drv_fw_name, vxd->dev, GFP_KERNEL, vxd,
 				      vxd_fw_loaded);
 	if (ret < 0) {

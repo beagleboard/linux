@@ -376,6 +376,7 @@ static void return_worker(void *work)
 	kfree(res);
 }
 
+#ifdef ERROR_RECOVERY_SIMULATION
 static void vxd_error_recovery(struct vxd_dec_ctx *ctx)
 {
 	int ret = -1;
@@ -390,6 +391,7 @@ static void vxd_error_recovery(struct vxd_dec_ctx *ctx)
 	if (ret)
 		pr_err("Reloading the firmware failed!!");
 }
+#endif /* ERROR_RECOVERY_SIMULATION */
 
 static struct vxd_dec_q_data *get_q_data(struct vxd_dec_ctx *ctx,
 					 enum v4l2_buf_type type)
@@ -2233,7 +2235,7 @@ static int __maybe_unused vxd_dec_resume(struct device *dev)
 static UNIVERSAL_DEV_PM_OPS(vxd_dec_pm_ops,
 	vxd_dec_suspend, vxd_dec_resume, NULL);
 
-static const struct platform_driver vxd_dec_driver = {
+static struct platform_driver vxd_dec_driver = {
 	.probe = vxd_dec_probe,
 	.remove = vxd_dec_remove,
 	.driver = {
