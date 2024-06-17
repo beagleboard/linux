@@ -1502,7 +1502,9 @@ int vxd_send_msg(struct vxd_dec_ctx *ctx, struct vxd_fw_msg *msg)
 		__func__, item, stream->ptd, stream->id, item->msg.out_flags);
 #endif
 
+	mutex_lock(vxd->mutex);
 	vxd_schedule_locked(vxd);
+	mutex_unlock(vxd->mutex);
 
 out_unlock:
 	mutex_unlock(ctx->mutex);
