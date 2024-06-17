@@ -870,6 +870,9 @@ static int vxe_open(struct file *file)
 			  V4L2_CID_MPEG_VIDEO_GOP_SIZE,
 			  0, 2047, 1, 30);
 	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &vxe_enc_ctrl_ops,
+			  V4L2_CID_MPEG_VIDEO_H264_I_PERIOD,
+			  0, 2047, 1, 30);
+	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &vxe_enc_ctrl_ops,
 			  V4L2_CID_MPEG_VIDEO_MAX_REF_PIC,
 			  1, 16, 1, 1);
 	v4l2_ctrl_new_std_menu(v4l2_ctrl_hdl, &vxe_enc_ctrl_ops,
