@@ -665,15 +665,93 @@ static int vxe_enc_s_ctrl(struct v4l2_ctrl *ctrl)
 		ctx->vparams.intra_cnt = ctrl->val;
 		break;
 	case V4L2_CID_MPEG_VIDEO_H264_PROFILE:
-		ctx->sh_params.profile = ctrl->val;
+		/* only HP, MP and BP for now */
+		switch (ctrl->val) {
+		case V4L2_MPEG_VIDEO_H264_PROFILE_BASELINE:
+			ctx->sh_params.profile = SH_PROFILE_BP;
+			break;
+		case V4L2_MPEG_VIDEO_H264_PROFILE_MAIN:
+			ctx->sh_params.profile = SH_PROFILE_MP;
+			break;
+		case V4L2_MPEG_VIDEO_H264_PROFILE_HIGH:
+			ctx->sh_params.profile = SH_PROFILE_HP;
+			break;
+		default:
+			pr_info("not supported H264 profile requested\n");
+			return -EINVAL;
+		}
 		break;
 	case V4L2_CID_MPEG_VIDEO_H264_LEVEL:
-		ctx->sh_params.level = ctrl->val;
+		switch (ctrl->val) {
+		case V4L2_MPEG_VIDEO_H264_LEVEL_1_0:
+			ctx->sh_params.level = 100;
+			break;
+		case V4L2_MPEG_VIDEO_H264_LEVEL_1B:
+			ctx->sh_params.level = 101;
+			break;
+		case V4L2_MPEG_VIDEO_H264_LEVEL_1_1:
+			ctx->sh_params.level = 110;
+			break;
+		case V4L2_MPEG_VIDEO_H264_LEVEL_1_2:
+			ctx->sh_params.level = 120;
+			break;
+		case V4L2_MPEG_VIDEO_H264_LEVEL_1_3:
+			ctx->sh_params.level = 130;
+			break;
+		case V4L2_MPEG_VIDEO_H264_LEVEL_2_0:
+			ctx->sh_params.level = 200;
+			break;
+		case V4L2_MPEG_VIDEO_H264_LEVEL_2_1:
+			ctx->sh_params.level = 210;
+			break;
+		case V4L2_MPEG_VIDEO_H264_LEVEL_2_2:
+			ctx->sh_params.level = 220;
+			break;
+		case V4L2_MPEG_VIDEO_H264_LEVEL_3_0:
+			ctx->sh_params.level = 300;
+			break;
+		case V4L2_MPEG_VIDEO_H264_LEVEL_3_1:
+			ctx->sh_params.level = 310;
+			break;
+		case V4L2_MPEG_VIDEO_H264_LEVEL_3_2:
+			ctx->sh_params.level = 320;
+			break;
+		case V4L2_MPEG_VIDEO_H264_LEVEL_4_0:
+			ctx->sh_params.level = 400;
+			break;
+		case V4L2_MPEG_VIDEO_H264_LEVEL_4_1:
+			ctx->sh_params.level = 410;
+			break;
+		case V4L2_MPEG_VIDEO_H264_LEVEL_4_2:
+			ctx->sh_params.level = 420;
+			break;
+		case V4L2_MPEG_VIDEO_H264_LEVEL_5_0:
+			ctx->sh_params.level = 500;
+			break;
+		case V4L2_MPEG_VIDEO_H264_LEVEL_5_1:
+			ctx->sh_params.level = 510;
+			break;
+		case V4L2_MPEG_VIDEO_H264_LEVEL_5_2:
+			ctx->sh_params.level = 520;
+			break;
+		default:
+			pr_info("requested h264 level is not supported\n");
+			return -EINVAL;
+		}
+		break;
+	case V4L2_CID_MPEG_VIDEO_H264_8X8_TRANSFORM:
+		ctx->vparams.h264_8x8 = ctrl->val;
+		break;
+	case V4L2_CID_MPEG_VIDEO_H264_ENTROPY_MODE:
+		ctx->vparams.cabac_enabled = ctrl->val;
+		break;
+	case V4L2_CID_MPEG_VIDEO_MAX_REF_PIC:
+		ctx->sh_params.max_num_ref_frames = ctrl->val;
 		break;
 	case V4L2_CID_MIN_BUFFERS_FOR_OUTPUT:
 		break;
 	default:
-		break;
+		return -EINVAL;
 	}
 
 	return 0;
@@ -731,6 +809,18 @@ static int vxe_open(struct file *file)
 	ctx->out_queue.height = VXE_ENCODER_DEFAULT_HEIGHT;
 	ctx->out_queue.width = VXE_ENCODER_DEFAULT_WIDTH;
 
+	ctx->colorspace = V4L2_COLORSPACE_REC709;
+	ctx->ycbcr_enc = V4L2_YCBCR_ENC_DEFAULT;
+	ctx->hsv_enc = 0;
+	ctx->quantization = V4L2_QUANTIZATION_DEFAULT;
+	ctx->xfer_func = V4L2_XFER_FUNC_DEFAULT;
+
+	/*
+	 * set some sane defaults, some of which will get overridden
+	 * latest when v4l2 starts setting up its s_ctrls
+	 */
+	vxe_fill_default_params(ctx);
+
 	for (i = 0; i < ARRAY_SIZE(vxe_enc_formats); i++) {
 		if (vxe_enc_formats[i].type ==
 			V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
@@ -772,23 +862,34 @@ static int vxe_open(struct file *file)
 		goto exit;
 	}
 
-	v4l2_ctrl_handler_init(v4l2_ctrl_hdl, 10);
+	v4l2_ctrl_handler_init(v4l2_ctrl_hdl, 15);
 	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &vxe_enc_ctrl_ops,
 			  V4L2_CID_MPEG_VIDEO_BITRATE,
 			  0, 700000000, 1, 100000);
 	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &vxe_enc_ctrl_ops,
 			  V4L2_CID_MPEG_VIDEO_GOP_SIZE,
 			  0, 2047, 1, 30);
+	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &vxe_enc_ctrl_ops,
+			  V4L2_CID_MPEG_VIDEO_MAX_REF_PIC,
+			  1, 16, 1, 1);
 	v4l2_ctrl_new_std_menu(v4l2_ctrl_hdl, &vxe_enc_ctrl_ops,
 			       V4L2_CID_MPEG_VIDEO_H264_PROFILE,
-			       V4L2_MPEG_VIDEO_H264_PROFILE_HIGH_444_PREDICTIVE, 0,
-			       V4L2_MPEG_VIDEO_H264_PROFILE_BASELINE);
+			       V4L2_MPEG_VIDEO_H264_PROFILE_HIGH,
+				   0,
+			       V4L2_MPEG_VIDEO_H264_PROFILE_HIGH);
 	v4l2_ctrl_new_std_menu(v4l2_ctrl_hdl, &vxe_enc_ctrl_ops,
 			       V4L2_CID_MPEG_VIDEO_H264_LEVEL,
 			       V4L2_MPEG_VIDEO_H264_LEVEL_5_1, 0,
 			       V4L2_MPEG_VIDEO_H264_LEVEL_1_0);
 	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &vxe_enc_ctrl_ops,
 			  V4L2_CID_MIN_BUFFERS_FOR_OUTPUT, 1, 32, 1, 2);
+	v4l2_ctrl_new_std_menu(v4l2_ctrl_hdl, &vxe_enc_ctrl_ops,
+			       V4L2_CID_MPEG_VIDEO_H264_ENTROPY_MODE,
+			       V4L2_MPEG_VIDEO_H264_ENTROPY_MODE_CABAC, 0,
+			       V4L2_MPEG_VIDEO_H264_ENTROPY_MODE_CABAC);
+	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &vxe_enc_ctrl_ops,
+			  V4L2_CID_MPEG_VIDEO_H264_8X8_TRANSFORM,
+			  0, 1, 1, 1);
 
 	if (v4l2_ctrl_hdl->error) {
 		kfree(ctx->mutex);
@@ -798,14 +899,6 @@ static int vxe_open(struct file *file)
 
 	ctx->fh.ctrl_handler = v4l2_ctrl_hdl;
 	v4l2_ctrl_handler_setup(v4l2_ctrl_hdl);
-
-	ctx->colorspace = V4L2_COLORSPACE_REC709;
-	ctx->ycbcr_enc = V4L2_YCBCR_ENC_DEFAULT;
-	ctx->hsv_enc = 0;
-	ctx->quantization = V4L2_QUANTIZATION_DEFAULT;
-	ctx->xfer_func = V4L2_XFER_FUNC_DEFAULT;
-
-	vxe_fill_default_params(ctx);
 
 	v4l2_fh_add(&ctx->fh);
 
@@ -1009,6 +1102,7 @@ static int vxe_s_fmt(struct file *file, void *priv, struct v4l2_format *f)
 	int i, ret = 0;
 	unsigned int level_h264;
 	static int base_pipe;
+	unsigned int calculated_profile;
 
 	pix_mp = &f->fmt.pix_mp;
 
@@ -1082,19 +1176,29 @@ static int vxe_s_fmt(struct file *file, void *priv, struct v4l2_format *f)
 
 		pr_debug("img_rc_params: initial_level=%d\n", ctx->rc.initial_level);
 		pr_debug("img_rc_params: initial_delay=%d\n", ctx->rc.initial_delay);
-		/* TODO Figure out which lossless to use */
-		ctx->sh_params.profile = find_h264_profile
-				(FALSE,
-				 ctx->vparams.use_default_scaling_list,
-				 FALSE,
-				 ctx->vparams.h264_8x8,
-				 ctx->vparams.enable_mvc,
-				 ctx->rc.bframes,
-				 ctx->vparams.is_interlaced,
-				 ctx->vparams.cabac_enabled,
-				 ctx->vparams.weighted_prediction,
-				 ctx->vparams.vp_weighted_implicit_bi_pred);
-		ctx->sh_params.max_num_ref_frames = 1; //TODO Need more logic
+
+		pr_debug("requested profile: %d, ref frames: %d, cabac: %d, weighted pred: %d, 8x8trans: %d, level %d",
+					ctx->sh_params.profile,
+					ctx->sh_params.max_num_ref_frames,
+					ctx->vparams.cabac_enabled,
+					ctx->vparams.weighted_prediction,
+					ctx->vparams.h264_8x8,
+					ctx->sh_params.level);
+
+		calculated_profile = find_h264_profile
+					(FALSE,
+					ctx->vparams.use_default_scaling_list,
+					FALSE,
+					ctx->vparams.h264_8x8,
+					ctx->vparams.enable_mvc,
+					ctx->rc.bframes,
+					ctx->vparams.is_interlaced,
+					ctx->vparams.cabac_enabled,
+					ctx->vparams.weighted_prediction,
+					ctx->vparams.vp_weighted_implicit_bi_pred);
+
+		/* pick the higher of the requested profile and the calculated profile */
+		ctx->sh_params.profile = max(calculated_profile, ctx->sh_params.profile);
 
 		level_h264 = calculate_h264_level(pix_mp->width, pix_mp->height,
 						  ctx->rc.frame_rate,
@@ -1104,7 +1208,17 @@ static int vxe_s_fmt(struct file *file, void *priv, struct v4l2_format *f)
 						  FALSE,
 						  ctx->sh_params.profile,
 						  ctx->sh_params.max_num_ref_frames);
-		pr_debug("level_h264=%d\n", level_h264);
+
+		/* pick the highest of the calculate or selected level */
+		level_h264 = max(level_h264, ctx->sh_params.level);
+
+		pr_debug("selected profile: %d, ref frames: %d, cabac: %d, weighted pred: %d, 8x8trans: %d, level %d",
+					ctx->sh_params.profile,
+					ctx->sh_params.max_num_ref_frames,
+					ctx->vparams.cabac_enabled,
+					ctx->vparams.weighted_prediction,
+					ctx->vparams.h264_8x8,
+					ctx->sh_params.level);
 
 		ctx->vparams.vert_mv_limit = 255;
 		if (level_h264 >= 110)
@@ -1380,7 +1494,6 @@ static int vxe_enum_framesizes(struct file *file, void *priv,
 	}
 	if (!found)
 		return -EINVAL;
-
 
 	fsize->type = V4L2_FRMSIZE_TYPE_CONTINUOUS;
 	fsize->stepwise.min_width = VXE_ENCODER_MIN_WIDTH;
