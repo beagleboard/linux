@@ -320,6 +320,14 @@ struct vxd_stream {
 	unsigned int id;
 };
 
+
+struct vxd_mapping {
+	struct list_head list;
+	unsigned int buf_map_id;
+	unsigned char reuse;
+	unsigned long dma_addr;
+};
+
 /*
  * struct vxd_buffer - holds per buffer info.
  * @buffer: the vb2_v4l2_buffer
@@ -339,6 +347,7 @@ struct vxd_buffer {
 	unsigned char mapped;
 	unsigned char reuse;
 	unsigned int buf_map_id;
+	struct vxd_mapping *mapping;
 	struct vdec_buf_info buf_info;
 	struct bspp_ddbuf_info bstr_info;
 	struct vdecdd_str_unit seq_unit;
@@ -371,6 +380,7 @@ typedef void (*decode_cb)(int res_str_id, unsigned int *msg, unsigned int msg_si
  * @return_queue: list of resources returned from core
  * @out_buffers: list of all output buffers
  * @cap_buffers: list of all capture buffers except those in reuse_queue
+ * @cap_mappings: list of all capture buffers mapped to HW
  * @reuse_queue: list of capture buffers waiting for core to signal reuse
  * @res_str_id: Core stream id
  * @stream_created: Core stream is created
@@ -406,6 +416,7 @@ struct vxd_dec_ctx {
 	struct list_head return_queue;
 	struct list_head out_buffers;
 	struct list_head cap_buffers;
+	struct list_head cap_mappings;
 	struct list_head reuse_queue;
 	unsigned int res_str_id;
 	unsigned char stream_created;
