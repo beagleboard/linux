@@ -1585,7 +1585,7 @@ static int vxd_dec_try_fmt(struct file *file, void *priv, struct v4l2_format *f)
 		}
 		for (i = 0; i < fmt->num_planes; i++) {
 			plane_fmt[i].bytesperline = get_stride(pix_mp->width, fmt);
-			plane_fmt[i].sizeimage = get_sizeimage(plane_fmt[i].bytesperline,
+			plane_fmt[i].sizeimage = get_sizeimage(pix_mp->width,
 							       pix_mp->height, fmt, i);
 		}
 		pix_mp->num_planes = fmt->num_planes;
@@ -1606,6 +1606,7 @@ static int vxd_dec_s_fmt(struct file *file, void *priv, struct v4l2_format *f)
 	struct device *dev = vxd_dev->v4l2_dev.dev;
 	struct vxd_dec_q_data *q_data;
 	struct vb2_queue *vq;
+	struct vxd_dec_fmt *fmt;
 
 	int ret = 0;
 	unsigned char i = 0, j = 0;
@@ -1617,6 +1618,9 @@ static int vxd_dec_s_fmt(struct file *file, void *priv, struct v4l2_format *f)
 
 		if (res == 0)
 			pix_mp->height = ctx->height;
+	} else {
+		ctx->width_orig = pix_mp->width;
+		ctx->height_orig = pix_mp->height;
 	}
 
 	ret = vxd_dec_try_fmt(file, priv, f);
@@ -1636,13 +1640,6 @@ static int vxd_dec_s_fmt(struct file *file, void *priv, struct v4l2_format *f)
 
 	if (!q_data)
 		return -EINVAL;
-
-	/*
-	 * saving the original dimensions to pass to gstreamer (to remove the green
-	 * padding on kmsink)
-	 */
-	ctx->width_orig = pix_mp->width;
-	ctx->height_orig = pix_mp->height;
 
 	ctx->width = pix_mp->width;
 	ctx->height = pix_mp->height;
@@ -1701,7 +1698,13 @@ static int vxd_dec_s_fmt(struct file *file, void *priv, struct v4l2_format *f)
 			return -EBUSY;
 		}
 	} else {
-		q_data->fmt = find_format(f, IMG_DEC_FMT_TYPE_CAPTURE);
+		fmt = find_format(f, IMG_DEC_FMT_TYPE_CAPTURE);
+		for (i = 0; i < pix_mp->num_planes; i++) {
+			pix_mp->plane_fmt[i].sizeimage =
+				get_sizeimage(ctx->width_orig,
+					ctx->height_orig, fmt, i);
+		}
+		q_data->fmt = fmt;
 		for (i = 0; i < q_data->fmt->num_planes; i++) {
 			q_data->size_image[i] =
 				get_sizeimage(get_stride(pix_mp->width, q_data->fmt),
@@ -1754,7 +1757,6 @@ static int vxd_dec_s_fmt(struct file *file, void *priv, struct v4l2_format *f)
 					      q_data->fmt, i);
 			ctx->pict_bufcfg.buf_size += ALIGN(plane_size, PAGE_SIZE);
 			ctx->pict_bufcfg.plane_size[i] = plane_size;
-			pix_mp->plane_fmt[i].sizeimage = plane_size;
 		}
 		if (q_data->fmt->pixfmt == 86031 ||
 		    q_data->fmt->pixfmt == 81935) {
@@ -1842,42 +1844,27 @@ static int vxd_dec_cmd(struct file *file, void *fh, struct v4l2_decoder_cmd *cmd
 static int vxd_g_selection(struct file *file, void *fh, struct v4l2_selection *s)
 {
 	struct vxd_dec_ctx *ctx = file2ctx(file);
-	bool def_bounds = true;
 
-	if (s->type != V4L2_BUF_TYPE_VIDEO_CAPTURE &&
-	    s->type != V4L2_BUF_TYPE_VIDEO_OUTPUT)
+	if (s->type != V4L2_BUF_TYPE_VIDEO_CAPTURE)
 		return -EINVAL;
 
 	switch (s->target) {
-	case V4L2_SEL_TGT_COMPOSE_DEFAULT:
 	case V4L2_SEL_TGT_COMPOSE_BOUNDS:
-		if (s->type == V4L2_BUF_TYPE_VIDEO_OUTPUT)
-			return -EINVAL;
-		break;
-	case V4L2_SEL_TGT_CROP_BOUNDS:
-	case V4L2_SEL_TGT_CROP_DEFAULT:
-		if (s->type == V4L2_BUF_TYPE_VIDEO_CAPTURE)
-			return -EINVAL;
+	case V4L2_SEL_TGT_COMPOSE_PADDED:
+		s->r.left = 0;
+		s->r.top = 0;
+		s->r.width = ctx->width;
+		s->r.height = ctx->height;
 		break;
 	case V4L2_SEL_TGT_COMPOSE:
-		if (s->type == V4L2_BUF_TYPE_VIDEO_OUTPUT)
-			return -EINVAL;
-		def_bounds = false;
-		break;
-	case V4L2_SEL_TGT_CROP:
-		if (s->type == V4L2_BUF_TYPE_VIDEO_CAPTURE)
-			return -EINVAL;
-		def_bounds = false;
-		break;
-	default:
-		return -EINVAL;
-	}
-
-	if (def_bounds) {
+	case V4L2_SEL_TGT_COMPOSE_DEFAULT:
 		s->r.left = 0;
 		s->r.top = 0;
 		s->r.width = ctx->width_orig;
 		s->r.height = ctx->height_orig;
+		break;
+	default:
+		return -EINVAL;
 	}
 
 	return 0;
