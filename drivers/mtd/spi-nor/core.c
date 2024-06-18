@@ -3628,6 +3628,7 @@ static int spi_nor_probe(struct spi_mem *spimem)
 	 * checking what's really supported using spi_mem_supports_op().
 	 */
 	const struct spi_nor_hwcaps hwcaps = { .mask = SNOR_HWCAPS_ALL };
+	struct mtd_part *part;
 	char *flash_name;
 	int ret;
 
@@ -3689,8 +3690,25 @@ static int spi_nor_probe(struct spi_mem *spimem)
 	if (ret)
 		return ret;
 
-	return mtd_device_register(&nor->mtd, data ? data->parts : NULL,
-				   data ? data->nr_parts : 0);
+	ret = mtd_device_register(&nor->mtd, data ? data->parts : NULL,
+				  data ? data->nr_parts : 0);
+	if (ret)
+		return ret;
+
+	list_for_each_entry(part, &nor->mtd.partitions, node) {
+		struct spi_mem_op op;
+		struct mtd_info *part_info = container_of(part,
+							  struct mtd_info, part);
+
+		if (part_info->name &&
+		    !strcmp(part_info->name, "ospi.phypattern")) {
+			op = spi_nor_spimem_get_read_op(nor);
+			op.addr.val = part->offset;
+			spi_mem_do_calibration(nor->spimem, &op);
+		}
+	}
+
+	return 0;
 }
 
 static int spi_nor_remove(struct spi_mem *spimem)
