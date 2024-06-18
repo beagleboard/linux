@@ -1,8 +1,8 @@
-// SPDX-License-Identifier: GPL-2.0
+// SPDX-License-Identifier: GPL-2.0-only OR MIT
 /*
  * Device Tree Source for J722S SoC Family
  *
- * Copyright (C) 2023 Texas Instruments Incorporated - https://www.ti.com/
+ * Copyright (C) 2024 Texas Instruments Incorporated - https://www.ti.com/
  */
 
 #include <dt-bindings/gpio/gpio.h>
@@ -29,6 +29,7 @@
 		compatible = "simple-bus";
 		#address-cells = <2>;
 		#size-cells = <2>;
+		bootph-all;
 
 		ranges = <0x00 0x000f0000 0x00 0x000f0000 0x00 0x00030000>, /* Main MMRs */
 			 <0x00 0x00420000 0x00 0x00420000 0x00 0x00001000>, /* ESM0 */
@@ -273,6 +274,27 @@
 		mux-reg-masks = <0x0 0x3>, /* SERDES0 lane0 select */
 				<0x10 0x3>; /* SERDES1 lane0 select */
 	};
+};
+
+&mcu_gpio0 {
+	gpio-ranges = <&mcu_pmx0 0 0 21>,
+		      <&mcu_pmx0 21 23 1>,
+		      <&mcu_pmx0 22 32 2>;
+};
+
+&main_gpio0 {
+	gpio-ranges = <&main_pmx0 0 0 32>,
+		      <&main_pmx0 32 33 38>,
+		      <&main_pmx0 70 72 17>;
+	ti,ngpio = <87>;
+};
+
+&main_gpio1 {
+	gpio-ranges = <&main_pmx0 7 101 25>,
+		      <&main_pmx0 42 137 5>,
+		      <&main_pmx0 47 143 3>,
+		      <&main_pmx0 50 149 2>;
+	ti,ngpio = <73>;
 };
 
 &oc_sram {

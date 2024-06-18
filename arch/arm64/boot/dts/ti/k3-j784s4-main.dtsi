@@ -1,14 +1,15 @@
-// SPDX-License-Identifier: GPL-2.0
+// SPDX-License-Identifier: GPL-2.0-only OR MIT
 /*
  * Device Tree Source for J784S4 SoC Family Main Domain peripherals
  *
- * Copyright (C) 2022 Texas Instruments Incorporated - https://www.ti.com/
+ * Copyright (C) 2022-2024 Texas Instruments Incorporated - https://www.ti.com/
  */
 
 #include <dt-bindings/mux/mux.h>
-#include <dt-bindings/mux/ti-serdes.h>
 #include <dt-bindings/phy/phy.h>
 #include <dt-bindings/phy/phy-ti.h>
+
+#include <dt-bindings/mux/ti-serdes.h>
 
 / {
 	serdes_refclk: serdes-refclk {
@@ -585,7 +586,7 @@
 		interrupts = <GIC_SPI 3 IRQ_TYPE_LEVEL_HIGH>;
 		power-domains = <&k3_pds 140 TI_SCI_PD_EXCLUSIVE>;
 		clocks = <&k3_clks 140 1>, <&k3_clks 140 2>;
-		clock-names =  "clk_ahb", "clk_xin";
+		clock-names = "clk_ahb", "clk_xin";
 		assigned-clocks = <&k3_clks 140 2>;
 		assigned-clock-parents = <&k3_clks 140 3>;
 		bus-width = <8>;
@@ -613,7 +614,7 @@
 		interrupts = <GIC_SPI 4 IRQ_TYPE_LEVEL_HIGH>;
 		power-domains = <&k3_pds 141 TI_SCI_PD_EXCLUSIVE>;
 		clocks = <&k3_clks 141 3>, <&k3_clks 141 4>;
-		clock-names =  "clk_ahb", "clk_xin";
+		clock-names = "clk_ahb", "clk_xin";
 		assigned-clocks = <&k3_clks 141 4>;
 		assigned-clock-parents = <&k3_clks 141 5>;
 		bus-width = <4>;
@@ -842,6 +843,7 @@
 		};
 
 		secure_proxy_main: mailbox@32c00000 {
+			bootph-all;
 			compatible = "ti,am654-secure-proxy";
 			#mbox-cells = <1>;
 			reg-names = "target_data", "rt", "scfg";
@@ -1137,9 +1139,9 @@
 		main_bcdma_csi: dma-controller@311a0000 {
 			compatible = "ti,j721s2-dmss-bcdma-csi";
 			reg = <0x00 0x311a0000 0x00 0x100>,
-				<0x00 0x35d00000 0x00 0x20000>,
-				<0x00 0x35c00000 0x00 0x10000>,
-				<0x00 0x35e00000 0x00 0x80000>;
+			      <0x00 0x35d00000 0x00 0x20000>,
+			      <0x00 0x35c00000 0x00 0x10000>,
+			      <0x00 0x35e00000 0x00 0x80000>;
 			reg-names = "gcfg", "rchanrt", "tchanrt", "ringrt";
 			msi-parent = <&main_udmass_inta>;
 			#dma-cells = <3>;
