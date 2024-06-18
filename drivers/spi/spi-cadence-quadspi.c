@@ -75,6 +75,9 @@ struct cqspi_flash_pdata {
 	u8			cs;
 	bool			use_phy;
 	struct phy_setting	phy_setting;
+	struct spi_mem_op	phy_read_op;
+	u32			phy_tx_start;
+	u32			phy_tx_end;
 };
 
 struct cqspi_st {
@@ -263,6 +266,13 @@ struct cqspi_driver_platdata {
 #define CQSPI_REG_POLLING_STATUS		0xB0
 #define CQSPI_REG_POLLING_STATUS_DUMMY_LSB	16
 
+#define CQSPI_REG_PHY_CONFIG			0xB4
+#define CQSPI_REG_PHY_CONFIG_RX_DEL_LSB		0
+#define CQSPI_REG_PHY_CONFIG_RX_DEL_MASK	0x7F
+#define CQSPI_REG_PHY_CONFIG_TX_DEL_LSB		16
+#define CQSPI_REG_PHY_CONFIG_TX_DEL_MASK	0x7F
+#define CQSPI_REG_PHY_CONFIG_RESYNC		BIT(31)
+
 #define CQSPI_REG_OP_EXT_LOWER			0xE0
 #define CQSPI_REG_OP_EXT_READ_LSB		24
 #define CQSPI_REG_OP_EXT_WRITE_LSB		16
@@ -307,6 +317,576 @@ struct cqspi_driver_platdata {
 #define CQSPI_DMA_UNALIGN		0x3
 
 #define CQSPI_REG_VERSAL_DMA_VAL		0x602
+
+#define CQSPI_PHY_INIT_RD		1
+#define CQSPI_PHY_MAX_RD		4
+#define CQSPI_PHY_MAX_RX		63
+#define CQSPI_PHY_MAX_TX		63
+#define CQSPI_PHY_LOW_RX_BOUND		15
+#define CQSPI_PHY_HIGH_RX_BOUND		25
+#define CQSPI_PHY_LOW_TX_BOUND		32
+#define CQSPI_PHY_HIGH_TX_BOUND		48
+#define CQSPI_PHY_TX_LOOKUP_LOW_BOUND	24
+#define CQSPI_PHY_TX_LOOKUP_HIGH_BOUND	38
+
+#define CQSPI_PHY_DEFAULT_TEMP		45
+#define CQSPI_PHY_MIN_TEMP		-45
+#define CQSPI_PHY_MAX_TEMP		130
+#define CQSPI_PHY_MID_TEMP		(CQSPI_PHY_MIN_TEMP +	\
+					 ((CQSPI_PHY_MAX_TEMP - CQSPI_PHY_MIN_TEMP) / 2))
+
+static const u8 phy_tuning_pattern[] = {
+0xFE, 0xFF, 0x01, 0x01, 0x01, 0x01, 0x01, 0x00, 0x00, 0xFE, 0xFE, 0x01, 0x01,
+0x01, 0x01, 0x00, 0x00, 0xFE, 0xFE, 0x01, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00,
+0x00, 0xFE, 0xFE, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0xFE, 0xFE, 0xFF, 0x01,
+0x01, 0x01, 0x01, 0x01, 0xFE, 0x00, 0xFE, 0xFE, 0x01, 0x01, 0x01, 0x01, 0xFE,
+0x00, 0xFE, 0xFE, 0x01, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFE, 0x00, 0xFE, 0xFE,
+0xFF, 0xFF, 0xFF, 0xFF, 0xFE, 0x00, 0xFE, 0xFE, 0xFF, 0x01, 0x01, 0x01, 0x01,
+0x01, 0x00, 0xFE, 0xFE, 0xFE, 0x01, 0x01, 0x01, 0x01, 0x00, 0xFE, 0xFE, 0xFE,
+0x01, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0xFE, 0xFE, 0xFE, 0xFF, 0xFF, 0xFF,
+0xFF, 0x00, 0xFE, 0xFE, 0xFE, 0xFF, 0x01, 0x01, 0x01, 0x01, 0x01, 0xFE, 0xFE,
+0xFE, 0xFE, 0x01, 0x01, 0x01, 0x01, 0xFE, 0xFE, 0xFE, 0xFE, 0x01,
+};
+
+static void cqspi_set_tx_dll(void __iomem *reg_base, u8 dll)
+{
+	unsigned int reg;
+
+	reg = readl(reg_base + CQSPI_REG_PHY_CONFIG);
+	reg &= ~(CQSPI_REG_PHY_CONFIG_TX_DEL_MASK <<
+		CQSPI_REG_PHY_CONFIG_TX_DEL_LSB);
+	reg |= (dll & CQSPI_REG_PHY_CONFIG_TX_DEL_MASK) <<
+		CQSPI_REG_PHY_CONFIG_TX_DEL_LSB;
+	reg |= CQSPI_REG_PHY_CONFIG_RESYNC;
+	writel(reg, reg_base + CQSPI_REG_PHY_CONFIG);
+}
+
+static void cqspi_set_rx_dll(void __iomem *reg_base, u8 dll)
+{
+	unsigned int reg;
+
+	reg = readl(reg_base + CQSPI_REG_PHY_CONFIG);
+	reg &= ~(CQSPI_REG_PHY_CONFIG_RX_DEL_MASK <<
+		CQSPI_REG_PHY_CONFIG_RX_DEL_LSB);
+	reg |= (dll & CQSPI_REG_PHY_CONFIG_RX_DEL_MASK) <<
+		CQSPI_REG_PHY_CONFIG_RX_DEL_LSB;
+	reg |= CQSPI_REG_PHY_CONFIG_RESYNC;
+	writel(reg, reg_base + CQSPI_REG_PHY_CONFIG);
+}
+
+/* TODO: Figure out how to get the temperature here. */
+static int cqspi_get_temp(int *temp)
+{
+	return -EOPNOTSUPP;
+}
+
+static void cqspi_phy_apply_setting(struct cqspi_flash_pdata *f_pdata,
+				    struct phy_setting *phy)
+{
+	struct cqspi_st *cqspi = f_pdata->cqspi;
+
+	cqspi_set_rx_dll(cqspi->iobase, phy->rx);
+	cqspi_set_tx_dll(cqspi->iobase, phy->tx);
+	f_pdata->phy_setting.read_delay = phy->read_delay;
+}
+
+static int cqspi_phy_check_pattern(struct cqspi_flash_pdata *f_pdata,
+				   struct spi_mem *mem)
+{
+	struct spi_mem_op op = f_pdata->phy_read_op;
+	u8 *read_data;
+	unsigned int size = sizeof(phy_tuning_pattern);
+	int ret;
+
+	read_data = kmalloc(size, GFP_KERNEL);
+	if (!read_data)
+		return -ENOMEM;
+
+	op.data.buf.in = read_data;
+	op.data.nbytes = size;
+
+	ret = spi_mem_exec_op(mem, &op);
+	if (ret)
+		goto out;
+
+	if (memcmp(read_data, phy_tuning_pattern,
+		   ARRAY_SIZE(phy_tuning_pattern))) {
+		ret = -EAGAIN;
+		goto out;
+	}
+
+	ret = 0;
+
+out:
+	kfree(read_data);
+	return ret;
+}
+
+static int cqspi_find_rx_low(struct cqspi_flash_pdata *f_pdata,
+			     struct spi_mem *mem, struct phy_setting *phy)
+{
+	struct device *dev = &f_pdata->cqspi->pdev->dev;
+	int ret;
+
+	do {
+		phy->rx = 0;
+		do {
+			cqspi_phy_apply_setting(f_pdata, phy);
+			ret = cqspi_phy_check_pattern(f_pdata, mem);
+			if (!ret)
+				return 0;
+
+			phy->rx++;
+		} while (phy->rx <= CQSPI_PHY_LOW_RX_BOUND);
+
+		phy->read_delay++;
+	} while (phy->read_delay <= CQSPI_PHY_MAX_RD);
+
+	dev_dbg(dev, "Unable to find RX low\n");
+	return -ENOENT;
+}
+
+static int cqspi_find_rx_high(struct cqspi_flash_pdata *f_pdata,
+			      struct spi_mem *mem, struct phy_setting *phy)
+{
+	struct device *dev = &f_pdata->cqspi->pdev->dev;
+	int ret;
+
+	do {
+		phy->rx = CQSPI_PHY_MAX_RX;
+		do {
+			cqspi_phy_apply_setting(f_pdata, phy);
+			ret = cqspi_phy_check_pattern(f_pdata, mem);
+			if (!ret)
+				return 0;
+
+			phy->rx--;
+		} while (phy->rx >= CQSPI_PHY_HIGH_RX_BOUND);
+
+		phy->read_delay++;
+	} while (phy->read_delay <= CQSPI_PHY_MAX_RD);
+
+	dev_dbg(dev, "Unable to find RX high\n");
+	return -ENOENT;
+}
+
+static int cqspi_find_tx_low(struct cqspi_flash_pdata *f_pdata,
+			     struct spi_mem *mem, struct phy_setting *phy)
+{
+	struct device *dev = &f_pdata->cqspi->pdev->dev;
+	int ret;
+
+	do {
+		phy->tx = 0;
+		do {
+			cqspi_phy_apply_setting(f_pdata, phy);
+			ret = cqspi_phy_check_pattern(f_pdata, mem);
+			if (!ret)
+				return 0;
+
+			phy->tx++;
+		} while (phy->tx <= CQSPI_PHY_LOW_TX_BOUND);
+
+		phy->read_delay++;
+	} while (phy->read_delay <= CQSPI_PHY_MAX_RD);
+
+	dev_dbg(dev, "Unable to find TX low\n");
+	return -ENOENT;
+}
+
+static int cqspi_find_tx_high(struct cqspi_flash_pdata *f_pdata,
+			      struct spi_mem *mem, struct phy_setting *phy)
+{
+	struct device *dev = &f_pdata->cqspi->pdev->dev;
+	int ret;
+
+	do {
+		phy->tx = CQSPI_PHY_MAX_TX;
+		do {
+			cqspi_phy_apply_setting(f_pdata, phy);
+			ret = cqspi_phy_check_pattern(f_pdata, mem);
+			if (!ret)
+				return 0;
+
+			phy->tx--;
+		} while (phy->tx >= CQSPI_PHY_HIGH_TX_BOUND);
+
+		phy->read_delay++;
+	} while (phy->read_delay <= CQSPI_PHY_MAX_RD);
+
+	dev_dbg(dev, "Unable to find TX high\n");
+	return -ENOENT;
+}
+
+static int cqspi_phy_find_gaplow(struct cqspi_flash_pdata *f_pdata,
+				 struct spi_mem *mem,
+				 struct phy_setting *bottomleft,
+				 struct phy_setting *topright,
+				 struct phy_setting *gaplow)
+{
+	struct phy_setting left, right, mid;
+	int ret;
+
+	left = *bottomleft;
+	right = *topright;
+
+	mid.tx = left.tx + ((right.tx - left.tx) / 2);
+	mid.rx = left.rx + ((right.rx - left.rx) / 2);
+	mid.read_delay = left.read_delay;
+
+	do {
+		cqspi_phy_apply_setting(f_pdata, &mid);
+		ret = cqspi_phy_check_pattern(f_pdata, mem);
+		if (ret) {
+			/* The pattern was not found. Go to the lower half. */
+			right.tx = mid.tx;
+			right.rx = mid.rx;
+
+			mid.tx = left.tx + ((mid.tx - left.tx) / 2);
+			mid.rx = left.rx + ((mid.rx - left.rx) / 2);
+		} else {
+			/* The pattern was found. Go to the upper half. */
+			left.tx = mid.tx;
+			left.rx = mid.rx;
+
+			mid.tx = mid.tx + ((right.tx - mid.tx) / 2);
+			mid.rx = mid.rx + ((right.rx - mid.rx) / 2);
+		}
+
+	/* Break the loop if the window has closed. */
+	} while ((right.tx - left.tx >= 2) && (right.rx - left.rx >= 2));
+
+	*gaplow = mid;
+	return 0;
+}
+
+static int cqspi_phy_find_gaphigh(struct cqspi_flash_pdata *f_pdata,
+				  struct spi_mem *mem,
+				  struct phy_setting *bottomleft,
+				  struct phy_setting *topright,
+				  struct phy_setting *gaphigh)
+{
+	struct phy_setting left, right, mid;
+	int ret;
+
+	left = *bottomleft;
+	right = *topright;
+
+	mid.tx = left.tx + ((right.tx - left.tx) / 2);
+	mid.rx = left.rx + ((right.rx - left.rx) / 2);
+	mid.read_delay = right.read_delay;
+
+	do {
+		cqspi_phy_apply_setting(f_pdata, &mid);
+		ret = cqspi_phy_check_pattern(f_pdata, mem);
+		if (ret) {
+			/* The pattern was not found. Go to the upper half. */
+			left.tx = mid.tx;
+			left.rx = mid.rx;
+
+			mid.tx = mid.tx + ((right.tx - mid.tx) / 2);
+			mid.rx = mid.rx + ((right.rx - mid.rx) / 2);
+		} else {
+			/* The pattern was found. Go to the lower half. */
+			right.tx = mid.tx;
+			right.rx = mid.rx;
+
+			mid.tx = left.tx + ((mid.tx - left.tx) / 2);
+			mid.rx = left.rx + ((mid.rx - left.rx) / 2);
+		}
+
+	/* Break the loop if the window has closed. */
+	} while ((right.tx - left.tx >= 2) && (right.rx - left.rx >= 2));
+
+	*gaphigh = mid;
+	return 0;
+}
+
+static int cqspi_phy_calibrate(struct cqspi_flash_pdata *f_pdata,
+			       struct spi_mem *mem)
+{
+	struct cqspi_st *cqspi = f_pdata->cqspi;
+	struct device *dev = &cqspi->pdev->dev;
+	struct phy_setting rxlow, rxhigh, txlow, txhigh, temp;
+	struct phy_setting bottomleft, topright, searchpoint, gaplow, gaphigh;
+	int ret, tmp;
+
+	f_pdata->use_phy = true;
+
+	/* Look for RX boundaries at lower TX range. */
+	rxlow.tx = f_pdata->phy_tx_start;
+
+	do {
+		dev_dbg(dev, "Searching for rxlow on TX = %d\n", rxlow.tx);
+		rxlow.read_delay = CQSPI_PHY_INIT_RD;
+		ret = cqspi_find_rx_low(f_pdata, mem, &rxlow);
+	} while (ret && ++rxlow.tx <= CQSPI_PHY_TX_LOOKUP_LOW_BOUND);
+
+	if (ret)
+		goto out;
+	dev_dbg(dev, "rxlow: RX: %d TX: %d RD: %d\n", rxlow.rx, rxlow.tx,
+		rxlow.read_delay);
+
+	rxhigh.tx = rxlow.tx;
+	rxhigh.read_delay = rxlow.read_delay;
+	cqspi_find_rx_high(f_pdata, mem, &rxhigh);
+	if (ret)
+		goto out;
+	dev_dbg(dev, "rxhigh: RX: %d TX: %d RD: %d\n", rxhigh.rx, rxhigh.tx,
+		rxhigh.read_delay);
+
+	/*
+	 * Check a different point if rxlow and rxhigh are on the same read
+	 * delay. This avoids mistaking the failing region for an RX boundary.
+	 */
+	if (rxlow.read_delay == rxhigh.read_delay) {
+		dev_dbg(dev,
+			"rxlow and rxhigh at the same read delay.\n");
+
+		/* Look for RX boundaries at upper TX range. */
+		temp.tx = f_pdata->phy_tx_end;
+
+		do {
+			dev_dbg(dev, "Searching for rxlow on TX = %d\n",
+				temp.tx);
+			temp.read_delay = CQSPI_PHY_INIT_RD;
+			ret = cqspi_find_rx_low(f_pdata, mem, &temp);
+		} while (ret && --temp.tx >= CQSPI_PHY_TX_LOOKUP_HIGH_BOUND);
+
+		if (ret)
+			goto out;
+		dev_dbg(dev, "rxlow: RX: %d TX: %d RD: %d\n", temp.rx, temp.tx,
+			temp.read_delay);
+
+		if (temp.rx < rxlow.rx) {
+			rxlow = temp;
+			dev_dbg(dev, "Updating rxlow to the one at TX = 48\n");
+		}
+
+		/* Find RX max. */
+		ret = cqspi_find_rx_high(f_pdata, mem, &temp);
+		if (ret)
+			goto out;
+		dev_dbg(dev, "rxhigh: RX: %d TX: %d RD: %d\n", temp.rx, temp.tx,
+			temp.read_delay);
+
+		if (temp.rx < rxhigh.rx) {
+			rxhigh = temp;
+			dev_dbg(dev, "Updating rxhigh to the one at TX = 48\n");
+		}
+	}
+
+	/* Look for TX boundaries at 1/4 of RX window. */
+	txlow.rx = rxlow.rx + ((rxhigh.rx - rxlow.rx) / 4);
+	txhigh.rx = txlow.rx;
+
+	txlow.read_delay = CQSPI_PHY_INIT_RD;
+	ret = cqspi_find_tx_low(f_pdata, mem, &txlow);
+	if (ret)
+		goto out;
+	dev_dbg(dev, "txlow: RX: %d TX: %d RD: %d\n", txlow.rx, txlow.tx,
+		txlow.read_delay);
+
+	txhigh.read_delay = txlow.read_delay;
+	ret = cqspi_find_tx_high(f_pdata, mem, &txhigh);
+	if (ret)
+		goto out;
+	dev_dbg(dev, "txhigh: RX: %d TX: %d RD: %d\n", txhigh.rx, txhigh.tx,
+		txhigh.read_delay);
+
+	/*
+	 * Check a different point if txlow and txhigh are on the same read
+	 * delay. This avoids mistaking the failing region for an TX boundary.
+	 */
+	if (txlow.read_delay == txhigh.read_delay) {
+		/* Look for TX boundaries at 3/4 of RX window. */
+		temp.rx = rxlow.rx + (3 * (rxhigh.rx - rxlow.rx) / 4);
+		temp.read_delay = CQSPI_PHY_INIT_RD;
+		dev_dbg(dev,
+			"txlow and txhigh at the same read delay. Searching at RX = %d\n",
+			temp.rx);
+
+		ret = cqspi_find_tx_low(f_pdata, mem, &temp);
+		if (ret)
+			goto out;
+		dev_dbg(dev, "txlow: RX: %d TX: %d RD: %d\n", temp.rx, temp.tx,
+			temp.read_delay);
+
+		if (temp.tx < txlow.tx) {
+			txlow = temp;
+			dev_dbg(dev, "Updating txlow with the one at RX = %d\n",
+				txlow.rx);
+		}
+
+		ret = cqspi_find_tx_high(f_pdata, mem, &temp);
+		if (ret)
+			goto out;
+		dev_dbg(dev, "txhigh: RX: %d TX: %d RD: %d\n", temp.rx, temp.tx,
+			temp.read_delay);
+
+		if (temp.tx < txhigh.tx) {
+			txhigh = temp;
+			dev_dbg(dev, "Updating txhigh with the one at RX = %d\n",
+				txhigh.rx);
+		}
+	}
+
+	/*
+	 * Set bottom left and top right corners. These are theoretical
+	 * corners. They may not actually be "good" points. But the longest
+	 * diagonal will be between these corners.
+	 */
+	bottomleft.tx = txlow.tx;
+	bottomleft.rx = rxlow.rx;
+	if (txlow.read_delay <= rxlow.read_delay)
+		bottomleft.read_delay = txlow.read_delay;
+	else
+		bottomleft.read_delay = rxlow.read_delay;
+
+	temp = bottomleft;
+	temp.tx += 4;
+	temp.rx += 4;
+	cqspi_phy_apply_setting(f_pdata, &temp);
+	ret = cqspi_phy_check_pattern(f_pdata, mem);
+	if (ret) {
+		temp.read_delay--;
+		cqspi_phy_apply_setting(f_pdata, &temp);
+		ret = cqspi_phy_check_pattern(f_pdata, mem);
+	}
+
+	if (!ret)
+		bottomleft.read_delay = temp.read_delay;
+
+	topright.tx = txhigh.tx;
+	topright.rx = rxhigh.rx;
+	if (txhigh.read_delay >= rxhigh.read_delay)
+		topright.read_delay = txhigh.read_delay;
+	else
+		topright.read_delay = rxhigh.read_delay;
+
+	temp = topright;
+	temp.tx -= 4;
+	temp.rx -= 4;
+	cqspi_phy_apply_setting(f_pdata, &temp);
+	ret = cqspi_phy_check_pattern(f_pdata, mem);
+	if (ret) {
+		temp.read_delay++;
+		cqspi_phy_apply_setting(f_pdata, &temp);
+		ret = cqspi_phy_check_pattern(f_pdata, mem);
+	}
+
+	if (!ret)
+		topright.read_delay = temp.read_delay;
+
+	dev_dbg(dev, "topright: RX: %d TX: %d RD: %d\n", topright.rx,
+		topright.tx, topright.read_delay);
+	dev_dbg(dev, "bottomleft: RX: %d TX: %d RD: %d\n", bottomleft.rx,
+		bottomleft.tx, bottomleft.read_delay);
+
+	ret = cqspi_phy_find_gaplow(f_pdata, mem, &bottomleft, &topright,
+				    &gaplow);
+	if (ret)
+		goto out;
+	dev_dbg(dev, "gaplow: RX: %d TX: %d RD: %d\n", gaplow.rx, gaplow.tx,
+		gaplow.read_delay);
+
+	if (bottomleft.read_delay == topright.read_delay) {
+		/*
+		 * If there is only one passing region, it means that the "true"
+		 * topright is too small to find, so the start of the failing
+		 * region is a good approximation. Put the tuning point in the
+		 * middle and adjust for temperature.
+		 */
+		topright = gaplow;
+		searchpoint.read_delay = bottomleft.read_delay;
+		searchpoint.tx = bottomleft.tx +
+				 ((topright.tx - bottomleft.tx) / 2);
+		searchpoint.rx = bottomleft.rx +
+				 ((topright.rx - bottomleft.rx) / 2);
+
+		ret = cqspi_get_temp(&tmp);
+		if (ret) {
+			/*
+			 * Assume room temperature if it couldn't be obtained
+			 * from the thermal sensor.
+			 *
+			 * TODO: Change it to dev_warn once support for finding
+			 * out the temperature is added.
+			 */
+			dev_dbg(dev,
+				"Unable to get temperature. Assuming room temperature\n");
+			tmp = CQSPI_PHY_DEFAULT_TEMP;
+		}
+
+		if (tmp < CQSPI_PHY_MIN_TEMP || tmp > CQSPI_PHY_MAX_TEMP) {
+			dev_err(dev,
+				"Temperature outside operating range: %dC\n",
+				tmp);
+			ret = -EINVAL;
+			goto out;
+		}
+
+		/* Avoid a divide-by-zero. */
+		if (tmp == CQSPI_PHY_MID_TEMP)
+			tmp++;
+		dev_dbg(dev, "Temperature: %dC\n", tmp);
+
+		searchpoint.tx += (topright.tx - bottomleft.tx) /
+				  (330 / (tmp - CQSPI_PHY_MID_TEMP));
+		searchpoint.rx += (topright.rx - bottomleft.rx) /
+				  (330 / (tmp - CQSPI_PHY_MID_TEMP));
+	} else {
+		/*
+		 * If there are two passing regions, find the start and end of
+		 * the second one.
+		 */
+		ret = cqspi_phy_find_gaphigh(f_pdata, mem, &bottomleft,
+					     &topright, &gaphigh);
+		if (ret)
+			goto out;
+		dev_dbg(dev, "gaphigh: RX: %d TX: %d RD: %d\n", gaphigh.rx,
+			gaphigh.tx, gaphigh.read_delay);
+
+		/*
+		 * Place the final tuning point in the corner furthest from the
+		 * failing region but leave some margin for temperature changes.
+		 */
+		if ((abs(gaplow.tx - bottomleft.tx) +
+		     abs(gaplow.rx - bottomleft.rx)) <
+		    (abs(gaphigh.tx - topright.tx) +
+		     abs(gaphigh.rx - topright.rx))) {
+			searchpoint = topright;
+			searchpoint.tx -= 16;
+			searchpoint.rx -= (16 * (topright.rx - bottomleft.rx)) /
+					   (topright.tx - bottomleft.tx);
+		} else {
+			searchpoint = bottomleft;
+			searchpoint.tx += 16;
+			searchpoint.rx += (16 * (topright.rx - bottomleft.rx)) /
+					   (topright.tx - bottomleft.tx);
+		}
+	}
+
+	/* Set the final PHY settings and check if they are working. */
+	cqspi_phy_apply_setting(f_pdata, &searchpoint);
+	dev_dbg(dev, "Final tuning point: RX: %d TX: %d RD: %d\n",
+		searchpoint.rx, searchpoint.tx, searchpoint.read_delay);
+
+	ret = cqspi_phy_check_pattern(f_pdata, mem);
+	if (ret) {
+		dev_err(dev,
+			"Failed to find pattern at final calibration point\n");
+		ret = -EINVAL;
+		goto out;
+	}
+
+	ret = 0;
+	f_pdata->phy_setting.read_delay = searchpoint.read_delay;
+out:
+	if (ret)
+		f_pdata->use_phy = false;
+	return ret;
+}
 
 static int cqspi_wait_for_bit(void __iomem *reg, const u32 mask, bool clr)
 {
@@ -1628,6 +2208,33 @@ static bool cqspi_supports_mem_op(struct spi_mem *mem,
 	return spi_mem_default_supports_op(mem, op);
 }
 
+static void cqspi_mem_do_calibration(struct spi_mem *mem,
+				     const struct spi_mem_op *op)
+{
+	struct cqspi_st *cqspi = spi_master_get_devdata(mem->spi->master);
+	struct cqspi_flash_pdata *f_pdata;
+	struct device *dev = &cqspi->pdev->dev;
+	int ret;
+
+	f_pdata = &cqspi->f_pdata[mem->spi->chip_select];
+
+	/* Check if the op is eligible for PHY mode operation. */
+	if (!cqspi_phy_op_eligible(op))
+		return;
+
+	f_pdata->phy_read_op = *op;
+
+	ret = cqspi_phy_check_pattern(f_pdata, mem);
+	if (ret) {
+		dev_dbg(dev, "Pattern not found. Skipping calibration.\n");
+		return;
+	}
+
+	ret = cqspi_phy_calibrate(f_pdata, mem);
+	if (ret)
+		dev_info(&cqspi->pdev->dev, "PHY calibration failed: %d\n", ret);
+}
+
 static int cqspi_of_get_flash_pdata(struct platform_device *pdev,
 				    struct cqspi_flash_pdata *f_pdata,
 				    struct device_node *np)
@@ -1661,6 +2268,12 @@ static int cqspi_of_get_flash_pdata(struct platform_device *pdev,
 		dev_err(&pdev->dev, "couldn't determine spi-max-frequency\n");
 		return -ENXIO;
 	}
+
+	if (of_property_read_u32(np, "cdns,phy-tx-start", &f_pdata->phy_tx_start))
+		f_pdata->phy_tx_start = 16;
+
+	if (of_property_read_u32(np, "cdns,phy-tx-end", &f_pdata->phy_tx_end))
+		f_pdata->phy_tx_end = 48;
 
 	return 0;
 }
@@ -1776,6 +2389,7 @@ static const struct spi_controller_mem_ops cqspi_mem_ops = {
 	.exec_op = cqspi_exec_mem_op,
 	.get_name = cqspi_get_name,
 	.supports_op = cqspi_supports_mem_op,
+	.do_calibration = cqspi_mem_do_calibration,
 };
 
 static const struct spi_controller_mem_caps cqspi_mem_caps = {
