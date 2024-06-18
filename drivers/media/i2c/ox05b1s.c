@@ -452,16 +452,23 @@ static int ox05b_set_fmt(struct v4l2_subdev *sd,
 				       height, fmt->format.width,
 				       fmt->format.height);
 
+	v4l2_subdev_lock_state(state);
+
 	format = v4l2_subdev_state_get_stream_format(state, fmt->pad, fmt->stream);
 
-	if (fmt->which == V4L2_SUBDEV_FORMAT_ACTIVE && ox05b->streaming)
+	if (fmt->which == V4L2_SUBDEV_FORMAT_ACTIVE && ox05b->streaming) {
 		ret = -EBUSY;
+		goto done;
+	}
 
 	format->code = code;
 	format->width = fsize->width;
 	format->height = fsize->height;
 
 	fmt->format = *format;
+
+done:
+	v4l2_subdev_unlock_state(state);
 
 	return ret;
 }
