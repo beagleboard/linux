@@ -1,0 +1,21 @@
+// SPDX-License-Identifier: GPL-2.0-only OR MIT
+/**
+ * Overlay to remove HDMI support for TI K3 AM62* SK
+ *
+ * Copyright (C) 2024 Texas Instruments Incorporated - http://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+
+&hdmi0 {
+	status = "disabled";
+};
+
+&sii9022 {
+	status = "disabled";
+};
+
+&hdmi0_dss {
+	status = "disabled";
+};
