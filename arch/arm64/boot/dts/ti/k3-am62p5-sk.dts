@@ -788,7 +788,7 @@
 
 &dss0_ports {
 	/* DSS0-VP2: DPI/HDMI Output */
-	port@1 {
+	hdmi0_dss: port@1 {
 		reg = <1>;
 
 		dss0_dpi1_out: endpoint {
