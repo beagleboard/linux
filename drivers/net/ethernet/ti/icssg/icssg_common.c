@@ -95,10 +95,18 @@ void prueth_xmit_free(struct prueth_tx_chn *tx_chn,
 {
 	struct cppi5_host_desc_t *first_desc, *next_desc;
 	dma_addr_t buf_dma, next_desc_dma;
+	struct prueth_swdata *swdata;
 	u32 buf_dma_len;
 
 	first_desc = desc;
 	next_desc = first_desc;
+
+	swdata = cppi5_hdesc_get_swdata(desc);
+	if (swdata->type == PRUETH_SWDATA_PAGE) {
+		page_pool_recycle_direct(swdata->rx_chn->pg_pool,
+					 swdata->data.page);
+		goto free_desc;
+	}
 
 	cppi5_hdesc_get_obuf(first_desc, &buf_dma, &buf_dma_len);
 	k3_udma_glue_tx_cppi5_to_dma_addr(tx_chn->tx_chn, &buf_dma);
@@ -123,6 +131,7 @@ void prueth_xmit_free(struct prueth_tx_chn *tx_chn,
 		k3_cppi_desc_pool_free(tx_chn->desc_pool, next_desc);
 	}
 
+free_desc:
 	k3_cppi_desc_pool_free(tx_chn->desc_pool, first_desc);
 }
 
@@ -135,6 +144,7 @@ int emac_tx_complete_packets(struct prueth_emac *emac, int chn,
 	struct prueth_swdata *swdata;
 	struct prueth_tx_chn *tx_chn;
 	unsigned int total_bytes = 0;
+	struct xdp_frame *xdpf;
 	struct sk_buff *skb;
 	dma_addr_t desc_dma;
 	int res, num_tx = 0;
@@ -164,20 +174,29 @@ int emac_tx_complete_packets(struct prueth_emac *emac, int chn,
 			continue;
 		}
 
-		if (swdata->type != PRUETH_SWDATA_SKB) {
+		switch (swdata->type) {
+		case PRUETH_SWDATA_SKB:
+			skb = swdata->data.skb;
+			ndev->stats.tx_bytes += skb->len;
+			ndev->stats.tx_packets++;
+			total_bytes += skb->len;
+			napi_consume_skb(skb, budget);
+			break;
+		case PRUETH_SWDATA_XDPF:
+			xdpf = swdata->data.xdpf;
+			ndev->stats.tx_bytes += xdpf->len;
+			ndev->stats.tx_packets++;
+			total_bytes += xdpf->len;
+			xdp_return_frame(xdpf);
+			break;
+		default:
 			netdev_err(ndev, "tx_complete: invalid swdata type %d\n", swdata->type);
+			prueth_xmit_free(tx_chn, desc_tx);
 			budget++;
 			continue;
 		}
 
-		skb = swdata->data.skb;
 		prueth_xmit_free(tx_chn, desc_tx);
-
-		ndev = skb->dev;
-		ndev->stats.tx_packets++;
-		ndev->stats.tx_bytes += skb->len;
-		total_bytes += skb->len;
-		napi_consume_skb(skb, budget);
 		num_tx++;
 	}
 
@@ -491,6 +510,7 @@ static int prueth_dma_rx_push_mapped(struct prueth_emac *emac,
 	swdata = cppi5_hdesc_get_swdata(desc_rx);
 	swdata->type = PRUETH_SWDATA_PAGE;
 	swdata->data.page = page;
+	swdata->rx_chn = rx_chn;
 
 	return k3_udma_glue_push_rx_chn(rx_chn->rx_chn, 0,
 					desc_rx, desc_dma);
@@ -539,7 +559,7 @@ static unsigned int prueth_rxbuf_total_len(unsigned int len)
 	return SKB_DATA_ALIGN(len);
 }
 
-static int emac_rx_packet(struct prueth_emac *emac, u32 flow_id)
+static int emac_rx_packet(struct prueth_emac *emac, u32 flow_id, int *xdp_state)
 {
 	struct prueth_rx_chn *rx_chn = &emac->rx_chns;
 	u32 buf_dma_len, pkt_len, port_id = 0;
@@ -550,10 +570,12 @@ static int emac_rx_packet(struct prueth_emac *emac, u32 flow_id)
 	struct page *page, *new_page;
 	struct page_pool *pool;
 	struct sk_buff *skb;
+	struct xdp_buff xdp;
 	u32 *psdata;
 	void *pa;
 	int ret;
 
+	*xdp_state = 0;
 	pool = rx_chn->pg_pool;
 	ret = k3_udma_glue_pop_rx_chn(rx_chn->rx_chn, flow_id, &desc_dma);
 	if (ret) {
@@ -593,8 +615,17 @@ static int emac_rx_packet(struct prueth_emac *emac, u32 flow_id)
 		goto requeue;
 	}
 
-	/* prepare skb and send to n/w stack */
 	pa = page_address(page);
+	if (emac->xdp_prog) {
+		xdp_init_buff(&xdp, PAGE_SIZE, &rx_chn->xdp_rxq);
+		xdp_prepare_buff(&xdp, pa, PRUETH_HEADROOM, pkt_len, false);
+
+		*xdp_state = emac_run_xdp(emac, &xdp, page);
+		if (*xdp_state != ICSSG_XDP_PASS)
+			goto requeue;
+	}
+
+	/* prepare skb and send to n/w stack */
 	skb = build_skb(pa, prueth_rxbuf_total_len(pkt_len));
 	if (!skb) {
 		ndev->stats.rx_dropped++;
@@ -844,15 +875,26 @@ static void prueth_tx_cleanup(void *data, dma_addr_t desc_dma)
 	struct prueth_tx_chn *tx_chn = data;
 	struct cppi5_host_desc_t *desc_tx;
 	struct prueth_swdata *swdata;
+	struct xdp_frame *xdpf;
 	struct sk_buff *skb;
 
 	desc_tx = k3_cppi_desc_pool_dma2virt(tx_chn->desc_pool, desc_dma);
 	swdata = cppi5_hdesc_get_swdata(desc_tx);
-	skb = swdata->data.skb;
-	prueth_xmit_free(tx_chn, desc_tx);
 
-	if (swdata->type == PRUETH_SWDATA_SKB)
+	switch (swdata->type) {
+	case PRUETH_SWDATA_SKB:
+		skb = swdata->data.skb;
 		dev_kfree_skb_any(skb);
+		break;
+	case PRUETH_SWDATA_XDPF:
+		xdpf = swdata->data.xdpf;
+		xdp_return_frame(xdpf);
+		break;
+	default:
+		break;
+	}
+
+	prueth_xmit_free(tx_chn, desc_tx);
 }
 
 irqreturn_t prueth_rx_irq(int irq, void *dev_id)
@@ -908,15 +950,18 @@ int emac_napi_rx_poll(struct napi_struct *napi_rx, int budget)
 		PRUETH_RX_FLOW_DATA_SR1 : PRUETH_RX_FLOW_DATA;
 	int flow = emac->is_sr1 ?
 		PRUETH_MAX_RX_FLOWS_SR1 : PRUETH_MAX_RX_FLOWS;
+	int xdp_state_or = 0;
 	int num_rx = 0;
 	int cur_budget;
+	int xdp_state;
 	int ret;
 
 	while (flow--) {
 		cur_budget = budget - num_rx;
 
 		while (cur_budget--) {
-			ret = emac_rx_packet(emac, flow);
+			ret = emac_rx_packet(emac, flow, &xdp_state);
+			xdp_state_or |= xdp_state;
 			if (ret)
 				break;
 			num_rx++;
@@ -925,6 +970,9 @@ int emac_napi_rx_poll(struct napi_struct *napi_rx, int budget)
 		if (num_rx >= budget)
 			break;
 	}
+
+	if (xdp_state_or & ICSSG_XDP_REDIR)
+		xdp_do_flush();
 
 	if (num_rx < budget && napi_complete_done(napi_rx, num_rx)) {
 		if (unlikely(emac->rx_pace_timeout_ns)) {
