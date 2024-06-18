@@ -1012,7 +1012,6 @@ static const struct net_device_ops emac_netdev_ops = {
 	.ndo_set_rx_mode = emac_ndo_set_rx_mode,
 	.ndo_eth_ioctl = emac_ndo_ioctl,
 	.ndo_get_stats64 = emac_ndo_get_stats64,
-	.ndo_get_phys_port_name = emac_ndo_get_phys_port_name,
 	.ndo_setup_tc = icssg_qos_ndo_setup_tc,
 	.ndo_bpf = emac_ndo_bpf,
 	.ndo_xdp_xmit = emac_xdp_xmit,
@@ -1372,6 +1371,183 @@ static void prueth_unregister_notifiers(struct prueth *prueth)
 	unregister_netdevice_notifier(&prueth->prueth_netdevice_nb);
 }
 
+static const struct devlink_ops prueth_devlink_ops = {};
+
+static u8 prueth_dl_cut_thru_check(struct prueth_emac *emac)
+{
+	void __iomem *config = emac->dram.va + ICSSG_CONFIG_OFFSET;
+	u8 queue_map = 0U;
+	u8 cut_thru_val;
+	int i;
+
+	for (i = 0; i < PRUETH_MAX_TX_QUEUES * PRUETH_NUM_MACS; i++) {
+		cut_thru_val = readb(config + EXPRESS_PRE_EMPTIVE_Q_MAP + i);
+		if (cut_thru_val & BIT(7))
+			queue_map |= BIT(i);
+	}
+
+	return queue_map;
+}
+
+static int prueth_dl_cut_thru_en_get(struct devlink *dl, u32 id,
+				     struct devlink_param_gset_ctx *ctx)
+{
+	struct prueth_devlink *dl_priv = devlink_priv(dl);
+	struct prueth *prueth = dl_priv->prueth;
+	u16 tx_queues = 0U;
+	int i;
+
+	dev_dbg(prueth->dev, "%s id:%u\n", __func__, id);
+
+	if (id != PRUETH_DL_PARAM_CUT_THRU_EN)
+		return -EOPNOTSUPP;
+
+	for (i = PRUETH_MAC0; i < PRUETH_NUM_MACS; i++) {
+		if (!(prueth->emac[i]))
+			return -EINVAL;
+
+		tx_queues |= prueth_dl_cut_thru_check(prueth->emac[i]) << (8 * i);
+	}
+
+	ctx->val.vu16 = tx_queues;
+
+	return 0;
+}
+
+static int prueth_dl_cut_thru_en_set(struct devlink *dl, u32 id,
+				     struct devlink_param_gset_ctx *ctx)
+{
+	struct prueth_devlink *dl_priv = devlink_priv(dl);
+	struct prueth *prueth = dl_priv->prueth;
+	u16 tx_queues = ctx->val.vu16;
+	struct prueth_emac *emac;
+	int i;
+
+	if (id != PRUETH_DL_PARAM_CUT_THRU_EN)
+		return -EOPNOTSUPP;
+
+	if (!prueth->is_switch_mode) {
+		dev_err(prueth->dev, "Cut-Thru not supported in MAC mode\n");
+		return -EINVAL;
+	}
+
+	for (i = PRUETH_MAC0; i < PRUETH_NUM_MACS; i++) {
+		emac = prueth->emac[i];
+		if (netif_running(emac->ndev)) {
+			dev_err(prueth->dev, "Cannot enable cut-thru when i/f are up\n");
+			return -EINVAL;
+		}
+
+		emac->cut_thru_queue_map = tx_queues >> (8 * i);
+	}
+	return 0;
+}
+
+static const struct devlink_param prueth_devlink_params[] = {
+	DEVLINK_PARAM_DRIVER(PRUETH_DL_PARAM_CUT_THRU_EN, "cut_thru",
+			     DEVLINK_PARAM_TYPE_U16,
+			     BIT(DEVLINK_PARAM_CMODE_RUNTIME),
+			     prueth_dl_cut_thru_en_get,
+			     prueth_dl_cut_thru_en_set, NULL),
+};
+
+static void prueth_unregister_devlink_ports(struct prueth *prueth)
+{
+	struct devlink_port *dl_port;
+	struct prueth_emac *emac;
+	int i;
+
+	for (i = PRUETH_MAC0; i < PRUETH_NUM_MACS; i++) {
+		emac = prueth->emac[i];
+		if (!emac)
+			continue;
+
+		dl_port = &emac->devlink_port;
+
+		if (dl_port->registered)
+			devlink_port_unregister(dl_port);
+	}
+}
+
+static int prueth_register_devlink(struct prueth *prueth)
+{
+	struct devlink_port_attrs attrs = {};
+	struct device *dev = prueth->dev;
+	struct prueth_devlink *dl_priv;
+	struct devlink_port *dl_port;
+	struct prueth_emac *emac;
+	int i, ret = 0;
+
+	prueth->devlink =
+		devlink_alloc(&prueth_devlink_ops, sizeof(*dl_priv), dev);
+	if (!prueth->devlink)
+		return -ENOMEM;
+
+	dl_priv = devlink_priv(prueth->devlink);
+	dl_priv->prueth = prueth;
+
+	/* Provide devlink hook to switch mode when multiple external ports
+	 * are present NUSS switchdev driver is enabled.
+	 */
+	if (prueth->is_switchmode_supported) {
+		ret = devlink_params_register(prueth->devlink,
+					      prueth_devlink_params,
+					      ARRAY_SIZE(prueth_devlink_params));
+		if (ret) {
+			dev_err(dev, "devlink params reg fail ret:%d\n", ret);
+			goto dl_unreg;
+		}
+	}
+
+	for (i = PRUETH_MAC0; i < PRUETH_NUM_MACS; i++) {
+		emac = prueth->emac[i];
+		if (!emac)
+			continue;
+
+		dl_port = &emac->devlink_port;
+
+		if (emac->ndev)
+			attrs.flavour = DEVLINK_PORT_FLAVOUR_PHYSICAL;
+		else
+			attrs.flavour = DEVLINK_PORT_FLAVOUR_UNUSED;
+		attrs.phys.port_number = emac->port_id;
+		attrs.switch_id.id_len = sizeof(resource_size_t);
+		memcpy(attrs.switch_id.id, prueth->switch_id, attrs.switch_id.id_len);
+		devlink_port_attrs_set(dl_port, &attrs);
+
+		ret = devlink_port_register(prueth->devlink, dl_port, emac->port_id);
+		if (ret) {
+			dev_err(dev, "devlink_port reg fail for port %d, ret:%d\n",
+				emac->port_id, ret);
+			goto dl_port_unreg;
+		}
+	}
+
+	devlink_register(prueth->devlink);
+	return ret;
+
+dl_port_unreg:
+	prueth_unregister_devlink_ports(prueth);
+dl_unreg:
+	devlink_free(prueth->devlink);
+
+	return ret;
+}
+
+static void prueth_unregister_devlink(struct prueth *prueth)
+{
+	devlink_unregister(prueth->devlink);
+
+	if (prueth->is_switchmode_supported) {
+		devlink_params_unregister(prueth->devlink, prueth_devlink_params,
+					  ARRAY_SIZE(prueth_devlink_params));
+	}
+
+	prueth_unregister_devlink_ports(prueth);
+	devlink_unregister(prueth->devlink);
+	devlink_free(prueth->devlink);
+}
+
 static int prueth_probe(struct platform_device *pdev)
 {
 	struct device_node *eth_node, *eth_ports_node;
@@ -1583,8 +1759,14 @@ static int prueth_probe(struct platform_device *pdev)
 		prueth->emac[PRUETH_MAC1]->iep = prueth->iep0;
 	}
 
+	ret = prueth_register_devlink(prueth);
+	if (ret)
+		goto netdev_exit;
+
 	/* register the network devices */
 	if (eth0_node) {
+		SET_NETDEV_DEVLINK_PORT(prueth->emac[PRUETH_MAC0]->ndev,
+					&prueth->emac[PRUETH_MAC0]->devlink_port);
 		ret = register_netdev(prueth->emac[PRUETH_MAC0]->ndev);
 		if (ret) {
 			dev_err(dev, "can't register netdev for port MII0");
@@ -1598,6 +1780,8 @@ static int prueth_probe(struct platform_device *pdev)
 	}
 
 	if (eth1_node) {
+		SET_NETDEV_DEVLINK_PORT(prueth->emac[PRUETH_MAC1]->ndev,
+					&prueth->emac[PRUETH_MAC1]->devlink_port);
 		ret = register_netdev(prueth->emac[PRUETH_MAC1]->ndev);
 		if (ret) {
 			dev_err(dev, "can't register netdev for port MII1");
@@ -1696,6 +1880,7 @@ static void prueth_remove(struct platform_device *pdev)
 		prueth->emac[i]->ndev->phydev = NULL;
 		unregister_netdev(prueth->registered_netdevs[i]);
 	}
+	prueth_unregister_devlink(prueth);
 
 	for (i = 0; i < PRUETH_NUM_MACS; i++) {
 		eth_node = prueth->eth_node[i];

@@ -1201,19 +1201,6 @@ void emac_ndo_get_stats64(struct net_device *ndev,
 	stats->tx_dropped = ndev->stats.tx_dropped;
 }
 
-int emac_ndo_get_phys_port_name(struct net_device *ndev, char *name,
-				size_t len)
-{
-	struct prueth_emac *emac = netdev_priv(ndev);
-	int ret;
-
-	ret = snprintf(name, len, "p%d", emac->port_id);
-	if (ret >= len)
-		return -EINVAL;
-
-	return 0;
-}
-
 /* get emac_port corresponding to eth_node name */
 int prueth_node_port(struct device_node *eth_node)
 {

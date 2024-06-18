@@ -105,6 +105,17 @@ enum prueth_mac {
 	PRUETH_MAC_INVALID,
 };
 
+enum prueth_devlink_param_id {
+	PRUETH_DEVLINK_PARAM_ID_BASE = DEVLINK_PARAM_GENERIC_ID_MAX,
+	PRUETH_DL_PARAM_SWITCH_MODE,
+	PRUETH_DL_PARAM_HSR_OFFLOAD_MODE,
+	PRUETH_DL_PARAM_CUT_THRU_EN,
+};
+
+struct prueth_devlink {
+	struct prueth *prueth;
+};
+
 struct prueth_tx_chn {
 	struct device *dma_dev;
 	struct napi_struct napi_tx;
@@ -222,6 +233,8 @@ struct prueth_emac {
 
 	struct pruss_mem_region dram;
 
+	struct devlink_port devlink_port;
+	u8 cut_thru_queue_map;
 	bool offload_fwd_mark;
 	int port_vlan;
 
@@ -292,6 +305,7 @@ struct icssg_firmwares {
  * @is_switchmode_supported: indicates platform support for switch mode
  * @switch_id: ID for mapping switch ports to bridge
  * @default_vlan: Default VLAN for host
+ * @devlink: pointer to devlink
  */
 struct prueth {
 	struct device *dev;
@@ -328,6 +342,7 @@ struct prueth {
 	bool is_switchmode_supported;
 	unsigned char switch_id[MAX_PHYS_ITEM_ID_LEN];
 	int default_vlan;
+	struct devlink *devlink;
 };
 
 struct emac_tx_ts_response {
