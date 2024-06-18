@@ -41,6 +41,8 @@
 
 #define WKUP_EN			(1 << WKUP_EN_SHIFT)
 
+#define PIN_GPIO_MUX_MODE	(7)
+
 #define AM62AX_IOPAD(pa, val, muxmode)		(((pa) & 0x1fff)) ((val) | (muxmode))
 #define AM62AX_MCU_IOPAD(pa, val, muxmode)	(((pa) & 0x1fff)) ((val) | (muxmode))
 
