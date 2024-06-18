@@ -20,7 +20,7 @@ struct icssg_flow_cfg {
 
 #define PRUETH_PKT_TYPE_CMD	0x10
 #define PRUETH_NAV_PS_DATA_SIZE	16	/* Protocol specific data size */
-#define PRUETH_NAV_SW_DATA_SIZE	16	/* SW related data size */
+#define PRUETH_NAV_SW_DATA_SIZE	48	/* SW related data size */
 #define PRUETH_MAX_TX_DESC	512
 #define PRUETH_MAX_RX_DESC	512
 #define PRUETH_MAX_RX_FLOWS	1	/* excluding default flow */

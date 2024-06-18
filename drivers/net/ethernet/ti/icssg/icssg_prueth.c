@@ -1122,6 +1122,12 @@ static int prueth_probe(struct platform_device *pdev)
 
 	np = dev->of_node;
 
+	if (sizeof(struct prueth_swdata) > PRUETH_NAV_SW_DATA_SIZE) {
+		dev_err(dev, "insufficient SW_DATA size: %d vs %ld\n",
+			PRUETH_NAV_SW_DATA_SIZE, sizeof(struct prueth_swdata));
+		return -ENOMEM;
+	}
+
 	prueth = devm_kzalloc(dev, sizeof(*prueth), GFP_KERNEL);
 	if (!prueth)
 		return -ENOMEM;
