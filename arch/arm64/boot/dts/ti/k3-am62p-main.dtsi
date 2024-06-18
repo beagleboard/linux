@@ -270,6 +270,13 @@
 		#pinctrl-cells = <1>;
 		pinctrl-single,register-width = <32>;
 		pinctrl-single,function-mask = <0xffffffff>;
+		pinctrl-single,gpio-range =
+			<&main_pmx0_range 0 32 (PIN_INPUT | PIN_GPIO_MUX_MODE)>,
+			<&main_pmx0_range 33 92 (PIN_INPUT | PIN_GPIO_MUX_MODE)>,
+			<&main_pmx0_range 137 5 (PIN_INPUT | PIN_GPIO_MUX_MODE)>,
+			<&main_pmx0_range 143 3 (PIN_INPUT | PIN_GPIO_MUX_MODE)>,
+			<&main_pmx0_range 149 2 (PIN_INPUT | PIN_GPIO_MUX_MODE)>;
+
 		/*
 		 * pinctrl IP DOES NOT give any functional IRQs when a
 		 * system is in active state. This IRQ is only a dummy IRQ
@@ -284,6 +291,10 @@
 		interrupt-controller;
 		#interrupt-cells = <1>;
 		bootph-all;
+
+		main_pmx0_range: gpio-range {
+			#pinctrl-single,gpio-range-cells = <3>;
+		};
 	};
 
 	main_esm: esm@420000 {
@@ -568,6 +579,8 @@
 		power-domains = <&k3_pds 77 TI_SCI_PD_EXCLUSIVE>;
 		clocks = <&k3_clks 77 0>;
 		clock-names = "gpio";
+		gpio-ranges = <&main_pmx0 0 0 32>, <&main_pmx0 32 33 38>,
+				<&main_pmx0 70 72 22>;
 	};
 
 	main_gpio1: gpio@601000 {
@@ -585,6 +598,8 @@
 		power-domains = <&k3_pds 78 TI_SCI_PD_EXCLUSIVE>;
 		clocks = <&k3_clks 78 0>;
 		clock-names = "gpio";
+		gpio-ranges = <&main_pmx0 0 94 32>, <&main_pmx0 42 137 5>,
+				<&main_pmx0 47 143 3>, <&main_pmx0 50 149 2>;
 	};
 
 	sdhci0: mmc@fa10000 {
