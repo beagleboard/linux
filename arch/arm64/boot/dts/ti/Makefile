@@ -138,6 +138,7 @@ dtb-$(CONFIG_ARCH_K3) += k3-j722s-evm-csi2-quad-tevi-ov5640.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-j722s-evm-dsi-rpi-7inch-panel.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-j722s-evm-fpdlink-fusion.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-j722s-evm-microtips-mf101hie-panel.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-j722s-evm-v3link-fusion.dtbo
 
 # Boards with J784s4 SoC
 dtb-$(CONFIG_ARCH_K3) += k3-am69-sk.dtb
@@ -340,4 +341,5 @@ DTC_FLAGS_k3-j721s2-common-proc-board += -@
 DTC_FLAGS_k3-j721s2-evm-fusion += -@
 DTC_FLAGS_k3-j722s-evm += -@
 DTC_FLAGS_k3-j722s-evm-fpdlink-fusion += -@
+DTC_FLAGS_k3-j722s-evm-v3link-fusion += -@
 DTC_FLAGS_k3-j784s4-evm += -@
