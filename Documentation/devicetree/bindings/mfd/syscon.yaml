@@ -71,6 +71,7 @@ properties:
               - starfive,jh7100-sysmain
               - ti,am625-dss-oldi-io-ctrl
               - ti,am654-dss-oldi-io-ctrl
+              - ti,j784s4-acspcie-proxy-ctrl
               - ti,j784s4-pcie-ctrl
 
           - const: syscon
