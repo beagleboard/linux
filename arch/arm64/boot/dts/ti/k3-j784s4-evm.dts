@@ -354,6 +354,7 @@
 		compatible = "gpio-mux";
 		#mux-state-cells = <1>;
 		mux-gpios = <&exp2 14 GPIO_ACTIVE_HIGH>;
+		idle-state = <1>;
 	};
 
 	codec_audio: sound {
@@ -1044,14 +1045,6 @@
 			gpios = <13 GPIO_ACTIVE_HIGH>;
 			output-high;
 			line-name = "CANUART_MUX_SEL0";
-		};
-
-		p14-hog {
-			/* P14 - CANUART_MUX2_SEL1 */
-			gpio-hog;
-			gpios = <14 GPIO_ACTIVE_HIGH>;
-			output-high;
-			line-name = "CANUART_MUX2_SEL1";
 		};
 
 		p15-hog {
