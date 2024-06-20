@@ -569,12 +569,6 @@ config TPS6594_PFSM
 	  This driver can also be built as a module.  If so, the module
 	  will be called tps6594-pfsm.
 
-config DMA_BUF_PHYS
-	tristate "DMA-BUF physical address user-space exporter"
-	default y
-	help
-	  Exports CPU physical address of DMA-BUF to user-space.
-
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
