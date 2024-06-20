@@ -15,6 +15,11 @@
 		#size-cells = <1>;
 		ranges = <0x00 0x00 0x43000000 0x20000>;
 
+		opp_efuse_table: syscon@18 {
+			compatible = "ti,am62-opp-efuse-table", "syscon";
+			reg = <0x18 0x4>;
+		};
+
 		chipid: chipid@14 {
 			compatible = "ti,am654-chipid";
 			reg = <0x14 0x4>;
