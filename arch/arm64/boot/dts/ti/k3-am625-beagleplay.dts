@@ -57,6 +57,14 @@
 		#size-cells = <2>;
 		ranges;
 
+		/* global cma region */
+		linux,cma {
+			compatible = "shared-dma-pool";
+			reusable;
+			size = <0x00 0x8000000>;
+			linux,cma-default;
+		};
+
 		ramoops: ramoops@9ca00000 {
 			compatible = "ramoops";
 			reg = <0x00 0x9ca00000 0x00 0x00100000>;
