@@ -1,0 +1,41 @@
+// SPDX-License-Identifier: GPL-2.0-only OR MIT
+/*
+ * DT Overlay for GPIO18 ecap2 connections within the expansion header.
+ *
+ * Copyright (C) 2023 Texas Instruments Incorporated - https://www.ti.com/
+ *
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include "k3-pinctrl.h"
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+*/
+&{/chosen} {
+	overlays {
+		k3-am67a-beagley-ai-pwm-ecap2-gpio18.kernel = __TIMESTAMP__;
+		hat-12.pin = "k3-am67a-beagley-ai-pwm-ecap2-gpio18";
+		hat-12.pin.beagle-pwm-bus = "bus@f0000";
+		hat-12.pin.beagle-pwm-address = "23120000";
+		hat-12.pin.beagle-pwm-export = "0";
+		hat-12.pin.beagle-gpio-pi = "GPIO18";
+	};
+};
+
+&main_pmx0 {
+	hat_12_pwm_ecap: hat-12-pwm-ecap-pins {
+		pinctrl-single,pins = <
+			J722S_IOPAD(0x1A4, PIN_OUTPUT, 2) /* (D25) MCASP0_ACLKX.ECAP2_IN_APWM_OUT */
+		>;
+	};
+};
+
+&ecap2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&hat_12_pwm_ecap>;
+	status = "okay";
+};
