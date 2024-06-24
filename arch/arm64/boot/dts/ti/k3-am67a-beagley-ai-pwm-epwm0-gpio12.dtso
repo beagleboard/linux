@@ -1,0 +1,41 @@
+// SPDX-License-Identifier: GPL-2.0-only OR MIT
+/*
+ * DT Overlay for GPIO12 epwm0 connections within the expansion header.
+ *
+ * Copyright (C) 2023 Texas Instruments Incorporated - https://www.ti.com/
+ *
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include "k3-pinctrl.h"
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+*/
+&{/chosen} {
+	overlays {
+		k3-am67a-beagley-ai-pwm-epwm0-gpio12.kernel = __TIMESTAMP__;
+		hat-32.pin = "k3-am67a-beagley-ai-pwm-epwm0-gpio12";
+		hat-32.pin.beagle-pwm-bus = "bus@f0000";
+		hat-32.pin.beagle-pwm-address = "23000000";
+		hat-32.pin.beagle-pwm-export = "1";
+		hat-32.pin.beagle-gpio-pi = "GPIO12";
+	};
+};
+
+&main_pmx0 {
+	hat_32_pwm: hat-32-pwm-pins {
+		pinctrl-single,pins = <
+			J722S_IOPAD(0x1B8, PIN_OUTPUT, 2) /* (C20) SPI0_CS1.EHRPWM0_B */
+		>;
+	};
+};
+
+&epwm0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&hat_32_pwm>;
+	status = "okay";
+};
