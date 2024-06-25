@@ -690,7 +690,7 @@
 			clocks = <&k3_clks 161 7>;
 			assigned-clocks = <&k3_clks 161 7>;
 			assigned-clock-parents = <&k3_clks 161 9>;
-			assigned-clock-rates = <166666666>;
+			assigned-clock-rates = <200000000>;
 			power-domains = <&k3_pds 161 TI_SCI_PD_EXCLUSIVE>;
 			#address-cells = <1>;
 			#size-cells = <0>;
