@@ -1,0 +1,53 @@
+// SPDX-License-Identifier: GPL-2.0
+/**
+ * DT Overlay for enabling PWM output on User Expansion header on J722S-EVM
+ *
+ * Copyright (C) 2024 Texas Instruments Incorporated - https://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include "k3-pinctrl.h"
+
+&main_pmx0 {
+
+	main_epwm0_pins_default: main-epwm0-default-pins {
+		pinctrl-single,pins = <
+			J722S_IOPAD(0x01b4, PIN_OUTPUT, 2) /* (B20) EHRPWM0_A */
+		>;
+	};
+
+	main_epwm1_pins_default: main-epwm1-default-pins {
+		pinctrl-single,pins = <
+			J722S_IOPAD(0x01bc, PIN_OUTPUT, 2) /* (D20) EHRPWM1_A */
+			J722S_IOPAD(0x01c0, PIN_OUTPUT, 2) /* (E19) EHRPWM1_B */
+		>;
+	};
+
+	main_ecap0_pins_default: main-ecap0-default-pins {
+		pinctrl-single,pins = <
+			J722S_IOPAD(0x01b8, PIN_OUTPUT, 3) /* (C20) ECAP0_IN_APWM_OUT */
+		>;
+	};
+};
+
+&epwm0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_epwm0_pins_default>;
+	status = "okay";
+};
+
+&epwm1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_epwm1_pins_default>;
+	status = "okay";
+};
+
+&ecap0 {
+	/* ECAP in APWM mode */
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_ecap0_pins_default>;
+	status = "okay";
+};
