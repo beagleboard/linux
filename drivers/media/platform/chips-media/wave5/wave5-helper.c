@@ -56,6 +56,12 @@ int wave5_vpu_release_device(struct file *filp,
 	struct vpu_instance *inst = wave5_to_vpu_inst(filp->private_data);
 	int ret = 0;
 
+	if (inst->run_thread) {
+		kthread_stop(inst->run_thread);
+		up(&inst->run_sem);
+		inst->run_thread = NULL;
+	}
+
 	v4l2_m2m_ctx_release(inst->v4l2_fh.m2m_ctx);
 	if (inst->state != VPU_INST_STATE_NONE) {
 		u32 fail_res;
