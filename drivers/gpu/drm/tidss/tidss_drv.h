@@ -41,6 +41,7 @@ struct tidss_device {
 	struct device_link **pd_link;
 
 	u32 boot_enabled_vp_mask;
+	bool simplefb_enabled;
 };
 
 #define to_tidss(__dev) container_of(__dev, struct tidss_device, ddev)
