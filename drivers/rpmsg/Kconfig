@@ -81,4 +81,17 @@ config RPMSG_VIRTIO
 	select RPMSG_NS
 	select VIRTIO
 
+config RPMSG_PRU
+	tristate "PRU RPMsg Communication driver"
+	depends on RPMSG_VIRTIO
+	depends on REMOTEPROC
+	depends on PRU_REMOTEPROC
+	help
+	  An rpmsg driver that exposes interfaces to user space, to allow
+	  applications to communicate with the PRU processors on available
+	  TI SoCs. This is restricted to SoCs that have the PRUSS remoteproc
+	  support.
+
+	  If unsure, say N.
+
 endmenu
