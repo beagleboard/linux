@@ -1,0 +1,41 @@
+// SPDX-License-Identifier: GPL-2.0-only OR MIT
+/*
+ * DT Overlay for GPIO6 epwm1 connections within the expansion header.
+ *
+ * Copyright (C) 2023 Texas Instruments Incorporated - https://www.ti.com/
+ *
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include "k3-pinctrl.h"
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+*/
+&{/chosen} {
+	overlays {
+		k3-am67a-beagley-ai-pwm-epwm1-gpio6.kernel = __TIMESTAMP__;
+		hat-31.pin = "k3-am67a-beagley-ai-pwm-epwm1-gpio6";
+		hat-31.pin.beagle-pwm-bus = "bus@f0000";
+		hat-31.pin.beagle-pwm-address = "23010000";
+		hat-31.pin.beagle-pwm-export = "0";
+		hat-31.pin.beagle-gpio-pi = "GPIO6";
+	};
+};
+
+&main_pmx0 {
+	hat_31_pwm: hat-31-pwm-pins {
+		pinctrl-single,pins = <
+			J722S_IOPAD(0x1BC, PIN_OUTPUT, 2) /* (D20) SPI0_CLK.EHRPWM1_A */
+		>;
+	};
+};
+
+&epwm1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&hat_31_pwm>;
+	status = "okay";
+};
