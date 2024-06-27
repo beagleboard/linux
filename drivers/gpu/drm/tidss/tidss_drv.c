@@ -247,10 +247,6 @@ static int tidss_probe(struct platform_device *pdev)
 
 	check_for_simplefb_device(tidss);
 
-	ret = tidss_oldi_init(tidss);
-	if (ret)
-		return dev_err_probe(dev, ret, "failed to init OLDI\n");
-
 	/* powering up associated OLDI domains */
 	ret = tidss_attach_pm_domains(tidss);
 	if (ret < 0) {
@@ -263,6 +259,10 @@ static int tidss_probe(struct platform_device *pdev)
 		dev_err(dev, "failed to initialize dispc: %d\n", ret);
 		goto err_oldi_deinit;
 	}
+
+	ret = tidss_oldi_init(tidss);
+	if (ret)
+		return dev_err_probe(dev, ret, "failed to init OLDI\n");
 
 	pm_runtime_enable(dev);
 
