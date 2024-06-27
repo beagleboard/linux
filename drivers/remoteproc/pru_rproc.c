@@ -14,6 +14,7 @@
 
 #include <linux/bitops.h>
 #include <linux/debugfs.h>
+#include <linux/interrupt.h>
 #include <linux/irqdomain.h>
 #include <linux/module.h>
 #include <linux/of.h>
@@ -107,6 +108,7 @@ struct pru_private_data {
  * @pru_interrupt_map: pointer to interrupt mapping description (firmware)
  * @pru_interrupt_map_sz: pru_interrupt_map size
  * @rmw_lock: lock for read, modify, write operations on registers
+ * @irq_vring: IRQ number to use for processing vring buffers
  * @dbg_single_step: debug state variable to set PRU into single step mode
  * @dbg_continuous: debug state variable to restore PRU execution mode
  * @evt_count: number of mapped events
@@ -125,7 +127,8 @@ struct pru_rproc {
 	unsigned int *mapped_irq;
 	struct pru_irq_rsc *pru_interrupt_map;
 	size_t pru_interrupt_map_sz;
-	spinlock_t rmw_lock;
+	spinlock_t rmw_lock; /* register access lock */
+	int irq_vring;
 	u32 dbg_single_step;
 	u32 dbg_continuous;
 	u8 evt_count;
@@ -503,6 +506,83 @@ static void pru_dispose_irq_mapping(struct pru_rproc *pru)
 }
 
 /*
+ * pru_rproc_vring_interrupt() - interrupt handler for processing vrings
+ * @irq: irq number associated with the PRU event MPU is listening on
+ * @data: interrupt handler data, will be a PRU rproc structure
+ *
+ * This handler is used by the PRU remoteproc driver when using PRU system
+ * events for processing the virtqueues. Unlike the mailbox IP, there is
+ * no payload associated with an interrupt, so either a unique event is
+ * used for each virtqueue kick, or both virtqueues are processed on a
+ * single event. The latter is chosen to conserve the usable PRU system
+ * events.
+ */
+static irqreturn_t pru_rproc_vring_interrupt(int irq, void *data)
+{
+	struct pru_rproc *pru = data;
+
+	dev_dbg(&pru->rproc->dev, "got vring irq\n");
+
+	/* process incoming buffers on both the Rx and Tx vrings */
+	rproc_vq_interrupt(pru->rproc, 0);
+	rproc_vq_interrupt(pru->rproc, 1);
+
+	return IRQ_HANDLED;
+}
+
+/* Kick a virtqueue. */
+static void pru_rproc_kick(struct rproc *rproc, int vq_id)
+{
+	struct device *dev = &rproc->dev;
+	struct pru_rproc *pru = rproc->priv;
+	int ret;
+	const char *names[PRU_TYPE_MAX] = { "PRU", "RTU", "Tx_PRU" };
+
+	if (list_empty(&pru->rproc->rvdevs))
+		return;
+
+	dev_dbg(dev, "kicking vqid %d on %s%d\n", vq_id,
+		names[pru->data->type], pru->id);
+
+	ret = irq_set_irqchip_state(pru->mapped_irq[0], IRQCHIP_STATE_PENDING, true);
+	if (ret < 0)
+		dev_err(dev, "pruss_intc_trigger failed: %d\n", ret);
+}
+
+/* Register vring irq handler if needed. */
+static int pru_vring_interrupt_setup(struct rproc *rproc)
+{
+	struct device *dev = &rproc->dev;
+	struct pru_rproc *pru = rproc->priv;
+	struct platform_device *pdev = to_platform_device(pru->dev);
+	int ret;
+
+	if (list_empty(&pru->rproc->rvdevs))
+		return 0;
+
+	/* get vring interrupts for supporting virtio rpmsg */
+	pru->irq_vring = platform_get_irq_byname(pdev, "vring");
+	if (pru->irq_vring <= 0) {
+		ret = pru->irq_vring;
+		if (ret != -EPROBE_DEFER)
+			dev_err(dev, "unable to get vring interrupt, status = %d\n",
+				ret);
+
+		return ret;
+	}
+
+	ret = request_threaded_irq(pru->irq_vring, NULL,
+				   pru_rproc_vring_interrupt, IRQF_ONESHOT,
+				   dev_name(dev), pru);
+	if (ret) {
+		dev_err(dev, "failed to register vring irq handler: %d\n", ret);
+		return ret;
+	}
+
+	return 0;
+}
+
+/*
  * Parse the custom PRU interrupt map resource and configure the INTC
  * appropriately.
  */
@@ -614,10 +694,21 @@ static int pru_rproc_start(struct rproc *rproc)
 	if (ret)
 		return ret;
 
+	ret = pru_vring_interrupt_setup(rproc);
+	if (ret)
+		goto fail;
+
 	val = CTRL_CTRL_EN | ((rproc->bootaddr >> 2) << 16);
 	pru_control_write_reg(pru, PRU_CTRL_CTRL, val);
 
 	return 0;
+
+fail:
+	/* dispose irq mapping - new firmware can provide new mapping */
+	if (pru->mapped_irq)
+		pru_dispose_irq_mapping(pru);
+
+	return ret;
 }
 
 static int pru_rproc_stop(struct rproc *rproc)
@@ -633,8 +724,15 @@ static int pru_rproc_stop(struct rproc *rproc)
 	val &= ~CTRL_CTRL_EN;
 	pru_control_write_reg(pru, PRU_CTRL_CTRL, val);
 
+	if (!list_empty(&pru->rproc->rvdevs) && pru->irq_vring > 0)
+		free_irq(pru->irq_vring, pru);
+
 	/* dispose irq mapping - new firmware can provide new mapping */
 	pru_dispose_irq_mapping(pru);
+
+	/* dispose vring mapping as well */
+	if (pru->irq_vring > 0)
+		irq_dispose_mapping(pru->irq_vring);
 
 	return 0;
 }
@@ -752,6 +850,7 @@ static void *pru_da_to_va(struct rproc *rproc, u64 da, size_t len, bool is_iram)
 static struct rproc_ops pru_rproc_ops = {
 	.start		= pru_rproc_start,
 	.stop		= pru_rproc_stop,
+	.kick		= pru_rproc_kick,
 	.da_to_va	= pru_rproc_da_to_va,
 };
 
