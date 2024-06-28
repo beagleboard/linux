@@ -200,7 +200,6 @@
 			J721S2_WKUP_IOPAD(0x024, PIN_INPUT, 0) /* (F19) MCU_OSPI0_D6 */
 			J721S2_WKUP_IOPAD(0x028, PIN_INPUT, 0) /* (F20) MCU_OSPI0_D7 */
 			J721S2_WKUP_IOPAD(0x008, PIN_INPUT, 0) /* (E18) MCU_OSPI0_DQS */
-			J721S2_WKUP_IOPAD(0x004, PIN_INPUT, 0) /* (E20) MCU_OSPI0_LBCLKO */
 		>;
 	};
 };
@@ -210,6 +209,13 @@
 		pinctrl-single,pins = <
 			/* (C21) MCU_OSPI1_CSn1.WKUP_GPIO0_39 */
 			J721S2_WKUP_IOPAD(0x028, PIN_INPUT, 7)
+		>;
+	};
+
+	mcu_fss0_ospi0_1_pins_default: mcu-fss0-ospi0_1_default-pins {
+		pinctrl-single,pins = <
+			J721S2_WKUP_IOPAD(0x004, PIN_OUTPUT, 6) /* (B19) MCU_OSPI0_ECC_FAIL */
+			J721S2_WKUP_IOPAD(0x000, PIN_OUTPUT, 6) /* (B20) MCU_OSPI0_RESET_OUT0 */
 		>;
 	};
 };
@@ -464,7 +470,7 @@
 &ospi0 {
 	status = "okay";
 	pinctrl-names = "default";
-	pinctrl-0 = <&mcu_fss0_ospi0_pins_default>;
+	pinctrl-0 = <&mcu_fss0_ospi0_pins_default>, <&mcu_fss0_ospi0_1_pins_default>;
 
 	ospi0_nor: flash@0 {
 		compatible = "jedec,spi-nor";
