@@ -19,6 +19,7 @@
 #include <linux/module.h>
 #include <linux/platform_data/simplefb.h>
 #include <linux/platform_device.h>
+#include <linux/pm_domain.h>
 #include <linux/clk.h>
 #include <linux/of.h>
 #include <linux/of_clk.h>
@@ -82,6 +83,9 @@ struct simplefb_par {
 	u32 regulator_count;
 	struct regulator **regulators;
 #endif
+	int num_domains; /* Handle attached PM domains */
+	struct device **pd_dev;
+	struct device_link **pd_link;
 };
 
 static void simplefb_clocks_destroy(struct simplefb_par *par);
@@ -194,6 +198,70 @@ static int simplefb_parse_pd(struct platform_device *pdev,
 	}
 
 	return 0;
+}
+
+static int simplefb_detach_pm_domains(struct simplefb_par *par, struct platform_device *pdev)
+{
+	int i;
+
+	if (par->num_domains <= 1)
+		return 0;
+
+	for (i = 0; i < par->num_domains; i++) {
+		if (par->pd_link[i] && !IS_ERR(par->pd_link[i]))
+			device_link_del(par->pd_link[i]);
+		if (par->pd_dev[i] && !IS_ERR(par->pd_dev[i]))
+			dev_pm_domain_detach(par->pd_dev[i], true);
+		par->pd_dev[i] = NULL;
+		par->pd_link[i] = NULL;
+	}
+
+	return 0;
+}
+
+static int simplefb_attach_pm_domains(struct simplefb_par *par, struct platform_device *pdev)
+{
+	struct device *dev = &pdev->dev;
+	struct device_node *np = pdev->dev.of_node;
+	int i, ret;
+
+	par->num_domains = of_count_phandle_with_args(np, "power-domains",
+						      "#power-domain-cells");
+	if (par->num_domains <= 1) {
+		dev_dbg(dev, "One or less power domains, no need to do attach domains\n");
+		return 0;
+	}
+
+	par->pd_dev = devm_kmalloc_array(dev, par->num_domains,
+					 sizeof(*par->pd_dev), GFP_KERNEL);
+	if (!par->pd_dev)
+		return -ENOMEM;
+
+	par->pd_link = devm_kmalloc_array(dev, par->num_domains,
+					  sizeof(*par->pd_link), GFP_KERNEL);
+	if (!par->pd_link)
+		return -ENOMEM;
+
+	for (i = 0; i < par->num_domains; i++) {
+		par->pd_dev[i] = dev_pm_domain_attach_by_id(dev, i);
+		if (IS_ERR(par->pd_dev[i])) {
+			ret = PTR_ERR(par->pd_dev[i]);
+			goto fail;
+		}
+
+		par->pd_link[i] = device_link_add(dev, par->pd_dev[i],
+						  DL_FLAG_STATELESS |
+						  DL_FLAG_PM_RUNTIME | DL_FLAG_RPM_ACTIVE);
+		if (!par->pd_link[i]) {
+			ret = -EINVAL;
+			goto fail;
+		}
+	}
+
+	return 0;
+fail:
+	simplefb_detach_pm_domains(par, pdev);
+	return ret;
 }
 
 #if defined CONFIG_OF && defined CONFIG_COMMON_CLK
@@ -485,9 +553,13 @@ static int simplefb_probe(struct platform_device *pdev)
 	}
 	info->pseudo_palette = par->palette;
 
-	ret = simplefb_clocks_get(par, pdev);
+	ret = simplefb_attach_pm_domains(par, pdev);
 	if (ret < 0)
 		goto error_unmap;
+
+	ret = simplefb_clocks_get(par, pdev);
+	if (ret < 0)
+		goto error_detach_pm_domains;
 
 	ret = simplefb_regulators_get(par, pdev);
 	if (ret < 0)
@@ -525,6 +597,8 @@ error_regulators:
 	simplefb_regulators_destroy(par);
 error_clocks:
 	simplefb_clocks_destroy(par);
+error_detach_pm_domains:
+	simplefb_detach_pm_domains(par, pdev);
 error_unmap:
 	iounmap(info->screen_base);
 error_fb_release:
@@ -539,6 +613,7 @@ static void simplefb_remove(struct platform_device *pdev)
 {
 	struct fb_info *info = platform_get_drvdata(pdev);
 
+	simplefb_detach_pm_domains(info->par, pdev);
 	/* simplefb_destroy takes care of info cleanup */
 	unregister_framebuffer(info);
 }
