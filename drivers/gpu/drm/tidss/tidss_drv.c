@@ -352,6 +352,8 @@ static void tidss_remove(struct platform_device *pdev)
 	dispc_remove(tidss);
 
 	tidss_detach_pm_domains(tidss);
+	tidss_oldi_deinit(tidss);
+
 	dev_dbg(dev, "%s done\n", __func__);
 }
 
