@@ -238,6 +238,9 @@ static void tidss_oldi_atomic_early_enable(struct drm_bridge *bridge,
 	struct drm_crtc_state *crtc_state;
 	struct drm_display_mode *mode;
 
+	if (oldi->tidss->shared_mode)
+		return;
+
 	connector = drm_atomic_get_new_connector_for_encoder(state,
 							     bridge->encoder);
 	if (WARN_ON(!connector))
@@ -267,6 +270,9 @@ static void tidss_oldi_atomic_late_disable(struct drm_bridge *bridge,
 					   struct drm_bridge_state *old_bridge_state)
 {
 	struct tidss_oldi *oldi = drm_bridge_to_tidss_oldi(bridge);
+
+	if (oldi->tidss->shared_mode)
+		return;
 
 	/* Disable OLDI IO power */
 	tidss_oldi_tx_power(oldi, false);

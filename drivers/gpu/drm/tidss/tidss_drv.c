@@ -34,6 +34,10 @@ int tidss_runtime_get(struct tidss_device *tidss)
 
 	dev_dbg(tidss->dev, "%s\n", __func__);
 
+	/* No PM in display sharing mode */
+	if (tidss->shared_mode)
+		return 0;
+
 	r = pm_runtime_resume_and_get(tidss->dev);
 	if (WARN_ON(r < 0))
 		return r;
@@ -58,6 +62,9 @@ void tidss_runtime_put(struct tidss_device *tidss)
 	int r;
 
 	dev_dbg(tidss->dev, "%s\n", __func__);
+
+	if (tidss->shared_mode)
+		return;
 
 	pm_runtime_mark_last_busy(tidss->dev);
 
@@ -245,13 +252,16 @@ static int tidss_probe(struct platform_device *pdev)
 
 	spin_lock_init(&tidss->wait_lock);
 
+	tidss->shared_mode = device_property_read_bool(dev, "ti,dss-shared-mode");
 	check_for_simplefb_device(tidss);
 
-	/* powering up associated OLDI domains */
-	ret = tidss_attach_pm_domains(tidss);
-	if (ret < 0) {
-		dev_err(dev, "failed to attach power domains %d\n", ret);
-		goto err_oldi_deinit;
+	if (!tidss->shared_mode) {
+		/* powering up associated OLDI domains */
+		ret = tidss_attach_pm_domains(tidss);
+		if (ret < 0) {
+			dev_err(dev, "failed to attach power domains %d\n", ret);
+			goto err_oldi_deinit;
+		}
 	}
 
 	ret = dispc_init(tidss);
@@ -264,15 +274,15 @@ static int tidss_probe(struct platform_device *pdev)
 	if (ret)
 		return dev_err_probe(dev, ret, "failed to init OLDI\n");
 
-	pm_runtime_enable(dev);
-
-	pm_runtime_set_autosuspend_delay(dev, 1000);
-	pm_runtime_use_autosuspend(dev);
-
+	if (!tidss->shared_mode) {
+		pm_runtime_enable(dev);
+		pm_runtime_set_autosuspend_delay(dev, 1000);
+		pm_runtime_use_autosuspend(dev);
 #ifndef CONFIG_PM
-	/* If we don't have PM, we need to call resume manually */
-	dispc_runtime_resume(tidss->dispc);
+		/* If we don't have PM, we need to call resume manually */
+		dispc_runtime_resume(tidss->dispc);
 #endif
+	}
 
 	ret = tidss_modeset_init(tidss);
 	if (ret < 0) {
@@ -314,6 +324,8 @@ err_irq_uninstall:
 	tidss_irq_uninstall(ddev);
 
 err_runtime_suspend:
+	if (tidss->shared_mode)
+		return ret;
 #ifndef CONFIG_PM
 	dispc_runtime_suspend(tidss->dispc);
 #endif
@@ -341,12 +353,14 @@ static void tidss_remove(struct platform_device *pdev)
 
 	tidss_irq_uninstall(ddev);
 
+	if (!tidss->shared_mode) {
 #ifndef CONFIG_PM
-	/* If we don't have PM, we need to call suspend manually */
-	dispc_runtime_suspend(tidss->dispc);
+		/* If we don't have PM, we need to call suspend manually */
+		dispc_runtime_suspend(tidss->dispc);
 #endif
-	pm_runtime_dont_use_autosuspend(dev);
-	pm_runtime_disable(dev);
+		pm_runtime_dont_use_autosuspend(dev);
+		pm_runtime_disable(dev);
+	}
 
 	/* devm allocated dispc goes away with the dev so mark it NULL */
 	dispc_remove(tidss);
