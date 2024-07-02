@@ -1265,6 +1265,12 @@ static int k3_r5_cluster_rproc_init(struct platform_device *pdev)
 			goto out;
 		}
 
+		ret = dma_coerce_mask_and_coherent(&rproc->dev, DMA_BIT_MASK(48));
+		if (ret) {
+			dev_warn(dev, "Failed to set DMA mask %llx. Trying to continue... (%pe)\n",
+				DMA_BIT_MASK(48), ERR_PTR(ret));
+		}
+
 		/* K3 R5s have a Region Address Translator (RAT) but no MMU */
 		rproc->has_iommu = false;
 		/* error recovery is not supported at present */
