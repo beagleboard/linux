@@ -629,7 +629,7 @@ static int cqspi_phy_calibrate(struct cqspi_flash_pdata *f_pdata,
 
 	rxhigh.tx = rxlow.tx;
 	rxhigh.read_delay = rxlow.read_delay;
-	cqspi_find_rx_high(f_pdata, mem, &rxhigh);
+	ret = cqspi_find_rx_high(f_pdata, mem, &rxhigh);
 	if (ret)
 		goto out;
 	dev_dbg(dev, "rxhigh: RX: %d TX: %d RD: %d\n", rxhigh.rx, rxhigh.tx,
