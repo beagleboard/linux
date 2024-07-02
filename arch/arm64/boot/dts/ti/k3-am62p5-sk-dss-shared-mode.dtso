@@ -22,3 +22,12 @@
 	ti,dss-shared-mode-plane-zorder = <0>;
 	interrupts = <GIC_SPI 85 IRQ_TYPE_LEVEL_HIGH>;
 };
+
+&reserved_memory {
+	#address-cells = <2>;
+	#size-cells = <2>;
+	rtos_framebuffer_memory_region: rtos-framebuffer-memory@93500000 {
+		reg = <0x00 0x93500000 0x00 0x08000000>;
+		no-map;
+	};
+};
