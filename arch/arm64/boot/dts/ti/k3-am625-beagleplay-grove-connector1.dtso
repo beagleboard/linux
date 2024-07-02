@@ -1,0 +1,22 @@
+// SPDX-License-Identifier: GPL-2.0-or-later OR MIT
+/**
+ * Gasket Overlay for BeaglePlay Grove Connector 1
+ *
+ * Copyright (C) 2024 Texas Instruments Incorporated - http://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+
+&{/} {
+	__symbols__ {
+		GROVE_CONNECTOR = "/grove-connector1";
+
+		/* This connector does not exist on BeaglePlay, this
+		 * file is here as an example to show that add-ons cannot
+		 * be applied when the needed pins are unavailable. No
+		 * pin is available so all add-on overlays should fail
+		 * to attach to this connector.
+		 */
+	};
+};
