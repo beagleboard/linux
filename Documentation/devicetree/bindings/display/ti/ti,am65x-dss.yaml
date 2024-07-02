@@ -151,6 +151,86 @@ properties:
         unevaluatedProperties: false
         description: OLDI transmitters connected to the DSS VPs
 
+  ti,dss-shared-mode:
+    type: boolean
+    description:
+      TI DSS7 supports sharing of display between multiple hosts
+      as it provides separate register space for display configuration and
+      unique interrupt line to each host.
+      One of the host is provided access to the global display
+      configuration labelled as "common" region of DSS allows that host
+      exclusive access to global registers of DSS while other host can
+      configure the display for it's usage using a separate register
+      space labelled as "common1".
+      The DSS resources can be partitioned in such a way that one or more
+      of the video planes are owned by Linux whereas other video planes
+      can be owned by a remote core.
+      The video port controlling these planes acts as a shared video port
+      and it can be configured with write access either by Linux or the
+      remote core in which case Linux only has read-only access to that
+      video port.
+
+  ti,dss-shared-mode-planes:
+    description:
+      The video layer that is owned by processing core running Linux.
+      The display driver running from Linux has exclusive write access to
+      this video layer.
+    $ref: /schemas/types.yaml#/definitions/string
+    enum: [vidl, vid]
+
+  ti,dss-shared-mode-vp:
+    description:
+      The video port that is being used in context of processing core
+      running Linux with display susbsytem being used in shared mode.
+      This can be owned either by the processing core running Linux in
+      which case Linux has the write access and the responsibility to
+      configure this video port and the associated overlay manager or
+      it can be shared between core running Linux and a remote core
+      with remote core provided with write access to this video port and
+      associated overlay managers and remote core configures and drives
+      this video port also feeding data from one or more of the
+      video planes owned by Linux, with Linux only having read-only access
+      to this video port and associated overlay managers.
+
+    $ref: /schemas/types.yaml#/definitions/string
+    enum: [vp1, vp2]
+
+  ti,dss-shared-mode-common:
+    description:
+      The DSS register region owned by processing core running Linux.
+    $ref: /schemas/types.yaml#/definitions/string
+    enum: [common, common1]
+
+  ti,dss-shared-mode-vp-owned:
+    description:
+      This tells whether processing core running Linux has write access to
+      the video ports enlisted in ti,dss-shared-mode-vps.
+    $ref: /schemas/types.yaml#/definitions/uint32
+    enum: [0, 1]
+
+  ti,dss-shared-mode-plane-zorder:
+    description:
+      The zorder of the planes owned by Linux.
+      For the scenario where Linux is not having write access to associated
+      video port, this field is just for
+      informational purpose to enumerate the zorder configuration
+      being used by remote core.
+
+    $ref: /schemas/types.yaml#/definitions/uint32
+    enum: [0, 1]
+
+dependencies:
+  ti,dss-shared-mode: [ 'ti,dss-shared-mode-planes', 'ti,dss-shared-mode-vp',
+                        'ti,dss-shared-mode-plane-zorder', 'ti,dss-shared-mode-vp-owned']
+  ti,dss-shared-mode-vp: ['ti,dss-shared-mode', 'ti,dss-shared-mode-planes',
+                          'ti,dss-shared-mode-plane-zorder', 'ti,dss-shared-mode-vp-owned']
+  ti,dss-shared-mode-planes: ['ti,dss-shared-mode', 'ti,dss-shared-mode-vp',
+                              'ti,dss-shared-mode-plane-zorder', 'ti,dss-shared-mode-vp-owned']
+  ti,dss-shared-mode-plane-zorder: ['ti,dss-shared-mode-planes', 'ti,dss-shared-mode-vp',
+                                    'ti,dss-shared-mode', 'ti,dss-shared-mode-vp-owned']
+  ti,dss-shared-mode-vp-owned: ['ti,dss-shared-mode-planes', 'ti,dss-shared-mode-vp',
+                                'ti,dss-shared-mode', 'ti,dss-shared-mode-plane-zorder']
+
 allOf:
   - if:
       properties:
@@ -163,6 +243,8 @@ allOf:
           properties:
             port@0: false
             oldi_txes: false
+        ti,dss-shared-mode-vp:
+          enum: [vp2]
 
   - if:
       properties:
