@@ -1,0 +1,36 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (C) 2022 Texas Instruments Incorporated - https://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include "k3-pinctrl.h"
+#include <dt-bindings/gpio/gpio.h>
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+ */
+&{/chosen} {
+        overlays {
+                k3-am625-beaglemod-rs485-1.kernel = __TIMESTAMP__;
+        };
+};
+
+&main_pmx0 {
+	main_uart2_pins_default: main-uart2-pins-default {
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x01d0, PIN_INPUT, 3) /* (A15) UART0_CTSn.UART2_RXD */
+			AM62X_IOPAD(0x01d4, PIN_OUTPUT, 3) /* (B15) UART0_RTSn.UART2_TXD */
+			AM62X_IOPAD(0x0058, PIN_OUTPUT, 7) /* (R23) GPMC0_AD7.GPIO0_22 */
+		>;
+	};
+};
+
+&main_uart2 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_uart2_pins_default>;
+	rts-gpios = <&main_gpio0 22 GPIO_ACTIVE_HIGH>;
+};

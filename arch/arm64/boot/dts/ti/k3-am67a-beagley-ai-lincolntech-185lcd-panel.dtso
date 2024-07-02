@@ -1,0 +1,117 @@
+// SPDX-License-Identifier: GPL-2.0
+/**
+ * DT Overlay for LincolnTech LCD185-101CTL1ARNTT
+ *
+ * Datasheet: https://lincolntechsolutions.com/wp-content/uploads/2023/04/LCD185-101CTL1ARNTT_DS_R1.3.pdf
+ *
+ * Copyright (C) 2023 Texas Instruments Incorporated - https://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+ */
+&{/chosen} {
+	overlays {
+		k3-am67a-beagley-ai-lincolntech-185lcd-panel.kernel = __TIMESTAMP__;
+	};
+};
+
+&{/} {
+	backlight: backlight {
+		compatible = "pwm-backlight";
+		pinctrl-names = "default";
+		pinctrl-0 = <&main_oldi_backlight_default_pins>, <&mcu_oldi_backlight_default_pins>;
+		brightness-levels = <0 4 8 16 32 64 128 255>;
+		default-brightness-level = <6>;
+		enable-gpios = <&mcu_gpio0 11 GPIO_ACTIVE_HIGH>;
+		pwms = <&ecap0 0 20000 0>;
+	};
+
+	lcd {
+		compatible = "lincolntech,lcd185-101ct";
+		backlight = <&backlight>;
+		/*
+		* Note that the OLDI TX 0 transmits the odd set of pixels
+		* while the OLDI TX 1 transmits the even set. This is a
+		* fixed configuration in the IP integration and is not
+		* changeable. The properties, "dual-lvds-odd-pixels" and
+		* "dual-lvds-even-pixels" have been used to merely
+		* identify if a Dual Link configuration is required.
+		* But swapping them will cause an error in the dss driver.
+		*/
+		port@0 {
+			dual-lvds-odd-pixels;
+			lcd_in0: endpoint {
+				remote-endpoint = <&oldi_out0>;
+			};
+		};
+		port@1 {
+			dual-lvds-even-pixels;
+			lcd_in1: endpoint {
+				remote-endpoint = <&oldi_out1>;
+			};
+		};
+	};
+};
+
+&ecap0 {
+	status = "okay";
+};
+
+&main_gpio1 {
+	status = "okay";
+};
+
+&mcu_gpio0 {
+	status = "okay";
+};
+
+&main_i2c1 {
+	eeprom@57 {
+		compatible = "atmel,24c256";
+	    reg = <0x57>;
+	};
+
+	touchscreen@5d {
+		compatible = "goodix,gt928";
+		reg = <0x5d>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&main_oldi_touchscreen_default_pins>;
+		interrupt-parent = <&main_gpio0>;
+		interrupts = <14 IRQ_TYPE_EDGE_FALLING>;
+		irq-gpios = <&main_gpio0 14 GPIO_ACTIVE_HIGH>;
+		touchscreen-size-x = <1920>;
+		touchscreen-size-y = <1200>;
+	};
+};
+
+&dss0 {
+	status = "okay";
+};
+
+&dss0_ports {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	/* VP1: LVDS Output (OLDI TX 0) */
+	port@0 {
+		reg = <0>;
+		oldi_out0: endpoint {
+			remote-endpoint = <&lcd_in0>;
+		};
+	};
+
+	/* VP1: LVDS Output (OLDI TX 1) */
+	port@2 {
+		reg = <2>;
+		oldi_out1: endpoint {
+			remote-endpoint = <&lcd_in1>;
+		};
+	};
+};
