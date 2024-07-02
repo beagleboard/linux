@@ -2046,6 +2046,46 @@ err_unmap:
 	return ret;
 }
 
+static void cqspi_memcpy_fromio(const struct spi_mem_op *op, void *to,
+				const void __iomem *from, size_t count)
+{
+	if (op->data.buswidth == 8 && op->data.dtr) {
+		/*
+		 * 8D-8D-8D ops with odd length should be rejected by
+		 * supports_op() so no need to worry about that.
+		 */
+		while (count && !IS_ALIGNED((unsigned long)from, 4)) {
+			*(u16 *)to = __raw_readw(from);
+			from += 2;
+			to += 2;
+			count -= 2;
+		}
+
+		/*
+		 * The controller can work with both 32-bit and 64-bit
+		 * platforms. 32-bit platforms won't have a readq. So use a
+		 * readl instead.
+		 */
+		while (count >= 4) {
+			*(u32 *)to = __raw_readl(from);
+			from += 4;
+			to += 4;
+			count -= 4;
+		}
+
+		while (count) {
+			*(u16 *)to = __raw_readw(from);
+			from += 2;
+			to += 2;
+			count -= 2;
+		}
+
+		return;
+	}
+
+	memcpy_fromio(to, from, count);
+}
+
 static int cqspi_direct_read_execute(struct cqspi_flash_pdata *f_pdata,
 				     const struct spi_mem_op *op)
 {
@@ -2058,7 +2098,7 @@ static int cqspi_direct_read_execute(struct cqspi_flash_pdata *f_pdata,
 	int ret;
 
 	if (!cqspi->rx_chan || !virt_addr_valid(buf)) {
-		memcpy_fromio(buf, cqspi->ahb_base + from, len);
+		cqspi_memcpy_fromio(op, buf, cqspi->ahb_base + from, len);
 		return 0;
 	}
 
