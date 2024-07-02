@@ -258,21 +258,21 @@ static int tidss_probe(struct platform_device *pdev)
 	if (!tidss->shared_mode) {
 		/* powering up associated OLDI domains */
 		ret = tidss_attach_pm_domains(tidss);
-		if (ret < 0) {
-			dev_err(dev, "failed to attach power domains %d\n", ret);
-			goto err_oldi_deinit;
-		}
+		if (ret < 0)
+			return dev_err_probe(dev, ret, "failed to attach power domains %d\n");
 	}
 
 	ret = dispc_init(tidss);
 	if (ret) {
 		dev_err(dev, "failed to initialize dispc: %d\n", ret);
-		goto err_oldi_deinit;
+		goto err_detach_pm_domains;
 	}
 
 	ret = tidss_oldi_init(tidss);
-	if (ret)
-		return dev_err_probe(dev, ret, "failed to init OLDI\n");
+	if (ret) {
+		dev_err(dev, "failed to init OLDI\n", ret);
+		goto err_detach_pm_domains;
+	}
 
 	if (!tidss->shared_mode) {
 		pm_runtime_enable(dev);
@@ -331,10 +331,10 @@ err_runtime_suspend:
 #endif
 	pm_runtime_dont_use_autosuspend(dev);
 	pm_runtime_disable(dev);
-
-err_oldi_deinit:
-	tidss_detach_pm_domains(tidss);
 	tidss_oldi_deinit(tidss);
+
+err_detach_pm_domains:
+	tidss_detach_pm_domains(tidss);
 
 	return ret;
 }
