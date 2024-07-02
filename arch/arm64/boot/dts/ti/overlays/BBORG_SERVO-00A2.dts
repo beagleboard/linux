@@ -1,0 +1,59 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright (C) 2020 - 2022 Deepak Khatri <lorforlinux@beagleboard.org>
+ *
+ * See Cape Interface Spec page for more info on Bone Buses
+ * https://docs.beagleboard.org/0.0/boards/capes/cape-interface-spec.html#beaglebone-cape-interface-spec
+ *
+ */
+
+/dts-v1/;
+/plugin/;
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+ */
+&{/chosen} {
+	overlays {
+		BBORG_SERVO-00A2 = __TIMESTAMP__;
+	};
+};
+
+/*
+ * Update the default pinmux of the pins.
+ */
+&ocp {
+    P8_12_pinmux { pinctrl-0 = <&P8_12_gpio_pd_pin>; }; /* IN1 */
+    P8_11_pinmux { pinctrl-0 = <&P8_11_gpio_pd_pin>; }; /* IN2 */
+    P9_30_pinmux { pinctrl-0 = <&P9_30_gpio_pd_pin>; }; /* IN3 */
+    P9_27_pinmux { pinctrl-0 = <&P9_27_gpio_pd_pin>; }; /* IN4 */
+    P9_41_pinmux { pinctrl-0 = <&P9_41_gpio_pd_pin>; }; /* IN5 */
+    P9_42_pinmux { pinctrl-0 = <&P9_42_gpio_pd_pin>; }; /* IN6 */
+
+    P9_19_pinmux { pinctrl-0 = <&P9_19_i2c_pin>; }; /* i2c_scl */
+    P9_20_pinmux { pinctrl-0 = <&P9_20_i2c_pin>; }; /* i2c_sda */
+    P8_10_pinmux { pinctrl-0 = <&P8_10_gpio_pin>; }; /* pca9685.enable */
+};
+
+/*
+ * Initiate buses
+ */
+&bone_i2c_2 {
+    status = "okay";
+    pca: pca@70 {
+        compatible = "nxp,pca9685-pwm";
+        #pwm-cells = <2>;
+        reg = <0x70>;
+        label = "pca9685_servo";
+        /* invert; */
+        /* open-drain; */
+    };
+};
+
+&bone_led_P8_10 {
+    status = "okay";
+    label = "pca9685-enable";
+    // pca9685 Chip enable is ACTIVE-LOW but LEDs are set to ACTIVE-HIGH
+    // Set default-state to "off" to enable the pca9685 chip by default.
+    default-state = "off";
+};
