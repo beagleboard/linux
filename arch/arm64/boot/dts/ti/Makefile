@@ -8,6 +8,9 @@
 # Entries are grouped as per SoC present on the board. Groups are sorted
 # alphabetically.
 
+# This needs a better directory location
+dtb-$(CONFIG_OF_OVERLAY) += grove-sunlight-sensor.dtbo
+
 # Boards with AM62x SoC
 dtb-$(CONFIG_ARCH_K3) += k3-am625-beagleplay.dtb
 dtb-$(CONFIG_ARCH_K3) += k3-am625-beagleplay-csi2-ov5640.dtbo
