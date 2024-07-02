@@ -2097,7 +2097,7 @@ static int cqspi_direct_read_execute(struct cqspi_flash_pdata *f_pdata,
 	u_char *buf = op->data.buf.in;
 	int ret;
 
-	if (!cqspi->rx_chan || !virt_addr_valid(buf)) {
+	if (!cqspi->rx_chan || !virt_addr_valid(buf) || len <= 16) {
 		cqspi_memcpy_fromio(op, buf, cqspi->ahb_base + from, len);
 		return 0;
 	}
