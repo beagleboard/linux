@@ -1,0 +1,31 @@
+// SPDX-License-Identifier: GPL-2.0-or-later OR MIT
+/**
+ * Grove - Sunlight Sensor v1.0
+ *
+ * https://wiki.seeedstudio.com/Grove-Sunlight_Sensor/
+ *
+ * Copyright (C) 2024 Texas Instruments Incorporated - http://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+
+&GROVE_CONNECTOR {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&GROVE_PIN1_MUX_I2C_SCL>,
+	            <&GROVE_PIN2_MUX_I2C_SDA>;
+};
+
+&GROVE_PIN1_I2C {
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	clock-frequency = <100000>;
+
+	si1145@60 {
+		compatible = "si,si1145";
+		reg = <0x60>;
+	};
+};
