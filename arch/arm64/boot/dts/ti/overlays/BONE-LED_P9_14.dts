@@ -1,0 +1,12 @@
+/dts-v1/;
+/plugin/;
+
+&{/chosen} {
+	overlays {
+		BONE-LED_P9_14.kernel = __TIMESTAMP__;
+	};
+};
+
+&bone_led_P9_14 {
+    status = "okay";
+};
