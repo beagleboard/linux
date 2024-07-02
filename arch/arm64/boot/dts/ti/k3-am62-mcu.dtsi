@@ -7,6 +7,7 @@
 
 &cbass_mcu {
 	mcu_pmx0: pinctrl@4084000 {
+		bootph-all;
 		compatible = "pinctrl-single";
 		reg = <0x00 0x04084000 0x00 0x88>;
 		#pinctrl-cells = <1>;

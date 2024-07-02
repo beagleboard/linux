@@ -145,6 +145,7 @@
 		cdns,phy-mode;
 
 		partitions {
+			bootph-all;
 			compatible = "fixed-partitions";
 			#address-cells = <1>;
 			#size-cells = <1>;
@@ -180,6 +181,7 @@
 			};
 
 			partition@3fc0000 {
+				bootph-pre-ram;
 				label = "ospi.phypattern";
 				reg = <0x3fc0000 0x40000>;
 			};

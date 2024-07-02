@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (C) 2019 Texas Instruments Incorporated - https://www.ti.com/
+ *
+ * Product Link: https://www.ti.com/tool/J721EXCPXEVM
  */
 
 /dts-v1/;
@@ -21,15 +23,15 @@
 		compatible = "gpio-keys";
 		autorepeat;
 		pinctrl-names = "default";
-		pinctrl-0 = <&sw10_button_pins_default &sw11_button_pins_default>;
+		pinctrl-0 = <&sw10_button_pins_default>, <&sw11_button_pins_default>;
 
-		sw10: sw10 {
+		sw10: switch-10 {
 			label = "GPIO Key USER1";
 			linux,code = <BTN_0>;
 			gpios = <&main_gpio0 0 GPIO_ACTIVE_LOW>;
 		};
 
-		sw11: sw11 {
+		sw11: switch-11 {
 			label = "GPIO Key USER2";
 			linux,code = <BTN_1>;
 			gpios = <&wkup_gpio0 7 GPIO_ACTIVE_LOW>;
@@ -93,7 +95,7 @@
 			 <3300000 0x1>;
 	};
 
-	sound0: sound@0 {
+	sound0: sound-0 {
 		compatible = "ti,j721e-cpb-audio";
 		model = "j721e-cpb";
 
@@ -484,6 +486,7 @@
 
 &main_sdhci0 {
 	/* eMMC */
+	status = "okay";
 	non-removable;
 	ti,driver-strength-ohm = <50>;
 	disable-wp;
@@ -491,6 +494,7 @@
 
 &main_sdhci1 {
 	/* SD/MMC */
+	status = "okay";
 	vmmc-supply = <&vdd_mmc1>;
 	vqmmc-supply = <&vdd_sd_dv_alt>;
 	pinctrl-names = "default";
@@ -560,7 +564,7 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&mcu_fss0_ospi1_pins_default>;
 
-	flash@0{
+	flash@0 {
 		compatible = "jedec,spi-nor";
 		reg = <0x0>;
 		spi-tx-bus-width = <1>;
@@ -577,18 +581,21 @@
 };
 
 &tscadc0 {
+	status = "okay";
 	adc {
 		ti,adc-channels = <0 1 2 3 4 5 6 7>;
 	};
 };
 
 &tscadc1 {
+	status = "okay";
 	adc {
 		ti,adc-channels = <0 1 2 3 4 5 6 7>;
 	};
 };
 
 &main_i2c0 {
+	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&main_i2c0_pins_default>;
 	clock-frequency = <400000>;
@@ -625,6 +632,7 @@
 };
 
 &main_i2c1 {
+	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&main_i2c1_pins_default>;
 	clock-frequency = <400000>;
@@ -650,6 +658,7 @@
 };
 
 &main_i2c3 {
+	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&main_i2c3_pins_default>;
 	clock-frequency = <400000>;
@@ -688,6 +697,7 @@
 };
 
 &main_i2c6 {
+	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&main_i2c6_pins_default>;
 	clock-frequency = <400000>;
@@ -702,7 +712,7 @@
 
 &mcu_cpsw {
 	pinctrl-names = "default";
-	pinctrl-0 = <&mcu_cpsw_pins_default &mcu_mdio_pins_default>;
+	pinctrl-0 = <&mcu_cpsw_pins_default>, <&mcu_mdio_pins_default>;
 };
 
 &davinci_mdio {
@@ -813,6 +823,7 @@
 };
 
 &mcasp10 {
+	status = "okay";
 	#sound-dai-cells = <0>;
 
 	pinctrl-names = "default";
@@ -930,6 +941,7 @@
 };
 
 &pcie0_rc {
+	status = "okay";
 	reset-gpios = <&exp1 6 GPIO_ACTIVE_HIGH>;
 	phys = <&serdes0_pcie_link>;
 	phy-names = "pcie-phy";
@@ -937,6 +949,7 @@
 };
 
 &pcie1_rc {
+	status = "okay";
 	reset-gpios = <&exp1 2 GPIO_ACTIVE_HIGH>;
 	phys = <&serdes1_pcie_link>;
 	phy-names = "pcie-phy";
@@ -944,6 +957,7 @@
 };
 
 &pcie2_rc {
+	status = "okay";
 	reset-gpios = <&exp2 20 GPIO_ACTIVE_HIGH>;
 	phys = <&serdes2_pcie_link>;
 	phy-names = "pcie-phy";
@@ -985,18 +999,21 @@
 };
 
 &mcu_mcan0 {
+	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&mcu_mcan0_pins_default>;
 	phys = <&transceiver1>;
 };
 
 &mcu_mcan1 {
+	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&mcu_mcan1_pins_default>;
 	phys = <&transceiver2>;
 };
 
 &main_mcan0 {
+	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&main_mcan0_pins_default>;
 	phys = <&transceiver3>;
@@ -1007,6 +1024,7 @@
 };
 
 &main_mcan2 {
+	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&main_mcan2_pins_default>;
 	phys = <&transceiver4>;
