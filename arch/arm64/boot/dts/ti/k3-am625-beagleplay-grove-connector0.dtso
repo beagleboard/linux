@@ -1,0 +1,41 @@
+// SPDX-License-Identifier: GPL-2.0-or-later OR MIT
+/**
+ * Gasket Overlay for BeaglePlay Grove Connector 0
+ *
+ * Copyright (C) 2024 Texas Instruments Incorporated - http://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+
+&{/} {
+	__symbols__ {
+		GROVE_CONNECTOR = "/grove-connector0";
+
+		/* Grove connector 0 Pin1 options */
+		GROVE_PIN1_MUX_I2C_SCL = "/bus@f0000/pinctrl@f4000/grove-i2c-pins";
+		GROVE_PIN1_MUX_DIGITAL = "/bus@f0000/pinctrl@f4000/grove-digital-pins";
+		/* GROVE_PIN1_MUX_ANALOG not available on this pin on this connector on this board */
+		GROVE_PIN1_MUX_UART_RX = "/bus@f0000/pinctrl@f4000/grove-uart-pins";
+
+		/* Grove connector 0 Pin2 options */
+		GROVE_PIN2_MUX_I2C_SDA = "/bus@f0000/pinctrl@f4000/grove-i2c-pins";
+		GROVE_PIN2_MUX_DIGITAL = "/bus@f0000/pinctrl@f4000/grove-digital-pins";
+		/* GROVE_PIN2_MUX_ANALOG not available on this pin on this connector on this board */
+		GROVE_PIN2_MUX_UART_TX = "/bus@f0000/pinctrl@f4000/grove-uart-pins";
+
+		/* Grove connector 0 uses main_i2c1 for I2C on BeaglePlay */
+		GROVE_PIN1_I2C = "/bus@f0000/i2c@20010000";
+		GROVE_PIN2_I2C = "/bus@f0000/i2c@20010000";
+
+		/* Grove connector 0 uses main_gpio1 for DIGITAL on BeaglePlay */
+		GROVE_PIN1_DIGITAL = "/bus@f0000/gpio@601000";
+		GROVE_PIN2_DIGITAL = "/bus@f0000/gpio@601000";
+
+		/* Grove connector 0 does not have ANALOG on BeaglePlay */
+
+		/* Grove connector 0 uses main_uart1 for UART on BeaglePlay */
+		GROVE_PIN1_UART = "/bus@f0000/serial@2810000";
+		GROVE_PIN2_UART = "/bus@f0000/serial@2810000";
+	};
+};
