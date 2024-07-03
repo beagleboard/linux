@@ -1,0 +1,54 @@
+// SPDX-License-Identifier: GPL-2.0-only OR MIT
+/*
+ * https://beagleboard.org/ai-64
+ * Copyright (C) 2022-2024 Texas Instruments Incorporated - https://www.ti.com/
+ * Copyright (C) 2022-2024 Jason Kridner, BeagleBoard.org Foundation
+ * Copyright (C) 2022-2024 Robert Nelson, BeagleBoard.org Foundation
+ */
+
+#include <dt-bindings/gpio/gpio.h>
+
+/ {
+	chosen {
+		base_dtb = "k3-j721e-beagleboneai64.dts";
+		base_dtb_timestamp = __TIMESTAMP__;
+	};
+
+	leds {
+		led-0 {
+			label = "beaglebone:green:usr0";
+		};
+
+		led-1 {
+			label = "beaglebone:green:usr1";
+		};
+
+		led-2 {
+			label = "beaglebone:green:usr2";
+		};
+
+		led-3 {
+			label = "beaglebone:green:usr3";
+		};
+
+		led-4 {
+			label = "beaglebone:green:usr4";
+			linux,default-trigger = "phy0tx";
+		};
+	};
+};
+
+bone_i2c_2: &main_i2c2 {
+	/* BBB Header: P9.19 and P9.20 */
+	clock-frequency = <100000>;
+};
+
+bone_i2c_3: &main_i2c4 {
+	/* BBB Header: P9.24 and P9.26 */
+	clock-frequency = <100000>;
+};
+
+bone_i2c_1: &main_i2c6 {
+	/* BBB Header: P9.17 and P9.18 */
+	clock-frequency = <100000>;
+};
