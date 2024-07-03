@@ -3674,10 +3674,18 @@ static int ti_sci_prepare_system_suspend(struct ti_sci_info *info)
 	/* Map and validate the target Linux suspend state to TISCI LPM. */
 	switch (pm_suspend_target_state) {
 	case PM_SUSPEND_MEM:
-		/* S2MEM is not supported by the firmware. */
-		if (!(info->fw_caps & MSG_FLAG_CAPS_LPM_DEEP_SLEEP))
-			return 0;
-		mode = TISCI_MSG_VALUE_SLEEP_MODE_DEEP_SLEEP;
+		/* Default is to let LPM be DM managed */
+		mode = TISCI_MSG_VALUE_SLEEP_MODE_DM_MANAGED;
+
+		/* DM Managed is not supported by the firmware. */
+		if (!(info->fw_caps & MSG_FLAG_CAPS_LPM_DM_MANAGED)) {
+			/* Check if Deep Sleep is supported by the firmware. */
+			if ((info->fw_caps & MSG_FLAG_CAPS_LPM_DEEP_SLEEP))
+				mode = TISCI_MSG_VALUE_SLEEP_MODE_DEEP_SLEEP;
+			else
+				/* S2MEM is not supported by the firmware. */
+				return 0;
+		}
 		break;
 	default:
 		/*

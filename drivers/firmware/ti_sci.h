@@ -583,6 +583,7 @@ struct ti_sci_msg_resp_get_clock_freq {
 #define TISCI_MSG_VALUE_SLEEP_MODE_MCU_ONLY				0x1
 #define TISCI_MSG_VALUE_SLEEP_MODE_STANDBY				0x2
 #define TISCI_MSG_VALUE_SLEEP_MODE_PARTIAL_IO				0x3
+#define TISCI_MSG_VALUE_SLEEP_MODE_DM_MANAGED				0xfd
 
 /**
  * struct tisci_msg_prepare_sleep_req - Request for TISCI_MSG_PREPARE_SLEEP.
