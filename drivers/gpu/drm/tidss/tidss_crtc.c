@@ -81,7 +81,7 @@ void tidss_crtc_error_irq(struct drm_crtc *crtc, u64 irqstatus)
 {
 	struct tidss_crtc *tcrtc = to_tidss_crtc(crtc);
 
-	dev_err_ratelimited(crtc->dev->dev, "CRTC%u SYNC LOST: (irq %llx)\n",
+	dev_dbg_ratelimited(crtc->dev->dev, "CRTC%u SYNC LOST: (irq %llx)\n",
 			    tcrtc->hw_videoport, irqstatus);
 }
 
