@@ -51,6 +51,7 @@ struct ti_sci_pm_domain {
 	struct ti_sci_genpd_provider *parent;
 	s32 lat_constraint;
 	bool constraint_sent;
+	bool wkup_constraint;
 };
 
 #define genpd_to_ti_sci_pd(gpd) container_of(gpd, struct ti_sci_pm_domain, pd)
@@ -82,6 +83,24 @@ static inline void ti_sci_pd_clear_constraints(struct device *dev)
 
 	pd->lat_constraint = PM_QOS_RESUME_LATENCY_NO_CONSTRAINT;
 	pd->constraint_sent = false;
+	pd->wkup_constraint = false;
+}
+
+static inline bool ti_sci_pd_check_wkup_constraint(struct device *dev)
+{
+	struct generic_pm_domain *genpd = pd_to_genpd(dev->pm_domain);
+	struct ti_sci_pm_domain *pd = genpd_to_ti_sci_pd(genpd);
+	const struct ti_sci_handle *ti_sci = pd->parent->ti_sci;
+	int ret;
+
+	if (device_may_wakeup(dev)) {
+		ret = ti_sci->ops.pm_ops.set_device_constraint(ti_sci, pd->idx,
+							       TISCI_MSG_CONSTRAINT_SET);
+		if (!ret)
+			pd->wkup_constraint = true;
+	}
+
+	return pd->wkup_constraint;
 }
 
 /*
@@ -152,6 +171,8 @@ static int ti_sci_pd_suspend(struct device *dev)
 			ti_sci_pd_send_constraint(dev, val);
 	}
 	pd->lat_constraint = val;
+
+	ti_sci_pd_check_wkup_constraint(dev);
 
 	return pm_generic_suspend(dev);
 }
