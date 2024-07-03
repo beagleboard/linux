@@ -40,7 +40,7 @@ static inline int _soc_pcm_ret(struct snd_soc_pcm_runtime *rtd,
 	case -ENOTSUPP:
 		break;
 	default:
-		dev_err(rtd->dev,
+		dev_dbg(rtd->dev,
 			"ASoC: error at %s on %s: %d\n",
 			func, rtd->dai_link->name, ret);
 	}
