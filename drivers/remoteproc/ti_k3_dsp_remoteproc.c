@@ -6,7 +6,9 @@
  *	Suman Anna <s-anna@ti.com>
  */
 
+#include <linux/delay.h>
 #include <linux/io.h>
+#include <linux/iopoll.h>
 #include <linux/mailbox_client.h>
 #include <linux/module.h>
 #include <linux/of.h>
@@ -22,6 +24,10 @@
 #include "ti_sci_proc.h"
 
 #define KEYSTONE_RPROC_LOCAL_ADDRESS_MASK	(SZ_16M - 1)
+
+/* C7x TI-SCI Processor Status Flags */
+#define PROC_BOOT_STATUS_FLAG_CPU_WFE                   0x00000001
+#define PROC_BOOT_STATUS_FLAG_CPU_WFI                   0x00000002
 
 /**
  * struct k3_dsp_mem - internal memory structure
@@ -91,7 +97,29 @@ struct k3_dsp_rproc {
 	u32 ti_sci_id;
 	struct mbox_chan *mbox;
 	struct mbox_client client;
+	struct completion shut_comp;
 };
+
+/**
+ * is_core_in_wfi - local utility function to check core status
+ * @kproc: remote core pointer used for checking core status
+ *
+ * This utility function is invoked by the shutdown sequence to ensure
+ * the remote core is in wfi, before asserting a reset.
+ */
+static int is_core_in_wfi(struct k3_dsp_rproc *core)
+{
+	int ret;
+	u64 boot_vec;
+	u32 cfg, ctrl, stat;
+
+	ret = ti_sci_proc_get_status(core->tsp, &boot_vec, &cfg, &ctrl, &stat);
+
+	if (ret < 0)
+		return 0;
+
+	return (stat & PROC_BOOT_STATUS_FLAG_CPU_WFI);
+}
 
 /**
  * k3_dsp_rproc_mbox_callback() - inbound mailbox message handler
@@ -127,6 +155,10 @@ static void k3_dsp_rproc_mbox_callback(struct mbox_client *client, void *data)
 		break;
 	case RP_MBOX_ECHO_REPLY:
 		dev_info(dev, "received echo reply from %s\n", name);
+		break;
+	case RP_MBOX_SHUTDOWN_ACK:
+		dev_dbg(dev, "received shutdown_ack from %s\n", name);
+		complete(&kproc->shut_comp);
 		break;
 	default:
 		/* silently handle all other valid messages */
@@ -351,9 +383,30 @@ put_mbox:
  */
 static int k3_dsp_rproc_stop(struct rproc *rproc)
 {
+	unsigned long to = msecs_to_jiffies(30000);
 	struct k3_dsp_rproc *kproc = rproc->priv;
+	struct device *dev = kproc->dev;
+	u32 msg = omap_mbox_message(RP_MBOX_SHUTDOWN);
+	u32 stat = 0;
+	int ret;
+
+	reinit_completion(&kproc->shut_comp);
+	ret = mbox_send_message(kproc->mbox, (void *) (uintptr_t) msg);
+	if (ret < 0) {
+		dev_err(dev, "PM mbox_send_message failed: %d\n", ret);
+			return ret;
+	}
+
+	ret = wait_for_completion_timeout(&kproc->shut_comp, to);
+	if (ret == 0) {
+		dev_err(dev, "%s: timedout waiting for rproc completion event\n", __func__);
+	};
 
 	mbox_free_channel(kproc->mbox);
+
+	ret = readx_poll_timeout(is_core_in_wfi, kproc, stat, stat, 200, 2000);
+	if (ret)
+		return ret;
 
 	k3_dsp_rproc_reset(kproc);
 
@@ -780,6 +833,7 @@ static int k3_dsp_rproc_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, kproc);
 
+	init_completion(&kproc->shut_comp);
 	return 0;
 }
 
