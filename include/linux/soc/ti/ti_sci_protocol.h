@@ -215,6 +215,10 @@ struct ti_sci_clk_ops {
 #define TISCI_MSG_VALUE_IO_ENABLE			1
 #define TISCI_MSG_VALUE_IO_DISABLE			0
 
+/* TISCI LPM constraint state values */
+#define TISCI_MSG_CONSTRAINT_SET			1
+#define TISCI_MSG_CONSTRAINT_CLR			0
+
 /**
  * struct ti_sci_pm_ops - Low Power Mode (LPM) control operations
  * @prepare_sleep: Prepare to enter low power mode
@@ -228,6 +232,12 @@ struct ti_sci_clk_ops {
  *		- timestamp: Timestamp at which soc woke.
  * @set_io_isolation: Enable or disable IO isolation
  *		- state: The desired state of the IO isolation.
+ * @set_device_constraint: Set LPM constraint on behalf of a device
+ *		- id: Device Identifier
+ *		- state: The desired state of device constraint: set or clear.
+ * @set_latency_constraint: Set LPM resume latency constraint
+ *		- latency: maximum acceptable latency to wake up from low power mode
+ *		- state: The desired state of latency constraint: set or clear.
  */
 struct ti_sci_pm_ops {
 	int (*prepare_sleep)(const struct ti_sci_handle *handle, u8 mode,
@@ -236,6 +246,10 @@ struct ti_sci_pm_ops {
 			       u32 *source, u64 *timestamp);
 	int (*set_io_isolation)(const struct ti_sci_handle *handle,
 				u8 state);
+	int (*set_device_constraint)(const struct ti_sci_handle *handle,
+				     u32 id, u8 state);
+	int (*set_latency_constraint)(const struct ti_sci_handle *handle,
+				      u16 latency, u8 state);
 };
 
 /**
