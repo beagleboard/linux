@@ -24,7 +24,7 @@ static inline int _soc_dai_ret(struct snd_soc_dai *dai,
 	case -ENOTSUPP:
 		break;
 	default:
-		dev_err(dai->dev,
+		dev_dbg(dai->dev,
 			"ASoC: error at %s on %s: %d\n",
 			func, dai->name, ret);
 	}
