@@ -108,7 +108,7 @@ oldi_set_serial_clk(struct tidss_oldi *oldi, unsigned long rate)
 
 static void tidss_oldi_tx_power(struct tidss_oldi *oldi, bool power)
 {
-	u32 val = 0, mask;
+	u32 val = 0, mask = 0;
 
 	if (WARN_ON(!oldi->io_ctrl))
 		return;
