@@ -20,6 +20,7 @@
 #include <linux/of_platform.h>
 #include <linux/omap-mailbox.h>
 #include <linux/platform_device.h>
+#include <linux/pm_qos.h>
 #include <linux/pm_runtime.h>
 #include <linux/remoteproc.h>
 #include <linux/reset.h>
@@ -114,6 +115,7 @@ struct k3_r5_cluster {
 	struct list_head cores;
 	wait_queue_head_t core_transition;
 	const struct k3_r5_soc_data *soc_data;
+	struct dev_pm_qos_request qos_req;
 };
 
 /**
@@ -1888,6 +1890,8 @@ static int k3_r5_probe(struct platform_device *pdev)
 	ret = devm_add_action_or_reset(dev, k3_r5_cluster_rproc_exit, pdev);
 	if (ret)
 		return ret;
+
+	dev_pm_qos_expose_latency_limit(dev, PM_QOS_RESUME_LATENCY_NO_CONSTRAINT);
 
 	return 0;
 }
