@@ -220,6 +220,8 @@ static int cypress_nor_octal_dtr_en(struct spi_nor *nor)
 			return ret;
 	}
 
+	nor->params->addr_mode_nbytes = 4;
+
 	/* Read flash ID to make sure the switch was successful. */
 	ret = spi_nor_read_id(nor, nor->addr_nbytes, 3, buf,
 			      SNOR_PROTO_8_8_8_DTR);
@@ -264,6 +266,8 @@ static int cypress_nor_octal_dtr_dis(struct spi_nor *nor)
 		if (ret)
 			return ret;
 	}
+
+	nor->params->addr_mode_nbytes = 3;
 
 	/* Read flash ID to make sure the switch was successful. */
 	ret = spi_nor_read_id(nor, 0, 0, buf, SNOR_PROTO_1_1_1);
