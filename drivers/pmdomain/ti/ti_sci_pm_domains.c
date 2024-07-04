@@ -148,6 +148,7 @@ static int ti_sci_pd_power_on(struct generic_pm_domain *domain)
 		return ti_sci->ops.dev_ops.get_device(ti_sci, pd->idx);
 }
 
+#if IS_ENABLED(CONFIG_SUSPEND)
 static int ti_sci_pd_resume(struct device *dev)
 {
 	ti_sci_pd_clear_constraints(dev);
@@ -195,6 +196,7 @@ static int ti_sci_pd_suspend_late(struct device *dev)
 
 	return pm_generic_suspend_late(dev);
 }
+#endif /* CONFIG_SUSPEND */
 
 /*
  * ti_sci_pd_xlate(): translation service for TI SCI genpds
@@ -288,11 +290,13 @@ static int ti_sci_pm_domain_probe(struct platform_device *pdev)
 				 * If SCI constraint functions are present, then firmware
 				 * supports the constraints API.
 				 */
+#if IS_ENABLED(CONFIG_SUSPEND)
 				if (pd_provider->ti_sci->ops.pm_ops.set_device_constraint) {
 					pd->pd.domain.ops.resume = ti_sci_pd_resume;
 					pd->pd.domain.ops.suspend = ti_sci_pd_suspend;
 					pd->pd.domain.ops.suspend_late = ti_sci_pd_suspend_late;
 				}
+#endif
 				pm_genpd_init(&pd->pd, NULL, true);
 
 				list_add(&pd->node, &pd_provider->pd_list);
