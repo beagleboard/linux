@@ -259,7 +259,7 @@ static int tidss_probe(struct platform_device *pdev)
 		/* powering up associated OLDI domains */
 		ret = tidss_attach_pm_domains(tidss);
 		if (ret < 0)
-			return dev_err_probe(dev, ret, "failed to attach power domains %d\n");
+			return dev_err_probe(dev, ret, "failed to attach power domains\n");
 	}
 
 	ret = dispc_init(tidss);
@@ -270,7 +270,7 @@ static int tidss_probe(struct platform_device *pdev)
 
 	ret = tidss_oldi_init(tidss);
 	if (ret) {
-		dev_err(dev, "failed to init OLDI\n", ret);
+		dev_err(dev, "failed to init OLDI: %d\n", ret);
 		goto err_detach_pm_domains;
 	}
 
