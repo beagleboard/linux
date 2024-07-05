@@ -721,6 +721,11 @@
 	status = "reserved";
 };
 
+/* Main Timer2 is used by C7x DSP */
+&main_timer2 {
+	status = "reserved";
+};
+
 &usbss0 {
 	status = "okay";
 	ti,vbus-divider;
