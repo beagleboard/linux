@@ -20,6 +20,7 @@
 	ti,dss-shared-mode-common = "common1";
 	ti,dss-shared-mode-planes = "vid";
 	ti,dss-shared-mode-plane-zorder = <0>;
+	interrupt-parent = <&gic500>;
 	interrupts = <GIC_SPI 85 IRQ_TYPE_LEVEL_HIGH>;
 };
 
