@@ -1037,6 +1037,30 @@
 		power-domains = <&k3_pds 241 TI_SCI_PD_EXCLUSIVE>;
 		sram = <&main_navss_sram>;
 		sram-size = <0x10000>;
+		operating-points-v2 = <&vpu_opp_table_0>;
+		vpu_opp_table_0: opp-table {
+			compatible = "operating-points-v2";
+			opp-20000000 {
+				opp-hz = /bits/ 64 <20000000>;
+			};
+
+			opp-100000000 {
+				opp-hz = /bits/ 64 <100000000>;
+			};
+
+			opp-200000000 {
+				opp-hz = /bits/ 64 <200000000>;
+			};
+
+			opp-400000000 {
+				opp-hz = /bits/ 64 <400000000>;
+			};
+
+			opp-600000000 {
+				opp-hz = /bits/ 64 <600000000>;
+			};
+		};
+
 	};
 
 	vpu1: video-codec@4220000 {
@@ -1047,6 +1071,30 @@
 		power-domains = <&k3_pds 242 TI_SCI_PD_EXCLUSIVE>;
 		sram = <&main_navss_sram>;
 		sram-size = <0x10000>;
+		operating-points-v2 = <&vpu_opp_table_1>;
+		vpu_opp_table_1: opp-table {
+			compatible = "operating-points-v2";
+			opp-20000000 {
+				opp-hz = /bits/ 64 <20000000>;
+			};
+
+			opp-100000000 {
+				opp-hz = /bits/ 64 <100000000>;
+			};
+
+			opp-200000000 {
+				opp-hz = /bits/ 64 <200000000>;
+			};
+
+			opp-400000000 {
+				opp-hz = /bits/ 64 <400000000>;
+			};
+
+			opp-500000000 {
+				opp-hz = /bits/ 64 <600000000>;
+			};
+		};
+
 	};
 
 	main_sdhci0: mmc@4f80000 {
