@@ -366,6 +366,8 @@ struct dec_open_param {
 struct dec_initial_info {
 	u32 pic_width;
 	u32 pic_height;
+	s32 f_rate_numerator; /* the numerator part of frame rate fraction */
+	s32 f_rate_denominator; /* the denominator part of frame rate fraction */
 	struct vpu_rect pic_crop_rect;
 	u32 min_frame_buffer_count; /* between 1 to 16 */
 
@@ -788,6 +790,8 @@ struct vpu_device {
 	struct kthread_worker *worker;
 	int vpu_poll_interval;
 	int num_clks;
+	unsigned long opp_pixel_rate;
+	unsigned long opp_freq;
 };
 
 struct vpu_instance;
@@ -857,6 +861,7 @@ struct vpu_instance {
 	unsigned int encode_aud;
 	unsigned int change_param_flags;
 	struct enc_wave_param enc_param;
+	unsigned long pixel_rate;
 };
 
 void wave5_vdi_write_register(struct vpu_device *vpu_dev, u32 addr, u32 data);

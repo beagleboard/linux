@@ -1374,6 +1374,7 @@ static int wave5_vpu_enc_start_streaming(struct vb2_queue *q, unsigned int count
 		struct enc_open_param open_param;
 
 		memset(&open_param, 0, sizeof(struct enc_open_param));
+		wave5_instance_set_clk(inst);
 
 		ret = wave5_set_enc_openparam(&open_param, inst);
 		if (ret) {

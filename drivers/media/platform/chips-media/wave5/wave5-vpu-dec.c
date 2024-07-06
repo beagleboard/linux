@@ -1415,6 +1415,10 @@ static int wave5_vpu_dec_start_streaming(struct vb2_queue *q, unsigned int count
 		struct dec_initial_info *initial_info =
 			&inst->codec_info->dec_info.initial_info;
 
+		inst->frame_rate = (initial_info->f_rate_numerator /
+							initial_info->f_rate_denominator);
+		wave5_instance_set_clk(inst);
+
 		if (inst->state == VPU_INST_STATE_STOP)
 			ret = switch_state(inst, VPU_INST_STATE_INIT_SEQ);
 		if (ret)

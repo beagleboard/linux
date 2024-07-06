@@ -627,6 +627,9 @@ static void wave5_get_dec_seq_result(struct vpu_instance *inst, struct dec_initi
 	info->pic_crop_rect.top = (reg_val >> 16) & 0xffff;
 	info->pic_crop_rect.bottom = reg_val & 0xffff;
 
+	info->f_rate_numerator = vpu_read_reg(inst->dev, W5_RET_DEC_FRAME_RATE_NR);
+	info->f_rate_denominator = vpu_read_reg(inst->dev, W5_RET_DEC_FRAME_RATE_DR);
+
 	reg_val = vpu_read_reg(inst->dev, W5_RET_DEC_COLOR_SAMPLE_INFO);
 	info->luma_bitdepth = reg_val & 0xf;
 	info->chroma_bitdepth = (reg_val >> 4) & 0xf;

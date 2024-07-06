@@ -10,6 +10,7 @@
 #include <linux/clk.h>
 #include <linux/firmware.h>
 #include <linux/interrupt.h>
+#include <linux/pm_opp.h>
 #include <linux/pm_runtime.h>
 #include "wave5-vpu.h"
 #include "wave5-regdefine.h"
@@ -277,6 +278,10 @@ static int wave5_vpu_probe(struct platform_device *pdev)
 		}
 	}
 
+	ret = dev_pm_opp_of_add_table(&pdev->dev);
+	if (ret && ret != -ENODEV)
+		dev_err(&pdev->dev, "Invalid OPP table in device tree\n");
+
 	INIT_LIST_HEAD(&dev->instances);
 	ret = v4l2_device_register(&pdev->dev, &dev->v4l2_dev);
 	if (ret) {
@@ -343,6 +348,7 @@ static void wave5_vpu_remove(struct platform_device *pdev)
 		hrtimer_cancel(&dev->hrtimer);
 	}
 
+	dev_pm_opp_of_remove_table(&pdev->dev);
 	pm_runtime_put_sync(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
 
