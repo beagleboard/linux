@@ -1,0 +1,38 @@
+// SPDX-License-Identifier: GPL-2.0-only OR MIT
+/*
+ * DT Overlay for GPIO16 ecap1 connections within the expansion header.
+ *
+ * Copyright (C) 2023 Texas Instruments Incorporated - https://www.ti.com/
+ *
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include "k3-pinctrl.h"
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+*/
+&{/chosen} {
+	overlays {
+		k3-am67a-beagley-ai-pwm-ecap1-gpio16.kernel = __TIMESTAMP__;
+		hat-36.23110000.pwm = "k3-am67a-beagley-ai-pwm-ecap1-gpio16.23110000.0.GPIO16";
+		gpio16.23110000.pwm = "k3-am67a-beagley-ai-pwm-ecap1-gpio16.23110000.0.GPIO16";
+	};
+};
+
+&main_pmx0 {
+	hat_36_pwm_ecap: hat-36-pwm-ecap-pins {
+		pinctrl-single,pins = <
+			J722S_IOPAD(0x194, PIN_OUTPUT, 5) /* (A25) MCASP0_AXR3.ECAP1_IN_APWM_OUT */
+		>;
+	};
+};
+
+&ecap1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&hat_36_pwm_ecap>;
+	status = "okay";
+};
