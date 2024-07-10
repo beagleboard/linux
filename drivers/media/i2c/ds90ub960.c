@@ -2312,14 +2312,15 @@ static void ub960_get_vc_maps(struct ub960_data *priv, u8 *vc_map)
 	struct device *dev = &priv->client->dev;
 	u8 nport, available_vc = 0;
 
-	for (nport = 0;
-	     nport < priv->hw_data->num_rxports && priv->rxports[nport];
-	     ++nport) {
+	for (nport = 0; nport < priv->hw_data->num_rxports; ++nport) {
 		struct v4l2_mbus_frame_desc source_fd;
 		bool used_vc[UB960_MAX_VC] = {false};
 		u8 vc, cur_vc = available_vc;
 		int j, ret;
 		u8 map;
+
+		if (!priv->rxports[nport])
+			continue;
 
 		ret = v4l2_subdev_call(priv->rxports[nport]->source.sd, pad,
 				       get_frame_desc,
