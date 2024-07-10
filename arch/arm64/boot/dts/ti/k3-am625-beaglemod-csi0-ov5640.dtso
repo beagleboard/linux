@@ -1,0 +1,110 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (C) 2022 Texas Instruments Incorporated - https://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include "k3-pinctrl.h"
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+ */
+&{/chosen} {
+	overlays {
+		k3-am625-beaglemod-csi0-ov5640.kernel = __TIMESTAMP__;
+	};
+};
+
+/ {
+	fragment@101 {
+		target-path = "/";
+
+		__overlay__ {
+			clk_ov5640_fixed: ov5640-xclk {
+				compatible = "fixed-clock";
+				#clock-cells = <0>;
+				clock-frequency = <12000000>;
+			};
+		};
+	};
+
+	fragment@102 {
+		target-path = "/";
+
+		 __overlay__ {
+			level_shift_oe: level-shift-oe {
+				compatible = "gpio-leds";
+				pinctrl-names = "default";
+				pinctrl-0 = <&level_shift_oe_pins_default>;
+
+				oe-pin {
+					label = "LEVEL_SHIFT_OE";
+					gpios = <&main_gpio0 32 GPIO_ACTIVE_HIGH>;
+					default-state = "on";
+				};
+			};
+		};
+	};
+};
+
+&main_pmx0 {
+	cam_pd_pins_default: cam-pd-pins-default {
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x00a4, PIN_OUTPUT, 7) /* (M22) GPMC0_DIR.GPIO0_40 */
+		>;
+	};
+
+	level_shift_oe_pins_default: level-shift-oe-pins-default {
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x0084, PIN_OUTPUT, 7) /* (L23) GPMC0_ADVn_ALE.GPIO0_32 */
+		>;
+	};
+};
+
+&wkup_i2c0 {
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	ov5640: camera@3c {
+		pinctrl-names = "default";
+		pinctrl-0 = <&cam_pd_pins_default>;
+		compatible = "ovti,ov5640";
+		reg = <0x3c>;
+
+		clocks = <&clk_ov5640_fixed>;
+		clock-names = "xclk";
+		/* rPI csi2 modules hook reset and power signals together */
+		powerdown-gpios = <&main_gpio0 40 GPIO_ACTIVE_LOW>;
+
+		port {
+			csi2_cam0: endpoint {
+				remote-endpoint = <&csi2rx0_in_sensor>;
+				clock-lanes = <0>;
+				data-lanes = <1 2>;
+			};
+		};
+	};
+};
+
+&dphy0 {
+	status = "okay";
+};
+
+&ti_csi2rx0 {
+	status = "okay";
+};
+
+&csi0_port0 {
+	status = "okay";
+
+	csi2rx0_in_sensor: endpoint {
+		remote-endpoint = <&csi2_cam0>;
+		bus-type = <4>; /* CSI2 DPHY. */
+		clock-lanes = <0>;
+		data-lanes = <1 2>;
+	};
+};
