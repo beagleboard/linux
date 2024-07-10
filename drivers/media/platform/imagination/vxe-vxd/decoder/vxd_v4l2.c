@@ -67,6 +67,8 @@
 #define V4L2_CID_VXD_SET_IMG_BUFS (V4L2_CID_USER_BASE + 0x1003)
 #define V4L2_CID_VXD_SET_SPEC_BUFS (V4L2_CID_USER_BASE + 0x1004)
 
+static int vxd_dec_s_fmt(struct file *file, void *priv, struct v4l2_format *f);
+
 #ifdef ERROR_RECOVERY_SIMULATION
 /* This code should be execute only in debug flag */
 /*
@@ -1544,6 +1546,14 @@ static int vxd_dec_g_fmt(struct file *file, void *priv, struct v4l2_format *f)
 			pix_mp->plane_fmt[i].sizeimage = get_sizeimage
 							(pix_mp->plane_fmt[i].bytesperline,
 							 ctx->height, q_data->fmt, i);
+		}
+		if (ctx->pict_bufcfg.pixel_fmt != q_data->fmt->pixfmt) {
+			/*
+			 * if the format does not match what the decoder thinks it is using,
+			 * then we had better set it,  there is a whole bunch of context information
+			 * that gets set up in s_fmt, and if it is not present, the decoder panics.
+			 */
+			vxd_dec_s_fmt(file, priv, f);
 		}
 	} else {
 		dev_err(vxd_dev->v4l2_dev.dev, "Wrong V4L2_format type\n");
