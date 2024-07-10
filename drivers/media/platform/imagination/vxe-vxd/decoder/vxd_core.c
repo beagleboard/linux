@@ -1384,7 +1384,7 @@ int vxd_prepare_fw(struct vxd_dev *vxd)
 	struct completion **firmware_loading_complete =
 		(struct completion **)&vxd->firmware_loading_complete;
 
-	*firmware_loading_complete = kmalloc(sizeof(*firmware_loading_complete), GFP_KERNEL);
+	*firmware_loading_complete = kmalloc(sizeof(struct completion), GFP_KERNEL);
 	if (!(*firmware_loading_complete)) {
 		pr_err("Memory allocation failed for init_completion\n");
 		return -ENOMEM;
