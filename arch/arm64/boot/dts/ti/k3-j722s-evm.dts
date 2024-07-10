@@ -1,7 +1,7 @@
-// SPDX-License-Identifier: GPL-2.0
+// SPDX-License-Identifier: GPL-2.0-only OR MIT
 /*
- * Device Tree file for the J722S-EVM
- * Copyright (C) 2023 Texas Instruments Incorporated - https://www.ti.com/
+ * Device Tree file for the J722S EVM
+ * Copyright (C) 2024 Texas Instruments Incorporated - https://www.ti.com/
  *
  * Schematics: https://www.ti.com/lit/zip/sprr495
  */
@@ -9,11 +9,11 @@
 /dts-v1/;
 
 #include <dt-bindings/leds/common.h>
-#include "k3-j722s.dtsi"
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/net/ti-dp83867.h>
 #include <dt-bindings/mux/ti-serdes.h>
 #include <dt-bindings/phy/phy.h>
+#include "k3-j722s.dtsi"
 
 / {
 	compatible = "ti,j722s-evm", "ti,j722s";
@@ -230,6 +230,7 @@
 };
 
 &main_pmx0 {
+	bootph-all;
 
 	/delete-property/ interrupts;
 	main_i2c0_pins_default: main-i2c0-default-pins {
@@ -250,10 +251,8 @@
 
 	main_uart0_pins_default: main-uart0-default-pins {
 		pinctrl-single,pins = <
-			J722S_IOPAD(0x01c8, PIN_INPUT, 0)	/* (F19) UART0_RXD */
-			J722S_IOPAD(0x01cc, PIN_OUTPUT, 0)	/* (F20) UART0_TXD */
-			J722S_IOPAD(0x01d4, PIN_OUTPUT, 0)	/* (B21) UART0_RTSn */
-			J722S_IOPAD(0x01d0, PIN_INPUT, 0)	/* (E22) UART0_CTSn */
+			J722S_IOPAD(0x01c8, PIN_INPUT, 0)	/* (A22) UART0_RXD */
+			J722S_IOPAD(0x01cc, PIN_OUTPUT, 0)	/* (B22) UART0_TXD */
 		>;
 		bootph-all;
 	};
@@ -391,6 +390,7 @@
 };
 
 &mcu_pmx0 {
+	bootph-all;
 
 	wkup_uart0_pins_default: wkup-uart0-default-pins {
 		pinctrl-single,pins = <
@@ -420,18 +420,18 @@
 };
 
 &wkup_i2c0 {
-	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&wkup_i2c0_pins_default>;
 	clock-frequency = <400000>;
+	status = "okay";
 	bootph-all;
 };
 
 &main_i2c0 {
-	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&main_i2c0_pins_default>;
 	clock-frequency = <400000>;
+	status = "okay";
 	bootph-all;
 
 	exp1: gpio@23 {
@@ -451,7 +451,8 @@
 				  "PCIe0_1L_RC_RSTz", "PCIe0_1L_PRSNT#",
 				  "ENET1_EXP_SPARE2", "ENET1_EXP_PWRDN",
 				  "PD_I2ENET1_I2CMUX_SELC_IRQ", "ENET1_EXP_RESETZ";
-		p01-hog {
+
+		p01_hog: p01-hog {
 			/* P01 - TRC_MUX_SEL */
 			gpio-hog;
 			gpios = <0 GPIO_ACTIVE_HIGH>;
@@ -598,7 +599,7 @@
 	pinctrl-0 = <&ospi0_pins_default>;
 	bootph-all;
 
-	flash@0{
+	flash@0 {
 		compatible = "jedec,spi-nor";
 		reg = <0x0>;
 		spi-tx-bus-width = <8>;
@@ -849,8 +850,8 @@
 };
 
 &usbss0 {
-	status = "okay";
 	ti,vbus-divider;
+	status = "okay";
 };
 
 &usb0 {
@@ -859,10 +860,10 @@
 };
 
 &usbss1 {
-	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&main_usb1_pins_default>;
 	ti,vbus-divider;
+	status = "okay";
 };
 
 &usb1 {
