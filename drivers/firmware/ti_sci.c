@@ -3734,9 +3734,11 @@ static int ti_sci_suspend(struct device *dev)
 	dev_dbg(dev, "%s: set isolation: %d\n", __func__, ret);
 
 	ret = ti_sci_prepare_system_suspend(info);
-	if (ret)
+	if (ret) {
+		i = ti_sci_cmd_set_io_isolation(&info->handle, TISCI_MSG_VALUE_IO_DISABLE);
+		dev_warn(dev, "%s: prepare failed, disable isolation: %d\n", __func__, i);
 		return ret;
-
+	}
 	return 0;
 }
 
