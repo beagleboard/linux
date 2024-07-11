@@ -3728,17 +3728,23 @@ static int ti_sci_suspend(struct device *dev)
 		}
 	}
 
+	ret = ti_sci_prepare_system_suspend(info);
+	if (ret)
+		return ret;
+
+	return 0;
+}
+
+static int ti_sci_suspend_noirq(struct device *dev)
+{
+	struct ti_sci_info *info = dev_get_drvdata(dev);
+	int ret = 0;
+
 	ret = ti_sci_cmd_set_io_isolation(&info->handle, TISCI_MSG_VALUE_IO_ENABLE);
 	if (ret)
 		return ret;
 	dev_dbg(dev, "%s: set isolation: %d\n", __func__, ret);
 
-	ret = ti_sci_prepare_system_suspend(info);
-	if (ret) {
-		i = ti_sci_cmd_set_io_isolation(&info->handle, TISCI_MSG_VALUE_IO_DISABLE);
-		dev_warn(dev, "%s: prepare failed, disable isolation: %d\n", __func__, i);
-		return ret;
-	}
 	return 0;
 }
 
@@ -3761,7 +3767,8 @@ static int ti_sci_resume(struct device *dev)
 }
 
 static const struct dev_pm_ops ti_sci_pm_ops = {
-	.suspend_noirq = ti_sci_suspend,
+	.suspend = ti_sci_suspend,
+	.suspend_noirq = ti_sci_suspend_noirq,
 	.resume_noirq = ti_sci_resume,
 };
 
