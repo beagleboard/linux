@@ -1,0 +1,18 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (C) 2024 Texas Instruments Incorporated - https://www.ti.com/
+ *
+ * EVM Board Schematics: https://www.ti.com/lit/zip/SPAC001
+ */
+
+/* Delta SoC file for j742s2 */
+/* Include this in the file where you want to convert j784s4 to j742s2 */
+
+/delete-node/ &cluster1;
+
+/delete-node/ &cpu4;
+/delete-node/ &cpu5;
+/delete-node/ &cpu6;
+/delete-node/ &cpu7;
+
+#include "k3-j742s2-main.dtsi"

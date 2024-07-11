@@ -1,0 +1,22 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (C) 2024 Texas Instruments Incorporated - https://www.ti.com/
+ *
+ * EVM Board Schematics: https://www.ti.com/lit/zip/SPAC001
+ */
+
+#include "k3-j784s4-evm.dts"
+#include "k3-j742s2.dtsi"
+
+/delete-node/ &c71_3_dma_memory_region;
+/delete-node/ &c71_3_memory_region;
+
+/ {
+	model = "Texas Instruments J742S2 EVM";
+
+	memory@80000000 {
+		/* 16G RAM */
+		reg = <0x00000000 0x80000000 0x00000000 0x80000000>,
+		      <0x00000008 0x80000000 0x00000003 0x80000000>;
+	};
+};
