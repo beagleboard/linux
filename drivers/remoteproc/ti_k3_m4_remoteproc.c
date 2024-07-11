@@ -819,7 +819,7 @@ static int m4_pm_notifier_call(struct notifier_block *bl, unsigned long state, v
 	case PM_HIBERNATION_PREPARE:
 	case PM_RESTORE_PREPARE:
 	case PM_SUSPEND_PREPARE:
-		return k3_m4_suspend(rproc);
+		break;
 
 	case PM_POST_HIBERNATION:
 	case PM_POST_RESTORE:
@@ -829,6 +829,20 @@ static int m4_pm_notifier_call(struct notifier_block *bl, unsigned long state, v
 		break;
 	}
 	return 0;
+}
+
+static int k3_m4_suspend_late(struct device *dev)
+{
+	struct rproc *rproc = dev_get_drvdata(dev);
+	struct k3_m4_rproc *kproc = rproc->priv;
+
+	/* Check if pm notifier call is set. if it is, suspend/resume is
+	 * supported
+	 */
+	if (!kproc->pm_notifier.notifier_call)
+		return 0;
+
+	return k3_m4_suspend(rproc);
 }
 
 static const struct rproc_ops k3_m4_rproc_ops = {
@@ -952,6 +966,8 @@ static int k3_m4_rproc_probe(struct platform_device *pdev)
 		}
 	}
 
+	dev_set_drvdata(dev, rproc);
+
 	ret = devm_rproc_add(dev, rproc);
 	if (ret)
 		return dev_err_probe(dev, ret,
@@ -977,10 +993,15 @@ static const struct of_device_id k3_m4_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, k3_m4_of_match);
 
+static const struct dev_pm_ops k3_m4_pm_ops = {
+	LATE_SYSTEM_SLEEP_PM_OPS(k3_m4_suspend_late, NULL)
+};
+
 static struct platform_driver k3_m4_rproc_driver = {
 	.probe	= k3_m4_rproc_probe,
 	.driver	= {
 		.name = "k3-m4-rproc",
+		.pm = &k3_m4_pm_ops,
 		.of_match_table = k3_m4_of_match,
 	},
 };
