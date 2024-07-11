@@ -626,7 +626,7 @@ static int omap_mbox_resume(struct device *dev)
 #endif
 
 static const struct dev_pm_ops omap_mbox_pm_ops = {
-	SET_SYSTEM_SLEEP_PM_OPS(omap_mbox_suspend, omap_mbox_resume)
+	SET_LATE_SYSTEM_SLEEP_PM_OPS(omap_mbox_suspend, omap_mbox_resume)
 };
 
 static const struct omap_mbox_match_data omap2_data = { MBOX_INTR_CFG_TYPE1 };
