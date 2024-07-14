@@ -52,6 +52,10 @@ enum vpu_instance_state {
 #define WAVE5_ENC_AVC_BUF_SIZE(_w, _h) (ALIGN(_w, 64) * ALIGN(_h, 64) / 32)
 #define WAVE5_ENC_HEVC_BUF_SIZE(_w, _h) (ALIGN(_w, 64) / 64 * ALIGN(_h, 64) / 64 * 128)
 
+#define IS_WRAP(_v, _max) ((_v % _max) ? 1 : 0)
+#define DEC_BUF_OFFSET 3
+#define MAX_TIMESTAMP_CIR_BUF 30
+
 /*
  * common struct and definition
  */
@@ -794,6 +798,12 @@ struct vpu_device {
 	unsigned long opp_freq;
 };
 
+struct timestamp_circ_buf {
+	u64 buf[MAX_TIMESTAMP_CIR_BUF];
+	int head;
+	int tail;
+};
+
 struct vpu_instance;
 
 struct vpu_instance_ops {
@@ -829,12 +839,14 @@ struct vpu_instance {
 	struct frame_buffer frame_buf[MAX_REG_FRAME];
 	struct vpu_buf frame_vbuf[MAX_REG_FRAME];
 	u32 fbc_buf_count;
+	u32 dst_buf_count; // number of ready buffers for display
 	u32 queued_src_buf_num;
 	u32 queued_dst_buf_num;
 	struct list_head avail_src_bufs;
 	struct list_head avail_dst_bufs;
 	struct v4l2_rect conf_win;
 	u64 timestamp;
+	struct timestamp_circ_buf time_stamp;
 	enum frame_buffer_format output_format;
 	bool cbcr_interleave;
 	bool nv21;
@@ -862,6 +874,10 @@ struct vpu_instance {
 	unsigned int change_param_flags;
 	struct enc_wave_param enc_param;
 	unsigned long pixel_rate;
+	unsigned int *map_index;
+	dma_addr_t *mapped_dma_addr;
+	unsigned int cap_io_mode;
+	struct mutex inst_lock;
 };
 
 void wave5_vdi_write_register(struct vpu_device *vpu_dev, u32 addr, u32 data);
