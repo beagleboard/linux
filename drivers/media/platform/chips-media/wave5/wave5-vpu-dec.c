@@ -1058,12 +1058,20 @@ static int wave5_prepare_fb(struct vpu_instance *inst)
 	int non_linear_num;
 	int fb_stride = 0, fb_height = 0;
 	int luma_size, chroma_size;
-	int ret, i;
+	int ret, i, buffers_ready;
 	struct v4l2_m2m_buffer *buf, *n;
 	struct v4l2_m2m_ctx *m2m_ctx = inst->v4l2_fh.m2m_ctx;
 
-	linear_num = (inst->cap_io_mode == VB2_MEMORY_DMABUF) ? inst->dst_buf_count
-					: v4l2_m2m_num_dst_bufs_ready(m2m_ctx);
+	buffers_ready = v4l2_m2m_num_dst_bufs_ready(m2m_ctx);
+
+	if (inst->cap_io_mode == VB2_MEMORY_DMABUF) {
+		if (buffers_ready == (inst->fbc_buf_count + DEC_BUF_OFFSET))
+			linear_num = buffers_ready;
+		else
+			linear_num = inst->dst_buf_count;
+	} else
+		linear_num = buffers_ready;
+
 	non_linear_num = inst->fbc_buf_count;
 
 	for (i = 0; i < non_linear_num; i++) {
