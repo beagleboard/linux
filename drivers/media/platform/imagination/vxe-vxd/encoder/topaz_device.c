@@ -870,7 +870,7 @@ int topazdd_create_stream_context(struct topaz_dev_ctx *ctx, enum img_codec code
 	mutex_init(p_sock->sync_wb_mutex);
 
 	/* Allocate a Sync structure...*/
-	p_event = kmalloc(sizeof(struct event *), GFP_KERNEL);
+	p_event = kmalloc(sizeof(*p_event), GFP_KERNEL);
 	IMG_DBG_ASSERT(p_event);
 	if (!p_event)
 		return IMG_ERROR_OUT_OF_MEMORY;

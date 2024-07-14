@@ -1728,7 +1728,7 @@ static int topaz_allocate_coded_package(struct topaz_stream_context *str_ctx,
 	struct coded_package_host *this_package;
 	struct img_video_context *video = str_ctx->enc_ctx->video;
 
-	*package = kzalloc(sizeof(*package), GFP_KERNEL);
+	*package = kzalloc(sizeof(struct coded_package_host), GFP_KERNEL);
 
 	this_package = *package;
 
