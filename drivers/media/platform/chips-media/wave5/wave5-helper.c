@@ -250,7 +250,7 @@ int wave5_set_dev_clk(struct vpu_instance *inst)
 {
 	struct dev_pm_opp *opp;
 	unsigned long calc_pixel_rate, req_freq, acq_freq, pixel_rate;
-	int ret;
+	int ret = 0;
 
 	pixel_rate = inst->dev->opp_pixel_rate;
 	calc_pixel_rate = pixel_rate*(uint)(MAX_OP_HZ);
@@ -293,7 +293,7 @@ int wave5_instance_set_clk(struct vpu_instance *inst)
 {
 	int width, height, framerate;
 	unsigned int pixel_rate;
-	int ret;
+	int ret = 0;
 
 	width = inst->src_fmt.width;
 	height = inst->src_fmt.height;
