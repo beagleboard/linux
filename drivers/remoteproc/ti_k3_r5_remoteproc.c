@@ -674,8 +674,6 @@ static int k3_r5_rproc_prepare(struct rproc *rproc)
 			ret);
 		return ret;
 	}
-	core->released_from_reset = true;
-	wake_up_interruptible(&cluster->core_transition);
 
 	/*
 	 * Newer IP revisions like on J7200 SoCs support h/w auto-initialization
@@ -800,7 +798,7 @@ static int k3_r5_rproc_start(struct rproc *rproc)
 	}
 
 	kproc->rproc->state = RPROC_RUNNING;
-	return 0;
+	goto release_wait;
 
 unroll_core_run:
 	list_for_each_entry_continue(core, &cluster->cores, elem) {
@@ -809,6 +807,11 @@ unroll_core_run:
 	}
 put_mbox:
 	mbox_free_channel(kproc->mbox);
+
+release_wait:
+	core->released_from_reset = true;
+	wake_up_interruptible(&cluster->core_transition);
+
 	return ret;
 }
 
