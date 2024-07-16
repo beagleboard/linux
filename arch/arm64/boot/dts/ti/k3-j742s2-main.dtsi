@@ -7,8 +7,6 @@
 
 /delete-node/ &c71_3;
 
-/delete-node/ &vpu1;
-
 &c71_0 {
 	firmware-name = "j742s2-c71_0-fw";
 };
