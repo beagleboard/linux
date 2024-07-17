@@ -9,6 +9,8 @@
 
 #define pr_fmt(fmt)	"spi-nand: " fmt
 
+#define PHY_PATTERN_SIZE	0x80
+
 #include <linux/device.h>
 #include <linux/jiffies.h>
 #include <linux/kernel.h>
@@ -1326,7 +1328,12 @@ static int spinand_probe(struct spi_mem *mem)
 {
 	struct spinand_device *spinand;
 	struct mtd_info *mtd;
-	int ret;
+	struct mtd_part *part;
+	struct nand_device *nand;
+	struct nand_pos page_pos;
+	struct nand_page_io_req page_req;
+	struct spi_mem_op read_page_op;
+	int ret, pageoffs;
 
 	spinand = devm_kzalloc(&mem->spi->dev, sizeof(*spinand),
 			       GFP_KERNEL);
@@ -1344,9 +1351,31 @@ static int spinand_probe(struct spi_mem *mem)
 	if (ret)
 		return ret;
 
+	nand = spinand_to_nand(spinand);
+
 	ret = mtd_device_register(mtd, NULL, 0);
 	if (ret)
 		goto err_spinand_cleanup;
+
+	list_for_each_entry(part, &mtd->partitions, node) {
+		struct mtd_info *part_info =
+			container_of(part, struct mtd_info, part);
+		if (part_info->name &&
+		    !strcmp(part_info->name, "ospi_nand.phypattern")) {
+			pageoffs = nanddev_offs_to_pos(nand, part->offset, &page_pos);
+			page_req.pos = page_pos;
+
+			read_page_op = *spinand->op_templates.read_cache;
+			read_page_op.addr.val = pageoffs;
+			read_page_op.data.nbytes = PHY_PATTERN_SIZE;
+
+			ret = spinand_load_page_op(spinand, &page_req);
+			if (ret)
+				goto err_spinand_cleanup;
+
+			spi_mem_do_calibration(spinand->spimem, &read_page_op);
+		}
+	}
 
 	return 0;
 
