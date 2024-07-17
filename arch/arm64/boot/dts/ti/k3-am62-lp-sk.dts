@@ -231,19 +231,18 @@
 };
 
 &ospi0 {
-	assigned-clock-rates = <200000000>;
 
 	flash@0 {
 		compatible = "spi-nand";
 		reg = <0x0>;
 		spi-tx-bus-width = <8>;
 		spi-rx-bus-width = <8>;
-		spi-max-frequency = <50000000>;
+		spi-max-frequency = <25000000>;
 		cdns,tshsl-ns = <60>;
 		cdns,tsd2d-ns = <60>;
 		cdns,tchsh-ns = <60>;
 		cdns,tslch-ns = <60>;
-		cdns,read-delay = <1>;
+		cdns,read-delay = <2>;
 
 		partitions {
 			compatible = "fixed-partitions";
