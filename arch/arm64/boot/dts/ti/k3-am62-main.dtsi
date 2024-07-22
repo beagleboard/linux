@@ -68,6 +68,7 @@
 	};
 
 	dmss: bus@48000000 {
+		bootph-all;
 		compatible = "simple-mfd";
 		#address-cells = <2>;
 		#size-cells = <2>;
@@ -77,6 +78,7 @@
 		ti,sci-dev-id = <25>;
 
 		secure_proxy_main: mailbox@4d000000 {
+			bootph-all;
 			compatible = "ti,am654-secure-proxy";
 			#mbox-cells = <1>;
 			reg-names = "target_data", "rt", "scfg";
@@ -152,25 +154,31 @@
 	};
 
 	dmsc: system-controller@44043000 {
+		bootph-all;
 		compatible = "ti,k2g-sci";
 		ti,host-id = <12>;
 		mbox-names = "rx", "tx";
 		mboxes= <&secure_proxy_main 12>,
 			<&secure_proxy_main 13>;
-		reg-names = "debug_messages";
-		reg = <0x00 0x44043000 0x00 0xfe0>;
+		reg-names = "debug_messages", "lpm";
+		reg = <0x00 0x44043000 0x00 0xfe0>,
+		      <0x00 0x78000000 0x00 0x8000>;
+		firmware-name = "ti-sysfw/ti-fs-stub-firmware-am62x-gp-signed.bin";
 
 		k3_pds: power-controller {
+			bootph-all;
 			compatible = "ti,sci-pm-domain";
 			#power-domain-cells = <2>;
 		};
 
 		k3_clks: clock-controller {
+			bootph-all;
 			compatible = "ti,k2g-sci-clk";
 			#clock-cells = <2>;
 		};
 
 		k3_reset: reset-controller {
+			bootph-all;
 			compatible = "ti,sci-reset";
 			#reset-cells = <2>;
 		};
@@ -205,6 +213,7 @@
 	};
 
 	main_pmx0: pinctrl@f4000 {
+		bootph-all;
 		compatible = "pinctrl-single";
 		reg = <0x00 0xf4000 0x00 0x2ac>;
 		#pinctrl-cells = <1>;
@@ -213,6 +222,7 @@
 	};
 
 	main_timer0: timer@2400000 {
+		bootph-all;
 		compatible = "ti,am654-timer";
 		reg = <0x00 0x2400000 0x00 0x400>;
 		interrupts = <GIC_SPI 120 IRQ_TYPE_LEVEL_HIGH>;
@@ -707,7 +717,6 @@
 
 	dss: dss@30200000 {
 		compatible = "ti,am625-dss";
-
 		reg = <0x00 0x30200000 0x00 0x1000>, /* common */
 		      <0x00 0x30201000 0x00 0x1000>, /* common1 */
 		      <0x00 0x30202000 0x00 0x1000>, /* vidl1 */
@@ -959,9 +968,9 @@
 		compatible = "ti,am33xx-mcasp-audio";
 		reg = <0x00 0x02b00000 0x00 0x2000>,
 		      <0x00 0x02b08000 0x00 0x400>;
-		reg-names = "mpu","dat";
+		reg-names = "mpu", "dat";
 		interrupts = <GIC_SPI 236 IRQ_TYPE_LEVEL_HIGH>,
-				<GIC_SPI 235 IRQ_TYPE_LEVEL_HIGH>;
+			     <GIC_SPI 235 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-names = "tx", "rx";
 
 		dmas = <&main_bcdma 0 0xc500 0>, <&main_bcdma 0 0x4500 0>;
@@ -978,9 +987,9 @@
 		compatible = "ti,am33xx-mcasp-audio";
 		reg = <0x00 0x02b10000 0x00 0x2000>,
 		      <0x00 0x02b18000 0x00 0x400>;
-		reg-names = "mpu","dat";
+		reg-names = "mpu", "dat";
 		interrupts = <GIC_SPI 238 IRQ_TYPE_LEVEL_HIGH>,
-				<GIC_SPI 237 IRQ_TYPE_LEVEL_HIGH>;
+			     <GIC_SPI 237 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-names = "tx", "rx";
 
 		dmas = <&main_bcdma 0 0xc501 0>, <&main_bcdma 0 0x4501 0>;
@@ -997,9 +1006,9 @@
 		compatible = "ti,am33xx-mcasp-audio";
 		reg = <0x00 0x02b20000 0x00 0x2000>,
 		      <0x00 0x02b28000 0x00 0x400>;
-		reg-names = "mpu","dat";
+		reg-names = "mpu", "dat";
 		interrupts = <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
-				<GIC_SPI 239 IRQ_TYPE_LEVEL_HIGH>;
+			     <GIC_SPI 239 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-names = "tx", "rx";
 
 		dmas = <&main_bcdma 0 0xc502 0>, <&main_bcdma 0 0x4502 0>;
