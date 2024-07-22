@@ -46,6 +46,7 @@
 
 static DEFINE_MUTEX(rproc_list_mutex);
 static LIST_HEAD(rproc_list);
+static DEFINE_MUTEX(dmabuf_list_mutex);
 static struct notifier_block rproc_panic_nb;
 
 typedef int (*rproc_handle_resource_t)(struct rproc *rproc,
@@ -900,10 +901,14 @@ static struct rproc_dmabuf_entry *rproc_find_entry_for_dmabuf(struct rproc *rpro
 {
 	struct rproc_dmabuf_entry *dmabuf_entry;
 
+	mutex_lock(&dmabuf_list_mutex);
 	list_for_each_entry(dmabuf_entry, &rproc->dmabufs, node) {
-		if (dmabuf_entry->dmabuf == dmabuf)
+		if (dmabuf_entry->dmabuf == dmabuf) {
+			mutex_unlock(&dmabuf_list_mutex);
 			return dmabuf_entry;
+		}
 	}
+	mutex_unlock(&dmabuf_list_mutex);
 
 	return NULL;
 }
@@ -975,7 +980,9 @@ int rproc_attach_dmabuf(struct rproc *rproc, struct dma_buf *dmabuf)
 	dmabuf_entry->sgt = sgt;
 	dmabuf_entry->refcount = 1;
 
+	mutex_lock(&dmabuf_list_mutex);
 	list_add_tail(&dmabuf_entry->node, &rproc->dmabufs);
+	mutex_unlock(&dmabuf_list_mutex);
 
 	return 0;
 
@@ -994,7 +1001,9 @@ static void rproc_release_dmabuf(struct rproc *rproc, struct rproc_dmabuf_entry 
 		dma_buf_unmap_attachment(dmabuf_entry->attachment, dmabuf_entry->sgt, DMA_BIDIRECTIONAL);
 	if (dmabuf_entry->dmabuf && dmabuf_entry->attachment)
 		dma_buf_detach(dmabuf_entry->dmabuf, dmabuf_entry->attachment);
+	mutex_lock(&dmabuf_list_mutex);
 	list_del(&dmabuf_entry->node);
+	mutex_unlock(&dmabuf_list_mutex);
 	kfree(dmabuf_entry);
 }
 
