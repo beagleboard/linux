@@ -1,0 +1,23 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (C) 2022 BeagleBoard.org - https://beagleboard.org/
+ *
+ * https://docs.beagleboard.io/latest/boards/capes/cape-interface-spec.html#uart
+ */
+
+/dts-v1/;
+/plugin/;
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+ */
+&{/chosen} {
+	overlays {
+		BONE-UART1.kernel = __TIMESTAMP__;
+	};
+};
+
+&bone_uart_1 {
+	/* tested with sudo agetty 115200 ttyS4 */
+	status = "okay";
+};
