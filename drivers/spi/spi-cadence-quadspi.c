@@ -1170,6 +1170,90 @@ static int cqspi_wait_idle(struct cqspi_st *cqspi)
 	}
 }
 
+static void cqspi_readdata_capture(struct cqspi_st *cqspi, const bool bypass,
+				   const bool dqs, const unsigned int delay)
+{
+	void __iomem *reg_base = cqspi->iobase;
+	unsigned int reg;
+
+	reg = readl(reg_base + CQSPI_REG_READCAPTURE);
+
+	if (bypass)
+		reg |= (1 << CQSPI_REG_READCAPTURE_BYPASS_LSB);
+	else
+		reg &= ~(1 << CQSPI_REG_READCAPTURE_BYPASS_LSB);
+
+	reg &= ~(CQSPI_REG_READCAPTURE_DELAY_MASK
+		 << CQSPI_REG_READCAPTURE_DELAY_LSB);
+
+	reg |= (delay & CQSPI_REG_READCAPTURE_DELAY_MASK)
+	       << CQSPI_REG_READCAPTURE_DELAY_LSB;
+
+	if (dqs)
+		reg |= (1 << CQSPI_REG_READCAPTURE_DQS_LSB);
+	else
+		reg &= ~(1 << CQSPI_REG_READCAPTURE_DQS_LSB);
+
+	writel(reg, reg_base + CQSPI_REG_READCAPTURE);
+}
+
+static void cqspi_phy_enable(struct cqspi_flash_pdata *f_pdata, bool enable)
+{
+	struct cqspi_st *cqspi = f_pdata->cqspi;
+	void __iomem *reg_base = cqspi->iobase;
+	u32 reg;
+	u8 dummy;
+
+	if (enable) {
+		cqspi_readdata_capture(cqspi, 1, f_pdata->use_dqs,
+				       f_pdata->phy_setting.read_delay);
+
+		reg = readl(reg_base + CQSPI_REG_CONFIG);
+		reg |= CQSPI_REG_CONFIG_PHY_EN | CQSPI_REG_CONFIG_PHY_PIPELINE;
+		writel(reg, reg_base + CQSPI_REG_CONFIG);
+
+		/*
+		 * Reduce dummy cycle by 1. This is a requirement of PHY mode
+		 * operation for correctly reading the data.
+		 */
+		reg = readl(reg_base + CQSPI_REG_RD_INSTR);
+		dummy = (reg >> CQSPI_REG_RD_INSTR_DUMMY_LSB) &
+			CQSPI_REG_RD_INSTR_DUMMY_MASK;
+		dummy--;
+		reg &= ~(CQSPI_REG_RD_INSTR_DUMMY_MASK
+			 << CQSPI_REG_RD_INSTR_DUMMY_LSB);
+
+		reg |= (dummy & CQSPI_REG_RD_INSTR_DUMMY_MASK)
+		       << CQSPI_REG_RD_INSTR_DUMMY_LSB;
+		writel(reg, reg_base + CQSPI_REG_RD_INSTR);
+	} else {
+		cqspi_readdata_capture(cqspi, !cqspi->rclk_en, false,
+				       f_pdata->read_delay);
+
+		reg = readl(reg_base + CQSPI_REG_CONFIG);
+		reg &= ~(CQSPI_REG_CONFIG_PHY_EN |
+			 CQSPI_REG_CONFIG_PHY_PIPELINE);
+		writel(reg, reg_base + CQSPI_REG_CONFIG);
+
+		/*
+		 * Dummy cycles were decremented when enabling PHY. Increment
+		 * dummy cycle by 1 to restore the original value.
+		 */
+		reg = readl(reg_base + CQSPI_REG_RD_INSTR);
+		dummy = (reg >> CQSPI_REG_RD_INSTR_DUMMY_LSB) &
+			CQSPI_REG_RD_INSTR_DUMMY_MASK;
+		dummy++;
+		reg &= ~(CQSPI_REG_RD_INSTR_DUMMY_MASK
+			 << CQSPI_REG_RD_INSTR_DUMMY_LSB);
+
+		reg |= (dummy & CQSPI_REG_RD_INSTR_DUMMY_MASK)
+		       << CQSPI_REG_RD_INSTR_DUMMY_LSB;
+		writel(reg, reg_base + CQSPI_REG_RD_INSTR);
+	}
+
+	cqspi_wait_idle(cqspi);
+}
+
 static int cqspi_exec_flash_cmd(struct cqspi_st *cqspi, unsigned int reg)
 {
 	void __iomem *reg_base = cqspi->iobase;
@@ -1957,93 +2041,6 @@ static void cqspi_config_baudrate_div(struct cqspi_st *cqspi)
 	reg &= ~(CQSPI_REG_CONFIG_BAUD_MASK << CQSPI_REG_CONFIG_BAUD_LSB);
 	reg |= (div & CQSPI_REG_CONFIG_BAUD_MASK) << CQSPI_REG_CONFIG_BAUD_LSB;
 	writel(reg, reg_base + CQSPI_REG_CONFIG);
-}
-
-static void cqspi_readdata_capture(struct cqspi_st *cqspi,
-				   const bool bypass,
-				   const bool dqs,
-				   const unsigned int delay)
-{
-	void __iomem *reg_base = cqspi->iobase;
-	unsigned int reg;
-
-	reg = readl(reg_base + CQSPI_REG_READCAPTURE);
-
-	if (bypass)
-		reg |= (1 << CQSPI_REG_READCAPTURE_BYPASS_LSB);
-	else
-		reg &= ~(1 << CQSPI_REG_READCAPTURE_BYPASS_LSB);
-
-	reg &= ~(CQSPI_REG_READCAPTURE_DELAY_MASK
-		 << CQSPI_REG_READCAPTURE_DELAY_LSB);
-
-	reg |= (delay & CQSPI_REG_READCAPTURE_DELAY_MASK)
-		<< CQSPI_REG_READCAPTURE_DELAY_LSB;
-
-	if (dqs)
-		reg |= (1 << CQSPI_REG_READCAPTURE_DQS_LSB);
-	else
-		reg &= ~(1 << CQSPI_REG_READCAPTURE_DQS_LSB);
-
-	writel(reg, reg_base + CQSPI_REG_READCAPTURE);
-}
-
-static void cqspi_phy_enable(struct cqspi_flash_pdata *f_pdata, bool enable)
-{
-	struct cqspi_st *cqspi = f_pdata->cqspi;
-	void __iomem *reg_base = cqspi->iobase;
-	u32 reg;
-	u8 dummy;
-
-	if (enable) {
-		cqspi_readdata_capture(cqspi, 1, f_pdata->use_dqs,
-				       f_pdata->phy_setting.read_delay);
-
-		reg = readl(reg_base + CQSPI_REG_CONFIG);
-		reg |= CQSPI_REG_CONFIG_PHY_EN |
-		       CQSPI_REG_CONFIG_PHY_PIPELINE;
-		writel(reg, reg_base + CQSPI_REG_CONFIG);
-
-		/*
-		 * Reduce dummy cycle by 1. This is a requirement of PHY mode
-		 * operation for correctly reading the data.
-		 */
-		reg = readl(reg_base + CQSPI_REG_RD_INSTR);
-		dummy = (reg >> CQSPI_REG_RD_INSTR_DUMMY_LSB) &
-			CQSPI_REG_RD_INSTR_DUMMY_MASK;
-		dummy--;
-		reg &= ~(CQSPI_REG_RD_INSTR_DUMMY_MASK <<
-			 CQSPI_REG_RD_INSTR_DUMMY_LSB);
-
-		reg |= (dummy & CQSPI_REG_RD_INSTR_DUMMY_MASK)
-		       << CQSPI_REG_RD_INSTR_DUMMY_LSB;
-		writel(reg, reg_base + CQSPI_REG_RD_INSTR);
-	} else {
-		cqspi_readdata_capture(cqspi, !cqspi->rclk_en, false,
-				       f_pdata->read_delay);
-
-		reg = readl(reg_base + CQSPI_REG_CONFIG);
-		reg &= ~(CQSPI_REG_CONFIG_PHY_EN |
-			 CQSPI_REG_CONFIG_PHY_PIPELINE);
-		writel(reg, reg_base + CQSPI_REG_CONFIG);
-
-		/*
-		 * Dummy cycles were decremented when enabling PHY. Increment
-		 * dummy cycle by 1 to restore the original value.
-		 */
-		reg = readl(reg_base + CQSPI_REG_RD_INSTR);
-		dummy = (reg >> CQSPI_REG_RD_INSTR_DUMMY_LSB) &
-			CQSPI_REG_RD_INSTR_DUMMY_MASK;
-		dummy++;
-		reg &= ~(CQSPI_REG_RD_INSTR_DUMMY_MASK <<
-			 CQSPI_REG_RD_INSTR_DUMMY_LSB);
-
-		reg |= (dummy & CQSPI_REG_RD_INSTR_DUMMY_MASK)
-		       << CQSPI_REG_RD_INSTR_DUMMY_LSB;
-		writel(reg, reg_base + CQSPI_REG_RD_INSTR);
-	}
-
-	cqspi_wait_idle(cqspi);
 }
 
 static void cqspi_phy_pre_config_sdr(struct cqspi_st *cqspi,
