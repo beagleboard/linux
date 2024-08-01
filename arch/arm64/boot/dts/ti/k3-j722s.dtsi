@@ -145,10 +145,7 @@
 		power-domains = <&k3_pds 201 TI_SCI_PD_EXCLUSIVE>;
 		interrupts = <GIC_SPI 98 IRQ_TYPE_LEVEL_HIGH>;
 	};
-};
 
-&ospi0 {
-	assigned-clock-rates = <200000000>;
 };
 
 /* Include bus peripherals that are additionally
