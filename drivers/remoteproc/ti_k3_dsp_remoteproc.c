@@ -885,7 +885,7 @@ static const struct k3_dsp_dev_data c7xv_data = {
 	.mems = c7xv_mems,
 	.num_mems = ARRAY_SIZE(c7xv_mems),
 	.boot_align_addr = SZ_2M,
-	.uses_lreset = false,
+	.uses_lreset = true,
 };
 
 static const struct k3_dsp_dev_data j722s_c7xv_data = {
