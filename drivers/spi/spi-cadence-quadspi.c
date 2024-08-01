@@ -2052,6 +2052,23 @@ static void cqspi_config_baudrate_div(struct cqspi_st *cqspi)
 	writel(reg, reg_base + CQSPI_REG_CONFIG);
 }
 
+static void cqspi_phy_set_dll_master(struct cqspi_st *cqspi)
+{
+	void __iomem *reg_base = cqspi->iobase;
+	unsigned int reg;
+
+	reg = readl(reg_base + CQSPI_REG_PHY_DLL_MASTER);
+	reg &= ~((CQSPI_REG_PHY_DLL_MASTER_DLY_ELMTS_LEN
+		  << CQSPI_REG_PHY_DLL_MASTER_DLY_ELMTS_LSB) |
+		 CQSPI_REG_PHY_DLL_MASTER_BYPASS |
+		 CQSPI_REG_PHY_DLL_MASTER_CYCLE);
+	reg |= ((CQSPI_REG_PHY_DLL_MASTER_DLY_ELMTS_3
+		 << CQSPI_REG_PHY_DLL_MASTER_DLY_ELMTS_LSB) |
+		CQSPI_REG_PHY_DLL_MASTER_CYCLE);
+
+	writel(reg, reg_base + CQSPI_REG_PHY_DLL_MASTER);
+}
+
 static void cqspi_phy_pre_config_sdr(struct cqspi_st *cqspi,
 				     struct cqspi_flash_pdata *f_pdata)
 {
@@ -2077,16 +2094,7 @@ static void cqspi_phy_pre_config_sdr(struct cqspi_st *cqspi,
 	       << CQSPI_REG_RD_INSTR_DUMMY_LSB;
 	writel(reg, reg_base + CQSPI_REG_RD_INSTR);
 
-	reg = readl(reg_base + CQSPI_REG_PHY_DLL_MASTER);
-	reg &= ~((CQSPI_REG_PHY_DLL_MASTER_DLY_ELMTS_LEN
-		  << CQSPI_REG_PHY_DLL_MASTER_DLY_ELMTS_LSB) |
-		 CQSPI_REG_PHY_DLL_MASTER_BYPASS |
-		 CQSPI_REG_PHY_DLL_MASTER_CYCLE);
-	reg |= ((CQSPI_REG_PHY_DLL_MASTER_DLY_ELMTS_3
-		 << CQSPI_REG_PHY_DLL_MASTER_DLY_ELMTS_LSB) |
-		CQSPI_REG_PHY_DLL_MASTER_CYCLE);
-
-	writel(reg, reg_base + CQSPI_REG_PHY_DLL_MASTER);
+	cqspi_phy_set_dll_master(cqspi);
 }
 
 static void cqspi_phy_post_config_sdr(struct cqspi_st *cqspi)
