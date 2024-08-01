@@ -1341,6 +1341,7 @@ static int spinand_probe(struct spi_mem *mem)
 	struct nand_page_io_req page_req;
 	struct spi_mem_op read_page_op;
 	int ret, pageoffs;
+	u8 status;
 
 	spinand = devm_kzalloc(&mem->spi->dev, sizeof(*spinand),
 			       GFP_KERNEL);
@@ -1380,6 +1381,14 @@ static int spinand_probe(struct spi_mem *mem)
 			if (ret)
 				goto err_spinand_cleanup;
 
+			ret = spinand_wait(spinand,
+					SPINAND_READ_INITIAL_DELAY_US,
+					SPINAND_READ_POLL_DELAY_US,
+					&status);
+			if (ret < 0)
+				goto err_spinand_cleanup;
+
+			spinand_ondie_ecc_save_status(nand, status);
 			spi_mem_do_calibration(spinand->spimem, &read_page_op);
 		}
 	}
