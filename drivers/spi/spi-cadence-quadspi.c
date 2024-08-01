@@ -1036,6 +1036,10 @@ compare:
 	dev_dbg(dev, "Final tuning point: RX: %d TX: %d RD: %d\n", final.rx,
 		final.tx, final.read_delay);
 
+	f_pdata->phy_setting.read_delay = final.read_delay;
+	f_pdata->phy_setting.rx = final.rx;
+	f_pdata->phy_setting.tx = final.tx;
+
 out:
 	if (ret)
 		f_pdata->use_phy = false;
