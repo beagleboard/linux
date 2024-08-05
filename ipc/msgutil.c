@@ -33,6 +33,7 @@ struct ipc_namespace init_ipc_ns = {
 	.ns.ops = &ipcns_operations,
 #endif
 };
+EXPORT_SYMBOL_GPL(init_ipc_ns);
 
 struct msg_msgseg {
 	struct msg_msgseg *next;
