@@ -207,6 +207,7 @@ void put_ipc_ns(struct ipc_namespace *ns)
 			schedule_work(&free_ipc_work);
 	}
 }
+EXPORT_SYMBOL_GPL(put_ipc_ns);
 
 static inline struct ipc_namespace *to_ipc_ns(struct ns_common *ns)
 {
