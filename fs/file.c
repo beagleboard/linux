@@ -816,6 +816,7 @@ struct file *file_close_fd(unsigned int fd)
 
 	return file;
 }
+EXPORT_SYMBOL_GPL(file_close_fd);
 
 void do_close_on_exec(struct files_struct *files)
 {
