@@ -627,3 +627,11 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&ospi0_pins_default>;
 };
+
+&phy_gmii_sel {
+	bootph-all;
+};
+
+&main_pktdma {
+	bootph-all;
+};
