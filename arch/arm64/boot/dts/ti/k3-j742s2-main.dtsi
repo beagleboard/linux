@@ -7,6 +7,14 @@
 
 /delete-node/ &c71_3;
 
+/delete-node/ &pcie2_rc;
+/delete-node/ &pcie2_ctrl;
+
+/delete-node/ &pcie3_rc;
+/delete-node/ &pcie3_ctrl;
+
+/delete-node/ &serdes_wiz2;
+
 &c71_0 {
 	firmware-name = "j742s2-c71_0-fw";
 };
