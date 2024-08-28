@@ -8,6 +8,11 @@
 /* Delta SoC file for j742s2 */
 /* Include this in the file where you want to convert j784s4 to j742s2 */
 
+/ {
+	model = "Texas Instruments K3 J742S2 SoC";
+	compatible = "ti,j742s2";
+};
+
 /delete-node/ &cluster1;
 
 /delete-node/ &cpu4;

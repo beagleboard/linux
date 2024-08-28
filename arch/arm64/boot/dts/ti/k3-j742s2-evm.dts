@@ -13,6 +13,7 @@
 
 / {
 	model = "Texas Instruments J742S2 EVM";
+	compatible = "ti,j742s2-evm", "ti,j742s2";
 
 	memory@80000000 {
 		/* 16G RAM */
