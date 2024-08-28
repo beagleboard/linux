@@ -383,3 +383,4 @@ DTC_FLAGS_k3-j722s-evm += -@
 DTC_FLAGS_k3-j722s-evm-fpdlink-fusion += -@
 DTC_FLAGS_k3-j722s-evm-v3link-fusion += -@
 DTC_FLAGS_k3-j784s4-evm += -@
+DTC_FLAGS_k3-j742s2-evm += -@
