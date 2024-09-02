@@ -1982,11 +1982,14 @@ static void vport_ndo_tx_timeout(struct net_device *ndev, unsigned int txqueue)
 static void vport_set_rx_mode_work(struct work_struct *work)
 {
 	struct virtual_port *vport = container_of(work, struct virtual_port, rx_mode_work);
-	struct net_device *ndev;
+	struct net_device *ndev = vport->ndev;
+
+	if (unlikely(ndev->flags & IFF_PROMISC)) {
+		netdev_err(ndev, "promiscuous mode is not supported\n");
+		return;
+	}
 
 	if (likely(vport->port_features & ETHFW_MCAST_FILTERING)) {
-		ndev = vport->ndev;
-
 		netif_addr_lock_bh(ndev);
 		__hw_addr_sync(&vport->mcast_list, &ndev->mc, ndev->addr_len);
 		netif_addr_unlock_bh(ndev);
