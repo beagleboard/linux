@@ -1,0 +1,41 @@
+image: robertcnelson/beagle-devscripts-kernel-debian-12-amd64:latest
+# https://openbeagle.org/beagleboard/ci-docker-images
+
+before_script:
+  - export PATH=/usr/lib/ccache:$PATH
+  - echo "Acquire::http::Proxy \"http://192.168.1.10:3142\";" > /etc/apt/apt.conf.d/00aptproxy
+  - apt-get update
+  - apt-get upgrade -yq
+  - cd /opt/linux-src/ ; git pull ; cd -
+
+cache:
+  key: "$CI_PROJECT_NAME-ti-linux-arm32-6.12.y"
+  paths:
+    - ccache.tar.lz4
+
+build:
+  tags:
+    - docker-amd64
+  stage: build
+  script:
+    - mkdir -p /root/.cache/ccache/ || true
+    - tar --use-compress-program=lz4 -xf ccache.tar.lz4 -C / || true
+    - ccache -z
+    - CORES=$(getconf _NPROCESSORS_ONLN)
+    - make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- clean
+    - make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- bb.org_defconfig
+    - echo "make -j${CORES} ARCH=arm KBUILD_DEBARCH=armhf CROSS_COMPILE=arm-linux-gnueabihf- LOCALVERSION=-ti-arm32-r$CI_JOB_ID KDEB_SOURCENAME=linux-upstream KDEB_COMPRESS=xz bindeb-pkg"
+    - DEB_BUILD_PROFILES=pkg.linux-upstream.nokernelheaders make -j${CORES} ARCH=arm KBUILD_DEBARCH=armhf KDEB_PKGVERSION=1xross CROSS_COMPILE=arm-linux-gnueabihf- LOCALVERSION=-ti-arm32-r$CI_JOB_ID KDEB_SOURCENAME=linux-upstream KDEB_COMPRESS=xz bindeb-pkg
+    - mv ../*.deb ./
+    - ccache -sv
+    - tar --use-compress-program=lz4 -cf ccache.tar.lz4 /root/.cache/ccache/
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: never
+    - when: always
+  artifacts:
+    expire_in: 28 days
+    when: on_success
+    name: "$CI_PROJECT_NAME-ti-linux-arm32-6.12.y-$CI_JOB_ID"
+    paths:
+      - "linux-image-*.deb"
