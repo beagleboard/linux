@@ -44,14 +44,6 @@ static inline void vsp1_rpf_write(struct vsp1_rwpf *rpf,
 }
 
 /* -----------------------------------------------------------------------------
- * V4L2 Subdevice Operations
- */
-
-static const struct v4l2_subdev_ops rpf_ops = {
-	.pad    = &vsp1_rwpf_pad_ops,
-};
-
-/* -----------------------------------------------------------------------------
  * VSP1 Entity Operations
  */
 
@@ -323,8 +315,8 @@ static void rpf_configure_partition(struct vsp1_entity *entity,
 	 * 'width' need to be adjusted.
 	 */
 	if (pipe->partitions > 1) {
-		crop.width = pipe->partition->rpf.width;
-		crop.left += pipe->partition->rpf.left;
+		crop.width = pipe->partition->rpf[rpf->entity.index].width;
+		crop.left += pipe->partition->rpf[rpf->entity.index].left;
 	}
 
 	if (pipe->interlaced) {
@@ -379,7 +371,9 @@ static void rpf_partition(struct vsp1_entity *entity,
 			  unsigned int partition_idx,
 			  struct vsp1_partition_window *window)
 {
-	partition->rpf = *window;
+	struct vsp1_rwpf *rpf = to_rwpf(&entity->subdev);
+
+	partition->rpf[rpf->entity.index] = *window;
 }
 
 static const struct vsp1_entity_operations rpf_entity_ops = {
@@ -411,7 +405,7 @@ struct vsp1_rwpf *vsp1_rpf_create(struct vsp1_device *vsp1, unsigned int index)
 	rpf->entity.index = index;
 
 	sprintf(name, "rpf.%u", index);
-	ret = vsp1_entity_init(vsp1, &rpf->entity, name, 2, &rpf_ops,
+	ret = vsp1_entity_init(vsp1, &rpf->entity, name, 2, &vsp1_rwpf_subdev_ops,
 			       MEDIA_ENT_F_PROC_VIDEO_PIXEL_FORMATTER);
 	if (ret < 0)
 		return ERR_PTR(ret);

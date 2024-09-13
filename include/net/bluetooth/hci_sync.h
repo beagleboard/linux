@@ -38,6 +38,8 @@ int __hci_cmd_sync_status(struct hci_dev *hdev, u16 opcode, u32 plen,
 int __hci_cmd_sync_status_sk(struct hci_dev *hdev, u16 opcode, u32 plen,
 			     const void *param, u8 event, u32 timeout,
 			     struct sock *sk);
+int hci_cmd_sync_status(struct hci_dev *hdev, u16 opcode, u32 plen,
+			const void *param, u32 timeout);
 
 void hci_cmd_sync_init(struct hci_dev *hdev);
 void hci_cmd_sync_clear(struct hci_dev *hdev);
@@ -79,6 +81,8 @@ int hci_enable_advertising(struct hci_dev *hdev);
 int hci_start_per_adv_sync(struct hci_dev *hdev, u8 instance, u8 data_len,
 			   u8 *data, u32 flags, u16 min_interval,
 			   u16 max_interval, u16 sync_interval);
+
+int hci_disable_per_advertising_sync(struct hci_dev *hdev, u8 instance);
 
 int hci_remove_advertising_sync(struct hci_dev *hdev, struct sock *sk,
 				u8 instance, bool force);

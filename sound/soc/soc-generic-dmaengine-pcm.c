@@ -318,10 +318,10 @@ static int dmaengine_copy(struct snd_soc_component *component,
 	return 0;
 }
 
-int dmaengine_pcm_prepare(struct snd_soc_component *component,
-			  struct snd_pcm_substream *substream)
+static int dmaengine_pcm_sync_stop(struct snd_soc_component *component,
+				   struct snd_pcm_substream *substream)
 {
-	return snd_dmaengine_pcm_prepare(substream);
+	return snd_dmaengine_pcm_sync_stop(substream);
 }
 
 static const struct snd_soc_component_driver dmaengine_pcm_component = {
@@ -333,7 +333,7 @@ static const struct snd_soc_component_driver dmaengine_pcm_component = {
 	.trigger	= dmaengine_pcm_trigger,
 	.pointer	= dmaengine_pcm_pointer,
 	.pcm_construct	= dmaengine_pcm_new,
-	.prepare	= dmaengine_pcm_prepare,
+	.sync_stop	= dmaengine_pcm_sync_stop,
 };
 
 static const struct snd_soc_component_driver dmaengine_pcm_component_process = {
@@ -346,7 +346,7 @@ static const struct snd_soc_component_driver dmaengine_pcm_component_process = {
 	.pointer	= dmaengine_pcm_pointer,
 	.copy		= dmaengine_copy,
 	.pcm_construct	= dmaengine_pcm_new,
-	.prepare	= dmaengine_pcm_prepare,
+	.sync_stop	= dmaengine_pcm_sync_stop,
 };
 
 static const char * const dmaengine_pcm_dma_channel_names[] = {

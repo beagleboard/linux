@@ -10,6 +10,7 @@
 #include <pthread.h>
 #include <string.h>
 #include <unistd.h>
+#include "cpumap.h"
 #include "debug.h"
 #include "evsel.h"
 #include "pmus.h"
@@ -268,7 +269,7 @@ struct perf_pmu *perf_pmus__scan_core(struct perf_pmu *pmu)
 {
 	if (!pmu) {
 		pmu_read_sysfs(/*core_only=*/true);
-		pmu = list_prepare_entry(pmu, &core_pmus, list);
+		return list_first_entry_or_null(&core_pmus, typeof(*pmu), list);
 	}
 	list_for_each_entry_continue(pmu, &core_pmus, list)
 		return pmu;
@@ -469,8 +470,8 @@ void perf_pmus__print_pmu_events(const struct print_callbacks *print_cb, void *p
 	qsort(aliases, len, sizeof(struct sevent), cmp_sevent);
 	for (int j = 0; j < len; j++) {
 		/* Skip duplicates */
-		if (j > 0 && pmu_alias_is_duplicate(&aliases[j], &aliases[j - 1]))
-			continue;
+		if (j < len - 1 && pmu_alias_is_duplicate(&aliases[j], &aliases[j + 1]))
+			goto free;
 
 		print_cb->print_event(print_state,
 				aliases[j].pmu_name,
@@ -483,6 +484,7 @@ void perf_pmus__print_pmu_events(const struct print_callbacks *print_cb, void *p
 				aliases[j].desc,
 				aliases[j].long_desc,
 				aliases[j].encoding_desc);
+free:
 		zfree(&aliases[j].name);
 		zfree(&aliases[j].alias);
 		zfree(&aliases[j].scale_unit);
@@ -591,4 +593,21 @@ struct perf_pmu *evsel__find_pmu(const struct evsel *evsel)
 		((struct evsel *)evsel)->pmu = pmu;
 	}
 	return pmu;
+}
+
+struct perf_pmu *perf_pmus__find_core_pmu(void)
+{
+	struct perf_pmu *pmu = NULL;
+
+	while ((pmu = perf_pmus__scan_core(pmu))) {
+		/*
+		 * The cpumap should cover all CPUs. Otherwise, some CPUs may
+		 * not support some events or have different event IDs.
+		 */
+		if (RC_CHK_ACCESS(pmu->cpus)->nr != cpu__max_cpu().cpu)
+			return NULL;
+
+		return pmu;
+	}
+	return NULL;
 }

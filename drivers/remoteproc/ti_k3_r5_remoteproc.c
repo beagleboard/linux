@@ -679,6 +679,8 @@ static int k3_r5_rproc_prepare(struct rproc *rproc)
 			ret);
 		return ret;
 	}
+	core->released_from_reset = true;
+	wake_up_interruptible(&cluster->core_transition);
 
 	/*
 	 * Newer IP revisions like on J7200 SoCs support h/w auto-initialization
@@ -773,7 +775,7 @@ static int k3_r5_rproc_start(struct rproc *rproc)
 	core = kproc->core;
 	ret = ti_sci_proc_set_config(core->tsp, boot_addr, 0, 0);
 	if (ret)
-		return ret;
+		goto put_mbox;
 
 	/* unhalt/run all applicable cores */
 	if (cluster->mode == CLUSTER_MODE_LOCKSTEP) {
@@ -789,12 +791,13 @@ static int k3_r5_rproc_start(struct rproc *rproc)
 		if (core != core0 && core0->rproc->state == RPROC_OFFLINE) {
 			dev_err(dev, "%s: can not start core 1 before core 0\n",
 				__func__);
-			return -EPERM;
+			ret = -EPERM;
+			goto put_mbox;
 		}
 
 		ret = k3_r5_core_run(core);
 		if (ret)
-			return ret;
+			goto put_mbox;
 	}
 
 	kproc->rproc->state = RPROC_RUNNING;
@@ -809,6 +812,9 @@ unroll_core_run:
 release_wait:
 	core->released_from_reset = true;
 	wake_up_interruptible(&cluster->core_transition);
+
+put_mbox:
+	mbox_free_channel(kproc->mbox);
 
 	return ret;
 }
