@@ -79,7 +79,8 @@ int wave5_vpu_release_device(struct file *filp,
 			dev_err(inst->dev->dev, "%s close, fail: %d\n", name, ret);
 			return ret;
 		}
-		wave5_instance_reset_clk(inst);
+		if (inst->dev->opp_table_detected)
+			wave5_instance_reset_clk(inst);
 	}
 
 	wave5_cleanup_instance(inst);

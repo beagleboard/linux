@@ -794,6 +794,7 @@ struct vpu_device {
 	struct kthread_worker *worker;
 	int vpu_poll_interval;
 	int num_clks;
+	bool opp_table_detected;
 	unsigned long opp_pixel_rate;
 	unsigned long opp_freq;
 };

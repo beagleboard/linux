@@ -278,9 +278,15 @@ static int wave5_vpu_probe(struct platform_device *pdev)
 		}
 	}
 
+	dev->opp_table_detected = TRUE;
 	ret = dev_pm_opp_of_add_table(&pdev->dev);
-	if (ret && ret != -ENODEV)
+	if (ret == -ENODEV) {
+		dev->opp_table_detected = FALSE;
+		dev_err(&pdev->dev, "OPP table not found in device tree\n");
+	} else if (ret < 0) {
 		dev_err(&pdev->dev, "Invalid OPP table in device tree\n");
+		goto err_vdi_release;
+	}
 
 	INIT_LIST_HEAD(&dev->instances);
 	ret = v4l2_device_register(&pdev->dev, &dev->v4l2_dev);

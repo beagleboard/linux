@@ -1544,7 +1544,9 @@ static int wave5_vpu_dec_start_streaming(struct vb2_queue *q, unsigned int count
 
 		inst->frame_rate = (initial_info->f_rate_numerator /
 							initial_info->f_rate_denominator);
-		wave5_instance_set_clk(inst);
+
+		if (inst->dev->opp_table_detected)
+			wave5_instance_set_clk(inst);
 
 		if (inst->state == VPU_INST_STATE_STOP)
 			ret = switch_state(inst, VPU_INST_STATE_INIT_SEQ);
