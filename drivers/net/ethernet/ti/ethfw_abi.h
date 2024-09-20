@@ -351,6 +351,17 @@ struct ipv4_deregister_request {
 	u8 ipv4_addr[ETHFW_IPV4ADDRLEN];
 } __packed;
 
+struct vlan_join_leave_request {
+	struct request_message_header request_msg_hdr;
+	/* VLAN ID */
+	u16 vid;
+	/* MAC Address associated with the interface */
+	u8 mac_addr[ETHFW_MACADDRLEN];
+	/* RX Flow base and offset for receiving the VLAN packets */
+	u32 rx_flow_idx_base;
+	u32 rx_flow_idx_offset;
+} __packed;
+
 struct default_rx_flow_register_request {
 	struct request_message_header request_msg_hdr;
 	/* RX flow index Base */

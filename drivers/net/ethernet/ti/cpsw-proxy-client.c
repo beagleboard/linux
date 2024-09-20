@@ -308,6 +308,7 @@ static int create_request_message(struct cpsw_proxy_req_params *req_params)
 	struct rx_flow_alloc_request *rx_alloc_req;
 	struct message *msg = &req_params->req_msg;
 	struct mac_release_request *mac_free_req;
+	struct vlan_join_leave_request *vlan_req;
 	struct attach_request *attach_req;
 	u32 req_type;
 
@@ -396,6 +397,17 @@ static int create_request_message(struct cpsw_proxy_req_params *req_params)
 		req_msg_hdr = &mcast_del_req->request_msg_hdr;
 		ether_addr_copy(mcast_del_req->mac_addr, req_params->mac_addr);
 		mcast_del_req->vlan_id = req_params->vlan_id;
+		break;
+
+	case ETHFW_JOIN_VLAN:
+	case ETHFW_LEAVE_VLAN:
+		vlan_req = (struct vlan_join_leave_request *)msg;
+		req_msg_hdr = &vlan_req->request_msg_hdr;
+
+		vlan_req->vid = req_params->vlan_id;
+		ether_addr_copy(vlan_req->mac_addr, req_params->mac_addr);
+		vlan_req->rx_flow_idx_base = req_params->rx_flow_base;
+		vlan_req->rx_flow_idx_offset = req_params->rx_flow_offset;
 		break;
 
 	case ETHFW_ALLOC_MAC:
@@ -2018,6 +2030,68 @@ static void vport_set_rx_mode(struct net_device *ndev)
 		queue_work(vport->vport_wq, &vport->rx_mode_work);
 }
 
+static int vport_add_vid(struct net_device *ndev, __be16 proto, u16 vid)
+{
+	struct virtual_port *vport = vport_ndev_to_vport(ndev);
+	struct cpsw_proxy_priv *proxy_priv = vport->proxy_priv;
+	struct rx_dma_chan *rx_chn = &vport->rx_chans[0];
+	struct cpsw_proxy_req_params *req_p;
+	struct message resp_msg;
+	int ret;
+
+	if (!netif_running(ndev) || !vid)
+		return 0;
+
+	mutex_lock(&proxy_priv->req_params_mutex);
+	req_p = &proxy_priv->req_params;
+	req_p->request_type = ETHFW_JOIN_VLAN;
+	req_p->token = vport->port_token;
+	req_p->vlan_id = vid;
+	req_p->rx_flow_base = rx_chn->flow_base;
+	req_p->rx_flow_offset = rx_chn->flow_offset;
+	ether_addr_copy(req_p->mac_addr, vport->mac_addr);
+	ret = send_request_get_response(proxy_priv, &resp_msg);
+	mutex_unlock(&proxy_priv->req_params_mutex);
+
+	if (ret) {
+		ret = -EINVAL;
+		dev_err(proxy_priv->dev, "failed to add VLAN: %u err: %d\n", vid, ret);
+	}
+
+	return ret;
+}
+
+static int vport_del_vid(struct net_device *ndev, __be16 proto, u16 vid)
+{
+	struct virtual_port *vport = vport_ndev_to_vport(ndev);
+	struct cpsw_proxy_priv *proxy_priv = vport->proxy_priv;
+	struct rx_dma_chan *rx_chn = &vport->rx_chans[0];
+	struct cpsw_proxy_req_params *req_p;
+	struct message resp_msg;
+	int ret;
+
+	if (!netif_running(ndev) || !vid)
+		return 0;
+
+	mutex_lock(&proxy_priv->req_params_mutex);
+	req_p = &proxy_priv->req_params;
+	req_p->request_type = ETHFW_LEAVE_VLAN;
+	req_p->token = vport->port_token;
+	req_p->vlan_id = vid;
+	req_p->rx_flow_base = rx_chn->flow_base;
+	req_p->rx_flow_offset = rx_chn->flow_offset;
+	ether_addr_copy(req_p->mac_addr, vport->mac_addr);
+	ret = send_request_get_response(proxy_priv, &resp_msg);
+	mutex_unlock(&proxy_priv->req_params_mutex);
+
+	if (ret) {
+		ret = -EINVAL;
+		dev_err(proxy_priv->dev, "failed to delete VLAN: %u err: %d\n", vid, ret);
+	}
+
+	return ret;
+}
+
 static const struct net_device_ops cpsw_proxy_client_netdev_ops = {
 	.ndo_open		= vport_ndo_open,
 	.ndo_stop		= vport_ndo_stop,
@@ -2027,6 +2101,8 @@ static const struct net_device_ops cpsw_proxy_client_netdev_ops = {
 	.ndo_validate_addr	= eth_validate_addr,
 	.ndo_set_mac_address	= eth_mac_addr,
 	.ndo_set_rx_mode	= vport_set_rx_mode,
+	.ndo_vlan_rx_add_vid	= vport_add_vid,
+	.ndo_vlan_rx_kill_vid	= vport_del_vid,
 };
 
 static int init_netdev(struct cpsw_proxy_priv *proxy_priv, struct virtual_port *vport)
@@ -2056,7 +2132,7 @@ static int init_netdev(struct cpsw_proxy_priv *proxy_priv, struct virtual_port *
 	vport->ndev->min_mtu = MIN_PACKET_SIZE;
 	vport->ndev->max_mtu = MAX_PACKET_SIZE;
 	vport->ndev->hw_features = NETIF_F_SG | NETIF_F_RXCSUM;
-	vport->ndev->features = vport->ndev->hw_features;
+	vport->ndev->features = vport->ndev->hw_features | NETIF_F_HW_VLAN_CTAG_FILTER;
 	vport->ndev->vlan_features |= NETIF_F_SG;
 	vport->ndev->netdev_ops = &cpsw_proxy_client_netdev_ops;
 	vport->ndev->ethtool_ops = &cpsw_proxy_client_ethtool_ops;
