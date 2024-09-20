@@ -58,6 +58,7 @@ struct cpsw_proxy_req_params {
 struct rx_dma_chan {
 	struct virtual_port		*vport;
 	struct device			*dev;
+	struct device			*dma_dev;
 	struct k3_cppi_desc_pool	*desc_pool;
 	struct k3_udma_glue_rx_channel	*rx_chan;
 	struct napi_struct		napi_rx;
@@ -77,6 +78,7 @@ struct rx_dma_chan {
 struct tx_dma_chan {
 	struct virtual_port		*vport;
 	struct device			*dev;
+	struct device			*dma_dev;
 	struct k3_cppi_desc_pool	*desc_pool;
 	struct k3_udma_glue_tx_channel	*tx_chan;
 	struct napi_struct		napi_tx;
@@ -852,18 +854,6 @@ static int init_tx_chans(struct cpsw_proxy_priv *proxy_priv)
 			tx_cfg.tx_cfg.size = max_desc_num;
 			tx_cfg.txcq_cfg.size = max_desc_num;
 
-			tx_chn->dev = dev;
-			tx_chn->num_descs = max_desc_num;
-			tx_chn->desc_pool = k3_cppi_desc_pool_create_name(dev,
-									  tx_chn->num_descs,
-									  hdesc_size,
-									  tx_chn_name);
-			if (IS_ERR(tx_chn->desc_pool)) {
-				ret = PTR_ERR(tx_chn->desc_pool);
-				dev_err(dev, "failed to create tx pool %d\n", ret);
-				goto err;
-			}
-
 			tx_chn->tx_chan =
 				k3_udma_glue_request_tx_chn_for_thread_id(dev, &tx_cfg,
 									  proxy_priv->dma_node,
@@ -871,6 +861,19 @@ static int init_tx_chans(struct cpsw_proxy_priv *proxy_priv)
 			if (IS_ERR(tx_chn->tx_chan)) {
 				ret = PTR_ERR(tx_chn->tx_chan);
 				dev_err(dev, "Failed to request tx dma channel %d\n", ret);
+				goto err;
+			}
+			tx_chn->dma_dev = k3_udma_glue_tx_get_dma_device(tx_chn->tx_chan);
+
+			tx_chn->dev = dev;
+			tx_chn->num_descs = max_desc_num;
+			tx_chn->desc_pool = k3_cppi_desc_pool_create_name(tx_chn->dma_dev,
+									  tx_chn->num_descs,
+									  hdesc_size,
+									  tx_chn_name);
+			if (IS_ERR(tx_chn->desc_pool)) {
+				ret = PTR_ERR(tx_chn->desc_pool);
+				dev_err(dev, "failed to create tx pool %d\n", ret);
 				goto err;
 			}
 
@@ -925,12 +928,12 @@ static int init_rx_chans(struct cpsw_proxy_priv *proxy_priv)
 	struct virtual_port *vport;
 	struct k3_ring_cfg rxring_cfg = {
 		.elm_size = K3_RINGACC_RING_ELSIZE_8,
-		.mode = K3_RINGACC_RING_MODE_MESSAGE,
+		.mode = K3_RINGACC_RING_MODE_RING,
 		.flags = 0,
 	};
 	struct k3_ring_cfg fdqring_cfg = {
 		.elm_size = K3_RINGACC_RING_ELSIZE_8,
-		.mode = K3_RINGACC_RING_MODE_MESSAGE,
+		.mode = K3_RINGACC_RING_MODE_RING,
 		.flags = 0,
 	};
 	struct k3_udma_glue_rx_flow_cfg rx_flow_cfg = {
@@ -961,19 +964,6 @@ static int init_rx_chans(struct cpsw_proxy_priv *proxy_priv)
 
 			rx_cfg.flow_id_base = rx_chn->flow_base + rx_chn->flow_offset;
 
-			/* init all flows */
-			rx_chn->dev = dev;
-			rx_chn->num_descs = max_desc_num;
-			rx_chn->desc_pool = k3_cppi_desc_pool_create_name(dev,
-									  rx_chn->num_descs,
-									  hdesc_size,
-									  rx_chn_name);
-			if (IS_ERR(rx_chn->desc_pool)) {
-				ret = PTR_ERR(rx_chn->desc_pool);
-				dev_err(dev, "Failed to create rx pool %d\n", ret);
-				goto err;
-			}
-
 			rx_chn->rx_chan =
 			k3_udma_glue_request_remote_rx_chn_for_thread_id(dev, &rx_cfg,
 									 proxy_priv->dma_node,
@@ -981,6 +971,20 @@ static int init_rx_chans(struct cpsw_proxy_priv *proxy_priv)
 			if (IS_ERR(rx_chn->rx_chan)) {
 				ret = PTR_ERR(rx_chn->rx_chan);
 				dev_err(dev, "Failed to request rx dma channel %d\n", ret);
+				goto err;
+			}
+			rx_chn->dma_dev = k3_udma_glue_rx_get_dma_device(rx_chn->rx_chan);
+
+			/* init all flows */
+			rx_chn->dev = dev;
+			rx_chn->num_descs = max_desc_num;
+			rx_chn->desc_pool = k3_cppi_desc_pool_create_name(rx_chn->dma_dev,
+									  rx_chn->num_descs,
+									  hdesc_size,
+									  rx_chn_name);
+			if (IS_ERR(rx_chn->desc_pool)) {
+				ret = PTR_ERR(rx_chn->desc_pool);
+				dev_err(dev, "Failed to create rx pool %d\n", ret);
 				goto err;
 			}
 
@@ -1011,7 +1015,7 @@ err:
 	return ret;
 }
 
-static void vport_xmit_free(struct tx_dma_chan *tx_chn, struct device *dev,
+static void vport_xmit_free(struct tx_dma_chan *tx_chn,
 			    struct cppi5_host_desc_t *desc)
 {
 	struct cppi5_host_desc_t *first_desc, *next_desc;
@@ -1022,20 +1026,23 @@ static void vport_xmit_free(struct tx_dma_chan *tx_chn, struct device *dev,
 	next_desc = first_desc;
 
 	cppi5_hdesc_get_obuf(first_desc, &buf_dma, &buf_dma_len);
+	k3_udma_glue_tx_cppi5_to_dma_addr(tx_chn->tx_chan, &buf_dma);
 
-	dma_unmap_single(dev, buf_dma, buf_dma_len,
-			 DMA_TO_DEVICE);
+	dma_unmap_single(tx_chn->dma_dev, buf_dma, buf_dma_len, DMA_TO_DEVICE);
 
 	next_desc_dma = cppi5_hdesc_get_next_hbdesc(first_desc);
+	k3_udma_glue_tx_cppi5_to_dma_addr(tx_chn->tx_chan, &next_desc_dma);
 	while (next_desc_dma) {
 		next_desc = k3_cppi_desc_pool_dma2virt(tx_chn->desc_pool,
 						       next_desc_dma);
 		cppi5_hdesc_get_obuf(next_desc, &buf_dma, &buf_dma_len);
+		k3_udma_glue_tx_cppi5_to_dma_addr(tx_chn->tx_chan, &buf_dma);
 
-		dma_unmap_page(dev, buf_dma, buf_dma_len,
+		dma_unmap_page(tx_chn->dma_dev, buf_dma, buf_dma_len,
 			       DMA_TO_DEVICE);
 
 		next_desc_dma = cppi5_hdesc_get_next_hbdesc(next_desc);
+		k3_udma_glue_tx_cppi5_to_dma_addr(tx_chn->tx_chan, &next_desc_dma);
 
 		k3_cppi_desc_pool_free(tx_chn->desc_pool, next_desc);
 	}
@@ -1046,8 +1053,6 @@ static void vport_xmit_free(struct tx_dma_chan *tx_chn, struct device *dev,
 static int tx_compl_packets(struct virtual_port *vport, unsigned int tx_chan_idx,
 			    unsigned int budget, bool *tdown)
 {
-	struct cpsw_proxy_priv *proxy_priv = vport->proxy_priv;
-	struct device *dev = proxy_priv->dev;
 	struct cppi5_host_desc_t *desc_tx;
 	struct netdev_queue *netif_txq;
 	unsigned int total_bytes = 0;
@@ -1079,7 +1084,7 @@ static int tx_compl_packets(struct virtual_port *vport, unsigned int tx_chan_idx
 						     desc_dma);
 		swdata = cppi5_hdesc_get_swdata(desc_tx);
 		skb = *(swdata);
-		vport_xmit_free(tx_chn, dev, desc_tx);
+		vport_xmit_free(tx_chn, desc_tx);
 
 		ndev = skb->dev;
 
@@ -1179,7 +1184,6 @@ static int vport_rx_push(struct virtual_port *vport, struct sk_buff *skb,
 	struct cpsw_proxy_priv *proxy_priv = vport->proxy_priv;
 	struct device *dev = proxy_priv->dev;
 	struct cppi5_host_desc_t *desc_rx;
-	u32 pkt_len = skb_tailroom(skb);
 	dma_addr_t desc_dma;
 	dma_addr_t buf_dma;
 	void *swdata;
@@ -1191,8 +1195,8 @@ static int vport_rx_push(struct virtual_port *vport, struct sk_buff *skb,
 	}
 	desc_dma = k3_cppi_desc_pool_virt2dma(rx_chn->desc_pool, desc_rx);
 
-	buf_dma = dma_map_single(dev, skb->data, pkt_len, DMA_FROM_DEVICE);
-	if (unlikely(dma_mapping_error(dev, buf_dma))) {
+	buf_dma = dma_map_single(rx_chn->dma_dev, skb->data, MAX_PACKET_SIZE, DMA_FROM_DEVICE);
+	if (unlikely(dma_mapping_error(rx_chn->dma_dev, buf_dma))) {
 		k3_cppi_desc_pool_free(rx_chn->desc_pool, desc_rx);
 		dev_err(dev, "Failed to map rx skb buffer\n");
 		return -EINVAL;
@@ -1200,7 +1204,8 @@ static int vport_rx_push(struct virtual_port *vport, struct sk_buff *skb,
 
 	cppi5_hdesc_init(desc_rx, CPPI5_INFO0_HDESC_EPIB_PRESENT,
 			 PS_DATA_SIZE);
-	cppi5_hdesc_attach_buf(desc_rx, 0, 0, buf_dma, skb_tailroom(skb));
+	k3_udma_glue_rx_dma_to_cppi5_addr(rx_chn->rx_chan, &buf_dma);
+	cppi5_hdesc_attach_buf(desc_rx, buf_dma, MAX_PACKET_SIZE, buf_dma, MAX_PACKET_SIZE);
 	swdata = cppi5_hdesc_get_swdata(desc_rx);
 	*((void **)swdata) = skb;
 
@@ -1243,6 +1248,7 @@ static int vport_rx_packets(struct virtual_port *vport, u32 rx_chan_idx)
 	swdata = cppi5_hdesc_get_swdata(desc_rx);
 	skb = *swdata;
 	cppi5_hdesc_get_obuf(desc_rx, &buf_dma, &buf_dma_len);
+	k3_udma_glue_rx_cppi5_to_dma_addr(rx_chn->rx_chan, &buf_dma);
 	pkt_len = cppi5_hdesc_get_pktlen(desc_rx);
 	cppi5_desc_get_tags_ids(&desc_rx->hdr, &port_id, NULL);
 	/* read port for dbg */
@@ -1254,7 +1260,7 @@ static int vport_rx_packets(struct virtual_port *vport, u32 rx_chan_idx)
 	csum_info = psdata[2];
 	dev_dbg(dev, "%s rx csum_info:%#x\n", __func__, csum_info);
 
-	dma_unmap_single(dev, buf_dma, buf_dma_len, DMA_FROM_DEVICE);
+	dma_unmap_single(rx_chn->dma_dev, buf_dma, buf_dma_len, DMA_FROM_DEVICE);
 
 	k3_cppi_desc_pool_free(rx_chn->desc_pool, desc_rx);
 
@@ -1527,7 +1533,7 @@ static void vport_tx_cleanup(void *data, dma_addr_t desc_dma)
 	desc_tx = k3_cppi_desc_pool_dma2virt(tx_chn->desc_pool, desc_dma);
 	swdata = cppi5_hdesc_get_swdata(desc_tx);
 	skb = *(swdata);
-	vport_xmit_free(tx_chn, tx_chn->dev, desc_tx);
+	vport_xmit_free(tx_chn, desc_tx);
 
 	dev_kfree_skb_any(skb);
 }
@@ -1545,8 +1551,9 @@ static void vport_rx_cleanup(void *data, dma_addr_t desc_dma)
 	swdata = cppi5_hdesc_get_swdata(desc_rx);
 	skb = *swdata;
 	cppi5_hdesc_get_obuf(desc_rx, &buf_dma, &buf_dma_len);
+	k3_udma_glue_rx_cppi5_to_dma_addr(rx_chn->rx_chan, &buf_dma);
 
-	dma_unmap_single(rx_chn->dev, buf_dma, buf_dma_len, DMA_FROM_DEVICE);
+	dma_unmap_single(rx_chn->dma_dev, buf_dma, buf_dma_len, DMA_FROM_DEVICE);
 	k3_cppi_desc_pool_free(rx_chn->desc_pool, desc_rx);
 
 	dev_kfree_skb_any(skb);
@@ -1792,9 +1799,9 @@ static netdev_tx_t vport_ndo_xmit(struct sk_buff *skb, struct net_device *ndev)
 	netif_txq = netdev_get_tx_queue(ndev, q);
 
 	/* Map the linear buffer */
-	buf_dma = dma_map_single(dev, skb->data, pkt_len,
+	buf_dma = dma_map_single(tx_chn->dma_dev, skb->data, pkt_len,
 				 DMA_TO_DEVICE);
-	if (unlikely(dma_mapping_error(dev, buf_dma))) {
+	if (unlikely(dma_mapping_error(tx_chn->dma_dev, buf_dma))) {
 		dev_err(dev, "Failed to map tx skb buffer\n");
 		ndev->stats.tx_errors++;
 		goto drop_free_skb;
@@ -1803,7 +1810,7 @@ static netdev_tx_t vport_ndo_xmit(struct sk_buff *skb, struct net_device *ndev)
 	first_desc = k3_cppi_desc_pool_alloc(tx_chn->desc_pool);
 	if (!first_desc) {
 		dev_dbg(dev, "Failed to allocate descriptor\n");
-		dma_unmap_single(dev, buf_dma, pkt_len, DMA_TO_DEVICE);
+		dma_unmap_single(tx_chn->dma_dev, buf_dma, pkt_len, DMA_TO_DEVICE);
 		goto busy_stop_q;
 	}
 
@@ -1814,6 +1821,7 @@ static netdev_tx_t vport_ndo_xmit(struct sk_buff *skb, struct net_device *ndev)
 	/* target port has to be 0 */
 	cppi5_desc_set_tags_ids(&first_desc->hdr, 0, vport->port_type);
 
+	k3_udma_glue_tx_dma_to_cppi5_addr(tx_chn->tx_chan, &buf_dma);
 	cppi5_hdesc_attach_buf(first_desc, buf_dma, pkt_len, buf_dma, pkt_len);
 	swdata = cppi5_hdesc_get_swdata(first_desc);
 	*(swdata) = skb;
@@ -1849,9 +1857,9 @@ static netdev_tx_t vport_ndo_xmit(struct sk_buff *skb, struct net_device *ndev)
 			goto busy_free_descs;
 		}
 
-		buf_dma = skb_frag_dma_map(dev, frag, 0, frag_size,
+		buf_dma = skb_frag_dma_map(tx_chn->dma_dev, frag, 0, frag_size,
 					   DMA_TO_DEVICE);
-		if (unlikely(dma_mapping_error(dev, buf_dma))) {
+		if (unlikely(dma_mapping_error(tx_chn->dma_dev, buf_dma))) {
 			dev_err(dev, "Failed to map tx skb page\n");
 			k3_cppi_desc_pool_free(tx_chn->desc_pool, next_desc);
 			ndev->stats.tx_errors++;
@@ -1859,11 +1867,13 @@ static netdev_tx_t vport_ndo_xmit(struct sk_buff *skb, struct net_device *ndev)
 		}
 
 		cppi5_hdesc_reset_hbdesc(next_desc);
+		k3_udma_glue_tx_dma_to_cppi5_addr(tx_chn->tx_chan, &buf_dma);
 		cppi5_hdesc_attach_buf(next_desc,
 				       buf_dma, frag_size, buf_dma, frag_size);
 
 		desc_dma = k3_cppi_desc_pool_virt2dma(tx_chn->desc_pool,
 						      next_desc);
+		k3_udma_glue_tx_dma_to_cppi5_addr(tx_chn->tx_chan, &desc_dma);
 		cppi5_hdesc_link_hbdesc(cur_desc, desc_dma);
 
 		pkt_len += frag_size;
@@ -1907,14 +1917,14 @@ done_tx:
 	return NETDEV_TX_OK;
 
 drop_free_descs:
-	vport_xmit_free(tx_chn, dev, first_desc);
+	vport_xmit_free(tx_chn, first_desc);
 drop_free_skb:
 	ndev->stats.tx_dropped++;
 	dev_kfree_skb_any(skb);
 	return NETDEV_TX_OK;
 
 busy_free_descs:
-	vport_xmit_free(tx_chn, dev, first_desc);
+	vport_xmit_free(tx_chn, first_desc);
 busy_stop_q:
 	netif_tx_stop_queue(netif_txq);
 	return NETDEV_TX_BUSY;
@@ -2396,12 +2406,6 @@ static int cpsw_proxy_client_probe(struct rpmsg_device *rpdev)
 	ret = allocate_port_resources(proxy_priv);
 	if (ret)
 		goto err_attach;
-
-	ret = dma_coerce_mask_and_coherent(proxy_priv->dev, DMA_BIT_MASK(48));
-	if (ret) {
-		dev_err(proxy_priv->dev, "error setting dma mask: %d\n", ret);
-		goto err_attach;
-	}
 
 	ret = init_tx_chans(proxy_priv);
 	if (ret)
