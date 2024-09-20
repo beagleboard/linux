@@ -15,6 +15,7 @@
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/rpmsg.h>
+#include <linux/sys_soc.h>
 #include <linux/dma/k3-udma-glue.h>
 
 #include "ethfw_abi.h"
@@ -2374,8 +2375,28 @@ static void show_info(struct cpsw_proxy_priv *proxy_priv)
 	}
 }
 
+struct client_soc_data {
+	const char	*dma_compatible;
+};
+
+static const struct client_soc_data j721e_soc_data = {
+	.dma_compatible = "ti,j721e-navss-main-udmap",
+};
+
+static const struct client_soc_data am62px_soc_data = {
+	.dma_compatible = "ti,am64-dmss-pktdma",
+};
+
+static const struct soc_device_attribute soc_dma_type[] = {
+	{ .family = "J7200", .data = &j721e_soc_data },
+	{ .family = "J721E", .data = &j721e_soc_data },
+	{ .family = "J784S4", .data = &j721e_soc_data },
+	{ .family = "AM62PX", .data = &am62px_soc_data },
+};
+
 static int cpsw_proxy_client_probe(struct rpmsg_device *rpdev)
 {
+	const struct soc_device_attribute *soc_match_data;
 	struct cpsw_proxy_priv *proxy_priv;
 	int ret;
 
@@ -2385,8 +2406,18 @@ static int cpsw_proxy_client_probe(struct rpmsg_device *rpdev)
 
 	proxy_priv->rpdev = rpdev;
 	proxy_priv->dev = &rpdev->dev;
-	proxy_priv->dma_node = of_find_compatible_node(NULL, NULL,
-						       (const char *)rpdev->id.driver_data);
+	soc_match_data = soc_device_match(soc_dma_type);
+	if (soc_match_data && soc_match_data->data) {
+		const struct client_soc_data *socdata = soc_match_data->data;
+
+		proxy_priv->dma_node =
+			of_find_compatible_node(NULL, NULL,
+						socdata->dma_compatible);
+	} else {
+		dev_err(proxy_priv->dev, "SoC not supported\n");
+		return -ENODEV;
+	}
+
 	dev_set_drvdata(proxy_priv->dev, proxy_priv);
 	dev_dbg(proxy_priv->dev, "driver probed\n");
 
@@ -2451,7 +2482,6 @@ static void cpsw_proxy_client_remove(struct rpmsg_device *rpdev)
 static struct rpmsg_device_id cpsw_proxy_client_id_table[] = {
 	{
 		.name = ETHFW_SERVICE_EP_NAME,
-		.driver_data = (kernel_ulong_t)"ti,j721e-navss-main-udmap",
 	},
 	{},
 };
