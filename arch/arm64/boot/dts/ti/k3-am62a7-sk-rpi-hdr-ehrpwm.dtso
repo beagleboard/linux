@@ -12,7 +12,7 @@
 #include "k3-pinctrl.h"
 
 &main_pmx0 {
-	rpi_header_gpio0_pins_default: rpi-header-gpio0-pins-default {
+	rpi_header_gpio0_pins_default: rpi-header-gpio0-default-pins {
 		pinctrl-single,pins = <
 			AM62AX_IOPAD(0x0038, PIN_INPUT, 7) /* (G20) OSPI0_CSn3.GPIO0_14 */
 			AM62AX_IOPAD(0x0088, PIN_INPUT, 7) /* (L17) GPMC0_OEn_REn.GPIO0_33 */
@@ -25,7 +25,7 @@
 		>;
 	};
 
-	rpi_header_gpio1_pins_default: rpi-header-gpio1-pins-default {
+	rpi_header_gpio1_pins_default: rpi-header-gpio1-default-pins{
 		pinctrl-single,pins = <
 			AM62AX_IOPAD(0x0194, PIN_INPUT, 7) /* (C19) MCASP0_AXR3.GPIO1_7 */
 			AM62AX_IOPAD(0x0198, PIN_INPUT, 7) /* (B19) MCASP0_AXR2.GPIO1_8 */
@@ -41,19 +41,24 @@
 		>;
 	};
 
-	rpi_header_ehrpwm0_pins_default: rpi-header-ehrpwm0-pins-default {
+	rpi_header_ehrpwm0_pins_default: rpi-header-ehrpwm0-default-pins {
 		pinctrl-single,pins = <
 			AM62AX_IOPAD(0x01ac, PIN_OUTPUT, 6) /* (B21) MCASP0_AFSR.EHRPWM0_A */
 			AM62AX_IOPAD(0x01b0, PIN_OUTPUT, 6) /* (A21) MCASP0_ACLKR.EHRPWM0_B */
 		>;
 	};
 
-	rpi_header_ehrpwm1_pins_default: rpi-header-ehrpwm1-pins-default {
+	rpi_header_ehrpwm1_pins_default: rpi-header-ehrpwm1-default-pins {
 		pinctrl-single,pins = <
 			AM62AX_IOPAD(0x019c, PIN_OUTPUT, 6) /* (B18) MCASP0_AXR1.EHRPWM1_A */
 			AM62AX_IOPAD(0x01a0, PIN_OUTPUT, 6) /* (B20) MCASP0_AXR0.EHRPWM1_B */
 		>;
 	};
+};
+
+&main_uart1 {
+	/* Disable FW debug logs */
+	status = "disabled";
 };
 
 &main_i2c1 {
@@ -85,17 +90,18 @@
 };
 
 &epwm0 {
+	/* Pin 12/40 of J3 */
 	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&rpi_header_ehrpwm0_pins_default>;
 };
 
 &epwm1 {
+	/* Pin 36/33 of J3 */
 	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&rpi_header_ehrpwm1_pins_default>;
 };
-
 
 &main_gpio0 {
 	status = "okay";
