@@ -1,0 +1,123 @@
+// SPDX-License-Identifier: GPL-2.0
+/**
+ * DT Overlay for enabling PWM output on user expansion connector for AM64 SK
+ *
+ * Copyright (C) 2023 Texas Instruments Incorporated - https://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include "k3-pinctrl.h"
+
+&main_pmx0 {
+	main_ecap0_pins_default: main_ecap0-default-pins {
+		pinctrl-single,pins = <
+			AM64X_IOPAD(0x0270, PIN_OUTPUT, 0) /* (D18) ECAP0_IN_APWM_OUT */
+		>;
+	};
+	main_ecap1_pins_default: main_ecap1-default-pins {
+		pinctrl-single,pins = <
+			AM64X_IOPAD(0x0258, PIN_OUTPUT, 2) /* (C17) MCAN1_TX.ECAP1_IN_APWM_OUT */
+		>;
+	};
+	main_ecap2_pins_default: main_ecap2-default-pins {
+		pinctrl-single,pins = <
+			AM64X_IOPAD(0x025c, PIN_OUTPUT, 2) /* (D17) MCAN1_RX.ECAP2_IN_APWM_OUT */
+		>;
+	};
+	main_epwm4_pins_default: main_epwm4-default-pins {
+		pinctrl-single,pins = <
+			AM64X_IOPAD(0x0088, PIN_OUTPUT, 3) /* (R18) GPMC0_OEn_REn.EHRPWM4_A */
+			AM64X_IOPAD(0x008c, PIN_OUTPUT, 3) /* (T21) GPMC0_WEn.EHRPWM4_B */
+		>;
+	};
+	main_epwm5_pins_default: main_epwm5-default-pins {
+		pinctrl-single,pins = <
+			AM64X_IOPAD(0x0094, PIN_OUTPUT, 3) /* (T19) GPMC0_BE1n.EHRPWM5_A */
+			AM64X_IOPAD(0x0098, PIN_OUTPUT, 3) /* (W19) GPMC0_WAIT0.EHRPWM5_B */
+		>;
+	};
+	main_epwm6_pins_default: main_epwm6-default-pins {
+		pinctrl-single,pins = <
+			AM64X_IOPAD(0x021c, PIN_OUTPUT, 3) /* (B14) SPI1_CS0.EHRPWM6_A */
+			AM64X_IOPAD(0x022c, PIN_OUTPUT, 3) /* (A15) SPI1_D1.EHRPWM6_B */
+		>;
+	};
+	main_epwm7_pins_default: main_epwm7-default-pins {
+		pinctrl-single,pins = <
+			AM64X_IOPAD(0x0090, PIN_OUTPUT, 5) /* (P17) GPMC0_BE0n_CLE.EHRPWM7_A */
+			AM64X_IOPAD(0x009c, PIN_OUTPUT, 5) /* (Y18) GPMC0_WAIT1.EHRPWM7_B */
+		>;
+	};
+	main_epwm8_pins_default: main_epwm8-default-pins {
+		pinctrl-single,pins = <
+			AM64X_IOPAD(0x01a8, PIN_OUTPUT, 6) /* (V1) PRG0_PRU0_GPO18.EHRPWM8_A */
+			AM64X_IOPAD(0x01ac, PIN_OUTPUT, 6) /* (W1) PRG0_PRU0_GPO19.EHRPWM8_B */
+		>;
+	};
+};
+
+&main_mcan1 {
+	/* For AM64x EVM only */
+	status = "disabled";
+};
+
+&ecap0 {
+	/* ECAP0 in APWM mode */
+	/* Pin 1 of J3 */
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_ecap0_pins_default>;
+	status = "okay";
+};
+
+&ecap1 {
+	/* ECAP1 in APWM mode */
+	/* Pin 10 of J4 */
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_ecap1_pins_default>;
+	status = "okay";
+};
+
+&ecap2 {
+	/* ECAP2 in APWM mode */
+	/* Pin 8 of J4 */
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_ecap2_pins_default>;
+	status = "okay";
+};
+
+&epwm4 {
+	/* Pin 32/33 of J4 */
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_epwm4_pins_default>;
+	status = "okay";
+};
+
+&epwm5 {
+	/* Pin 29/31 of J4 */
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_epwm5_pins_default>;
+	status = "okay";
+};
+
+&epwm6 {
+	/* Pin 12/35 of J4 */
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_epwm6_pins_default>;
+	status = "okay";
+};
+
+&epwm7 {
+	/* Pin 7/16 of J4 */
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_epwm7_pins_default>;
+	status = "okay";
+};
+
+&epwm8 {
+	/* Pin 38/43 of J10 */
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_epwm8_pins_default>;
+	status = "okay";
+};
