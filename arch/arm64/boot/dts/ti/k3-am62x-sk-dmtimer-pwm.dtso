@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * DT Overlay to enable DM timer in PWM mode for AM625-SK
+ * DT Overlay to enable DM timer in PWM mode for AM62*-SK
  *
  * Copyright (C) 2023 Texas Instruments Incorporated - https://www.ti.com/
  */
@@ -41,6 +41,7 @@
 	};
 
 	mcu_pwm0: dmtimer-mcu-pwm-0 {
+		/* PWM signal routed to pin 22 of J10/J9 header */
 		compatible = "ti,omap-dmtimer-pwm";
 		#pwm-cells = <3>;
 		ti,timers = <&mcu_timer0>;
