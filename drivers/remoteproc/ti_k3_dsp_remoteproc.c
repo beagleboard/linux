@@ -720,6 +720,10 @@ static int k3_dsp_rproc_probe(struct platform_device *pdev)
 		}
 	}
 
+	ret = dma_coerce_mask_and_coherent(&rproc->dev, DMA_BIT_MASK(48));
+	if (ret)
+		dev_warn(dev, "Failed to set DMA mask (%d)\n", ret);
+
 	ret = devm_rproc_add(dev, rproc);
 	if (ret)
 		return dev_err_probe(dev, ret, "failed to add register device with remoteproc core\n");
