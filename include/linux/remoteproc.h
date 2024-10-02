@@ -42,6 +42,7 @@
 #include <linux/completion.h>
 #include <linux/idr.h>
 #include <linux/of.h>
+#include <linux/dma-buf.h>
 
 /**
  * struct resource_table - firmware resource table header
@@ -562,6 +563,7 @@ struct rproc {
 	struct list_head traces;
 	int num_traces;
 	struct list_head carveouts;
+	struct list_head dmabufs;
 	struct list_head mappings;
 	u64 bootaddr;
 	struct list_head rvdevs;
@@ -672,6 +674,10 @@ struct rproc *devm_rproc_alloc(struct device *dev, const char *name,
 int devm_rproc_add(struct device *dev, struct rproc *rproc);
 
 void rproc_add_carveout(struct rproc *rproc, struct rproc_mem_entry *mem);
+
+int rproc_attach_dmabuf(struct rproc *rproc, struct dma_buf *dmabuf);
+int rproc_dmabuf_get_da(struct rproc *rproc, struct dma_buf *dmabuf, dma_addr_t *dma);
+int rproc_detach_dmabuf(struct rproc *rproc, struct dma_buf *dmabuf);
 
 struct rproc_mem_entry *
 rproc_mem_entry_init(struct device *dev,
