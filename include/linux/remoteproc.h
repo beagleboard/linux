@@ -585,6 +585,7 @@ struct rproc {
 	u16 elf_machine;
 	struct cdev cdev;
 	bool cdev_put_on_release;
+	struct device_dma_parameters dma_parms;
 	DECLARE_BITMAP(features, RPROC_MAX_FEATURES);
 };
 
