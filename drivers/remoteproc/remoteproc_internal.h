@@ -39,6 +39,26 @@ struct rproc_vdev_data {
 	struct fw_rsc_vdev *rsc;
 };
 
+/**
+ * struct rproc_dmabuf_entry - dmabuf entry descriptor
+ * @va:	virtual address
+ * @dma: dma address
+ * @len: length, in bytes
+ * @da: device address
+ *
+ * @node: list node
+ */
+struct rproc_dmabuf_entry {
+	size_t len;
+	dma_addr_t dma;
+	u32 da;
+	struct dma_buf *dmabuf;
+	struct dma_buf_attachment *attachment;
+	struct sg_table *sgt;
+	size_t refcount;
+	struct list_head node;
+};
+
 static inline bool rproc_has_feature(struct rproc *rproc, unsigned int feature)
 {
 	return test_bit(feature, rproc->features);
