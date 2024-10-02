@@ -20,6 +20,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/device.h>
+#include <linux/dma-map-ops.h>
 #include <linux/panic_notifier.h>
 #include <linux/slab.h>
 #include <linux/mutex.h>
@@ -2485,6 +2486,18 @@ struct rproc *rproc_alloc(struct device *dev, const char *name,
 	rproc->dev.class = &rproc_class;
 	rproc->dev.driver_data = rproc;
 	idr_init(&rproc->notifyids);
+
+	/* Make device dma capable by inheriting from parent's capabilities */
+	set_dma_ops(&rproc->dev, get_dma_ops(rproc->dev.parent));
+	if (dma_coerce_mask_and_coherent(&rproc->dev, dma_get_mask(rproc->dev.parent)))
+		dev_warn(&rproc->dev, "Failed to set DMA mask. Trying to continue...\n");
+	rproc->dev.dma_parms = &rproc->dma_parms;
+	/*
+	 * We could use dma_get_max_seg_size(rproc->dev.parent) here but the
+	 * parent is not usually setup correctly either, use full 32bit mask
+	 * for now.
+	 */
+	dma_set_max_seg_size(&rproc->dev, DMA_BIT_MASK(32));
 
 	rproc->name = kstrdup_const(name, GFP_KERNEL);
 	if (!rproc->name)
