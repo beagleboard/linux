@@ -11,7 +11,7 @@
 #include "wave5-vpu.h"
 
 #define FMT_TYPES	2
-#define MAX_FMTS	12
+#define MAX_FMTS	16
 
 #define MAX_OP_HZ      500000000
 #define MAX_PIXEL_RATE 497664000      /* 480 MPix/s at 500MHz */

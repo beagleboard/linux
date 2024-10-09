@@ -68,22 +68,45 @@ static const struct vpu_format enc_fmt_list[FMT_TYPES][MAX_FMTS] = {
 		},
 		{
 			.v4l2_pix_fmt = V4L2_PIX_FMT_YUV422P,
+			.v4l2_frmsize = &enc_frmsize[VPU_FMT_TYPE_RAW],
 		},
 		{
 			.v4l2_pix_fmt = V4L2_PIX_FMT_NV16,
+			.v4l2_frmsize = &enc_frmsize[VPU_FMT_TYPE_RAW],
 		},
 		{
 			.v4l2_pix_fmt = V4L2_PIX_FMT_NV61,
+			.v4l2_frmsize = &enc_frmsize[VPU_FMT_TYPE_RAW],
 		},
 		{
 			.v4l2_pix_fmt = V4L2_PIX_FMT_YUV422M,
+			.v4l2_frmsize = &enc_frmsize[VPU_FMT_TYPE_RAW],
 		},
 		{
 			.v4l2_pix_fmt = V4L2_PIX_FMT_NV16M,
+			.v4l2_frmsize = &enc_frmsize[VPU_FMT_TYPE_RAW],
 		},
 		{
 			.v4l2_pix_fmt = V4L2_PIX_FMT_NV61M,
+			.v4l2_frmsize = &enc_frmsize[VPU_FMT_TYPE_RAW],
 		},
+		{
+			.v4l2_pix_fmt = V4L2_PIX_FMT_YUYV,
+			.v4l2_frmsize = &enc_frmsize[VPU_FMT_TYPE_RAW],
+		},
+		{
+			.v4l2_pix_fmt = V4L2_PIX_FMT_YVYU,
+			.v4l2_frmsize = &enc_frmsize[VPU_FMT_TYPE_RAW],
+		},
+		{
+			.v4l2_pix_fmt = V4L2_PIX_FMT_UYVY,
+			.v4l2_frmsize = &enc_frmsize[VPU_FMT_TYPE_RAW],
+		},
+		{
+			.v4l2_pix_fmt = V4L2_PIX_FMT_VYUY,
+			.v4l2_frmsize = &enc_frmsize[VPU_FMT_TYPE_RAW],
+		},
+
 	}
 };
 
@@ -1194,6 +1217,23 @@ static int wave5_set_enc_openparam(struct enc_open_param *open_param,
 		open_param->src_format = FORMAT_422;
 	else
 		open_param->src_format = FORMAT_420;
+
+	switch (info->format) {
+	case V4L2_PIX_FMT_YUYV:
+		open_param->packed_format = PACKED_YUYV;
+		break;
+	case V4L2_PIX_FMT_YVYU:
+		open_param->packed_format = PACKED_YVYU;
+		break;
+	case V4L2_PIX_FMT_UYVY:
+		open_param->packed_format = PACKED_UYVY;
+		break;
+	case V4L2_PIX_FMT_VYUY:
+		open_param->packed_format = PACKED_VYUY;
+		break;
+	default:
+		break;
+	}
 
 	open_param->wave_param.gop_preset_idx = PRESET_IDX_IPP_SINGLE;
 	open_param->wave_param.hvs_qp_scale = 2;
