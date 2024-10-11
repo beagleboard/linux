@@ -123,6 +123,7 @@ dtb-$(CONFIG_ARCH_K3) += k3-j721e-evm-fusion.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-j721e-evm-ethfw.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-j721e-evm-gesi-exp-board.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-j721e-evm-pcie0-ep.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-j721e-evm-pcie1-ep.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-j721e-evm-ina2xx.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-j721e-sk.dtb
 dtb-$(CONFIG_ARCH_K3) += k3-j721e-sk-csi2-ov5640.dtbo
@@ -266,6 +267,8 @@ k3-j721e-evm-mcspi-loopback-dtbs := k3-j721e-common-proc-board.dtb \
 	k3-j7200-evm-mcspi-loopback.dtbo
 k3-j721e-evm-pcie0-ep-dtbs := k3-j721e-common-proc-board.dtb \
 	k3-j721e-evm-pcie0-ep.dtbo
+k3-j721e-evm-pcie1-ep-dtbs := k3-j721e-common-proc-board.dtb \
+	k3-j721e-evm-pcie1-ep.dtbo
 k3-j721e-evm-ina2xx-dtbs := k3-j721e-common-proc-board.dtb \
 	k3-j721e-evm-ina2xx.dtbo
 k3-j721e-sk-csi2-dual-imx219-dtbs := k3-j721e-sk.dtb \
@@ -336,6 +339,7 @@ dtb- += k3-am625-beagleplay-csi2-ov5640.dtb \
 	k3-j721e-evm-ethfw.dtb \
 	k3-j721e-evm-mcspi-loopback.dtb \
 	k3-j721e-evm-pcie0-ep.dtb \
+	k3-j721e-evm-pcie1-ep.dtb \
 	k3-j721e-evm-ina2xx.dtb \
 	k3-j721e-sk-csi2-dual-imx219-dtbs \
 	k3-j721s2-evm-pcie1-ep.dtb \
@@ -391,6 +395,7 @@ DTC_FLAGS_k3-j7200-common-proc-board += -@
 DTC_FLAGS_k3-j721e-beagleboneai64 += -@
 DTC_FLAGS_k3-j721e-evm-fusion += -@
 DTC_FLAGS_k3-j721e-common-proc-board += -@
+DTC_FLAGS_k3-j721e-evm-pcie0-ep += -@
 DTC_FLAGS_k3-j721e-sk += -@
 DTC_FLAGS_k3-j721e-sk-fpdlink-fusion += -@
 DTC_FLAGS_k3-j721s2-common-proc-board += -@
