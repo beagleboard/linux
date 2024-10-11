@@ -109,6 +109,7 @@ k3-j7200-evm-dtbs := k3-j7200-common-proc-board.dtb k3-j7200-evm-quad-port-eth-e
 dtb-$(CONFIG_ARCH_K3) += k3-j7200-evm.dtb
 dtb-$(CONFIG_ARCH_K3) += k3-j7200-evm-ethfw.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-j7200-evm-mcspi-loopback.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-j7200-evm-pcie1-ep.dtbo
 
 # Boards with J721e SoC
 k3-j721e-evm-dtbs := k3-j721e-common-proc-board.dtb k3-j721e-evm-quad-port-eth-exp.dtbo
@@ -251,6 +252,8 @@ k3-j7200-evm-ethfw-dtbs := k3-j7200-common-proc-board.dtb \
 	k3-j7200-evm-ethfw.dtbo
 k3-j7200-evm-mcspi-loopback-dtbs := k3-j7200-common-proc-board.dtb \
 	k3-j7200-evm-mcspi-loopback.dtbo
+k3-j7200-evm-pcie1-ep-dtbs := k3-j7200-common-proc-board.dtb \
+	k3-j7200-evm-pcie1-ep.dtbo
 k3-j721e-beagleboneai64-dsi-rpi-7inch-panel-dtbs := k3-j721e-beagleboneai64.dtb \
 	k3-j721e-beagleboneai64-dsi-rpi-7inch-panel.dtbo
 k3-j721e-beagleboneai64-microtips-mf070zima-lcd3-dtbs := k3-j721e-beagleboneai64.dtb \
@@ -326,6 +329,7 @@ dtb- += k3-am625-beagleplay-csi2-ov5640.dtb \
 	k3-am69-sk-csi2-dual-imx219-dtbs \
 	k3-j7200-evm-ethfw.dtb \
 	k3-j7200-evm-mcspi-loopback.dtb \
+	k3-j7200-evm-pcie1-ep.dtbo \
 	k3-j721e-beagleboneai64-dsi-rpi-7inch-panel.dtb \
 	k3-j721e-beagleboneai64-microtips-mf070zima-lcd3.dtb \
 	k3-j721e-common-proc-board-infotainment.dtb \
