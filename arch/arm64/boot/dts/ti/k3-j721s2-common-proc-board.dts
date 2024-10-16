@@ -347,9 +347,9 @@
 		>;
 	};
 
-	wkup_gpio_pins_default: wkup_gpio_pins_default {
+	wkup_gpio_pins_default: wkup-gpio-default-pins {
 		pinctrl-single,pins = <
-				J784S4_WKUP_IOPAD(0x0d8, PIN_INPUT, 7) /* (L37) WKUP_GPIO0_6 */
+			J721S2_WKUP_IOPAD(0x070, PIN_INPUT, 7) /* (L37) WKUP_GPIO0_6 */
 		>;
 	};
 };
