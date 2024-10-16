@@ -334,16 +334,9 @@ static int csi2rx_start(struct csi2rx_priv *csi2rx)
 
 	reset_control_deassert(csi2rx->sys_rst);
 
-	ret = v4l2_subdev_call(csi2rx->source_subdev, video, s_stream, true);
-	if (ret)
-		goto err_disable_sysclk;
-
 	clk_disable_unprepare(csi2rx->p_clk);
 
 	return 0;
-
-err_disable_sysclk:
-	clk_disable_unprepare(csi2rx->sys_clk);
 
 err_disable_pixclk:
 	for (; i > 0; i--) {
