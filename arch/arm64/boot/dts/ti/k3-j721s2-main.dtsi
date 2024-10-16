@@ -38,8 +38,8 @@
 		};
 	};
 
-	scm_conf: syscon@104000 {
-		compatible = "ti,j721e-system-controller", "syscon", "simple-mfd";
+	scm_conf: bus@104000 {
+		compatible = "simple-bus";
 		reg = <0x00 0x00104000 0x00 0x18000>;
 		#address-cells = <1>;
 		#size-cells = <1>;
@@ -56,6 +56,11 @@
 			compatible = "ti,am654-phy-gmii-sel";
 			reg = <0x34 0x4>;
 			#phy-cells = <1>;
+		};
+
+		pcie1_ctrl: pcie1-ctrl@74 {
+			compatible = "ti,j784s4-pcie-ctrl", "syscon";
+			reg = <0x74 0x4>;
 		};
 
 		serdes_ln_ctrl: mux-controller@80 {
@@ -1467,7 +1472,7 @@
 		interrupt-names = "link_state";
 		interrupts = <GIC_SPI 330 IRQ_TYPE_EDGE_RISING>;
 		device_type = "pci";
-		ti,syscon-pcie-ctrl = <&scm_conf 0x074>;
+		ti,syscon-pcie-ctrl = <&pcie1_ctrl 0x0>;
 		max-link-speed = <3>;
 		num-lanes = <4>;
 		power-domains = <&k3_pds 276 TI_SCI_PD_EXCLUSIVE>;
