@@ -55,6 +55,11 @@ properties:
     $ref: /schemas/types.yaml#/definitions/string
     deprecated: true
 
+  mux-states:
+    description:
+      mux controller node to route the I2C signals form SoC to clients.
+    maxItems: 1
+
 # subnode's properties
 patternProperties:
   "@[0-9a-f]+$":
