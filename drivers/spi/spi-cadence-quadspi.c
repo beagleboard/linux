@@ -2163,14 +2163,15 @@ static void cqspi_phy_set_dll_master(struct cqspi_st *cqspi)
 	writel(reg, reg_base + CQSPI_REG_PHY_DLL_MASTER);
 }
 
-static void cqspi_phy_pre_config_sdr(struct cqspi_st *cqspi,
-				     struct cqspi_flash_pdata *f_pdata)
+static void cqspi_phy_pre_config(struct cqspi_st *cqspi, const bool bypass,
+				 const bool dqs,
+				 struct cqspi_flash_pdata *f_pdata)
 {
 	void __iomem *reg_base = cqspi->iobase;
 	unsigned int reg;
 	u8 dummy;
 
-	cqspi_readdata_capture(cqspi, 1, false,
+	cqspi_readdata_capture(cqspi, bypass, dqs,
 			       f_pdata->phy_setting.read_delay);
 
 	reg = readl(reg_base + CQSPI_REG_CONFIG);
@@ -2191,11 +2192,20 @@ static void cqspi_phy_pre_config_sdr(struct cqspi_st *cqspi,
 	cqspi_phy_set_dll_master(cqspi);
 }
 
-static void cqspi_phy_post_config_sdr(struct cqspi_st *cqspi)
+static void cqspi_phy_post_config(struct cqspi_st *cqspi,
+				  const unsigned int delay)
 {
 	void __iomem *reg_base = cqspi->iobase;
 	unsigned int reg;
 	u8 dummy;
+
+	reg = readl(reg_base + CQSPI_REG_READCAPTURE);
+	reg &= ~(CQSPI_REG_READCAPTURE_DELAY_MASK
+		 << CQSPI_REG_READCAPTURE_DELAY_LSB);
+
+	reg |= (delay & CQSPI_REG_READCAPTURE_DELAY_MASK)
+	       << CQSPI_REG_READCAPTURE_DELAY_LSB;
+	writel(reg, reg_base + CQSPI_REG_READCAPTURE);
 
 	reg = readl(reg_base + CQSPI_REG_CONFIG);
 	reg &= ~(CQSPI_REG_CONFIG_PHY_EN | CQSPI_REG_CONFIG_PHY_PIPELINE);
@@ -2619,16 +2629,15 @@ static void cqspi_mem_do_calibration(struct spi_mem *mem,
 	if (cqspi_phy_op_eligible(op)) {
 		f_pdata->use_dqs = true;
 
+		cqspi_phy_pre_config(cqspi, 0, 1, f_pdata);
 		ret = cqspi_phy_calibrate(f_pdata, mem);
 
 	} else if (cqspi_phy_op_eligible_sdr(op)) {
 		f_pdata->use_dqs = false;
 
-		cqspi_phy_pre_config_sdr(cqspi, f_pdata);
-
+		cqspi_phy_pre_config(cqspi, 1, 0, f_pdata);
 		ret = cqspi_phy_calibrate_sdr(f_pdata, mem);
 
-		cqspi_phy_post_config_sdr(cqspi);
 	} else {
 		dev_warn(dev,
 			 "Given read_op not eligible. Skipping Calibration.\n");
@@ -2638,6 +2647,8 @@ static void cqspi_mem_do_calibration(struct spi_mem *mem,
 	if (ret)
 		dev_info(&cqspi->pdev->dev, "PHY calibration failed: %d\n",
 			 ret);
+
+	cqspi_phy_post_config(cqspi, f_pdata->read_delay);
 }
 
 static int cqspi_of_get_flash_pdata(struct platform_device *pdev,
