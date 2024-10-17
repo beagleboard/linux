@@ -106,6 +106,7 @@ struct cqspi_st {
 	u32			num_chipselect;
 	bool			rclk_en;
 	u32			trigger_address;
+	u32			phase_detect_selector;
 	u32			wr_delay;
 	bool			use_direct_mode;
 	bool			use_direct_mode_wr;
@@ -2066,7 +2067,7 @@ static void cqspi_phy_set_dll_master(struct cqspi_st *cqspi)
 		  << CQSPI_REG_PHY_DLL_MASTER_DLY_ELMTS_LSB) |
 		 CQSPI_REG_PHY_DLL_MASTER_BYPASS |
 		 CQSPI_REG_PHY_DLL_MASTER_CYCLE);
-	reg |= ((CQSPI_REG_PHY_DLL_MASTER_DLY_ELMTS_3
+	reg |= ((cqspi->phase_detect_selector
 		 << CQSPI_REG_PHY_DLL_MASTER_DLY_ELMTS_LSB) |
 		CQSPI_REG_PHY_DLL_MASTER_CYCLE);
 
@@ -2510,6 +2511,13 @@ static void cqspi_mem_do_calibration(struct spi_mem *mem,
 
 	f_pdata = &cqspi->f_pdata[mem->spi->chip_select];
 
+	if (cqspi->phase_detect_selector >
+	    CQSPI_REG_PHY_DLL_MASTER_DLY_ELMTS_LEN) {
+		dev_warn(dev,
+			 "Phase Detect Selector should be in between [0, 7]. Skipping Calibration\n");
+		return;
+	}
+
 	if (op->cmd.dtr || op->addr.dtr || op->dummy.dtr || op->data.dtr) {
 		if (!cqspi_phy_op_eligible(op))
 			return;
@@ -2619,6 +2627,13 @@ static int cqspi_of_get_pdata(struct cqspi_st *cqspi)
 				 &cqspi->trigger_address)) {
 		dev_err(dev, "couldn't determine trigger-address\n");
 		return -ENXIO;
+	}
+
+	if (of_property_read_u32(np, "cdns,phase-detect-selector",
+				 &cqspi->phase_detect_selector)) {
+		dev_warn(dev, "couldn't determine phase-detect-selector\n");
+		cqspi->phase_detect_selector =
+			CQSPI_REG_PHY_DLL_MASTER_DLY_ELMTS_LEN + 1;
 	}
 
 	if (of_property_read_u32(np, "num-cs", &cqspi->num_chipselect))
