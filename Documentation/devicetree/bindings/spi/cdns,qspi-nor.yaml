@@ -114,6 +114,14 @@ properties:
     description:
       32-bit indirect AHB trigger address.
 
+  cdns,phase-detect-selector:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    description:
+      DLL Phase Detect Selector for sampling clock generation to handle the
+      clock domain crossing between the reference clock and sampling clock.
+      Refer SoC datasheet for the Phase Detect Selector value and assign
+      (Phase Detect Selector value - 1) to cdns,phase-detect-selector.
+
   cdns,is-decoded-cs:
     type: boolean
     description:
