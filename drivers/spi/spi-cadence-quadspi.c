@@ -2283,11 +2283,11 @@ static bool cqspi_phy_op_eligible(const struct spi_mem_op *op)
 		return false;
 	if (op->cmd.buswidth != 8)
 		return false;
-	if (op->addr.nbytes && op->addr.buswidth != 8)
+	if (!(op->addr.nbytes) || op->addr.buswidth != 8)
 		return false;
-	if (op->dummy.nbytes && op->dummy.buswidth != 8)
+	if (!(op->dummy.nbytes) || op->dummy.buswidth != 8)
 		return false;
-	if (op->data.nbytes && op->data.buswidth != 8)
+	if (!(op->data.nbytes) || op->data.buswidth != 8)
 		return false;
 
 	return true;
@@ -2295,11 +2295,13 @@ static bool cqspi_phy_op_eligible(const struct spi_mem_op *op)
 
 static bool cqspi_phy_op_eligible_sdr(const struct spi_mem_op *op)
 {
-	if (op->addr.nbytes && op->addr.buswidth < 1)
+	if (op->cmd.dtr || op->addr.dtr || op->dummy.dtr || op->data.dtr)
 		return false;
-	if (op->dummy.nbytes && op->dummy.buswidth < 1)
+	if (!(op->addr.nbytes) || op->addr.buswidth < 1)
 		return false;
-	if (op->data.nbytes && op->data.buswidth < 1)
+	if (!(op->dummy.nbytes) || op->dummy.buswidth < 1)
+		return false;
+	if (!(op->data.nbytes) || op->data.buswidth < 1)
 		return false;
 
 	return true;
@@ -2314,7 +2316,7 @@ static bool cqspi_use_phy(struct cqspi_flash_pdata *f_pdata,
 	if (op->data.nbytes < 16)
 		return false;
 
-	if (op->cmd.dtr || op->addr.dtr || op->dummy.dtr || op->data.dtr)
+	if (f_pdata->use_dqs)
 		return cqspi_phy_op_eligible(op);
 	else
 		return cqspi_phy_op_eligible_sdr(op);
@@ -2614,18 +2616,12 @@ static void cqspi_mem_do_calibration(struct spi_mem *mem,
 		return;
 	}
 
-	if (op->cmd.dtr || op->addr.dtr || op->dummy.dtr || op->data.dtr) {
-		if (!cqspi_phy_op_eligible(op))
-			return;
-
+	if (cqspi_phy_op_eligible(op)) {
 		f_pdata->use_dqs = true;
 
 		ret = cqspi_phy_calibrate(f_pdata, mem);
 
-	} else {
-		if (!cqspi_phy_op_eligible_sdr(op))
-			return;
-
+	} else if (cqspi_phy_op_eligible_sdr(op)) {
 		f_pdata->use_dqs = false;
 
 		cqspi_phy_pre_config_sdr(cqspi, f_pdata);
@@ -2633,6 +2629,10 @@ static void cqspi_mem_do_calibration(struct spi_mem *mem,
 		ret = cqspi_phy_calibrate_sdr(f_pdata, mem);
 
 		cqspi_phy_post_config_sdr(cqspi);
+	} else {
+		dev_warn(dev,
+			 "Given read_op not eligible. Skipping Calibration.\n");
+		return;
 	}
 
 	if (ret)
