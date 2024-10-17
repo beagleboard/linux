@@ -2599,6 +2599,7 @@ static void cqspi_mem_do_calibration(struct spi_mem *mem,
 	int ret;
 
 	f_pdata = &cqspi->f_pdata[mem->spi->chip_select];
+	f_pdata->phy_read_op = *op;
 
 	if (cqspi->phase_detect_selector >
 	    CQSPI_REG_PHY_DLL_MASTER_DLY_ELMTS_LEN) {
@@ -2607,48 +2608,36 @@ static void cqspi_mem_do_calibration(struct spi_mem *mem,
 		return;
 	}
 
+	ret = cqspi_phy_check_pattern(f_pdata, mem);
+	if (ret) {
+		dev_warn(dev, "Pattern not found. Skipping calibration.\n");
+		return;
+	}
+
 	if (op->cmd.dtr || op->addr.dtr || op->dummy.dtr || op->data.dtr) {
 		if (!cqspi_phy_op_eligible(op))
 			return;
 
-		f_pdata->phy_read_op = *op;
 		f_pdata->use_dqs = true;
 
-		ret = cqspi_phy_check_pattern(f_pdata, mem);
-		if (ret) {
-			dev_dbg(dev,
-				"Pattern not found. Skipping calibration.\n");
-			return;
-		}
-
 		ret = cqspi_phy_calibrate(f_pdata, mem);
-		if (ret)
-			dev_info(&cqspi->pdev->dev,
-				 "PHY calibration failed: %d\n", ret);
 
 	} else {
 		if (!cqspi_phy_op_eligible_sdr(op))
 			return;
 
-		f_pdata->phy_read_op = *op;
 		f_pdata->use_dqs = false;
-
-		ret = cqspi_phy_check_pattern(f_pdata, mem);
-		if (ret) {
-			dev_dbg(dev,
-				"Pattern not found. Skipping calibration.\n");
-			return;
-		}
 
 		cqspi_phy_pre_config_sdr(cqspi, f_pdata);
 
 		ret = cqspi_phy_calibrate_sdr(f_pdata, mem);
-		if (ret)
-			dev_info(&cqspi->pdev->dev,
-				 "PHY calibration failed: %d\n", ret);
 
 		cqspi_phy_post_config_sdr(cqspi);
 	}
+
+	if (ret)
+		dev_info(&cqspi->pdev->dev, "PHY calibration failed: %d\n",
+			 ret);
 }
 
 static int cqspi_of_get_flash_pdata(struct platform_device *pdev,
