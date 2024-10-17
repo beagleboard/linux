@@ -359,6 +359,47 @@ static const u8 phy_tuning_pattern[] = {
 0xFE, 0xFE, 0x01, 0x01, 0x01, 0x01, 0xFE, 0xFE, 0xFE, 0xFE, 0x01,
 };
 
+static bool cqspi_is_idle(struct cqspi_st *cqspi)
+{
+	u32 reg = readl(cqspi->iobase + CQSPI_REG_CONFIG);
+
+	return reg & (1UL << CQSPI_REG_CONFIG_IDLE_LSB);
+}
+
+static int cqspi_wait_idle(struct cqspi_st *cqspi)
+{
+	const unsigned int poll_idle_retry = 3;
+	unsigned int count = 0;
+	unsigned long timeout;
+
+	timeout = jiffies + msecs_to_jiffies(CQSPI_TIMEOUT_MS);
+	while (1) {
+		/*
+		 * Read few times in succession to ensure the controller
+		 * is indeed idle, that is, the bit does not transition
+		 * low again.
+		 */
+
+		if (cqspi_is_idle(cqspi))
+			count++;
+		else
+			count = 0;
+
+		if (count >= poll_idle_retry)
+			return 0;
+
+		if (time_after(jiffies, timeout)) {
+			/* Timeout, in busy mode. */
+
+			dev_err(&cqspi->pdev->dev,
+				"QSPI is still busy after %dms timeout.\n",
+				CQSPI_TIMEOUT_MS);
+			return -ETIMEDOUT;
+		}
+		cpu_relax();
+	}
+}
+
 static void cqspi_set_tx_dll(void __iomem *reg_base, u8 dll)
 {
 	unsigned int reg;
@@ -1057,13 +1098,6 @@ static int cqspi_wait_for_bit(void __iomem *reg, const u32 mask, bool clr)
 					  10, CQSPI_TIMEOUT_MS * 1000);
 }
 
-static bool cqspi_is_idle(struct cqspi_st *cqspi)
-{
-	u32 reg = readl(cqspi->iobase + CQSPI_REG_CONFIG);
-
-	return reg & (1UL << CQSPI_REG_CONFIG_IDLE_LSB);
-}
-
 static u32 cqspi_get_rd_sram_level(struct cqspi_st *cqspi)
 {
 	u32 reg = readl(cqspi->iobase + CQSPI_REG_SDRAMLEVEL);
@@ -1140,39 +1174,6 @@ static unsigned int cqspi_calc_dummy(const struct spi_mem_op *op)
 		dummy_clk /= 2;
 
 	return dummy_clk;
-}
-
-static int cqspi_wait_idle(struct cqspi_st *cqspi)
-{
-	const unsigned int poll_idle_retry = 3;
-	unsigned int count = 0;
-	unsigned long timeout;
-
-	timeout = jiffies + msecs_to_jiffies(CQSPI_TIMEOUT_MS);
-	while (1) {
-		/*
-		 * Read few times in succession to ensure the controller
-		 * is indeed idle, that is, the bit does not transition
-		 * low again.
-		 */
-		if (cqspi_is_idle(cqspi))
-			count++;
-		else
-			count = 0;
-
-		if (count >= poll_idle_retry)
-			return 0;
-
-		if (time_after(jiffies, timeout)) {
-			/* Timeout, in busy mode. */
-			dev_err(&cqspi->pdev->dev,
-				"QSPI is still busy after %dms timeout.\n",
-				CQSPI_TIMEOUT_MS);
-			return -ETIMEDOUT;
-		}
-
-		cpu_relax();
-	}
 }
 
 static void cqspi_readdata_capture(struct cqspi_st *cqspi, const bool bypass,
