@@ -743,6 +743,7 @@
 			cdns,fifo-depth = <256>;
 			cdns,fifo-width = <4>;
 			cdns,trigger-address = <0x0>;
+			cdns,phase-detect-selector = <0>;
 			clocks = <&k3_clks 75 7>;
 			assigned-clocks = <&k3_clks 75 7>;
 			assigned-clock-parents = <&k3_clks 75 8>;
