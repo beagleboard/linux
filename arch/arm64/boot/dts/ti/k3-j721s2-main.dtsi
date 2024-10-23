@@ -78,11 +78,11 @@
 		};
 
 		edp_serdes_mux: mux-controller@310 {
-			compatible = "mmio-mux";
+			compatible = "reg-mux";
 			reg = <0x310 0x4>;
 			#mux-control-cells = <1>;
 			/* EDP0 to SERDES0 lane 0/1 or 2/3 mux */
-			mux-reg-masks = <0x310 0x10000000>;
+			mux-reg-masks = <0x0 0x10000000>;
 		};
 
 		audio_refclk1: clock-controller@42e4 {
