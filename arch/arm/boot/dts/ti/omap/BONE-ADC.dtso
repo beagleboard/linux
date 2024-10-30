@@ -1,0 +1,28 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright (C) 2020 Deepak Khatri <deepaklorkhatri7@gmail.com>
+ * See Cape Interface Spec page for more info on Bone Buses
+ * https://elinux.org/Beagleboard:BeagleBone_cape_interface_spec
+ *
+ * Virtual cape for Bone ADC
+ */
+
+/dts-v1/;
+/plugin/;
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+ */
+&{/chosen} {
+	overlays {
+		BONE-ADC.kernel = __TIMESTAMP__;
+	};
+};
+
+/*
+ * See these files for the phandles (&bone_*) and other bone bus nodes
+ * am335x-bbb-bone-buses.dtsi
+ */
+&bone_adc {
+	status = "okay";
+};
