@@ -1,0 +1,39 @@
+// SPDX-License-Identifier: GPL-2.0-only OR MIT
+/*
+ * DT Overlay for P9_14 and P9_16 epwm2 connections within the expansion header.
+ *
+ * Copyright (C) 2023 Texas Instruments Incorporated - https://www.ti.com/
+ *
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include "k3-pinctrl.h"
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+*/
+&{/chosen} {
+	overlays {
+		k3-j721e-beagleboneai64-pwm-epwm2-p9_14-p9_16.kernel = __TIMESTAMP__;
+		p9_14.3020000.pwm = "k3-j721e-beagleboneai64-pwm-epwm2-p9_14.3020000.0.P9_14";
+		p9_16.3020000.pwm = "k3-j721e-beagleboneai64-pwm-epwm2-p9_16.3020000.1.P9_16";
+	};
+};
+
+&main_pmx0 {
+	P9_14_P9_16_pwm: P9-14-P9-16-pwm-pins {
+		pinctrl-single,pins = <
+			J721E_IOPAD(0x178, PIN_OUTPUT, 6) /* (U27) RGMII5_RD3.EHRPWM2_A */
+			J721E_IOPAD(0x17C, PIN_OUTPUT, 6) /* (U24) RGMII5_RD2.EHRPWM2_B */
+		>;
+	};
+};
+
+&epwm2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&P9_14_P9_16_pwm>;
+	status = "okay";
+};
