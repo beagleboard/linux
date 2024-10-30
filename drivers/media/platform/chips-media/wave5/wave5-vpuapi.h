@@ -854,6 +854,7 @@ struct vpu_instance {
 	bool nv21;
 	bool eos;
 	bool retry;
+	bool empty_queue;
 	int queuing_num;
 	struct mutex feed_lock; /* lock for feeding bitstream buffers */
 	struct vpu_buf bitstream_vbuf;
