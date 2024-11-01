@@ -11,6 +11,7 @@
 #include <dt-bindings/leds/common.h>
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/net/ti-dp83867.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
 #include "k3-am62p5.dtsi"
 
 / {
@@ -160,7 +161,15 @@
 			 <3300000 0x1>;
 		bootph-all;
 	};
-
+       vcc_3v3_main: regulator-4 {
+	       compatible = "regulator-fixed";
+	       regulator-name = "vcc_3v3_main";
+	       regulator-min-microvolt = <3300000>;
+	       regulator-max-microvolt = <3300000>;
+	       vin-supply = <&vmain_pd>;
+	       regulator-always-on;
+	       regulator-boot-on;
+	};
 	leds {
 		compatible = "gpio-leds";
 		pinctrl-names = "default";
@@ -809,6 +818,12 @@
 &mcu_pmx0 {
 	bootph-all;
 
+	pmic_irq_pins_default: pmic-irq-default-pins {
+	       pinctrl-single,pins = <
+		       AM62PX_MCU_IOPAD(0x000, PIN_INPUT, 7) /* (B10) MCU_GPIO0_0 */
+	       >;
+	};
+
 	wkup_uart0_pins_default: wkup-uart0-default-pins {
 		pinctrl-single,pins = <
 			AM62PX_MCU_IOPAD(0x024, PIN_INPUT, 0)	/* (D8) WKUP_UART0_RXD */
@@ -816,6 +831,14 @@
 		>;
 		bootph-all;
 	};
+
+	wkup_i2c0_pins_default: wkup-i2c0-default-pins {
+	       pinctrl-single,pins = <
+		       AM62PX_MCU_IOPAD(0x04c, PIN_INPUT, 0) /* (A13) WKUP_I2C0_SCL */
+		       AM62PX_MCU_IOPAD(0x050, PIN_INPUT, 0) /* (C11) WKUP_I2C0_SDA */
+	       >;
+	};
+
 };
 
 &wkup_uart0 {
@@ -826,13 +849,91 @@
 	bootph-all;
 };
 
+&wkup_i2c0 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&wkup_i2c0_pins_default>;
+	clock-frequency = <400000>;
+
+	tps65224: pmic@48 {
+	       compatible = "ti,tps65224-q1";
+	       reg = <0x48>;
+	       pinctrl-names = "default";
+	       pinctrl-0 = <&pmic_irq_pins_default>;
+	       interrupt-parent = <&mcu_gpio0>;
+	       interrupts = <0 IRQ_TYPE_EDGE_FALLING>;
+	       ti,primary-pmic;
+
+	       gpio-controller;
+	       #gpio-cells = <2>;
+
+	       buck12-supply = <&vcc_3v3_main>;
+	       buck3-supply = <&vcc_3v3_main>;
+	       buck4-supply = <&vcc_3v3_main>;
+
+	       ldo1-supply = <&vcc_3v3_main>;
+	       ldo2-supply = <&vcc_3v3_main>;
+	       ldo3-supply = <&buck3>;
+
+	       regulators {
+		       buck12: buck12 {
+			       regulator-name = "vcc_core_buck12";
+			       regulator-min-microvolt = <715000>;
+			       regulator-max-microvolt = <895000>;
+			       regulator-boot-on;
+			       regulator-always-on;
+		       };
+
+		       buck3: buck3 {
+			       regulator-name = "vcc1v8_sys_buck3";
+			       regulator-min-microvolt = <1800000>;
+			       regulator-max-microvolt = <1800000>;
+			       regulator-boot-on;
+			       regulator-always-on;
+		       };
+
+		       buck4: buck4 {
+			       regulator-name = "vcc1v1_buck4";
+			       regulator-min-microvolt = <1100000>;
+			       regulator-max-microvolt = <1100000>;
+			       regulator-boot-on;
+			       regulator-always-on;
+		       };
+
+		       ldo1: ldo1 {
+			       regulator-name = "vdda1v8_ldo1";
+			       regulator-min-microvolt = <1800000>;
+			       regulator-max-microvolt = <1800000>;
+			       regulator-boot-on;
+			       regulator-always-on;
+		       };
+
+		       ldo2: ldo2 {
+			       regulator-name = "dvdd3v3_ldo2";
+			       regulator-min-microvolt = <3300000>;
+			       regulator-max-microvolt = <3300000>;
+			       regulator-boot-on;
+			       regulator-always-on;
+		       };
+
+		       ldo3: ldo3 {
+			       regulator-name = "vcc_0v85_ldo3";
+			       regulator-min-microvolt = <850000>;
+			       regulator-max-microvolt = <850000>;
+			       regulator-boot-on;
+			       regulator-always-on;
+		       };
+	       };
+	};
+};
+
 /* mcu_gpio0 and mcu_gpio_intr are reserved for mcu firmware usage */
 &mcu_gpio0 {
-	status = "reserved";
+	status = "okay";
 };
 
 &mcu_gpio_intr {
-	status = "reserved";
+	status = "okay";
 };
 
 &dss_oldi_io_ctrl {
