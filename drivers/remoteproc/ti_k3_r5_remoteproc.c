@@ -826,7 +826,7 @@ static int k3_r5_rproc_stop(struct rproc *rproc)
 	struct k3_r5_rproc *kproc = rproc->priv;
 	struct k3_r5_cluster *cluster = kproc->cluster;
 	struct device *dev = kproc->dev;
-	struct k3_r5_core *core1, *core = kproc->core;
+	struct k3_r5_core *core = kproc->core;
 	unsigned long msg = RP_MBOX_SHUTDOWN;
 	int ret;
 	u32 stat = 0;
