@@ -1663,7 +1663,6 @@ static int vport_update_vlan_mcast(struct net_device *vdev, int vid,
 {
 	struct net_device *vport_ndev;
 	struct virtual_port *vport;
-	struct netdev_hw_addr *ha;
 
 	if (!vdev || !vid)
 		return 0;
