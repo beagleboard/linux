@@ -76,14 +76,10 @@ static void wave5_vpu_handle_irq(void *dev_id)
 		    irq_reason & BIT(INT_WAVE5_ENC_PIC)) {
 			if (cmd_done & BIT(inst->id)) {
 				cmd_done &= ~BIT(inst->id);
-				if (dev->irq < 0) {
-					irq_subreason = wave5_vdi_read_register(dev, W5_VPU_VINT_REASON);
-					if (!(irq_subreason & BIT(INT_WAVE5_DEC_PIC)))
-						wave5_vdi_write_register(dev, W5_RET_QUEUE_CMD_DONE_INST,
-									cmd_done);
-				} else
+				irq_subreason = wave5_vdi_read_register(dev, W5_VPU_VINT_REASON);
+				if (!(irq_subreason & BIT(INT_WAVE5_DEC_PIC)))
 					wave5_vdi_write_register(dev, W5_RET_QUEUE_CMD_DONE_INST,
-							 cmd_done);
+							cmd_done);
 				inst->ops->finish_process(inst);
 			}
 		}

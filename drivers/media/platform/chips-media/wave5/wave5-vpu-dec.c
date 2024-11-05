@@ -1686,12 +1686,16 @@ static void wave5_vpu_dec_stop_streaming(struct vb2_queue *q)
 
 	while (check_cmd) {
 		struct queue_status_info q_status;
+		struct dec_output_info dec_output_info;
 
 		wave5_vpu_dec_give_command(inst, DEC_GET_QUEUE_STATUS, &q_status);
 
 		if ((inst->state == VPU_INST_STATE_STOP || q_status.instance_queue_count == 0) &&
 		    q_status.report_queue_count == 0)
 			break;
+
+		if (wave5_vpu_dec_get_output_info(inst, &dec_output_info))
+			dev_dbg(inst->dev->dev, "there is no output info\n");
 	}
 
 	v4l2_m2m_update_stop_streaming_state(m2m_ctx, q);
