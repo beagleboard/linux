@@ -33,8 +33,9 @@ struct tidss_device {
 
 	unsigned int irq;
 
-	spinlock_t wait_lock;	/* protects the irq masks */
-	dispc_irq_t irq_mask;	/* enabled irqs in addition to wait_list */
+	/* protects the irq masks field and irqenable/irqstatus registers */
+	spinlock_t irq_lock;
+	dispc_irq_t irq_mask;	/* enabled irqs */
 
 	bool shared_mode; /* DSS resources shared between remote core and Linux */
 	/* 1: VP owned by Linux 0: VP is owned by remote and shared with Linux */

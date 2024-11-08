@@ -250,7 +250,7 @@ static int tidss_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, tidss);
 
-	spin_lock_init(&tidss->wait_lock);
+	spin_lock_init(&tidss->irq_lock);
 
 	tidss->shared_mode = device_property_read_bool(dev, "ti,dss-shared-mode");
 	check_for_simplefb_device(tidss);
