@@ -1,0 +1,97 @@
+// SPDX-License-Identifier: GPL-2.0-only OR MIT
+/*
+ * https://beagleboard.org/ai-64
+ * Copyright (C) 2022-2024 Texas Instruments Incorporated - https://www.ti.com/
+ * Copyright (C) 2022-2024 Jason Kridner, BeagleBoard.org Foundation
+ * Copyright (C) 2022-2024 Robert Nelson, BeagleBoard.org Foundation
+ */
+
+#include <dt-bindings/gpio/gpio.h>
+
+/ {
+	chosen {
+		base_dtb = "k3-j721e-beagleboneai64.dts";
+		base_dtb_timestamp = __TIMESTAMP__;
+	};
+
+	leds {
+		led-0 {
+			label = "beaglebone:green:usr0";
+		};
+
+		led-1 {
+			label = "beaglebone:green:usr1";
+		};
+
+		led-2 {
+			label = "beaglebone:green:usr2";
+		};
+
+		led-3 {
+			label = "beaglebone:green:usr3";
+		};
+
+		led-4 {
+			label = "beaglebone:green:usr4";
+			linux,default-trigger = "phy0tx";
+		};
+	};
+};
+
+&main_gpio0 {
+	gpio-line-names = "", "", "", "", "P8_18", /* 0-4 */
+			  "", "", "", "", "", /* 5-9 */
+			  "", "", "", "", "", /* 10-14 */
+			  "", "", "", "", "", /* 15-19 */
+			  "", "", "", "", "", /* 20-24 */
+			  "", "", "", "", "", /* 25-29 */
+			  "", "", "", "", "", /* 30-34 */
+			  "", "", "", "", "", /* 35-39 */
+			  "", "", "", "", "", /* 40-44 */
+			  "", "", "", "", "", /* 45-49 */
+			  "", "P8_26", "", "", "", /* 50-54 */
+			  "", "", "", "", "", /* 55-59 */
+			  "", "", "P8_16", "", "", /* 60-64 */
+			  "", "", "", "", "", /* 65-69 */
+			  "", "", "", "", "", /* 70-74 */
+			  "P8_14", "", "", "", "", /* 75-79 */
+			  "", "", "", "", "", /* 80-84 */
+			  "", "", "", "", "", /* 85-89 */
+			  "", "", "", "P9_14", "P9_16", /* 90-94 */
+			  "", "", "", "", ""; /* 95-99 */
+};
+
+&main_gpio1 {
+	gpio-line-names = "", "", "", "", "", /* 0-4 */
+			  "", "", "", "", "", /* 5-9 */
+			  "", "", "", "", "", /* 10-14 */
+			  "", "", "", "", "", /* 15-19 */
+			  "", "", "", "", "", /* 20-24 */
+			  "", "", "", "", "", /* 25-29 */
+			  "", "", "", "", "", /* 30-34 */
+			  "", "", "", "", "", /* 35-39 */
+			  "", "", "", "", ""; /* 40-44 */
+};
+
+bone_i2c_2: &main_i2c2 {
+	/* BBB Header: P9.19 and P9.20 */
+	clock-frequency = <100000>;
+};
+
+bone_i2c_3: &main_i2c4 {
+	/* BBB Header: P9.24 and P9.26 */
+	clock-frequency = <100000>;
+};
+
+bone_i2c_1: &main_i2c6 {
+	/* BBB Header: P9.17 and P9.18 */
+	clock-frequency = <100000>;
+};
+
+epwm0: &main_ehrpwm0 {
+	status = "okay";
+};
+
+epwm2: &main_ehrpwm2 {
+	status = "okay";
+};

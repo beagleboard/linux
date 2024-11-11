@@ -12,6 +12,7 @@
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/input/input.h>
 #include "k3-am625.dtsi"
+#include "k3-am625-beagleplay-pinmux.dtsi"
 
 / {
 	compatible = "beagle,am625-beagleplay", "ti,am625";
@@ -33,6 +34,7 @@
 		mmc1 = &sdhci1;
 		mmc2 = &sdhci2;
 		rtc0 = &rtc;
+		rtc1 = &wkup_rtc0;
 		serial0 = &main_uart5;
 		serial1 = &main_uart6;
 		serial2 = &main_uart0;
@@ -419,6 +421,12 @@
 		>;
 	};
 
+	mikrobus_pwm_pins_default: mikrobus-pwm-default-pins {
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x01a4, PIN_INPUT, 2) /* (B20) MCASP0_ACLKX.ECAP2_IN_APWM_OUT */
+		>;
+	};
+
 	main_uart0_pins_default: main-uart0-default-pins {
 		bootph-all;
 		pinctrl-single,pins = <
@@ -644,6 +652,15 @@
 		"", "", "", "", "", "", "", "", "", "", "", "",	/* 26-37 */
 		"", "", "", "", "", "", "", "", "", "",		/* 38-47 */
 		"SD_CD", "SD_VOLT_SEL", "", "";			/* 48-51 */
+};
+
+&mcu_gpio0 {
+	gpio-line-names = "", "", "", "",			/* 0-3 */
+		"", "", "", "",					/* 4-7 */
+		"", "", "", "",					/* 8-11 */
+		"", "", "", "",					/* 12-15 */
+		"", "QWIIC_I2C0_SCL", "QWIIC_I2C0_SDA", "",	/* 16-19 */
+		"", "", "", "";					/* 20-23 */
 };
 
 &main_i2c0 {
@@ -925,4 +942,10 @@
 	       0 0 0 0
 	       0 0 0 0
 	>;
+};
+
+&ecap2 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&mikrobus_pwm_pins_default>;
 };
