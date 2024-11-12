@@ -148,10 +148,19 @@ static int tas_set_trigger_list_change(struct prueth_emac *emac)
 	base_time = admin_list->base_time;
 	cur_time = prueth_iep_gettime(emac, &sts);
 
+	/* If base_time is in future, schedule will start at base_time.
+	 * If base_time is in past, the schedule will start at
+	 * base-time + (N * cycle-time) where N is the smallest integer so the
+	 * resulting time is greater than cur_time. For resulting time to be
+	 * greater than cur_time, N > (cur_time - base_time) / cycle_time.
+	 * Schedule will now start at a time greater than
+	 * base-time + ((cur_time - base_time) / cycle_time * cycle-time)
+	 * i.e. greater than cur_time
+	 */
 	if (base_time > cur_time)
-		change_cycle_count = DIV_ROUND_UP_ULL(base_time - cur_time, cycle_time);
+		change_cycle_count = base_time / cycle_time;
 	else
-		change_cycle_count = 1;
+		change_cycle_count = cur_time / cycle_time + 1;
 
 	writel(cycle_time, emac->dram.va + TAS_ADMIN_CYCLE_TIME);
 	writel(change_cycle_count, emac->dram.va + TAS_CONFIG_CHANGE_CYCLE_COUNT);
