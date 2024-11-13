@@ -1172,9 +1172,9 @@
 					reg = <0x3c>;
 					#clock-cells = <0>;
 					clocks = <&k3_clks 81 0>,  /* pruss_core_clk */
-						 <&k3_clks 81 20>; /* pruss_iclk */
+						 <&k3_clks 81 14>; /* pruss_iclk */
 					assigned-clocks = <&pruss_coreclk_mux>;
-					assigned-clock-parents = <&k3_clks 81 20>;
+					assigned-clock-parents = <&k3_clks 81 14>;
 				};
 
 				pruss_iepclk_mux: iepclk-mux@30 {
