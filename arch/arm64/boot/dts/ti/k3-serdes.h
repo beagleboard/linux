@@ -1,8 +1,8 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0-only OR MIT */
 /*
  * This header provides constants for SERDES MUX for TI SoCs
  *
- * Copyright (C) 2023 Texas Instruments Incorporated - https://www.ti.com/
+ * Copyright (C) 2023-2024 Texas Instruments Incorporated - https://www.ti.com/
  */
 
 #ifndef DTS_ARM64_TI_K3_SERDES_H
@@ -202,6 +202,7 @@
 #define J784S4_SERDES4_LANE3_IP4_UNUSED		0x3
 
 /* J722S */
+
 #define J722S_SERDES0_LANE0_USB			0x0
 #define J722S_SERDES0_LANE0_QSGMII_LANE2	0x1
 
