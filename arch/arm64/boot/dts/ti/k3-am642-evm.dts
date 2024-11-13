@@ -857,16 +857,11 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&cpsw_cpts_pps>;
 
-	/*
-	 * Use Time Sync Router to map GENF1 input to HW8_TS_PUSH output as well
-	 * as the PRU ICSSG0 SYNC1 output.
-	 */
+	/* Use Time Sync Router to map GENF1 input to HW8_TS_PUSH output. */
 	cpsw_cpts_pps: cpsw-cpts-pps {
 		pinctrl-single,pins = <
 			/* pps [cpts genf1] in22 -> out37 [cpts hw8_push] */
 			TS_OFFSET(37, 22)
-			/* pps [cpts genf1] in22 -> out26 [SYNC1_OUT pin] */
-			TS_OFFSET(26, 22)
 			>;
 	};
 };
