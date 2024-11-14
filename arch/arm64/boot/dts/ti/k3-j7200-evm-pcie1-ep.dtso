@@ -24,10 +24,6 @@
 	status = "disabled";
 };
 
-&pcie1_ep {
-	status = "okay";
-};
-
 &cbass_main {
 	#address-cells = <2>;
 	#size-cells = <2>;
