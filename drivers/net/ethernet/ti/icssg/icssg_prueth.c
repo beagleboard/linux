@@ -1684,7 +1684,7 @@ static int prueth_dl_cut_thru_en_set(struct devlink *dl, u32 id,
 	if (id != PRUETH_DL_PARAM_CUT_THRU_EN)
 		return -EOPNOTSUPP;
 
-	if (!prueth->is_switch_mode) {
+	if (!prueth->is_switch_mode && !prueth->is_hsr_offload_mode) {
 		dev_err(prueth->dev, "Cut-Thru not supported in MAC mode\n");
 		return -EINVAL;
 	}
