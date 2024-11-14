@@ -63,7 +63,7 @@ static struct vxe_enc_fmt vxe_enc_formats[] = {
 		.csc_preset = IMG_CSC_NONE,
 	},
 	{
-		.fourcc = V4L2_PIX_FMT_ARGB32,
+		.fourcc = V4L2_PIX_FMT_XRGB32,
 		.num_planes = 1,
 		.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE,
 		.fmt = IMG_CODEC_XBCA,
@@ -1060,11 +1060,19 @@ static int vxe_try_fmt(struct file *file, void *priv, struct v4l2_format *f)
 		pix_mp->width = width;
 		pix_mp->height = height;
 
+		if (fmt->fourcc == V4L2_PIX_FMT_XRGB32) {
+			if (!IS_ALIGNED(pix_mp->width, 1 << 6)) {
+				pr_warn("Width must be aligned to 64\n");
+				return -EINVAL;
+			}
+		}
+
 		for (i = 0; i < fmt->num_planes; i++) {
 			plane_fmt[i].bytesperline = vxe_get_stride(pix_mp->width, fmt);
 			plane_fmt[i].sizeimage = vxe_get_sizeimage(plane_fmt[i].bytesperline,
 								   pix_mp->height, fmt, i);
 		}
+
 	} else {
 		/* Worst case estimation of sizeimage
 		 *plane_fmt[0].sizeimage = ALIGN(pix_mp->width, HW_ALIGN) *
