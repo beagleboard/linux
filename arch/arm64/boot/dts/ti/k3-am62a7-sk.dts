@@ -848,6 +848,10 @@
 	};
 };
 
+&main_rti4 {
+	status = "reserved";
+};
+
 &c7x_0 {
 	mboxes = <&mailbox0_cluster1>, <&mbox_c7x_0>;
 	memory-region = <&c7x_0_dma_memory_region>,
