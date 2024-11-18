@@ -1,0 +1,64 @@
+// SPDX-License-Identifier: GPL-2.0-only OR MIT
+/*
+ * https://beagleplay.org/
+ *
+ * Copyright (C) 2022-2024 Texas Instruments Incorporated - https://www.ti.com/
+ * Copyright (C) 2022-2024 Robert Nelson, BeagleBoard.org Foundation
+ */
+
+#include <dt-bindings/gpio/gpio.h>
+
+/ {
+	chosen {
+		base_dtb = "k3-am625-beagleplay.dts";
+		base_dtb_timestamp = __TIMESTAMP__;
+	};
+
+	leds {
+		led-0 {
+			label = "beaglebone:green:usr0";
+		};
+
+		led-1 {
+			label = "beaglebone:green:usr1";
+		};
+
+		led-2 {
+			label = "beaglebone:green:usr2";
+			linux,default-trigger = "cpu";
+		};
+
+		led-3 {
+			label = "beaglebone:green:usr3";
+		};
+
+		led-4 {
+			label = "beaglebone:green:usr4";
+			linux,default-trigger = "phy0tx";
+		};
+	};
+};
+
+&wkup_i2c0 {
+	symlink = "play/csi/i2c";
+};
+
+&mcu_i2c0 {
+	symlink = "play/qwiic/i2c";
+};
+
+&main_i2c3 {
+	symlink = "play/mikrobus/i2c";
+};
+
+&main_uart5 {
+	symlink = "play/mikrobus/uart";
+};
+
+&main_uart6 {
+	symlink = "play/cc1352/uart";
+
+	mcu {
+		status = "okay";
+	};
+};
