@@ -63,6 +63,7 @@ struct davinci_gpio_controller {
 	int			irqs[MAX_INT_PER_BANK];
 	struct davinci_gpio_regs context[MAX_REGS_BANKS];
 	u32			binten_context;
+	bool		needs_context_restore;
 };
 
 static inline u32 __gpio_mask(unsigned gpio)
@@ -259,6 +260,7 @@ static int davinci_gpio_probe(struct platform_device *pdev)
 	chips->chip.request = gpiochip_generic_request;
 	chips->chip.free = gpiochip_generic_free;
 #endif
+	chips->needs_context_restore = false;
 	spin_lock_init(&chips->lock);
 
 	nbank = DIV_ROUND_UP(ngpio, 32);
@@ -682,6 +684,7 @@ static int davinci_gpio_suspend(struct device *dev)
 	u32 nbank = DIV_ROUND_UP(pdata->ngpio, 32);
 
 	davinci_gpio_save_context(chips, nbank);
+	chips->needs_context_restore = true;
 
 	return 0;
 }
@@ -692,7 +695,10 @@ static int davinci_gpio_resume(struct device *dev)
 	struct davinci_gpio_platform_data *pdata = dev_get_platdata(dev);
 	u32 nbank = DIV_ROUND_UP(pdata->ngpio, 32);
 
-	davinci_gpio_restore_context(chips, nbank);
+	if (chips->needs_context_restore) {
+		davinci_gpio_restore_context(chips, nbank);
+		chips->needs_context_restore = false;
+	}
 
 	return 0;
 }
@@ -716,6 +722,18 @@ static struct platform_driver davinci_gpio_driver = {
 		.of_match_table	= of_match_ptr(davinci_gpio_ids),
 	},
 };
+
+static int davinci_gpio_resume_wrapper(struct device *dev, void *unused)
+{
+	return davinci_gpio_resume(dev);
+}
+
+int davinci_gpio_resume_all_devices(void)
+{
+	return driver_for_each_device(&davinci_gpio_driver.driver, NULL,
+					NULL, davinci_gpio_resume_wrapper);
+}
+EXPORT_SYMBOL(davinci_gpio_resume_all_devices);
 
 /*
  * GPIO driver registration needs to be done before machine_init functions
