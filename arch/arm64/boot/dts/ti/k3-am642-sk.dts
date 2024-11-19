@@ -701,6 +701,23 @@
 	status = "okay";
 };
 
+/* main domain timers 8 to 11 are used by TI MCU FW */
+&main_timer8 {
+	status = "reserved";
+};
+
+&main_timer9 {
+	status = "reserved";
+};
+
+&main_timer10 {
+	status = "reserved";
+};
+
+&main_timer11 {
+	status = "reserved";
+};
+
 &ecap0 {
 	status = "okay";
 	/* PWM is available on Pin 1 of header J3 */
