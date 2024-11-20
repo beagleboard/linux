@@ -3633,8 +3633,7 @@ static void __maybe_unused cqspi_restore_context(struct cqspi_st *cqspi)
 	struct device *dev = &cqspi->pdev->dev;
 	int ret;
 
-	if (!(cqspi->f_pdata->use_dqs))
-		cqspi_phy_set_dll_master(cqspi);
+	cqspi_phy_set_dll_master(cqspi);
 
 	ret = cqspi_phy_apply_setting(cqspi->f_pdata,
 				      &cqspi->f_pdata->phy_setting);
