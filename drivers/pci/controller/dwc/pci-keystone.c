@@ -578,19 +578,19 @@ static void ks_pcie_quirk(struct pci_dev *dev)
 	 */
 	if (pci_match_id(rc_pci_devids, bridge)) {
 		if (pcie_get_readrq(dev) > 256) {
-			dev_info(&dev->dev, "limiting MRRS to 256\n");
+			dev_info(&dev->dev, "limiting MRRS to 256 bytes\n");
 			pcie_set_readrq(dev, 256);
 		}
 	}
 
 	/*
 	 * Memory transactions fail with PCI controller in AM654 PG1.0
-	 * when MRRS is set to more than 128 Bytes. Force the MRRS to
-	 * 128 Bytes in all downstream devices.
+	 * when MRRS is set to more than 128 bytes. Force the MRRS to
+	 * 128 bytes in all downstream devices.
 	 */
 	if (pci_match_id(am6_pci_devids, bridge)) {
 		bridge_dev = pci_get_host_bridge_device(dev);
-		if (!bridge_dev && !bridge_dev->parent)
+		if (!bridge_dev || !bridge_dev->parent)
 			return;
 
 		ks_pcie = dev_get_drvdata(bridge_dev->parent);
@@ -604,7 +604,7 @@ static void ks_pcie_quirk(struct pci_dev *dev)
 			return;
 
 		if (pcie_get_readrq(dev) > 128) {
-			dev_info(&dev->dev, "limiting MRRS to 128\n");
+			dev_info(&dev->dev, "limiting MRRS to 128 bytes\n");
 			pcie_set_readrq(dev, 128);
 		}
 	}
