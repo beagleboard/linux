@@ -25,6 +25,7 @@
 #include <media/v4l2-event.h>
 #include <media/v4l2-fwnode.h>
 #include <media/v4l2-subdev.h>
+#include <media/mipi-csi2.h>
 
 /* min/typical/max system clock (xclk) frequencies */
 #define OV5640_XCLK_MIN  6000000
@@ -3764,6 +3765,45 @@ static int ov5640_init_cfg(struct v4l2_subdev *sd,
 	return 0;
 }
 
+static int ov5640_get_frame_desc(struct v4l2_subdev *sd, unsigned int pad,
+				 struct v4l2_mbus_frame_desc *fd)
+{
+	struct ov5640_dev *sensor = to_ov5640_dev(sd);
+	u32 bpp;
+	int ret = 0;
+
+	if (pad != 0)
+		return -EINVAL;
+
+	mutex_lock(&sensor->lock);
+
+	memset(fd, 0, sizeof(*fd));
+
+	fd->type = V4L2_MBUS_FRAME_DESC_TYPE_CSI2;
+
+	/* pixel stream */
+
+	bpp = ov5640_code_to_bpp(sensor, sensor->fmt.code);
+
+	fd->entry[fd->num_entries].stream = 0;
+
+	fd->entry[fd->num_entries].flags = V4L2_MBUS_FRAME_DESC_FL_LEN_MAX;
+	fd->entry[fd->num_entries].length =
+		(sensor->current_mode->width
+		 * sensor->current_mode->height * bpp) / 8;
+	fd->entry[fd->num_entries].pixelcode = sensor->fmt.code;
+	fd->entry[fd->num_entries].bus.csi2.vc = 0;
+	if (sensor->fmt.code == MEDIA_BUS_FMT_SRGGB8_1X8)
+		fd->entry[fd->num_entries].bus.csi2.dt = 0x2a; /* SRGGB8 */
+	else
+		fd->entry[fd->num_entries].bus.csi2.dt = MIPI_CSI2_DT_YUV422_8B;
+	fd->num_entries++;
+
+	mutex_unlock(&sensor->lock);
+
+	return ret;
+}
+
 static const struct v4l2_subdev_core_ops ov5640_core_ops = {
 	.log_status = v4l2_ctrl_subdev_log_status,
 	.subscribe_event = v4l2_ctrl_subdev_subscribe_event,
@@ -3784,6 +3824,7 @@ static const struct v4l2_subdev_pad_ops ov5640_pad_ops = {
 	.get_selection = ov5640_get_selection,
 	.enum_frame_size = ov5640_enum_frame_size,
 	.enum_frame_interval = ov5640_enum_frame_interval,
+	.get_frame_desc	= ov5640_get_frame_desc,
 };
 
 static const struct v4l2_subdev_ops ov5640_subdev_ops = {
