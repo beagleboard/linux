@@ -1,0 +1,39 @@
+// SPDX-License-Identifier: GPL-2.0-only OR MIT
+/*
+ * DT Overlay for P8_13 and P8_19 epwm0 connections within the expansion header.
+ *
+ * Copyright (C) 2023 Texas Instruments Incorporated - https://www.ti.com/
+ *
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include "k3-pinctrl.h"
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+*/
+&{/chosen} {
+	overlays {
+		k3-j721e-beagleboneai64-pwm-epwm0-p8_13-p8_19.kernel = __TIMESTAMP__;
+		p8_13.3000000.pwm = "k3-j721e-beagleboneai64-pwm-epwm0-p8_13.3000000.1.P8_13";
+		p8_19.3000000.pwm = "k3-j721e-beagleboneai64-pwm-epwm0-p8_19.3000000.0.P8_19";
+	};
+};
+
+&main_pmx0 {
+	P8_13_P8_19_pwm: P8-13-P8-19pwm-pins {
+		pinctrl-single,pins = <
+			J721E_IOPAD(0x168, PIN_OUTPUT, 6) /* (V27) RGMII5_TD1.EHRPWM0_B */
+			J721E_IOPAD(0x164, PIN_OUTPUT, 6) /* (V29) RGMII5_TD2.EHRPWM0_A */
+		>;
+	};
+};
+
+&epwm0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&P8_13_P8_19_pwm>;
+	status = "okay";
+};
