@@ -1203,6 +1203,14 @@ static void edt_ft5x06_ts_set_regs(struct edt_ft5x06_ts_data *tsdata)
 	}
 }
 
+static void edt_ft5x06_exit_regmap(void *arg)
+{
+	struct edt_ft5x06_ts_data *data = arg;
+
+	if (!IS_ERR_OR_NULL(data->regmap))
+		regmap_exit(data->regmap);
+}
+
 static void edt_ft5x06_disable_regulators(void *arg)
 {
 	struct edt_ft5x06_ts_data *data = arg;
@@ -1235,6 +1243,16 @@ static int edt_ft5x06_ts_probe(struct i2c_client *client)
 		dev_err(&client->dev, "regmap allocation failed\n");
 		return PTR_ERR(tsdata->regmap);
 	}
+
+	/*
+	 * We are not using devm_regmap_init_i2c() and instead install a
+	 * custom action because we may replace regmap with M06-specific one
+	 * and we need to make sure that it will not be released too early.
+	 */
+	error = devm_add_action_or_reset(&client->dev, edt_ft5x06_exit_regmap,
+					 tsdata);
+	if (error)
+		return error;
 
 	chip_data = device_get_match_data(&client->dev);
 	if (!chip_data)
@@ -1448,7 +1466,6 @@ static void edt_ft5x06_ts_remove(struct i2c_client *client)
 		cancel_work_sync(&tsdata->work_i2c_poll);
 	}
 	edt_ft5x06_ts_teardown_debugfs(tsdata);
-	regmap_exit(tsdata->regmap);
 }
 
 static int edt_ft5x06_ts_suspend(struct device *dev)
