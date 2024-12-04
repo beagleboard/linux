@@ -232,6 +232,49 @@ dtb- += k3-am625-beagleplay-csi2-ov5640.dtb \
 	k3-j784s4-evm-quad-port-eth-exp1.dtb \
 	k3-j784s4-evm-usxgmii-exp1-exp2.dtb
 
+dtb-$(CONFIG_ARCH_K3) += k3-am625-pocketbeagle2.dtb
+dtb-$(CONFIG_ARCH_K3) += k3-am67a-beagley-ai.dtb
+dtb-$(CONFIG_ARCH_K3) += BONE-I2C1.dtbo
+dtb-$(CONFIG_ARCH_K3) += BONE-I2C2.dtbo
+dtb-$(CONFIG_ARCH_K3) += BONE-I2C3.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-am67a-beagley-ai-i2c1-400000.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-am67a-beagley-ai-i2c1-ads1115.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-am67a-beagley-ai-i2c1-ssd1306.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-am67a-beagley-ai-mikroe-eth.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-am67a-beagley-ai-mikroe-microsd.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-am67a-beagley-ai-pwm-ecap0-gpio12.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-am67a-beagley-ai-pwm-ecap1-gpio16.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-am67a-beagley-ai-pwm-ecap1-gpio21.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-am67a-beagley-ai-pwm-ecap2-gpio17.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-am67a-beagley-ai-pwm-ecap2-gpio18.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-am67a-beagley-ai-pwm-epwm0-gpio12.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-am67a-beagley-ai-pwm-epwm0-gpio14.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-am67a-beagley-ai-pwm-epwm0-gpio15.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-am67a-beagley-ai-pwm-epwm0-gpio15-gpio12.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-am67a-beagley-ai-pwm-epwm0-gpio15-gpio14.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-am67a-beagley-ai-pwm-epwm0-gpio5.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-am67a-beagley-ai-pwm-epwm0-gpio5-gpio12.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-am67a-beagley-ai-pwm-epwm0-gpio5-gpio14.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-am67a-beagley-ai-pwm-epwm1-gpio13.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-am67a-beagley-ai-pwm-epwm1-gpio20.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-am67a-beagley-ai-pwm-epwm1-gpio21.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-am67a-beagley-ai-pwm-epwm1-gpio21-gpio13.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-am67a-beagley-ai-pwm-epwm1-gpio21-gpio20.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-am67a-beagley-ai-pwm-epwm1-gpio6.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-am67a-beagley-ai-pwm-epwm1-gpio6-gpio13.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-am67a-beagley-ai-pwm-epwm1-gpio6-gpio20.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-am67a-beagley-ai-spi0-1cs.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-am67a-beagley-ai-spi0-2cs.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-am67a-beagley-ai-spidev0.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-am67a-beagley-ai-uart-ttyama0.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-j721e-beagleboneai64-BBORG_MOTOR.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-j721e-beagleboneai64-pwm-epwm0-p8_13.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-j721e-beagleboneai64-pwm-epwm0-p8_13-p8_19.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-j721e-beagleboneai64-pwm-epwm0-p8_19.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-j721e-beagleboneai64-pwm-epwm2-p9_14.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-j721e-beagleboneai64-pwm-epwm2-p9_14-p9_16.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-j721e-beagleboneai64-pwm-epwm2-p9_16.dtbo
+
 # Enable support for device-tree overlays
 DTC_FLAGS_k3-am625-beagleplay += -@
 DTC_FLAGS_k3-am625-phyboard-lyra-rdk += -@
@@ -251,3 +294,6 @@ DTC_FLAGS_k3-j721e-sk += -@
 DTC_FLAGS_k3-j721s2-common-proc-board += -@
 DTC_FLAGS_k3-j784s4-evm += -@
 DTC_FLAGS_k3-j742s2-evm += -@
+DTC_FLAGS_k3-am625-pocketbeagle2 += -@
+DTC_FLAGS_k3-am67a-beagley-ai += -@
+DTC_FLAGS_k3-j721e-beagleboneai64 += -@
