@@ -477,6 +477,7 @@
 };
 
 &main_uart5 {
+	/* MAIN UART 5 is used by System firmware */
 	pinctrl-names = "default";
 	pinctrl-0 = <&main_uart5_pins_default>;
 	status = "reserved";
@@ -879,6 +880,7 @@
 
 &mailbox0_cluster1 {
 	status = "okay";
+
 	mbox_mcu_r5_0: mbox-mcu-r5-0 {
 		ti,mbox-rx = <0 0 0>;
 		ti,mbox-tx = <1 0 0>;
@@ -887,6 +889,7 @@
 
 &mailbox0_cluster2 {
 	status = "okay";
+
 	mbox_c7x_0: mbox-c7x-0 {
 		ti,mbox-rx = <0 0 0>;
 		ti,mbox-tx = <1 0 0>;
@@ -895,6 +898,7 @@
 
 &mailbox0_cluster3 {
 	status = "okay";
+
 	mbox_main_r5_0: mbox-main-r5-0 {
 		ti,mbox-rx = <0 0 0>;
 		ti,mbox-tx = <1 0 0>;
@@ -906,6 +910,7 @@
 	};
 };
 
+/* Timers are used by Remoteproc firmware */
 &main_timer0 {
 	status = "reserved";
 };
@@ -949,17 +954,17 @@
 };
 
 &c7x_0 {
-	status = "okay";
 	mboxes = <&mailbox0_cluster2 &mbox_c7x_0>;
 	memory-region = <&c7x_0_dma_memory_region>,
 			<&c7x_0_memory_region>;
+	status = "okay";
 };
 
 &c7x_1 {
-	status = "okay";
 	mboxes = <&mailbox0_cluster3 &mbox_c7x_1>;
 	memory-region = <&c7x_1_dma_memory_region>,
 			<&c7x_1_memory_region>;
+	status = "okay";
 };
 
 &serdes_ln_ctrl {
@@ -979,6 +984,7 @@
 };
 
 &serdes1 {
+	status = "okay";
 	serdes1_pcie_link: phy@0 {
 		reg = <0>;
 		cdns,num-lanes = <1>;
@@ -1049,24 +1055,24 @@
 };
 
 &mcu_mcan0 {
-	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&mcu_mcan0_pins_default>;
 	phys = <&transceiver0>;
+	status = "okay";
 };
 
 &mcu_mcan1 {
-	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&mcu_mcan1_pins_default>;
 	phys = <&transceiver1>;
+	status = "okay";
 };
 
 &main_mcan0 {
-	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&main_mcan0_pins_default>;
 	phys = <&transceiver2>;
+	status = "okay";
 };
 
 &mcu_gpio0 {
