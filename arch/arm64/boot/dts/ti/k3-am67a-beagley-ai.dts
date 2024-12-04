@@ -10,7 +10,12 @@
 
 #include <dt-bindings/leds/common.h>
 #include <dt-bindings/net/ti-dp83867.h>
+#include <dt-bindings/phy/phy.h>
 #include "k3-j722s.dtsi"
+#include "k3-serdes.h"
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/pwm/pwm.h>
+#include "k3-am67a-beagley-ai-pinmux.dtsi"
 
 / {
 	compatible = "beagle,am67a-beagley-ai", "ti,j722s";
@@ -19,8 +24,15 @@
 	aliases {
 		serial0 = &wkup_uart0;
 		serial2 = &main_uart0;
+		serial3 = &main_uart1;
+		serial6 = &main_uart6;
 		mmc1 = &sdhci1;
+		mmc2 = &sdhci2;
 		rtc0 = &rtc;
+		spi0 = &spi_gpio;
+		usb0 = &usb0;
+		usb1 = &usb1;
+		i2c1 = &mcu_i2c0;
 	};
 
 	chosen {
@@ -40,6 +52,14 @@
 		#size-cells = <2>;
 		ranges;
 
+		/* global cma region */
+		linux,cma {
+			compatible = "shared-dma-pool";
+			reusable;
+			size = <0x00 0x38000000>;
+			linux,cma-default;
+		};
+
 		secure_tfa_ddr: tfa@9e780000 {
 			reg = <0x00 0x9e780000 0x00 0x80000>;
 			no-map;
@@ -50,9 +70,69 @@
 			no-map;
 		};
 
+		wkup_r5fss0_core0_dma_memory_region: r5f-dma-memory@a0000000 {
+			compatible = "shared-dma-pool";
+			reg = <0x00 0xa0000000 0x00 0x100000>;
+			no-map;
+		};
+
 		wkup_r5fss0_core0_memory_region: r5f-memory@a0100000 {
 			compatible = "shared-dma-pool";
 			reg = <0x00 0xa0100000 0x00 0xf00000>;
+			no-map;
+		};
+
+		mcu_r5fss0_core0_dma_memory_region: mcu-r5fss-dma-memory-region@a1000000 {
+			compatible = "shared-dma-pool";
+			reg = <0x00 0xa1000000 0x00 0x100000>;
+			no-map;
+		};
+
+		mcu_r5fss0_core0_memory_region: mcu-r5fss-memory-region@a1100000 {
+			compatible = "shared-dma-pool";
+			reg = <0x00 0xa1100000 0x00 0xf00000>;
+			no-map;
+		};
+
+		main_r5fss0_core0_dma_memory_region: main-r5fss-dma-memory-region@a2000000 {
+			compatible = "shared-dma-pool";
+			reg = <0x00 0xa2000000 0x00 0x100000>;
+			no-map;
+		};
+
+		main_r5fss0_core0_memory_region: main-r5fss-memory-region@a2100000 {
+			compatible = "shared-dma-pool";
+			reg = <0x00 0xa2100000 0x00 0xf00000>;
+			no-map;
+		};
+
+		c7x_0_dma_memory_region: c7x-dma-memory@a3000000 {
+			compatible = "shared-dma-pool";
+			reg = <0x00 0xa3000000 0x00 0x100000>;
+			no-map;
+		};
+
+		c7x_0_memory_region: c7x-memory@a3100000 {
+			compatible = "shared-dma-pool";
+			reg = <0x00 0xa3100000 0x00 0xf00000>;
+			no-map;
+		};
+
+		c7x_1_dma_memory_region: c7x-dma-memory@a4000000 {
+			compatible = "shared-dma-pool";
+			reg = <0x00 0xa4000000 0x00 0x100000>;
+			no-map;
+		};
+
+		c7x_1_memory_region: c7x-memory@a4100000 {
+			compatible = "shared-dma-pool";
+			reg = <0x00 0xa4100000 0x00 0xf00000>;
+			no-map;
+		};
+
+		rtos_ipc_memory_region: ipc-memories@a5000000 {
+			reg = <0x00 0xa5000000 0x00 0x1c00000>;
+			alignment = <0x1000>;
 			no-map;
 		};
 	};
@@ -123,6 +203,20 @@
 		regulator-boot-on;
 	};
 
+	wlan_en: regulator-7 {
+		compatible = "regulator-fixed";
+		regulator-name = "wlan_en";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		enable-active-high;
+		/* regulator-always-on; */
+		regulator-off-in-suspend;
+		vin-supply = <&vdd_3v3>;
+		gpio = <&main_gpio0 4 GPIO_ACTIVE_HIGH>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&wifi_en_pins_default>;
+	};
+
 	leds {
 		compatible = "gpio-leds";
 		pinctrl-names = "default";
@@ -140,9 +234,92 @@
 			default-state = "on";
 		};
 	};
+
+	hdmi0: connector-hdmi {
+		compatible = "hdmi-connector";
+		label = "hdmi";
+		type = "d";
+		port {
+			hdmi_connector_in: endpoint {
+				remote-endpoint = <&it66122_out>;
+			};
+		};
+	};
+
+	sound0: sound {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "it66122 HDMI";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,bitclock-master = <&hdmi_dailink_master>;
+		simple-audio-card,frame-master = <&hdmi_dailink_master>;
+
+		hdmi_dailink_master: simple-audio-card,cpu {
+			sound-dai = <&mcasp1>;
+			system-clock-direction-out;
+		};
+
+		simple-audio-card,codec {
+			sound-dai = <&it66122>;
+		};
+	};
+
+	fan: cooling_fan {
+		compatible = "pwm-fan";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pwm_fan_pins>;
+		fan-supply = <&vsys_5v0>;
+		#cooling-cells = <2>;
+		cooling-min-state = <0>;
+		cooling-max-state = <3>;
+		cooling-levels = <0 75 125 175 250>;
+		pwms = <&epwm2 0 40000 0>;
+		pulses-per-revolution = <2>;
+		interrupt-parent = <&main_gpio1>;
+		interrupts = <22 IRQ_TYPE_EDGE_FALLING>;
+		status = "okay";
+	};
+
+	mipi_switch: mipi-switch {
+		compatible = "gpio-leds";
+		pinctrl-names = "default";
+		pinctrl-0 = <&mipi_switch_pins>;
+
+		oe-pin {
+			label = "MIPI_SWITCH_OE";
+			gpios = <&main_gpio0 1 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+		};
+
+		sel-pin {
+			label = "MIPI_SWITCH_SEL";
+			gpios = <&main_gpio0 2 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+	};
+
+	spi_gpio: spi {
+		compatible = "spi-gpio";
+		#address-cells = <0x1>;
+		#size-cells = <0x0>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&spi_gpio_default_pins>;
+
+		sck-gpios = <&mcu_gpio0 2 GPIO_ACTIVE_HIGH>;
+		miso-gpios = <&mcu_gpio0 4 GPIO_ACTIVE_HIGH>;
+		mosi-gpios = <&mcu_gpio0 3 GPIO_ACTIVE_HIGH>;
+
+		num-chipselects = <2>;
+		cs-gpios = <
+			&mcu_gpio0 0 GPIO_ACTIVE_HIGH
+			&mcu_gpio0 9 GPIO_ACTIVE_HIGH
+		>;
+		status = "disabled";
+	};
 };
 
 &main_pmx0 {
+
+	/delete-property/ interrupts;
 	main_i2c0_pins_default: main-i2c0-default-pins {
 		pinctrl-single,pins = <
 			J722S_IOPAD(0x01e0, PIN_INPUT_PULLUP, 0) /* (D23) I2C0_SCL */
@@ -155,6 +332,14 @@
 		pinctrl-single,pins = <
 			J722S_IOPAD(0x01c8, PIN_INPUT, 0)	/* (A22) UART0_RXD */
 			J722S_IOPAD(0x01cc, PIN_OUTPUT, 0)	/* (B22) UART0_TXD */
+		>;
+		bootph-all;
+	};
+
+	main_uart1_pins_default: main-uart1-default-pins {
+		pinctrl-single,pins = <
+			J722S_IOPAD(0x01ac, PIN_INPUT, 2) /* (C27) MCASP0_AFSR.UART1_RXD */
+			J722S_IOPAD(0x01b0, PIN_OUTPUT, 2) /* (F24) MCASP0_ACLKR.UART1_TXD */
 		>;
 		bootph-all;
 	};
@@ -177,6 +362,77 @@
 			J722S_IOPAD(0x0240, PIN_INPUT, 7) /* (B24) MMC1_SDCD.GPIO1_48 */
 		>;
 		bootph-all;
+	};
+
+	ospi0_pins_default: ospi0-default-pins {
+		pinctrl-single,pins = <
+			J722S_IOPAD(0x0000, PIN_OUTPUT, 0) /* (P23) OSPI0_CLK */
+			J722S_IOPAD(0x002c, PIN_OUTPUT, 0) /* (M25) OSPI0_CSn0 */
+			J722S_IOPAD(0x000c, PIN_INPUT, 0) /* (L25) OSPI0_D0 */
+			J722S_IOPAD(0x0010, PIN_INPUT, 0) /* (N24) OSPI0_D1 */
+			J722S_IOPAD(0x0014, PIN_INPUT, 0) /* (N25) OSPI0_D2 */
+			J722S_IOPAD(0x0018, PIN_INPUT, 0) /* (M24) OSPI0_D3 */
+			J722S_IOPAD(0x001c, PIN_INPUT, 0) /* (N21) OSPI0_D4 */
+			J722S_IOPAD(0x0020, PIN_INPUT, 0) /* (N22) OSPI0_D5 */
+			J722S_IOPAD(0x0024, PIN_INPUT, 0) /* (P21) OSPI0_D6 */
+			J722S_IOPAD(0x0028, PIN_INPUT, 0) /* (N20) OSPI0_D7 */
+			J722S_IOPAD(0x0008, PIN_INPUT, 0) /* (P22) OSPI0_DQS */
+		>;
+		bootph-all;
+	};
+
+	main_i2c1_pins_default: main-i2c1-default-pins {
+		pinctrl-single,pins = <
+			J722S_IOPAD(0x01e8, PIN_INPUT_PULLUP, 0) /* (C24) I2C1_SCL */
+			J722S_IOPAD(0x01ec, PIN_INPUT_PULLUP, 0) /* (A22) I2C1_SDA */
+		>;
+		bootph-all;
+	};
+
+	main_i2c2_pins_default: main-i2c2-default-pins {
+		pinctrl-single,pins = <
+			J722S_IOPAD(0x00b0, PIN_INPUT_PULLUP, 1) /* (T22) GPMC0_CSn2.I2C2_SCL */
+			J722S_IOPAD(0x00b4, PIN_INPUT_PULLUP, 1) /* (U25) GPMC0_CSn3.I2C2_SDA */
+		>;
+	};
+
+	main_dpi_pins_default: main-dpi-default-pins {
+		pinctrl-single,pins = <
+			J722S_IOPAD(0x0100, PIN_OUTPUT, 0) /* (AB23) VOUT0_VSYNC */
+			J722S_IOPAD(0x00f8, PIN_OUTPUT, 0) /* (AB24) VOUT0_HSYNC */
+			J722S_IOPAD(0x0104, PIN_OUTPUT, 0) /* (AC26) VOUT0_PCLK */
+			J722S_IOPAD(0x00fc, PIN_OUTPUT, 0) /* (AC27) VOUT0_DE */
+			J722S_IOPAD(0x00b8, PIN_OUTPUT, 0) /* (W27) VOUT0_DATA0 */
+			J722S_IOPAD(0x00bc, PIN_OUTPUT, 0) /* (W25) VOUT0_DATA1 */
+			J722S_IOPAD(0x00c0, PIN_OUTPUT, 0) /* (W24) VOUT0_DATA2 */
+			J722S_IOPAD(0x00c4, PIN_OUTPUT, 0) /* (W23) VOUT0_DATA3 */
+			J722S_IOPAD(0x00c8, PIN_OUTPUT, 0) /* (W22) VOUT0_DATA4 */
+			J722S_IOPAD(0x00cc, PIN_OUTPUT, 0) /* (W21) VOUT0_DATA5 */
+			J722S_IOPAD(0x00d0, PIN_OUTPUT, 0) /* (Y26) VOUT0_DATA6 */
+			J722S_IOPAD(0x00d4, PIN_OUTPUT, 0) /* (Y27) VOUT0_DATA7 */
+			J722S_IOPAD(0x00d8, PIN_OUTPUT, 0) /* (AA24) VOUT0_DATA8 */
+			J722S_IOPAD(0x00dc, PIN_OUTPUT, 0) /* (AA27) VOUT0_DATA9 */
+			J722S_IOPAD(0x00e0, PIN_OUTPUT, 0) /* (AA25) VOUT0_DATA10 */
+			J722S_IOPAD(0x00e4, PIN_OUTPUT, 0) /* (AB25) VOUT0_DATA11 */
+			J722S_IOPAD(0x00e8, PIN_OUTPUT, 0) /* (AA23) VOUT0_DATA12 */
+			J722S_IOPAD(0x00ec, PIN_OUTPUT, 0) /* (AA22) VOUT0_DATA13 */
+			J722S_IOPAD(0x00f0, PIN_OUTPUT, 0) /* (AB26) VOUT0_DATA14 */
+			J722S_IOPAD(0x00f4, PIN_OUTPUT, 0) /* (AB27) VOUT0_DATA15 */
+			J722S_IOPAD(0x005c, PIN_OUTPUT, 1) /* (AC25) GPMC0_AD8.VOUT0_DATA16 */
+			J722S_IOPAD(0x0060, PIN_OUTPUT, 1) /* (U26) GPMC0_AD9.VOUT0_DATA17 */
+			J722S_IOPAD(0x0064, PIN_OUTPUT, 1) /* (V27) GPMC0_AD10.VOUT0_DATA18 */
+			J722S_IOPAD(0x0068, PIN_OUTPUT, 1) /* (V25) GPMC0_AD11.VOUT0_DATA19 */
+			J722S_IOPAD(0x006c, PIN_OUTPUT, 1) /* (V26) GPMC0_AD12.VOUT0_DATA20 */
+			J722S_IOPAD(0x0070, PIN_OUTPUT, 1) /* (V24) GPMC0_AD13.VOUT0_DATA21 */
+			J722S_IOPAD(0x0074, PIN_OUTPUT, 1) /* (V22) GPMC0_AD14.VOUT0_DATA22 */
+			J722S_IOPAD(0x0078, PIN_OUTPUT, 1) /* (V23) GPMC0_AD15.VOUT0_DATA23 */
+		>;
+	};
+
+	main_gpio0_ioexp_intr_pins_default: main-gpio0-ioexp-intr-default-pins {
+		pinctrl-single,pins = <
+			J722S_IOPAD(0x0110, PIN_INPUT, 7) /* (G27) MMC2_DAT1.GPIO0_67 */
+		>;
 	};
 
 	mdio_pins_default: mdio-default-pins {
@@ -210,6 +466,12 @@
 		>;
 	};
 
+	main_usb1_pins_default: main-usb1-default-pins {
+		pinctrl-single,pins = <
+			J722S_IOPAD(0x0258, PIN_INPUT, 0) /* (B27) USB1_DRVVBUS */
+		>;
+	};
+
 	pmic_irq_pins_default: pmic-irq-default-pins {
 		pinctrl-single,pins = <
 			J722S_IOPAD(0x01f4, PIN_INPUT_PULLUP, 0) /* (B23) EXTINTn */
@@ -219,6 +481,118 @@
 	vdd_3v3_sd_pins_default: vdd-3v3-sd-default-pins {
 		pinctrl-single,pins = <
 			J722S_IOPAD(0x0254, PIN_OUTPUT, 7) /* (E25) USB0_DRVVBUS.GPIO1_50 */
+		>;
+	};
+
+	wifi_pins_default: wifi-default-pins {
+		pinctrl-single,pins = <
+			J722S_IOPAD(0x0120, PIN_INPUT, 0) /* (F27) MMC2_CMD */
+			J722S_IOPAD(0x0118, PIN_OUTPUT, 0) /* (H26) MMC2_CLK */
+			J722S_IOPAD(0x011C, PIN_INPUT, 0) /* () MMC2_CLKLB */
+			J722S_IOPAD(0x0114, PIN_INPUT, 0) /* (G26) MMC2_DAT0 */
+			J722S_IOPAD(0x0110, PIN_INPUT_PULLUP, 0) /* (G27) MMC2_DAT1 */
+			J722S_IOPAD(0x010c, PIN_INPUT_PULLUP, 0) /* (H27) MMC2_DAT2 */
+			J722S_IOPAD(0x0108, PIN_INPUT_PULLUP, 0) /* (J27) MMC2_DAT3 */
+		>;
+	};
+
+	wifi_en_pins_default: wifi-en-default-pins {
+		pinctrl-single,pins = <
+			J722S_IOPAD(0x0010, PIN_OUTPUT, 7) /* (L27) OSPI0_D1.GPIO0_4 */
+		>;
+	};
+
+	wifi_wlirq_pins_default: wifi-wlirq-default-pins {
+		pinctrl-single,pins = <
+			J722S_IOPAD(0x0014, PIN_INPUT, 7) /* (L26) OSPI0_D2.GPIO0_5 */
+		>;
+	};
+
+	pwm_fan_pins: pwm-fan-pins {
+		pinctrl-single,pins = <
+			J722S_IOPAD(0x0124, PIN_OUTPUT, 4) /* (F26) MMC2_SDCD.EHRPWM2_A FAN_PWM */
+			J722S_IOPAD(0x01d0, PIN_INPUT, 7) /* (E22) UART0_CTSn.GPIO1_22 FAN_TACH */
+		>;
+	};
+
+	dss0_pins_default: dss0-default-pins {
+		pinctrl-single,pins = <
+			J722S_IOPAD(0x0100, PIN_OUTPUT, 0) /* (AB23) VOUT0_VSYNC */
+			J722S_IOPAD(0x00f8, PIN_OUTPUT, 0) /* (AB24) VOUT0_HSYNC */
+			J722S_IOPAD(0x0104, PIN_OUTPUT, 0) /* (AC26) VOUT0_PCLK */
+			J722S_IOPAD(0x00fc, PIN_OUTPUT, 0) /* (AC27) VOUT0_DE */
+			J722S_IOPAD(0x00b8, PIN_OUTPUT, 0) /* (W27) VOUT0_DATA0 */
+			J722S_IOPAD(0x00bc, PIN_OUTPUT, 0) /* (W25) VOUT0_DATA1 */
+			J722S_IOPAD(0x00c0, PIN_OUTPUT, 0) /* (W24) VOUT0_DATA2 */
+			J722S_IOPAD(0x00c4, PIN_OUTPUT, 0) /* (W23) VOUT0_DATA3 */
+			J722S_IOPAD(0x00c8, PIN_OUTPUT, 0) /* (W22) VOUT0_DATA4 */
+			J722S_IOPAD(0x00cc, PIN_OUTPUT, 0) /* (W21) VOUT0_DATA5 */
+			J722S_IOPAD(0x00d0, PIN_OUTPUT, 0) /* (Y26) VOUT0_DATA6 */
+			J722S_IOPAD(0x00d4, PIN_OUTPUT, 0) /* (Y27) VOUT0_DATA7 */
+			J722S_IOPAD(0x00d8, PIN_OUTPUT, 0) /* (AA24) VOUT0_DATA8 */
+			J722S_IOPAD(0x00dc, PIN_OUTPUT, 0) /* (AA27) VOUT0_DATA9 */
+			J722S_IOPAD(0x00e0, PIN_OUTPUT, 0) /* (AA25) VOUT0_DATA10 */
+			J722S_IOPAD(0x00e4, PIN_OUTPUT, 0) /* (AB25) VOUT0_DATA11 */
+			J722S_IOPAD(0x00e8, PIN_OUTPUT, 0) /* (AA23) VOUT0_DATA12 */
+			J722S_IOPAD(0x00ec, PIN_OUTPUT, 0) /* (AA22) VOUT0_DATA13 */
+			J722S_IOPAD(0x00f0, PIN_OUTPUT, 0) /* (AB26) VOUT0_DATA14 */
+			J722S_IOPAD(0x00f4, PIN_OUTPUT, 0) /* (AB27) VOUT0_DATA15 */
+			J722S_IOPAD(0x005c, PIN_OUTPUT, 1) /* (U27) GPMC0_AD8.VOUT0_DATA16 */
+			J722S_IOPAD(0x0060, PIN_OUTPUT, 1) /* (U26) GPMC0_AD9.VOUT0_DATA17 */
+			J722S_IOPAD(0x0064, PIN_OUTPUT, 1) /* (V27) GPMC0_AD10.VOUT0_DATA18 */
+			J722S_IOPAD(0x0068, PIN_OUTPUT, 1) /* (V25) GPMC0_AD11.VOUT0_DATA19 */
+			J722S_IOPAD(0x006c, PIN_OUTPUT, 1) /* (V26) GPMC0_AD12.VOUT0_DATA20 */
+			J722S_IOPAD(0x0070, PIN_OUTPUT, 1) /* (V24) GPMC0_AD13.VOUT0_DATA21 */
+			J722S_IOPAD(0x0074, PIN_OUTPUT, 1) /* (V22) GPMC0_AD14.VOUT0_DATA22 */
+			J722S_IOPAD(0x0078, PIN_OUTPUT, 1) /* (V23) GPMC0_AD15.VOUT0_DATA23 */
+		>;
+	};
+
+	csi1_gpio_pins_default: csi1-gpio-default-pins {
+		pinctrl-single,pins = <
+			J722S_IOPAD(0x01d8, PIN_OUTPUT, 7) /* (D22) MCAN0_TX.GPIO1_24 */
+		>;
+	};
+
+	usb_hub: usb-hub-default-pins {
+		pinctrl-single,pins = <
+			J722S_IOPAD(0x0084, PIN_OUTPUT, 7) /* (N21) GPMC0_ADVn_ALE.GPIO0_32 */
+		>;
+	};
+
+	mipi_switch_pins: mipi-switch-default-pins {
+		pinctrl-single,pins = <
+			J722S_IOPAD(0x0004, PIN_OUTPUT, 7) /* (L23) OSPI0_LBCLKO.GPIO0_1 */
+			J722S_IOPAD(0x0008, PIN_OUTPUT, 7) /* (L22) OSPI0_DQS.GPIO0_2 */
+		>;
+	};
+
+	main_uart6_pins_default: main-uart6-default-pins {
+		pinctrl-single,pins = <
+			J722S_IOPAD(0x0028, PIN_INPUT, 3)	/* (M27) OSPI0_D7.UART6_CTSn */
+			J722S_IOPAD(0x0024, PIN_OUTPUT, 3)	/* (N27) OSPI0_D6.UART6_RTSn */
+			J722S_IOPAD(0x001c, PIN_INPUT, 3)	/* (L21) OSPI0_D4.UART6_RXD */
+			J722S_IOPAD(0x0020, PIN_OUTPUT, 3)	/* (M26) OSPI0_D5.UART6_TXD */
+		>;
+	};
+
+	main_oldi_backlight_default_pins: main-backlight-default-pins {
+		pinctrl-single,pins = <
+			J722S_IOPAD(0x01f0, PIN_OUTPUT, 8) /* (A23) EXT_REFCLK1.ECAP0_IN_APWM_OUT */
+		>;
+	};
+
+	main_oldi_touchscreen_default_pins: main-touchscreen-default-pins {
+		pinctrl-single,pins = <
+			J722S_IOPAD(0x0038, PIN_INPUT, 7) /* (J22) OSPI0_CSn3.GPIO0_14 */
+		>;
+	};
+
+	main_mcasp1_pins_default: main-mcasp1-default-pins {
+		pinctrl-single,pins = <
+			J722S_IOPAD(0x0090, PIN_INPUT, 2) /* (P27) GPMC0_BE0n_CLE.MCASP1_ACLKX */
+			J722S_IOPAD(0x0098, PIN_INPUT, 2) /* (V21) GPMC0_WAIT0.MCASP1_AFSX */
+			J722S_IOPAD(0x008c, PIN_INPUT, 2) /* (N23) GPMC0_WEn.MCASP1_AXR0 */
 		>;
 	};
 };
@@ -245,11 +619,46 @@
 &cpsw_port1 {
 	phy-mode = "rgmii-rxid";
 	phy-handle = <&cpsw3g_phy0>;
+};
+
+&cpsw_port2 {
+	status = "disabled";
+};
+
+&epwm2 {
 	status = "okay";
+};
+
+&main_gpio0 {
+	status = "okay";
+	pinctrl-names = "default";
+	gpio-line-names = "", "", "", "", "", /* 0-4 */
+			  "", "", "", "", "", /* 5-9 */
+			  "", "", "", "", "", /* 10-14 */
+			  "", "", "", "", "", /* 15-19 */
+			  "", "", "", "", "", /* 20-24 */
+			  "", "", "", "", "", /* 25-29 */
+			  "", "", "USB_RST", "GPIO27", "", /* 30-34 */
+			  "", "GPIO26", "", "GPIO4", "", /* 35-39 */
+			  "", "GPIO22", "GPIO25", "", ""; /* 40-44 */
 };
 
 &main_gpio1 {
 	status = "okay";
+	pinctrl-names = "default";
+	gpio-line-names = "", "", "", "", "", /* 0-4 */
+			  "", "", "GPIO16", "GPIO17", "GPIO21", /* 5-9 */
+			  "GPIO20", "GPIO18", "GPIO19", "GPIO15", "GPIO14", /* 10-14 */
+			  "GPIO5", "GPIO12", "GPIO6", "GPIO13", ""; /* 15-19 */
+};
+
+&mcu_gpio0 {
+	status = "okay";
+	pinctrl-names = "default";
+	gpio-line-names = "GPIO8", "", "GPIO11", "GPIO10", "GPIO9", /* 0-4 */
+			  "", "", "GPIO23", "", "GPIO7", /* 5-9 */
+			  "GPIO24", "", "", "HDMI_RSTn", "HDMI_INTn", /* 10-14 */
+			  "", "", "GPIO3", "GPIO2", ""; /* 15-19 */
 };
 
 &main_uart0 {
@@ -259,7 +668,70 @@
 	status = "okay";
 };
 
+&main_uart1 {
+	symlink = "ttyAMA0";
+	//pinctrl-names = "default";
+	//pinctrl-0 = <&main_uart1_pins_default>;
+	bootph-all;
+	status = "okay";
+};
+
+&main_uart6 {
+	symlink = "board/bluetooth/uart";
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_uart6_pins_default>;
+	bootph-all;
+	status = "okay";
+
+	bluetooth {
+		compatible = "ti,cc33xx-bt";
+		cc33xx-supply = <&wlan_en>;
+		max-speed = <115200>;
+	};
+};
+
+&main0_thermal {
+	trips {
+		main0_active0: trip-active0 {
+			temperature = <40000>;
+			hysteresis = <5000>;
+			type = "active";
+		};
+
+		main0_active1: trip-active1 {
+			temperature = <48000>;
+			hysteresis = <3000>;
+			type = "active";
+		};
+
+		main0_active2: trip-active2 {
+			temperature = <60000>;
+			hysteresis = <10000>;
+			type = "active";
+		};
+	};
+
+	cooling-maps {
+		map1 {
+			trip = <&main0_active0>;
+			cooling-device = <&fan 1 1>;
+		};
+
+		map2 {
+			trip = <&main0_active1>;
+			cooling-device = <&fan 2 2>;
+		};
+
+		map3 {
+			trip = <&main0_active2>;
+			cooling-device = <&fan 3 3>;
+		};
+	};
+};
+
 &mcu_pmx0 {
+	bootph-all;
+
 	wkup_uart0_pins_default: wkup-uart0-default-pins {
 		pinctrl-single,pins = <
 			J722S_MCU_IOPAD(0x02c, PIN_INPUT, 0)	/* (C7) WKUP_UART0_CTSn */
@@ -277,6 +749,63 @@
 		>;
 		bootph-all;
 	};
+
+	wifi_32k_clk: mcu-clk-out-default-pins {
+		pinctrl-single,pins = <
+			J722S_MCU_IOPAD(0x0084, PIN_OUTPUT, 0) /* (F12) WKUP_CLKOUT0 */
+		>;
+	};
+
+	hdmi_gpio_pins_default: hdmi-gpio-default-pins {
+		pinctrl-single,pins = <
+			J722S_MCU_IOPAD(0x0038, PIN_INPUT_PULLUP | PIN_DEBOUNCE_CONF6, 7) /* (D8) MCU_MCAN0_RX.MCU_GPIO0_14 HDMI_INTn */
+			J722S_MCU_IOPAD(0x0034, PIN_OUTPUT_PULLUP, 7) /* (B2) MCU_MCAN0_TX.MCU_GPIO0_13 HDMI_RSTn */
+		>;
+	};
+
+	pcie_pins_default: pcie-default-pins {
+		pinctrl-single,pins = <
+			J722S_MCU_IOPAD(0x0018, PIN_OUTPUT, 7)	/* (B4) MCU_UART0_TXD.MCU_GPIO0_6 */
+			J722S_MCU_IOPAD(0x0014, PIN_INPUT, 7)	/* (B8) MCU_UART0_RXD.MCU_GPIO0_5 */ /* PCIE_DET_WAKE */
+			J722S_MCU_IOPAD(0x0020, PIN_OUTPUT, 7)	/* (C5) MCU_UART0_RTSn.MCU_GPIO0_8 */ /* PCIE_PWR_EN */
+		>;
+	};
+
+	csi0_gpio_pins_default: csi0-gpio-default-pins {
+		pinctrl-single,pins = <
+			J722S_MCU_IOPAD(0x003c, PIN_OUTPUT, 7) /* (C1) MCU_MCAN1_TX.MCU_GPIO0_15 */
+		>;
+	};
+
+	mcu_i2c0_pins_default: mcu-i2c0-default-pins {
+		pinctrl-single,pins = <
+			J722S_MCU_IOPAD(0x0044, PIN_INPUT_PULLUP, 0) /* (B13) MCU_I2C0_SCL */
+			J722S_MCU_IOPAD(0x0048, PIN_INPUT_PULLUP, 0) /* (E11) MCU_I2C0_SDA */
+		>;
+		bootph-all;
+	};
+
+	mcu_oldi_backlight_default_pins: mcu-backlight-default-pins {
+		pinctrl-single,pins = <
+			J722S_MCU_IOPAD(0x002c, PIN_OUTPUT, 7) /* (C4) WKUP_UART0_CTSn.MCU_GPIO0_11 */
+		>;
+	};
+
+	mcu_oldi_touchscreen_default_pins: mcu-touchscreen-default-pins {
+		pinctrl-single,pins = <
+			J722S_MCU_IOPAD(0x0030, PIN_OUTPUT, 7) /* (C3) WKUP_UART0_RTSn.MCU_GPIO0_12 */
+		>;
+	};
+
+	spi_gpio_default_pins: spi-gpio-pins {
+		pinctrl-single,pins = <
+			J722S_MCU_IOPAD(0x000, PIN_OUTPUT, 7)	/* (C12) MCU_SPI0_CS0.MCU_GPIO0_0 SS 0 */
+			J722S_MCU_IOPAD(0x024, PIN_OUTPUT, 7)	/* (B3) WKUP_UART0_RXD.MCU_GPIO0_9 SS 1 */
+			J722S_MCU_IOPAD(0x008, PIN_OUTPUT, 7)	/* (A9) MCU_SPI0_CLK.MCU_GPIO0_2 SCLK */
+			J722S_MCU_IOPAD(0x010, PIN_INPUT, 7)	/* (C11) MCU_SPI0_D1.MCU_GPIO0_4 MISO */
+			J722S_MCU_IOPAD(0x00C, PIN_OUTPUT, 7)	/* (B12) MCU_SPI0_D0.MCU_GPIO0_3 MOSI */
+		>;
+	};
 };
 
 &wkup_uart0 {
@@ -287,9 +816,19 @@
 	status = "reserved";
 };
 
+&mcu_i2c0 {
+	symlink = "hat/mcu_i2c0";
+	pinctrl-names = "default";
+	pinctrl-0 = <&mcu_i2c0_pins_default>;
+	clock-frequency = <100000>;
+	bootph-all;
+	status = "okay";
+};
+
 &wkup_i2c0 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&wkup_i2c0_pins_default>;
+	symlink = "hat/wkup_i2c0";
 	clock-frequency = <100000>;
 	bootph-all;
 	status = "okay";
@@ -378,6 +917,82 @@
 	};
 };
 
+dsi0_csi1_i2c: &main_i2c0 {
+	symlink = "hat/dsi0_csi1_i2c";
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_i2c0_pins_default>;
+	clock-frequency = <400000>;
+	bootph-all;
+};
+
+&main_i2c1 {
+	symlink = "hat/main_i2c1";
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_i2c1_pins_default>;
+	clock-frequency = <100000>;
+	bootph-all;
+
+	it66122: bridge-hdmi@4c {
+		compatible = "ite,it66122";
+		reg = <0x4c>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&hdmi_gpio_pins_default>;
+		vcn33-supply = <&vdd_3v3>;
+		vcn18-supply = <&buck2_reg>;
+		vrf12-supply = <&ldo2_reg>;
+		reset-gpios = <&mcu_gpio0 13 GPIO_ACTIVE_LOW>;
+		interrupt-parent = <&mcu_gpio0>;
+		interrupts = <14 IRQ_TYPE_EDGE_FALLING>;
+		#sound-dai-cells = <0>;
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			/*
+			 * HDMI can be serviced with 3 potential VPs -
+			 * (DSS0 VP1 / DSS1 VP0 / DSS1 VP1).
+			 * For now, we will service it with DSS0 VP1.
+			 */
+			port@0 {
+				reg = <0>;
+
+				it66122_in: endpoint {
+					bus-width = <24>;
+					remote-endpoint = <&dss1_dpi0_out>;
+				};
+			};
+
+			port@1 {
+				reg = <1>;
+
+				it66122_out: endpoint {
+					remote-endpoint = <&hdmi_connector_in>;
+				};
+			};
+		};
+	};
+};
+
+csi0_i2c: &main_i2c2 {
+	symlink = "hat/csi0";
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_i2c2_pins_default>;
+	clock-frequency = <400000>;
+	status = "okay";
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+};
+
+&sdhci0 {
+	/*eMMC*/
+	status = "disabled";
+};
+
 &sdhci1 {
 	/* SD/MMC */
 	vmmc-supply = <&vdd_mmc1>;
@@ -390,4 +1005,272 @@
 	bootph-all;
 	ti,fails-without-test-cd;
 	status = "okay";
+};
+
+&sdhci2 {
+	vmmc-supply = <&wlan_en>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&wifi_pins_default>, <&wifi_32k_clk>;
+	bus-width = <4>;
+	non-removable;
+	ti,fails-without-test-cd;
+	cap-power-off-card;
+	keep-power-in-suspend;
+	ti,driver-strength-ohm = <50>;
+	assigned-clocks = <&k3_clks 157 174>;
+	assigned-clock-parents = <&k3_clks 157 175>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	cc33xx: cc33xx@0 {
+		compatible = "ti,cc3301";
+		reg = <2>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&wifi_wlirq_pins_default>;
+		interrupt-parent = <&main_gpio0>;
+		interrupts = <5 IRQ_TYPE_EDGE_RISING>;
+	};
+};
+
+&ospi0 {
+	status = "disabled";
+};
+
+&dphy_tx0 {
+	status = "okay";
+};
+
+&dsi0 {
+	status = "disabled";
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	bridge@0 {
+		status = "disabled";
+	};
+};
+
+&mailbox0_cluster0 {
+	status = "okay";
+	mbox_r5_0: mbox-r5-0 {
+		ti,mbox-rx = <0 0 0>;
+		ti,mbox-tx = <1 0 0>;
+	};
+};
+
+&mailbox0_cluster1 {
+	status = "okay";
+	mbox_mcu_r5_0: mbox-mcu-r5-0 {
+		ti,mbox-rx = <0 0 0>;
+		ti,mbox-tx = <1 0 0>;
+	};
+};
+
+&mailbox0_cluster2 {
+	status = "okay";
+	mbox_c7x_0: mbox-c7x-0 {
+		ti,mbox-rx = <0 0 0>;
+		ti,mbox-tx = <1 0 0>;
+	};
+};
+
+&mailbox0_cluster3 {
+	status = "okay";
+	mbox_main_r5_0: mbox-main-r5-0 {
+		ti,mbox-rx = <0 0 0>;
+		ti,mbox-tx = <1 0 0>;
+	};
+
+	mbox_c7x_1: mbox-c7x-1 {
+		ti,mbox-rx = <2 0 0>;
+		ti,mbox-tx = <3 0 0>;
+	};
+};
+
+&main_timer0 {
+	status = "reserved";
+};
+
+&main_timer1 {
+	status = "reserved";
+};
+
+&main_timer2 {
+	status = "reserved";
+};
+
+&wkup_r5fss0 {
+	status = "okay";
+};
+
+&wkup_r5fss0_core0 {
+	mboxes = <&mailbox0_cluster0 &mbox_r5_0>;
+	memory-region = <&wkup_r5fss0_core0_dma_memory_region>,
+			<&wkup_r5fss0_core0_memory_region>;
+};
+
+&mcu_r5fss0 {
+	status = "okay";
+};
+
+&mcu_r5fss0_core0 {
+	mboxes = <&mailbox0_cluster1 &mbox_mcu_r5_0>;
+	memory-region = <&mcu_r5fss0_core0_dma_memory_region>,
+			<&mcu_r5fss0_core0_memory_region>;
+};
+
+&main_r5fss0 {
+	status = "okay";
+};
+
+&main_r5fss0_core0 {
+	mboxes = <&mailbox0_cluster3 &mbox_main_r5_0>;
+	memory-region = <&main_r5fss0_core0_dma_memory_region>,
+			<&main_r5fss0_core0_memory_region>;
+};
+
+&c7x_0 {
+	status = "okay";
+	mboxes = <&mailbox0_cluster2 &mbox_c7x_0>;
+	memory-region = <&c7x_0_dma_memory_region>,
+			<&c7x_0_memory_region>;
+};
+
+&c7x_1 {
+	status = "okay";
+	mboxes = <&mailbox0_cluster3 &mbox_c7x_1>;
+	memory-region = <&c7x_1_dma_memory_region>,
+			<&c7x_1_memory_region>;
+};
+
+&serdes_ln_ctrl {
+	idle-states = <J722S_SERDES0_LANE0_USB>,
+		      <J722S_SERDES1_LANE0_PCIE0_LANE0>;
+};
+
+&serdes0 {
+	status = "okay";
+	serdes0_usb_link: phy@0 {
+		reg = <0>;
+		cdns,num-lanes = <1>;
+		#phy-cells = <0>;
+		cdns,phy-type = <PHY_TYPE_USB3>;
+		resets = <&serdes_wiz0 1>;
+	};
+};
+
+&serdes1 {
+	serdes1_pcie_link: phy@0 {
+		reg = <0>;
+		cdns,num-lanes = <1>;
+		#phy-cells = <0>;
+		cdns,phy-type = <PHY_TYPE_PCIE>;
+		resets = <&serdes_wiz1 1>;
+	};
+};
+
+&usbss0 {
+	ti,vbus-divider;
+	status = "okay";
+};
+
+&usb0 {
+	dr_mode = "otg";
+	usb-role-switch;
+};
+
+&usbss1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_usb1_pins_default>;
+	ti,vbus-divider;
+	status = "okay";
+};
+
+&usb1 {
+	dr_mode = "host";
+	maximum-speed = "super-speed";
+	phys = <&serdes0_usb_link>;
+	phy-names = "cdns3,usb3-phy";
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&usb_hub>;
+	status = "okay";
+
+	/* 2.0 hub on port 1 */
+	hub_2_0: hub@1 {
+		compatible = "usb451,8142";
+		reg = <1>;
+		peer-hub = <&hub_3_0>;
+		reset-gpios = <&main_gpio0 32 GPIO_ACTIVE_LOW>;
+		vdd-supply = <&vdd_3v3>;
+	};
+
+	/* 3.0 hub on port 2 */
+	hub_3_0: hub@2 {
+		compatible = "usb451,8140";
+		reg = <2>;
+		peer-hub = <&hub_2_0>;
+		reset-gpios = <&main_gpio0 32 GPIO_ACTIVE_LOW>;
+		vdd-supply = <&vdd_3v3>;
+	};
+};
+
+&pcie0_rc {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pcie_pins_default>;
+	phys = <&serdes1_pcie_link>;
+	phy-names = "pcie-phy";
+	num-lanes = <1>;
+	max-link-speed = <3>;
+	reset-gpios = <&mcu_gpio0 6 GPIO_ACTIVE_HIGH>;
+	enable-gpios = <&mcu_gpio0 8 GPIO_ACTIVE_HIGH>; /* Extra GPIO for pwr_en for BeagleY AI */
+};
+
+&dss1 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_dpi_pins_default>;
+
+	clocks = <&k3_clks 232 8>,
+		 <&k3_clks 232 0>,
+		 <&k3_clks 232 4>;
+
+	assigned-clocks = <&k3_clks 241 0>,	/* DSS1-VP0 */
+			  <&k3_clks 240 0>,	/* DSS1-VP1 */
+			  <&k3_clks 245 0>;	/* DPI Output */
+
+	assigned-clock-parents = <&k3_clks 241 2>,	/* PLL 17 HDMI */
+				 <&k3_clks 240 1>,	/* PLL 18 DSI */
+				 <&k3_clks 245 2>;	/* DSS1-DPI0 */
+};
+
+&dss1_ports {
+	/* DSS1-VP1: DPI/HDMI Output */
+	port@0 {
+		reg = <0>;
+
+		dss1_dpi0_out: endpoint {
+			remote-endpoint = <&it66122_in>;
+		};
+	};
+};
+
+&mcasp1 {
+	status = "okay";
+	#sound-dai-cells = <0>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_mcasp1_pins_default>;
+	auxclk-fs-ratio = <2177>;
+	op-mode = <0>;          /* MCASP_IIS_MODE */
+	tdm-slots = <2>;
+	serial-dir = <  /* 0: INACTIVE, 1: TX, 2: RX */
+	       1 0 0 0
+	       0 0 0 0
+	       0 0 0 0
+	       0 0 0 0
+	>;
 };
