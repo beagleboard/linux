@@ -664,8 +664,7 @@ static int imx390_probe(struct i2c_client *client)
 	sd->internal_ops = &imx390_internal_ops;
 
 	sd->flags |= V4L2_SUBDEV_FL_HAS_DEVNODE |
-		     V4L2_SUBDEV_FL_HAS_EVENTS |
-		     V4L2_SUBDEV_FL_STREAMS;
+		     V4L2_SUBDEV_FL_HAS_EVENTS;
 
 	/* Initialize the media entity. */
 	imx390->pad.flags = MEDIA_PAD_FL_SOURCE;
