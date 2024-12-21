@@ -15764,6 +15764,7 @@ MSPM0 Driver
 M:	Ayush Singh <ayush@beagleboard.org>
 S:	Maintained
 F:	Documentation/devicetree/bindings/misc/ti,mspm0l110x.yaml
+F:	drivers/misc/mspm0-i2c.c
 
 MSTAR INTERRUPT CONTROLLER DRIVER
 M:	Mark-PK Tsai <mark-pk.tsai@mediatek.com>
