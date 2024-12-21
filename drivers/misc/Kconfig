@@ -617,6 +617,17 @@ config MARVELL_CN10K_DPI
 	  To compile this driver as a module, choose M here: the module
 	  will be called mrvl_cn10k_dpi.
 
+config MSPM0_I2C
+	tristate "MSPM0 I2C Support"
+	depends on I2C
+	select FW_LOADER
+	select FW_UPLOAD
+	help
+	  This enables support for MSPM0 I2C device.
+
+	  This is used to provide firmware management capabilities for MSPM0 using
+	  BSL over I2C.
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
