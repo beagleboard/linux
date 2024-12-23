@@ -15760,6 +15760,11 @@ W:	https://linuxtv.org
 Q:	http://patchwork.linuxtv.org/project/linux-media/list/
 F:	drivers/media/usb/msi2500/
 
+MSPM0 Driver
+M:	Ayush Singh <ayush@beagleboard.org>
+S:	Maintained
+F:	Documentation/devicetree/bindings/misc/ti,mspm0l110x.yaml
+
 MSTAR INTERRUPT CONTROLLER DRIVER
 M:	Mark-PK Tsai <mark-pk.tsai@mediatek.com>
 M:	Daniel Palmer <daniel@thingy.jp>
