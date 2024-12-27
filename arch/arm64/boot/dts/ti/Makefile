@@ -249,6 +249,14 @@ dtb-$(CONFIG_ARCH_K3) += k3-fpdlink-imx390-rcm-0-0.dtbo \
 			 k3-fpdlink-imx390-rcm-2-1.dtbo \
 			 k3-fpdlink-imx390-rcm-2-2.dtbo \
 			 k3-fpdlink-imx390-rcm-2-3.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-v3link-imx219-0-0.dtbo \
+			 k3-v3link-imx219-0-1.dtbo \
+			 k3-v3link-imx219-0-2.dtbo \
+			 k3-v3link-imx219-0-3.dtbo \
+			 k3-v3link-imx219-1-0.dtbo \
+			 k3-v3link-imx219-1-1.dtbo \
+			 k3-v3link-imx219-1-2.dtbo \
+			 k3-v3link-imx219-1-3.dtbo
 
 # Enable support for device-tree overlays
 DTC_FLAGS_k3-am625-beagleplay += -@
