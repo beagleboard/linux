@@ -107,6 +107,7 @@ dtb-$(CONFIG_ARCH_K3) += k3-j721e-evm-csi2-ov5640.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-j721e-evm-gesi-exp-board.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-j721e-evm-pcie0-ep.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-j721e-sk.dtb
+dtb-$(CONFIG_ARCH_K3) += k3-j721e-sk-csi2-ov5640.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-j721e-sk-csi2-dual-imx219.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-j721e-sk-fpdlink-fusion.dtbo
 
