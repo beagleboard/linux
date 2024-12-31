@@ -624,9 +624,8 @@ static enum fw_upload_err mspm0_prepare(struct fw_upload *fw_upload,
 
 	if (crc == mspm0->fwl_crc) {
 		bsl_start_application(mspm0);
-		return dev_warn_probe(&mspm0->client->dev,
-				      FW_UPLOAD_ERR_FW_INVALID,
-				      "Skipping reflashing same image");
+		dev_warn(&mspm0->client->dev, "Skipping reflashing same image");
+		return FW_UPLOAD_ERR_FW_INVALID;
 	}
 
 	return bsl_mass_erase(mspm0);
