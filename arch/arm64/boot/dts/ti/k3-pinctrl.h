@@ -39,6 +39,9 @@
 #define PIN_DEBOUNCE_CONF5	(5 << DEBOUNCE_SHIFT)
 #define PIN_DEBOUNCE_CONF6	(6 << DEBOUNCE_SHIFT)
 
+/* Default mux configuration for gpio-ranges to use with pinctrl */
+#define PIN_GPIO_RANGE_IOPAD	(PIN_INPUT | 7)
+
 #define WKUP_EN			(1 << WKUP_EN_SHIFT)
 
 #define PIN_GPIO_MUX_MODE	(7)
