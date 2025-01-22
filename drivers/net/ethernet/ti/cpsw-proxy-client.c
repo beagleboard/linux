@@ -1354,6 +1354,28 @@ static int vport_open(struct virtual_port *vport, netdev_features_t features)
 	return 0;
 }
 
+static int vport_ndo_stop(struct net_device *ndev)
+{
+	struct virtual_port *vport = vport_ndev_to_vport(ndev);
+	struct cpsw_proxy_priv *proxy_priv = vport->proxy_priv;
+	int ret;
+
+	netif_tx_stop_all_queues(ndev);
+	netif_carrier_off(ndev);
+
+	ret = deregister_mac(vport);
+	if (ret)
+		netdev_err(ndev, "failed to deregister MAC for port %u\n",
+			   vport->port_id);
+
+	vport_stop(vport);
+
+	dev_info(proxy_priv->dev, "stopped port %u on interface %s\n",
+		 vport->port_id, ndev->name);
+
+	return 0;
+}
+
 static int vport_ndo_open(struct net_device *ndev)
 {
 	struct virtual_port *vport = vport_ndev_to_vport(ndev);
@@ -1391,6 +1413,7 @@ static int vport_ndo_open(struct net_device *ndev)
 
 static const struct net_device_ops cpsw_proxy_client_netdev_ops = {
 	.ndo_open		= vport_ndo_open,
+	.ndo_stop		= vport_ndo_stop,
 };
 
 static int init_netdev(struct cpsw_proxy_priv *proxy_priv, struct virtual_port *vport)
