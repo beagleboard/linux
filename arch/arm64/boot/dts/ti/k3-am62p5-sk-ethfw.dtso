@@ -1,0 +1,40 @@
+// SPDX-License-Identifier: GPL-2.0-only OR MIT
+/**
+ * DT Overlay for CPSW3G functionality with Ethernet Switch Firmware (EthFw)
+ * and CPSW Proxy Client driver.
+ *
+ * Copyright (C) 2024-2025 Texas Instruments Incorporated - https://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+
+/* Mark CPSW3G reserved for EthFw. */
+&cpsw3g {
+	status = "reserved";
+};
+
+/* Reserve shared memory for inter-core network communication. */
+&reserved_memory {
+	#address-cells = <2>;
+	#size-cells = <2>;
+
+	wkup_r5fss0_core0_shared_memory_queue_region:r5f-virtual-eth-queues@a4000000 {
+		compatible = "shared-dma-pool";
+		reg = <0x00 0xa4000000 0x00 0x200000>;
+		no-map;
+	};
+
+	wkup_r5fss0_core0_shared_memory_bufpool_region:r5f-virtual-eth-buffers@a4200000 {
+		compatible = "shared-dma-pool";
+		reg = <0x00 0xa4200000 0x00 0x1e00000>;
+		no-map;
+	};
+};
+
+&wkup_r5fss0_core0 {
+	memory-region = <&wkup_r5fss0_core0_dma_memory_region>,
+			<&wkup_r5fss0_core0_memory_region>,
+			<&wkup_r5fss0_core0_shared_memory_queue_region>,
+			<&wkup_r5fss0_core0_shared_memory_bufpool_region>;
+};
