@@ -38,11 +38,17 @@ struct cpsw_proxy_req_params {
 struct rx_dma_chan {
 	struct virtual_port		*vport;
 	u32				rel_chan_idx;
+	u32				flow_base;
+	u32				flow_offset;
+	u32				thread_id;
+	bool				in_use;
 };
 
 struct tx_dma_chan {
 	struct virtual_port		*vport;
 	u32				rel_chan_idx;
+	u32				thread_id;
+	bool				in_use;
 };
 
 struct virtual_port {
@@ -55,6 +61,8 @@ struct virtual_port {
 	u32				port_features;
 	u32				num_rx_chan;
 	u32				num_tx_chan;
+	u8				mac_addr[ETH_ALEN];
+	bool				mac_in_use;
 };
 
 struct cpsw_proxy_priv {
@@ -432,6 +440,163 @@ err:
 		if (ret)
 			dev_err(proxy_priv->dev, "detaching virtual port %u failed\n", port_id);
 	}
+	return -EIO;
+}
+
+static void free_port_resources(struct cpsw_proxy_priv *proxy_priv)
+{
+	struct cpsw_proxy_req_params *req_p;
+	struct rx_dma_chan *rx_chn;
+	struct tx_dma_chan *tx_chn;
+	struct virtual_port *vport;
+	struct message resp_msg;
+	u32 port_id, i, j;
+	int ret;
+
+	for (i = 0; i < proxy_priv->num_virt_ports; i++) {
+		vport = &proxy_priv->virt_ports[i];
+		port_id = vport->port_id;
+
+		/* Free allocated MAC */
+		if (vport->mac_in_use) {
+			mutex_lock(&proxy_priv->req_params_mutex);
+			req_p = &proxy_priv->req_params;
+			req_p->request_type = ETHFW_FREE_MAC;
+			req_p->token = vport->port_token;
+			ether_addr_copy(req_p->mac_addr, vport->mac_addr);
+			ret = send_request_get_response(proxy_priv, &resp_msg);
+			mutex_unlock(&proxy_priv->req_params_mutex);
+			if (ret) {
+				dev_err(proxy_priv->dev,
+					"failed to free MAC Address for port %u err: %d\n",
+					port_id, ret);
+				return;
+			}
+		}
+
+		/* Free TX DMA Channels */
+		for (j = 0; j < vport->num_tx_chan; j++) {
+			tx_chn = &vport->tx_chans[j];
+			if (!tx_chn->in_use)
+				continue;
+			mutex_lock(&proxy_priv->req_params_mutex);
+			req_p = &proxy_priv->req_params;
+			req_p->request_type = ETHFW_FREE_TX;
+			req_p->token = vport->port_token;
+			req_p->tx_thread_id = tx_chn->thread_id;
+			ret = send_request_get_response(proxy_priv, &resp_msg);
+			mutex_unlock(&proxy_priv->req_params_mutex);
+			if (ret) {
+				dev_err(proxy_priv->dev,
+					"failed to free TX Channel for port %u err: %d\n",
+					port_id, ret);
+				return;
+			}
+		}
+
+		/* Free RX DMA Channels */
+		for (j = 0; j < vport->num_rx_chan; j++) {
+			rx_chn = &vport->rx_chans[j];
+			if (!rx_chn->in_use)
+				continue;
+			mutex_lock(&proxy_priv->req_params_mutex);
+			req_p = &proxy_priv->req_params;
+			req_p->request_type = ETHFW_FREE_RX;
+			req_p->token = vport->port_token;
+			req_p->rx_flow_base = rx_chn->flow_base;
+			req_p->rx_flow_offset = rx_chn->flow_offset;
+			ret = send_request_get_response(proxy_priv, &resp_msg);
+			mutex_unlock(&proxy_priv->req_params_mutex);
+			if (ret) {
+				dev_err(proxy_priv->dev,
+					"failed to free RX Channel for port %u err: %d\n",
+					port_id, ret);
+				return;
+			}
+		}
+	}
+}
+
+static int allocate_port_resources(struct cpsw_proxy_priv *proxy_priv)
+{
+	struct tx_thread_alloc_response *tta_resp;
+	struct rx_flow_alloc_response *rfa_resp;
+	struct cpsw_proxy_req_params *req_p;
+	struct mac_alloc_response *ma_resp;
+	struct rx_dma_chan *rx_chn;
+	struct tx_dma_chan *tx_chn;
+	struct virtual_port *vport;
+	struct message resp_msg;
+	u32 port_id, i, j;
+	int ret;
+
+	for (i = 0; i < proxy_priv->num_virt_ports; i++) {
+		vport = &proxy_priv->virt_ports[i];
+		port_id = vport->port_id;
+
+		/* Request RX DMA Flow allocation */
+		for (j = 0; j < vport->num_rx_chan; j++) {
+			mutex_lock(&proxy_priv->req_params_mutex);
+			req_p = &proxy_priv->req_params;
+			req_p->request_type = ETHFW_ALLOC_RX;
+			req_p->token = vport->port_token;
+			req_p->rx_tx_idx = j;
+			ret = send_request_get_response(proxy_priv, &resp_msg);
+			mutex_unlock(&proxy_priv->req_params_mutex);
+			if (ret) {
+				dev_err(proxy_priv->dev, "RX Alloc for port %u failed\n", port_id);
+				goto err;
+			}
+
+			rfa_resp = (struct rx_flow_alloc_response *)&resp_msg;
+			rx_chn = &vport->rx_chans[j];
+			rx_chn->flow_base = rfa_resp->rx_flow_idx_base;
+			rx_chn->flow_offset = rfa_resp->rx_flow_idx_offset;
+			rx_chn->thread_id = rfa_resp->rx_psil_src_id;
+			rx_chn->in_use = 1;
+		}
+
+		/* Request TX DMA Channel allocation */
+		for (j = 0; j < vport->num_tx_chan; j++) {
+			mutex_lock(&proxy_priv->req_params_mutex);
+			req_p = &proxy_priv->req_params;
+			req_p->request_type = ETHFW_ALLOC_TX;
+			req_p->token = vport->port_token;
+			req_p->rx_tx_idx = j;
+			ret = send_request_get_response(proxy_priv, &resp_msg);
+			mutex_unlock(&proxy_priv->req_params_mutex);
+			if (ret) {
+				dev_err(proxy_priv->dev, "TX Alloc for port %u failed\n", port_id);
+				goto err;
+			}
+
+			tta_resp = (struct tx_thread_alloc_response *)&resp_msg;
+			tx_chn = &vport->tx_chans[j];
+			tx_chn->thread_id = tta_resp->tx_psil_dest_id;
+			tx_chn->in_use = 1;
+		}
+
+		/* Request MAC allocation */
+		mutex_lock(&proxy_priv->req_params_mutex);
+		req_p = &proxy_priv->req_params;
+		req_p->request_type = ETHFW_ALLOC_MAC;
+		req_p->token = vport->port_token;
+		ret = send_request_get_response(proxy_priv, &resp_msg);
+		mutex_unlock(&proxy_priv->req_params_mutex);
+		if (ret) {
+			dev_err(proxy_priv->dev, "MAC Alloc for port %u failed\n", port_id);
+			goto err;
+		}
+
+		ma_resp = (struct mac_alloc_response *)&resp_msg;
+		ether_addr_copy(vport->mac_addr, ma_resp->mac_addr);
+		vport->mac_in_use = 1;
+	}
+
+	return 0;
+
+err:
+	free_port_resources(proxy_priv);
 	return -EIO;
 }
 
