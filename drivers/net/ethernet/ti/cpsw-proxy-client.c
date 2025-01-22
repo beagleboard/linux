@@ -14,6 +14,11 @@
 
 #define ETHFW_RESPONSE_TIMEOUT_MS	500
 
+enum virtual_port_type {
+	VIRT_SWITCH_PORT,
+	VIRT_MAC_ONLY_PORT,
+};
+
 struct cpsw_proxy_req_params {
 	struct message	req_msg;	/* Request message to be filled */
 	u32		token;
@@ -30,13 +35,26 @@ struct cpsw_proxy_req_params {
 	u8		ipv4_addr[ETHFW_IPV4ADDRLEN];
 };
 
+struct virtual_port {
+	struct cpsw_proxy_priv		*proxy_priv;
+	enum virtual_port_type		port_type;
+	u32				port_id;
+};
+
 struct cpsw_proxy_priv {
 	struct rpmsg_device		*rpdev;
 	struct device			*dev;
+	struct virtual_port		*virt_ports;
 	struct cpsw_proxy_req_params	req_params;
+	struct mutex			req_params_mutex; /* Request params mutex */
 	struct message			resp_msg;
 	struct completion		wait_for_response;
 	int				resp_msg_len;
+	u32				vswitch_ports; /* Bitmask of Virtual Switch Port IDs */
+	u32				vmac_ports /* Bitmask of Virtual MAC Only Port IDs */;
+	u32				num_switch_ports;
+	u32				num_mac_ports;
+	u32				num_virt_ports;
 };
 
 static int cpsw_proxy_client_cb(struct rpmsg_device *rpdev, void *data,
@@ -268,6 +286,63 @@ static int send_request_get_response(struct cpsw_proxy_priv *proxy_priv,
 err:
 	req_params->request_id++;
 	return ret;
+}
+
+static int get_virtual_port_info(struct cpsw_proxy_priv *proxy_priv)
+{
+	struct virt_port_info_response *vpi_resp;
+	struct cpsw_proxy_req_params *req_p;
+	struct virtual_port *vport;
+	struct message resp_msg;
+	unsigned int vp_id, i;
+	int ret;
+
+	mutex_lock(&proxy_priv->req_params_mutex);
+	req_p = &proxy_priv->req_params;
+	req_p->request_type = ETHFW_VIRT_PORT_INFO;
+	ret = send_request_get_response(proxy_priv, &resp_msg);
+	mutex_unlock(&proxy_priv->req_params_mutex);
+
+	if (ret) {
+		dev_err(proxy_priv->dev, "failed to get virtual port info\n");
+		return ret;
+	}
+
+	vpi_resp = (struct virt_port_info_response *)&resp_msg;
+	proxy_priv->vswitch_ports = vpi_resp->switch_port_mask;
+	proxy_priv->vmac_ports = vpi_resp->mac_port_mask;
+	/* Number of 1s set in vswitch_ports is the count of switch ports */
+	proxy_priv->num_switch_ports = hweight32(proxy_priv->vswitch_ports);
+	proxy_priv->num_virt_ports = proxy_priv->num_switch_ports;
+	/* Number of 1s set in vmac_ports is the count of mac ports */
+	proxy_priv->num_mac_ports = hweight32(proxy_priv->vmac_ports);
+	proxy_priv->num_virt_ports += proxy_priv->num_mac_ports;
+
+	proxy_priv->virt_ports = devm_kcalloc(proxy_priv->dev,
+					      proxy_priv->num_virt_ports,
+					      sizeof(*proxy_priv->virt_ports),
+					      GFP_KERNEL);
+
+	vp_id = 0;
+	for (i = 0; i < proxy_priv->num_switch_ports; i++) {
+		vport = &proxy_priv->virt_ports[vp_id];
+		vport->proxy_priv = proxy_priv;
+		vport->port_type = VIRT_SWITCH_PORT;
+		/* Port ID is derived from the bit set in the bitmask */
+		vport->port_id = fns(proxy_priv->vswitch_ports, i);
+		vp_id++;
+	}
+
+	for (i = 0; i < proxy_priv->num_mac_ports; i++) {
+		vport = &proxy_priv->virt_ports[vp_id];
+		vport->proxy_priv = proxy_priv;
+		vport->port_type = VIRT_MAC_ONLY_PORT;
+		/* Port ID is derived from the bit set in the bitmask */
+		vport->port_id = fns(proxy_priv->vmac_ports, i);
+		vp_id++;
+	}
+
+	return 0;
 }
 
 static int cpsw_proxy_client_probe(struct rpmsg_device *rpdev)
