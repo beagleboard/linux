@@ -12,6 +12,8 @@
 
 #include "ethfw_abi.h"
 
+#define ETHFW_RESPONSE_TIMEOUT_MS	500
+
 struct cpsw_proxy_req_params {
 	struct message	req_msg;	/* Request message to be filled */
 	u32		token;
@@ -31,16 +33,50 @@ struct cpsw_proxy_req_params {
 struct cpsw_proxy_priv {
 	struct rpmsg_device		*rpdev;
 	struct device			*dev;
+	struct cpsw_proxy_req_params	req_params;
+	struct message			resp_msg;
+	struct completion		wait_for_response;
+	int				resp_msg_len;
 };
 
 static int cpsw_proxy_client_cb(struct rpmsg_device *rpdev, void *data,
 				int len, void *priv, u32 src)
 {
+	struct cpsw_proxy_priv *proxy_priv = dev_get_drvdata(&rpdev->dev);
+	struct response_message_header *resp_msg_hdr;
+	struct message *msg = (struct message *)data;
+	struct cpsw_proxy_req_params *req_params;
 	struct device *dev = &rpdev->dev;
+	u32 msg_type, resp_id;
 
 	dev_dbg(dev, "callback invoked\n");
+	msg_type = msg->msg_hdr.msg_type;
+	switch (msg_type) {
+	case ETHFW_MSG_RESPONSE:
+		resp_msg_hdr = (struct response_message_header *)msg;
+		resp_id = resp_msg_hdr->response_id;
+		req_params = &proxy_priv->req_params;
 
-	return 0;
+		if (unlikely(resp_id == req_params->request_id - 1)) {
+			dev_info(dev, "ignoring late response for request: %u\n",
+				 resp_id);
+			return 0;
+		} else if (unlikely(resp_id != req_params->request_id)) {
+			dev_err(dev, "expected response id: %u but received %u\n",
+				req_params->request_id, resp_id);
+			return -EINVAL;
+		}
+
+		/* Share response */
+		memcpy(&proxy_priv->resp_msg, msg, len);
+		proxy_priv->resp_msg_len = len;
+		complete(&proxy_priv->wait_for_response);
+		return 0;
+
+	default:
+		dev_err(dev, "unsupported message received from EthFw\n");
+		return -EOPNOTSUPP;
+	}
 }
 
 static int create_request_message(struct cpsw_proxy_req_params *req_params)
@@ -167,6 +203,73 @@ static int create_request_message(struct cpsw_proxy_req_params *req_params)
 	return 0;
 }
 
+/* Send a request to EthFw and receive the response for request.
+ * Since the response is received by the callback function, it is
+ * copied to "resp_msg" member of "struct cpsw_proxy_priv" to
+ * allow sharing it with the following function.
+ *
+ * The request parameters within proxy_priv are expected to be set
+ * correctly by the caller. The caller is also expected to acquire
+ * lock before invoking this function, since requests and responses
+ * to/from EthFw are serialized.
+ */
+static int send_request_get_response(struct cpsw_proxy_priv *proxy_priv,
+				     struct message *response)
+{
+	struct cpsw_proxy_req_params *req_params = &proxy_priv->req_params;
+	struct message *send_msg = &req_params->req_msg;
+	struct rpmsg_device *rpdev = proxy_priv->rpdev;
+	struct response_message_header *resp_msg_hdr;
+	struct device *dev = proxy_priv->dev;
+	unsigned long timeout;
+	u32 resp_status;
+	int ret;
+
+	ret = create_request_message(req_params);
+	if (ret) {
+		dev_err(dev, "failed to create request %d\n", ret);
+		goto err;
+	}
+
+	/* Send request and wait for callback function to acknowledge
+	 * receiving the response.
+	 */
+	reinit_completion(&proxy_priv->wait_for_response);
+	ret = rpmsg_send(rpdev->ept, (void *)(send_msg),
+			 sizeof(struct message));
+	if (ret) {
+		dev_err(dev, "failed to send rpmsg\n");
+		goto err;
+	}
+	timeout = msecs_to_jiffies(ETHFW_RESPONSE_TIMEOUT_MS);
+	ret = wait_for_completion_timeout(&proxy_priv->wait_for_response,
+					  timeout);
+	if (!ret) {
+		dev_err(dev, "response timedout\n");
+		ret = -ETIMEDOUT;
+		goto err;
+	}
+
+	/* Store response shared by callback function */
+	memcpy(response, &proxy_priv->resp_msg, proxy_priv->resp_msg_len);
+	resp_msg_hdr = (struct response_message_header *)response;
+	resp_status = resp_msg_hdr->response_status;
+	ret = resp_status;
+
+	/* For all return values other than ETHFW_RES_EFAIL, the caller
+	 * is expected to check the return value to deal with the failure
+	 * accordingly.
+	 */
+	if (unlikely(resp_status == ETHFW_RES_EFAIL)) {
+		dev_err(dev, "bad response status: %d\n", resp_status);
+		ret = -EIO;
+	}
+
+err:
+	req_params->request_id++;
+	return ret;
+}
+
 static int cpsw_proxy_client_probe(struct rpmsg_device *rpdev)
 {
 	struct cpsw_proxy_priv *proxy_priv;
@@ -177,6 +280,7 @@ static int cpsw_proxy_client_probe(struct rpmsg_device *rpdev)
 
 	proxy_priv->rpdev = rpdev;
 	proxy_priv->dev = &rpdev->dev;
+	dev_set_drvdata(proxy_priv->dev, proxy_priv);
 	dev_dbg(proxy_priv->dev, "driver probed\n");
 
 	return 0;
