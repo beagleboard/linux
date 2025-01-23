@@ -14,6 +14,7 @@
 #include <dt-bindings/leds/common.h>
 #include <dt-bindings/net/ti-dp83867.h>
 #include <dt-bindings/phy/phy-cadence.h>
+#include "k3-j721e-beagleboneai64-pinmux.dtsi"
 
 / {
 	compatible = "beagle,j721e-beagleboneai64", "ti,j721e";
