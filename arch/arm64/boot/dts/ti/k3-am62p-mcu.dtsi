@@ -1,7 +1,7 @@
-// SPDX-License-Identifier: GPL-2.0
+// SPDX-License-Identifier: GPL-2.0-only OR MIT
 /*
  * Device Tree file for the AM62P MCU domain peripherals
- * Copyright (C) 2023 Texas Instruments Incorporated - https://www.ti.com/
+ * Copyright (C) 2023-2024 Texas Instruments Incorporated - https://www.ti.com/
  */
 
 &cbass_mcu {
@@ -23,7 +23,15 @@
 		#pinctrl-cells = <1>;
 		pinctrl-single,register-width = <32>;
 		pinctrl-single,function-mask = <0xffffffff>;
+		pinctrl-single,gpio-range =
+			<&mcu_pmx_range 0 21 (PIN_INPUT | PIN_GPIO_MUX_MODE)>,
+			<&mcu_pmx_range 23 1 (PIN_INPUT | PIN_GPIO_MUX_MODE)>,
+			<&mcu_pmx_range 32 2 (PIN_INPUT | PIN_GPIO_MUX_MODE)>;
 		bootph-all;
+
+		mcu_pmx_range: gpio-range {
+			#pinctrl-single,gpio-range-cells = <3>;
+		};
 	};
 
 	mcu_esm: esm@4100000 {
@@ -149,6 +157,8 @@
 		power-domains = <&k3_pds 79 TI_SCI_PD_EXCLUSIVE>;
 		clocks = <&k3_clks 79 0>;
 		clock-names = "gpio";
+		gpio-ranges = <&mcu_pmx0 0 0 21>, <&mcu_pmx0 21 23 1>,
+				<&mcu_pmx0 22 32 2>;
 	};
 
 	mcu_rti0: watchdog@4880000 {
