@@ -139,7 +139,7 @@
 		ranges;
 		status = "disabled";
 
-		usb1: usb@31200000{
+		usb1: usb@31200000 {
 			compatible = "cdns,usb3";
 			reg = <0x00 0x31200000 0x00 0x10000>,
 			      <0x00 0x31210000 0x00 0x10000>,
@@ -411,7 +411,7 @@
 		compatible = "reg-mux";
 		reg = <0x4080 0x14>;
 		#mux-control-cells = <1>;
-		mux-reg-masks = <0x0 0x3>, /* SERDES0 lane0 select */
+		mux-reg-masks = <0x00 0x3>, /* SERDES0 lane0 select */
 				<0x10 0x3>; /* SERDES1 lane0 select */
 	};
 };
