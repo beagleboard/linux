@@ -1,0 +1,49 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * vision-apps: device-tree overlay
+ *
+ * Copyright (C) 2019 - 2021 Texas Instruments Incorporated - http://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/mux/ti-serdes.h>
+
+&main_r5fss0_core0_shared_memory_queue_region {
+	status = "disabled";
+};
+
+&main_r5fss0_core0_shared_memory_bufpool_region {
+	status = "disabled";
+};
+
+#include "k3-j721e-rtos-memory-map.dtsi"
+
+&main_i2c6 {
+	status = "disabled";
+};
+
+&serdes_wiz4 {
+	status = "disabled";
+};
+
+&mhdp {
+	status = "disabled";
+};
+
+&dss {
+	status = "disabled";
+};
+
+&main_i2c1 {
+	status = "disabled";
+};
+
+&ti_csi2rx0 {
+	status = "disabled";
+};
+
+&ti_csi2rx1 {
+	status = "disabled";
+};
