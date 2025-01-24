@@ -42,6 +42,18 @@
 		status = "disabled";
 	};
 
+	sdhci1: mmc@fa00000 {
+		compatible = "ti,am62-sdhci";
+		reg = <0x00 0x0fa00000 0x00 0x1000>,
+		      <0x00 0x0fa08000 0x00 0x400>;
+		interrupts = <GIC_SPI 237 IRQ_TYPE_LEVEL_HIGH>;
+		bus-width = <4>;
+		ti,clkbuf-sel = <0x7>;
+		ti,otap-del-sel-legacy = <0x0>;
+		ti,itap-del-sel-legacy = <0x0>;
+		status = "disabled";
+	};
+
 	oc_sram: sram@70800000 {
 		compatible = "mmio-sram";
 		reg = <0x00 0x70800000 0x00 0x10000>;

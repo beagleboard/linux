@@ -23,6 +23,18 @@
 		device_type = "memory";
 		bootph-all;
 	};
+
+	/*
+	 * Boot ROM will have MMC configure for us when booting via SD
+	 * card. Put this here so the MMC driver doesn't try to change
+	 * anything for us and break boot.
+	 */
+	 clk_xin: clock {
+		 compatible = "fixed-clock";
+		 clock-frequency = <5000000>;
+		 #clock-cells = <0>;
+		 bootph-all;
+	 };
 };
 
 &main_uart0 {
@@ -33,6 +45,19 @@
 };
 
 &pmx0 {
+	main_mmc1_pins_default: main-mmc1-default-pins {
+		pinctrl-single,pins = <
+			AM62LX_IOPAD(0x0230, PIN_INPUT, 0)	  /* (Y3)  MMC1_CMD  */
+			AM62LX_IOPAD(0x0228, PIN_OUTPUT, 0)	  /* (Y2)  MMC1_CLK  */
+			AM62LX_IOPAD(0x0224, PIN_INPUT, 0)	  /* (AA1) MMC1_DAT0 */
+			AM62LX_IOPAD(0x0220, PIN_INPUT_PULLUP, 0) /* (Y4)  MMC1_DAT1 */
+			AM62LX_IOPAD(0x021c, PIN_INPUT_PULLUP, 0) /* (AA2) MMC1_DAT2 */
+			AM62LX_IOPAD(0x0218, PIN_INPUT_PULLUP, 0) /* (AB2) MMC1_DAT3 */
+			AM62LX_IOPAD(0x0234, PIN_INPUT, 0)	  /* (B6)  MMC1_SDCD */
+		>;
+		bootph-all;
+	};
+
 	main_uart0_pins_default: main-uart0-default-pins {
 		pinctrl-single,pins = <
 			AM62LX_IOPAD(0x01b4, PIN_INPUT, 0)	/* (D13) UART0_RXD */
@@ -40,4 +65,13 @@
 		>;
 		bootph-all;
 	};
+};
+
+&sdhci1 {
+	clocks = <&clk_xin>;
+	clock-names = "clk_xin";
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_mmc1_pins_default>;
+	status = "okay";
+	bootph-all;
 };
