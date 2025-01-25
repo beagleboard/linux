@@ -108,7 +108,13 @@
 #include "varasm.h"
 #include "stor-layout.h"
 #include "internal-fn.h"
+#endif
+
+#include "gimple.h"
+
+#if BUILDING_GCC_VERSION >= 4009
 #include "gimple-expr.h"
+#include "gimple-iterator.h"
 #include "gimple-fold.h"
 #include "context.h"
 #include "tree-ssa-alias.h"
@@ -124,13 +130,10 @@
 #include "gimplify.h"
 #endif
 
-#include "gimple.h"
-
 #if BUILDING_GCC_VERSION >= 4009
 #include "tree-ssa-operands.h"
 #include "tree-phinodes.h"
 #include "tree-cfg.h"
-#include "gimple-iterator.h"
 #include "gimple-ssa.h"
 #include "ssa-iterators.h"
 #endif
@@ -975,6 +978,10 @@ static inline void debug_gimple_stmt(const_gimple s)
 #if BUILDING_GCC_VERSION < 7000
 #define SET_DECL_ALIGN(decl, align)	DECL_ALIGN(decl) = (align)
 #define SET_DECL_MODE(decl, mode)	DECL_MODE(decl) = (mode)
+#endif
+
+#if BUILDING_GCC_VERSION >= 14000
+#define last_stmt(x)			last_nondebug_stmt(x)
 #endif
 
 #endif
