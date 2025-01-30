@@ -50,6 +50,7 @@
 
 #define ICSSG_MAX_RFLOWS	8	/* per slice */
 
+#define ICSSG_CUT_THRU_BIT	BIT(7)
 #define ICSSG_NUM_PA_STATS	4
 #define ICSSG_NUM_MIIG_STATS	60
 /* Number of ICSSG related stats */
@@ -107,6 +108,15 @@ enum prueth_mac {
 	PRUETH_MAC1,
 	PRUETH_NUM_MACS,
 	PRUETH_MAC_INVALID,
+};
+
+enum prueth_devlink_param_id {
+	PRUETH_DEVLINK_PARAM_ID_BASE = DEVLINK_PARAM_GENERIC_ID_MAX,
+	PRUETH_DL_PARAM_CUT_THRU_EN,
+};
+
+struct prueth_devlink {
+	struct prueth *prueth;
 };
 
 struct prueth_tx_chn {
@@ -196,6 +206,8 @@ struct prueth_emac {
 
 	struct pruss_mem_region dram;
 
+	struct devlink_port devlink_port;
+	u8 cut_thru_queue_map;
 	bool offload_fwd_mark;
 	int port_vlan;
 
@@ -264,6 +276,7 @@ struct icssg_firmwares {
  * @is_switchmode_supported: indicates platform support for switch mode
  * @switch_id: ID for mapping switch ports to bridge
  * @default_vlan: Default VLAN for host
+ * @devlink: pointer to devlink
  */
 struct prueth {
 	struct device *dev;
@@ -305,6 +318,7 @@ struct prueth {
 	int default_vlan;
 	/** @vtbl_lock: Lock for vtbl in shared memory */
 	spinlock_t vtbl_lock;
+	struct devlink *devlink;
 };
 
 struct emac_tx_ts_response {

@@ -220,6 +220,27 @@ static void icssg_miig_queues_init(struct prueth *prueth, int slice)
 	}
 }
 
+static void icssg_config_cut_thru(struct prueth_emac *emac)
+{
+	void __iomem *config = emac->dram.va + ICSSG_CONFIG_OFFSET;
+	u8 mask = ICSSG_CUT_THRU_BIT;
+	u8 val;
+	int i;
+
+	for (i = 0; i < PRUETH_MAX_TX_QUEUES * PRUETH_NUM_MACS; i++) {
+		val = readb(config + EXPRESS_PRE_EMPTIVE_Q_MAP + i);
+		if (emac->cut_thru_queue_map & BIT(i)) {
+			val |= mask;
+			netdev_info(emac->ndev, "cut-thru enabled for q%d\n", i);
+		} else if (val & mask){
+			val &= ~mask;
+			netdev_info(emac->ndev, "cut-thru disabled for q%d\n", i);
+		}
+
+		writeb(val, config + EXPRESS_PRE_EMPTIVE_Q_MAP + i);
+	}
+}
+
 void icssg_config_ipg(struct prueth_emac *emac)
 {
 	struct prueth *prueth = emac->prueth;
@@ -497,6 +518,9 @@ int icssg_config(struct prueth *prueth, struct prueth_emac *emac, int slice)
 		return ret;
 
 	emac_r30_cmd_init(emac);
+
+	if (prueth->is_switch_mode || prueth->is_hsr_offload_mode)
+		icssg_config_cut_thru(emac);
 
 	return 0;
 }
