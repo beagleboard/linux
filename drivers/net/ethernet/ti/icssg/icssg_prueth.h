@@ -51,7 +51,7 @@
 #define ICSSG_MAX_RFLOWS	8	/* per slice */
 
 #define ICSSG_CUT_THRU_BIT	BIT(7)
-#define ICSSG_NUM_PA_STATS	4
+#define ICSSG_NUM_PA_STATS	5
 #define ICSSG_NUM_MIIG_STATS	60
 /* Number of ICSSG related stats */
 #define ICSSG_NUM_STATS (ICSSG_NUM_MIIG_STATS + ICSSG_NUM_PA_STATS)

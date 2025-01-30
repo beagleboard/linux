@@ -161,12 +161,14 @@ static const struct icssg_miig_stats icssg_all_miig_stats[] = {
  * @fw_tx_cnt: Number of valid packets copied by RTU0 to Tx queues
  * @fw_tx_pre_overflow: Host Egress Q (Pre-emptible) Overflow Counter
  * @fw_tx_exp_overflow: Host Egress Q (Express) Overflow Counter
+ * @fw_cut_thru_pkt_cnt: Number of packets forwarded using Cut Through Forwarding
  */
 struct pa_stats_regs {
 	u32 fw_rx_cnt;
 	u32 fw_tx_cnt;
 	u32 fw_tx_pre_overflow;
 	u32 fw_tx_exp_overflow;
+	u32 fw_cut_thru_pkt_cnt;
 };
 
 #define ICSSG_PA_STATS(field)			\
@@ -185,6 +187,7 @@ static const struct icssg_pa_stats icssg_all_pa_stats[] = {
 	ICSSG_PA_STATS(fw_tx_cnt),
 	ICSSG_PA_STATS(fw_tx_pre_overflow),
 	ICSSG_PA_STATS(fw_tx_exp_overflow),
+	ICSSG_PA_STATS(fw_cut_thru_pkt_cnt),
 };
 
 #endif /* __NET_TI_ICSSG_STATS_H */
