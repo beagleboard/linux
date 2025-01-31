@@ -13,12 +13,16 @@
 #include <linux/regmap.h>
 
 #define TPS65219_GPIO0_DIR_MASK		BIT(3)
-#define TPS65219_GPIO0_OFFSET		2
 #define TPS6521X_GPIO0_IDX			0
 
 struct tps65219_gpio {
 	struct gpio_chip gpio_chip;
 	struct tps65219 *tps;
+};
+
+struct tps65219_chip_data {
+	int ngpio;
+	int offset;
 };
 
 static int tps65219_gpio_get_direction(struct gpio_chip *gc, unsigned int offset)
@@ -71,7 +75,7 @@ static void tps65219_gpio_set(struct gpio_chip *gc, unsigned int offset, int val
 	struct device *dev = gpio->tps->dev;
 	int v, mask, bit;
 
-	bit = (offset == TPS6521X_GPIO0_IDX) ? TPS65219_GPIO0_OFFSET : offset - 1;
+	bit = (offset == TPS6521X_GPIO0_IDX) ? (gpio->gpio_chip.offset - 1) : offset - 1;
 
 	mask = BIT(bit);
 	v = value ? mask : 0;
@@ -148,14 +152,29 @@ static const struct gpio_chip tps65219_template_chip = {
 	.get			= tps65219_gpio_get,
 	.set			= tps65219_gpio_set,
 	.base			= -1,
-	.ngpio			= 3,
 	.can_sleep		= true,
+};
+
+static const struct tps65219_chip_data chip_info_table[] = {
+	[TPS65215] = {
+		.ngpio = 2,
+		.offset = 1,
+	},
+	[TPS65219] = {
+		.ngpio = 3,
+		.offset = 2,
+	},
 };
 
 static int tps65219_gpio_probe(struct platform_device *pdev)
 {
-	struct tps65219 *tps = dev_get_drvdata(pdev->dev.parent);
 	struct tps65219_gpio *gpio;
+	const struct tps65219_chip_data *pmic;
+
+	struct tps65219 *tps = dev_get_drvdata(pdev->dev.parent);
+	enum pmic_id chip = platform_get_device_id(pdev)->driver_data;
+
+	pmic = &chip_info_table[chip];
 
 	gpio = devm_kzalloc(&pdev->dev, sizeof(*gpio), GFP_KERNEL);
 	if (!gpio)
@@ -164,6 +183,8 @@ static int tps65219_gpio_probe(struct platform_device *pdev)
 	gpio->tps = tps;
 	gpio->gpio_chip = tps65219_template_chip;
 	gpio->gpio_chip.label = dev_name(&pdev->dev);
+	gpio->gpio_chip.ngpio =  pmic->ngpio;
+	gpio->gpio_chip.offset = pmic->offset;
 	gpio->gpio_chip.parent = tps->dev;
 
 	return devm_gpiochip_add_data(&pdev->dev, &gpio->gpio_chip, gpio);
