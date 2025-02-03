@@ -333,11 +333,16 @@ static void wave5_vpu_enc_finish_encode(struct vpu_instance *inst)
 		dst_buf->vb2_buf.timestamp = inst->timestamp;
 		dst_buf->field = V4L2_FIELD_NONE;
 		if (enc_output_info.pic_type == PIC_TYPE_I) {
-			if (enc_output_info.enc_vcl_nut == 19 ||
-			    enc_output_info.enc_vcl_nut == 20)
+			if (inst->std == W_HEVC_ENC &&
+				(enc_output_info.enc_vcl_nut == 19 ||
+				enc_output_info.enc_vcl_nut == 20)) {
 				dst_buf->flags |= V4L2_BUF_FLAG_KEYFRAME;
-			else
+			} else if (inst->std == W_AVC_ENC &&
+				enc_output_info.enc_vcl_nut == 5) {
+				dst_buf->flags |= V4L2_BUF_FLAG_KEYFRAME;
+			} else {
 				dst_buf->flags |= V4L2_BUF_FLAG_PFRAME;
+			}
 		} else if (enc_output_info.pic_type == PIC_TYPE_P) {
 			dst_buf->flags |= V4L2_BUF_FLAG_PFRAME;
 		} else if (enc_output_info.pic_type == PIC_TYPE_B) {
