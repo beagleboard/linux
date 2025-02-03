@@ -596,6 +596,7 @@ struct enc_wave_param {
 	u32 forced_idr_header_enable: 1; /* enable header encoding before IDR frame */
 	u32 constraint_set1_flag: 1; /* enable CBP */
 	u32 forced_idr_pictype_enable: 1;
+	u32 bg_detection: 1; /* enable background detection */
 };
 
 struct enc_open_param {
