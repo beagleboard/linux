@@ -1243,10 +1243,11 @@ static int wave5_set_enc_openparam(struct enc_open_param *open_param,
 			open_param->wave_param.decoding_refresh_type = DEC_REFRESH_TYPE_IDR;
 			open_param->wave_param.intra_period = input.avc_idr_period;
 		}
-	} else if (inst->std == W_AVC_ENC)
+	} else if (inst->std == W_AVC_ENC) {
 		open_param->wave_param.constraint_set1_flag = input.constraint_set1_flag;
-	else
 		open_param->wave_param.avc_idr_period = input.avc_idr_period;
+	}
+
 	open_param->wave_param.entropy_coding_mode = input.entropy_coding_mode;
 	open_param->wave_param.lossless_enable = input.lossless_enable;
 	open_param->wave_param.const_intra_pred_flag = input.const_intra_pred_flag;
