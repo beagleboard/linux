@@ -309,5 +309,15 @@ EXPORT_SYMBOL_GPL(k3_rproc_stop);
 int k3_rproc_attach(struct rproc *rproc) { return 0; }
 EXPORT_SYMBOL_GPL(k3_rproc_attach);
 
+/*
+ * Detach from a running remote processor (IPC-only mode)
+ *
+ * This rproc detach callback is a NOP. The remote core is not stopped
+ * and will be left to continue to run its booted firmware. This callback
+ * is invoked only in IPC-only mode and exists for sanity sake.
+ */
+int k3_rproc_detach(struct rproc *rproc) { return 0; }
+EXPORT_SYMBOL_GPL(k3_rproc_detach);
+
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("TI K3 common Remoteproc code");
