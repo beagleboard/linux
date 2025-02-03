@@ -356,13 +356,11 @@ static int k3_m4_rproc_start(struct rproc *rproc)
 	if (ret)
 		return ret;
 
-	ret = reset_control_deassert(kproc->reset);
-	if (ret) {
+	ret = k3_rproc_release(kproc);
+	if (ret)
 		dev_err(dev, "local-reset deassert failed, ret = %d\n", ret);
-		return ret;
-	}
 
-	return 0;
+	return ret;
 }
 
 /*
