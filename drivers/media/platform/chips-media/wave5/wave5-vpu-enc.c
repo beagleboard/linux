@@ -135,6 +135,30 @@ static int start_encode(struct vpu_instance *inst, u32 *fail_res)
 	memset(&pic_param, 0, sizeof(struct enc_param));
 	memset(&frame_buf, 0, sizeof(struct frame_buffer));
 
+	if (inst->change_param_flags) {
+		struct enc_output_info enc_output_info;
+
+		wave5_vpu_enc_change_param(inst, NULL);
+		inst->change_param_flags = 0;
+		if (wave5_vpu_wait_interrupt(inst, VPU_ENC_TIMEOUT) < 0) {
+			dev_dbg(inst->dev->dev, "%s: wave5_vpu_wait_interrupt failed\n", __func__);
+			return -EINVAL;
+		}
+
+		ret = wave5_vpu_enc_get_output_info(inst, &enc_output_info);
+		if (ret) {
+			dev_dbg(inst->dev->dev,
+				"%s: vpu_enc_get_output_info fail: %d  reason: %u | info: %u\n",
+				__func__, ret, enc_output_info.error_reason, enc_output_info.warn_info);
+			return -EINVAL;
+		}
+
+		if (enc_output_info.recon_frame_index == RECON_IDX_FLAG_CHANGE_PARAM)
+			dev_dbg(inst->dev->dev, "%s: the change param done\n", __func__);
+		else
+			return -EINVAL;
+	}
+
 	info = v4l2_format_info(inst->src_fmt.pixelformat);
 	if (!info)
 		return -EINVAL;
@@ -775,6 +799,8 @@ static int wave5_vpu_enc_s_ctrl(struct v4l2_ctrl *ctrl)
 		}
 		break;
 	case V4L2_CID_MPEG_VIDEO_BITRATE:
+		if (inst->state == VPU_INST_STATE_PIC_RUN)
+			inst->change_param_flags |= W5_ENC_CHANGE_PARAM_RC_TARGET_RATE;
 		inst->bit_rate = ctrl->val;
 		break;
 	case V4L2_CID_MPEG_VIDEO_GOP_SIZE:
