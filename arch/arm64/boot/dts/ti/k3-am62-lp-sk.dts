@@ -58,6 +58,7 @@
 	};
 
 	vddshv_sdio: regulator-4 {
+		bootph-all;
 		compatible = "regulator-gpio";
 		regulator-name = "vddshv_sdio";
 		pinctrl-names = "default";
@@ -74,12 +75,14 @@
 
 &main_pmx0 {
 	vddshv_sdio_pins_default: vddshv-sdio-default-pins {
+		bootph-all;
 		pinctrl-single,pins = <
 			AM62X_IOPAD(0x07c, PIN_OUTPUT, 7) /* (M19) GPMC0_CLK.GPIO0_31 */
 		>;
 	};
 
 	main_gpio1_ioexp_intr_pins_default: main-gpio1-ioexp-intr-default-pins {
+		bootph-all;
 		pinctrl-single,pins = <
 			AM62X_IOPAD(0x01d4, PIN_INPUT, 7) /* (C13) UART0_RTSn.GPIO1_23 */
 		>;
@@ -94,6 +97,7 @@
 
 &main_i2c1 {
 	exp1: gpio@22 {
+		bootph-all;
 		compatible = "ti,tca6424";
 		reg = <0x22>;
 		gpio-controller;
@@ -227,6 +231,14 @@
 
 &tlv320aic3106 {
 	DVDD-supply = <&buck2_reg>;
+};
+
+&main_gpio0 {
+	bootph-all;
+};
+
+&main_gpio1 {
+	bootph-all;
 };
 
 &gpmc0 {
