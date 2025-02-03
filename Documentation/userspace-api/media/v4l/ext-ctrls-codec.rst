@@ -604,6 +604,11 @@ enum v4l2_mpeg_video_frame_skip_mode -
     chosen data limit then the frame will be skipped. Possible values
     are:
 
+``V4L2_CID_MPEG_VIDEO_BACKGROUND_DETECTION (boolean)``
+    If enabled then, the encoder detect a background region in frame and
+    use low bits or skip mode to encode the background region.
+    If a lot of scenes are stationary or background, It may help to
+    reduce the video bitrate. Applicable to the encoder.
 
 .. tabularcolumns:: |p{8.2cm}|p{9.3cm}|
 
