@@ -59,17 +59,6 @@ static int k3_dsp_rproc_start(struct rproc *rproc)
 }
 
 /*
- * Attach to a running DSP remote processor (IPC-only mode)
- *
- * This rproc attach callback is a NOP. The remote processor is already booted,
- * and all required resources have been acquired during probe routine, so there
- * is no need to issue any TI-SCI commands to boot the DSP core. This callback
- * is invoked only in IPC-only mode and exists because rproc_validate() checks
- * for its existence.
- */
-static int k3_dsp_rproc_attach(struct rproc *rproc) { return 0; }
-
-/*
  * Detach from a running DSP remote processor (IPC-only mode)
  *
  * This rproc detach callback is a NOP. The DSP core is not stopped and will be
@@ -172,6 +161,7 @@ static void *k3_dsp_rproc_da_to_va(struct rproc *rproc, u64 da, size_t len, bool
 static const struct rproc_ops k3_dsp_rproc_ops = {
 	.start		= k3_dsp_rproc_start,
 	.stop		= k3_rproc_stop,
+	.attach		= k3_rproc_attach,
 	.kick		= k3_rproc_kick,
 	.da_to_va	= k3_dsp_rproc_da_to_va,
 };
@@ -399,7 +389,6 @@ static int k3_dsp_rproc_probe(struct platform_device *pdev)
 		dev_info(dev, "configured DSP for IPC-only mode\n");
 		rproc->state = RPROC_DETACHED;
 		/* override rproc ops with only required IPC-only mode ops */
-		rproc->ops->attach = k3_dsp_rproc_attach;
 		rproc->ops->detach = k3_dsp_rproc_detach;
 		rproc->ops->get_loaded_rsc_table = k3_dsp_get_loaded_rsc_table;
 	} else {
