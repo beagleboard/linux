@@ -1,0 +1,31 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright (C) 2022 Robert Nelson <robertcnelson@gmail.com>
+ */
+
+/dts-v1/;
+/plugin/;
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+ */
+&{/chosen} {
+	overlays {
+		BB-I2C2-BME680.kernel = __TIMESTAMP__;
+	};
+};
+
+&i2c2 {
+	status = "okay";
+
+	clock-frequency = <100000>;
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	bme680@76 {
+		status = "okay";
+		compatible = "bosch,bme680";
+		reg = <0x76>;
+	};
+};
