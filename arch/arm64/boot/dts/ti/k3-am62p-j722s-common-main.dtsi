@@ -254,11 +254,24 @@
 	};
 
 	main_pmx0: pinctrl@f4000 {
-		compatible = "pinctrl-single";
+		compatible = "ti,am654-padconf", "pinctrl-single";
 		reg = <0x00 0xf4000 0x00 0x2ac>;
 		#pinctrl-cells = <1>;
 		pinctrl-single,register-width = <32>;
 		pinctrl-single,function-mask = <0xffffffff>;
+		/*
+		 * pinctrl IP DOES NOT give any functional IRQs when a
+		 * system is in active state. This IRQ is only a dummy IRQ
+		 * that is being used to trick Linux into thinking that
+		 * GIC can potentially recieve an interrupt from this IP.
+		 * This helps us setup the IO daisychain wakeups for deep
+		 * sleep via chained wake IRQs.
+		 * Please feel free to assign a different number here as
+		 * long as it is unused if 98 conflicts with another use case.
+		 */
+		interrupts = <GIC_SPI 98 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-controller;
+		#interrupt-cells = <1>;
 		bootph-all;
 	};
 
