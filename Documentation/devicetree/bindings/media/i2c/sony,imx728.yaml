@@ -1,0 +1,95 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/media/i2c/sony,imx728.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Sony IMX728 Camera Sensor
+
+maintainers:
+  - Stuart Burtner <sburtner@d3embedded.com>
+
+description:
+  The Sony IMX728 is a 1/1.72-Inch CMOS Solid-state image sensor with a
+  color square pixel array and 8.39M active pixels. It is programmed
+  through an I2C interface.
+
+  The sensor can output up to 3840x2160 at a maximum of 45 frames/s over
+  a CSI-2 serial interface. It supports RAW24/20/16/12 and 10.
+
+properties:
+  compatible:
+    enum:
+      - sony,imx728
+
+  reg:
+    maxItems: 1
+
+  clocks:
+    description: Clock frequency from 18 to 30MHz
+    maxItems: 1
+
+  clock-names:
+    const: inck
+
+  reset-gpios:
+    maxItems: 1
+    description:
+      XCLR (System Reset) pin.
+
+  error0-gpios:
+    maxItems: 1
+    description:
+      XWRN pin.
+
+  error1-gpios:
+    maxItems: 1
+    description:
+      XERR pin.
+
+  port:
+    $ref: /schemas/graph.yaml#/properties/port
+    additionalProperties: false
+
+    properties:
+      endpoint:
+        $ref: ../video-interfaces.yaml#
+        unevaluatedProperties: false
+
+required:
+  - compatible
+  - reg
+  - clocks
+  - clock-names
+  - port
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/gpio/gpio.h>
+
+    i2c {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        camera@1a {
+            compatible = "sony,imx728";
+            reg = <0x1a>;
+
+            clocks = <&fixed_clock>;
+            clock-names = "inck";
+
+            reset-gpios = <&gpio4 17 GPIO_ACTIVE_LOW>;
+            error0-gpios = <&sens_exp 1 GPIO_ACTIVE_HIGH>;
+            error1-gpios = <&sens_exp 2 GPIO_ACTIVE_HIGH>;
+
+            port {
+                camera1: endpoint {
+                    remote-endpoint = <&vin1a_ep>;
+                };
+            };
+        };
+    };
+
+...
