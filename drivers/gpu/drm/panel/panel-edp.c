@@ -878,7 +878,8 @@ static int panel_edp_probe(struct device *dev, const struct panel_desc *desc,
 		if (!panel->ddc)
 			return -EPROBE_DEFER;
 	} else if (aux) {
-		panel->ddc = &aux->ddc;
+		if (!of_device_is_compatible(dev->of_node, "ti,panel-edp"))
+			panel->ddc = &aux->ddc;
 	}
 
 	if (!of_get_display_timing(dev->of_node, "panel-timing", &dt))
