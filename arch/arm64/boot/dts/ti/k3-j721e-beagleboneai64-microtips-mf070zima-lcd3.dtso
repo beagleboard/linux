@@ -1,0 +1,104 @@
+// SPDX-License-Identifier: GPL-2.0-or-later OR MIT
+/**
+ * DT Overlay for Microtips SK-LCD3 interfaced with DSI on
+ * J721E based BeagleBone AI-64 (BBAI-64) platform.
+ *
+ * BBAI-64: https://www.beagleboard.org/boards/beaglebone-ai-64
+ *
+ * Copyright (C) 2024 Texas Instruments Incorporated - https://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+
+#include "k3-pinctrl.h"
+
+&main_pmx0 {
+	dsi_main_i2c4_pins: dsi-main-i2c4-pins {
+		pinctrl-single,pins = <
+			J721E_IOPAD(0xa8, PIN_INPUT_PULLUP, 2) /* (AD19) PRG1_MDIO0_MDIO.I2C4_SCL */
+			J721E_IOPAD(0xac, PIN_INPUT_PULLUP, 2) /* (AD18) PRG1_MDIO0_MDC.I2C4_SDA */
+		>;
+	};
+
+	dsi0_gpio_pins_default: dsi0-gpio-default-pins {
+		pinctrl-single,pins = <
+			J721E_IOPAD(0x18c, PIN_OUTPUT, 7) /* (V23) RGMII6_RX_CTL.GPIO0_98 */
+			J721E_IOPAD(0x1b4, PIN_INPUT, 7) /* (W25) RGMII6_RD0.GPIO0_108 */
+		>;
+	};
+};
+
+&main_i2c4 {
+	clock-frequency = <400000>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&dsi_main_i2c4_pins>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	touchscreen@41 {
+		compatible = "ilitek,ili251x";
+		reg = <0x41>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&dsi0_gpio_pins_default>;
+		reset-gpios = <&main_gpio0 98 GPIO_ACTIVE_LOW>;
+		interrupt-parent = <&main_gpio0>;
+		interrupts = <108 IRQ_TYPE_EDGE_FALLING>;
+	};
+};
+
+&dss_ports {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	port@2 {
+		reg = <2>;
+
+		dpi2_out: endpoint {
+			remote-endpoint = <&dsi0_in>;
+		};
+	};
+};
+
+&dphy2 {
+	status = "okay";
+};
+
+&dsi0 {
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+			dsi0_out: endpoint {
+				remote-endpoint = <&panel_in>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+			dsi0_in: endpoint {
+				remote-endpoint = <&dpi2_out>;
+			};
+		};
+	};
+
+	dsi_panel0: panel-dsi@0 {
+		compatible = "microtips,mf-070zimacaa0", "ilitek,ili9881c";
+		reg = <0>;
+
+		port {
+			panel_in: endpoint {
+				remote-endpoint = <&dsi0_out>;
+			};
+		};
+	};
+};
