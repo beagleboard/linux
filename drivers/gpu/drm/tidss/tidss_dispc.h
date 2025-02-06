@@ -145,4 +145,6 @@ const u32 *dispc_plane_formats(struct dispc_device *dispc, unsigned int *len);
 int dispc_init(struct tidss_device *tidss);
 void dispc_remove(struct tidss_device *tidss);
 
+void dispc_splash_fini(struct dispc_device *dispc);
+
 #endif
