@@ -11,6 +11,7 @@
 #include <dt-bindings/leds/common.h>
 #include <dt-bindings/net/ti-dp83867.h>
 #include "k3-j722s.dtsi"
+#include "k3-am67a-beagley-ai-pinmux.dtsi"
 
 / {
 	compatible = "beagle,am67a-beagley-ai", "ti,j722s";
@@ -305,11 +306,42 @@
 &cpsw_port1 {
 	phy-mode = "rgmii-rxid";
 	phy-handle = <&cpsw3g_phy0>;
+};
+
+&epwm2 {
 	status = "okay";
+};
+
+&main_gpio0 {
+	status = "okay";
+	pinctrl-names = "default";
+	gpio-line-names = "", "", "", "", "", /* 0-4 */
+			  "", "", "", "", "", /* 5-9 */
+			  "", "", "", "", "", /* 10-14 */
+			  "", "", "", "", "", /* 15-19 */
+			  "", "", "", "", "", /* 20-24 */
+			  "", "", "", "", "", /* 25-29 */
+			  "", "", "USB_RST", "GPIO27", "", /* 30-34 */
+			  "", "GPIO26", "", "GPIO4", "", /* 35-39 */
+			  "", "GPIO22", "GPIO25", "", ""; /* 40-44 */
 };
 
 &main_gpio1 {
 	status = "okay";
+	pinctrl-names = "default";
+	gpio-line-names = "", "", "", "", "", /* 0-4 */
+			  "", "", "GPIO16", "GPIO17", "GPIO21", /* 5-9 */
+			  "GPIO20", "GPIO18", "GPIO19", "GPIO15", "GPIO14", /* 10-14 */
+			  "GPIO5", "GPIO12", "GPIO6", "GPIO13", ""; /* 15-19 */
+};
+
+&mcu_gpio0 {
+	status = "okay";
+	pinctrl-names = "default";
+	gpio-line-names = "GPIO8", "", "GPIO11", "GPIO10", "GPIO9", /* 0-4 */
+			  "", "", "GPIO23", "", "GPIO7", /* 5-9 */
+			  "GPIO24", "", "", "HDMI_RSTn", "HDMI_INTn", /* 10-14 */
+			  "", "", "GPIO3", "GPIO2", ""; /* 15-19 */
 };
 
 &main_uart0 {
@@ -350,6 +382,7 @@
 &wkup_i2c0 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&wkup_i2c0_pins_default>;
+	symlink = "hat/wkup_i2c0";
 	clock-frequency = <100000>;
 	bootph-all;
 	status = "okay";
