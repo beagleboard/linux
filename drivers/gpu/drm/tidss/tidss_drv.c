@@ -206,7 +206,7 @@ static int tidss_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, tidss);
 
-	spin_lock_init(&tidss->wait_lock);
+	spin_lock_init(&tidss->irq_lock);
 
 	/* powering up associated OLDI domains */
 	ret = tidss_attach_pm_domains(tidss);
