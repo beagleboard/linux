@@ -98,6 +98,8 @@ struct cdns_dphy_ops {
 				 enum cdns_dphy_clk_lane_cfg cfg);
 	void (*set_pll_cfg)(struct cdns_dphy *dphy,
 			    const struct cdns_dphy_cfg *cfg);
+	void (*wait_for_pll_lock)(struct cdns_dphy *dphy);
+	void (*wait_for_cmn_ready)(struct cdns_dphy *dphy);
 	unsigned long (*get_wakeup_time_ns)(struct cdns_dphy *dphy);
 };
 
@@ -191,6 +193,18 @@ static unsigned long cdns_dphy_get_wakeup_time_ns(struct cdns_dphy *dphy)
 	return dphy->ops->get_wakeup_time_ns(dphy);
 }
 
+static void cdns_dphy_wait_for_pll_lock(struct cdns_dphy *dphy)
+{
+	if (dphy->ops->wait_for_pll_lock)
+		dphy->ops->wait_for_pll_lock(dphy);
+}
+
+static void cdns_dphy_wait_for_cmn_ready(struct cdns_dphy *dphy)
+{
+	if (dphy->ops->wait_for_cmn_ready)
+		dphy->ops->wait_for_cmn_ready(dphy);
+}
+
 static unsigned long cdns_dphy_ref_get_wakeup_time_ns(struct cdns_dphy *dphy)
 {
 	/* Default wakeup time is 800 ns (in a simulated environment). */
@@ -212,7 +226,7 @@ static void cdns_dphy_ref_set_pll_cfg(struct cdns_dphy *dphy,
 	writel(DPHY_CMN_FBDIV_FROM_REG |
 	       DPHY_CMN_FBDIV_VAL(fbdiv_low, fbdiv_high),
 	       dphy->regs + DPHY_CMN_FBDIV);
-	writel(DPHY_CMN_PWM_HIGH(6) | DPHY_CMN_PWM_LOW(0x101) |
+	writel(readl(dphy->regs + DPHY_CMN_PWM) | DPHY_CMN_PWM_HIGH(6) | DPHY_CMN_PWM_LOW(0x101) |
 	       DPHY_CMN_PWM_DIV(0x8),
 	       dphy->regs + DPHY_CMN_PWM);
 }
@@ -232,13 +246,11 @@ static unsigned long cdns_dphy_j721e_get_wakeup_time_ns(struct cdns_dphy *dphy)
 static void cdns_dphy_j721e_set_pll_cfg(struct cdns_dphy *dphy,
 					const struct cdns_dphy_cfg *cfg)
 {
-	u32 status;
-
 	/*
 	 * set the PWM and PLL Byteclk divider settings to recommended values
 	 * which is same as that of in ref ops
 	 */
-	writel(DPHY_CMN_PWM_HIGH(6) | DPHY_CMN_PWM_LOW(0x101) |
+	writel(readl(dphy->regs + DPHY_CMN_PWM) | DPHY_CMN_PWM_HIGH(6) | DPHY_CMN_PWM_LOW(0x101) |
 	       DPHY_CMN_PWM_DIV(0x8),
 	       dphy->regs + DPHY_CMN_PWM);
 
@@ -249,13 +261,25 @@ static void cdns_dphy_j721e_set_pll_cfg(struct cdns_dphy *dphy,
 
 	writel(DPHY_TX_J721E_WIZ_LANE_RSTB,
 	       dphy->regs + DPHY_TX_J721E_WIZ_RST_CTRL);
+}
 
-	readl_poll_timeout(dphy->regs + DPHY_TX_J721E_WIZ_PLL_CTRL, status,
-			   (status & DPHY_TX_WIZ_PLL_LOCK), 0, POLL_TIMEOUT_US);
+static void cdns_dphy_j721e_wait_for_pll_lock(struct cdns_dphy *dphy)
+{
+	u32 status;
 
-	readl_poll_timeout(dphy->regs + DPHY_TX_J721E_WIZ_STATUS, status,
-			   (status & DPHY_TX_WIZ_O_CMN_READY), 0,
-			   POLL_TIMEOUT_US);
+	if (readl_poll_timeout(dphy->regs + DPHY_TX_J721E_WIZ_PLL_CTRL, status,
+			       status & DPHY_TX_WIZ_PLL_LOCK, 0, POLL_TIMEOUT_US))
+		dev_err(&dphy->phy->dev, "Timed out waiting for DPHY PLL lock assertion\n");
+}
+
+static void cdns_dphy_j721e_wait_for_cmn_ready(struct cdns_dphy *dphy)
+{
+	u32 status;
+
+	if (readl_poll_timeout(dphy->regs + DPHY_TX_J721E_WIZ_STATUS, status,
+			       status & DPHY_TX_WIZ_O_CMN_READY, 0,
+			       POLL_TIMEOUT_US))
+		dev_err(&dphy->phy->dev, "Timed out waiting for o_cmn_ready assertion\n");
 }
 
 static void cdns_dphy_j721e_set_psm_div(struct cdns_dphy *dphy, u8 div)
@@ -278,6 +302,8 @@ static const struct cdns_dphy_ops j721e_dphy_ops = {
 	.get_wakeup_time_ns = cdns_dphy_j721e_get_wakeup_time_ns,
 	.set_pll_cfg = cdns_dphy_j721e_set_pll_cfg,
 	.set_psm_div = cdns_dphy_j721e_set_psm_div,
+	.wait_for_pll_lock = cdns_dphy_j721e_wait_for_pll_lock,
+	.wait_for_cmn_ready = cdns_dphy_j721e_wait_for_cmn_ready,
 };
 
 static int cdns_dphy_config_from_opts(struct phy *phy,
@@ -384,8 +410,11 @@ static int cdns_dphy_power_on(struct phy *phy)
 	clk_prepare_enable(dphy->pll_ref_clk);
 
 	/* Start TX state machine. */
-	writel(DPHY_CMN_SSM_EN | DPHY_CMN_TX_MODE_EN,
+	writel(readl(dphy->regs + DPHY_CMN_SSM) | DPHY_CMN_SSM_EN | DPHY_CMN_TX_MODE_EN,
 	       dphy->regs + DPHY_CMN_SSM);
+
+	cdns_dphy_wait_for_pll_lock(dphy);
+	cdns_dphy_wait_for_cmn_ready(dphy);
 
 	return 0;
 }
