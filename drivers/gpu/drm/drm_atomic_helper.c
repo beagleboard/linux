@@ -1298,9 +1298,9 @@ disable_outputs(struct drm_device *dev, struct drm_atomic_state *old_state)
 {
 	encoder_bridge_disable(dev, old_state);
 
-	encoder_bridge_post_disable(dev, old_state);
-
 	crtc_disable(dev, old_state);
+
+	encoder_bridge_post_disable(dev, old_state);
 }
 
 /**
@@ -1635,9 +1635,9 @@ encoder_bridge_enable(struct drm_device *dev, struct drm_atomic_state *old_state
 void drm_atomic_helper_commit_modeset_enables(struct drm_device *dev,
 					      struct drm_atomic_state *old_state)
 {
-	crtc_enable(dev, old_state);
-
 	encoder_bridge_pre_enable(dev, old_state);
+
+	crtc_enable(dev, old_state);
 
 	encoder_bridge_enable(dev, old_state);
 
