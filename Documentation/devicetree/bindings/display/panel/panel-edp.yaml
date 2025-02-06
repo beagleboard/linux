@@ -86,7 +86,11 @@ allOf:
 
 properties:
   compatible:
-    const: edp-panel
+    enum:
+        # Generic Panel EDP
+      - edp-panel
+        # TI Simple Panel EDP
+      - ti,panel-edp
 
   hpd-reliable-delay-ms:
     description:
