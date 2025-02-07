@@ -1183,3 +1183,23 @@
 		};
 	};
 };
+
+&mcu_rti0 {
+	assigned-clock-parents = <&k3_clks 131 4>;
+};
+
+&main_rti0 {
+	assigned-clock-parents = <&k3_clks 125 4>;
+};
+
+&main_rti1 {
+	assigned-clock-parents = <&k3_clks 126 4>;
+};
+
+&main_rti2 {
+	assigned-clock-parents = <&k3_clks 127 4>;
+};
+
+&main_rti3 {
+	assigned-clock-parents = <&k3_clks 128 4>;
+};
