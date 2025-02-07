@@ -68,6 +68,11 @@ patternProperties:
     description:
       The node corresponding to SoC chip identification.
 
+  "^pcie-ctrl@[0-9a-f]+$":
+    type: object
+    description:
+      This is the PCIe control region.
+
 required:
   - compatible
   - reg
