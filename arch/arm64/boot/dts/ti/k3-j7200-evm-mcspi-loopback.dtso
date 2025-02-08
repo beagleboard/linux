@@ -1,0 +1,49 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * MCSPI internal master-slave loopback example overlay for J7200.
+ *
+ * Copyright (C) 2024 Texas Instruments Incorporated - https://www.ti.com/
+ *
+ * J7200 has MCSPI4 connected as master to MCU_MCSPI2 by default and not
+ * pinned out to external pads, This overlay enables spidev on these
+ * interfaces for userspace testing.
+ */
+
+/dts-v1/;
+/plugin/;
+
+&main_spi4 {
+	status = "okay";
+	#address-cells = <0>;
+	#size-cells = <0>;
+	spi-slave;
+	dmas = <&main_udmap 0xc610>, <&main_udmap 0x4610>;
+	dma-names = "tx0", "rx0";
+
+	slave {
+		/*
+		 * Using spidev compatible is warned loudly,
+		 * thus use another equivalent compatible id
+		 * from spidev.
+		 */
+		compatible = "rohm,dh2228fv";
+		spi-max-frequency = <24000000>;
+	};
+};
+
+&mcu_spi2 {
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	spidev@0 {
+		/*
+		 * Using spidev compatible is warned loudly,
+		 * thus use another equivalent compatible id
+		 * from spidev.
+		 */
+		compatible = "rohm,dh2228fv";
+		spi-max-frequency = <24000000>;
+		reg = <0>;
+	};
+};
