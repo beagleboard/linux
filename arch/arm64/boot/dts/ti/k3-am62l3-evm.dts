@@ -23,18 +23,6 @@
 		device_type = "memory";
 		bootph-all;
 	};
-
-	/*
-	 * Boot ROM will have MMC configure for us when booting via SD
-	 * card. Put this here so the MMC driver doesn't try to change
-	 * anything for us and break boot.
-	 */
-	 clk_xin: clock {
-		 compatible = "fixed-clock";
-		 clock-frequency = <5000000>;
-		 #clock-cells = <0>;
-		 bootph-all;
-	 };
 };
 
 &main_uart0 {
@@ -68,8 +56,6 @@
 };
 
 &sdhci1 {
-	clocks = <&clk_xin>;
-	clock-names = "clk_xin";
 	pinctrl-names = "default";
 	pinctrl-0 = <&main_mmc1_pins_default>;
 	status = "okay";
