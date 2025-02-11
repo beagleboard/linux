@@ -24,6 +24,31 @@
 			compatible = "linaro,optee-tz";
 			method = "smc";
 		};
+
+		psci: psci {
+			compatible = "arm,psci-1.0";
+			method = "smc";
+		};
+
+		scmi: scmi {
+			compatible = "arm,scmi-smc";
+			arm,smc-id = <0x82004000>;
+			shmem = <&scmi_shmem>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			scmi_clk: protocol@14 {
+				reg = <0x14>;
+				#clock-cells = <1>;
+				bootph-all;
+			};
+
+			scmi_pds: protocol@11 {
+				reg = <0x11>;
+				#power-domain-cells = <1>;
+				bootph-all;
+			};
+		};
 	};
 
 	a53_timer0: timer-cl0-cpu0 {

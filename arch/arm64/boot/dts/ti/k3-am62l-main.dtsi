@@ -60,5 +60,11 @@
 		ranges = <0x0 0x00 0x70800000 0x10000>;
 		#address-cells = <1>;
 		#size-cells = <1>;
+
+		scmi_shmem: sram@0 {
+			compatible = "arm,scmi-shmem";
+			reg = <0x0 0x100>;
+			bootph-all;
+		};
 	};
 };
