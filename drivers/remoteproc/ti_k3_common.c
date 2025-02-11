@@ -13,7 +13,9 @@
  *	Hari Nagalla <hnagalla@ti.com>
  */
 
+#include <linux/delay.h>
 #include <linux/io.h>
+#include <linux/iopoll.h>
 #include <linux/mailbox_client.h>
 #include <linux/module.h>
 #include <linux/of_address.h>
@@ -29,6 +31,27 @@
 #include "remoteproc_internal.h"
 #include "ti_sci_proc.h"
 #include "ti_k3_common.h"
+
+/**
+ * is_core_in_wfi - local utility function to check core status
+ * @kproc: remote core pointer used for checking core status
+ *
+ * This utility function is invoked by the shutdown sequence to ensure
+ * the remote core is in wfi, before asserting a reset.
+ */
+static int is_core_in_wfi(struct k3_rproc *core)
+{
+	int ret;
+	u64 boot_vec;
+	u32 cfg, ctrl, stat;
+
+	ret = ti_sci_proc_get_status(core->tsp, &boot_vec, &cfg, &ctrl, &stat);
+
+	if (ret < 0)
+		return 0;
+
+	return (stat & PROC_BOOT_STATUS_FLAG_CPU_WFI);
+}
 
 /**
  * k3_rproc_mbox_callback() - inbound mailbox message handler
@@ -63,6 +86,10 @@ void k3_rproc_mbox_callback(struct mbox_client *client, void *data)
 		break;
 	case RP_MBOX_ECHO_REPLY:
 		dev_info(dev, "received echo reply from %s\n", rproc->name);
+		break;
+	case RP_MBOX_SHUTDOWN_ACK:
+		dev_dbg(dev, "received shutdown_ack from %s\n", rproc->name);
+		complete(&kproc->shut_comp);
 		break;
 	default:
 		/* silently handle all other valid messages */
@@ -291,7 +318,29 @@ EXPORT_SYMBOL_GPL(k3_rproc_start);
  */
 int k3_rproc_stop(struct rproc *rproc)
 {
+	unsigned long to = msecs_to_jiffies(3000);
 	struct k3_rproc *kproc = rproc->priv;
+	struct device *dev = kproc->dev;
+	u32 msg = omap_mbox_message(RP_MBOX_SHUTDOWN);
+	u32 stat = 0;
+	int ret;
+
+	reinit_completion(&kproc->shut_comp);
+	ret = mbox_send_message(kproc->mbox, (void *) (uintptr_t) msg);
+	if (ret < 0) {
+		dev_err(dev, "PM mbox_send_message failed: %d\n", ret);
+		return ret;
+	}
+
+	ret = wait_for_completion_timeout(&kproc->shut_comp, to);
+	if (ret == 0) {
+		dev_err(dev, "%s: timedout waiting for rproc completion event\n", __func__);
+		return -EBUSY;
+	};
+
+	ret = readx_poll_timeout(is_core_in_wfi, kproc, stat, stat, 200, 2000);
+	if (ret)
+		return ret;
 
 	return k3_rproc_reset(kproc);
 }

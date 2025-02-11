@@ -164,6 +164,8 @@ static int k3_dsp_rproc_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, kproc);
 
+	init_completion(&kproc->shut_comp);
+
 	return 0;
 }
 
