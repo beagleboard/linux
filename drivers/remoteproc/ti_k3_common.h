@@ -17,6 +17,7 @@
 #define REMOTEPROC_TI_K3_COMMON_H
 
 #define KEYSTONE_RPROC_LOCAL_ADDRESS_MASK	(SZ_16M - 1)
+#define PROC_BOOT_STATUS_FLAG_CPU_WFI		0x00000002
 
 /**
  * struct k3_rproc_mem - internal memory structure
@@ -86,6 +87,7 @@ struct k3_rproc {
 	u32 ti_sci_id;
 	struct mbox_chan *mbox;
 	struct mbox_client client;
+	struct completion shut_comp;
 };
 
 void k3_rproc_mbox_callback(struct mbox_client *client, void *data);
