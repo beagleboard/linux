@@ -47,6 +47,11 @@
 		reg = <0x00 0x0fa00000 0x00 0x1000>,
 		      <0x00 0x0fa08000 0x00 0x400>;
 		interrupts = <GIC_SPI 237 IRQ_TYPE_LEVEL_HIGH>;
+		power-domains = <&scmi_pds 26>;
+		clocks = <&scmi_clk 106>, <&scmi_clk 107>;
+		clock-names = "clk_ahb", "clk_xin";
+		assigned-clocks = <&scmi_clk 107>;
+		assigned-clock-parents = <&scmi_clk 0>;
 		bus-width = <4>;
 		ti,clkbuf-sel = <0x7>;
 		ti,otap-del-sel-legacy = <0x0>;
