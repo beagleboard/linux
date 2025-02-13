@@ -2744,8 +2744,11 @@ static void cqspi_configure(struct cqspi_flash_pdata *f_pdata,
 			    unsigned long sclk)
 {
 	struct cqspi_st *cqspi = f_pdata->cqspi;
+	void __iomem *reg_base = cqspi->iobase;
 	int switch_cs = (cqspi->current_cs != f_pdata->cs);
 	int switch_ck = (cqspi->sclk != sclk);
+	unsigned int reg;
+	int ret;
 
 	if (switch_cs || switch_ck)
 		cqspi_controller_enable(cqspi, 0);
@@ -2754,6 +2757,27 @@ static void cqspi_configure(struct cqspi_flash_pdata *f_pdata,
 	if (switch_cs) {
 		cqspi->current_cs = f_pdata->cs;
 		cqspi_chipselect(f_pdata);
+
+		if (f_pdata->use_dqs) {
+			reg = readl(reg_base + CQSPI_REG_CONFIG);
+			reg |= (CQSPI_REG_CONFIG_DTR_PROTO |
+				CQSPI_REG_CONFIG_DUAL_OPCODE);
+			writel(reg, reg_base + CQSPI_REG_CONFIG);
+		} else {
+			reg = readl(reg_base + CQSPI_REG_CONFIG);
+			reg &= ~(CQSPI_REG_CONFIG_DTR_PROTO |
+				 CQSPI_REG_CONFIG_DUAL_OPCODE);
+			writel(reg, reg_base + CQSPI_REG_CONFIG);
+		}
+
+		if (f_pdata->use_phy) {
+			ret = cqspi_phy_apply_setting(f_pdata,
+						      &f_pdata->phy_setting);
+
+			if (ret)
+				dev_err(&cqspi->pdev->dev,
+					"Applying phy_setting failed during switching chip select\n");
+		}
 	}
 
 	/* Setup baudrate divisor and delays */
