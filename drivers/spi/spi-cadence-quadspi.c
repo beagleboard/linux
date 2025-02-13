@@ -3667,6 +3667,20 @@ static void cqspi_remove(struct platform_device *pdev)
 	pm_runtime_disable(&pdev->dev);
 }
 
+static void __maybe_unused cqspi_restore_context(struct cqspi_st *cqspi)
+{
+	struct device *dev = &cqspi->pdev->dev;
+	int ret;
+
+	cqspi_phy_set_dll_master(cqspi);
+
+	ret = cqspi_phy_apply_setting(cqspi->f_pdata,
+				      &cqspi->f_pdata->phy_setting);
+
+	if (ret)
+		dev_err(dev, "Applying phy_setting failed during restore\n");
+}
+
 static int cqspi_runtime_suspend(struct device *dev)
 {
 	struct cqspi_st *cqspi = dev_get_drvdata(dev);
@@ -3685,6 +3699,12 @@ static int cqspi_runtime_resume(struct device *dev)
 	cqspi_controller_enable(cqspi, 0);
 	cqspi_controller_init(cqspi);
 	cqspi_controller_enable(cqspi, 1);
+
+	/*
+	 * Only restore context if PHY is enabled, or else skip this step
+	 */
+	if ((cqspi->f_pdata->use_phy) == true)
+		cqspi_restore_context(cqspi);
 
 	cqspi->current_cs = -1;
 	cqspi->sclk = 0;
