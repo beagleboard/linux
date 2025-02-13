@@ -44,6 +44,50 @@
 		status = "disabled";
 	};
 
+	main_i2c0: i2c@20000000 {
+		compatible = "ti,am64-i2c", "ti,omap4-i2c";
+		reg = <0x00 0x20000000 0x00 0x100>;
+		interrupts = <GIC_SPI 64 IRQ_TYPE_LEVEL_HIGH>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		power-domains = <&scmi_pds 53>;
+		clocks = <&scmi_clk 246>;
+		clock-names = "fck";
+		status = "disabled";
+	};
+
+	main_i2c1: i2c@20010000 {
+		compatible = "ti,am64-i2c", "ti,omap4-i2c";
+		reg = <0x00 0x20010000 0x00 0x100>;
+		interrupts = <GIC_SPI 65 IRQ_TYPE_LEVEL_HIGH>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		power-domains = <&scmi_pds 54>;
+		clocks = <&scmi_clk 250>;
+		clock-names = "fck";
+		status = "disabled";
+	};
+
+	main_gpio0: gpio@600000 {
+		compatible = "ti,am64-gpio", "ti,keystone-gpio";
+		reg = <0x00 0x00600000 0x00 0x100>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-parent = <&gic500>;
+		interrupts = <GIC_SPI 260 IRQ_TYPE_EDGE_RISING>, <GIC_SPI 261 IRQ_TYPE_EDGE_RISING>,
+			     <GIC_SPI 262 IRQ_TYPE_EDGE_RISING>, <GIC_SPI 263 IRQ_TYPE_EDGE_RISING>,
+			     <GIC_SPI 264 IRQ_TYPE_EDGE_RISING>, <GIC_SPI 265 IRQ_TYPE_EDGE_RISING>,
+			     <GIC_SPI 266 IRQ_TYPE_EDGE_RISING>, <GIC_SPI 267 IRQ_TYPE_EDGE_RISING>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		ti,ngpio = <126>;
+		ti,davinci-gpio-unbanked = <0>;
+		power-domains = <&scmi_pds 34>;
+		clocks = <&scmi_clk 140>;
+		clock-names = "gpio";
+		status = "disabled";
+	};
+
 	sdhci1: mmc@fa00000 {
 		compatible = "ti,am62-sdhci";
 		reg = <0x00 0x0fa00000 0x00 0x1000>,
