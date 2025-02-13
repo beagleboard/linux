@@ -93,6 +93,7 @@ struct cqspi_st {
 	u32			num_chipselect;
 	bool			rclk_en;
 	u32			trigger_address;
+	u32			phase_detect_selector;
 	u32			wr_delay;
 	bool			use_direct_mode;
 	bool			use_direct_mode_wr;
@@ -255,6 +256,9 @@ struct cqspi_driver_platdata {
 
 #define CQSPI_REG_POLLING_STATUS		0xB0
 #define CQSPI_REG_POLLING_STATUS_DUMMY_LSB	16
+
+#define CQSPI_REG_PHY_DLL_MASTER		0xB8
+#define CQSPI_REG_PHY_DLL_MASTER_DLY_ELMTS_LEN	0x7
 
 #define CQSPI_REG_OP_EXT_LOWER			0xE0
 #define CQSPI_REG_OP_EXT_READ_LSB		24
@@ -1546,6 +1550,13 @@ static int cqspi_of_get_pdata(struct cqspi_st *cqspi)
 				 &cqspi->trigger_address)) {
 		dev_err(dev, "couldn't determine trigger-address\n");
 		return -ENXIO;
+	}
+
+	if (of_property_read_u32(np, "cdns,phase-detect-selector",
+				 &cqspi->phase_detect_selector)) {
+		dev_warn(dev, "couldn't determine phase-detect-selector\n");
+		cqspi->phase_detect_selector =
+			CQSPI_REG_PHY_DLL_MASTER_DLY_ELMTS_LEN + 1;
 	}
 
 	if (of_property_read_u32(np, "num-cs", &cqspi->num_chipselect))
