@@ -10,12 +10,25 @@
 #include <linux/device.h>
 #include <linux/kernel.h>
 #include <linux/mtd/spinand.h>
+#include <linux/delay.h>
 
 #define SPINAND_MFR_WINBOND		0xEF
 
 #define WINBOND_CFG_BUF_READ		BIT(3)
 
 #define W25N04KV_STATUS_ECC_5_8_BITFLIPS	(3 << 4)
+
+#define W25N01JW_STATUS_REG4			0xd0
+#define W25N01JW_STATUS_REG4_HS			BIT(2)
+#define W25N01JW_STATUS_REG4_HS_MASK		0xFB
+
+#define W35N01JW_VCR_IO_MODE_ADDR		0x00
+#define W35N01JW_VCR_IO_MODE_ADDR_DEFAULT	0xFF
+#define W35N01JW_VCR_IO_MODE_ADDR_OCTAL_SDR	0xDF
+
+#define W35N01JW_VCR_DUMMY_CLOCK_ADDR		0x01
+#define W35N01JW_VCR_DUMMY_CLOCK_ADDR_DEFAULT	0xFF
+#define W35N01JW_VCR_DUMMY_CLOCK_ADDR_20	0x14
 
 static SPINAND_OP_VARIANTS(read_cache_variants,
 		SPINAND_PAGE_READ_FROM_CACHE_OCTALIO_OP(0, 16, NULL, 0),
@@ -192,6 +205,77 @@ static const struct mtd_ooblayout_ops w35n01jw_ooblayout = {
 	.free = w35n01jw_ooblayout_free,
 };
 
+static int w35n01jw_write_vcr_op(struct spinand_device *spinand, u8 reg, u8 val)
+{
+	int ret;
+	struct spi_mem_op op =
+		SPI_MEM_OP(SPI_MEM_OP_CMD(0x81, 1),
+			   SPI_MEM_OP_ADDR(3, reg, 1),
+			   SPI_MEM_OP_NO_DUMMY,
+			   SPI_MEM_OP_DATA_OUT(1, spinand->scratchbuf, 1));
+
+	*spinand->scratchbuf = val;
+
+	ret = spinand_write_enable_op(spinand);
+	if (ret)
+		return ret;
+
+	ret = spi_mem_exec_op(spinand->spimem, &op);
+	if (ret)
+		return ret;
+
+	/*
+	 * Write VCR operation doesn't set the busy bit in SR, so can't perform
+	 * a status poll. Minimum time of 50ns is needed to complete the write.
+	 * So, give thrice the minimum required delay.
+	 */
+	ndelay(150);
+	return 0;
+}
+
+static int w25n01jw_late_init(struct spinand_device *spinand)
+{
+	u8 *sr4_read;
+	u8 sr4_write;
+	int ret;
+
+	sr4_read = kmalloc(sizeof(u8), GFP_KERNEL);
+	if (!sr4_read)
+		return -ENOMEM;
+
+	ret = spinand_read_reg_op(spinand, W25N01JW_STATUS_REG4, sr4_read);
+	if (ret)
+		return ret;
+
+	*sr4_read &= W25N01JW_STATUS_REG4_HS_MASK;
+	*sr4_read |= W25N01JW_STATUS_REG4_HS;
+
+	sr4_write = *sr4_read;
+
+	ret = spinand_write_reg_op(spinand, W25N01JW_STATUS_REG4, sr4_write);
+	if (ret)
+		return ret;
+
+	return 0;
+}
+
+static int w35n01jw_late_init(struct spinand_device *spinand)
+{
+	int ret;
+
+	ret = w35n01jw_write_vcr_op(spinand, W35N01JW_VCR_IO_MODE_ADDR,
+				    W35N01JW_VCR_IO_MODE_ADDR_OCTAL_SDR);
+	if (ret)
+		return ret;
+
+	ret = w35n01jw_write_vcr_op(spinand, W35N01JW_VCR_DUMMY_CLOCK_ADDR,
+				    W35N01JW_VCR_DUMMY_CLOCK_ADDR_20);
+	if (ret)
+		return ret;
+
+	return 0;
+}
+
 static int w25n02kv_ecc_get_status(struct spinand_device *spinand,
 				   u8 status)
 {
@@ -276,7 +360,8 @@ static const struct spinand_info winbond_spinand_table[] = {
 					      &write_cache_variants,
 					      &update_cache_variants),
 		     0,
-		     SPINAND_ECCINFO(&w25n01jw_ooblayout, NULL)),
+		     SPINAND_ECCINFO(&w25n01jw_ooblayout, NULL),
+		     SPINAND_LATE_INIT(w25n01jw_late_init)),
 	SPINAND_INFO("W35N01JW",
 		     SPINAND_ID(SPINAND_READID_METHOD_OPCODE_DUMMY, 0xdc, 0x21),
 		     NAND_MEMORG(1, 4096, 128, 64, 512, 20, 1, 1, 1),
@@ -285,7 +370,8 @@ static const struct spinand_info winbond_spinand_table[] = {
 					      &write_cache_variants,
 					      &update_cache_variants),
 		     0,
-		     SPINAND_ECCINFO(&w35n01jw_ooblayout, NULL)),
+		     SPINAND_ECCINFO(&w35n01jw_ooblayout, NULL),
+		     SPINAND_LATE_INIT(w35n01jw_late_init)),
 	SPINAND_INFO("W25N02JWZEIF",
 		     SPINAND_ID(SPINAND_READID_METHOD_OPCODE_DUMMY, 0xbf, 0x22),
 		     NAND_MEMORG(1, 2048, 64, 64, 1024, 20, 1, 2, 1),
