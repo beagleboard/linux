@@ -12,12 +12,22 @@ maintainers:
   - Tomi Valkeinen <tomi.valkeinen@ti.com>
 
 description: |
-  The AM625 and AM65x TI Keystone Display SubSystem with two output
+  The AM625 and AM65x TI Keystone Display SubSystem has two output
   ports and two video planes. In AM65x DSS, the first video port
   supports 1 OLDI TX and in AM625 DSS, the first video port output is
   internally routed to 2 OLDI TXes. The second video port supports DPI
   format. The first plane is full video plane with all features and the
   second is a "lite plane" without scaling support.
+  The AM62A7 display subsystem has a single output port supporting DPI format
+  although similar to AM625 and AM65x Socs, it has two video planes where first
+  is full video plane with all features and second is a video "lite" plane which
+  does not support scaling.
+  The AM62L display subsystem also has a single output port which supports DPI
+  format but it only supports single video "lite plane" which does not support
+  scaling. The output port is routed to SoC boundary via DPI interface and same
+  DPI signals are also routed internally to DSI Tx controller present within the
+  SoC. Due to clocking limitations only one of the interface i.e. either DSI or
+  DPI can be used at once.
 
 properties:
   compatible:
@@ -27,6 +37,7 @@ properties:
       - ti,am62p51-dss
       - ti,am62p52-dss
       - ti,am65x-dss
+      - ti,am62l-dss
 
   reg:
     description:
@@ -94,6 +105,9 @@ properties:
           For AM625, and AM62P5-1/2 DSS, the internal DPI output port
           node from video port 1.
           For AM62A7 DSS, the port is tied off inside the SoC.
+          For AM62L DSS, the DSS DPI output port node from video port 1
+          or DSI Tx controller node connected to video port 1.
+
         properties:
           endpoint@0:
             $ref: /schemas/graph.yaml#/properties/endpoint
@@ -181,6 +195,17 @@ allOf:
         port@0:
           properties:
             endpoint@1: false
+
+  - if:
+      properties:
+        compatible:
+          contains:
+            const: ti,am62l-dss
+    then:
+      properties:
+        ports:
+          properties:
+            port@1: false
 
 required:
   - compatible
