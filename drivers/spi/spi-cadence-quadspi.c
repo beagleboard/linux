@@ -2499,6 +2499,9 @@ static int cqspi_indirect_write_execute(struct cqspi_flash_pdata *f_pdata,
 	if (cqspi->apb_ahb_hazard)
 		readl(reg_base + CQSPI_REG_INDIRECTWR);
 
+	if (n_tx >= SZ_1K && f_pdata->use_phy)
+		cqspi_phy_enable(f_pdata, true);
+
 	while (remaining > 0) {
 		size_t write_words, mod_bytes;
 
@@ -2539,6 +2542,9 @@ static int cqspi_indirect_write_execute(struct cqspi_flash_pdata *f_pdata,
 		goto failwr;
 	}
 
+	if (n_tx >= SZ_1K && f_pdata->use_phy)
+		cqspi_phy_enable(f_pdata, false);
+
 	/* Disable interrupt. */
 	writel(0, reg_base + CQSPI_REG_IRQMASK);
 
@@ -2550,6 +2556,9 @@ static int cqspi_indirect_write_execute(struct cqspi_flash_pdata *f_pdata,
 	return 0;
 
 failwr:
+	if (n_tx >= SZ_1K && f_pdata->use_phy)
+		cqspi_phy_enable(f_pdata, false);
+
 	/* Disable interrupt. */
 	writel(0, reg_base + CQSPI_REG_IRQMASK);
 
