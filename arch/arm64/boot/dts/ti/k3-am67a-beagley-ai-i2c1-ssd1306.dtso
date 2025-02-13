@@ -1,0 +1,31 @@
+/dts-v1/;
+/plugin/;
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+ */
+/dts-v1/;
+/plugin/;
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+ */
+&{/chosen} {
+        overlays {
+                k3-am67a-beagley-ai-i2c1-ssd1306.kernel = __TIMESTAMP__;
+        };
+};
+
+&mcu_i2c0 {
+
+        status = "okay";
+
+        ssd1306@3c {
+                compatible = "solomon,ssd1306fb-i2c";
+                reg = <0x3c>;
+                solomon,height = <64>;
+                solomon,width = <128>;
+                solomon,com-invdir;
+                solomon,page-offset = <0>;
+        };
+};
