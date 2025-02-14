@@ -16,6 +16,8 @@
 
 	chosen {
 		stdout-path = &uart0;
+		base_dtb = "am335x-pocketbeagle.dts";
+		base_dtb_timestamp = __TIMESTAMP__;
 	};
 
 	leds {
