@@ -576,6 +576,12 @@
 			J784S4_WKUP_IOPAD(0x060, PIN_INPUT, 7) /* (J35) WKUP_GPIO0_2 */
 		>;
 	};
+
+	wkup_gpio_pins_default: wkup_gpio_pins_default {
+		pinctrl-single,pins = <
+			J784S4_WKUP_IOPAD(0x070, PIN_INPUT, 7) /* (L37) WKUP_GPIO0_6 */
+		>;
+	};
 };
 
 &wkup_pmx1 {
@@ -787,6 +793,12 @@
 
 &ufs_wrapper {
 	status = "okay";
+};
+
+&wkup_gpio0 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&wkup_gpio_pins_default>;
 };
 
 &fss {
