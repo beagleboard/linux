@@ -1113,10 +1113,10 @@ dispc_irq_t dispc_read_and_clear_irqstatus(struct dispc_device *dispc)
 	switch (dispc->feat->subrev) {
 	case DISPC_K2G:
 		return dispc_k2g_read_and_clear_irqstatus(dispc);
-	case DISPC_AM625:
-	case DISPC_AM62A7:
 	case DISPC_AM62L:
 		return dispc_am62l_read_and_clear_irqstatus(dispc);
+	case DISPC_AM625:
+	case DISPC_AM62A7:
 	case DISPC_AM62P51:
 	case DISPC_AM62P52:
 	case DISPC_AM65X:
@@ -1134,11 +1134,11 @@ void dispc_set_irqenable(struct dispc_device *dispc, dispc_irq_t mask)
 	case DISPC_K2G:
 		dispc_k2g_set_irqenable(dispc, mask);
 		break;
-	case DISPC_AM625:
-	case DISPC_AM62A7:
 	case DISPC_AM62L:
 		dispc_am62l_set_irqenable(dispc, mask);
 		break;
+	case DISPC_AM625:
+	case DISPC_AM62A7:
 	case DISPC_AM62P51:
 	case DISPC_AM62P52:
 	case DISPC_AM65X:
@@ -1642,11 +1642,11 @@ void dispc_ovr_set_plane(struct dispc_device *dispc, u32 hw_plane,
 		dispc_k2g_ovr_set_plane(dispc, hw_plane, hw_videoport,
 					x, y, layer);
 		break;
-	case DISPC_AM625:
-	case DISPC_AM62A7:
 	case DISPC_AM62L:
 		dispc_am62l_ovr_set_plane(dispc, x, y);
 		break;
+	case DISPC_AM625:
+	case DISPC_AM62A7:
 	case DISPC_AM62P51:
 	case DISPC_AM62P52:
 	case DISPC_AM65X:
