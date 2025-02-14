@@ -1,0 +1,111 @@
+// SPDX-License-Identifier: GPL-2.0-or-later OR MIT
+/**
+ *
+ * DT Overlay for enabling PWM output on user expansion connector for AM62L3 EVM
+ *
+ * Copyright (C) 2024 Texas Instruments Incorporated - https://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include "k3-pinctrl.h"
+
+&pinmux {
+	main_epwm0_pins_default: main-epwm0-pins-default {
+		pinctrl-single,pins = <
+			AM62LX_IOPAD(0x00ac, PIN_OUTPUT, 4) /* (G22) GPMC0_AD13.EHRPWM0_A */
+			AM62LX_IOPAD(0x00b0, PIN_OUTPUT, 4) /* (F22) GPMC0_AD14.EHRPWM0_B */
+		>;
+	};
+
+	main_epwm1_pins_default: main-epwm1-pins-default {
+		pinctrl-single,pins = <
+			AM62LX_IOPAD(0x00b4, PIN_OUTPUT, 4) /* (F23) GPMC0_AD15.EHRPWM1_A */
+			AM62LX_IOPAD(0x00b8, PIN_OUTPUT, 4) /* (L21) GPMC0_CLK.EHRPWM1_B */
+		>;
+	};
+
+	main_epwm2_pins_default: main-epwm2-pins-default {
+		pinctrl-single,pins = <
+			AM62LX_IOPAD(0x00c4, PIN_OUTPUT, 4) /* (N20) GPMC0_OEn_REn.EHRPWM2_A */
+			AM62LX_IOPAD(0x00c8, PIN_OUTPUT, 4) /* (M19) GPMC0_WEn.EHRPWM2_B */
+		>;
+	};
+
+	main_ecap0_pins_default: main-ecap0-default-pins {
+		pinctrl-single,pins = <
+			AM62LX_IOPAD(0x0078, PIN_OUTPUT, 5) /* (L22) GPMC0_AD0.ECAP0_IN_APWM_OUT */
+		>;
+	};
+
+	main_ecap1_pins_default: main_ecap1-default-pins {
+		pinctrl-single,pins = <
+			AM62LX_IOPAD(0x007c, PIN_OUTPUT, 5) /* (L23) GPMC0_AD1.ECAP1_IN_APWM_OUT */
+		>;
+	};
+
+	main_ecap2_pins_default: main-ecap2-default-pins {
+		pinctrl-single,pins = <
+			AM62LX_IOPAD(0x009c, PIN_OUTPUT, 5) /* (H20) GPMC0_AD9.ECAP2_IN_APWM_OUT */
+		>;
+	};
+};
+
+&main_i2c1 {
+	gpio@23 {
+		fet_sel {
+			gpio-hog;
+			gpios = <1 GPIO_ACTIVE_HIGH>;
+			output-high;
+			line-name = "VOUT0_FET_SEL0";
+		};
+	};
+};
+
+&dss {
+	status = "disabled";
+};
+
+&epwm0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_epwm0_pins_default>;
+	status = "okay";
+};
+
+&epwm1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_epwm1_pins_default>;
+	status = "okay";
+};
+
+&epwm2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_epwm2_pins_default>;
+	status = "okay";
+};
+
+&ecap0 {
+	/* ECAP0 in APWM mode */
+	/* Pin 24 on J2 */
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_ecap0_pins_default>;
+	status = "okay";
+};
+
+&ecap1 {
+	/* ECAP1 in APWM mode */
+	/* Pin 26 on J2 */
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_ecap1_pins_default>;
+	status = "okay";
+};
+
+&ecap2 {
+	/* ECAP2 in APWM mode */
+	/* Pin 9 on J3 */
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_ecap2_pins_default>;
+	status = "okay";
+};
