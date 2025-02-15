@@ -1,0 +1,30 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * DT Overlay for enabling ECAP in capture mode on AM625-SK
+ *
+ * Copyright (C) 2023 Texas Instruments Incorporated - https://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include "k3-pinctrl.h"
+
+&main_pmx0 {
+	main_ecap2_capture_pins_default: main-ecap2-capture-pins-default {
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x01a4, PIN_INPUT, 2) /* (B20) MCASP0_ACLKX.ECAP2_IN_APWM_OUT */
+		>;
+	};
+};
+
+&ecap2 {
+	/* ECAP in capture mode */
+	compatible = "ti,am62-ecap-capture";
+	interrupt-parent = <&gic500>;
+	interrupts = <GIC_SPI 115 IRQ_TYPE_EDGE_RISING>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_ecap2_capture_pins_default>;
+	status = "okay";
+};

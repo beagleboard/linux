@@ -1,0 +1,98 @@
+// SPDX-License-Identifier: GPL-2.0
+/**
+ * DT Overlay for enabling PWM output on user expansion connector for AM625-SK, AM62 LP-SK, and AM62A7-SK
+ *
+ * Copyright (C) 2023 Texas Instruments Incorporated - https://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include "k3-pinctrl.h"
+
+&main_pmx0 {
+	main_epwm0_pins_default: main-epwm0-default-pins {
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x01ac, PIN_OUTPUT, 6) /* (E19) MCASP0_AFSR.EHRPWM0_A */
+			AM62X_IOPAD(0x01b0, PIN_OUTPUT, 6) /* (A20) MCASP0_ACLKR.EHRPWM0_B */
+		>;
+	};
+	main_epwm1_pins_default: main-epwm1-default-pins {
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x019c, PIN_OUTPUT, 6) /* (B18) MCASP0_AXR1.EHRPWM1_A */
+			AM62X_IOPAD(0x01a0, PIN_OUTPUT, 6) /* (E18) MCASP0_AXR0.EHRPWM1_B */
+		>;
+	};
+	main_ecap0_pins_default: main-ecap0-default-pins {
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x01b8, PIN_OUTPUT, 3) /* (C13) SPI0_CS1.ECAP0_IN_APWM_OUT */
+		>;
+	};
+	main_ecap1_pins_default: main_ecap1-default-pins {
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x0194, PIN_OUTPUT, 5) /* (B19) MCASP0_AXR3.ECAP1_IN_APWM_OUT */
+		>;
+	};
+	main_ecap2_pins_default: main-ecap2-default-pins {
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x01a4, PIN_OUTPUT, 2) /* (B20) MCASP0_ACLKX.ECAP2_IN_APWM_OUT */
+		>;
+	};
+};
+
+&main_i2c1 {
+	gpio@22 {
+		fet_sel {
+			gpio-hog;
+			gpios = <21 GPIO_ACTIVE_HIGH>;
+			output-low;
+			line-name = "UART1_FET_SEL";
+		};
+	};
+};
+
+&main_uart1 {
+	/* Disable FW debug logs */
+	status = "disabled";
+};
+
+&epwm0 {
+	/* Pin 12/40 of J3 on AM625-SK & AM62 LP-SK */
+	/* Pin 35/12 of J3 on AM62A7-SK */
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_epwm0_pins_default>;
+	status = "okay";
+};
+
+&epwm1 {
+	/* Pin 36/33 of J3 */
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_epwm1_pins_default>;
+	status = "okay";
+};
+
+&ecap0 {
+	/* ECAP0 in APWM mode */
+	/* Pin 26 of J3 */
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_ecap0_pins_default>;
+	status = "okay";
+};
+
+&ecap1 {
+	/* ECAP1 in APWM mode */
+	/* Pin 38 of J3 on AM625-SK & AM62 LP-SK */
+	/* Pin 40 of J3 on AM62A7-SK */
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_ecap1_pins_default>;
+	status = "okay";
+};
+
+&ecap2 {
+	/* ECAP2 in APWM mode */
+	/* Pin 11 of J3 */
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_ecap2_pins_default>;
+	status = "okay";
+};
