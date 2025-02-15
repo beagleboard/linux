@@ -12,7 +12,7 @@
 #include <dt-bindings/gpio/gpio.h>
 #include "k3-pinctrl.h"
 
-&pinmux {
+&pmx0 {
 	main_epwm0_pins_default: main-epwm0-pins-default {
 		pinctrl-single,pins = <
 			AM62LX_IOPAD(0x00ac, PIN_OUTPUT, 4) /* (G22) GPMC0_AD13.EHRPWM0_A */
