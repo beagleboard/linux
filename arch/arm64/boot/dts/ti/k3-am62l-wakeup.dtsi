@@ -124,5 +124,16 @@
 			reg = <0x14 0x4>;
 			bootph-all;
 		};
+
+		usb0_phy_ctrl: syscon@45000 {
+			compatible = "ti,am62-usb-phy-ctrl", "syscon";
+			reg = <0x45000 0x4>;
+			bootph-all;
+		};
+
+		usb1_phy_ctrl: syscon@45004 {
+			compatible = "ti,am62-usb-phy-ctrl", "syscon";
+			reg = <0x45004 0x4>;
+		};
 	};
 };
