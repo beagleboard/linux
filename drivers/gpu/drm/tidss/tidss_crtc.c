@@ -31,13 +31,19 @@ static void tidss_crtc_finish_page_flip(struct tidss_crtc *tcrtc)
 	/*
 	 * New settings are taken into use at VFP, and GO bit is cleared at
 	 * the same time. This happens before the vertical blank interrupt.
-	 * So there is a small change that the driver sets GO bit after VFP, but
+	 * So there is a small chance that the driver sets GO bit after VFP, but
 	 * before vblank, and we have to check for that case here.
+	 *
+	 * For a video port shared between Linux and remote core but owned by remote core,
+	 * this is not required since Linux just attaches to mode that was preset by remote
+	 * core with which display is being shared.
 	 */
-	busy = dispc_vp_go_busy(tidss->dispc, tcrtc->hw_videoport);
-	if (busy) {
-		spin_unlock_irqrestore(&ddev->event_lock, flags);
-		return;
+	if (!tidss->shared_mode || tidss->shared_mode_owned_vps[tcrtc->hw_videoport]) {
+		busy = dispc_vp_go_busy(tidss->dispc, tcrtc->hw_videoport);
+		if (busy) {
+			spin_unlock_irqrestore(&ddev->event_lock, flags);
+			return;
+		}
 	}
 
 	event = tcrtc->event;
@@ -209,6 +215,44 @@ static void tidss_crtc_atomic_flush(struct drm_crtc *crtc,
 	spin_unlock_irqrestore(&ddev->event_lock, flags);
 }
 
+static void tidss_shared_vp_crtc_atomic_flush(struct drm_crtc *crtc,
+					      struct drm_atomic_state *state)
+{
+	struct tidss_crtc *tcrtc = to_tidss_crtc(crtc);
+	struct drm_device *ddev = crtc->dev;
+	unsigned long flags;
+
+	dev_dbg(ddev->dev,
+		"%s: %s enabled %d, needs modeset %d, event %p\n", __func__,
+		crtc->name, drm_atomic_crtc_needs_modeset(crtc->state),
+		crtc->state->enable, crtc->state->event);
+
+	/* There is nothing to do if CRTC is not going to be enabled. */
+	if (!crtc->state->enable)
+		return;
+	/*
+	 * Flush CRTC changes with go bit only if new modeset is not
+	 * coming, so CRTC is enabled trough out the commit.
+	 */
+	if (drm_atomic_crtc_needs_modeset(crtc->state))
+		return;
+
+	/* We should have event if CRTC is enabled through out this commit. */
+	if (WARN_ON(!crtc->state->event))
+		return;
+
+	WARN_ON(drm_crtc_vblank_get(crtc) != 0);
+
+	spin_lock_irqsave(&ddev->event_lock, flags);
+
+	WARN_ON(tcrtc->event);
+
+	tcrtc->event = crtc->state->event;
+	crtc->state->event = NULL;
+
+	spin_unlock_irqrestore(&ddev->event_lock, flags);
+}
+
 static void tidss_crtc_atomic_enable(struct drm_crtc *crtc,
 				     struct drm_atomic_state *state)
 {
@@ -243,6 +287,27 @@ static void tidss_crtc_atomic_enable(struct drm_crtc *crtc,
 	dispc_vp_prepare(tidss->dispc, tcrtc->hw_videoport, crtc->state);
 
 	dispc_vp_enable(tidss->dispc, tcrtc->hw_videoport, crtc->state);
+
+	spin_lock_irqsave(&ddev->event_lock, flags);
+
+	if (crtc->state->event) {
+		drm_crtc_send_vblank_event(crtc, crtc->state->event);
+		crtc->state->event = NULL;
+	}
+
+	spin_unlock_irqrestore(&ddev->event_lock, flags);
+}
+
+static void tidss_shared_vp_crtc_atomic_enable(struct drm_crtc *crtc,
+					       struct drm_atomic_state *state)
+{
+	struct drm_device *ddev = crtc->dev;
+	unsigned long flags;
+
+	dev_dbg(ddev->dev, "%s, event %p\n", __func__, crtc->state->event);
+
+	/* Turn vertical blanking interrupt reporting on. */
+	drm_crtc_vblank_on(crtc);
 
 	spin_lock_irqsave(&ddev->event_lock, flags);
 
@@ -299,6 +364,27 @@ static void tidss_crtc_atomic_disable(struct drm_crtc *crtc,
 	tidss_runtime_put(tidss);
 }
 
+static void tidss_shared_vp_crtc_atomic_disable(struct drm_crtc *crtc,
+						struct drm_atomic_state *state)
+{
+	struct tidss_crtc *tcrtc = to_tidss_crtc(crtc);
+	struct drm_device *ddev = crtc->dev;
+	unsigned long flags;
+
+	dev_dbg(ddev->dev, "%s, event %p\n", __func__, crtc->state->event);
+
+	reinit_completion(&tcrtc->framedone_completion);
+
+	spin_lock_irqsave(&ddev->event_lock, flags);
+	if (crtc->state->event) {
+		drm_crtc_send_vblank_event(crtc, crtc->state->event);
+		crtc->state->event = NULL;
+	}
+	spin_unlock_irqrestore(&ddev->event_lock, flags);
+
+	drm_crtc_vblank_off(crtc);
+}
+
 static
 enum drm_mode_status tidss_crtc_mode_valid(struct drm_crtc *crtc,
 					   const struct drm_display_mode *mode)
@@ -315,7 +401,14 @@ static const struct drm_crtc_helper_funcs tidss_crtc_helper_funcs = {
 	.atomic_flush = tidss_crtc_atomic_flush,
 	.atomic_enable = tidss_crtc_atomic_enable,
 	.atomic_disable = tidss_crtc_atomic_disable,
+	.mode_valid = tidss_crtc_mode_valid,
+};
 
+static const struct drm_crtc_helper_funcs tidss_shared_vp_crtc_helper_funcs = {
+	.atomic_check = tidss_crtc_atomic_check,
+	.atomic_flush = tidss_shared_vp_crtc_atomic_flush,
+	.atomic_enable = tidss_shared_vp_crtc_atomic_enable,
+	.atomic_disable = tidss_shared_vp_crtc_atomic_disable,
 	.mode_valid = tidss_crtc_mode_valid,
 };
 
@@ -417,6 +510,10 @@ struct tidss_crtc *tidss_crtc_create(struct tidss_device *tidss,
 	bool has_ctm = tidss->feat->vp_feat.color.has_ctm;
 	int ret;
 
+	dev_dbg(tidss->dev, "%s: tidss->shared_mode: %d tidss->shared_mode_owned_vps[%d] = %d\n",
+		__func__, tidss->shared_mode, hw_videoport,
+		tidss->shared_mode_owned_vps[hw_videoport]);
+
 	tcrtc = kzalloc(sizeof(*tcrtc), GFP_KERNEL);
 	if (!tcrtc)
 		return ERR_PTR(-ENOMEM);
@@ -433,8 +530,17 @@ struct tidss_crtc *tidss_crtc_create(struct tidss_device *tidss,
 		return ERR_PTR(ret);
 	}
 
-	drm_crtc_helper_add(crtc, &tidss_crtc_helper_funcs);
-
+	/* Use shared video port CRTC helpers which don't access associated
+	 * video port and overlay register spaces when Linux is not owning the
+	 * video port.
+	 */
+	if (tidss->shared_mode && !tidss->shared_mode_owned_vps[hw_videoport]) {
+		drm_crtc_helper_add(crtc, &tidss_shared_vp_crtc_helper_funcs);
+		dev_dbg(tidss->dev, "%s: vp%d is being shared with Linux\n", __func__,
+			hw_videoport + 1);
+	} else {
+		drm_crtc_helper_add(crtc, &tidss_crtc_helper_funcs);
+	}
 	/*
 	 * The dispc gamma functions adapt to what ever size we ask
 	 * from it no matter what HW supports. X-server assumes 256
