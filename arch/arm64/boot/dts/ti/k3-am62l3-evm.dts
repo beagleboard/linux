@@ -100,6 +100,41 @@
 		regulator-always-on;
 		regulator-boot-on;
 	};
+
+	tlv320_mclk: clk-0 {
+		#clock-cells = <0>;
+		compatible = "fixed-clock";
+		clock-frequency = <12288000>;
+	};
+
+	codec_audio: sound {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "AM62L-SKEVM";
+		simple-audio-card,widgets =
+			"Headphone",	"Headphone Jack",
+			"Line",		"Line In",
+			"Microphone",	"Microphone Jack";
+		simple-audio-card,routing =
+			"Headphone Jack",	"HPLOUT",
+			"Headphone Jack",	"HPROUT",
+			"LINE1L",		"Line In",
+			"LINE1R",		"Line In",
+			"MIC3R",		"Microphone Jack",
+			"Microphone Jack",	"Mic Bias";
+		simple-audio-card,format = "dsp_b";
+		simple-audio-card,bitclock-master = <&sound_master>;
+		simple-audio-card,frame-master = <&sound_master>;
+		simple-audio-card,bitclock-inversion;
+
+		simple-audio-card,cpu {
+			sound-dai = <&mcasp0>;
+		};
+
+		sound_master: simple-audio-card,codec {
+			sound-dai = <&tlv320aic3106>;
+			clocks = <&tlv320_mclk>;
+		};
+	};
 };
 
 &pmx0 {
@@ -307,6 +342,15 @@
 			AM62LX_IOPAD(0x0248, PIN_INPUT | PIN_DS_PULLUD_ENABLE | PIN_DS_PULL_UP, 0) /* (A5) USB1_DRVVBUS */
 		>;
 	};
+
+	main_mcasp0_pins_default: main-mcasp0-default-pins {
+		pinctrl-single,pins = <
+			AM62PX_IOPAD(0x0190, PIN_INPUT, 0) /* (A11) MCASP0_ACLKX */
+			AM62PX_IOPAD(0x0194, PIN_INPUT, 0) /* (B11) MCASP0_AFSX */
+			AM62PX_IOPAD(0x018c, PIN_INPUT, 0) /* (B9) MCASP0_AXR0 */
+			AM62PX_IOPAD(0x0188, PIN_INPUT, 0) /* (A9) MCASP0_AXR1 */
+		>;
+	};
 };
 
 &main_uart0 {
@@ -421,6 +465,19 @@
 				};
 			};
 		};
+	};
+
+	tlv320aic3106: audio-codec@1b {
+		#sound-dai-cells = <0>;
+		compatible = "ti,tlv320aic3106";
+		reg = <0x1b>;
+		ai3x-micbias-vg = <1>;	/* 2.0V */
+
+		/* Regulators */
+		AVDD-supply = <&vcc_3v3_sys>;
+		IOVDD-supply = <&vcc_3v3_sys>;
+		DRVDD-supply = <&vcc_3v3_sys>;
+		DVDD-supply = <&vcc_1v8>;
 	};
 };
 
@@ -679,4 +736,22 @@
 	dr_mode = "host";
 	pinctrl-names = "default";
 	pinctrl-0 = <&main_usb1_default_pins>;
+};
+
+&mcasp0 {
+	status = "okay";
+	#sound-dai-cells = <0>;
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_mcasp0_pins_default>;
+
+	op-mode = <0>;          /* MCASP_IIS_MODE */
+	tdm-slots = <2>;
+
+	serial-dir = <  /* 0: INACTIVE, 1: TX, 2: RX */
+	       1 2 0 0
+	       0 0 0 0
+	       0 0 0 0
+	       0 0 0 0
+	>;
 };

@@ -830,4 +830,62 @@
 			ti,cpts-periodic-outputs = <2>;
 		};
 	};
+
+	mcasp0: audio-controller@2b00000 {
+		compatible = "ti,am33xx-mcasp-audio";
+		reg = <0x00 0x02b00000 0x00 0x2000>,
+				<0x00 0x02b08000 0x00 0x400>;
+		reg-names = "mpu", "dat";
+		interrupts = <GIC_SPI 246 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 245 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "tx", "rx";
+
+		clocks = <&scmi_clk 192>;
+		clock-names = "fck";
+		assigned-clocks = <&scmi_clk 192>;
+		assigned-clock-parents = <&scmi_clk 1>;
+		dmas = <&main_bcdma 0 0 0xc500 0>, <&main_bcdma 0 0 0x4500 0>;
+		dma-names = "tx", "rx";
+		power-domains = <&scmi_pds 50>;
+
+		status = "disabled";
+	};
+
+	mcasp1: audio-controller@2b10000 {
+		compatible = "ti,am33xx-mcasp-audio";
+		reg = <0x00 0x02b10000 0x00 0x2000>,
+				<0x00 0x02b18000 0x00 0x400>;
+		reg-names = "mpu", "dat";
+		interrupts = <GIC_SPI 248 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 247 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "tx", "rx";
+
+		clocks = <&scmi_clk 216>;
+		clock-names = "fck";
+		assigned-clocks = <&scmi_clk 216>;
+		dmas = <&main_bcdma 0 0 0xc501 0>, <&main_bcdma 0 0 0x4501 0>;
+		dma-names = "tx", "rx";
+		power-domains = <&scmi_pds 51>;
+
+		status = "disabled";
+	};
+
+	mcasp2: audio-controller@2b20000 {
+		compatible = "ti,am33xx-mcasp-audio";
+		reg = <0x00 0x02b20000 0x00 0x2000>,
+				<0x00 0x02b28000 0x00 0x400>;
+		reg-names = "mpu", "dat";
+		interrupts = <GIC_SPI 250 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 249 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "tx", "rx";
+
+		clocks = <&scmi_clk 230>;
+		clock-names = "fck";
+		assigned-clocks = <&scmi_clk 230>;
+		dmas = <&main_bcdma 0 0 0xc502 0>, <&main_bcdma 0 0 0x4502 0>;
+		dma-names = "tx", "rx";
+		power-domains = <&scmi_pds 52>;
+
+		status = "disabled";
+	};
 };
