@@ -561,6 +561,8 @@ int udma_get_tchan(struct udma_chan *uc)
 		uc->tchan = NULL;
 		return ret;
 	}
+	if (ud->match_data->type == DMA_TYPE_BCDMA_V2)
+		uc->chan = uc->tchan;
 
 	if (ud->tflow_cnt) {
 		int tflow_id;
@@ -610,6 +612,8 @@ int udma_get_rchan(struct udma_chan *uc)
 		uc->rchan = NULL;
 		return ret;
 	}
+	if (ud->match_data->type == DMA_TYPE_BCDMA_V2)
+		uc->chan = uc->rchan;
 
 	return 0;
 }
@@ -1244,7 +1248,8 @@ int udma_configure_statictr(struct udma_chan *uc, struct udma_desc *d,
 			d->static_tr.bstcnt = d->residue / d->sglen / div;
 		else
 			d->static_tr.bstcnt = d->residue / div;
-	} else if (uc->ud->match_data->type == DMA_TYPE_BCDMA &&
+	} else if ((uc->ud->match_data->type == DMA_TYPE_BCDMA ||
+				uc->ud->match_data->type == DMA_TYPE_BCDMA_V2) &&
 		   uc->config.dir == DMA_DEV_TO_MEM &&
 		   uc->cyclic) {
 		/*
@@ -1569,7 +1574,8 @@ udma_prep_dma_cyclic_tr(struct udma_chan *uc, dma_addr_t buf_addr,
 	 * last one, so set the flag for each period.
 	 */
 	if (uc->config.ep_type == PSIL_EP_PDMA_XY &&
-	    uc->ud->match_data->type == DMA_TYPE_BCDMA) {
+	    (uc->ud->match_data->type == DMA_TYPE_BCDMA ||
+		 uc->ud->match_data->type == DMA_TYPE_BCDMA_V2)) {
 		period_csf = CPPI5_TR_CSF_EOP;
 	}
 
@@ -2021,8 +2027,9 @@ void udma_free_chan_resources(struct dma_chan *chan)
 
 	/* Release PSI-L pairing */
 	if (uc->psil_paired) {
-		navss_psil_unpair(ud, uc->config.src_thread,
-				  uc->config.dst_thread);
+		if (ud->match_data->type < DMA_TYPE_BCDMA_V2)
+			navss_psil_unpair(ud, uc->config.src_thread,
+					uc->config.dst_thread);
 		uc->psil_paired = false;
 	}
 
@@ -2050,6 +2057,7 @@ int setup_resources(struct udma_dev *ud)
 		ret = udma_setup_resources(ud);
 		break;
 	case DMA_TYPE_BCDMA:
+	case DMA_TYPE_BCDMA_V2:
 		ret = bcdma_setup_resources(ud);
 		break;
 	case DMA_TYPE_PKTDMA:
@@ -2062,11 +2070,18 @@ int setup_resources(struct udma_dev *ud)
 	if (ret)
 		return ret;
 
-	ch_count  = ud->bchan_cnt + ud->tchan_cnt + ud->rchan_cnt;
-	if (ud->bchan_cnt)
-		ch_count -= bitmap_weight(ud->bchan_map, ud->bchan_cnt);
-	ch_count -= bitmap_weight(ud->tchan_map, ud->tchan_cnt);
-	ch_count -= bitmap_weight(ud->rchan_map, ud->rchan_cnt);
+	if (ud->match_data->type == DMA_TYPE_BCDMA_V2) {
+		ch_count = ud->bchan_cnt + ud->tchan_cnt;
+		if (ud->bchan_cnt)
+			ch_count -= bitmap_weight(ud->bchan_map, ud->bchan_cnt);
+		ch_count -= bitmap_weight(ud->tchan_map, ud->tchan_cnt);
+	} else {
+		ch_count  = ud->bchan_cnt + ud->tchan_cnt + ud->rchan_cnt;
+		if (ud->bchan_cnt)
+			ch_count -= bitmap_weight(ud->bchan_map, ud->bchan_cnt);
+		ch_count -= bitmap_weight(ud->tchan_map, ud->tchan_cnt);
+		ch_count -= bitmap_weight(ud->rchan_map, ud->rchan_cnt);
+	}
 	if (!ch_count)
 		return -ENODEV;
 
@@ -2097,6 +2112,15 @@ int setup_resources(struct udma_dev *ud)
 						       ud->tchan_cnt),
 			 ud->rchan_cnt - bitmap_weight(ud->rchan_map,
 						       ud->rchan_cnt));
+		break;
+	case DMA_TYPE_BCDMA_V2:
+		dev_info(dev,
+			 "Channels: %d (bchan: %u, chan: %u)\n",
+			 ch_count,
+			 ud->bchan_cnt - bitmap_weight(ud->bchan_map,
+						       ud->bchan_cnt),
+			 ud->chan_cnt - bitmap_weight(ud->chan_map,
+						       ud->chan_cnt));
 		break;
 	case DMA_TYPE_PKTDMA:
 		dev_info(dev,
@@ -2334,16 +2358,26 @@ int bcdma_setup_resources(struct udma_dev *ud)
 
 	ud->bchan_map = devm_kmalloc_array(dev, BITS_TO_LONGS(ud->bchan_cnt),
 					   sizeof(unsigned long), GFP_KERNEL);
+	bitmap_zero(ud->bchan_map, ud->bchan_cnt);
 	ud->bchans = devm_kcalloc(dev, ud->bchan_cnt, sizeof(*ud->bchans),
 				  GFP_KERNEL);
 	ud->tchan_map = devm_kmalloc_array(dev, BITS_TO_LONGS(ud->tchan_cnt),
 					   sizeof(unsigned long), GFP_KERNEL);
+	bitmap_zero(ud->tchan_map, ud->tchan_cnt);
 	ud->tchans = devm_kcalloc(dev, ud->tchan_cnt, sizeof(*ud->tchans),
 				  GFP_KERNEL);
-	ud->rchan_map = devm_kmalloc_array(dev, BITS_TO_LONGS(ud->rchan_cnt),
-					   sizeof(unsigned long), GFP_KERNEL);
-	ud->rchans = devm_kcalloc(dev, ud->rchan_cnt, sizeof(*ud->rchans),
-				  GFP_KERNEL);
+	if (ud->match_data->type == DMA_TYPE_BCDMA_V2) {
+		ud->rchan_map = ud->tchan_map;
+		ud->rchans = ud->tchans;
+		ud->chan_map = ud->tchan_map;
+		ud->chans = ud->tchans;
+	} else {
+		ud->rchan_map = devm_kmalloc_array(dev, BITS_TO_LONGS(ud->rchan_cnt),
+				sizeof(unsigned long), GFP_KERNEL);
+		bitmap_zero(ud->rchan_map, ud->rchan_cnt);
+		ud->rchans = devm_kcalloc(dev, ud->rchan_cnt, sizeof(*ud->rchans),
+				GFP_KERNEL);
+	}
 	/* BCDMA do not really have flows, but the driver expect it */
 	ud->rflow_in_use = devm_kcalloc(dev, BITS_TO_LONGS(ud->rchan_cnt),
 					sizeof(unsigned long),
@@ -2355,6 +2389,9 @@ int bcdma_setup_resources(struct udma_dev *ud)
 	    !ud->rflow_in_use || !ud->bchans || !ud->tchans || !ud->rchans ||
 	    !ud->rflows)
 		return -ENOMEM;
+
+	if (ud->match_data->type == DMA_TYPE_BCDMA_V2)
+		return 0;
 
 	/* Get resource ranges from tisci */
 	for (i = 0; i < RM_RANGE_LAST; i++) {
@@ -2785,7 +2822,8 @@ void udma_dbg_summary_show_chan(struct seq_file *s,
 
 	switch (uc->config.dir) {
 	case DMA_MEM_TO_MEM:
-		if (uc->ud->match_data->type == DMA_TYPE_BCDMA) {
+		if (uc->ud->match_data->type == DMA_TYPE_BCDMA ||
+			uc->ud->match_data->type == DMA_TYPE_BCDMA_V2) {
 			seq_printf(s, "bchan%d)\n", uc->bchan->id);
 			return;
 		}
