@@ -1,0 +1,48 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * DT Overlay for enabling ECAP in capture mode on AM62P5-SK
+ *
+ * Copyright (C) 2023 Texas Instruments Incorporated - https://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include "k3-pinctrl.h"
+
+&main_pmx0 {
+	main_ecap1_capture_pins_default: main-ecap1-capture-pins-default {
+		pinctrl-single,pins = <
+			AM62PX_IOPAD(0x019c, PIN_INPUT, 2) /* (E24) MCASP0_AXR1.ECAP1_IN_APWM_OUT */
+		>;
+	};
+
+	main_ecap2_capture_pins_default: main-ecap2-capture-pins-default {
+		pinctrl-single,pins = <
+			AM62PX_IOPAD(0x01a4, PIN_INPUT, 2) /* (F24) MCASP0_ACLKX.ECAP2_IN_APWM_OUT */
+		>;
+	};
+};
+
+&ecap1 {
+	/* ECAP in capture mode */
+	/* Pin 36 of J4 */
+	compatible = "ti,am62-ecap-capture";
+	interrupt-parent = <&gic500>;
+	interrupts = <GIC_SPI 114 IRQ_TYPE_EDGE_RISING>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_ecap1_capture_pins_default>;
+	status = "okay";
+};
+
+&ecap2 {
+	/* ECAP in capture mode */
+	/* Pin 11 of J4 */
+	compatible = "ti,am62-ecap-capture";
+	interrupt-parent = <&gic500>;
+	interrupts = <GIC_SPI 115 IRQ_TYPE_EDGE_RISING>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_ecap2_capture_pins_default>;
+	status = "okay";
+};
