@@ -2214,6 +2214,19 @@ static enum drm_connector_status cdns_mhdp_bridge_detect(struct drm_bridge *brid
 {
 	struct cdns_mhdp_device *mhdp = bridge_to_mhdp(bridge);
 
+	if (mhdp->no_hpd) {
+		int ret = cdns_mhdp_update_link_status(mhdp);
+
+		if (mhdp->connector.dev) {
+			if (ret < 0)
+				schedule_work(&mhdp->modeset_retry_work);
+			else
+				drm_kms_helper_hotplug_event(mhdp->bridge.dev);
+		} else {
+			drm_bridge_hpd_notify(&mhdp->bridge, cdns_mhdp_detect(mhdp));
+		}
+	}
+
 	return cdns_mhdp_detect(mhdp);
 }
 
