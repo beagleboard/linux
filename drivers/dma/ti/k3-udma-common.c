@@ -2061,6 +2061,7 @@ int setup_resources(struct udma_dev *ud)
 		ret = bcdma_setup_resources(ud);
 		break;
 	case DMA_TYPE_PKTDMA:
+	case DMA_TYPE_PKTDMA_V2:
 		ret = pktdma_setup_resources(ud);
 		break;
 	default:
@@ -2070,7 +2071,7 @@ int setup_resources(struct udma_dev *ud)
 	if (ret)
 		return ret;
 
-	if (ud->match_data->type == DMA_TYPE_BCDMA_V2) {
+	if (ud->match_data->type >= DMA_TYPE_BCDMA_V2) {
 		ch_count = ud->bchan_cnt + ud->tchan_cnt;
 		if (ud->bchan_cnt)
 			ch_count -= bitmap_weight(ud->bchan_map, ud->bchan_cnt);
@@ -2115,7 +2116,7 @@ int setup_resources(struct udma_dev *ud)
 		break;
 	case DMA_TYPE_BCDMA_V2:
 		dev_info(dev,
-			 "Channels: %d (bchan: %u, chan: %u)\n",
+			 "Channels: %d (bchan: %u, tchan + rchan: %u)\n",
 			 ch_count,
 			 ud->bchan_cnt - bitmap_weight(ud->bchan_map,
 						       ud->bchan_cnt),
@@ -2130,6 +2131,13 @@ int setup_resources(struct udma_dev *ud)
 						       ud->tchan_cnt),
 			 ud->rchan_cnt - bitmap_weight(ud->rchan_map,
 						       ud->rchan_cnt));
+		break;
+	case DMA_TYPE_PKTDMA_V2:
+		dev_info(dev,
+			 "Channels: %d (tchan + rchan: %u)\n",
+			 ch_count,
+			 ud->chan_cnt - bitmap_weight(ud->chan_map,
+						       ud->chan_cnt));
 		break;
 	default:
 		break;
@@ -2583,12 +2591,21 @@ int pktdma_setup_resources(struct udma_dev *ud)
 
 	ud->tchan_map = devm_kmalloc_array(dev, BITS_TO_LONGS(ud->tchan_cnt),
 					   sizeof(unsigned long), GFP_KERNEL);
+	bitmap_zero(ud->tchan_map, ud->tchan_cnt);
 	ud->tchans = devm_kcalloc(dev, ud->tchan_cnt, sizeof(*ud->tchans),
 				  GFP_KERNEL);
-	ud->rchan_map = devm_kmalloc_array(dev, BITS_TO_LONGS(ud->rchan_cnt),
-					   sizeof(unsigned long), GFP_KERNEL);
-	ud->rchans = devm_kcalloc(dev, ud->rchan_cnt, sizeof(*ud->rchans),
-				  GFP_KERNEL);
+	if (ud->match_data->type == DMA_TYPE_PKTDMA_V2) {
+		ud->rchan_map = ud->tchan_map;
+		ud->rchans = ud->tchans;
+		ud->chan_map = ud->tchan_map;
+		ud->chans = ud->tchans;
+	} else {
+		ud->rchan_map = devm_kmalloc_array(dev, BITS_TO_LONGS(ud->rchan_cnt),
+				sizeof(unsigned long), GFP_KERNEL);
+		bitmap_zero(ud->rchan_map, ud->rchan_cnt);
+		ud->rchans = devm_kcalloc(dev, ud->rchan_cnt, sizeof(*ud->rchans),
+				GFP_KERNEL);
+	}
 	ud->rflow_in_use = devm_kcalloc(dev, BITS_TO_LONGS(ud->rflow_cnt),
 					sizeof(unsigned long),
 					GFP_KERNEL);
@@ -2596,10 +2613,14 @@ int pktdma_setup_resources(struct udma_dev *ud)
 				  GFP_KERNEL);
 	ud->tflow_map = devm_kmalloc_array(dev, BITS_TO_LONGS(ud->tflow_cnt),
 					   sizeof(unsigned long), GFP_KERNEL);
+	bitmap_zero(ud->tflow_map, ud->tflow_cnt);
 
 	if (!ud->tchan_map || !ud->rchan_map || !ud->tflow_map || !ud->tchans ||
 	    !ud->rchans || !ud->rflows || !ud->rflow_in_use)
 		return -ENOMEM;
+
+	if (ud->match_data->type == DMA_TYPE_PKTDMA_V2)
+		return 0;
 
 	/* Get resource ranges from tisci */
 	for (i = 0; i < RM_RANGE_LAST; i++) {
