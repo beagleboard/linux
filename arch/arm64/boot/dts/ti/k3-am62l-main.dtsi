@@ -190,6 +190,12 @@
 		#size-cells = <1>;
 		ranges = <0x0 0x00 0x09000000 0x400000>;
 
+		phy_gmii_sel: phy@1be000 {
+			compatible = "ti,am654-phy-gmii-sel";
+			reg = <0x1be000 0x8>;
+			#phy-cells = <1>;
+		};
+
 		epwm_tbclk: clock-controller@1e9100 {
 			compatible = "ti,am62-epwm-tbclk";
 			reg = <0x1e9100 0x4>;
@@ -756,5 +762,72 @@
 			<0 0 78 &gic500 0 0 GIC_SPI 514 IRQ_TYPE_LEVEL_HIGH>,
 			<0 0 79 &gic500 0 0 GIC_SPI 515 IRQ_TYPE_LEVEL_HIGH>,
 			<0 0 96 &gic500 0 0 GIC_SPI 484 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	cpsw3g: ethernet@8000000 {
+		compatible = "ti,am642-cpsw-nuss";
+		#address-cells = <2>;
+		#size-cells = <2>;
+		reg = <0x00 0x08000000 0x00 0x200000>;
+		reg-names = "cpsw_nuss";
+		ranges = <0x00 0x00 0x00 0x08000000 0x00 0x200000>;
+		clocks = <&scmi_clk 9>;
+		clock-names = "fck";
+		power-domains = <&scmi_pds 3>;
+		dmas = <&main_pktdma 0xc600 15>,
+			   <&main_pktdma 0xc601 15>,
+			   <&main_pktdma 0xc602 15>,
+			   <&main_pktdma 0xc603 15>,
+			   <&main_pktdma 0xc604 15>,
+			   <&main_pktdma 0xc605 15>,
+			   <&main_pktdma 0xc606 15>,
+			   <&main_pktdma 0xc607 15>,
+			   <&main_pktdma 0x4600 15>;
+		dma-names = "tx0", "tx1", "tx2", "tx3", "tx4", "tx5", "tx6",
+					"tx7", "rx";
+
+		ethernet-ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			cpsw_port1: port@1 {
+				reg = <1>;
+				ti,mac-only;
+				label = "port1";
+				phys = <&phy_gmii_sel 1>;
+				ti,syscon-efuse = <&cpsw_mac_syscon 0x0>;
+				mac-address = [00 00 00 00 00 00];
+			};
+
+			cpsw_port2: port@2 {
+				reg = <2>;
+				ti,mac-only;
+				label = "port2";
+				phys = <&phy_gmii_sel 2>;
+				mac-address = [00 00 00 00 00 00];
+			};
+		};
+
+		cpsw3g_mdio: mdio@f00 {
+			compatible = "ti,cpsw-mdio","ti,davinci_mdio";
+			reg = <0x00 0xf00 0x00 0x100>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			clocks = <&scmi_clk 13 0>;
+			clock-names = "fck";
+			bus_freq = <1000000>;
+			status = "disabled";
+		};
+
+		cpts@3d000 {
+			compatible = "ti,j721e-cpts";
+			reg = <0x00 0x3d000 0x00 0x400>;
+			clocks = <&scmi_clk 9>;
+			clock-names = "cpts";
+			interrupts-extended = <&gic500 GIC_SPI 102 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "cpts";
+			ti,cpts-ext-ts-inputs = <4>;
+			ti,cpts-periodic-outputs = <2>;
+		};
 	};
 };
