@@ -69,6 +69,7 @@ dtb-$(CONFIG_ARCH_K3) += k3-am62x-sk-eqep.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-am62x-sk-hdmi-audio.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-am62x-sk-mcan.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-am62x-sk-pwm.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-am62x-sk-lpm-wkup-sources.dtbo
 
 # Boards with AM64x SoC
 dtb-$(CONFIG_ARCH_K3) += k3-am642-evm.dtb
