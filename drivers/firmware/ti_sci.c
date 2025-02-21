@@ -3716,14 +3716,22 @@ static int __maybe_unused ti_sci_suspend_noirq(struct device *dev)
 	return 0;
 }
 
+extern int davinci_gpio_resume_all_devices(void);
+
 static int __maybe_unused ti_sci_resume_noirq(struct device *dev)
 {
 	struct ti_sci_info *info = dev_get_drvdata(dev);
 	int ret = 0;
+	int err;
 	u32 source;
 	u64 time;
 	u8 pin;
 	u8 mode;
+
+	/* Resume GPIO before disabling isolation to maintain GPIO state */
+	err = davinci_gpio_resume_all_devices();
+	if (err)
+		return err;
 
 	ret = ti_sci_cmd_set_io_isolation(&info->handle, TISCI_MSG_VALUE_IO_DISABLE);
 	if (ret)
