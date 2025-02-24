@@ -690,7 +690,7 @@
 
 	mcu_r5fss0: r5fss@41000000 {
 		compatible = "ti,j721s2-r5fss";
-		ti,cluster-mode = <1>;
+		ti,cluster-mode = <0>;
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges = <0x41000000 0x00 0x41000000 0x20000>,
