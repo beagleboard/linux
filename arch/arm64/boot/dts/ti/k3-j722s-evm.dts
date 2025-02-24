@@ -659,6 +659,7 @@
 				  "PCIe0_1L_RC_RSTz", "PCIe0_1L_PRSNT#",
 				  "ENET1_EXP_SPARE2", "ENET1_EXP_PWRDN",
 				  "PD_I2ENET1_I2CMUX_SELC_IRQ", "ENET1_EXP_RESETZ";
+		bootph-all;
 
 		p05-hog {
 			/* P05 - USB2.0_MUX_SEL */
