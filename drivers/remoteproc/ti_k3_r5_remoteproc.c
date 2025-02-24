@@ -1395,6 +1395,12 @@ static int k3_r5_rproc_configure_mode(struct k3_r5_rproc *kproc)
 		return reset_ctrl_status;
 	}
 
+	/*
+	 * Skip the waiting mechanism for sequential power-on of cores if the
+	 * core has already been booted by another entity.
+	 */
+	core->released_from_reset = c_state;
+
 	ret = ti_sci_proc_get_status(core->tsp, &boot_vec, &cfg, &ctrl,
 				     &stat);
 	if (ret < 0) {
