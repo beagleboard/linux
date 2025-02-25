@@ -880,8 +880,8 @@
 	ospi0_nand: nand@0 {
 		compatible = "spi-nand";
 		reg = <0x0>;
-		spi-tx-bus-width = <1>;
-		spi-rx-bus-width = <1>;
+		spi-tx-bus-width = <8>;
+		spi-rx-bus-width = <8>;
 		spi-max-frequency = <25000000>;
 		cdns,tshsl-ns = <60>;
 		cdns,tsd2d-ns = <60>;
@@ -928,6 +928,7 @@
 			};
 
 			partition@7fc0000 {
+				bootph-all;
 				label = "ospi_nand.phypattern";
 				reg = <0x7fc0000 0x40000>;
 			};
