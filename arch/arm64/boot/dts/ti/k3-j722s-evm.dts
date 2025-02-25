@@ -870,6 +870,7 @@
 			};
 
 			partition@3fc0000 {
+				bootph-all;
 				label = "ospi.phypattern";
 				reg = <0x3fc0000 0x40000>;
 			};
