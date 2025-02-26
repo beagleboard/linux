@@ -914,4 +914,14 @@
 
 		status = "disabled";
 	};
+
+	crypto: crypto@40800000 {
+		compatible = "ti,am62l-dthev2";
+		reg = <0x00 0x40800000 0x00 0x14000>;
+
+		dmas = <&main_bcdma 0 0 0x4700 0>,
+		       <&main_bcdma 0 0 0xc701 0>,
+		       <&main_bcdma 0 0 0xc700 0>;
+		dma-names = "rx", "tx1", "tx2";
+	};
 };

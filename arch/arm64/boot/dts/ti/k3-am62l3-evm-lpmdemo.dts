@@ -263,4 +263,5 @@
 /delete-node/ &mcasp0;
 /delete-node/ &mcasp1;
 /delete-node/ &mcasp2;
+/delete-node/ &crypto;
 /delete-node/ &main_uart1;
