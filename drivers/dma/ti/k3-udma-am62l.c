@@ -38,6 +38,12 @@
 #define UDMA_CHAN_RT_STATIC_TR_Z_REG	0x804
 #define UDMA_CHAN_RT_PERIPH_BCNT_REG	0x810
 
+static const char * const am62l_mmr_names[] = {
+	[AM62L_MMR_GCFG] = "gcfg",
+	[AM62L_MMR_BCHANRT] = "bchanrt",
+	[AM62L_MMR_CHANRT] = "chanrt",
+};
+
 static int am62l_udma_check_chan_autopair_completion(struct udma_chan *uc)
 {
 	u32 val;
@@ -72,27 +78,6 @@ static bool am62l_udma_is_chan_paused(struct udma_chan *uc)
 
 static void am62l_udma_reset_rings(struct udma_chan *uc)
 {
-	struct k3_ring *ring1 = NULL;
-	struct k3_ring *ring2 = NULL;
-
-	switch (uc->config.dir) {
-	case DMA_DEV_TO_MEM:
-		if (uc->rchan) {
-			ring1 = uc->rflow->fd_ring;
-			ring2 = uc->rflow->r_ring;
-		}
-		break;
-	case DMA_MEM_TO_DEV:
-	case DMA_MEM_TO_MEM:
-		if (uc->tchan) {
-			ring1 = uc->tchan->t_ring;
-			ring2 = uc->tchan->tc_ring;
-		}
-		break;
-	default:
-		break;
-	}
-
 	/* make sure we are not leaking memory by stalled descriptor */
 	if (uc->terminated_desc) {
 		udma_desc_free(&uc->terminated_desc->vd);
@@ -226,7 +211,7 @@ static int am62l_udma_start(struct udma_chan *uc)
 		ret = read_poll_timeout_atomic(am62l_udma_check_chan_autopair_completion,
 				status, status != 0, 100, 500, false, uc);
 
-		if (status <= 0)
+		if (ret <= 0)
 			return -ETIMEDOUT;
 
 		break;
@@ -1223,16 +1208,12 @@ MODULE_DEVICE_TABLE(of, udma_of_match);
 
 static int am62l_udma_get_mmrs(struct platform_device *pdev, struct udma_dev *ud)
 {
-	u32 cap2, cap3;
 	int i;
 
 	ud->mmrs[AM62L_MMR_GCFG] = devm_platform_ioremap_resource_byname(pdev,
 			am62l_mmr_names[AM62L_MMR_GCFG]);
 	if (IS_ERR(ud->mmrs[AM62L_MMR_GCFG]))
 		return PTR_ERR(ud->mmrs[AM62L_MMR_GCFG]);
-
-	cap2 = udma_read(ud->mmrs[AM62L_MMR_GCFG], 0x28);
-	cap3 = udma_read(ud->mmrs[AM62L_MMR_GCFG], 0x2c);
 
 	/* There are no tchan and rchan in BCDMA_V2 and PKTDMA_V2.
 	 * Duplicate chan as tchan and rchan to keep the common code

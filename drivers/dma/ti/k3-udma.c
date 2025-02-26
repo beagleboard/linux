@@ -33,6 +33,13 @@
 #include "k3-udma.h"
 #include "k3-psil-priv.h"
 
+static const char * const mmr_names[] = {
+	[MMR_GCFG] = "gcfg",
+	[MMR_BCHANRT] = "bchanrt",
+	[MMR_RCHANRT] = "rchanrt",
+	[MMR_TCHANRT] = "tchanrt",
+};
+
 int navss_psil_pair(struct udma_dev *ud, u32 src_thread, u32 dst_thread)
 {
 	struct udma_tisci_rm *tisci_rm = &ud->tisci_rm;

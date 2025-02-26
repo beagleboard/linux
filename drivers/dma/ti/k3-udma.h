@@ -265,19 +265,6 @@ struct udma_oes_offsets {
 };
 
 
-static const char * const mmr_names[] = {
-	[MMR_GCFG] = "gcfg",
-	[MMR_BCHANRT] = "bchanrt",
-	[MMR_RCHANRT] = "rchanrt",
-	[MMR_TCHANRT] = "tchanrt",
-};
-
-static const char * const am62l_mmr_names[] = {
-	[AM62L_MMR_GCFG] = "gcfg",
-	[AM62L_MMR_BCHANRT] = "bchanrt",
-	[AM62L_MMR_CHANRT] = "chanrt",
-};
-
 struct udma_tisci_rm {
 	const struct ti_sci_handle *tisci;
 	const struct ti_sci_rm_udmap_ops *tisci_udmap_ops;
