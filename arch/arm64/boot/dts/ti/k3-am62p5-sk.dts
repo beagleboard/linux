@@ -32,7 +32,21 @@
 	};
 
 	chosen {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
 		stdout-path = &main_uart0;
+
+		framebuffer0: framebuffer@0 {
+			compatible = "simple-framebuffer";
+			power-domains = <&k3_pds 186 TI_SCI_PD_EXCLUSIVE>;
+			clocks = <&k3_clks 186 6>,
+				 <&dss0_vp1_clk>,
+				 <&k3_clks 186 2>;
+			display = <&dss0>;
+			status = "disabled";
+		};
 	};
 
 	memory@80000000 {
