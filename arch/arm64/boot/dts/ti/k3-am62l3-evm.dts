@@ -187,19 +187,19 @@
 	ospi0_pins_default: ospi0-default-pins {
 		bootph-all;
 		pinctrl-single,pins = <
-			AM62PX_IOPAD(0x003c, PIN_OUTPUT, 0) /* (D22) OSPI0_CLK */
-			AM62PX_IOPAD(0x0068, PIN_OUTPUT, 0) /* (C20) OSPI0_CSn0 */
-			AM62PX_IOPAD(0x0074, PIN_OUTPUT, 0) /* (C23) OSPI0_CSn3 */
-			AM62PX_IOPAD(0x0048, PIN_INPUT, 0) /* (C22) OSPI0_D0 */
-			AM62PX_IOPAD(0x004c, PIN_INPUT, 0) /* (D21) OSPI0_D1 */
-			AM62PX_IOPAD(0x0050, PIN_INPUT, 0) /* (E23) OSPI0_D2 */
-			AM62PX_IOPAD(0x0054, PIN_INPUT, 0) /* (D23) OSPI0_D3 */
-			AM62PX_IOPAD(0x0058, PIN_INPUT, 0) /* (F21) OSPI0_D4 */
-			AM62PX_IOPAD(0x005c, PIN_INPUT, 0) /* (F19) OSPI0_D5 */
-			AM62PX_IOPAD(0x0060, PIN_INPUT, 0) /* (G20) OSPI0_D6 */
-			AM62PX_IOPAD(0x0064, PIN_INPUT, 0) /* (F20) OSPI0_D7 */
-			AM62PX_IOPAD(0x0044, PIN_INPUT, 0) /* (E22) OSPI0_DQS */
-			AM62PX_IOPAD(0x0040, PIN_INPUT, 0) /* (E18) OSPI0_LBCLKO */
+			AM62LX_IOPAD(0x003c, PIN_OUTPUT, 0) /* (D22) OSPI0_CLK */
+			AM62LX_IOPAD(0x0068, PIN_OUTPUT, 0) /* (C20) OSPI0_CSn0 */
+			AM62LX_IOPAD(0x0074, PIN_OUTPUT, 0) /* (C23) OSPI0_CSn3 */
+			AM62LX_IOPAD(0x0048, PIN_INPUT, 0) /* (C22) OSPI0_D0 */
+			AM62LX_IOPAD(0x004c, PIN_INPUT, 0) /* (D21) OSPI0_D1 */
+			AM62LX_IOPAD(0x0050, PIN_INPUT, 0) /* (E23) OSPI0_D2 */
+			AM62LX_IOPAD(0x0054, PIN_INPUT, 0) /* (D23) OSPI0_D3 */
+			AM62LX_IOPAD(0x0058, PIN_INPUT, 0) /* (F21) OSPI0_D4 */
+			AM62LX_IOPAD(0x005c, PIN_INPUT, 0) /* (F19) OSPI0_D5 */
+			AM62LX_IOPAD(0x0060, PIN_INPUT, 0) /* (G20) OSPI0_D6 */
+			AM62LX_IOPAD(0x0064, PIN_INPUT, 0) /* (F20) OSPI0_D7 */
+			AM62LX_IOPAD(0x0044, PIN_INPUT, 0) /* (E22) OSPI0_DQS */
+			AM62LX_IOPAD(0x0040, PIN_INPUT, 0) /* (E18) OSPI0_LBCLKO */
 		>;
 	};
 
@@ -575,6 +575,7 @@
 		cdns,tchsh-ns = <60>;
 		cdns,tslch-ns = <60>;
 		cdns,read-delay = <4>;
+		cdns,phy-mode;
 
 		partitions {
 			bootph-all;
@@ -632,6 +633,7 @@
 		cdns,tchsh-ns = <60>;
 		cdns,tslch-ns = <60>;
 		cdns,read-delay = <2>;
+		cdns,phy-mode;
 
 		partitions {
 			bootph-all;
