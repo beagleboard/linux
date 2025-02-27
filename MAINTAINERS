@@ -23244,8 +23244,10 @@ F:	drivers/iio/adc/ti-lmp92064.c
 
 TI MEMORY CYCLIC REDUNDANCY CHECK (MCRC64) DRIVER
 M:	Kamlesh Gurudasani <kamlesh@ti.com>
+L:	linux-crypto@vger.kernel.org
 S:	Maintained
 F:	Documentation/devicetree/bindings/crypto/ti,mcrc64.yaml
+F:	drivers/crypto/ti/mcrc64.c
 
 TI PCM3060 ASoC CODEC DRIVER
 M:	Kirill Marinushkin <k.marinushkin@gmail.com>
