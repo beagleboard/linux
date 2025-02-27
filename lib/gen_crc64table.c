@@ -17,9 +17,11 @@
 #include <stdio.h>
 
 #define CRC64_ECMA182_POLY 0x42F0E1EBA9EA3693ULL
+#define CRC64_ISO3309_POLY 0x000000000000001BULL
 #define CRC64_ROCKSOFT_POLY 0x9A6C9329AC4BC9B5ULL
 
 static uint64_t crc64_table[256] = {0};
+static uint64_t crc64_iso3309_table[256] = {0};
 static uint64_t crc64_rocksoft_table[256] = {0};
 
 static void generate_reflected_crc64_table(uint64_t table[256], uint64_t poly)
@@ -82,6 +84,9 @@ static void print_crc64_tables(void)
 	printf("static const u64 ____cacheline_aligned crc64table[256] = {\n");
 	output_table(crc64_table);
 
+	printf("\nstatic const u64 ____cacheline_aligned crc64iso3309table[256] = {\n");
+	output_table(crc64_iso3309_table);
+
 	printf("\nstatic const u64 ____cacheline_aligned crc64rocksofttable[256] = {\n");
 	output_table(crc64_rocksoft_table);
 }
@@ -89,6 +94,7 @@ static void print_crc64_tables(void)
 int main(int argc, char *argv[])
 {
 	generate_crc64_table(crc64_table, CRC64_ECMA182_POLY);
+	generate_crc64_table(crc64_iso3309_table, CRC64_ISO3309_POLY);
 	generate_reflected_crc64_table(crc64_rocksoft_table, CRC64_ROCKSOFT_POLY);
 	print_crc64_tables();
 	return 0;
