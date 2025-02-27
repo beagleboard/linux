@@ -1106,6 +1106,17 @@ config CRYPTO_CRCT10DIF
 
 	  CRC algorithm used by the SCSI Block Commands standard.
 
+config CRYPTO_CRC64_ISO3309
+	tristate "CRC64 based on ISO 3309 Model algorithm"
+	depends on CRC64
+	select CRYPTO_HASH
+	help
+	  CRC64 CRC algorithm based on the ISO 3309 Model CRC Algorithm
+
+	  Generator polynomial: x^64 + x^4 + x^3 + x + 1
+	  Polynomial value: 0x000000000000001b
+	  See https://en.wikipedia.org/wiki/Cyclic_redundancy_check
+
 config CRYPTO_CRC64_ROCKSOFT
 	tristate "CRC64 based on Rocksoft Model algorithm"
 	depends on CRC64
