@@ -9,7 +9,7 @@
 
 #include <dt-bindings/gpio/gpio.h>
 
-&ds90ub960_0_ports {
+&deserializer_0_ports {
 	#address-cells = <1>;
 	#size-cells = <0>;
 
@@ -23,7 +23,7 @@
 	};
 };
 
-&ds90ub960_0_links {
+&deserializer_0_links {
 	#address-cells = <1>;
 	#size-cells = <0>;
 
@@ -32,6 +32,7 @@
 		i2c-alias = <0x44>;
 
 		ti,rx-mode = <3>;
+		ti,cdr-mode = <0>;
 
 		serializer: serializer {
 			compatible = "ti,ds90ub953-q1";
