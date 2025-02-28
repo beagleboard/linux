@@ -276,6 +276,18 @@ config VIDEO_IMX415
 	  To compile this driver as a module, choose M here: the
 	  module will be called imx415.
 
+config VIDEO_IMX728
+	tristate "Sony IMX728 sensor support"
+	depends on I2C && VIDEO_DEV
+	select MEDIA_CONTROLLER
+	select VIDEO_V4L2_SUBDEV_API
+	help
+	  This is a Video4Linux2 sensor driver for the Sony
+	  IMX728 camera.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called imx728.
+
 config VIDEO_MAX9271_LIB
 	tristate
 
