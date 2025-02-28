@@ -11,7 +11,7 @@
 
 #include <dt-bindings/gpio/gpio.h>
 
-&ds90ub960_1_ports {
+&deserializer_1_ports {
 	#address-cells = <1>;
 	#size-cells = <0>;
 
@@ -25,7 +25,7 @@
 	};
 };
 
-&ds90ub960_1_links {
+&deserializer_1_links {
 	#address-cells = <1>;
 	#size-cells = <0>;
 
@@ -33,6 +33,7 @@
 		reg = <0>;
 		i2c-alias = <0x54>;
 
+		ti,cdr-mode = <0>;
 		ti,rx-mode = <3>;
 
 		serializer: serializer {

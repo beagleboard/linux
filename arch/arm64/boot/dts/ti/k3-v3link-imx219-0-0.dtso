@@ -19,7 +19,7 @@
 	};
 };
 
-&ds90ub960_0_ports {
+&deserializer_0_ports {
 	#address-cells = <1>;
 	#size-cells = <0>;
 
@@ -33,7 +33,7 @@
 	};
 };
 
-&ds90ub960_0_links {
+&deserializer_0_links {
 	#address-cells = <1>;
 	#size-cells = <0>;
 

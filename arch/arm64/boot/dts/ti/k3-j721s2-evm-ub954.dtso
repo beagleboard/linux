@@ -32,7 +32,7 @@
 		clocks = <&clk_fusion_25M_fixed>;
 		i2c-alias-pool = <0x4a 0x4b 0x4c 0x4d 0x4e 0x4f>;
 
-		ds90ub960_0_ports: ports {
+		deserializer_0_ports: ports {
 			#address-cells = <1>;
 			#size-cells = <0>;
 
@@ -48,7 +48,7 @@
 			};
 		};
 
-		ds90ub960_0_links: links {
+		deserializer_0_links: links {
 			#address-cells = <1>;
 			#size-cells = <0>;
 		};
