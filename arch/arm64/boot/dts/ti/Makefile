@@ -31,6 +31,7 @@ dtb-$(CONFIG_ARCH_K3) += k3-am625-verdin-wifi-yavia.dtb
 dtb-$(CONFIG_ARCH_K3) += k3-am62x-phyboard-lyra-gpio-fan.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-am62a7-sk-e3-max-opp.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-am62-lp-sk.dtb
+dtb-$(CONFIG_ARCH_K3) += k3-am62-lp-sk-microtips-mf101hie-panel.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-am62-lp-sk-nand.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-am625-sk-mcspi-loopback.dtbo
 
@@ -221,6 +222,8 @@ k3-am625-sk-microtips-mf101hie-panel-dtbs := k3-am625-sk.dtb \
 k3-am625-sk-microtips-mf103hie-lcd2-dtbs := k3-am625-sk.dtb \
 	k3-am62x-sk-microtips-mf103hie-lcd2.dtbo
 k3-am62-lp-sk-hdmi-audio-dtbs := k3-am62-lp-sk.dtb k3-am62x-sk-hdmi-audio.dtbo
+k3-am62-lp-sk-microtips-mf101hie-panel-dtbs := k3-am62-lp-sk.dtb \
+	k3-am62-lp-sk-microtips-mf101hie-panel.dtbo
 k3-am62-lp-sk-microtips-mf103hie-lcd2-dtbs := k3-am62-lp-sk.dtb \
 	k3-am62x-sk-microtips-mf103hie-lcd2.dtbo
 k3-am62a7-sk-csi2-imx219-dtbs := k3-am62a7-sk.dtb \
@@ -353,6 +356,7 @@ dtb- += k3-am625-beagleplay-csi2-ov5640.dtb \
 	k3-am625-sk-microtips-mf101hie-panel.dtb \
 	k3-am625-sk-microtips-mf103hie-lcd2.dtb \
 	k3-am62-lp-sk-hdmi-audio.dtb \
+	k3-am62-lp-sk-microtips-mf101hie-panel.dtb \
 	k3-am62-lp-sk-microtips-mf103hie-lcd2.dtb \
 	k3-am62a7-sk-csi2-imx219.dtb \
 	k3-am62a7-sk-csi2-ov5640.dtb \
