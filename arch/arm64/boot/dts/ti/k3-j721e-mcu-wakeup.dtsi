@@ -75,6 +75,15 @@
 		#pinctrl-cells = <1>;
 		pinctrl-single,register-width = <32>;
 		pinctrl-single,function-mask = <0xffffffff>;
+		pinctrl-single,gpio-range =
+			<&wkup_pmx_range 44 16 PIN_GPIO_RANGE_IOPAD>,
+			<&wkup_pmx_range 0 44 PIN_GPIO_RANGE_IOPAD>,
+			<&wkup_pmx_range 60 24 PIN_GPIO_RANGE_IOPAD>;
+		bootph-all;
+
+		wkup_pmx_range: gpio-range {
+			#pinctrl-single,gpio-range-cells = <3>;
+		};
 	};
 
 	/* MCU_TIMERIO pad input CTRLMMR_MCU_TIMER*_CTRL registers */
@@ -290,6 +299,8 @@
 		interrupts = <103>, <104>, <105>, <106>, <107>, <108>;
 		interrupt-controller;
 		#interrupt-cells = <2>;
+		gpio-ranges = <&wkup_pmx0 0 44 16>, <&wkup_pmx0 16 0 44>,
+				<&wkup_pmx0 60 60 24>;
 		ti,ngpio = <84>;
 		ti,davinci-gpio-unbanked = <0>;
 		power-domains = <&k3_pds 113 TI_SCI_PD_EXCLUSIVE>;
