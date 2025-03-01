@@ -185,6 +185,7 @@ dtb-$(CONFIG_ARCH_K3) += k3-j722s-evm-v3link-fusion.dtbo
 # Boards with J784s4 SoC
 dtb-$(CONFIG_ARCH_K3) += k3-am69-sk.dtb
 dtb-$(CONFIG_ARCH_K3) += k3-am69-sk-csi2-ov5640.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-am69-sk-fpdlink-fusion-auxport.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-am69-sk-pcie0-ep.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-j784s4-evm.dtb
 dtb-$(CONFIG_ARCH_K3) += k3-j784s4-evm-csi2-ov5640.dtbo
@@ -470,6 +471,7 @@ DTC_FLAGS_k3-am6548-iot2050-advanced-m2 += -@
 DTC_FLAGS_k3-am68-sk-base-board += -@
 DTC_FLAGS_k3-am68-sk-v3link-fusion += -@
 DTC_FLAGS_k3-am69-sk += -@
+DTC_FLAGS_k3-am69-sk-fpdlink-fusion-auxport += -@
 DTC_FLAGS_k3-j7200-common-proc-board += -@
 DTC_FLAGS_k3-j721e-beagleboneai64 += -@
 DTC_FLAGS_k3-j721e-evm-fusion += -@
