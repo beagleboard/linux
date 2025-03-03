@@ -16,6 +16,7 @@ config CRYPTO_DEV_TI_DTHEV2
 	select CRYPTO_SKCIPHER
 	select CRYPTO_SHA256
 	select CRYPTO_SHA512
+	select CRYPTO_MD5
 	help
 	  This enables support for the TI DTHE V2 hw crypto accelerator
 	  which can be found on TI K3 SOCs. Selecting this enables use

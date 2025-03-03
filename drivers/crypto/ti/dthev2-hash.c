@@ -9,6 +9,7 @@
 #include <crypto/algapi.h>
 #include <crypto/hash.h>
 #include <crypto/internal/hash.h>
+#include <crypto/md5.h>
 #include <crypto/sha2.h>
 
 #include "dthev2-common.h"
@@ -45,6 +46,9 @@
 
 #define DTHE_HASH_MODE_USE_ALG_CONST		BIT(3)
 #define DTHE_HASH_MODE_CLOSE_HASH		BIT(4)
+
+/* Misc */
+#define MD5_BLOCK_SIZE				(MD5_BLOCK_WORDS * 4)
 
 enum dthe_hash_dma_callback_src {
 	DMA_CALLBACK_FROM_UPDATE = 0,
@@ -86,6 +90,9 @@ static void dthe_hash_write_zero_message(enum dthe_hash_alg_sel mode, void *dst)
 		break;
 	case DTHE_HASH_SHA224:
 		memcpy(dst, sha224_zero_message_hash, SHA224_DIGEST_SIZE);
+		break;
+	case DTHE_HASH_MD5:
+		memcpy(dst, md5_zero_message_hash, MD5_DIGEST_SIZE);
 		break;
 	default:
 		break;
@@ -165,6 +172,25 @@ static int dthe_sha224_cra_init(struct crypto_tfm *tfm)
 	ctx->ctx_info.hash_ctx->block_size = SHA224_BLOCK_SIZE;
 	ctx->ctx_info.hash_ctx->digest_size = SHA224_DIGEST_SIZE;
 	ctx->ctx_info.hash_ctx->phash_size = SHA256_DIGEST_SIZE;
+	return 0;
+}
+
+static int dthe_md5_cra_init(struct crypto_tfm *tfm)
+{
+	struct dthe_tfm_ctx *ctx = crypto_tfm_ctx(tfm);
+	struct dthe_data *dev_data = dthe_get_dev(ctx);
+
+	if (!dev_data)
+		return -ENODEV;
+
+	ctx->ctx_info.hash_ctx = kzalloc(sizeof(*ctx->ctx_info.hash_ctx), GFP_KERNEL);
+	if (!ctx->ctx_info.hash_ctx)
+		return -ENOMEM;
+
+	ctx->ctx_info.hash_ctx->mode = DTHE_HASH_MD5;
+	ctx->ctx_info.hash_ctx->block_size = MD5_BLOCK_SIZE;
+	ctx->ctx_info.hash_ctx->digest_size = MD5_DIGEST_SIZE;
+	ctx->ctx_info.hash_ctx->phash_size = MD5_DIGEST_SIZE;
 	return 0;
 }
 
@@ -681,6 +707,34 @@ static struct ahash_alg hash_algs[] = {
 				.cra_ctxsize	 = sizeof(struct dthe_tfm_ctx),
 				.cra_module	 = THIS_MODULE,
 				.cra_init	 = dthe_sha224_cra_init,
+				.cra_exit	 = dthe_hash_cra_exit,
+			}
+		}
+	},
+	{
+		.init	= dthe_hash_init,
+		.update	= dthe_hash_update,
+		.final	= dthe_hash_final,
+		.finup	= dthe_hash_finup,
+		.digest	= dthe_hash_digest,
+		.export = dthe_hash_export,
+		.import = dthe_hash_import,
+		.halg	= {
+			.digestsize = MD5_DIGEST_SIZE,
+			.statesize = sizeof(struct dthe_hash_ctx),
+			.base = {
+				.cra_name	 = "md5",
+				.cra_driver_name = "md5-dthev2",
+				.cra_priority	 = 400,
+				.cra_flags	 = CRYPTO_ALG_TYPE_AHASH |
+						   CRYPTO_ALG_ASYNC |
+						   CRYPTO_ALG_OPTIONAL_KEY |
+						   CRYPTO_ALG_KERN_DRIVER_ONLY |
+						   CRYPTO_ALG_ALLOCATES_MEMORY,
+				.cra_blocksize	 = MD5_BLOCK_SIZE,
+				.cra_ctxsize	 = sizeof(struct dthe_tfm_ctx),
+				.cra_module	 = THIS_MODULE,
+				.cra_init	 = dthe_md5_cra_init,
 				.cra_exit	 = dthe_hash_cra_exit,
 			}
 		}
