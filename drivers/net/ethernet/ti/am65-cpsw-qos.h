@@ -34,13 +34,21 @@ struct am65_cpsw_ale_ratelimit {
 	u64 rate_packet_ps;
 };
 
+struct am65_cpsw_cut_thru {
+	unsigned int rx_pri_mask;
+	unsigned int tx_pri_mask;
+	bool enable;
+};
+
 struct am65_cpsw_qos {
 	struct am65_cpsw_est *est_admin;
 	struct am65_cpsw_est *est_oper;
 	ktime_t link_down_time;
 	int link_speed;
+	int duplex;
 	struct am65_cpsw_mqprio mqprio;
 	struct am65_cpsw_iet iet;
+	struct am65_cpsw_cut_thru cut_thru;
 
 	struct am65_cpsw_ale_ratelimit ale_bc_ratelimit;
 	struct am65_cpsw_ale_ratelimit ale_mc_ratelimit;
@@ -96,8 +104,10 @@ struct am65_cpsw_qos {
 #if IS_ENABLED(CONFIG_TI_AM65_CPSW_QOS)
 int am65_cpsw_qos_ndo_setup_tc(struct net_device *ndev, enum tc_setup_type type,
 			       void *type_data);
-void am65_cpsw_qos_link_up(struct net_device *ndev, int link_speed);
+void am65_cpsw_qos_link_up(struct net_device *ndev, int link_speed, int duplex);
 void am65_cpsw_qos_link_down(struct net_device *ndev);
+void am65_cpsw_qos_cut_thru_init(struct am65_cpsw_port *port);
+void am65_cpsw_qos_cut_thru_cleanup(struct am65_cpsw_port *port);
 int am65_cpsw_qos_ndo_tx_p0_set_maxrate(struct net_device *ndev, int queue, u32 rate_mbps);
 void am65_cpsw_qos_tx_p0_rate_init(struct am65_cpsw_common *common);
 void am65_cpsw_iet_commit_preemptible_tcs(struct am65_cpsw_port *port);
@@ -111,10 +121,16 @@ static inline int am65_cpsw_qos_ndo_setup_tc(struct net_device *ndev,
 }
 
 static inline void am65_cpsw_qos_link_up(struct net_device *ndev,
-					 int link_speed)
+					 int link_speed, int duplex)
 { }
 
 static inline void am65_cpsw_qos_link_down(struct net_device *ndev)
+{ }
+
+static inline void am65_cpsw_qos_cut_thru_init(struct am65_cpsw_port *port)
+{ }
+
+static inline void am65_cpsw_qos_cut_thru_cleanup(struct am65_cpsw_port *port)
 { }
 
 static inline int am65_cpsw_qos_ndo_tx_p0_set_maxrate(struct net_device *ndev,
