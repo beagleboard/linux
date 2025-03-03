@@ -231,4 +231,109 @@
 /* Start of 32 bits PA_STAT counters */
 #define PA_STAT_32b_START_OFFSET                           0x0080
 
+/* Diagnostic error counter which increments when RTU drops a locally injected
+ * packet due to port disabled or rule violation.
+ */
+#define FW_RTU_PKT_DROP		0x0088
+
+/* Tx Queue Overflow Counters */
+#define FW_Q0_OVERFLOW		0x0090
+#define FW_Q1_OVERFLOW		0x0098
+#define FW_Q2_OVERFLOW		0x00A0
+#define FW_Q3_OVERFLOW		0x00A8
+#define FW_Q4_OVERFLOW		0x00B0
+#define FW_Q5_OVERFLOW		0x00B8
+#define FW_Q6_OVERFLOW		0x00C0
+#define FW_Q7_OVERFLOW		0x00C8
+
+/* Incremented if a packet is dropped at PRU because of a rule violation */
+#define FW_DROPPED_PKT		0x00F8
+
+/* Incremented if there was a CRC error or Min/Max frame error at PRU0 */
+#define FW_RX_ERROR		0x0100
+
+/* Incremented when RTU detects Data Status invalid condition */
+#define FW_RX_DS_INVALID	0x0108
+
+/* Counter for packets dropped via TX Port */
+#define FW_TX_DROPPED_PACKET	0x0110
+
+/* Counter for packets with TS flag dropped via TX Port */
+#define FW_TX_TS_DROPPED_PACKET	0x0118
+
+/* Incremented when RX frame is dropped due to port being disabled */
+#define FW_INF_PORT_DISABLED	0x0120
+
+/* Incremented when RX frame is dropped due to Source Address violation */
+#define FW_INF_SAV		0x0128
+
+/* Incremented when RX frame is dropped due to Source Address being black
+ * listed
+ */
+#define FW_INF_SA_BL		0x0130
+
+/* Incremented when RX frame is dropped due to port being blocked and frame
+ * is being a special frame
+ */
+#define FW_INF_PORT_BLOCKED	0x0138
+
+/* Incremented when RX frame is dropped for being tagged */
+#define FW_INF_DROP_TAGGED	0x0140
+
+/* Incremented when RX frame is dropped for being priority tagged */
+#define FW_INF_DROP_PRIOTAGGED	0x0148
+
+/* Incremented when RX frame is dropped for being untagged */
+#define FW_INF_DROP_NOTAG	0x0150
+
+/* Incremented when RX frame is dropped for port not being member of VLAN */
+#define FW_INF_DROP_NOTMEMBER	0x0158
+
+/* Bad fragment Error Counter */
+#define FW_PREEMPT_BAD_FRAG	0x0160
+
+/* Fragment assembly Error Counter */
+#define FW_PREEMPT_ASSEMBLY_ERR	0x0168
+
+/* Fragment count in TX */
+#define FW_PREEMPT_FRAG_CNT_TX	0x0170
+
+/* Assembly Completed */
+#define FW_PREEMPT_ASSEMBLY_OK	0x0178
+
+/* Fragments received */
+#define FW_PREEMPT_FRAG_CNT_RX	0x0180
+
+/* Incremented if EOF task is scheduled without seeing RX_B1 */
+#define FW_RX_EOF_SHORT_FRMERR	0x0188
+
+/* Incremented when frame is dropped due to Early EOF received in B0 */
+#define FW_RX_B0_DROP_EARLY_EOF	0x0190
+
+/* Incremented when frame is cut off to prevent packet size > 2000B */
+#define FW_TX_JUMBO_FRM_CUTOFF	0x0198
+
+/* Incremented when express frame is received in the same queue as the previous
+ * fragment
+ */
+#define FW_RX_EXP_FRAG_Q_DROP	0x01A0
+
+/* RX fifo overrun counter */
+#define FW_RX_FIFO_OVERRUN	0x01A8
+
+/* Cut-through packet Counter */
+#define FW_CUT_THR_PKT		0x01B0
+
+/* Number of valid packets sent by Rx PRU to Host on PSI */
+#define FW_HOST_RX_PKT_CNT	0x0248
+
+/* Number of valid packets copied by RTU0 to Tx queues */
+#define FW_HOST_TX_PKT_CNT	0x0250
+
+/* Host Egress Q (Pre-emptible) Overflow Counter */
+#define FW_HOST_EGRESS_Q_PRE_OVERFLOW 0x0258
+
+/* Host Egress Q (Pre-emptible) Overflow Counter */
+#define FW_HOST_EGRESS_Q_EXP_OVERFLOW 0x0260
+
 #endif /* __NET_TI_ICSSG_SWITCH_MAP_H  */
