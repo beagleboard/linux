@@ -50,6 +50,7 @@
 			compatible = "ti,am654-phy-gmii-sel";
 			reg = <0x4044 0x8>;
 			#phy-cells = <1>;
+			bootph-all;
 		};
 
 		epwm_tbclk: clock-controller@4130 {
@@ -740,6 +741,7 @@
 			#size-cells = <0>;
 
 			cpsw_port1: port@1 {
+				bootph-all;
 				reg = <1>;
 				ti,mac-only;
 				label = "port1";
@@ -768,6 +770,7 @@
 			clock-names = "fck";
 			bus_freq = <1000000>;
 			status = "disabled";
+			bootph-all;
 		};
 
 		cpts@3d000 {
