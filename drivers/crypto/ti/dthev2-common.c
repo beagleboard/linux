@@ -76,6 +76,9 @@ static int dthe_dma_init(struct dthe_data *dev_data)
 		goto err_dma_sha_tx;
 	}
 
+	// Do AES Rx and Tx channel config here because it is invariant of AES mode
+	// SHA Tx channel config is done before DMA transfer depending on hashing algorithm
+
 	memzero_explicit(&cfg, sizeof(cfg));
 
 	cfg.src_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
@@ -110,11 +113,17 @@ err_dma_aes_tx:
 
 static int dthe_register_algs(void)
 {
-	return dthe_register_aes_algs();
+	int ret = 0;
+
+	ret |= dthe_register_hash_algs();
+	ret |= dthe_register_aes_algs();
+
+	return ret;
 }
 
 static void dthe_unregister_algs(void)
 {
+	dthe_unregister_hash_algs();
 	dthe_unregister_aes_algs();
 }
 
@@ -140,6 +149,7 @@ static int dthe_probe(struct platform_device *pdev)
 	spin_unlock(&dthe_dev_list.lock);
 
 	mutex_init(&dev_data->aes_mutex);
+	mutex_init(&dev_data->hash_mutex);
 
 	ret = dthe_dma_init(dev_data);
 	if (ret)
@@ -163,6 +173,7 @@ probe_dma_err:
 	spin_unlock(&dthe_dev_list.lock);
 
 	mutex_destroy(&dev_data->aes_mutex);
+	mutex_destroy(&dev_data->hash_mutex);
 
 	return ret;
 }
@@ -176,6 +187,7 @@ static void dthe_remove(struct platform_device *pdev)
 	spin_unlock(&dthe_dev_list.lock);
 
 	mutex_destroy(&dev_data->aes_mutex);
+	mutex_destroy(&dev_data->hash_mutex);
 
 	dthe_unregister_algs();
 
