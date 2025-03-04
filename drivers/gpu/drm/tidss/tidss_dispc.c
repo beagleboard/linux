@@ -996,7 +996,8 @@ void dispc_am62l_clear_irqstatus(struct dispc_device *dispc, dispc_irq_t clearma
 		top_clear |= BIT(5);
 	}
 
-	dispc_write(dispc, DISPC_IRQSTATUS, top_clear);
+	/* always clear the top level irqstatus */
+	dispc_write(dispc, DISPC_IRQSTATUS, dispc_read(dispc, DISPC_IRQSTATUS));
 
 	/* Flush posted writes */
 	dispc_read(dispc, DISPC_IRQSTATUS);
