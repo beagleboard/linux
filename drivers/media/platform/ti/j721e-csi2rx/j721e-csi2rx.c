@@ -122,7 +122,6 @@ struct ti_csi2rx_dev {
 	struct v4l2_subdev		*source;
 	struct v4l2_subdev		subdev;
 	struct ti_csi2rx_ctx		ctx[TI_CSI2RX_MAX_CTX];
-	u64				streams_mask; /* Enabled sink streams */
 	/* Buffer to drain stale data from PSI-L endpoint */
 	struct {
 		void			*vaddr;
@@ -564,6 +563,12 @@ static void ti_csi2rx_setup_shim(struct ti_csi2rx_ctx *ctx)
 
 	fmt = find_format_by_fourcc(ctx->v_fmt.fmt.pix.pixelformat);
 
+	/* De-assert the pixel interface reset. */
+	if (!csi->enable_count) {
+		reg = SHIM_CNTL_PIX_RST;
+		writel(reg, csi->shim + SHIM_CNTL);
+	}
+
 	reg = SHIM_DMACNTX_EN;
 	reg |= FIELD_PREP(SHIM_DMACNTX_FMT, fmt->csi_dt);
 
@@ -611,12 +616,14 @@ static void ti_csi2rx_setup_shim(struct ti_csi2rx_ctx *ctx)
 static void ti_csi2rx_drain_callback(void *param)
 {
 	struct ti_csi2rx_ctx *ctx = param;
+	struct ti_csi2rx_dev *csi = ctx->csi;
 	struct ti_csi2rx_dma *dma = &ctx->dma;
 	unsigned long flags;
 
 	spin_lock_irqsave(&dma->lock, flags);
 
 	if (dma->state == TI_CSI2RX_DMA_STOPPED) {
+		writel(0, csi->shim + SHIM_DMACNTX(ctx->idx));
 		spin_unlock_irqrestore(&dma->lock, flags);
 		return;
 	}
@@ -983,10 +990,10 @@ static void ti_csi2rx_stop_streaming(struct vb2_queue *vq)
 	int ret;
 
 	/* assert pixel reset to prevent stale data */
-	writel(0, csi->shim + SHIM_CNTL);
+	if (csi->enable_count == 1)
+		writel(0, csi->shim + SHIM_CNTL);
 
 	video_device_pipeline_stop(&ctx->vdev);
-	writel(0, csi->shim + SHIM_DMACNTX(ctx->idx));
 
 	ret = v4l2_subdev_disable_streams(&csi->subdev,
 					  TI_CSI2RX_PAD_FIRST_SOURCE + ctx->idx,
@@ -1117,11 +1124,9 @@ static int ti_csi2rx_sd_enable_streams(struct v4l2_subdev *sd,
 				       u32 pad, u64 streams_mask)
 {
 	struct ti_csi2rx_dev *csi = to_csi2rx_dev(sd);
-	struct v4l2_subdev_route *route;
 	struct media_pad *remote_pad;
 	u64 sink_streams;
 	int ret = 0;
-	u32 reg;
 
 	remote_pad = media_entity_remote_source_pad_unique(&csi->subdev.entity);
 	if (!remote_pad)
@@ -1129,30 +1134,17 @@ static int ti_csi2rx_sd_enable_streams(struct v4l2_subdev *sd,
 	sink_streams = v4l2_subdev_state_xlate_streams(state, pad,
 						       TI_CSI2RX_PAD_SINK,
 						       &streams_mask);
-	mutex_lock(&csi->mutex);
-
-	csi->streams_mask |= sink_streams;
-	/*
-	 * Check if all active streams are enabled, and only then start
-	 * streaming on the source
-	 */
-	for_each_active_route(&state->routing, route) {
-		if (!(csi->streams_mask & BIT_ULL(route->sink_stream)))
-			goto out;
-	}
-
-	/* De-assert the pixel interface reset. */
-	reg = SHIM_CNTL_PIX_RST;
-	writel(reg, csi->shim + SHIM_CNTL);
 
 	ret = v4l2_subdev_enable_streams(csi->source, remote_pad->index,
-					 csi->streams_mask);
-out:
-	if (!ret)
-		csi->enable_count++;
+					 sink_streams);
+	if (ret)
+		return ret;
+
+	mutex_lock(&csi->mutex);
+	csi->enable_count++;
 	mutex_unlock(&csi->mutex);
 
-	return ret;
+	return 0;
 }
 
 static int ti_csi2rx_sd_disable_streams(struct v4l2_subdev *sd,
@@ -1160,7 +1152,6 @@ static int ti_csi2rx_sd_disable_streams(struct v4l2_subdev *sd,
 					u32 pad, u64 streams_mask)
 {
 	struct ti_csi2rx_dev *csi = to_csi2rx_dev(sd);
-	struct v4l2_subdev_route *route;
 	struct media_pad *remote_pad;
 	u64 sink_streams;
 	int ret = 0;
@@ -1178,20 +1169,11 @@ static int ti_csi2rx_sd_disable_streams(struct v4l2_subdev *sd,
 		goto out;
 	}
 
-	/* Check if any of the active streams are already disabled */
-	for_each_active_route(&state->routing, route) {
-		if (!(csi->streams_mask & BIT_ULL(route->sink_stream))) {
-			--csi->enable_count;
-			goto out;
-		}
-	}
-	/* Disable all streams on the source */
 	ret = v4l2_subdev_disable_streams(csi->source, remote_pad->index,
-					  csi->streams_mask);
+					  sink_streams);
 	if (!ret)
 		--csi->enable_count;
 out:
-	csi->streams_mask &= ~sink_streams;
 	mutex_unlock(&csi->mutex);
 	return ret;
 }
