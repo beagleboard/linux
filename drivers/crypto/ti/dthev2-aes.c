@@ -76,6 +76,8 @@ enum aes_ctrl_mode_masks {
 #define AES_BLOCK_WORDS				(AES_BLOCK_SIZE / sizeof(u32))
 #define AES_IV_WORDS				AES_BLOCK_WORDS
 
+static int cnt;
+
 static int dthe_cipher_cra_init(struct crypto_skcipher *tfm)
 {
 	struct dthe_tfm_ctx *ctx = crypto_skcipher_ctx(tfm);
@@ -267,6 +269,16 @@ static int dthe_aes_run(struct skcipher_request *req)
 			ret = -EINVAL;
 			goto aes_err;
 		}
+	}
+
+	// HACK: Delay to workaround DMA driver issue
+	cnt++;
+	if (cnt % 50 == 0) {
+		unsigned long delay = jiffies + usecs_to_jiffies(100);
+
+		while (time_before(jiffies, delay))
+			cond_resched();
+		cnt = 0;
 	}
 
 	desc_in = dmaengine_prep_slave_sg(dev_data->dma_aes_rx, dst, dst_mapped_nents,

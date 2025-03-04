@@ -56,6 +56,8 @@ enum dthe_hash_dma_callback_src {
 	DMA_CALLBACK_FROM_FINUP,
 };
 
+static int cnt;
+
 static struct scatterlist *dthe_set_src_sg(struct scatterlist *src, struct scatterlist *sg,
 					   int nents, int buflen)
 {
@@ -253,6 +255,16 @@ static int dthe_hash_dma_start(struct ahash_request *req, struct scatterlist *sr
 
 	cfg.dst_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
 	cfg.dst_maxburst = sctx->block_size / 4;
+
+	// HACK: Delay to workaround DMA driver issue
+	cnt++;
+	if (cnt % 50 == 0) {
+		unsigned long delay = jiffies + usecs_to_jiffies(100);
+
+		while (time_before(jiffies, delay))
+			cond_resched();
+		cnt = 0;
+	}
 
 	ret = dmaengine_slave_config(dev_data->dma_sha_tx, &cfg);
 	if (ret) {
