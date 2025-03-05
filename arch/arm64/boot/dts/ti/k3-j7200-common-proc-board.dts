@@ -11,6 +11,7 @@
 #include <dt-bindings/phy/phy.h>
 
 #include "k3-serdes.h"
+#include "k3-timesync-router.h"
 
 / {
 	compatible = "ti,j7200-evm", "ti,j7200";
@@ -323,6 +324,11 @@
 &mcu_cpsw {
 	pinctrl-names = "default";
 	pinctrl-0 = <&mcu_cpsw_pins_default>, <&mcu_mdio_pins_default>;
+
+	cpts@3d000 {
+		/* Map HW4_TS_PUSH to GENF1 */
+		ti,pps = <3 1>;
+	};
 };
 
 &davinci_mdio {
@@ -487,4 +493,13 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&main_mcan3_pins_default>;
 	phys = <&transceiver3>;
+};
+
+&timesync_router {
+	/* Use Time Sync Router to map GENF1 input to HW4_TS_PUSH output */
+	mux-reg-masks-state = <
+		/* pps [mcu cpsw cpts genf1] in17 -> out25 [mcu cpsw cpts hw4_push] */
+		K3_TS_OFFSET(25, 0x0001ffff, 17)
+		>;
+	status = "okay";
 };
