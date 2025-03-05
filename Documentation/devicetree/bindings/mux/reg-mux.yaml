@@ -32,11 +32,34 @@ properties:
         - description: pre-shifted bitfield mask
     description: Each entry pair describes a single mux control.
 
-  idle-states: true
+  idle-states:
+    description: Each entry describes mux register state.
+
+  mux-reg-masks-state:
+    $ref: /schemas/types.yaml#/definitions/uint32-matrix
+    items:
+      items:
+        - description: register offset
+        - description: pre-shifted bitfield mask
+        - description: register value to be set
+    description: This property is an extension of mux-reg-masks which
+                 allows specifying register offset, mask and register
+                 value to be set in a single property.
+
+oneOf:
+  - required: [ mux-reg-masks ]
+  - required: [ mux-reg-masks-state ]
+
+allOf:
+  - if:
+      required:
+        - mux-reg-masks-state
+    then:
+      properties:
+        idle-states: false
 
 required:
   - compatible
-  - mux-reg-masks
   - '#mux-control-cells'
 
 additionalProperties: false
