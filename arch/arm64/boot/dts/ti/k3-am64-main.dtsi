@@ -759,12 +759,11 @@
 		ti,cpts-ext-ts-inputs = <8>;
 	};
 
-	timesync_router: pinctrl@a40000 {
-		compatible = "pinctrl-single";
+	timesync_router: mux-controller@a40000 {
+		compatible = "reg-mux";
 		reg = <0x0 0xa40000 0x0 0x800>;
-		#pinctrl-cells = <1>;
-		pinctrl-single,register-width = <32>;
-		pinctrl-single,function-mask = <0x000107ff>;
+		#mux-control-cells = <1>;
+		status = "disabled";
 	};
 
 	usbss0: cdns-usb@f900000 {
