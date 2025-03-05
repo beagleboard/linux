@@ -2337,6 +2337,13 @@
 		status = "disabled";
 	};
 
+	timesync_router: mux-controller@a40000 {
+		compatible = "reg-mux";
+		reg = <0x0 0xa40000 0x0 0x800>;
+		#mux-control-cells = <1>;
+		status = "disabled";
+	};
+
 	icssg0: icssg@b000000 {
 		compatible = "ti,j721e-icssg";
 		reg = <0x00 0xb000000 0x00 0x80000>;
