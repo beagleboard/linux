@@ -1,0 +1,103 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (C) 2022 Texas Instruments Incorporated - https://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include "k3-pinctrl.h"
+#include <dt-bindings/gpio/gpio.h>
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+ */
+&{/chosen} {
+	overlays {
+		k3-am625-beaglemod-eth.kernel = __TIMESTAMP__;
+	};
+};
+
+&{/} {
+	mdio0: bitbang-mdio {
+		compatible = "virtual,mdio-gpio";
+		pinctrl-names = "default";
+		pinctrl-0 = <&mdio0_pins_default>;
+		gpios = <&main_gpio0 86 GPIO_ACTIVE_HIGH>, /* MDC */
+			<&main_gpio0 85 GPIO_ACTIVE_HIGH>; /* MDIO */
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		cpsw3g_phy0: ethernet-phy@0 {
+			reg = <0>;
+			reset-assert-us = <25>;
+			reset-deassert-us = <60000>; /* T2 */
+		};
+
+		cpsw3g_phy1: ethernet-phy@1 {
+			reg = <1>;
+			reset-assert-us = <25>;
+			reset-deassert-us = <60000>; /* T2 */
+		};
+	};
+};
+
+&main_pmx0 {
+	mdio0_pins_default: mdio0-pins-default {
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x0160, PIN_OUTPUT, 7) /* (AD24) MDIO0_MDC.GPIO0_86 */
+			AM62X_IOPAD(0x015c, PIN_INPUT, 7) /* (AB22) MDIO0_MDIO.GPIO0_85 */
+		>;
+	};
+
+	rgmii1_pins_default: rgmii1-pins-default {
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x014c, PIN_INPUT, 0) /* (AB17) RGMII1_RD0 */
+			AM62X_IOPAD(0x0150, PIN_INPUT, 0) /* (AC17) RGMII1_RD1 */
+			AM62X_IOPAD(0x0154, PIN_INPUT, 0) /* (AB16) RGMII1_RD2 */
+			AM62X_IOPAD(0x0158, PIN_INPUT, 0) /* (AA15) RGMII1_RD3 */
+			AM62X_IOPAD(0x0148, PIN_INPUT, 0) /* (AD17) RGMII1_RXC */
+			AM62X_IOPAD(0x0144, PIN_INPUT, 0) /* (AE17) RGMII1_RX_CTL */
+			AM62X_IOPAD(0x0134, PIN_OUTPUT, 0) /* (AE20) RGMII1_TD0 */
+			AM62X_IOPAD(0x0138, PIN_OUTPUT, 0) /* (AD20) RGMII1_TD1 */
+			AM62X_IOPAD(0x013c, PIN_OUTPUT, 0) /* (AE18) RGMII1_TD2 */
+			AM62X_IOPAD(0x0140, PIN_OUTPUT, 0) /* (AD18) RGMII1_TD3 */
+			AM62X_IOPAD(0x0130, PIN_OUTPUT, 0) /* (AE19) RGMII1_TXC */
+			AM62X_IOPAD(0x012c, PIN_OUTPUT, 0) /* (AD19) RGMII1_TX_CTL */
+		>;
+	};
+
+	rgmii2_pins_default: rgmii2-pins-default {
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x0184, PIN_INPUT, 0) /* (W18) RGMII2_RD0 */
+			AM62X_IOPAD(0x0188, PIN_INPUT, 0) /* (Y20) RGMII2_RD1 */
+			AM62X_IOPAD(0x018c, PIN_INPUT, 0) /* (Y19) RGMII2_RD2 */
+			AM62X_IOPAD(0x0190, PIN_INPUT, 0) /* (W20) RGMII2_RD3 */
+			AM62X_IOPAD(0x0180, PIN_INPUT, 0) /* (V18) RGMII2_RXC */
+			AM62X_IOPAD(0x017c, PIN_INPUT, 0) /* (W19) RGMII2_RX_CTL */
+			AM62X_IOPAD(0x016c, PIN_OUTPUT, 0) /* (AA20) RGMII2_TD0 */
+			AM62X_IOPAD(0x0170, PIN_OUTPUT, 0) /* (U15) RGMII2_TD1 */
+			AM62X_IOPAD(0x0174, PIN_OUTPUT, 0) /* (W17) RGMII2_TD2 */
+			AM62X_IOPAD(0x0178, PIN_OUTPUT, 0) /* (V16) RGMII2_TD3 */
+			AM62X_IOPAD(0x0168, PIN_OUTPUT, 0) /* (Y18) RGMII2_TXC */
+			AM62X_IOPAD(0x0164, PIN_OUTPUT, 0) /* (Y21) RGMII2_TX_CTL */
+		>;
+	};
+};
+
+&cpsw_port1 {
+	phy-mode = "rgmii-rxid";
+	phy-handle = <&cpsw3g_phy0>;
+};
+
+&cpsw_port2 {
+	phy-mode = "rgmii-rxid";
+	phy-handle = <&cpsw3g_phy1>;
+};
+
+&cpsw3g {
+	pinctrl-names = "default";
+	pinctrl-0 = <&rgmii1_pins_default>, <&rgmii2_pins_default>;
+	assigned-clocks = <&k3_clks 157 70>, <&k3_clks 157 20>;
+	assigned-clock-parents = <&k3_clks 157 72>, <&k3_clks 157 22>;
+};
