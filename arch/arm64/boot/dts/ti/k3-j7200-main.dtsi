@@ -1553,4 +1553,11 @@
 		bootph-pre-ram;
 		ti,esm-pins = <656>, <657>;
 	};
+
+	timesync_router: mux-controller@a40000 {
+		compatible = "reg-mux";
+		reg = <0x0 0xa40000 0x0 0x800>;
+		#mux-control-cells = <1>;
+		status = "disabled";
+	};
 };
