@@ -801,6 +801,13 @@
 		};
 	};
 
+	timesync_router: mux-controller@a40000 {
+		compatible = "reg-mux";
+		reg = <0x0 0xa40000 0x0 0x800>;
+		#mux-control-cells = <1>;
+		status = "disabled";
+	};
+
 	hwspinlock: spinlock@2a000000 {
 		compatible = "ti,am64-hwspinlock";
 		reg = <0x00 0x2a000000 0x00 0x1000>;
