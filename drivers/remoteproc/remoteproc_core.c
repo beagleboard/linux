@@ -981,7 +981,6 @@ int rproc_attach_dmabuf(struct rproc *rproc, struct dma_buf *dmabuf)
 
 	list_add_tail(&dmabuf_entry->node, &rproc->dmabufs);
 
-	mutex_unlock(&rproc->lock);
 	return 0;
 
 fail_unmap:
