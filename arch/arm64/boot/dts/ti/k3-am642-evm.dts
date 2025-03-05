@@ -12,6 +12,7 @@
 #include "k3-am642.dtsi"
 
 #include "k3-serdes.h"
+#include "k3-timesync-router.h"
 
 / {
 	compatible = "ti,am642-evm", "ti,am642";
@@ -630,6 +631,11 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&rgmii1_pins_default>, <&rgmii2_pins_default>;
 	status = "okay";
+
+	/* Map HW8_TS_PUSH to GENF1 */
+	cpts@3d000 {
+		ti,pps = <7 1>;
+	};
 };
 
 &cpsw_port1 {
@@ -875,4 +881,18 @@
 &icssg1_iep0 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&icssg1_iep0_pins_default>;
+};
+
+&timesync_router {
+	/*
+	 * Use Time Sync Router to map CPTS GENF1 input to CPTS HW8_TS_PUSH output as well
+	 * as the PRU ICSSG0 SYNC1 output.
+	 */
+	mux-reg-masks-state = <
+		/* pps [cpts genf1] in22 -> out37 [cpts hw8_push] */
+		K3_TS_OFFSET(37, 0x0001ffff, 22)
+		/* pps [cpts genf1] in22 -> out26 [SYNC1_OUT pin] */
+		K3_TS_OFFSET(26, 0x0001ffff, 22)
+		>;
+	status = "okay";
 };
