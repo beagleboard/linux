@@ -9,6 +9,8 @@
 
 #include "k3-am62x-sk-common.dtsi"
 
+#include "k3-timesync-router.h"
+
 / {
 	compatible = "ti,am625-sk", "ti,am625";
 	model = "Texas Instruments AM625 SK";
@@ -186,6 +188,11 @@
 &cpsw3g {
 	pinctrl-names = "default";
 	pinctrl-0 = <&main_rgmii1_pins_default>, <&main_rgmii2_pins_default>;
+
+	cpts@3d000 {
+		/* MAP HW3_TS_PUSH to GENF1 */
+		ti,pps = <2 1>;
+	};
 };
 
 &cpsw_port2 {
@@ -267,4 +274,11 @@
 
 &tlv320aic3106 {
 	DVDD-supply = <&vcc_1v8>;
+};
+
+&timesync_router {
+	mux-reg-masks-state = <
+		K3_TS_OFFSET(12, 0x0001ffff, 17)
+		>;
+	status = "okay";
 };
