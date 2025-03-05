@@ -3,6 +3,7 @@
  * MMIO register bitfield-controlled multiplexer driver
  *
  * Copyright (C) 2017 Pengutronix, Philipp Zabel <kernel@pengutronix.de>
+ * Copyright (C) 2025 Texas Instruments
  */
 
 #include <linux/bitops.h>
@@ -33,10 +34,83 @@ static const struct of_device_id mux_mmio_dt_ids[] = {
 };
 MODULE_DEVICE_TABLE(of, mux_mmio_dt_ids);
 
+static int reg_mux_get_controllers(const struct device_node *np, char *prop_name)
+{
+	int ret;
+
+	ret = of_property_count_u32_elems(np, prop_name);
+	if (ret == 0 || ret % 2)
+		ret = -EINVAL;
+
+	return ret;
+}
+
+static int reg_mux_get_controllers_extended(const struct device_node *np, char *prop_name)
+{
+	int ret;
+
+	ret = of_property_count_u32_elems(np, prop_name);
+	if (ret == 0 || ret % 3)
+		ret = -EINVAL;
+
+	return ret;
+}
+
+static int reg_mux_parse_dt(const struct device_node *np, bool *mux_reg_masks_state,
+			    int *num_fields)
+{
+	int ret;
+
+	if (of_property_present(np, "mux-reg-masks-state")) {
+		*mux_reg_masks_state = true;
+		ret = reg_mux_get_controllers_extended(np, "mux-reg-masks-state");
+		if (ret < 0)
+			return ret;
+		*num_fields = ret / 3;
+	} else {
+		ret = reg_mux_get_controllers(np, "mux-reg-masks");
+		if (ret < 0)
+			return ret;
+		*num_fields = ret / 2;
+	}
+	return ret;
+}
+
+static int mux_reg_set_parameters(const struct device_node *np, char *prop_name, u32 *reg,
+				  u32 *mask, int index)
+{
+	int ret;
+
+	ret = of_property_read_u32_index(np, prop_name, 2 * index, reg);
+	if (!ret)
+		ret = of_property_read_u32_index(np, prop_name, 2 * index + 1, mask);
+
+	return ret;
+}
+
+static int mux_reg_set_parameters_extended(const struct device_node *np, char *prop_name, u32 *reg,
+					   u32 *mask, u32 *state, int index)
+{
+	int ret;
+
+	ret = of_property_read_u32_index(np, prop_name, 3 * index, reg);
+	if (ret < 0)
+		return ret;
+
+	ret = of_property_read_u32_index(np, prop_name, 3 * index + 1, mask);
+	if (ret < 0)
+		return ret;
+
+	ret = of_property_read_u32_index(np, prop_name, 3 * index + 2, state);
+
+	return ret;
+}
+
 static int mux_mmio_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct device_node *np = dev->of_node;
+	bool mux_reg_masks_state = false;
 	struct regmap_field **fields;
 	struct mux_chip *mux_chip;
 	struct regmap *regmap;
@@ -59,15 +133,16 @@ static int mux_mmio_probe(struct platform_device *pdev)
 		return dev_err_probe(dev, PTR_ERR(regmap),
 				     "failed to get regmap\n");
 
-	ret = of_property_count_u32_elems(np, "mux-reg-masks");
-	if (ret == 0 || ret % 2)
-		ret = -EINVAL;
+	ret = reg_mux_parse_dt(np, &mux_reg_masks_state, &num_fields);
 	if (ret < 0) {
-		dev_err(dev, "mux-reg-masks property missing or invalid: %d\n",
-			ret);
+		if (mux_reg_masks_state)
+			dev_err(dev, "mux-reg-masks-state property missing or invalid: %d\n",
+				ret);
+		else
+			dev_err(dev, "mux-reg-masks property missing or invalid: %d\n",
+				ret);
 		return ret;
 	}
-	num_fields = ret / 2;
 
 	mux_chip = devm_mux_chip_alloc(dev, num_fields, num_fields *
 				       sizeof(*fields));
@@ -79,19 +154,25 @@ static int mux_mmio_probe(struct platform_device *pdev)
 	for (i = 0; i < num_fields; i++) {
 		struct mux_control *mux = &mux_chip->mux[i];
 		struct reg_field field;
-		s32 idle_state = MUX_IDLE_AS_IS;
+		s32 state, idle_state = MUX_IDLE_AS_IS;
 		u32 reg, mask;
 		int bits;
 
-		ret = of_property_read_u32_index(np, "mux-reg-masks",
-						 2 * i, &reg);
-		if (!ret)
-			ret = of_property_read_u32_index(np, "mux-reg-masks",
-							 2 * i + 1, &mask);
-		if (ret < 0) {
-			dev_err(dev, "bitfield %d: failed to read mux-reg-masks property: %d\n",
-				i, ret);
-			return ret;
+		if (!mux_reg_masks_state) {
+			ret = mux_reg_set_parameters(np, "mux-reg-masks", &reg, &mask, i);
+			if (ret < 0) {
+				dev_err(dev, "bitfield %d: failed to read mux-reg-masks property: %d\n",
+					i, ret);
+				return ret;
+			}
+		} else {
+			ret = mux_reg_set_parameters_extended(np, "mux-reg-masks-state", &reg,
+							      &mask, &state, i);
+			if (ret < 0) {
+				dev_err(dev, "bitfield %d: failed to read custom-states property: %d\n",
+					i, ret);
+				return ret;
+			}
 		}
 
 		field.reg = reg;
@@ -115,16 +196,28 @@ static int mux_mmio_probe(struct platform_device *pdev)
 		bits = 1 + field.msb - field.lsb;
 		mux->states = 1 << bits;
 
-		of_property_read_u32_index(np, "idle-states", i,
-					   (u32 *)&idle_state);
-		if (idle_state != MUX_IDLE_AS_IS) {
-			if (idle_state < 0 || idle_state >= mux->states) {
-				dev_err(dev, "bitfield: %d: out of range idle state %d\n",
-					i, idle_state);
-				return -EINVAL;
-			}
+		if (!mux_reg_masks_state) {
+			of_property_read_u32_index(np, "idle-states", i,
+						   (u32 *)&idle_state);
+			if (idle_state != MUX_IDLE_AS_IS) {
+				if (idle_state < 0 || idle_state >= mux->states) {
+					dev_err(dev, "bitfield: %d: out of range idle state %d\n",
+						i, idle_state);
+					return -EINVAL;
+				}
 
-			mux->idle_state = idle_state;
+				mux->idle_state = idle_state;
+			}
+		} else {
+			if (state != MUX_IDLE_AS_IS) {
+				if (state < 0 || state >= mux->states) {
+					dev_err(dev, "bitfield: %d: out of range idle state %d\n",
+						i, state);
+					return -EINVAL;
+				}
+
+				mux->idle_state = state;
+			}
 		}
 	}
 
