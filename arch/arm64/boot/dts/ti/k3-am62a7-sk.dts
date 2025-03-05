@@ -12,6 +12,8 @@
 #include <dt-bindings/net/ti-dp83867.h>
 #include "k3-am62a7.dtsi"
 
+#include "k3-timesync-router.h"
+
 / {
 	compatible = "ti,am62a7-sk", "ti,am62a7";
 	model = "Texas Instruments AM62A7 SK";
@@ -737,6 +739,11 @@
 	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&main_rgmii1_pins_default>;
+
+	cpts@3d000 {
+		/* MAP HW3_TS_PUSH to GENF1 */
+		ti,pps = <2 1>;
+	};
 };
 
 &cpsw_port1 {
@@ -915,4 +922,13 @@
 /* main_rti4 is used by C7x DSP */
 &main_rti4 {
 	status = "reserved";
+};
+
+&timesync_router {
+	/* Use Time Sync Router to map GENF1 input to HW3_TS_PUSH output */
+	mux-reg-masks-state = <
+		/* pps [cpsw cpts genf1] in17 -> out12 [cpsw cpts hw3_push] */
+		K3_TS_OFFSET(12, 0x0001ffff, 17)
+		>;
+	status = "okay";
 };
