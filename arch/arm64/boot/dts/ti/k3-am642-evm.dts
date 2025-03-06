@@ -894,15 +894,10 @@
 };
 
 &timesync_router {
-	/*
-	 * Use Time Sync Router to map CPTS GENF1 input to CPTS HW8_TS_PUSH output as well
-	 * as the PRU ICSSG0 SYNC1 output.
-	 */
+	/* Use Time Sync Router to map GENF1 input to HW8_TS_PUSH output. */
 	mux-reg-masks-state = <
 		/* pps [cpts genf1] in22 -> out37 [cpts hw8_push] */
 		K3_TS_OFFSET(37, 0x0001ffff, 22)
-		/* pps [cpts genf1] in22 -> out26 [SYNC1_OUT pin] */
-		K3_TS_OFFSET(26, 0x0001ffff, 22)
 		>;
 	status = "okay";
 };
