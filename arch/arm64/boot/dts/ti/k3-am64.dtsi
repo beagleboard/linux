@@ -19,6 +19,10 @@
 	#address-cells = <2>;
 	#size-cells = <2>;
 
+	aliases {
+		spi0 = &ospi0;
+	};
+
 	chosen { };
 
 	firmware {
