@@ -210,13 +210,13 @@
 		bootph-all;
 	};
 
-	usr_led_pins_default: usr-led-pins-default {
+	usr_led_pins_default: usr-led-default-pins {
 		pinctrl-single,pins = <
 			AM62LX_IOPAD(0x0238, PIN_OUTPUT, 7) /* (D24) MMC1_SDWP.GPIO0_123 */
 		>;
 	};
 
-	usr_button_pins_default: usr-button-pins-default {
+	usr_button_pins_default: usr-button-default-pins {
 		pinctrl-single,pins = <
 			AM62LX_IOPAD(0x01ac, PIN_INPUT, 7) /* (E12) SPI0_D0.GPIO0_90 */
 		>;
@@ -286,21 +286,21 @@
 		bootph-all;
 	};
 
-	main_mcan0_pins_default: main-mcan0-pins-default {
+	main_mcan0_pins_default: main-mcan0-default-pins {
 		pinctrl-single,pins = <
 			AM62LX_IOPAD(0x01c8, PIN_INPUT, 0) /* (B15) MCAN0_RX */
 			AM62LX_IOPAD(0x01c4, PIN_OUTPUT, 0) /* (B16) MCAN0_TX */
 		>;
 	};
 
-	main_mcan2_pins_default: main-mcan2-pins-default {
+	main_mcan2_pins_default: main-mcan2-default-pins {
 		pinctrl-single,pins = <
 			AM62LX_IOPAD(0x01bc, PIN_INPUT, 6) /* (B14) UART0_CTSn.MCAN2_RX */
 			AM62LX_IOPAD(0x01c0, PIN_OUTPUT, 6) /* (B13) UART0_RTSn.MCAN2_TX */
 		>;
 	};
 
-	gpmc0_pins_default: gpmc0-pins-default {
+	gpmc0_pins_default: gpmc0-default-pins {
 		pinctrl-single,pins = <
 			AM62LX_IOPAD(0x0078, PIN_INPUT, 0) /* (L22) GPMC0_AD0 */
 			AM62LX_IOPAD(0x007c, PIN_INPUT, 0) /* (L23) GPMC0_AD1 */
