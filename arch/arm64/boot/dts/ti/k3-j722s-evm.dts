@@ -895,6 +895,7 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 		bootph-all;
+		cdns,phy-mode;
 
 		partitions {
 			compatible = "fixed-partitions";
