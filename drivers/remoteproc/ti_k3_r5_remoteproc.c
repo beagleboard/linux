@@ -20,10 +20,12 @@
 #include <linux/of_platform.h>
 #include <linux/omap-mailbox.h>
 #include <linux/platform_device.h>
+#include <linux/pm_qos.h>
 #include <linux/pm_runtime.h>
 #include <linux/remoteproc.h>
 #include <linux/reset.h>
 #include <linux/slab.h>
+#include <linux/suspend.h>
 
 #include "omap_remoteproc.h"
 #include "remoteproc_internal.h"
@@ -114,6 +116,7 @@ struct k3_r5_cluster {
 	struct list_head cores;
 	wait_queue_head_t core_transition;
 	const struct k3_r5_soc_data *soc_data;
+	struct dev_pm_qos_request qos_req;
 };
 
 /**
@@ -173,6 +176,9 @@ struct k3_r5_rproc {
 	struct k3_r5_mem *rmem;
 	int num_rmems;
 	struct completion shut_comp;
+	struct completion suspend_comp;
+	struct notifier_block pm_notifier;
+	u32 suspend_status;
 };
 
 /**
@@ -194,6 +200,40 @@ static int is_core_in_wfi(struct k3_r5_core *core)
 		return 0;
 
 	return (stat & PROC_BOOT_STATUS_FLAG_R5_WFI);
+}
+
+/**
+ * get_core_status - local utility function to check core status
+ * @core: remote core pointer used for checking core status
+ * @cstatus: core status
+ *
+ * This utility function is invoked by the resume handler to get remote core
+ * status.
+ */
+static int get_core_status(struct k3_r5_core *core, bool *cstatus)
+{
+	int ret;
+	bool r_state = false, c_state = false;
+	u64 boot_vec = 0;
+	u32 ctrl = 0, cfg = 0, stat = 0, halted = 0;
+
+	ret = core->ti_sci->ops.dev_ops.is_on(core->ti_sci, core->ti_sci_id,
+					      &r_state, &c_state);
+	if (ret) {
+		dev_err(core->dev, "ti_sci call to get dev status failed\n");
+		return ret;
+	}
+
+	ret = ti_sci_proc_get_status(core->tsp, &boot_vec, &cfg, &ctrl, &stat);
+	if (ret) {
+		dev_err(core->dev, "ti_sci call to get proc status failed\n");
+		return ret;
+	}
+	halted = ctrl & PROC_BOOT_CTRL_FLAG_R5_CORE_HALT;
+
+	*cstatus = !!(c_state && !halted);
+
+	return 0;
 }
 
 /**
@@ -234,6 +274,21 @@ static void k3_r5_rproc_mbox_callback(struct mbox_client *client, void *data)
 	case RP_MBOX_SHUTDOWN_ACK:
 		dev_dbg(dev, "received shutdown_ack from %s\n", name);
 		complete(&kproc->shut_comp);
+		break;
+	case RP_MBOX_SUSPEND_ACK:
+		dev_dbg(dev, "received suspend_ack from %s\n", name);
+		kproc->suspend_status = RP_MBOX_SUSPEND_ACK;
+		complete(&kproc->suspend_comp);
+		break;
+	case RP_MBOX_SUSPEND_CANCEL:
+		dev_err(dev, "received suspend_cancel from %s\n", name);
+		kproc->suspend_status = RP_MBOX_SUSPEND_CANCEL;
+		complete(&kproc->suspend_comp);
+		break;
+	case RP_MBOX_SUSPEND_AUTO:
+		dev_dbg(dev, "received suspend_auto from %s\n", name);
+		kproc->suspend_status = RP_MBOX_SUSPEND_AUTO;
+		complete(&kproc->suspend_comp);
 		break;
 	default:
 		/* silently handle all other valid messages */
@@ -443,6 +498,136 @@ static int k3_r5_rproc_request_mbox(struct rproc *rproc)
 		dev_err(dev, "mbox_send_message failed: %d\n", ret);
 		mbox_free_channel(kproc->mbox);
 		return ret;
+	}
+
+	return 0;
+}
+
+static int k3_r5_suspend(struct rproc *rproc)
+{
+	struct k3_r5_rproc *kproc = rproc->priv;
+	unsigned long msg = RP_MBOX_SUSPEND_SYSTEM;
+	unsigned long to = msecs_to_jiffies(5000);
+	struct dev_pm_qos_request qos_req;
+	struct device *dev = kproc->dev;
+	int ret = 0;
+
+	if (rproc->state != RPROC_RUNNING) {
+		dev_err(dev, "remoteproc state not suspendable! State=%d\n", rproc->state);
+		return ret;
+	}
+
+	kproc->suspend_status = 0;
+	reinit_completion(&kproc->suspend_comp);
+
+	ret = mbox_send_message(kproc->mbox, (void *)msg);
+	if (ret < 0) {
+		dev_err(dev, "PM mbox_send_message failed: %d\n", ret);
+		return ret;
+	}
+
+	ret = wait_for_completion_timeout(&kproc->suspend_comp, to);
+	if (ret == 0) {
+		dev_err(dev, "%s: timedout waiting for rproc completion event\n", __func__);
+		/* Set constraint to keep the device on */
+		dev_pm_qos_add_request(kproc->dev, &qos_req, DEV_PM_QOS_RESUME_LATENCY, 0);
+		return 0;
+	}
+
+	if (kproc->suspend_status == RP_MBOX_SUSPEND_ACK) {
+		/* shutdown the remote core */
+		ret = rproc_shutdown(rproc);
+		if (ret) {
+			dev_err(dev, "rproc_shutdown failed, ret = %d\n", ret);
+			return -EBUSY;
+		}
+		kproc->rproc->state = RPROC_SUSPENDED;
+	} else if (kproc->suspend_status == RP_MBOX_SUSPEND_CANCEL) {
+		kproc->rproc->state = RPROC_SUSPENDED;
+	}
+
+	return 0;
+}
+
+static int k3_r5_resume(struct rproc *rproc)
+{
+	struct k3_r5_rproc *kproc = rproc->priv;
+	bool cstatus = false;
+	unsigned long msg = RP_MBOX_ECHO_REQUEST;
+	struct k3_r5_core *core = kproc->core;
+	struct device *dev = kproc->dev;
+	int ret = 0;
+
+	if (rproc->state != RPROC_SUSPENDED)
+		return ret;
+
+	ret = get_core_status(core, &cstatus);
+	if (ret) {
+		dev_err(dev, "failed to get core status: %d\n", ret);
+		return ret;
+	}
+
+	if (cstatus) {
+		dev_err(dev, "Core is on in resume\n");
+		msg = RP_MBOX_ECHO_REQUEST;
+		ret = mbox_send_message(kproc->mbox, (void *)msg);
+		if (ret < 0) {
+			dev_err(dev, "PM mbox_send_message failed: %d\n", ret);
+			return ret;
+		}
+	} else {
+		dev_info(dev, "Core is off in resume\n");
+		rproc_boot(rproc);
+	}
+
+	kproc->rproc->state = RPROC_RUNNING;
+	return 0;
+}
+
+/* PM notifier call.
+ * This is a callback function for PM notifications. On a resume completion
+ * i.e after all the resume driver calls are handled on PM_POST_SUSPEND,
+ * on a deep sleep the remote core is rebooted.
+ */
+static int r5f_pm_notifier_call(struct notifier_block *bl,
+				unsigned long state, void *unused)
+{
+	struct k3_r5_rproc *kproc = container_of(bl, struct k3_r5_rproc,
+						 pm_notifier);
+	struct rproc *rproc = kproc->rproc;
+
+	switch (state) {
+	case PM_HIBERNATION_PREPARE:
+	case PM_RESTORE_PREPARE:
+	case PM_SUSPEND_PREPARE:
+		break;
+	case PM_POST_HIBERNATION:
+	case PM_POST_RESTORE:
+	case PM_POST_SUSPEND:
+		if (rproc->state == RPROC_SUSPENDED)
+			return k3_r5_resume(rproc);
+		break;
+	}
+	return 0;
+}
+
+static int k3_r5_suspend_late(struct device *dev)
+{
+	struct k3_r5_cluster *cluster = dev_get_drvdata(dev);
+	struct k3_r5_core *core;
+
+	list_for_each_entry(core, &cluster->cores, elem) {
+		struct k3_r5_rproc *kproc;
+		struct rproc *rproc;
+
+		rproc = core->rproc;
+		kproc = rproc->priv;
+
+		/* Check if pm notifier call is set. if it is, suspend/resume is
+		 * supported
+		 */
+		if (kproc->pm_notifier.notifier_call)
+			k3_r5_suspend(rproc);
 	}
 
 	return 0;
@@ -712,6 +897,10 @@ static int k3_r5_rproc_stop(struct rproc *rproc)
 			}
 		}
 	} else {
+		if (kproc->rproc->state == RPROC_SUSPENDED) {
+			dev_err(dev, "We can't stop in suspended state!!!!\n");
+			return 0;
+		}
 		reinit_completion(&kproc->shut_comp);
 		ret = mbox_send_message(kproc->mbox, (void *)msg);
 		if (ret < 0) {
@@ -1247,6 +1436,10 @@ static int k3_r5_rproc_configure_mode(struct k3_r5_rproc *kproc)
 						k3_r5_get_loaded_rsc_table;
 	} else if (!c_state) {
 		dev_info(cdev, "configured R5F for remoteproc mode\n");
+		/* add support for suspend/resume */
+		kproc->pm_notifier.notifier_call = r5f_pm_notifier_call;
+		register_pm_notifier(&kproc->pm_notifier);
+		ret = 0;
 		ret = 0;
 	} else {
 		dev_err(cdev, "mismatched mode: local_reset = %s, module_reset = %s, core_state = %s\n",
@@ -1348,6 +1541,7 @@ init_rmem:
 			goto out;
 		}
 
+		init_completion(&kproc->suspend_comp);
 		/* create only one rproc in lockstep, single-cpu or
 		 * single core mode
 		 */
@@ -1411,6 +1605,7 @@ static void k3_r5_cluster_rproc_exit(void *data)
 		}
 
 		mbox_free_channel(kproc->mbox);
+		unregister_pm_notifier(&kproc->pm_notifier);
 	}
 }
 
@@ -1826,6 +2021,7 @@ static int k3_r5_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
+	dev_pm_qos_expose_latency_limit(dev, PM_QOS_RESUME_LATENCY_NO_CONSTRAINT);
 	return 0;
 }
 
@@ -1868,10 +2064,15 @@ static const struct of_device_id k3_r5_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, k3_r5_of_match);
 
+static const struct dev_pm_ops k3_r5_pm_ops = {
+	LATE_SYSTEM_SLEEP_PM_OPS(k3_r5_suspend_late, NULL)
+};
+
 static struct platform_driver k3_r5_rproc_driver = {
 	.probe = k3_r5_probe,
 	.driver = {
 		.name = "k3_r5_rproc",
+		.pm = &k3_r5_pm_ops,
 		.of_match_table = k3_r5_of_match,
 	},
 };
