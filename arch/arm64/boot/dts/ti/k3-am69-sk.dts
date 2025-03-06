@@ -1239,6 +1239,11 @@
 	phys = <&transceiver4>;
 };
 
+&fss {
+	bootph-all;
+	status = "okay";
+};
+
 &ospi0 {
 	status = "okay";
 	pinctrl-names = "default";
@@ -1255,6 +1260,7 @@
 		cdns,tchsh-ns = <60>;
 		cdns,tslch-ns = <60>;
 		cdns,read-delay = <4>;
+		cdns,phy-mode;
 
 		partitions {
 			bootph-all;
@@ -1293,7 +1299,7 @@
 			};
 
 			partition@3fc0000 {
-				bootph-pre-ram;
+				bootph-all;
 				label = "ospi.phypattern";
 				reg = <0x3fc0000 0x40000>;
 			};
