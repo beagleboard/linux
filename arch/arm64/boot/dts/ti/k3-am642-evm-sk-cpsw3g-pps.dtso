@@ -1,0 +1,50 @@
+// SPDX-License-Identifier: GPL-2.0-only OR MIT
+/**
+ * DT overlay for enabling PPS in CPSW3G via SYNC0_OUT signal
+ * This overlay is applicable for both AM642-EVM and AM642-SK
+ * boards.
+ *
+ * AM642 EVM Product Link: https://www.ti.com/tool/TMDS64EVM
+ * AM642 SK Product Link: https://www.ti.com/tool/SK-AM64B
+ *
+ * Copyright (C) 2024-2025 Texas Instruments Incorporated - https://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include "k3-pinctrl.h"
+#include "k3-timesync-router.h"
+
+&main_pmx0 {
+	cpsw3g_pps_pins_default: cpsw3g-pps-default-pins {
+		pinctrl-single,pins = <
+			AM64X_IOPAD(0x0270, PIN_INPUT, 1) /* (D18) SYNC0_OUT */
+		>;
+	};
+};
+
+/*
+ * Since D18 is used by CPSW for SYNC0_OUT, disable ECAP which uses D18 for
+ * ECAP0_IN_APWM_OUT.
+ */
+
+&ecap0 {
+	status = "disabled";
+};
+
+&cpsw3g {
+	pinctrl-0 = <&rgmii1_pins_default>, <&rgmii2_pins_default>,
+		    <&cpsw3g_pps_pins_default>;
+};
+
+&timesync_router {
+	/* Use Time Sync Router to map GENF1 input to HW8_TS_PUSH output. */
+	mux-reg-masks-state = <
+		/* pps [cpts genf1] in22 -> out37 [cpts hw8_push] */
+		K3_TS_OFFSET(37, 0x0001ffff, 22)
+		/* pps [cpts genf1] in22 -> out24 [SYNC0_OUT pin] */
+		K3_TS_OFFSET(24, 0x0001ffff, 22)
+		>;
+	status = "okay";
+};
