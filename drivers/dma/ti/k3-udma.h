@@ -431,7 +431,6 @@ struct udma_dev {
 	int (*udma_start)(struct udma_chan *uc);
 	int (*udma_stop)(struct udma_chan *uc);
 	int (*udma_reset_chan)(struct udma_chan *uc, bool hard);
-	void (*udma_reset_rings)(struct udma_chan *uc);
 	bool (*udma_is_desc_really_done)(struct udma_chan *uc, struct udma_desc *d);
 	void (*udma_decrement_byte_counters)(struct udma_chan *uc, u32 val);
 };
@@ -592,6 +591,7 @@ void udma_free_hwdesc(struct udma_chan *uc, struct udma_desc *d);
 void udma_purge_desc_work(struct work_struct *work);
 void udma_desc_free(struct virt_dma_desc *vd);
 bool udma_is_chan_running(struct udma_chan *uc);
+void udma_reset_rings(struct udma_chan *uc);
 int udma_push_to_ring(struct udma_chan *uc, int idx);
 bool udma_desc_is_rx_flush(struct udma_chan *uc, dma_addr_t addr);
 int udma_pop_from_ring(struct udma_chan *uc, dma_addr_t *addr);

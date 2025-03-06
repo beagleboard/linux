@@ -226,6 +226,42 @@ bool udma_is_chan_running(struct udma_chan *uc)
 	return false;
 }
 
+void udma_reset_rings(struct udma_chan *uc)
+{
+	struct k3_ring *ring1 = NULL;
+	struct k3_ring *ring2 = NULL;
+
+	switch (uc->config.dir) {
+		case DMA_DEV_TO_MEM:
+			if (uc->rchan) {
+				ring1 = uc->rflow->fd_ring;
+				ring2 = uc->rflow->r_ring;
+			}
+			break;
+		case DMA_MEM_TO_DEV:
+		case DMA_MEM_TO_MEM:
+			if (uc->tchan) {
+				ring1 = uc->tchan->t_ring;
+				ring2 = uc->tchan->tc_ring;
+			}
+			break;
+		default:
+			break;
+	}
+
+	if (ring1)
+		k3_ringacc_ring_reset_dma(ring1,
+				k3_ringacc_ring_get_occ(ring1));
+	if (ring2)
+		k3_ringacc_ring_reset(ring2);
+
+	/* make sure we are not leaking memory by stalled descriptor */
+	if (uc->terminated_desc) {
+		udma_desc_free(&uc->terminated_desc->vd);
+		uc->terminated_desc = NULL;
+	}
+}
+
 int udma_push_to_ring(struct udma_chan *uc, int idx)
 {
 	struct udma_desc *d = uc->desc;
@@ -1923,7 +1959,7 @@ void udma_synchronize(struct dma_chan *chan)
 		dev_warn(uc->ud->dev, "chan%d refused to stop!\n", uc->id);
 
 	cancel_delayed_work_sync(&uc->tx_drain.work);
-	ud->udma_reset_rings(uc);
+	udma_reset_rings(uc);
 }
 
 void udma_desc_pre_callback(struct virt_dma_chan *vc,
@@ -2013,7 +2049,7 @@ void udma_free_chan_resources(struct dma_chan *chan)
 	udma_terminate_all(chan);
 	if (uc->terminated_desc) {
 		ud->udma_reset_chan(uc, false);
-		ud->udma_reset_rings(uc);
+		udma_reset_rings(uc);
 	}
 
 	cancel_delayed_work_sync(&uc->tx_drain.work);
