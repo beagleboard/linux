@@ -1213,6 +1213,15 @@
 					  "host_intr6", "host_intr7";
 		};
 
+		pruss_uart: serial@28000 {
+			compatible = "ti,pruss-uart";
+			reg = <0x28000 0x40>;
+			clocks = <&k3_clks 81 13>; /* pruss_uart_clk */
+			interrupt-parent = <&pruss_intc>;
+			interrupts = <6 4 4>;
+			status = "disabled";
+		};
+
 		pru0: pru@34000 {
 			compatible = "ti,am625-pru";
 			reg = <0x34000 0x3000>,
