@@ -256,8 +256,9 @@ out:
 
 static int am62l_udma_stop(struct udma_chan *uc)
 {
-	if (uc->ud->match_data->type == DMA_TYPE_BCDMA_V2)
+	if (uc->ud->match_data->type == DMA_TYPE_BCDMA_V2 && uc->cyclic)
 		return 0;
+
 	uc->state = UDMA_CHAN_IS_TERMINATING;
 	reinit_completion(&uc->teardown_completed);
 
