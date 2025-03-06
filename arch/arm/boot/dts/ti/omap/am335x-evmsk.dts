@@ -441,6 +441,22 @@
 			AM33XX_PADCONF(AM335X_PIN_GPMC_CSN0, PIN_OUTPUT_PULLUP, MUX_MODE7) /* gpmc_csn0.gpio1_29 */
 		>;
 	};
+
+	pruss_uart_pins: pruss-uart-pins {
+		pinctrl-single,pins = <
+			AM33XX_PADCONF(AM335X_PIN_SPI0_SCLK, PIN_INPUT_PULLDOWN, MUX_MODE4) /* spi0_sclk.pr1_uart0_cts_n */
+			AM33XX_PADCONF(AM335X_PIN_SPI0_D0, PIN_OUTPUT_PULLDOWN, MUX_MODE4) /* spi0_d0.pr1_uart0_rts_n */
+			AM33XX_PADCONF(AM335X_PIN_SPI0_D1, PIN_INPUT_PULLUP, MUX_MODE4) /* spi0_d1.pr1_uart0_rxd */
+			AM33XX_PADCONF(AM335X_PIN_SPI0_CS0, PIN_OUTPUT_PULLUP, MUX_MODE4) /* spi0_cs9.pr1_uart0_txd */
+		>;
+	};
+};
+
+&pruss_uart {
+	interrupts = <6 2 2>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pruss_uart_pins>;
+	status = "okay";
 };
 
 &uart0 {
