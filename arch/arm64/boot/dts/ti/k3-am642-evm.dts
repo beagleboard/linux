@@ -898,6 +898,16 @@
 	mux-reg-masks-state = <
 		/* pps [cpts genf1] in22 -> out37 [cpts hw8_push] */
 		K3_TS_OFFSET(37, 0x0001ffff, 22)
+		/* iep-pps [iep sync_out0] in29 -> out23 [navss cpts hw8_push] */
+		K3_TS_OFFSET(23, 0x0001ffff, 29)
 		>;
 	status = "okay";
+};
+
+&main_cpts0 {
+	/*
+	 * Use HW8_TS_PUSH of NAVSS CPTS to generate events for IEP PPS
+	 * signal (PRGx_IEP0_EDC_SYNC_OUT0)
+	 */
+	ti,pps = <7 1>;
 };
