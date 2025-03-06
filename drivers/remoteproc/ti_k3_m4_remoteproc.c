@@ -15,6 +15,7 @@
 #include <linux/remoteproc.h>
 #include <linux/reset.h>
 #include <linux/slab.h>
+#include <linux/suspend.h>
 
 #include "omap_remoteproc.h"
 #include "remoteproc_internal.h"
@@ -63,7 +64,7 @@ static int k3_m4_rproc_probe(struct platform_device *pdev)
 	kproc->dev = dev;
 	kproc->data = data;
 	kproc->rproc = rproc;
-	platform_set_drvdata(pdev, rproc);
+	platform_set_drvdata(pdev, kproc);
 
 	kproc->ti_sci = devm_ti_sci_get_by_phandle(dev, "ti,sci");
 	if (IS_ERR(kproc->ti_sci))
@@ -110,8 +111,15 @@ static int k3_m4_rproc_probe(struct platform_device *pdev)
 	if (p_state) {
 		rproc->state = RPROC_DETACHED;
 		dev_info(dev, "configured M4F for IPC-only mode\n");
+		/* override rproc ops with only required IPC-only mode ops */
+		kproc->rproc->ops->prepare = NULL;
+		kproc->rproc->ops->unprepare = NULL;
+		kproc->rproc->ops->start = NULL;
+		kproc->rproc->ops->stop = NULL;
 	} else {
 		dev_info(dev, "configured M4F for remoteproc mode\n");
+		kproc->pm_notifier.notifier_call = k3_rproc_pm_notifier_call;
+		register_pm_notifier(&kproc->pm_notifier);
 	}
 
 	ret = k3_rproc_request_mbox(rproc);
@@ -122,6 +130,9 @@ static int k3_m4_rproc_probe(struct platform_device *pdev)
 	if (ret)
 		return dev_err_probe(dev, ret,
 				     "failed to register device with remoteproc core\n");
+
+	init_completion(&kproc->shut_comp);
+	init_completion(&kproc->suspend_comp);
 
 	return 0;
 }
@@ -144,10 +155,15 @@ static const struct of_device_id k3_m4_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, k3_m4_of_match);
 
+static const struct dev_pm_ops k3_m4_pm_ops = {
+	LATE_SYSTEM_SLEEP_PM_OPS(k3_rproc_suspend_late, NULL)
+};
+
 static struct platform_driver k3_m4_rproc_driver = {
 	.probe	= k3_m4_rproc_probe,
 	.driver	= {
 		.name = "k3-m4-rproc",
+		.pm = &k3_m4_pm_ops,
 		.of_match_table = k3_m4_of_match,
 	},
 };
