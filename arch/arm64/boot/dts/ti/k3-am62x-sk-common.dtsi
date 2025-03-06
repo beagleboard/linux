@@ -345,6 +345,13 @@
 			AM62X_IOPAD(0x008, PIN_INPUT, 0) /* (J24/H20) OSPI0_DQS */
 		>;
 	};
+
+	pruss_uart_pins: pruss-uart-pins {
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x01d8, PIN_INPUT, 6) /* (C15) MCAN0_TX.PR0_UART0_RXD */
+			AM62X_IOPAD(0x01dc, PIN_OUTPUT, 6) /* (E15) MCAN0_RX.PR0_UART0_TXD */
+		>;
+	};
 };
 
 &mcu_pmx0 {
@@ -631,4 +638,10 @@
 	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&ospi0_pins_default>;
+};
+
+&pruss_uart {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pruss_uart_pins>;
+	status = "okay";
 };
