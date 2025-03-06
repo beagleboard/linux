@@ -541,7 +541,9 @@
 		cdns,tchsh-ns = <60>;
 		cdns,tslch-ns = <60>;
 		cdns,read-delay = <2>;
+		cdns,phy-mode;
 		status = "disabled";
+		bootph-all;
 
 		partitions {
 			compatible = "fixed-partitions";
