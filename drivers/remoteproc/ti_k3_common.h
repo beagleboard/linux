@@ -88,6 +88,9 @@ struct k3_rproc {
 	struct mbox_chan *mbox;
 	struct mbox_client client;
 	struct completion shut_comp;
+	struct completion suspend_comp;
+	struct notifier_block pm_notifier;
+	u32 suspend_status;
 };
 
 void k3_rproc_mbox_callback(struct mbox_client *client, void *data);
@@ -110,4 +113,8 @@ int k3_rproc_of_get_memories(struct platform_device *pdev,
 void k3_mem_release(void *data);
 int k3_reserved_mem_init(struct k3_rproc *kproc);
 void k3_release_tsp(void *data);
+int k3_rproc_suspend(struct rproc *rproc);
+int k3_rproc_resume(struct rproc *rproc);
+int k3_rproc_pm_notifier_call(struct notifier_block *bl, unsigned long state, void *unused);
+int k3_rproc_suspend_late(struct device *dev);
 #endif /* REMOTEPROC_TI_K3_COMMON_H */
