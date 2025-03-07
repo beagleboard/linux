@@ -2067,7 +2067,7 @@ void udma_free_chan_resources(struct dma_chan *chan)
 
 	/* Release PSI-L pairing */
 	if (uc->psil_paired) {
-		if (ud->match_data->type < DMA_TYPE_BCDMA_V2)
+		if (ud->match_data->type < DMA_TYPE_BCDMA_V2 && IS_ENABLED(CONFIG_TI_K3_UDMA))
 			navss_psil_unpair(ud, uc->config.src_thread,
 					uc->config.dst_thread);
 		uc->psil_paired = false;
