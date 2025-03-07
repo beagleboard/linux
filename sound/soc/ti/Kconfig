@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-only
 menu "Audio support for Texas Instruments SoCs"
-depends on DMA_OMAP || TI_EDMA || TI_K3_UDMA || COMPILE_TEST
+depends on DMA_OMAP || TI_EDMA || TI_K3_UDMA || TI_K3_UDMA_AM62L || COMPILE_TEST
 
 config SND_SOC_TI_EDMA_PCM
 	tristate
