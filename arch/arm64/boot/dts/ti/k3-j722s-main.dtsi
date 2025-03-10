@@ -375,7 +375,7 @@
 	};
 
 	c7x_0: dsp@7e000000 {
-		compatible = "ti,am62a-c7xv-dsp";
+		compatible = "ti,j722s-c7xv-dsp";
 		reg = <0x00 0x7e000000 0x00 0x00200000>;
 		reg-names = "l2sram";
 		resets = <&k3_reset 208 1>;
@@ -387,7 +387,7 @@
 	};
 
 	c7x_1: dsp@7e200000 {
-		compatible = "ti,am62a-c7xv-dsp";
+		compatible = "ti,j722s-c7xv-dsp";
 		reg = <0x00 0x7e200000 0x00 0x00200000>;
 		reg-names = "l2sram";
 		resets = <&k3_reset 268 1>;
