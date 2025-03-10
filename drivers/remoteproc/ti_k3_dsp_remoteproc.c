@@ -230,11 +230,19 @@ static const struct k3_rproc_dev_data c7xv_data = {
 	.uses_lreset = false,
 };
 
+static const struct k3_rproc_dev_data j722s_c7xv_data = {
+	.mems = c7xv_mems,
+	.num_mems = ARRAY_SIZE(c7xv_mems),
+	.boot_align_addr = SZ_2M,
+	.uses_lreset = false,
+};
+
 static const struct of_device_id k3_dsp_of_match[] = {
 	{ .compatible = "ti,j721e-c66-dsp", .data = &c66_data, },
 	{ .compatible = "ti,j721e-c71-dsp", .data = &c71_data, },
 	{ .compatible = "ti,j721s2-c71-dsp", .data = &c71_data, },
 	{ .compatible = "ti,am62a-c7xv-dsp", .data = &c7xv_data, },
+	{ .compatible = "ti,j722s-c7xv-dsp", .data = &j722s_c7xv_data, },
 	{ /* sentinel */ },
 };
 MODULE_DEVICE_TABLE(of, k3_dsp_of_match);
