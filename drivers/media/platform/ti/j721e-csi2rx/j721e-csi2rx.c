@@ -13,7 +13,7 @@
 #include <linux/module.h>
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
-#include <linux/pm.h>
+#include <linux/pm_runtime.h>
 
 #include <media/mipi-csi2.h>
 #include <media/v4l2-device.h>
@@ -898,6 +898,10 @@ static int ti_csi2rx_start_streaming(struct vb2_queue *vq, unsigned int count)
 	int ret = 0;
 	struct v4l2_subdev_state *state;
 
+	ret = pm_runtime_resume_and_get(csi->dev);
+	if (ret)
+		return ret;
+
 	spin_lock_irqsave(&dma->lock, flags);
 	if (list_empty(&dma->queue))
 		ret = -EIO;
@@ -981,6 +985,8 @@ err_dma:
 	writel(0, csi->shim + SHIM_DMACNTX(ctx->idx));
 err:
 	ti_csi2rx_cleanup_buffers(ctx, VB2_BUF_STATE_QUEUED);
+	pm_runtime_put(csi->dev);
+
 	return ret;
 }
 
@@ -1005,6 +1011,7 @@ static void ti_csi2rx_stop_streaming(struct vb2_queue *vq)
 
 	ti_csi2rx_stop_dma(ctx);
 	ti_csi2rx_cleanup_buffers(ctx, VB2_BUF_STATE_ERROR);
+	pm_runtime_put(csi->dev);
 }
 
 static const struct vb2_ops csi_vb2_qops = {
@@ -1211,7 +1218,9 @@ static void ti_csi2rx_cleanup_notifier(struct ti_csi2rx_dev *csi)
 
 static void ti_csi2rx_cleanup_ctx(struct ti_csi2rx_ctx *ctx)
 {
-	dma_release_channel(ctx->dma.chan);
+	if (!pm_runtime_status_suspended(ctx->csi->dev))
+		dma_release_channel(ctx->dma.chan);
+
 	vb2_queue_release(&ctx->vidq);
 
 	video_unregister_device(&ctx->vdev);
@@ -1323,12 +1332,6 @@ static int ti_csi2rx_init_dma(struct ti_csi2rx_ctx *ctx)
 	};
 	char name[32];
 	int ret;
-
-	INIT_LIST_HEAD(&ctx->dma.queue);
-	INIT_LIST_HEAD(&ctx->dma.submitted);
-	spin_lock_init(&ctx->dma.lock);
-
-	ctx->dma.state = TI_CSI2RX_DMA_STOPPED;
 
 	snprintf(name, sizeof(name), "rx%u", ctx->idx);
 	ctx->dma.chan = dma_request_chan(ctx->csi->dev, name);
@@ -1450,6 +1453,11 @@ static int ti_csi2rx_init_ctx(struct ti_csi2rx_ctx *ctx)
 	vdev->lock = &ctx->mutex;
 	video_set_drvdata(vdev, ctx);
 
+	INIT_LIST_HEAD(&ctx->dma.queue);
+	INIT_LIST_HEAD(&ctx->dma.submitted);
+	spin_lock_init(&ctx->dma.lock);
+	ctx->dma.state = TI_CSI2RX_DMA_STOPPED;
+
 	ret = ti_csi2rx_init_dma(ctx);
 	if (ret)
 		return ret;
@@ -1474,6 +1482,10 @@ static int ti_csi2rx_suspend(struct device *dev)
 	struct ti_csi2rx_dma *dma;
 	unsigned long flags = 0;
 	int i, ret = 0;
+
+	/* If device was not in use we can simply suspend */
+	if (pm_runtime_status_suspended(dev))
+		return 0;
 
 	/*
 	 * If device is running, assert the pixel reset to cleanly stop any
@@ -1523,6 +1535,10 @@ static int ti_csi2rx_resume(struct device *dev)
 	unsigned int reg;
 	int i, ret = 0;
 
+	/* If device was not in use, we can simply wakeup */
+	if (pm_runtime_status_suspended(dev))
+		return 0;
+
 	/* If device was in use before, restore all the running streams */
 	reg = SHIM_CNTL_PIX_RST;
 	writel(reg, csi->shim + SHIM_CNTL);
@@ -1554,8 +1570,38 @@ static int ti_csi2rx_resume(struct device *dev)
 	return ret;
 }
 
+static int ti_csi2rx_runtime_suspend(struct device *dev)
+{
+	struct ti_csi2rx_dev *csi = dev_get_drvdata(dev);
+	int i;
+
+	if (csi->enable_count != 0)
+		return -EBUSY;
+
+	for (i = 0; i < csi->num_ctx; i++)
+		dma_release_channel(csi->ctx[i].dma.chan);
+
+	return 0;
+}
+
+static int ti_csi2rx_runtime_resume(struct device *dev)
+{
+	struct ti_csi2rx_dev *csi = dev_get_drvdata(dev);
+	int ret, i;
+
+	for (i = 0; i < csi->num_ctx; i++) {
+		ret = ti_csi2rx_init_dma(&csi->ctx[i]);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
 static const struct dev_pm_ops ti_csi2rx_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(ti_csi2rx_suspend, ti_csi2rx_resume)
+	SET_RUNTIME_PM_OPS(ti_csi2rx_runtime_suspend, ti_csi2rx_runtime_resume,
+			   NULL)
 };
 #endif /* CONFIG_PM */
 
@@ -1625,6 +1671,10 @@ static int ti_csi2rx_probe(struct platform_device *pdev)
 		goto err_notifier;
 	}
 
+	pm_runtime_set_active(csi->dev);
+	pm_runtime_enable(csi->dev);
+	pm_request_idle(csi->dev);
+
 	return 0;
 
 err_notifier:
@@ -1654,6 +1704,9 @@ static void ti_csi2rx_remove(struct platform_device *pdev)
 	mutex_destroy(&csi->mutex);
 	dma_free_coherent(csi->dev, csi->drain.len, csi->drain.vaddr,
 			  csi->drain.paddr);
+
+	pm_runtime_disable(&pdev->dev);
+	pm_runtime_set_suspended(&pdev->dev);
 }
 
 static const struct of_device_id ti_csi2rx_of_match[] = {
