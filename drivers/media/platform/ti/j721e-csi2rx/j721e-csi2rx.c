@@ -13,6 +13,7 @@
 #include <linux/module.h>
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
+#include <linux/pm.h>
 
 #include <media/mipi-csi2.h>
 #include <media/v4l2-device.h>
@@ -1464,6 +1465,39 @@ cleanup_dma:
 	return ret;
 }
 
+#ifdef CONFIG_PM
+static int ti_csi2rx_suspend(struct device *dev)
+{
+	struct ti_csi2rx_dev *csi = dev_get_drvdata(dev);
+	int i;
+
+	for (i = 0; i < csi->num_ctx; i++) {
+		/* Stop any on-going streams */
+		writel(0, csi->shim + SHIM_DMACNTX(csi->ctx[i].idx));
+	}
+
+	/* Assert the pixel reset. */
+	writel(0, csi->shim + SHIM_CNTL);
+
+	return 0;
+}
+
+static int ti_csi2rx_resume(struct device *dev)
+{
+	struct ti_csi2rx_dev *csi = dev_get_drvdata(dev);
+	unsigned int reg;
+
+	reg = SHIM_CNTL_PIX_RST;
+	writel(reg, csi->shim + SHIM_CNTL);
+
+	return 0;
+}
+
+static const struct dev_pm_ops ti_csi2rx_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(ti_csi2rx_suspend, ti_csi2rx_resume)
+};
+#endif /* CONFIG_PM */
+
 static int ti_csi2rx_probe(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
@@ -1571,8 +1605,11 @@ static struct platform_driver ti_csi2rx_pdrv = {
 	.probe = ti_csi2rx_probe,
 	.remove_new = ti_csi2rx_remove,
 	.driver = {
-		.name = TI_CSI2RX_MODULE_NAME,
-		.of_match_table = ti_csi2rx_of_match,
+		.name		= TI_CSI2RX_MODULE_NAME,
+		.of_match_table	= ti_csi2rx_of_match,
+#ifdef CONFIG_PM
+		.pm		= &ti_csi2rx_pm_ops,
+#endif
 	},
 };
 
