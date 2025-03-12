@@ -1530,7 +1530,7 @@ badkey:
 	return -EINVAL;
 }
 
-static int sa_sha_cra_init_alg(struct crypto_tfm *tfm, const char *alg_base)
+static int sa_sha_cra_init_alg(struct crypto_tfm *tfm, const char *hash, const char *alg_base)
 {
 	struct sa_tfm_ctx *ctx = crypto_tfm_ctx(tfm);
 	struct sa_crypto_data *data = dev_get_drvdata(sa_k3_dev);
@@ -1542,23 +1542,31 @@ static int sa_sha_cra_init_alg(struct crypto_tfm *tfm, const char *alg_base)
 	if (ret)
 		return ret;
 
-	if (alg_base) {
-		ctx->shash = crypto_alloc_shash(alg_base, 0,
+	if (!alg_base)
+		dev_err(sa_k3_dev, "alg_base is NULL\n");
+
+	if (hash) {
+		/* Allocating fallback for intermediate setkey calculations */
+		ctx->shash = crypto_alloc_shash(hash, 0,
 						CRYPTO_ALG_NEED_FALLBACK);
 		if (IS_ERR(ctx->shash)) {
 			dev_err(sa_k3_dev, "base driver %s couldn't be loaded\n",
 				alg_base);
 			return PTR_ERR(ctx->shash);
 		}
-		/* for fallback */
-		ctx->fallback.ahash =
-			crypto_alloc_ahash(alg_base, 0,
-					   CRYPTO_ALG_NEED_FALLBACK);
-		if (IS_ERR(ctx->fallback.ahash)) {
-			dev_err(ctx->dev_data->dev,
-				"Could not load fallback driver\n");
-			return PTR_ERR(ctx->fallback.ahash);
-		}
+	} else {
+		dev_dbg(sa_k3_dev, "%s: hash is NULL so not allocating ctx->shash\n",
+				__func__);
+	}
+
+	/* for fallback */
+	ctx->fallback.ahash =
+		crypto_alloc_ahash(alg_base, 0,
+				   CRYPTO_ALG_NEED_FALLBACK);
+	if (IS_ERR(ctx->fallback.ahash)) {
+		dev_err(ctx->dev_data->dev,
+			"Could not load fallback driver\n");
+		return PTR_ERR(ctx->fallback.ahash);
 	}
 
 	dev_dbg(sa_k3_dev, "%s(0x%p) sc-ids(0x%x(0x%pad), 0x%x(0x%pad))\n",
@@ -1665,7 +1673,7 @@ static int sa_sha1_cra_init(struct crypto_tfm *tfm)
 	struct algo_data ad = { 0 };
 	struct sa_tfm_ctx *ctx = crypto_tfm_ctx(tfm);
 
-	sa_sha_cra_init_alg(tfm, "sha1");
+	sa_sha_cra_init_alg(tfm, NULL, "sha1");
 
 	ad.aalg_id = SA_AALG_ID_SHA1;
 	ad.hash_size = SHA1_DIGEST_SIZE;
@@ -1681,7 +1689,7 @@ static int sa_sha256_cra_init(struct crypto_tfm *tfm)
 	struct algo_data ad = { 0 };
 	struct sa_tfm_ctx *ctx = crypto_tfm_ctx(tfm);
 
-	sa_sha_cra_init_alg(tfm, "sha256");
+	sa_sha_cra_init_alg(tfm, NULL, "sha256");
 
 	ad.aalg_id = SA_AALG_ID_SHA2_256;
 	ad.hash_size = SHA256_DIGEST_SIZE;
@@ -1697,7 +1705,7 @@ static int sa_sha512_cra_init(struct crypto_tfm *tfm)
 	struct algo_data ad = { 0 };
 	struct sa_tfm_ctx *ctx = crypto_tfm_ctx(tfm);
 
-	sa_sha_cra_init_alg(tfm, "sha512");
+	sa_sha_cra_init_alg(tfm, NULL, "sha512");
 
 	ad.aalg_id = SA_AALG_ID_SHA2_512;
 	ad.hash_size = SHA512_DIGEST_SIZE;
