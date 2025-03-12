@@ -13,6 +13,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/dmaengine.h>
 #include <linux/dmapool.h>
+#include <linux/fips.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/of.h>
@@ -23,6 +24,7 @@
 #include <crypto/aes.h>
 #include <crypto/authenc.h>
 #include <crypto/des.h>
+#include <crypto/hmac.h>
 #include <crypto/internal/aead.h>
 #include <crypto/internal/hash.h>
 #include <crypto/internal/skcipher.h>
@@ -374,31 +376,6 @@ static void sa_swiz_128(u8 *in, u16 len)
 	}
 }
 
-/* Prepare the ipad and opad from key as per SHA algorithm step 1*/
-static void prepare_kipad(u8 *k_ipad, const u8 *key, u16 key_sz)
-{
-	int i;
-
-	for (i = 0; i < key_sz; i++)
-		k_ipad[i] = key[i] ^ 0x36;
-
-	/* Instead of XOR with 0 */
-	for (; i < SHA1_BLOCK_SIZE; i++)
-		k_ipad[i] = 0x36;
-}
-
-static void prepare_kopad(u8 *k_opad, const u8 *key, u16 key_sz)
-{
-	int i;
-
-	for (i = 0; i < key_sz; i++)
-		k_opad[i] = key[i] ^ 0x5c;
-
-	/* Instead of XOR with 0 */
-	for (; i < SHA1_BLOCK_SIZE; i++)
-		k_opad[i] = 0x5c;
-}
-
 static int sa_export_shash(struct shash_desc *hash, int digest_size,
 		__be32 *out)
 {
@@ -443,11 +420,33 @@ static int sa_prepare_iopads(struct algo_data *data, const u8 *key,
 	int block_size = crypto_shash_blocksize(data->ctx->shash);
 	int digest_size = crypto_shash_digestsize(data->ctx->shash);
 	int ret = 0;
-	u8 k_pad[SHA1_BLOCK_SIZE];
+	int i = 0;
+	u8 k_ipad[SHA1_BLOCK_SIZE];
+	u8 k_opad[SHA1_BLOCK_SIZE];
+
+	if (fips_enabled && (key_sz < 112 / 8))
+		return -EINVAL;
 
 	shash->tfm = data->ctx->shash;
 
-	prepare_kipad(k_pad, key, key_sz);
+	if (key_sz > block_size) {
+		int err;
+
+		err = crypto_shash_digest(shash, key, key_sz, k_ipad);
+		if (err)
+			return err;
+
+		key_sz = digest_size;
+	} else
+		memcpy(k_ipad, key, key_sz);
+
+	memset(k_ipad + key_sz, 0, block_size - key_sz);
+	memcpy(k_opad, k_ipad, block_size);
+
+	for (i = 0; i < block_size; i++) {
+		k_ipad[i] ^= HMAC_IPAD_VALUE;
+		k_opad[i] ^= HMAC_OPAD_VALUE;
+	}
 
 	ret = crypto_shash_init(shash);
 	if (ret) {
@@ -455,7 +454,7 @@ static int sa_prepare_iopads(struct algo_data *data, const u8 *key,
 			__func__, __LINE__, ret);
 		return ret;
 	}
-	ret = crypto_shash_update(shash, k_pad, block_size);
+	ret = crypto_shash_update(shash, k_ipad, block_size);
 	if (ret) {
 		dev_err(sa_k3_dev, "%s: %d: crypto_shash_update for ipad failed, ret=%d\n",
 			__func__, __LINE__, ret);
@@ -468,15 +467,13 @@ static int sa_prepare_iopads(struct algo_data *data, const u8 *key,
 		return ret;
 	}
 
-	prepare_kopad(k_pad, key, key_sz);
-
 	ret = crypto_shash_init(shash);
 	if (ret) {
 		dev_err(sa_k3_dev, "%s: %d: crypto_shash_init for opad failed, ret=%d\n",
 			__func__, __LINE__, ret);
 		return ret;
 	}
-	ret = crypto_shash_update(shash, k_pad, block_size);
+	ret = crypto_shash_update(shash, k_opad, block_size);
 	if (ret) {
 		dev_err(sa_k3_dev, "%s: %d: crypto_shash_update for opad failed, ret=%d\n",
 			__func__, __LINE__, ret);
@@ -489,7 +486,8 @@ static int sa_prepare_iopads(struct algo_data *data, const u8 *key,
 		return ret;
 	}
 
-	memzero_explicit(k_pad, sizeof(SHA1_BLOCK_SIZE));
+	memzero_explicit(k_ipad, sizeof(SHA1_BLOCK_SIZE));
+	memzero_explicit(k_opad, sizeof(SHA1_BLOCK_SIZE));
 
 	return ret;
 }
