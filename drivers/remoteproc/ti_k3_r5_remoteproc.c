@@ -152,6 +152,9 @@ struct k3_r5_core {
 	u32 atcm_enable;
 	u32 btcm_enable;
 	u32 loczrama;
+	u32 set_cfg;
+	u32 clr_cfg;
+	u64 boot_vec;
 	bool released_from_reset;
 };
 
@@ -543,6 +546,8 @@ static int k3_r5_suspend(struct rproc *rproc)
 		}
 		kproc->rproc->state = RPROC_SUSPENDED;
 	} else if (kproc->suspend_status == RP_MBOX_SUSPEND_CANCEL) {
+		return -EBUSY;
+	} else if (kproc->suspend_status == RP_MBOX_SUSPEND_AUTO) {
 		kproc->rproc->state = RPROC_SUSPENDED;
 	}
 
@@ -577,9 +582,18 @@ static int k3_r5_resume(struct rproc *rproc)
 		}
 	} else {
 		dev_info(dev, "Core is off in resume\n");
-		rproc_boot(rproc);
-	}
+		/* restore device configuration */
+		ret = ti_sci_proc_set_config(core->tsp, core->boot_vec,
+						     core->set_cfg, core->clr_cfg);
+		if (ret)
+			dev_err(dev, "set config failed: %d\n", ret);
 
+		ret = rproc_boot(rproc);
+		if (ret) {
+			dev_err(dev, "rproc_boot failed: %d\n", ret);
+			return ret;
+		}
+	}
 	kproc->rproc->state = RPROC_RUNNING;
 	return 0;
 }
@@ -1216,7 +1230,10 @@ static int k3_r5_rproc_configure(struct k3_r5_rproc *kproc)
 		ret = ti_sci_proc_set_config(core->tsp, boot_vec,
 					     set_cfg, clr_cfg);
 	}
-
+	/* cache set_cfg and clr_cfg */
+	core->boot_vec = boot_vec;
+	core->set_cfg = set_cfg;
+	core->clr_cfg = clr_cfg;
 out:
 	return ret;
 }
@@ -1445,7 +1462,6 @@ static int k3_r5_rproc_configure_mode(struct k3_r5_rproc *kproc)
 		/* add support for suspend/resume */
 		kproc->pm_notifier.notifier_call = r5f_pm_notifier_call;
 		register_pm_notifier(&kproc->pm_notifier);
-		ret = 0;
 		ret = 0;
 	} else {
 		dev_err(cdev, "mismatched mode: local_reset = %s, module_reset = %s, core_state = %s\n",
