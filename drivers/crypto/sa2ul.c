@@ -2326,6 +2326,14 @@ err_dma_coerce:
 	return ret;
 }
 
+static void sa_dma_cleanup(struct sa_crypto_data *dev_data)
+{
+	dma_release_channel(dev_data->dma_rx2);
+	dma_release_channel(dev_data->dma_rx1);
+	dma_release_channel(dev_data->dma_tx);
+	dma_pool_destroy(dev_data->sc_pool);
+}
+
 static int sa_link_child(struct device *dev, void *data)
 {
 	struct device *parent = data;
@@ -2430,11 +2438,7 @@ static int sa_ul_probe(struct platform_device *pdev)
 
 release_dma:
 	sa_unregister_algos(dev);
-
-	dma_release_channel(dev_data->dma_rx2);
-	dma_release_channel(dev_data->dma_rx1);
-	dma_release_channel(dev_data->dma_tx);
-	dma_pool_destroy(dev_data->sc_pool);
+	sa_dma_cleanup(dev_data);
 
 disable_pm_runtime:
 	pm_runtime_put_sync(dev);
@@ -2450,12 +2454,7 @@ static void sa_ul_remove(struct platform_device *pdev)
 	of_platform_depopulate(&pdev->dev);
 
 	sa_unregister_algos(&pdev->dev);
-
-	dma_release_channel(dev_data->dma_rx2);
-	dma_release_channel(dev_data->dma_rx1);
-	dma_release_channel(dev_data->dma_tx);
-
-	dma_pool_destroy(dev_data->sc_pool);
+	sa_dma_cleanup(dev_data);
 
 	platform_set_drvdata(pdev, NULL);
 
