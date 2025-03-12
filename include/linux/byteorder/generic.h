@@ -196,6 +196,14 @@ static inline void cpu_to_be32_array(__be32 *dst, const u32 *src, size_t len)
 		dst[i] = cpu_to_be32(src[i]);
 }
 
+static inline void cpu_to_be64_array(__be64 *dst, const u64 *src, size_t len)
+{
+	size_t i;
+
+	for (i = 0; i < len; i++)
+		dst[i] = cpu_to_be64(src[i]);
+}
+
 static inline void be32_to_cpu_array(u32 *dst, const __be32 *src, size_t len)
 {
 	size_t i;
