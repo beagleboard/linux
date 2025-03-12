@@ -141,7 +141,8 @@ struct algo_data {
 	struct sa_tfm_ctx *ctx;
 	bool keyed_mac;
 	int (*prep_iopad)(struct algo_data *algo, const u8 *key,
-			   u16 key_sz, __be32 *ipad, __be32 *opad);
+			   u16 key_sz, __be32 *lower_ipad, __be32 *lower_opad,
+			   __be32 *upper_ipad, __be32 *upper_opad);
 };
 
 /**
@@ -379,14 +380,16 @@ static void sa_swiz_128(u8 *in, u16 len)
 }
 
 static int sa_export_shash(struct shash_desc *hash, int digest_size,
-		__be32 *out)
+		void *lower_out, void *upper_out)
 {
 	u32 *result;
+	u64 *result64;
 	int ret = 0;
 
 	union {
 		struct sha1_state sha1;
 		struct sha256_state sha256;
+		struct sha512_state sha512;
 	} sha;
 
 	/* Export the intermediate digest to program into SA2UL */
@@ -400,9 +403,16 @@ static int sa_export_shash(struct shash_desc *hash, int digest_size,
 	switch (digest_size) {
 	case SHA1_DIGEST_SIZE:
 		result = sha.sha1.state;
+		cpu_to_be32_array(lower_out, result, digest_size / 4);
 		break;
 	case SHA256_DIGEST_SIZE:
 		result = sha.sha256.state;
+		cpu_to_be32_array(lower_out, result, digest_size / 4);
+		break;
+	case SHA512_DIGEST_SIZE:
+		result64 = sha.sha512.state;
+		cpu_to_be64_array(upper_out, result64, digest_size / 8 / 2);
+		cpu_to_be64_array(lower_out, result64 + digest_size / 8 / 2, digest_size / 8 / 2);
 		break;
 	default:
 		dev_err(sa_k3_dev, "%s: bad digest_size=%d\n", __func__,
@@ -410,21 +420,21 @@ static int sa_export_shash(struct shash_desc *hash, int digest_size,
 		return -EINVAL;
 	}
 
-	cpu_to_be32_array(out, result, digest_size / 4);
 
 	return ret;
 }
 
 static int sa_prepare_iopads(struct algo_data *data, const u8 *key,
-			      u16 key_sz, __be32 *ipad, __be32 *opad)
+			     u16 key_sz, __be32 *lower_ipad, __be32 *lower_opad,
+			     __be32 *upper_ipad, __be32 *upper_opad)
 {
 	SHASH_DESC_ON_STACK(shash, data->ctx->shash);
 	int block_size = crypto_shash_blocksize(data->ctx->shash);
 	int digest_size = crypto_shash_digestsize(data->ctx->shash);
 	int ret = 0;
 	int i = 0;
-	u8 k_ipad[SHA1_BLOCK_SIZE];
-	u8 k_opad[SHA1_BLOCK_SIZE];
+	u8 k_ipad[SHA512_BLOCK_SIZE];
+	u8 k_opad[SHA512_BLOCK_SIZE];
 
 	if (fips_enabled && (key_sz < 112 / 8))
 		return -EINVAL;
@@ -450,6 +460,11 @@ static int sa_prepare_iopads(struct algo_data *data, const u8 *key,
 		k_opad[i] ^= HMAC_OPAD_VALUE;
 	}
 
+	memset(lower_ipad, 0, digest_size / 2);
+	memset(lower_opad, 0, digest_size / 2);
+	memset(upper_ipad, 0, digest_size / 2);
+	memset(upper_opad, 0, digest_size / 2);
+
 	ret = crypto_shash_init(shash);
 	if (ret) {
 		dev_err(sa_k3_dev, "%s: %d: crypto_shash_init for ipad failed, ret=%d\n",
@@ -462,7 +477,7 @@ static int sa_prepare_iopads(struct algo_data *data, const u8 *key,
 			__func__, __LINE__, ret);
 		return ret;
 	}
-	ret = sa_export_shash(shash, digest_size, ipad);
+	ret = sa_export_shash(shash, digest_size, lower_ipad, upper_ipad);
 	if (ret) {
 		dev_err(sa_k3_dev, "%s: %d: sa_export_shash for ipad failed, ret=%d\n",
 			__func__, __LINE__, ret);
@@ -481,7 +496,7 @@ static int sa_prepare_iopads(struct algo_data *data, const u8 *key,
 			__func__, __LINE__, ret);
 		return ret;
 	}
-	ret = sa_export_shash(shash, digest_size, opad);
+	ret = sa_export_shash(shash, digest_size, lower_opad, upper_opad);
 	if (ret) {
 		dev_err(sa_k3_dev, "%s: %d: sa_export_shash for opad failed, ret=%d\n",
 			__func__, __LINE__, ret);
@@ -564,8 +579,10 @@ static int sa_set_sc_enc(struct algo_data *ad, const u8 *key, u16 key_sz,
 static int sa_set_sc_auth(struct algo_data *ad, const u8 *key, u16 key_sz,
 			   u8 *sc_buf)
 {
-	__be32 *ipad = (void *)(sc_buf + 32);
-	__be32 *opad = (void *)(sc_buf + 64);
+	__be32 *lower_ipad = (void *)(sc_buf + 32);
+	__be32 *lower_opad = (void *)(sc_buf + 64);
+	__be32 *upper_ipad = (void *)(sc_buf + 96);
+	__be32 *upper_opad = (void *)(sc_buf + 128);
 	int ret = 0;
 
 	/* Set Authentication mode selector to hash processing */
@@ -576,7 +593,8 @@ static int sa_set_sc_auth(struct algo_data *ad, const u8 *key, u16 key_sz,
 
 	/* Copy the keys or ipad/opad */
 	if (ad->keyed_mac) {
-		ret = ad->prep_iopad(ad, key, key_sz, ipad, opad);
+		ret = ad->prep_iopad(ad, key, key_sz, lower_ipad,
+				lower_opad, upper_ipad, upper_opad);
 		if (ret) {
 			dev_err(sa_k3_dev, "%s: %d: sa_prepare_iopads failed, ret=%d\n",
 				__func__, __LINE__, ret);
