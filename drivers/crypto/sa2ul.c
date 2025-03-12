@@ -407,6 +407,14 @@ static int sa_export_shash(void *state, struct shash_desc *hash,
 	u32 *result;
 	int ret = 0;
 
+	/* Export the intermediate digest to program into SA2UL */
+	ret = crypto_shash_export(hash, state);
+	if (ret) {
+		dev_err(sa_k3_dev, "%s: crypto_shash_export failed\n",
+			__func__);
+		return ret;
+	}
+
 	switch (digest_size) {
 	case SHA1_DIGEST_SIZE:
 		sha1 = state;
@@ -420,13 +428,6 @@ static int sa_export_shash(void *state, struct shash_desc *hash,
 		dev_err(sa_k3_dev, "%s: bad digest_size=%d\n", __func__,
 			digest_size);
 		return -EINVAL;
-	}
-
-	ret = crypto_shash_export(hash, state);
-	if (ret) {
-		dev_err(sa_k3_dev, "%s: crypto_shash_export failed\n",
-			__func__);
-		return ret;
 	}
 
 	cpu_to_be32_array(out, result, digest_size / 4);
