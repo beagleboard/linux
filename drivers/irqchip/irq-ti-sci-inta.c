@@ -64,6 +64,7 @@ struct ti_sci_inta_event_desc {
  * @events:		Array of event descriptors assigned to this vint.
  * @parent_virq:	Linux IRQ number that gets attached to parent
  * @vint_id:		TISCI vint ID
+ * @affinity_managed:	flag to indicate VINT affinity is managed
  */
 struct ti_sci_inta_vint_desc {
 	struct irq_domain *domain;
@@ -72,6 +73,7 @@ struct ti_sci_inta_vint_desc {
 	struct ti_sci_inta_event_desc events[MAX_EVENTS_PER_VINT];
 	unsigned int parent_virq;
 	u16 vint_id;
+	bool affinity_managed;
 };
 
 /**
@@ -335,6 +337,8 @@ static struct ti_sci_inta_event_desc *ti_sci_inta_alloc_irq(struct irq_domain *d
 	vint_id = ti_sci_get_free_resource(inta->vint);
 	if (vint_id == TI_SCI_RESOURCE_NULL) {
 		list_for_each_entry(vint_desc, &inta->vint_list, list) {
+			if (vint_desc->affinity_managed)
+				continue;
 			free_bit = find_first_zero_bit(vint_desc->event_map,
 						       MAX_EVENTS_PER_VINT);
 			if (free_bit != MAX_EVENTS_PER_VINT) {
@@ -437,6 +441,7 @@ static int ti_sci_inta_request_resources(struct irq_data *data)
 		return PTR_ERR(event_desc);
 
 	data->chip_data = event_desc;
+	irq_data_update_effective_affinity(data, cpu_online_mask);
 
 	return 0;
 }
@@ -507,11 +512,48 @@ static void ti_sci_inta_ack_irq(struct irq_data *data)
 		ti_sci_inta_manage_event(data, VINT_STATUS_OFFSET);
 }
 
+#ifdef CONFIG_SMP
+static int ti_sci_inta_set_affinity(struct irq_data *d,
+				    const struct cpumask *mask_val, bool force)
+{
+	struct ti_sci_inta_event_desc *event_desc;
+	struct ti_sci_inta_vint_desc *vint_desc;
+	struct irq_data *parent_irq_data;
+
+	if (cpumask_equal(irq_data_get_effective_affinity_mask(d), mask_val))
+		return 0;
+
+	event_desc = irq_data_get_irq_chip_data(d);
+	if (event_desc) {
+		vint_desc = to_vint_desc(event_desc, event_desc->vint_bit);
+		parent_irq_data = irq_get_irq_data(vint_desc->parent_virq);
+
+		if (!parent_irq_data || !parent_irq_data->chip->irq_set_affinity)
+			return -EINVAL;
+
+		/*
+		 * Cannot set affinity if there is more than one event
+		 * mapped to same VINT
+		 */
+		if (bitmap_weight(vint_desc->event_map, MAX_EVENTS_PER_VINT) > 1)
+			return -EINVAL;
+
+		vint_desc->affinity_managed = true;
+
+		irq_data_update_effective_affinity(d, mask_val);
+
+		return parent_irq_data->chip->irq_set_affinity(parent_irq_data, mask_val, force);
+	}
+
+	return -EINVAL;
+}
+#else
 static int ti_sci_inta_set_affinity(struct irq_data *d,
 				    const struct cpumask *mask_val, bool force)
 {
 	return -EINVAL;
 }
+#endif
 
 /**
  * ti_sci_inta_set_type() - Update the trigger type of the irq.
