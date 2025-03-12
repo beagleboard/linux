@@ -136,7 +136,7 @@ struct algo_data {
 	bool inv_key;
 	struct sa_tfm_ctx *ctx;
 	bool keyed_mac;
-	void (*prep_iopad)(struct algo_data *algo, const u8 *key,
+	int (*prep_iopad)(struct algo_data *algo, const u8 *key,
 			   u16 key_sz, __be32 *ipad, __be32 *opad);
 };
 
@@ -399,12 +399,13 @@ static void prepare_kopad(u8 *k_opad, const u8 *key, u16 key_sz)
 		k_opad[i] = 0x5c;
 }
 
-static void sa_export_shash(void *state, struct shash_desc *hash,
+static int sa_export_shash(void *state, struct shash_desc *hash,
 			    int digest_size, __be32 *out)
 {
 	struct sha1_state *sha1;
 	struct sha256_state *sha256;
 	u32 *result;
+	int ret = 0;
 
 	switch (digest_size) {
 	case SHA1_DIGEST_SIZE:
@@ -418,20 +419,29 @@ static void sa_export_shash(void *state, struct shash_desc *hash,
 	default:
 		dev_err(sa_k3_dev, "%s: bad digest_size=%d\n", __func__,
 			digest_size);
-		return;
+		return -EINVAL;
 	}
 
-	crypto_shash_export(hash, state);
+	ret = crypto_shash_export(hash, state);
+	if (ret) {
+		dev_err(sa_k3_dev, "%s: crypto_shash_export failed\n",
+			__func__);
+		return ret;
+	}
 
 	cpu_to_be32_array(out, result, digest_size / 4);
+
+	return ret;
 }
 
-static void sa_prepare_iopads(struct algo_data *data, const u8 *key,
+static int sa_prepare_iopads(struct algo_data *data, const u8 *key,
 			      u16 key_sz, __be32 *ipad, __be32 *opad)
 {
 	SHASH_DESC_ON_STACK(shash, data->ctx->shash);
 	int block_size = crypto_shash_blocksize(data->ctx->shash);
 	int digest_size = crypto_shash_digestsize(data->ctx->shash);
+	int ret = 0;
+
 	union {
 		struct sha1_state sha1;
 		struct sha256_state sha256;
@@ -442,18 +452,49 @@ static void sa_prepare_iopads(struct algo_data *data, const u8 *key,
 
 	prepare_kipad(sha.k_pad, key, key_sz);
 
-	crypto_shash_init(shash);
-	crypto_shash_update(shash, sha.k_pad, block_size);
-	sa_export_shash(&sha, shash, digest_size, ipad);
+	ret = crypto_shash_init(shash);
+	if (ret) {
+		dev_err(sa_k3_dev, "%s: %d: crypto_shash_init for ipad failed, ret=%d\n",
+			__func__, __LINE__, ret);
+		return ret;
+	}
+	ret = crypto_shash_update(shash, sha.k_pad, block_size);
+	if (ret) {
+		dev_err(sa_k3_dev, "%s: %d: crypto_shash_update for ipad failed, ret=%d\n",
+			__func__, __LINE__, ret);
+		return ret;
+	}
+	ret = sa_export_shash(&sha, shash, digest_size, ipad);
+	if (ret) {
+		dev_err(sa_k3_dev, "%s: %d: sa_export_shash for ipad failed, ret=%d\n",
+			__func__, __LINE__, ret);
+		return ret;
+	}
 
 	prepare_kopad(sha.k_pad, key, key_sz);
 
-	crypto_shash_init(shash);
-	crypto_shash_update(shash, sha.k_pad, block_size);
-
-	sa_export_shash(&sha, shash, digest_size, opad);
+	ret = crypto_shash_init(shash);
+	if (ret) {
+		dev_err(sa_k3_dev, "%s: %d: crypto_shash_init for opad failed, ret=%d\n",
+			__func__, __LINE__, ret);
+		return ret;
+	}
+	ret = crypto_shash_update(shash, sha.k_pad, block_size);
+	if (ret) {
+		dev_err(sa_k3_dev, "%s: %d: crypto_shash_update for opad failed, ret=%d\n",
+			__func__, __LINE__, ret);
+		return ret;
+	}
+	ret = sa_export_shash(&sha, shash, digest_size, opad);
+	if (ret) {
+		dev_err(sa_k3_dev, "%s: %d: sa_export_shash for opad failed, ret=%d\n",
+			__func__, __LINE__, ret);
+		return ret;
+	}
 
 	memzero_explicit(&sha, sizeof(sha));
+
+	return ret;
 }
 
 /* Derive the inverse key used in AES-CBC decryption operation */
@@ -523,11 +564,12 @@ static int sa_set_sc_enc(struct algo_data *ad, const u8 *key, u16 key_sz,
 }
 
 /* Set Security context for the authentication engine */
-static void sa_set_sc_auth(struct algo_data *ad, const u8 *key, u16 key_sz,
+static int sa_set_sc_auth(struct algo_data *ad, const u8 *key, u16 key_sz,
 			   u8 *sc_buf)
 {
 	__be32 *ipad = (void *)(sc_buf + 32);
 	__be32 *opad = (void *)(sc_buf + 64);
+	int ret = 0;
 
 	/* Set Authentication mode selector to hash processing */
 	sc_buf[0] = SA_HASH_PROCESSING;
@@ -536,12 +578,20 @@ static void sa_set_sc_auth(struct algo_data *ad, const u8 *key, u16 key_sz,
 	sc_buf[1] |= ad->auth_ctrl;
 
 	/* Copy the keys or ipad/opad */
-	if (ad->keyed_mac)
-		ad->prep_iopad(ad, key, key_sz, ipad, opad);
+	if (ad->keyed_mac) {
+		ret = ad->prep_iopad(ad, key, key_sz, ipad, opad);
+		if (ret) {
+			dev_err(sa_k3_dev, "%s: %d: sa_prepare_iopads failed, ret=%d\n",
+				__func__, __LINE__, ret);
+			return ret;
+		}
+	}
 	else {
 		/* basic hash */
 		sc_buf[1] |= SA_BASIC_HASH;
 	}
+
+	return 0;
 }
 
 static inline void sa_copy_iv(__be32 *out, const u8 *iv, bool size16)
@@ -717,6 +767,7 @@ int sa_init_sc(struct sa_ctx_info *ctx, const struct sa_match_data *match_data,
 	u8 *sc_buf = ctx->sc;
 	u16 sc_id = ctx->sc_id;
 	u8 first_engine = 0;
+	int ret = 0;
 
 	memzero_explicit(sc_buf, SA_CTX_MAX_SZ);
 
@@ -756,9 +807,15 @@ int sa_init_sc(struct sa_ctx_info *ctx, const struct sa_match_data *match_data,
 	}
 
 	/* Prepare context for authentication engine */
-	if (ad->auth_eng.sc_size)
-		sa_set_sc_auth(ad, auth_key, auth_key_sz,
+	if (ad->auth_eng.sc_size) {
+		ret = sa_set_sc_auth(ad, auth_key, auth_key_sz,
 			       &sc_buf[auth_sc_offset]);
+		if (ret) {
+			dev_err(sa_k3_dev, "%s: Error in setting authentication context\n",
+					__func__);
+			return ret;
+		}
+	}
 
 	/* Set the ownership of context to CP_ACE */
 	sc_buf[SA_CTX_SCCTL_OWNER_OFFSET] = 0x80;
