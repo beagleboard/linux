@@ -60,6 +60,7 @@
 #define UB960_MAX_RX_NPORTS	4
 #define UB960_MAX_TX_NPORTS	2
 #define UB960_MAX_NPORTS	(UB960_MAX_RX_NPORTS + UB960_MAX_TX_NPORTS)
+#define UB960_MAX_VC		4
 
 #define UB960_MAX_PORT_ALIASES	8
 
@@ -2320,40 +2321,78 @@ static void ub960_rxport_handle_events(struct ub960_data *priv, u8 nport)
  */
 
 /*
- * The current implementation only supports a simple VC mapping, where all VCs
- * from a one RX port will be mapped to the same VC. Also, the hardware
- * dictates that all streams from an RX port must go to a single TX port.
+ * Map incoming streams with different virtual channels from 1-4 sensors to
+ * unique VCs on CSI TX0. Sensors using multiple VCs will work, but due to
+ * limited total channels (4) this will reduce the total number of sensors that
+ * can work simultaneously.
  *
- * This function decides the target VC numbers for each RX port with a simple
- * algorithm, so that for each TX port, we get VC numbers starting from 0,
- * and counting up.
- *
- * E.g. if all four RX ports are in use, of which the first two go to the
- * first TX port and the secont two go to the second TX port, we would get
- * the following VCs for the four RX ports: 0, 1, 0, 1.
+ * The current implementation is limited to using a single CSI TX port (TX0),
+ * as that is the most common HW configuration found on boards with DS90UB960.
+ * For using both CSI TX0 & TX1 the below method will need significant changes.
  *
  * TODO: implement a more sophisticated VC mapping. As the driver cannot know
  * what VCs the sinks expect (say, an FPGA with hardcoded VC routing), this
  * probably needs to be somehow configurable. Device tree?
  */
-static void ub960_get_vc_maps(struct ub960_data *priv,
-			      struct v4l2_subdev_state *state, u8 *vc)
+static void ub960_get_vc_maps(struct ub960_data *priv, u8 *vc_map)
 {
-	u8 cur_vc[UB960_MAX_TX_NPORTS] = {};
-	struct v4l2_subdev_route *route;
-	u8 handled_mask = 0;
+	struct device *dev = &priv->client->dev;
+	u8 nport, available_vc = 0;
 
-	for_each_active_route(&state->routing, route) {
-		unsigned int rx, tx;
+	for (nport = 0;
+	     nport < priv->hw_data->num_rxports && priv->rxports[nport];
+	     ++nport) {
+		struct v4l2_mbus_frame_desc source_fd;
+		bool used_vc[UB960_MAX_VC] = {false};
+		u8 vc, cur_vc = available_vc;
+		int j, ret;
+		u8 map;
 
-		rx = ub960_pad_to_port(priv, route->sink_pad);
-		if (BIT(rx) & handled_mask)
+		ret = v4l2_subdev_call(priv->rxports[nport]->source.sd, pad,
+				       get_frame_desc,
+				       priv->rxports[nport]->source.pad,
+				       &source_fd);
+		/* Mark channels used in source in used_vc[] */
+		if (!ret) {
+			for (j = 0; j < source_fd.num_entries; ++j) {
+				u8 source_vc = source_fd.entry[j].bus.csi2.vc;
+
+				if (source_vc < UB960_MAX_VC)
+					used_vc[source_vc] = true;
+			}
+		} else if (ret == -ENOIOCTLCMD) {
+			/* assume VC=0 is used if sensor driver doesn't provide info */
+			used_vc[0] = true;
+		} else {
 			continue;
+		}
 
-		tx = ub960_pad_to_port(priv, route->source_pad);
+		/* Start with all channels mapped to first free output */
+		map = (cur_vc << 6) | (cur_vc << 4) | (cur_vc << 2) |
+			(cur_vc << 0);
 
-		vc[rx] = cur_vc[tx]++;
-		handled_mask |= BIT(rx);
+		/* Map actually used to channels to distinct free outputs */
+		for (vc = 0; vc < UB960_MAX_VC; ++vc) {
+			if (used_vc[vc]) {
+				map &= ~(0x03 << (2 * vc));
+				map |= (cur_vc << (2 * vc));
+				++cur_vc;
+			}
+		}
+
+		/* Don't enable port if we ran out of available channels */
+		if (cur_vc > UB960_MAX_VC) {
+			dev_err(dev,
+				"No VCs available for RX port %d\n",
+				nport);
+			continue;
+		}
+
+		/* Enable port and update map */
+		vc_map[nport] = map;
+		available_vc = cur_vc;
+		dev_dbg(dev, "%s: VC map for port %d is 0x%02x",
+			__func__, nport, map);
 	}
 }
 
@@ -2401,51 +2440,6 @@ static void ub960_disable_rx_port(struct ub960_data *priv, unsigned int nport)
 			  UB960_SR_FWD_CTL1_PORT_DIS(nport));
 }
 
-/*
- * The driver only supports using a single VC for each source. This function
- * checks that each source only provides streams using a single VC.
- */
-static int ub960_validate_stream_vcs(struct ub960_data *priv)
-{
-	unsigned int nport;
-	unsigned int i;
-
-	for (nport = 0; nport < priv->hw_data->num_rxports; nport++) {
-		struct ub960_rxport *rxport = priv->rxports[nport];
-		struct v4l2_mbus_frame_desc desc;
-		int ret;
-		u8 vc;
-
-		if (!rxport)
-			continue;
-
-		ret = v4l2_subdev_call(rxport->source.sd, pad, get_frame_desc,
-				       rxport->source.pad, &desc);
-		if (ret)
-			return ret;
-
-		if (desc.type != V4L2_MBUS_FRAME_DESC_TYPE_CSI2)
-			continue;
-
-		if (desc.num_entries == 0)
-			continue;
-
-		vc = desc.entry[0].bus.csi2.vc;
-
-		for (i = 1; i < desc.num_entries; i++) {
-			if (vc == desc.entry[i].bus.csi2.vc)
-				continue;
-
-			dev_err(&priv->client->dev,
-				"rx%u: source with multiple virtual-channels is not supported\n",
-				nport);
-			return -ENODEV;
-		}
-	}
-
-	return 0;
-}
-
 static int ub960_configure_ports_for_streaming(struct ub960_data *priv,
 					       struct v4l2_subdev_state *state)
 {
@@ -2462,11 +2456,7 @@ static int ub960_configure_ports_for_streaming(struct ub960_data *priv,
 	unsigned int nport;
 	int ret;
 
-	ret = ub960_validate_stream_vcs(priv);
-	if (ret)
-		return ret;
-
-	ub960_get_vc_maps(priv, state, vc_map);
+	ub960_get_vc_maps(priv, vc_map);
 
 	for_each_active_route(&state->routing, route) {
 		struct ub960_rxport *rxport;
@@ -2523,7 +2513,6 @@ static int ub960_configure_ports_for_streaming(struct ub960_data *priv,
 
 	for (nport = 0; nport < priv->hw_data->num_rxports; nport++) {
 		struct ub960_rxport *rxport = priv->rxports[nport];
-		u8 vc = vc_map[nport];
 
 		if (rx_data[nport].num_streams == 0)
 			continue;
@@ -2531,7 +2520,7 @@ static int ub960_configure_ports_for_streaming(struct ub960_data *priv,
 		switch (rxport->rx_mode) {
 		case RXPORT_MODE_RAW10:
 			ub960_rxport_write(priv, nport, UB960_RR_RAW10_ID,
-				rx_data[nport].pixel_dt | (vc << UB960_RR_RAW10_ID_VC_SHIFT));
+				rx_data[nport].pixel_dt | (nport << UB960_RR_RAW10_ID_VC_SHIFT));
 
 			ub960_rxport_write(priv, rxport->nport,
 				UB960_RR_RAW_EMBED_DTYPE,
@@ -2548,12 +2537,9 @@ static int ub960_configure_ports_for_streaming(struct ub960_data *priv,
 		case RXPORT_MODE_CSI2_SYNC:
 		case RXPORT_MODE_CSI2_NONSYNC:
 			if (!priv->hw_data->is_ub9702) {
-				/* Map all VCs from this port to the same VC */
-				ub960_rxport_write(priv, nport, UB960_RR_CSI_VC_MAP,
-						   (vc << UB960_RR_CSI_VC_MAP_SHIFT(3)) |
-						   (vc << UB960_RR_CSI_VC_MAP_SHIFT(2)) |
-						   (vc << UB960_RR_CSI_VC_MAP_SHIFT(1)) |
-						   (vc << UB960_RR_CSI_VC_MAP_SHIFT(0)));
+				ub960_rxport_write(priv, nport,
+						   UB960_RR_CSI_VC_MAP,
+						   vc_map[nport]);
 			} else {
 				unsigned int i;
 
@@ -2810,6 +2796,11 @@ static int ub960_set_routing(struct v4l2_subdev *sd,
 	return _ub960_set_routing(sd, state, routing);
 }
 
+static inline u8 ub960_get_output_vc(u8 map, u8 input_vc)
+{
+	return (map >> (2 * input_vc)) & 0x03;
+}
+
 static int ub960_get_frame_desc(struct v4l2_subdev *sd, unsigned int pad,
 				struct v4l2_mbus_frame_desc *fd)
 {
@@ -2827,7 +2818,7 @@ static int ub960_get_frame_desc(struct v4l2_subdev *sd, unsigned int pad,
 
 	state = v4l2_subdev_lock_and_get_active_state(&priv->sd);
 
-	ub960_get_vc_maps(priv, state, vc_map);
+	ub960_get_vc_maps(priv, vc_map);
 
 	for_each_active_route(&state->routing, route) {
 		struct v4l2_mbus_frame_desc_entry *source_entry = NULL;
@@ -2870,7 +2861,12 @@ static int ub960_get_frame_desc(struct v4l2_subdev *sd, unsigned int pad,
 		fd->entry[fd->num_entries].length = source_entry->length;
 		fd->entry[fd->num_entries].pixelcode = source_entry->pixelcode;
 
-		fd->entry[fd->num_entries].bus.csi2.vc = vc_map[nport];
+		fd->entry[fd->num_entries].bus.csi2.vc =
+			ub960_get_output_vc(vc_map[nport],
+					    source_entry->bus.csi2.vc);
+		dev_dbg(dev, "Mapping sink %d/%d to output VC %d",
+			route->sink_pad, route->sink_stream,
+			fd->entry[fd->num_entries].bus.csi2.vc);
 
 		if (source_fd.type == V4L2_MBUS_FRAME_DESC_TYPE_CSI2) {
 			fd->entry[fd->num_entries].bus.csi2.dt =
