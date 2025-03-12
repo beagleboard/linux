@@ -447,6 +447,10 @@ dtb-$(CONFIG_ARCH_K3) += k3-fpdlink-imx390-cm-0-0.dtbo \
 			 k3-fpdlink-imx390-rcm-2-1.dtbo \
 			 k3-fpdlink-imx390-rcm-2-2.dtbo \
 			 k3-fpdlink-imx390-rcm-2-3.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-fpdlink-ov2312-0-0.dtbo \
+			 k3-fpdlink-ov2312-0-1.dtbo \
+			 k3-fpdlink-ov2312-0-2.dtbo \
+			 k3-fpdlink-ov2312-0-3.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-v3link-imx219-0-0.dtbo \
 			 k3-v3link-imx219-0-1.dtbo \
 			 k3-v3link-imx219-0-2.dtbo \
