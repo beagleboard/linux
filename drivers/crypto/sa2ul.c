@@ -1495,14 +1495,31 @@ static int sa_sha_digest(struct ahash_request *req)
 	return sa_run(&sa_req);
 }
 
-static int sa_sha_setup(struct sa_tfm_ctx *ctx, struct  algo_data *ad)
+static int sa_sha_setup(struct sa_tfm_ctx *ctx, struct algo_data *ad,
+		const u8 *key, u8 key_sz)
 {
 	int cmdl_len;
 	struct sa_cmdl_cfg cfg;
+	int ret;
 
+	ad->ctx = ctx;
 	ad->enc_eng.sc_size = SA_CTX_ENC_TYPE1_SZ;
 	ad->auth_eng.eng_id = SA_ENG_ID_AM1;
 	ad->auth_eng.sc_size = SA_CTX_AUTH_TYPE2_SZ;
+
+	if (key_sz) {
+		/* Initialize fallback setkey */
+		ret = crypto_ahash_setkey(ad->ctx->fallback.ahash,
+				key, key_sz);
+		if (ret) {
+			dev_err(sa_k3_dev, "%s: Failed to set fallback.ahash setkey=%d",
+					__func__, ret);
+			return ret;
+		}
+
+		ad->keyed_mac = true;
+		ad->prep_iopad = sa_prepare_iopads;
+	}
 
 	memset(&cfg, 0, sizeof(cfg));
 	cfg.enc_eng_id = ad->enc_eng.eng_id;
@@ -1511,8 +1528,8 @@ static int sa_sha_setup(struct sa_tfm_ctx *ctx, struct  algo_data *ad)
 
 	ctx->dev_data = dev_get_drvdata(sa_k3_dev);
 	/* Setup Encryption Security Context & Command label template */
-	if (sa_init_sc(&ctx->enc, ctx->dev_data->match_data, NULL, 0, NULL, 0,
-		       ad, 0, &ctx->enc.epib[1]))
+	if (sa_init_sc(&ctx->enc, ctx->dev_data->match_data, NULL, 0, key,
+			key_sz, ad, 0, &ctx->enc.epib[1]))
 		goto badkey;
 
 	cmdl_len = sa_format_cmdl_gen(&cfg,
@@ -1679,7 +1696,7 @@ static int sa_sha1_cra_init(struct crypto_tfm *tfm)
 	ad.hash_size = SHA1_DIGEST_SIZE;
 	ad.auth_ctrl = SA_AUTH_SW_CTRL_SHA1;
 
-	sa_sha_setup(ctx, &ad);
+	sa_sha_setup(ctx, &ad, NULL, 0);
 
 	return 0;
 }
@@ -1695,7 +1712,7 @@ static int sa_sha256_cra_init(struct crypto_tfm *tfm)
 	ad.hash_size = SHA256_DIGEST_SIZE;
 	ad.auth_ctrl = SA_AUTH_SW_CTRL_SHA256;
 
-	sa_sha_setup(ctx, &ad);
+	sa_sha_setup(ctx, &ad, NULL, 0);
 
 	return 0;
 }
@@ -1711,7 +1728,7 @@ static int sa_sha512_cra_init(struct crypto_tfm *tfm)
 	ad.hash_size = SHA512_DIGEST_SIZE;
 	ad.auth_ctrl = SA_AUTH_SW_CTRL_SHA512;
 
-	sa_sha_setup(ctx, &ad);
+	sa_sha_setup(ctx, &ad, NULL, 0);
 
 	return 0;
 }
