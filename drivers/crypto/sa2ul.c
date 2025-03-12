@@ -83,6 +83,8 @@ enum sa_algo_id {
 	SA_ALG_SHA512,
 	SA_ALG_AUTHENC_SHA1_AES,
 	SA_ALG_AUTHENC_SHA256_AES,
+	SA_ALG_HMAC_SHA1,
+	SA_ALG_HMAC_SHA256,
 };
 
 struct sa_match_data {
@@ -1708,6 +1710,52 @@ static int sa_sha512_cra_init(struct crypto_tfm *tfm)
 	return 0;
 }
 
+static int sa_hmac_cra_init(struct crypto_tfm *tfm)
+{
+	const char *alg_name = crypto_tfm_alg_name(tfm);
+	int ret = -EINVAL;
+
+	if (!strcmp(alg_name, "hmac(sha1)"))
+		ret = sa_sha_cra_init_alg(tfm, "sha1", alg_name);
+	else if (!strcmp(alg_name, "hmac(sha256)"))
+		ret = sa_sha_cra_init_alg(tfm, "sha256", alg_name);
+	else if (!strcmp(alg_name, "hmac(sha512)"))
+		ret = sa_sha_cra_init_alg(tfm, "sha512", alg_name);
+	else
+		dev_err(sa_k3_dev, "%s: unsupported algo %s\n", __func__, alg_name);
+
+	return ret;
+}
+
+
+static int sa_hmac_sha_setkey(struct crypto_ahash *ahash, const u8 *key,
+			     unsigned int keylen)
+{
+	struct crypto_tfm *tfm = crypto_ahash_tfm(ahash);
+	const char *alg_name = crypto_tfm_alg_name(tfm);
+	struct sa_tfm_ctx *ctx = crypto_tfm_ctx(tfm);
+	struct algo_data ad = { 0 };
+
+	if (!strcmp(alg_name, "hmac(sha1)")) {
+		ad.aalg_id = SA_AALG_ID_SHA1;
+		ad.hash_size = SHA1_DIGEST_SIZE;
+		ad.auth_ctrl = SA_AUTH_SW_CTRL_SHA1;
+	} else if (!strcmp(alg_name, "hmac(sha256)")) {
+		ad.aalg_id = SA_AALG_ID_SHA2_256;
+		ad.hash_size = SHA256_DIGEST_SIZE;
+		ad.auth_ctrl = SA_AUTH_SW_CTRL_SHA256;
+	} else if (!strcmp(alg_name, "hmac(sha512)")) {
+		ad.aalg_id = SA_AALG_ID_SHA2_512;
+		ad.hash_size = SHA512_DIGEST_SIZE;
+		ad.auth_ctrl = SA_AUTH_SW_CTRL_SHA512;
+	} else {
+		dev_err(sa_k3_dev, "%s: unsupported algo %s\n", __func__, alg_name);
+		return -EINVAL;
+	}
+
+	return sa_sha_setup(ctx, &ad, key, keylen);
+}
+
 static void sa_sha_cra_exit(struct crypto_tfm *tfm)
 {
 	struct sa_tfm_ctx *ctx = crypto_tfm_ctx(tfm);
@@ -2234,6 +2282,66 @@ static struct sa_alg_tmpl sa_algs[] = {
 			.decrypt = sa_aead_decrypt,
 		},
 	},
+	[SA_ALG_HMAC_SHA256] = {
+		.type = CRYPTO_ALG_TYPE_AHASH,
+		.alg.ahash = {
+		       .halg.base = {
+			       .cra_name       = "hmac(sha256)",
+			       .cra_driver_name        = "hmac(sha256-sa2ul)",
+			       .cra_priority   = 1000,
+			       .cra_flags      = CRYPTO_ALG_TYPE_AHASH |
+						 CRYPTO_ALG_ASYNC |
+						 CRYPTO_ALG_KERN_DRIVER_ONLY |
+						 CRYPTO_ALG_NEED_FALLBACK,
+			       .cra_blocksize  = SHA256_BLOCK_SIZE,
+			       .cra_ctxsize    = sizeof(struct sa_tfm_ctx),
+			       .cra_module     = THIS_MODULE,
+			       .cra_init       = sa_hmac_cra_init,
+			       .cra_exit       = sa_sha_cra_exit,
+		       },
+		       .halg.digestsize        = SHA256_DIGEST_SIZE,
+		       .halg.statesize	       = sizeof(struct sa_sha_req_ctx) +
+						 sizeof(struct sha256_state),
+		       .init		       = sa_sha_init,
+		       .update		       = sa_sha_update,
+		       .final		       = sa_sha_final,
+		       .finup		       = sa_sha_finup,
+		       .setkey		       = sa_hmac_sha_setkey,
+		       .digest		       = sa_sha_digest,
+		       .export		       = sa_sha_export,
+		       .import		       = sa_sha_import,
+	       },
+	},
+	[SA_ALG_HMAC_SHA1] = {
+		.type = CRYPTO_ALG_TYPE_AHASH,
+		.alg.ahash = {
+			.halg.base = {
+				.cra_name	= "hmac(sha1)",
+				.cra_driver_name	= "hmac(sha1-sa2ul)",
+				.cra_priority	= 400,
+				.cra_flags	= CRYPTO_ALG_TYPE_AHASH |
+						  CRYPTO_ALG_ASYNC |
+						  CRYPTO_ALG_KERN_DRIVER_ONLY |
+						  CRYPTO_ALG_NEED_FALLBACK,
+				.cra_blocksize	= SHA1_BLOCK_SIZE,
+				.cra_ctxsize	= sizeof(struct sa_tfm_ctx),
+				.cra_module	= THIS_MODULE,
+				.cra_init	= sa_hmac_cra_init,
+				.cra_exit	= sa_sha_cra_exit,
+			},
+			.halg.digestsize	= SHA1_DIGEST_SIZE,
+			.halg.statesize		= sizeof(struct sa_sha_req_ctx) +
+						  sizeof(struct sha1_state),
+			.init			= sa_sha_init,
+			.update			= sa_sha_update,
+			.final			= sa_sha_final,
+			.finup			= sa_sha_finup,
+			.setkey		        = sa_hmac_sha_setkey,
+			.digest			= sa_sha_digest,
+			.export			= sa_sha_export,
+			.import			= sa_sha_import,
+		},
+	}
 };
 
 /* Register the algorithms in crypto framework */
@@ -2406,7 +2514,9 @@ static struct sa_match_data am654_match_data = {
 			   BIT(SA_ALG_SHA256) |
 			   BIT(SA_ALG_SHA512) |
 			   BIT(SA_ALG_AUTHENC_SHA1_AES) |
-			   BIT(SA_ALG_AUTHENC_SHA256_AES),
+			   BIT(SA_ALG_AUTHENC_SHA256_AES) |
+			   BIT(SA_ALG_HMAC_SHA1) |
+			   BIT(SA_ALG_HMAC_SHA256),
 };
 
 static struct sa_match_data am64_match_data = {
