@@ -1423,28 +1423,6 @@ static void sa_sha_dma_in_callback(void *data)
 	ahash_request_complete(req, 0);
 }
 
-static int zero_message_process(struct ahash_request *req)
-{
-	struct crypto_ahash *tfm = crypto_ahash_reqtfm(req);
-	int sa_digest_size = crypto_ahash_digestsize(tfm);
-
-	switch (sa_digest_size) {
-	case SHA1_DIGEST_SIZE:
-		memcpy(req->result, sha1_zero_message_hash, sa_digest_size);
-		break;
-	case SHA256_DIGEST_SIZE:
-		memcpy(req->result, sha256_zero_message_hash, sa_digest_size);
-		break;
-	case SHA512_DIGEST_SIZE:
-		memcpy(req->result, sha512_zero_message_hash, sa_digest_size);
-		break;
-	default:
-		return -EINVAL;
-	}
-
-	return 0;
-}
-
 static int sa_sha_digest(struct ahash_request *req)
 {
 	struct sa_tfm_ctx *ctx = crypto_ahash_ctx(crypto_ahash_reqtfm(req));
@@ -1454,10 +1432,7 @@ static int sa_sha_digest(struct ahash_request *req)
 
 	auth_len = req->nbytes;
 
-	if (!auth_len)
-		return zero_message_process(req);
-
-	if (auth_len > SA_MAX_DATA_SZ ||
+	if (!auth_len || auth_len > SA_MAX_DATA_SZ ||
 	    (auth_len >= SA_UNSAFE_DATA_SZ_MIN &&
 	     auth_len <= SA_UNSAFE_DATA_SZ_MAX)) {
 		struct ahash_request *subreq = &rctx->fallback_req;
