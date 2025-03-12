@@ -1393,7 +1393,7 @@ static int zero_message_process(struct ahash_request *req)
 	return 0;
 }
 
-static int sa_sha_run(struct ahash_request *req)
+static int sa_sha_digest(struct ahash_request *req)
 {
 	struct sa_tfm_ctx *ctx = crypto_ahash_ctx(crypto_ahash_reqtfm(req));
 	struct sa_sha_req_ctx *rctx = ahash_request_ctx(req);
@@ -1518,11 +1518,6 @@ static int sa_sha_cra_init_alg(struct crypto_tfm *tfm, const char *alg_base)
 				 crypto_ahash_reqsize(ctx->fallback.ahash));
 
 	return 0;
-}
-
-static int sa_sha_digest(struct ahash_request *req)
-{
-	return sa_sha_run(req);
 }
 
 static int sa_sha_init(struct ahash_request *req)
