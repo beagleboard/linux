@@ -60,6 +60,7 @@
 #define TI_CSI2RX_MAX_PADS		(1 + TI_CSI2RX_MAX_SOURCE_PADS)
 
 #define DRAIN_BUFFER_SIZE		SZ_32K
+#define DRAIN_TIMEOUT_MS		250
 
 struct ti_csi2rx_fmt {
 	u32				fourcc;	/* Four character code. */
@@ -131,6 +132,7 @@ struct ti_csi2rx_dev {
 		dma_addr_t		paddr;
 		size_t			len;
 	} drain;
+	struct completion drain_complete;
 };
 
 static const struct ti_csi2rx_fmt ti_csi2rx_formats[] = {
@@ -675,6 +677,8 @@ static void ti_csi2rx_drain_callback(void *param)
 
 	if (dma->state == TI_CSI2RX_DMA_STOPPED) {
 		writel(0, csi->shim + SHIM_DMACNTX(ctx->idx));
+		complete(&csi->drain_complete);
+
 		spin_unlock_irqrestore(&dma->lock, flags);
 		return;
 	}
@@ -815,6 +819,7 @@ static int ti_csi2rx_start_dma(struct ti_csi2rx_ctx *ctx,
 static void ti_csi2rx_stop_dma(struct ti_csi2rx_ctx *ctx)
 {
 	struct ti_csi2rx_dma *dma = &ctx->dma;
+	struct ti_csi2rx_dev *csi = ctx->csi;
 	enum ti_csi2rx_dma_state state;
 	unsigned long flags;
 	int ret;
@@ -823,6 +828,8 @@ static void ti_csi2rx_stop_dma(struct ti_csi2rx_ctx *ctx)
 	state = ctx->dma.state;
 	dma->state = TI_CSI2RX_DMA_STOPPED;
 	spin_unlock_irqrestore(&dma->lock, flags);
+
+	init_completion(&csi->drain_complete);
 
 	if (state != TI_CSI2RX_DMA_STOPPED) {
 		/*
@@ -836,6 +843,10 @@ static void ti_csi2rx_stop_dma(struct ti_csi2rx_ctx *ctx)
 			dev_warn(ctx->csi->dev,
 				 "Failed to drain DMA. Next frame might be bogus\n");
 	}
+
+	if (!wait_for_completion_timeout(&csi->drain_complete,
+					 msecs_to_jiffies(DRAIN_TIMEOUT_MS)))
+		dev_dbg(csi->dev, "DMA transfer timed out for drain buffer\n");
 
 	ret = dmaengine_terminate_sync(ctx->dma.chan);
 	if (ret)
@@ -1047,10 +1058,13 @@ static void ti_csi2rx_stop_streaming(struct vb2_queue *vq)
 	int ret;
 
 	/* assert pixel reset to prevent stale data */
-	if (csi->enable_count == 1)
+	if (csi->enable_count == 1) {
+		writel(0, csi->shim + SHIM_DMACNTX(ctx->idx));
 		writel(0, csi->shim + SHIM_CNTL);
+	}
 
 	video_device_pipeline_stop(&ctx->vdev);
+	ti_csi2rx_stop_dma(ctx);
 
 	ret = v4l2_subdev_disable_streams(&csi->subdev,
 					  TI_CSI2RX_PAD_FIRST_SOURCE + ctx->idx,
@@ -1059,7 +1073,6 @@ static void ti_csi2rx_stop_streaming(struct vb2_queue *vq)
 	if (ret)
 		dev_err(csi->dev, "Failed to stop subdev stream\n");
 
-	ti_csi2rx_stop_dma(ctx);
 	ti_csi2rx_cleanup_buffers(ctx, VB2_BUF_STATE_ERROR);
 	pm_runtime_put(csi->dev);
 }
