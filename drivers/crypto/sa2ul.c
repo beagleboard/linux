@@ -2257,34 +2257,34 @@ static int sa_init_mem(struct sa_crypto_data *dev_data)
 	return 0;
 }
 
-static int sa_dma_init(struct sa_crypto_data *dd)
+static int sa_dma_init(struct sa_crypto_data *dev_data)
 {
 	int ret;
 	struct dma_slave_config cfg;
 
-	dd->dma_rx1 = NULL;
-	dd->dma_tx = NULL;
-	dd->dma_rx2 = NULL;
+	dev_data->dma_rx1 = NULL;
+	dev_data->dma_tx = NULL;
+	dev_data->dma_rx2 = NULL;
 
-	ret = dma_coerce_mask_and_coherent(dd->dev, DMA_BIT_MASK(48));
+	ret = dma_coerce_mask_and_coherent(dev_data->dev, DMA_BIT_MASK(48));
 	if (ret)
 		return ret;
 
-	dd->dma_rx1 = dma_request_chan(dd->dev, "rx1");
-	if (IS_ERR(dd->dma_rx1))
-		return dev_err_probe(dd->dev, PTR_ERR(dd->dma_rx1),
+	dev_data->dma_rx1 = dma_request_chan(dev_data->dev, "rx1");
+	if (IS_ERR(dev_data->dma_rx1))
+		return dev_err_probe(dev_data->dev, PTR_ERR(dev_data->dma_rx1),
 				     "Unable to request rx1 DMA channel\n");
 
-	dd->dma_rx2 = dma_request_chan(dd->dev, "rx2");
-	if (IS_ERR(dd->dma_rx2)) {
-		ret = dev_err_probe(dd->dev, PTR_ERR(dd->dma_rx2),
+	dev_data->dma_rx2 = dma_request_chan(dev_data->dev, "rx2");
+	if (IS_ERR(dev_data->dma_rx2)) {
+		ret = dev_err_probe(dev_data->dev, PTR_ERR(dev_data->dma_rx2),
 				    "Unable to request rx2 DMA channel\n");
 		goto err_dma_rx2;
 	}
 
-	dd->dma_tx = dma_request_chan(dd->dev, "tx");
-	if (IS_ERR(dd->dma_tx)) {
-		ret = dev_err_probe(dd->dev, PTR_ERR(dd->dma_tx),
+	dev_data->dma_tx = dma_request_chan(dev_data->dev, "tx");
+	if (IS_ERR(dev_data->dma_tx)) {
+		ret = dev_err_probe(dev_data->dev, PTR_ERR(dev_data->dma_tx),
 				    "Unable to request tx DMA channel\n");
 		goto err_dma_tx;
 	}
@@ -2296,23 +2296,23 @@ static int sa_dma_init(struct sa_crypto_data *dd)
 	cfg.src_maxburst = 4;
 	cfg.dst_maxburst = 4;
 
-	ret = dmaengine_slave_config(dd->dma_rx1, &cfg);
+	ret = dmaengine_slave_config(dev_data->dma_rx1, &cfg);
 	if (ret) {
-		dev_err(dd->dev, "can't configure IN dmaengine slave: %d\n",
+		dev_err(dev_data->dev, "can't configure IN dmaengine slave: %d\n",
 			ret);
 		goto err_dma_config;
 	}
 
-	ret = dmaengine_slave_config(dd->dma_rx2, &cfg);
+	ret = dmaengine_slave_config(dev_data->dma_rx2, &cfg);
 	if (ret) {
-		dev_err(dd->dev, "can't configure IN dmaengine slave: %d\n",
+		dev_err(dev_data->dev, "can't configure IN dmaengine slave: %d\n",
 			ret);
 		goto err_dma_config;
 	}
 
-	ret = dmaengine_slave_config(dd->dma_tx, &cfg);
+	ret = dmaengine_slave_config(dev_data->dma_tx, &cfg);
 	if (ret) {
-		dev_err(dd->dev, "can't configure OUT dmaengine slave: %d\n",
+		dev_err(dev_data->dev, "can't configure OUT dmaengine slave: %d\n",
 			ret);
 		goto err_dma_config;
 	}
@@ -2320,11 +2320,11 @@ static int sa_dma_init(struct sa_crypto_data *dd)
 	return 0;
 
 err_dma_config:
-	dma_release_channel(dd->dma_tx);
+	dma_release_channel(dev_data->dma_tx);
 err_dma_tx:
-	dma_release_channel(dd->dma_rx2);
+	dma_release_channel(dev_data->dma_rx2);
 err_dma_rx2:
-	dma_release_channel(dd->dma_rx1);
+	dma_release_channel(dev_data->dma_rx1);
 
 	return ret;
 }
