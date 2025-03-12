@@ -1,0 +1,104 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * OV5640 Camera Module for V3-Link d-ch Adapter Board
+ * https://docs.arducam.com/V3Link-Camera-Solution/V3Link-Camera-Solution-on-TI-Platform/Introduction/
+ *
+ * Copyright (c) 2025 Texas Instruments Incorporated - http://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+
+&{/} {
+	clk_imx219_fixed_03: imx219-xclk-03 {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <24000000>;
+	};
+};
+
+&deserializer_0_ports {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	/* FPDLink RX 3 */
+	port@3 {
+		reg = <3>;
+
+		ub960_fpd3_1_in: endpoint {
+			remote-endpoint = <&ub953_1_out>;
+		};
+	};
+};
+
+&deserializer_0_links {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	link@3 {
+		reg = <3>;
+		i2c-alias = <0x47>;
+
+		ti,rx-mode = <3>;
+
+		serializer: serializer {
+			compatible = "ti,ds90ub953-q1";
+			gpio-controller;
+			#gpio-cells = <2>;
+
+			#clock-cells = <0>;
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				port@0 {
+					reg = <0>;
+					ub953_1_in: endpoint {
+						clock-lanes = <0>;
+						data-lanes = <1 2>;
+						remote-endpoint = <&sensor_1_out>;
+					};
+				};
+
+				port@1 {
+					reg = <1>;
+
+					ub953_1_out: endpoint {
+						remote-endpoint = <&ub960_fpd3_1_in>;
+					};
+				};
+			};
+
+			p0-hog {
+				gpio-hog;
+				gpios = <0 GPIO_ACTIVE_HIGH>;
+				output-high;
+				line-name = "MIPI_CSI_INPUT_GPIO0";
+			};
+
+			i2c {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				sensor@3c {
+					compatible = "ovti,ov5640";
+					reg = <0x3c>;
+
+					clocks = <&clk_imx219_fixed_03>;
+					clock-names = "xclk";
+
+					port {
+						sensor_1_out: endpoint {
+							remote-endpoint = <&ub953_1_in>;
+							clock-lanes = <0>;
+							data-lanes = <1 2>;
+						};
+					};
+				};
+			};
+		};
+	};
+};
