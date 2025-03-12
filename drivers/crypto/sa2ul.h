@@ -110,15 +110,12 @@ struct sa_tfm_ctx;
 #define SA_CTX_PE_PKT_TYPE_IPSEC_ESP   3
 /* Indicates that it is in data mode, It may not be used by PHP */
 #define SA_CTX_PE_PKT_TYPE_NONE        4
-#define SA_CTX_ENC_TYPE1_SZ     64      /* Encryption SC with Key only */
-#define SA_CTX_ENC_TYPE2_SZ     96      /* Encryption SC with Key and Aux1 */
-
-#define SA_CTX_AUTH_TYPE1_SZ    64      /* Auth SC with Key only */
-#define SA_CTX_AUTH_TYPE2_SZ    96      /* Auth SC with Key and Aux1 */
+#define SA_CTX_ENC_TYPE_SZ     128      /* Encryption SC with Key and Aux1 */
+#define SA_CTX_AUTH_TYPE_SZ    160      /* Auth SC with Key and Aux1 and Aux2 */
 /* Size of security context for PHP engine */
 #define SA_CTX_PHP_PE_CTX_SZ    64
 
-#define SA_CTX_MAX_SZ (64 + SA_CTX_ENC_TYPE2_SZ + SA_CTX_AUTH_TYPE2_SZ)
+#define SA_CTX_MAX_SZ (64 + SA_CTX_ENC_TYPE_SZ + SA_CTX_AUTH_TYPE_SZ)
 
 /*
  * Encoding of F/E control in SCCTL
@@ -149,8 +146,7 @@ struct sa_tfm_ctx;
 #define SA_CTX_ENC_AUX3_OFFSET  112
 #define SA_CTX_ENC_AUX4_OFFSET  128
 
-#define SA_SCCTL_FE_AUTH_ENC	0x65
-#define SA_SCCTL_FE_ENC		0x8D
+#define SA_SCCTL_FE_AUTH_ENC	0x6D
 
 #define SA_ALIGN_MASK		(sizeof(u32) - 1)
 #define SA_ALIGNED		__aligned(32)

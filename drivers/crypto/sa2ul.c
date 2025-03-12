@@ -786,23 +786,22 @@ int sa_init_sc(struct sa_ctx_info *ctx, const struct sa_match_data *match_data,
 
 	memzero_explicit(sc_buf, SA_CTX_MAX_SZ);
 
+	sc_buf[1] = SA_SCCTL_FE_AUTH_ENC;
+	enc_sc_offset = SA_CTX_PHP_PE_CTX_SZ;
+	auth_sc_offset = enc_sc_offset + ad->enc_eng.sc_size;
+
 	if (ad->auth_eng.eng_id) {
 		if (enc)
 			first_engine = ad->enc_eng.eng_id;
 		else
 			first_engine = ad->auth_eng.eng_id;
 
-		enc_sc_offset = SA_CTX_PHP_PE_CTX_SZ;
-		auth_sc_offset = enc_sc_offset + ad->enc_eng.sc_size;
-		sc_buf[1] = SA_SCCTL_FE_AUTH_ENC;
 		if (!ad->hash_size)
 			return -EINVAL;
 		ad->hash_size = roundup(ad->hash_size, 8);
 
-	} else if (ad->enc_eng.eng_id && !ad->auth_eng.eng_id) {
-		enc_sc_offset = SA_CTX_PHP_PE_CTX_SZ;
+	} else if (ad->enc_eng.eng_id) {
 		first_engine = ad->enc_eng.eng_id;
-		sc_buf[1] = SA_SCCTL_FE_ENC;
 		ad->hash_size = ad->iv_out_size;
 	}
 
@@ -962,7 +961,7 @@ static int sa_cipher_setkey(struct crypto_skcipher *tfm, const u8 *key,
 		return -EINVAL;
 
 	ad->enc_eng.eng_id = SA_ENG_ID_EM1;
-	ad->enc_eng.sc_size = SA_CTX_ENC_TYPE1_SZ;
+	ad->enc_eng.sc_size = SA_CTX_ENC_TYPE_SZ;
 
 	memzero_explicit(&cfg, sizeof(cfg));
 	cfg.enc_eng_id = ad->enc_eng.eng_id;
@@ -1498,9 +1497,9 @@ static int sa_sha_setup(struct sa_tfm_ctx *ctx, struct algo_data *ad,
 	int ret;
 
 	ad->ctx = ctx;
-	ad->enc_eng.sc_size = SA_CTX_ENC_TYPE1_SZ;
+	ad->enc_eng.sc_size = SA_CTX_ENC_TYPE_SZ;
 	ad->auth_eng.eng_id = SA_ENG_ID_AM1;
-	ad->auth_eng.sc_size = SA_CTX_AUTH_TYPE2_SZ;
+	ad->auth_eng.sc_size = SA_CTX_AUTH_TYPE_SZ;
 
 	if (key_sz) {
 		/* Initialize fallback setkey */
@@ -1919,9 +1918,9 @@ static int sa_aead_setkey(struct crypto_aead *authenc,
 
 	ad->ctx = ctx;
 	ad->enc_eng.eng_id = SA_ENG_ID_EM1;
-	ad->enc_eng.sc_size = SA_CTX_ENC_TYPE1_SZ;
+	ad->enc_eng.sc_size = SA_CTX_ENC_TYPE_SZ;
 	ad->auth_eng.eng_id = SA_ENG_ID_AM1;
-	ad->auth_eng.sc_size = SA_CTX_AUTH_TYPE2_SZ;
+	ad->auth_eng.sc_size = SA_CTX_AUTH_TYPE_SZ;
 	ad->mci_enc = mci_cbc_enc_no_iv_array[key_idx];
 	ad->mci_dec = mci_cbc_dec_no_iv_array[key_idx];
 	ad->inv_key = true;
