@@ -85,6 +85,7 @@ enum sa_algo_id {
 	SA_ALG_AUTHENC_SHA256_AES,
 	SA_ALG_HMAC_SHA1,
 	SA_ALG_HMAC_SHA256,
+	SA_ALG_HMAC_SHA512,
 };
 
 struct sa_match_data {
@@ -2358,7 +2359,37 @@ static struct sa_alg_tmpl sa_algs[] = {
 			.export			= sa_sha_export,
 			.import			= sa_sha_import,
 		},
-	}
+	},
+	[SA_ALG_HMAC_SHA512] = {
+		.type = CRYPTO_ALG_TYPE_AHASH,
+		.alg.ahash = {
+			.halg.base = {
+				.cra_name	= "hmac(sha512)",
+				.cra_driver_name	= "hmac(sha512-sa2ul)",
+				.cra_priority	= 400,
+				.cra_flags	= CRYPTO_ALG_TYPE_AHASH |
+						  CRYPTO_ALG_ASYNC |
+						  CRYPTO_ALG_KERN_DRIVER_ONLY |
+						  CRYPTO_ALG_NEED_FALLBACK,
+				.cra_blocksize	= SHA512_BLOCK_SIZE,
+				.cra_ctxsize	= sizeof(struct sa_tfm_ctx),
+				.cra_module	= THIS_MODULE,
+				.cra_init	= sa_hmac_cra_init,
+				.cra_exit	= sa_sha_cra_exit,
+			},
+			.halg.digestsize	= SHA512_DIGEST_SIZE,
+			.halg.statesize		= sizeof(struct sa_sha_req_ctx) +
+						  sizeof(struct sha512_state),
+			.init			= sa_sha_init,
+			.update			= sa_sha_update,
+			.final			= sa_sha_final,
+			.finup			= sa_sha_finup,
+			.setkey		        = sa_hmac_sha_setkey,
+			.digest			= sa_sha_digest,
+			.export			= sa_sha_export,
+			.import			= sa_sha_import,
+		},
+	},
 };
 
 /* Register the algorithms in crypto framework */
@@ -2533,7 +2564,8 @@ static struct sa_match_data am654_match_data = {
 			   BIT(SA_ALG_AUTHENC_SHA1_AES) |
 			   BIT(SA_ALG_AUTHENC_SHA256_AES) |
 			   BIT(SA_ALG_HMAC_SHA1) |
-			   BIT(SA_ALG_HMAC_SHA256),
+			   BIT(SA_ALG_HMAC_SHA256)  |
+			   BIT(SA_ALG_HMAC_SHA512),
 };
 
 static struct sa_match_data am64_match_data = {
