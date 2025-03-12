@@ -1445,7 +1445,6 @@ static int sa_sha_run(struct ahash_request *req)
 
 static int sa_sha_setup(struct sa_tfm_ctx *ctx, struct  algo_data *ad)
 {
-	int bs = crypto_shash_blocksize(ctx->shash);
 	int cmdl_len;
 	struct sa_cmdl_cfg cfg;
 
@@ -1453,7 +1452,6 @@ static int sa_sha_setup(struct sa_tfm_ctx *ctx, struct  algo_data *ad)
 	ad->auth_eng.eng_id = SA_ENG_ID_AM1;
 	ad->auth_eng.sc_size = SA_CTX_AUTH_TYPE2_SZ;
 
-	memset(ctx->authkey, 0, bs);
 	memset(&cfg, 0, sizeof(cfg));
 	cfg.enc_eng_id = ad->enc_eng.eng_id;
 	cfg.auth_eng_id = ad->auth_eng.eng_id;
