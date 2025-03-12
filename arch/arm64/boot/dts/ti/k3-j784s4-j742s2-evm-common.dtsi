@@ -885,6 +885,7 @@
 		cdns,read-delay = <2>;
 		cdns,phy-mode;
 		status = "disabled";
+		bootph-pre-ram;
 
 		partitions {
 			compatible = "fixed-partitions";
