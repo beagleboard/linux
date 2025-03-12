@@ -2243,9 +2243,12 @@ static void sa_unregister_algos(const struct device *dev)
 	}
 }
 
-static int sa_init_mem(struct sa_crypto_data *dev_data)
+static int sa_dma_init(struct sa_crypto_data *dev_data)
 {
+	int ret;
+	struct dma_slave_config cfg;
 	struct device *dev = &dev_data->pdev->dev;
+
 	/* Setup dma pool for security context buffers */
 	dev_data->sc_pool = dma_pool_create("keystone-sc", dev,
 					    SA_CTX_MAX_SZ, 64, 0);
@@ -2254,21 +2257,13 @@ static int sa_init_mem(struct sa_crypto_data *dev_data)
 		return -ENOMEM;
 	}
 
-	return 0;
-}
-
-static int sa_dma_init(struct sa_crypto_data *dev_data)
-{
-	int ret;
-	struct dma_slave_config cfg;
-
 	dev_data->dma_rx1 = NULL;
 	dev_data->dma_tx = NULL;
 	dev_data->dma_rx2 = NULL;
 
 	ret = dma_coerce_mask_and_coherent(dev_data->dev, DMA_BIT_MASK(48));
 	if (ret)
-		return ret;
+		goto err_dma_coerce;
 
 	dev_data->dma_rx1 = dma_request_chan(dev_data->dev, "rx1");
 	if (IS_ERR(dev_data->dma_rx1))
@@ -2325,6 +2320,8 @@ err_dma_tx:
 	dma_release_channel(dev_data->dma_rx2);
 err_dma_rx2:
 	dma_release_channel(dev_data->dma_rx1);
+err_dma_coerce:
+	dma_pool_destroy(dev_data->sc_pool);
 
 	return ret;
 }
@@ -2407,10 +2404,9 @@ static int sa_ul_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	sa_init_mem(dev_data);
 	ret = sa_dma_init(dev_data);
 	if (ret)
-		goto destroy_dma_pool;
+		goto disable_pm_runtime;
 
 	spin_lock_init(&dev_data->scid_lock);
 
@@ -2438,10 +2434,9 @@ release_dma:
 	dma_release_channel(dev_data->dma_rx2);
 	dma_release_channel(dev_data->dma_rx1);
 	dma_release_channel(dev_data->dma_tx);
-
-destroy_dma_pool:
 	dma_pool_destroy(dev_data->sc_pool);
 
+disable_pm_runtime:
 	pm_runtime_put_sync(dev);
 	pm_runtime_disable(dev);
 
