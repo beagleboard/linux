@@ -74,7 +74,7 @@ int emac_get_stat_by_name(struct prueth_emac *emac, char *stat_name)
 	if (emac->prueth->pa_stats) {
 		for (i = 0; i < ARRAY_SIZE(icssg_all_pa_stats); i++) {
 			if (!strcmp(icssg_all_pa_stats[i].name, stat_name))
-				return emac->pa_stats[icssg_all_pa_stats[i].offset / sizeof(u32)];
+				return emac->pa_stats[i];
 		}
 	}
 
