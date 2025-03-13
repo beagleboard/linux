@@ -1,0 +1,70 @@
+// SPDX-License-Identifier: GPL-2.0
+/**
+ * AM62 family of devices can wakeup from I/O Only + DDR low power mode via
+ * multiple wakeup sources. This overlay enables mcu_mcan pins to be used
+ * as wakeup source.
+ *
+ * Copyright (C) 2025 Texas Instruments Incorporated - http://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/input/input.h>
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+
+#include "k3-pinctrl.h"
+
+&mcu_pmx0 {
+        mcu_mcan0_tx_pins_default: mcu-mcan0-tx-pins-default {
+                pinctrl-single,pins = <
+                        AM62X_IOPAD(0x034, PIN_OUTPUT, 0) /* (D6) MCU_MCAN0_TX */
+                >;
+        };
+
+        mcu_mcan0_rx_pins_default: mcu-mcan0-rx-pins-default {
+                pinctrl-single,pins = <
+                        AM62X_IOPAD(0x038, PIN_INPUT, 0) /* (B3) MCU_MCAN0_RX */
+                >;
+        };
+
+        mcu_mcan0_rx_pins_wakeup: mcu-mcan0-rx-pins-wakeup {
+                pinctrl-single,pins = <
+                        AM62X_IOPAD(0x038, PIN_INPUT | WKUP_EN, 0) /* (B3) MCU_MCAN0_RX */
+                >;
+        };
+
+        mcu_mcan1_tx_pins_default: mcu-mcan1-tx-pins-default {
+                pinctrl-single,pins = <
+                        AM62X_IOPAD(0x03c, PIN_OUTPUT, 0) /* (E5) MCU_MCAN1_TX */
+                >;
+        };
+
+        mcu_mcan1_rx_pins_default: mcu-mcan1-rx-pins-default {
+                pinctrl-single,pins = <
+                        AM62X_IOPAD(0x040, PIN_INPUT, 0) /* (D4) MCU_MCAN1_RX */
+                >;
+        };
+
+        mcu_mcan1_rx_pins_wakeup: mcu-mcan1-rx-pins-wakeup {
+                pinctrl-single,pins = <
+                        AM62X_IOPAD(0x040, PIN_INPUT | WKUP_EN, 0) /* (D4) MCU_MCAN1_RX */
+                >;
+        };
+};
+
+&mcu_mcan0 {
+	pinctrl-names = "default", "wakeup";
+	pinctrl-0 = <&mcu_mcan0_tx_pins_default>, <&mcu_mcan0_rx_pins_default>;
+	pinctrl-1 = <&mcu_mcan0_tx_pins_default>, <&mcu_mcan0_rx_pins_wakeup>;
+	status = "okay";
+};
+
+&mcu_mcan1 {
+	pinctrl-names = "default", "wakeup";
+	pinctrl-0 = <&mcu_mcan1_tx_pins_default>, <&mcu_mcan1_rx_pins_default>;
+	pinctrl-1 = <&mcu_mcan1_tx_pins_default>, <&mcu_mcan1_rx_pins_wakeup>;
+	status = "okay";
+};
