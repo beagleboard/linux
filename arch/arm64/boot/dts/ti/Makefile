@@ -85,6 +85,7 @@ dtb-$(CONFIG_ARCH_K3) += k3-am62x-sk-mcan.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-am62x-sk-pwm.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-am62x-sk-lpm-wkup-sources.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-am62x-sk-lpm-io-ddr-wkup-sources.dtso
+dtb-$(CONFIG_ARCH_K3) += k3-am62x-sk-fastboot-disable-hdmi.dtbo
 
 # Boards with AM64x SoC
 dtb-$(CONFIG_ARCH_K3) += k3-am642-evm.dtb
@@ -232,6 +233,8 @@ k3-am625-sk-csi2-ov5640-dtbs := k3-am625-sk.dtb \
 	k3-am62x-sk-csi2-ov5640.dtbo
 k3-am625-sk-csi2-tevi-ov5640-dtbs := k3-am625-sk.dtb \
 	k3-am62x-sk-csi2-tevi-ov5640.dtbo
+k3-am625-sk-fastboot-disable-hdmi-dtbs := k3-am625-sk.dtb \
+	k3-am62x-sk-fastboot-disable-hdmi.dtbo
 k3-am625-sk-hdmi-audio-dtbs := k3-am625-sk.dtb k3-am62x-sk-hdmi-audio.dtbo
 k3-am625-sk-lincolntech-lcd185-panel-dtbs := k3-am625-sk.dtb \
 	k3-am625-sk-lincolntech-lcd185-panel.dtbo
@@ -239,6 +242,8 @@ k3-am625-sk-microtips-mf101hie-panel-dtbs := k3-am625-sk.dtb \
 	k3-am625-sk-microtips-mf101hie-panel.dtbo
 k3-am625-sk-microtips-mf103hie-lcd2-dtbs := k3-am625-sk.dtb \
 	k3-am62x-sk-microtips-mf103hie-lcd2.dtbo
+k3-am62-lp-sk-fastboot-disable-hdmi-dtbs := k3-am62-lp-sk.dtb \
+	k3-am62x-sk-fastboot-disable-hdmi.dtbo
 k3-am62-lp-sk-hdmi-audio-dtbs := k3-am62-lp-sk.dtb k3-am62x-sk-hdmi-audio.dtbo
 k3-am62-lp-sk-lincolntech-lcd185-panel-dtbs := k3-am62-lp-sk.dtb \
 	k3-am62-lp-sk-lincolntech-lcd185-panel.dtbo
@@ -254,6 +259,8 @@ k3-am62a7-sk-csi2-tevi-ov5640-dtbs := k3-am62a7-sk.dtb \
 	k3-am62x-sk-csi2-tevi-ov5640.dtbo
 k3-am62a7-sk-ethernet-dc01-dtbs := k3-am62a7-sk.dtb \
 	k3-am62a7-sk-ethernet-dc01.dtbo
+k3-am62a7-sk-fastboot-disable-hdmi-dtbs := k3-am62a7-sk.dtb \
+	k3-am62x-sk-fastboot-disable-hdmi.dtbo
 k3-am62a7-sk-hdmi-audio-dtbs := k3-am62a7-sk.dtb k3-am62x-sk-hdmi-audio.dtbo
 k3-am62p5-sk-csi2-imx219-dtbs := k3-am62p5-sk.dtb \
 	k3-am62x-sk-csi2-imx219.dtbo
@@ -267,6 +274,8 @@ k3-am62p5-sk-dsi-rpi-7inch-panel-dtbs := k3-am62p5-sk.dtb \
 	k3-am62p5-sk-dsi-rpi-7inch-panel.dtbo
 k3-am62p5-sk-dss-shared-mode-dtbs := k3-am62p5-sk.dtb \
 	k3-am62p5-sk-dss-shared-mode.dtbo
+k3-am62p5-sk-fastboot-disable-hdmi-dtbs := k3-am62p5-sk.dtb \
+	k3-am62x-sk-fastboot-disable-hdmi.dtbo
 k3-am62p5-sk-microtips-mf101hie-panel-dtbs := k3-am62p5-sk.dtb \
 	k3-am62p5-sk-microtips-mf101hie-panel.dtbo
 k3-am62p5-sk-microtips-mf103hie-lcd2-dtbs := k3-am62p5-sk.dtb \
@@ -379,16 +388,19 @@ dtb- += k3-am625-beagleplay-csi2-ov5640.dtb \
 	k3-am625-sk-csi2-imx219.dtb \
 	k3-am625-sk-csi2-ov5640.dtb \
 	k3-am625-sk-csi2-tevi-ov5640.dtb \
+	k3-am625-sk-fastboot-disable-hdmi.dtb \
 	k3-am625-sk-hdmi-audio.dtb \
 	k3-am625-sk-lincolntech-lcd185-panel.dtb \
 	k3-am625-sk-microtips-mf101hie-panel.dtb \
 	k3-am625-sk-microtips-mf103hie-lcd2.dtb \
+	k3-am62-lp-sk-fastboot-disable-hdmi.dtb \
 	k3-am62-lp-sk-hdmi-audio.dtb \
 	k3-am62-lp-sk-lincolntech-lcd185-panel.dtb \
 	k3-am62-lp-sk-microtips-mf101hie-panel.dtb \
 	k3-am62-lp-sk-microtips-mf103hie-lcd2.dtb \
 	k3-am62a7-sk-csi2-imx219.dtb \
 	k3-am62a7-sk-csi2-ov5640.dtb \
+	k3-am62a7-sk-fastboot-disable-hdmi.dtb \
 	k3-am62a7-sk-hdmi-audio.dtb \
 	k3-am62p5-sk-csi2-imx219.dtb \
 	k3-am62p5-sk-csi2-ov5640.dtb \
@@ -396,6 +408,7 @@ dtb- += k3-am625-beagleplay-csi2-ov5640.dtb \
 	k3-am62p5-sk-ethfw.dtb \
 	k3-am62p5-sk-dsi-rpi-7inch-panel.dtb \
 	k3-am62p5-sk-dss-shared-mode.dtb \
+	k3-am62p5-sk-fastboot-disable-hdmi.dtb \
 	k3-am62p5-sk-microtips-mf101hie-panel.dtb \
 	k3-am62p5-sk-microtips-mf103hie-lcd2.dtb \
 	k3-am62p5-sk-microtips-mf070zima-lcd3.dtb \
