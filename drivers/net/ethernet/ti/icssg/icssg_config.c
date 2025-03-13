@@ -347,14 +347,23 @@ static int prueth_fw_offload_buffer_setup(struct prueth_emac *emac)
 	if (!slice)
 		addr += PRUETH_SW_NUM_BUF_POOLS_HOST * PRUETH_SW_BUF_POOL_SIZE_HOST;
 	else
-		addr += PRUETH_EMAC_RX_CTX_BUF_SIZE;
+		addr += PRUETH_EMAC_RX_CTX_BUF_SIZE * 2;
 
+	/* Pre-emptible RX buffer queue */
 	rxq_ctx = emac->dram.va + HOST_RX_Q_PRE_CONTEXT_OFFSET;
 	for (i = 0; i < 3; i++)
 		writel(addr, &rxq_ctx->start[i]);
 
 	addr += PRUETH_EMAC_RX_CTX_BUF_SIZE;
-	writel(addr - SZ_2K, &rxq_ctx->end);
+	writel(addr, &rxq_ctx->end);
+
+	/* Express RX buffer queue */
+	rxq_ctx = emac->dram.va + HOST_RX_Q_EXP_CONTEXT_OFFSET;
+	for (i = 0; i < 3; i++)
+		writel(addr, &rxq_ctx->start[i]);
+
+	addr += PRUETH_EMAC_RX_CTX_BUF_SIZE;
+	writel(addr, &rxq_ctx->end);
 
 	return 0;
 }
