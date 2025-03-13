@@ -31,19 +31,6 @@
 			snps,usb2-lpm-disable;
 		};
 	};
-
-	gpu: gpu@fd80000 {
-		 compatible = "ti,am62p-pvr", "img,pvr-bxs64";
-		 reg = <0x00 0x0fd80000 0x00 0x80000>;
-		 interrupts = <GIC_SPI 241 IRQ_TYPE_LEVEL_HIGH>;
-		 power-domains = <&k3_pds 237 TI_SCI_PD_EXCLUSIVE>,
-				 <&k3_pds 242 TI_SCI_PD_EXCLUSIVE>;
-		 assigned-clocks = <&k3_clks 237 3>;
-		 assigned-clock-rates = <800000000>;
-		 power-domain-names = "firmware", "dust";
-		 clocks = <&k3_clks 237 3>;
-		 clock-names = "core";
-	};
 };
 
 &oc_sram {
