@@ -101,6 +101,7 @@ struct pruss_intc_match_data {
  * @soc_config: cached PRUSS INTC IP configuration data
  * @dev: PRUSS INTC device pointer
  * @lock: mutex to serialize interrupts mapping
+ * @irqs_reserved: bit-mask of reserved host interrupts
  */
 struct pruss_intc {
 	struct pruss_intc_map_record event_channel[MAX_PRU_SYS_EVENTS];
@@ -111,6 +112,7 @@ struct pruss_intc {
 	const struct pruss_intc_match_data *soc_config;
 	struct device *dev;
 	struct mutex lock; /* PRUSS INTC lock */
+	u8 irqs_reserved;
 };
 
 /**
@@ -178,6 +180,7 @@ static void pruss_intc_update_hmr(struct pruss_intc *intc, u8 ch, u8 host)
 static void pruss_intc_map(struct pruss_intc *intc, unsigned long hwirq)
 {
 	struct device *dev = intc->dev;
+	bool enable_hwirq = false;
 	u8 ch, host, reg_idx;
 	u32 val;
 
@@ -187,6 +190,9 @@ static void pruss_intc_map(struct pruss_intc *intc, unsigned long hwirq)
 
 	ch = intc->event_channel[hwirq].value;
 	host = intc->channel_host[ch].value;
+	enable_hwirq = (host < FIRST_PRU_HOST_INT ||
+			host >= FIRST_PRU_HOST_INT + MAX_NUM_HOST_IRQS ||
+			intc->irqs_reserved & BIT(host - FIRST_PRU_HOST_INT));
 
 	pruss_intc_update_cmr(intc, hwirq, ch);
 
@@ -194,8 +200,10 @@ static void pruss_intc_map(struct pruss_intc *intc, unsigned long hwirq)
 	val = BIT(hwirq  % 32);
 
 	/* clear and enable system event */
-	pruss_intc_write_reg(intc, PRU_INTC_ESR(reg_idx), val);
 	pruss_intc_write_reg(intc, PRU_INTC_SECR(reg_idx), val);
+	/* unmask only events going to various PRU and other cores by default */
+	if (enable_hwirq)
+		pruss_intc_write_reg(intc, PRU_INTC_ESR(reg_idx), val);
 
 	if (++intc->channel_host[ch].ref_count == 1) {
 		pruss_intc_update_hmr(intc, ch, host);
@@ -204,7 +212,8 @@ static void pruss_intc_map(struct pruss_intc *intc, unsigned long hwirq)
 		pruss_intc_write_reg(intc, PRU_INTC_HIEISR, host);
 	}
 
-	dev_dbg(dev, "mapped system_event = %lu channel = %d host = %d",
+	dev_dbg(dev, "mapped%s system_event = %lu channel = %d host = %d",
+		enable_hwirq ? " and enabled" : "",
 		hwirq, ch, host);
 
 	mutex_unlock(&intc->lock);
@@ -268,11 +277,14 @@ static void pruss_intc_init(struct pruss_intc *intc)
 
 	/*
 	 * configure polarity (SIPR register) to active high and
-	 * type (SITR register) to level interrupt for all system events
+	 * type (SITR register) to level interrupt for all system events,
+	 * and disable and clear all the system events
 	 */
 	for (i = 0; i < num_event_type_regs; i++) {
 		pruss_intc_write_reg(intc, PRU_INTC_SIPR(i), 0xffffffff);
 		pruss_intc_write_reg(intc, PRU_INTC_SITR(i), 0);
+		pruss_intc_write_reg(intc, PRU_INTC_ECR(i), 0xffffffff);
+		pruss_intc_write_reg(intc, PRU_INTC_SECR(i), 0xffffffff);
 	}
 
 	/* clear all interrupt channel map registers, 4 events per register */
@@ -521,7 +533,7 @@ static int pruss_intc_probe(struct platform_device *pdev)
 	struct pruss_intc *intc;
 	struct pruss_host_irq_data *host_data;
 	int i, irq, ret;
-	u8 max_system_events, irqs_reserved = 0;
+	u8 max_system_events;
 
 	data = of_device_get_match_data(dev);
 	if (!data)
@@ -542,7 +554,7 @@ static int pruss_intc_probe(struct platform_device *pdev)
 		return PTR_ERR(intc->base);
 
 	ret = of_property_read_u8(dev->of_node, "ti,irqs-reserved",
-				  &irqs_reserved);
+				  &intc->irqs_reserved);
 
 	/*
 	 * The irqs-reserved is used only for some SoC's therefore not having
@@ -561,7 +573,7 @@ static int pruss_intc_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	for (i = 0; i < MAX_NUM_HOST_IRQS; i++) {
-		if (irqs_reserved & BIT(i))
+		if (intc->irqs_reserved & BIT(i))
 			continue;
 
 		irq = platform_get_irq_byname(pdev, irq_names[i]);
