@@ -172,9 +172,6 @@ int emac_tx_complete_packets(struct prueth_emac *emac, int chn,
 		desc_tx = k3_cppi_desc_pool_dma2virt(tx_chn->desc_pool,
 						     desc_dma);
 		swdata = cppi5_hdesc_get_swdata(desc_tx);
-		prueth_xmit_free(tx_chn, desc_tx);
-		if (swdata->type != PRUETH_SWDATA_SKB)
-			continue;
 
 		switch (swdata->type) {
 		case PRUETH_SWDATA_SKB:
@@ -196,6 +193,7 @@ int emac_tx_complete_packets(struct prueth_emac *emac, int chn,
 			continue;
 		}
 
+		prueth_xmit_free(tx_chn, desc_tx);
 		num_tx++;
 	}
 

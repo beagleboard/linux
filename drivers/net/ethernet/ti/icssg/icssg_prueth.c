@@ -1086,6 +1086,7 @@ static int emac_xdp_xmit(struct net_device *dev, int n, struct xdp_frame **frame
 			 u32 flags)
 {
 	struct prueth_emac *emac = netdev_priv(dev);
+	struct net_device *ndev = emac->ndev;
 	struct xdp_frame *xdpf;
 	unsigned int q_idx;
 	int nxmit = 0;
@@ -1100,8 +1101,10 @@ static int emac_xdp_xmit(struct net_device *dev, int n, struct xdp_frame **frame
 	for (i = 0; i < n; i++) {
 		xdpf = frames[i];
 		err = emac_xmit_xdp_frame(emac, xdpf, NULL, q_idx);
-		if (err != ICSSG_XDP_TX)
+		if (err != ICSSG_XDP_TX) {
+			ndev->stats.tx_dropped++;
 			break;
+		}
 		nxmit++;
 	}
 
