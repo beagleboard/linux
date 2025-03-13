@@ -46,6 +46,9 @@
 /* Same as P2_PORT_DF_VLAN_OFFSET */
 #define EMAC_ICSSG_SWITCH_PORT2_DEFAULT_VLAN_OFFSET        P2_PORT_DF_VLAN_OFFSET
 
+/* Time adjustment to be done due to Cycle extension */
+#define TIMESYNC_CYCLE_EXTN_TIME                           0x0028
+
 /* VLAN-FID Table offset. 4096 VIDs. 2B per VID = 8KB = 0x2000 */
 #define VLAN_STATIC_REG_TABLE_OFFSET                       0x0100
 
@@ -176,6 +179,9 @@
 
 /* Stores the table used for priority mapping. 1B per PCP/Queue */
 #define PORT_Q_PRIORITY_MAPPING_OFFSET                     0x003C
+
+/* Memory to store time value to be used for Cycle extension */
+#define TAS_CONFIG_EXTN_TIME                               0x00A4
 
 /* Used to notify the FW of the current link speed */
 #define PORT_LINK_SPEED_OFFSET                             0x00A8

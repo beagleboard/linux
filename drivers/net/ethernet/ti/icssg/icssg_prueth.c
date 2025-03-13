@@ -453,6 +453,7 @@ static u64 prueth_iep_gettime(void *clockops_data, struct ptp_system_timestamp *
 
 	ts = ((u64)hi_rollover_count) << 23 | iepcount_hi;
 	ts = ts * (u64)IEP_DEFAULT_CYCLE_TIME_NS + iepcount_lo;
+	ts += readl(prueth->shram.va + TIMESYNC_CYCLE_EXTN_TIME);
 
 	return ts;
 }
@@ -490,6 +491,9 @@ static void prueth_iep_settime(void *clockops_data, u64 ns)
 
 		usleep_range(500, 1000);
 	}
+
+	/* Clear the Cycle extension adjustments */
+	writel(0, emac->dram.va + TIMESYNC_CYCLE_EXTN_TIME);
 
 	dev_err(emac->prueth->dev, "settime timeout\n");
 }
@@ -1156,6 +1160,7 @@ static const struct net_device_ops emac_netdev_ops = {
 	.ndo_vlan_rx_kill_vid = emac_ndo_vlan_rx_del_vid,
 	.ndo_bpf = emac_ndo_bpf,
 	.ndo_xdp_xmit = emac_xdp_xmit,
+	.ndo_setup_tc = icssg_qos_ndo_setup_tc,
 };
 
 static int prueth_netdev_init(struct prueth *prueth,
@@ -1293,6 +1298,8 @@ static int prueth_netdev_init(struct prueth *prueth,
 		     HRTIMER_MODE_REL_PINNED);
 	emac->rx_hrtimer.function = &emac_rx_timer_callback;
 	prueth->emac[mac] = emac;
+
+	icssg_qos_tas_init(ndev);
 
 	return 0;
 
