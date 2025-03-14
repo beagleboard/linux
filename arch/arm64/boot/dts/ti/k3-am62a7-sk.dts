@@ -334,6 +334,7 @@
 	};
 
 	main_mmc0_pins_default: main-mmc0-default-pins {
+		bootph-all;
 		pinctrl-single,pins = <
 			AM62AX_IOPAD(0x220, PIN_INPUT, 0) /* (Y3) MMC0_CMD */
 			AM62AX_IOPAD(0x218, PIN_INPUT, 0) /* (AB1) MMC0_CLKLB */
@@ -661,6 +662,7 @@
 
 &sdhci0 {
 	/* eMMC */
+	bootph-all;
 	status = "okay";
 	non-removable;
 	pinctrl-names = "default";
