@@ -600,6 +600,7 @@
 
 /* eMMC */
 &sdhci0 {
+	bootph-all;
 	status = "okay";
 	non-removable;
 	ti,driver-strength-ohm = <50>;
