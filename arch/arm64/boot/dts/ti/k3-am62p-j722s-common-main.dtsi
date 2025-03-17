@@ -741,6 +741,7 @@
 			#size-cells = <0>;
 
 			cpsw_port1: port@1 {
+				bootph-all;
 				reg = <1>;
 				ti,mac-only;
 				label = "port1";
@@ -748,7 +749,6 @@
 				mac-address = [00 00 00 00 00 00];
 				ti,syscon-efuse = <&cpsw_mac_syscon 0x0>;
 				status = "disabled";
-				bootph-all;
 			};
 
 			cpsw_port2: port@2 {
@@ -1256,6 +1256,5 @@
 		interrupts = <GIC_SPI 225 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&k3_clks 204 2>;
 		power-domains = <&k3_pds 204 TI_SCI_PD_EXCLUSIVE>;
-		sram = <&oc_sram>;
 	};
 };
