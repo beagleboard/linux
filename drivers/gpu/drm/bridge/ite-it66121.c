@@ -1581,6 +1581,14 @@ static int it66121_audio_codec_init(struct it66121_ctx *ctx, struct device *dev)
 	return PTR_ERR_OR_ZERO(ctx->audio.pdev);
 }
 
+static void it66121_hpd_event(void* arg, enum drm_connector_status status)
+{
+    struct it66121_ctx* ctx = (struct it66121_ctx*)arg;
+
+    if (ctx->connector.dev)
+        drm_kms_helper_hotplug_event(ctx->connector.dev);
+}
+
 static const char * const it66121_supplies[] = {
 	"vcn33", "vcn18", "vrf12"
 };
@@ -1666,6 +1674,7 @@ static int it66121_probe(struct i2c_client *client)
 	if (client->irq > 0) {
 		ctx->bridge.ops |= DRM_BRIDGE_OP_HPD;
 
+		drm_bridge_hpd_enable(&ctx->bridge, it66121_hpd_event, ctx);
 		ret = devm_request_threaded_irq(dev, client->irq, NULL,
 						it66121_irq_threaded_handler,
 						IRQF_ONESHOT, dev_name(dev),
