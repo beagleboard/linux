@@ -43,6 +43,7 @@ k3-am62a7-sk-ub954-evm-ov2312-dtbs := k3-am62a7-sk.dtb \
 				      k3-am62a7-sk-ub954-evm.dtbo \
 				      k3-fpdlink-ov2312-0-0.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-am62a7-sk.dtb
+dtb-$(CONFIG_ARCH_K3) += k3-am62a7-sk-csi2-ox05b1s.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-am62a7-sk-m2-cc3351.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-am62a7-phyboard-lyra-rdk.dtb
 dtb-$(CONFIG_ARCH_K3) += k3-am62a7-sk-ethernet-dc01.dtbo
