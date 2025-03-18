@@ -30,6 +30,7 @@
 #define SHIM_DMACNTX(i)			(0x20 + ((i) * 0x20))
 #define SHIM_DMACNTX_EN			BIT(31)
 #define SHIM_DMACNTX_YUV422		GENMASK(27, 26)
+#define SHIM_DMACNTX_DUAL_PCK_CFG	BIT(24)
 #define SHIM_DMACNTX_SIZE		GENMASK(21, 20)
 #define SHIM_DMACNTX_VC			GENMASK(9, 6)
 #define SHIM_DMACNTX_FMT		GENMASK(5, 0)
@@ -42,6 +43,7 @@
 #define SHIM_PSI_CFG0_SRC_TAG		GENMASK(15, 0)
 #define SHIM_PSI_CFG0_DST_TAG		GENMASK(31, 16)
 
+#define TI_CSI2RX_MAX_PIX_PER_CLK	4
 #define PSIL_WORD_SIZE_BYTES		16
 #define TI_CSI2RX_MAX_CTX		32
 
@@ -126,6 +128,7 @@ struct ti_csi2rx_dev {
 	struct v4l2_subdev		subdev;
 	struct ti_csi2rx_ctx		ctx[TI_CSI2RX_MAX_CTX];
 	struct notifier_block		pm_notifier;
+	u8				pix_per_clk;
 	/* Buffer to drain stale data from PSI-L endpoint */
 	struct {
 		void			*vaddr;
@@ -314,6 +317,9 @@ static const struct ti_csi2rx_fmt ti_csi2rx_formats[] = {
 
 	/* More formats can be supported but they are not listed for now. */
 };
+
+extern int cdns_csi2rx_negotiate_ppc(struct v4l2_subdev *subdev,
+				     unsigned int pad, u8 *ppc);
 
 /* Forward declaration needed by ti_csi2rx_dma_callback. */
 static int ti_csi2rx_start_dma(struct ti_csi2rx_ctx *ctx,
@@ -614,6 +620,26 @@ static int ti_csi2rx_notifier_register(struct ti_csi2rx_dev *csi)
 	return 0;
 }
 
+/* Request maximum possible pixels per clock from the bridge */
+static void ti_csi2rx_request_max_ppc(struct ti_csi2rx_dev *csi)
+{
+	struct media_pad *pad;
+	int ret;
+	u8 ppc = TI_CSI2RX_MAX_PIX_PER_CLK;
+
+	pad = media_entity_remote_source_pad_unique(&csi->subdev.entity);
+	if (!pad)
+		return;
+
+	ret = cdns_csi2rx_negotiate_ppc(csi->source, pad->index, &ppc);
+	if (ret) {
+		dev_warn(csi->dev, "NUM_PIXELS negotiation failed: %d\n", ret);
+		csi->pix_per_clk = 1;
+	} else {
+		csi->pix_per_clk = ppc;
+	}
+}
+
 static void ti_csi2rx_setup_shim(struct ti_csi2rx_ctx *ctx)
 {
 	struct ti_csi2rx_dev *csi = ctx->csi;
@@ -622,11 +648,17 @@ static void ti_csi2rx_setup_shim(struct ti_csi2rx_ctx *ctx)
 
 	fmt = find_format_by_fourcc(ctx->v_fmt.fmt.pix.pixelformat);
 
-	/* De-assert the pixel interface reset. */
+	/*
+	 * De-assert the pixel interface reset. Negotiate pixel count before
+	 * starting first stream on source
+	 */
+	mutex_lock(&csi->mutex);
 	if (!csi->enable_count) {
 		reg = SHIM_CNTL_PIX_RST;
 		writel(reg, csi->shim + SHIM_CNTL);
+		ti_csi2rx_request_max_ppc(csi);
 	}
+	mutex_unlock(&csi->mutex);
 
 	reg = SHIM_DMACNTX_EN;
 	reg |= FIELD_PREP(SHIM_DMACNTX_FMT, fmt->csi_dt);
@@ -656,13 +688,18 @@ static void ti_csi2rx_setup_shim(struct ti_csi2rx_ctx *ctx)
 	case V4L2_PIX_FMT_YVYU:
 		reg |= FIELD_PREP(SHIM_DMACNTX_YUV422,
 				  SHIM_DMACNTX_YUV422_MODE_11);
+		/* Multiple pixels are handled differently for packed YUV */
+		if (csi->pix_per_clk == 2)
+			reg |= SHIM_DMACNTX_DUAL_PCK_CFG;
+		reg |= FIELD_PREP(SHIM_DMACNTX_SIZE, fmt->size);
 		break;
 	default:
-		/* Ignore if not YUV 4:2:2 */
+		/* By default we change the shift size for multiple pixels */
+		reg |= FIELD_PREP(SHIM_DMACNTX_SIZE,
+				  fmt->size + (csi->pix_per_clk >> 1));
 		break;
 	}
 
-	reg |= FIELD_PREP(SHIM_DMACNTX_SIZE, fmt->size);
 	reg |= FIELD_PREP(SHIM_DMACNTX_VC, ctx->vc);
 
 	writel(reg, csi->shim + SHIM_DMACNTX(ctx->idx));
