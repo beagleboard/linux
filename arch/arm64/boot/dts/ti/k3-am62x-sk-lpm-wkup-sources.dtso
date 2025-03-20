@@ -98,26 +98,6 @@
 			AM62X_IOPAD(0x040, PIN_INPUT | WKUP_EN, 0) /* (D4) MCU_MCAN1_RX */
 		>;
 	};
-
-	mcu_uart0_pins_default: mcu-uart0-pins-default {
-		pinctrl-single,pins = <
-			AM62X_MCU_IOPAD(0x001c, PIN_INPUT, 0) /* MCU_UART0_CTSn */
-			AM62X_MCU_IOPAD(0x0020, PIN_OUTPUT, 0) /* MCU_UART0_RTSn */
-			AM62X_MCU_IOPAD(0x0018, PIN_OUTPUT, 0) /* MCU_UART0_TXD */
-		>;
-	};
-
-	mcu_uart0_rxd_pins_default: mcu-uart0-rxd-pins-default {
-		pinctrl-single,pins = <
-			AM62X_MCU_IOPAD(0x0014, PIN_INPUT, 0) /* MCU_UART0_RXD */
-		>;
-	};
-
-	mcu_uart0_rxd_pins_wakeup: mcu-uart0-rxd-pins-wakeup {
-		pinctrl-single,pins = <
-			AM62X_MCU_IOPAD(0x0014, PIN_INPUT | WKUP_EN, 0) /* MCU_UART0_RXD */
-		>;
-	};
 };
 
 &mcu_gpio0 {
@@ -140,11 +120,4 @@
 	pinctrl-0 = <&mcu_mcan1_tx_pins_default>, <&mcu_mcan1_rx_pins_default>;
 	pinctrl-1 = <&mcu_mcan1_tx_pins_default>, <&mcu_mcan1_rx_pins_wakeup>;
 	status = "okay";
-};
-
-&mcu_uart0 {
-	pinctrl-names = "default", "wakeup";
-	pinctrl-0 = <&mcu_uart0_pins_default>, <&mcu_uart0_rxd_pins_default>;
-	pinctrl-1 = <&mcu_uart0_pins_default>, <&mcu_uart0_rxd_pins_wakeup>;
-	status = "ok";
 };
