@@ -10,7 +10,12 @@
 
 #include <dt-bindings/leds/common.h>
 #include <dt-bindings/net/ti-dp83867.h>
+#include <dt-bindings/phy/phy.h>
 #include "k3-j722s.dtsi"
+#include "k3-serdes.h"
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/pwm/pwm.h>
+#include "k3-am67a-beagley-ai-pinmux.dtsi"
 
 / {
 	compatible = "beagle,am67a-beagley-ai", "ti,j722s";
@@ -39,6 +44,14 @@
 		#address-cells = <2>;
 		#size-cells = <2>;
 		ranges;
+
+		/* global cma region */
+		linux,cma {
+			compatible = "shared-dma-pool";
+			reusable;
+			size = <0x00 0x38000000>;
+			linux,cma-default;
+		};
 
 		secure_tfa_ddr: tfa@9e780000 {
 			reg = <0x00 0x9e780000 0x00 0x80000>;
@@ -308,7 +321,19 @@
 	status = "okay";
 };
 
+&cpsw_port2 {
+	status = "disabled";
+};
+
+&main_gpio0 {
+	status = "okay";
+};
+
 &main_gpio1 {
+	status = "okay";
+};
+
+&mcu_gpio0 {
 	status = "okay";
 };
 
@@ -334,6 +359,15 @@
 		pinctrl-single,pins = <
 			J722S_MCU_IOPAD(0x04c, PIN_INPUT_PULLUP, 0)	/* (C7) WKUP_I2C0_SCL */
 			J722S_MCU_IOPAD(0x050, PIN_INPUT_PULLUP, 0)	/* (C6) WKUP_I2C1_SDA */
+		>;
+		bootph-all;
+	};
+
+	pcie_pins_default: pcie-default-pins {
+		pinctrl-single,pins = <
+			J722S_MCU_IOPAD(0x0018, PIN_OUTPUT, 7)	/* (B4) MCU_UART0_TXD.MCU_GPIO0_6 */
+			J722S_MCU_IOPAD(0x0014, PIN_INPUT, 7)	/* (B8) MCU_UART0_RXD.MCU_GPIO0_5 */ /* PCIE_DET_WAKE */
+			J722S_MCU_IOPAD(0x0020, PIN_OUTPUT, 7)	/* (C5) MCU_UART0_RTSn.MCU_GPIO0_8 */ /* PCIE_PWR_EN */
 		>;
 		bootph-all;
 	};
@@ -548,4 +582,42 @@
 	memory-region = <&c7x_1_dma_memory_region>,
 			<&c7x_1_memory_region>;
 	status = "okay";
+};
+
+&serdes_ln_ctrl {
+	idle-states = <J722S_SERDES0_LANE0_USB>,
+		      <J722S_SERDES1_LANE0_PCIE0_LANE0>;
+};
+
+&serdes0 {
+	status = "okay";
+	serdes0_usb_link: phy@0 {
+		reg = <0>;
+		cdns,num-lanes = <1>;
+		#phy-cells = <0>;
+		cdns,phy-type = <PHY_TYPE_USB3>;
+		resets = <&serdes_wiz0 1>;
+	};
+};
+
+&serdes1 {
+	serdes1_pcie_link: phy@0 {
+		reg = <0>;
+		cdns,num-lanes = <1>;
+		#phy-cells = <0>;
+		cdns,phy-type = <PHY_TYPE_PCIE>;
+		resets = <&serdes_wiz1 1>;
+	};
+};
+
+&pcie0_rc {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pcie_pins_default>;
+	phys = <&serdes1_pcie_link>;
+	phy-names = "pcie-phy";
+	num-lanes = <1>;
+	max-link-speed = <3>;
+	reset-gpios = <&mcu_gpio0 6 GPIO_ACTIVE_HIGH>;
+	enable-gpios = <&mcu_gpio0 8 GPIO_ACTIVE_HIGH>; /* Extra GPIO for pwr_en for BeagleY AI */
 };
