@@ -12,6 +12,8 @@
 
 / {
 	aliases {
+		serial0 = &wkup_uart0;
+		serial1 = &mcu_uart0;
 		serial2 = &main_uart0;
 		mmc0 = &sdhci0;
 		mmc1 = &sdhci1;
@@ -62,6 +64,14 @@
 			pmsg-size = <0x8000>;
 		};
 
+		/* global cma region */
+		linux,cma {
+			compatible = "shared-dma-pool";
+			reusable;
+			size = <0x00 0x8000000>;
+			linux,cma-default;
+		};
+
 		rtos_ipc_memory_region: ipc-memories@9c800000 {
 			compatible = "shared-dma-pool";
 			reg = <0x00 0x9c800000 0x00 0x00300000>;
@@ -78,14 +88,6 @@
 			compatible = "shared-dma-pool";
 			reg = <0x00 0x9cc00000 0x00 0xe00000>;
 			no-map;
-		};
-
-		/* global cma region */
-		linux,cma {
-			compatible = "shared-dma-pool";
-			reusable;
-			size = <0x00 0x8000000>;
-			linux,cma-default;
 		};
 
 		wkup_r5fss0_core0_dma_memory_region: r5f-dma-memory@9da00000 {
@@ -295,7 +297,7 @@
 
 	main_usb1_pins_default: main-usb1-default-pins {
 		pinctrl-single,pins = <
-			AM62X_IOPAD(0x0258, PIN_OUTPUT, 0) /* (F18/E16) USB1_DRVVBUS */
+			AM62X_IOPAD(0x0258, PIN_OUTPUT | PIN_DS_PULLUD_ENABLE | PIN_DS_PULL_UP, 0) /* (F18/E16) USB1_DRVVBUS */
 		>;
 	};
 
