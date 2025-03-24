@@ -3,6 +3,8 @@
  * Copyright (C) 2012 Texas Instruments Incorporated - https://www.ti.com/
  */
 
+#include "am335x-bbb-bone-buses.dtsi"
+
 / {
 	cpus {
 		cpu@0 {
@@ -26,14 +28,14 @@
 		compatible = "gpio-leds";
 
 		led2 {
-			label = "beaglebone:green:heartbeat";
+			label = "beaglebone:green:usr0";
 			gpios = <&gpio1 21 GPIO_ACTIVE_HIGH>;
 			linux,default-trigger = "heartbeat";
 			default-state = "off";
 		};
 
 		led3 {
-			label = "beaglebone:green:mmc0";
+			label = "beaglebone:green:usr1";
 			gpios = <&gpio1 22 GPIO_ACTIVE_HIGH>;
 			linux,default-trigger = "mmc0";
 			default-state = "off";
@@ -63,9 +65,6 @@
 };
 
 &am33xx_pinmux {
-	pinctrl-names = "default";
-	pinctrl-0 = <&clkout2_pin>;
-
 	user_leds_s0: user-leds-s0-pins {
 		pinctrl-single,pins = <
 			AM33XX_PADCONF(AM335X_PIN_GPMC_A5, PIN_OUTPUT_PULLDOWN, MUX_MODE7)	/* gpmc_a5.gpio1_21 */
@@ -93,12 +92,6 @@
 		pinctrl-single,pins = <
 			AM33XX_PADCONF(AM335X_PIN_UART0_RXD, PIN_INPUT_PULLUP, MUX_MODE0)
 			AM33XX_PADCONF(AM335X_PIN_UART0_TXD, PIN_OUTPUT_PULLDOWN, MUX_MODE0)
-		>;
-	};
-
-	clkout2_pin: clkout2-pins {
-		pinctrl-single,pins = <
-			AM33XX_PADCONF(AM335X_PIN_XDMA_EVENT_INTR1, PIN_OUTPUT_PULLDOWN, MUX_MODE3)	/* xdma_event_intr1.clkout2 */
 		>;
 	};
 
@@ -193,6 +186,7 @@
 	pinctrl-0 = <&uart0_pins>;
 
 	status = "okay";
+	symlink = "bone/uart/0";
 };
 
 &usb0 {
@@ -211,12 +205,13 @@
 
 	status = "okay";
 	clock-frequency = <400000>;
+	symlink = "bone/i2c/0";
 
 	tps: tps@24 {
 		reg = <0x24>;
 	};
 
-	baseboard_eeprom: baseboard_eeprom@50 {
+	baseboard_eeprom: eeprom@50 {
 		compatible = "atmel,24c256";
 		reg = <0x50>;
 		vcc-supply = <&ldo4_reg>;
@@ -239,8 +234,9 @@
 
 	status = "okay";
 	clock-frequency = <100000>;
+	symlink = "bone/i2c/2";
 
-	cape_eeprom0: cape_eeprom0@54 {
+	cape_eeprom0: eeprom@54 {
 		compatible = "atmel,24c256";
 		reg = <0x54>;
 
@@ -255,7 +251,7 @@
 		};
 	};
 
-	cape_eeprom1: cape_eeprom1@55 {
+	cape_eeprom1: eeprom@55 {
 		compatible = "atmel,24c256";
 		reg = <0x55>;
 
@@ -270,7 +266,7 @@
 		};
 	};
 
-	cape_eeprom2: cape_eeprom2@56 {
+	cape_eeprom2: eeprom@56 {
 		compatible = "atmel,24c256";
 		reg = <0x56>;
 
@@ -285,7 +281,7 @@
 		};
 	};
 
-	cape_eeprom3: cape_eeprom3@57 {
+	cape_eeprom3: eeprom@57 {
 		compatible = "atmel,24c256";
 		reg = <0x57>;
 
@@ -409,7 +405,7 @@
 		/* Support GPIO reset on revision C3 boards */
 		reset-gpios = <&gpio1 8 GPIO_ACTIVE_LOW>;
 		reset-assert-us = <300>;
-		reset-deassert-us = <13000>;
+		reset-deassert-us = <50000>;
 	};
 };
 
@@ -441,4 +437,13 @@
 
 &wkup_m3_ipc {
 	firmware-name = "am335x-bone-scale-data.bin";
+};
+
+&tscadc {
+	adc {
+		ti,adc-channels = <0 1 2 3 4 5 6 7>;
+		ti,chan-step-avg = <16 16 16 16 16 16 16 16>;
+		ti,chan-step-opendelay = <0x98 0x98 0x98 0x98 0x98 0x98 0x98 0x98>;
+		ti,chan-step-sampledelay = <0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x0>;
+	};
 };
