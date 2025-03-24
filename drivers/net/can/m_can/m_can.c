@@ -23,6 +23,7 @@
 #include <linux/pinctrl/consumer.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
+#include <linux/reboot.h>
 
 #include "m_can.h"
 
@@ -2430,6 +2431,21 @@ static int m_can_class_setup_optional_pinctrl(struct m_can_classdev *class_dev)
 	return 0;
 }
 
+static int m_can_class_sysoff_handler(struct sys_off_data *data)
+{
+	struct m_can_classdev *cdev = data->cb_data;
+	struct device *dev = data->dev;
+	int ret;
+
+	if (device_may_wakeup(dev) && !IS_ERR(cdev->pinctrl_state_wakeup))
+		ret = pinctrl_select_state(cdev->pinctrl, cdev->pinctrl_state_wakeup);
+
+	if (ret)
+		dev_err(dev, "Failed to select pinctrl state 'wakeup', continuing poweroff\n");
+
+	return NOTIFY_DONE;
+}
+
 struct m_can_classdev *m_can_class_allocate_dev(struct device *dev,
 						int sizeof_priv)
 {
@@ -2471,6 +2487,11 @@ struct m_can_classdev *m_can_class_allocate_dev(struct device *dev,
 	SET_NETDEV_DEV(net_dev, dev);
 
 	m_can_of_parse_mram(class_dev, mram_config_vals);
+
+	devm_register_sys_off_handler(dev,
+				      SYS_OFF_MODE_POWER_OFF_PREPARE,
+				      SYS_OFF_PRIO_DEFAULT,
+				      m_can_class_sysoff_handler, class_dev);
 
 	ret = m_can_class_setup_optional_pinctrl(class_dev);
 	if (ret)
