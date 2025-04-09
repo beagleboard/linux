@@ -302,7 +302,7 @@
 				am33xx_pinmux: pinmux@800 {
 					compatible = "pinctrl-single";
 					reg = <0x800 0x238>;
-					#pinctrl-cells = <2>;
+					#pinctrl-cells = <1>;
 					pinctrl-single,register-width = <32>;
 					pinctrl-single,function-mask = <0x7f>;
 				};
@@ -889,14 +889,6 @@
 								 <&pruss_ocp_gclk>; /* icss_ocp_gclk */
 						};
 					};
-				};
-
-				pruss_uart: serial@28000 {
-					compatible = "ti,pruss-uart";
-					reg = <0x28000 0x38>;
-					clocks = <&dpll_per_m2_ck>;
-					interrupt-parent = <&pruss_intc>;
-					status = "disabled";
 				};
 
 				pruss_mii_rt: mii-rt@32000 {

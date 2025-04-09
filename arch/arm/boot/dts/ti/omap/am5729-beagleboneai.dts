@@ -12,6 +12,7 @@
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/pinctrl/dra.h>
+#include "bbai-bone-buses.dtsi"
 
 / {
 	model = "BeagleBoard.org BeagleBone AI";
@@ -22,10 +23,19 @@
 		rtc0 = &tps659038_rtc;
 		rtc1 = &rtc;
 		display0 = &hdmi_conn;
+		mmc0 = &mmc1;
+		mmc1 = &mmc2;
+		mmc2 = &mmc4;
+		i2c0 = &i2c1;
+		i2c1 = &i2c5;
+		i2c2 = &i2c4;
+		i2c3 = &i2c3;
 	};
 
 	chosen {
 		stdout-path = &uart1;
+		base_dtb = "am5729-beagleboneai.dts";
+		base_dtb_timestamp = __TIMESTAMP__;
 	};
 
 	memory@0 {
@@ -103,6 +113,8 @@
 
 	leds {
 		compatible = "gpio-leds";
+		pinctrl-names = "default";
+		pinctrl-0 = <&led_pins_default>;
 
 		led0 {
 			label = "beaglebone:green:usr0";
@@ -186,29 +198,109 @@
 	emmc_pwrseq: emmc_pwrseq {
 		compatible = "mmc-pwrseq-emmc";
 		reset-gpios = <&gpio5 7 GPIO_ACTIVE_LOW>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&emmc_pwrseq_pins_default>;
 	};
 
 	brcmf_pwrseq: brcmf_pwrseq {
 		compatible = "mmc-pwrseq-simple";
+		pinctrl-names = "default";
+		pinctrl-0 = <&brcmf_pwrseq_pins_default>;
 		reset-gpios = <&gpio3 22 GPIO_ACTIVE_LOW>,	/* BT-REG-ON */
 				<&gpio3 18 GPIO_ACTIVE_LOW>;	/* WL-REG-ON */
 	};
 
 	extcon_usb1: extcon_usb1 {
 		compatible = "linux,extcon-usb-gpio";
+		ti,enable-id-detection;
 		id-gpios = <&gpio3 13 GPIO_ACTIVE_HIGH>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&extcon_usb1_pins_default>;
+	};
+};
+
+&dra7_pmx_core {
+	extcon_usb1_pins_default: extcon_usb1_pins_default {
+		pinctrl-single,pins = <
+			DRA7XX_CORE_IOPAD(0x3518, PIN_INPUT | MUX_MODE14) /* AG2: vin1a_d9.gpio3_13  - USR0 */
+		>;
+	};
+
+	led_pins_default: led_pins_default {
+		pinctrl-single,pins = <
+			DRA7XX_CORE_IOPAD(0x3528, PIN_OUTPUT | MUX_MODE14) /* AF6: vin1a_d13.gpio3_17  - USR0 */
+			DRA7XX_CORE_IOPAD(0x36c0, PIN_OUTPUT | MUX_MODE14) /* J11: mcasp1_axr3.gpio5_5 - USR1 */
+			DRA7XX_CORE_IOPAD(0x3520, PIN_OUTPUT | MUX_MODE14) /* AG5: vin1a_d12.gpio3_15  - USR2 */
+			DRA7XX_CORE_IOPAD(0x351c, PIN_OUTPUT | MUX_MODE14) /* AG3: vin1a_d10.gpio3_14  - USR3 */
+			DRA7XX_CORE_IOPAD(0x3500, PIN_OUTPUT | MUX_MODE14) /* AH6: vin1a_d3.gpio3_7    - USR4 */
+		>;
+	};
+
+	emmc_pwrseq_pins_default: emmc_pwrseq_pins_default {
+		pinctrl-single,pins = <
+			DRA7XX_CORE_IOPAD(0x36c8, PIN_OUTPUT_PULLUP | MUX_MODE14) /* F13: mcasp1_axr5.gpio5_7 - eMMC_RSTn */
+		>;
+	};
+
+	brcmf_pwrseq_pins_default: brcmf_pwrseq_pins_default {
+		pinctrl-single,pins = <
+			DRA7XX_CORE_IOPAD(0x352c, PIN_OUTPUT_PULLUP | MUX_MODE14) /* AF3: vin1a_d14.gpio3_18 - WL_REG_ON */
+			DRA7XX_CORE_IOPAD(0x353c, PIN_OUTPUT_PULLUP | MUX_MODE14) /* AE5: vin1a_d18.gpio3_22 - BT_REG_ON */
+		>;
+	};
+
+	wifibt_extra_pins_default: wifibt_extra_pins_default {
+		pinctrl-single,pins = <
+			DRA7XX_CORE_IOPAD(0x3540, PIN_INPUT | MUX_MODE14) /* AE1: vin1a_d19.gpio3_23 - WL_HOST_WAKE */
+			DRA7XX_CORE_IOPAD(0x3450, PIN_INPUT | MUX_MODE8) /* P6: vin1a_d20.uart6_rxd - UART6_RXD */
+			DRA7XX_CORE_IOPAD(0x3454, PIN_INPUT | MUX_MODE8) /* R9: vin1a_d21.uart6_txd - UART6_TXD */
+			DRA7XX_CORE_IOPAD(0x3458, PIN_INPUT | MUX_MODE8) /* R5: vin1a_d22.uart6_ctsn - UART6_CTSN */
+			DRA7XX_CORE_IOPAD(0x345c, PIN_INPUT | MUX_MODE8) /* P5: vin1a_d23.uart6_rtsn - UART6_RTSN */
+			DRA7XX_CORE_IOPAD(0x3534, PIN_INPUT_PULLDOWN | MUX_MODE14) /* AF1: vin1a_d16.gpio3_20 - BT_HOST_WAKE */
+			DRA7XX_CORE_IOPAD(0x3538, PIN_OUTPUT_PULLDOWN | MUX_MODE14) /* AE3: vin1a_d6.gpio3_21 - BT_WAKE */
+		>;
+	};
+
+	adc_pins_default: adc_pins_default {
+		pinctrl-single,pins = <
+			DRA7XX_CORE_IOPAD(0x3550, PIN_OUTPUT | MUX_MODE14) /* AD3: vin1a_d23.gpio3_27 - VDD_ADC_SEL */
+			DRA7XX_CORE_IOPAD(0x34DC, PIN_INPUT_PULLUP | MUX_MODE14) /* AG8: vin1a_clk0.gpio2_30 - INT_ADC */
+		>;
+	};
+
+	pmic_pins_default: pmic_pins_default {
+		pinctrl-single,pins = <
+			DRA7XX_CORE_IOPAD(0x3690, PIN_INPUT_PULLUP | MUX_MODE14) /* F21: gpio6_16.gpio6_16 - PMIC_INT */
+		>;
+	};
+
+	hdmi_pins_default: hdmi_pins_default {
+		pinctrl-single,pins = <
+			DRA7XX_CORE_IOPAD(0x3808, PIN_INPUT | MUX_MODE1) /* C25: i2c2_sda.hdmi1_ddc_scl - HDMI_DDC_SCL */
+			DRA7XX_CORE_IOPAD(0x380C, PIN_INPUT | MUX_MODE1) /* F17: i2c2_scl.hdmi1_ddc_sda - HDMI_DDC_SDA */
+			DRA7XX_CORE_IOPAD(0x37BC, PIN_INPUT | MUX_MODE6) /* B20: spi1_cs3.hdmi1_cec - HDMI_DDC_CEC */
+#if 0
+			DRA7XX_CORE_IOPAD(0x37B8, PIN_INPUT | MUX_MODE6) /* B21: spi1_cs2.hdmi1_hpd - HDMI_DDC_HPD */
+#else
+			DRA7XX_CORE_IOPAD(0x37B8, PIN_INPUT | MUX_MODE14) /* B21: spi1_cs2.gpio7_12 - HDMI_DDC_HPD */
+#endif
+		>;
 	};
 };
 
 &i2c1 {
 	status = "okay";
 	clock-frequency = <400000>;
+	symlink = "bone/i2c/0";
 
 	tps659038: tps659038@58 {
 		compatible = "ti,tps659038";
 		reg = <0x58>;
 		interrupt-parent = <&gpio6>;
 		interrupts = <16 IRQ_TYPE_LEVEL_LOW>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&pmic_pins_default>;
 
 		#interrupt-cells = <2>;
 		interrupt-controller;
@@ -422,6 +514,9 @@
 		st,adc-freq = <1>; /* 3.25 MHz ADC clock speed */
 		st,sample-time = <4>; /* ADC converstion time: 80 clocks */
 
+		pinctrl-names = "default";
+		pinctrl-0 = <&adc_pins_default>;
+
 		stmpe_adc {
 			compatible = "st,stmpe-adc";
 			st,norequest-mask = <0x00>; /* mask any channels to be used by touchscreen */
@@ -460,6 +555,11 @@
 			#pwm-cells = <2>;
 		};
 	};
+
+	eeprom: eeprom@50 {
+		compatible = "atmel,24c32";
+		reg = <0x50>;
+	};
 };
 
 &mcspi3 {
@@ -484,6 +584,7 @@
 
 &uart1 {
 	status = "okay";
+	symlink = "bone/uart/0";
 };
 
 &davinci_mdio_sw {
@@ -548,7 +649,11 @@
 	ti,needs-special-reset;
 	dmas = <&sdma_xbar 47>, <&sdma_xbar 48>;
 	dma-names = "tx", "rx";
-
+	pinctrl-names = "default", "hs", "ddr_1_8v", "hs200_1_8v";
+	pinctrl-0 = <&mmc2_pins_default>;
+	pinctrl-1 = <&mmc2_pins_hs>;
+	pinctrl-2 = <&mmc2_pins_ddr_rev20>;
+	pinctrl-3 = <&mmc2_pins_hs200>;
 };
 
 &mmc4 {
@@ -560,6 +665,10 @@
 	/* SDR104: SDR up to 208 MHz (1.8 V signaling) */
 	/* DDR50: DDR up to 50 MHz (1.8 V signaling). */
 	status = "okay";
+
+	pinctrl-names = "default", "hs";
+	pinctrl-0 = <&mmc4_pins_default &wifibt_extra_pins_default>;
+	pinctrl-1 = <&mmc4_pins_hs &wifibt_extra_pins_default>;
 
 	ti,needs-special-reset;
 	vmmc-supply = <&vdd_3v3>;
@@ -620,6 +729,8 @@
 &hdmi {
 	status = "okay";
 	vdda-supply = <&vdd_1v8_phy_ldo4>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&hdmi_pins_default>;
 
 	port {
 		hdmi_out: endpoint {
@@ -673,6 +784,7 @@
 &i2c4 {
 	status = "okay";
 	clock-frequency = <100000>;
+	symlink = "bone/i2c/2";
 };
 
 &ipu2 {
