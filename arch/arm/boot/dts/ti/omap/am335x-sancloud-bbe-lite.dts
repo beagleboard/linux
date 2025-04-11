@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (C) 2012 Texas Instruments Incorporated - http://www.ti.com/
+ * Copyright (C) 2012 Texas Instruments Incorporated - https://www.ti.com/
  * Copyright (C) 2021 SanCloud Ltd
  */
 /dts-v1/;
@@ -16,6 +16,11 @@
 		     "ti,am335x-bone-black",
 		     "ti,am335x-bone",
 		     "ti,am33xx";
+
+	chosen {
+		base_dtb = "am335x-sancloud-bbe-lite.dts";
+		base_dtb_timestamp = __TIMESTAMP__;
+	};
 };
 
 &am33xx_pinmux {
@@ -42,6 +47,7 @@
 		#size-cells = <0>;
 
 		compatible = "micron,spi-authenta";
+		symlink = "bone/spi/0.0";
 
 		reg = <0>;
 		spi-max-frequency = <16000000>;

@@ -12,6 +12,7 @@
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/input/input.h>
 #include "k3-am625.dtsi"
+#include "k3-am625-beagleplay-pinmux.dtsi"
 
 / {
 	compatible = "beagle,am625-beagleplay", "ti,am625";
@@ -33,7 +34,6 @@
 		mmc1 = &sdhci1;
 		mmc2 = &sdhci2;
 		rtc0 = &rtc;
-		rtc1 = &wkup_rtc0;
 		serial0 = &main_uart5;
 		serial1 = &main_uart6;
 		serial2 = &main_uart0;
@@ -57,14 +57,6 @@
 		#size-cells = <2>;
 		ranges;
 
-		/* global cma region */
-		linux,cma {
-			compatible = "shared-dma-pool";
-			reusable;
-			size = <0x00 0x8000000>;
-			linux,cma-default;
-		};
-
 		ramoops: ramoops@9ca00000 {
 			compatible = "ramoops";
 			reg = <0x00 0x9ca00000 0x00 0x00100000>;
@@ -72,6 +64,14 @@
 			console-size = <0x8000>;
 			ftrace-size = <0x00>;
 			pmsg-size = <0x8000>;
+		};
+
+		/* global cma region */
+		linux,cma {
+			compatible = "shared-dma-pool";
+			reusable;
+			size = <0x00 0x8000000>;
+			linux,cma-default;
 		};
 
 		secure_tfa_ddr: tfa@9e780000 {
@@ -120,7 +120,8 @@
 		regulator-min-microvolt = <1800000>;
 		regulator-max-microvolt = <1800000>;
 		enable-active-high;
-		regulator-always-on;
+		/* regulator-always-on; */
+		regulator-off-in-suspend;
 		vin-supply = <&vdd_3v3>;
 		gpio = <&main_gpio0 38 GPIO_ACTIVE_HIGH>;
 		pinctrl-names = "default";
@@ -301,6 +302,8 @@
 		pinctrl-single,pins = <
 			AM62X_IOPAD(0x0160, PIN_OUTPUT, 0) /* (AD24) MDIO0_MDC */
 			AM62X_IOPAD(0x015c, PIN_INPUT, 0) /* (AB22) MDIO0_MDIO */
+			AM62X_IOPAD(0x003c, PIN_INPUT, 7) /* (M25) GPMC0_AD0.GPIO0_15 */
+			AM62X_IOPAD(0x018c, PIN_INPUT, 7) /* (AC21) RGMII2_RD2.GPIO1_5 */
 		>;
 	};
 
@@ -392,7 +395,6 @@
 			AM62X_IOPAD(0x016c, PIN_INPUT, 1) /* (Y18) RGMII2_TD0.RMII2_TXD0 */
 			AM62X_IOPAD(0x0170, PIN_INPUT, 1) /* (AA18) RGMII2_TD1.RMII2_TXD1 */
 			AM62X_IOPAD(0x0164, PIN_INPUT, 1) /* (AA19) RGMII2_TX_CTL.RMII2_TX_EN */
-			AM62X_IOPAD(0x018c, PIN_OUTPUT, 7) /* (AC21) RGMII2_RD2.GPIO1_5 */
 			AM62X_IOPAD(0x0190, PIN_INPUT, 7) /* (AE22) RGMII2_RD3.GPIO1_6 */
 			AM62X_IOPAD(0x01f0, PIN_OUTPUT, 5) /* (A18) EXT_REFCLK1.CLKOUT0 */
 		>;
@@ -427,6 +429,12 @@
 			AM62X_IOPAD(0x019c, PIN_INPUT, 7) /* (B18) MCASP0_AXR1.GPIO1_9 */
 			AM62X_IOPAD(0x01a0, PIN_INPUT, 7) /* (E18) MCASP0_AXR0.GPIO1_10 */
 			AM62X_IOPAD(0x01a8, PIN_INPUT, 7) /* (D20) MCASP0_AFSX.GPIO1_12 */
+		>;
+	};
+
+	mikrobus_pwm_pins_default: mikrobus-pwm-default-pins {
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x01a4, PIN_INPUT, 2) /* (B20) MCASP0_ACLKX.ECAP2_IN_APWM_OUT */
 		>;
 	};
 
@@ -505,20 +513,6 @@
 			AM62X_IOPAD(0x0070, PIN_OUTPUT, 1) /* (T24) GPMC0_AD13.VOUT0_DATA21 */
 			AM62X_IOPAD(0x0074, PIN_OUTPUT, 1) /* (U25) GPMC0_AD14.VOUT0_DATA22 */
 			AM62X_IOPAD(0x0078, PIN_OUTPUT, 1) /* (U24) GPMC0_AD15.VOUT0_DATA23 */
-		>;
-	};
-
-	touchscreen_pins_default: touchscreen-default-pins {
-		pinctrl-single,pins = <
-			AM62X_IOPAD(0x01b4, PIN_OUTPUT, 7) /* (A13) SPI0_CS0.GPIO1_15 */
-			AM62X_IOPAD(0x00a0, PIN_INPUT, 7) /* (K25) GPMC0_WPn.GPIO0_39 */
-		>;
-	};
-
-	backlight_pins_default: bl-default-pins {
-		pinctrl-single,pins = <
-			AM62X_IOPAD(0x0000, PIN_OUTPUT, 7) /* (H24) OSPI0_CLK.GPIO0_0 */
-			AM62X_IOPAD(0x01b8, PIN_OUTPUT, 2) /* (C13) SPI0_CS1.EHRPWM0_B */
 		>;
 	};
 };
@@ -620,52 +614,17 @@
 
 	cpsw3g_phy0: ethernet-phy@0 {
 		reg = <0>;
+		reset-gpios = <&main_gpio0 15 GPIO_ACTIVE_LOW>;
+		reset-assert-us = <10000>;
+		reset-deassert-us = <50000>;
 	};
 
 	cpsw3g_phy1: ethernet-phy@1 {
 		reg = <1>;
 		reset-gpios = <&main_gpio1 5 GPIO_ACTIVE_LOW>;
 		reset-assert-us = <25>;
-		reset-deassert-us = <60000>; /* T2 */
+		reset-deassert-us = <35>;
 	};
-};
-
-&main_gpio0 {
-	bootph-all;
-	pinctrl-names = "default";
-	pinctrl-0 = <&gpio0_pins_default>;
-	gpio-line-names = "BL_EN_3V3", "SPE_PO_EN", "RTC_INT",	/* 0-2 */
-		"USR0", "USR1", "USR2", "USR3", "", "", "USR4",	/* 3-9 */
-		"EEPROM_WP",					/* 10 */
-		"CSI2_CAMERA_GPIO1", "CSI2_CAMERA_GPIO2",	/* 11-12 */
-		"CC1352P7_BOOT", "CC1352P7_RSTN", "", "", "",	/* 13-17 */
-		"USR_BUTTON", "", "", "", "", "", "", "", "",	/* 18-26 */
-		"", "", "", "", "", "", "", "", "", "HDMI_INT",	/* 27-36 */
-		"", "VDD_WLAN_EN", "", "", "WL_IRQ", "GBE_INTN",/* 37-42 */
-		"", "", "", "", "", "", "", "", "", "", "", "",	/* 43-54 */
-		"", "", "", "", "", "", "", "", "", "", "", "", /* 55-66 */
-		"", "", "", "", "", "", "", "", "", "", "", "", /* 67-78 */
-		"", "", "", "", "", "",				/* 79-84 */
-		"BITBANG_MDIO_DATA", "BITBANG_MDIO_CLK",	/* 85-86 */
-		"", "", "", "", "";				/* 87-91 */
-};
-
-&main_gpio1 {
-	bootph-all;
-	pinctrl-names = "default";
-	pinctrl-0 = <&mikrobus_gpio_pins_default>;
-	gpio-line-names = "", "", "", "", "",			/* 0-4 */
-		"SPE_RSTN", "SPE_INTN", "MIKROBUS_GPIO1_7",	/* 5-7 */
-		"MIKROBUS_GPIO1_8", "MIKROBUS_GPIO1_9",		/* 8-9 */
-		"MIKROBUS_GPIO1_10", "MIKROBUS_GPIO1_11",	/* 10-11 */
-		"MIKROBUS_GPIO1_12", "MIKROBUS_W1_GPIO0",	/* 12-13 */
-		"MIKROBUS_GPIO1_14",				/* 14 */
-		"", "", "", "", "VDD_3V3_SD", "", "",		/* 15-21 */
-		"MIKROBUS_GPIO1_22", "MIKROBUS_GPIO1_23",	/* 22-23 */
-		"MIKROBUS_GPIO1_24", "MIKROBUS_GPIO1_25",	/* 24-25 */
-		"", "", "", "", "", "", "", "", "", "", "", "",	/* 26-37 */
-		"", "", "", "", "", "", "", "", "", "",		/* 38-47 */
-		"SD_CD", "SD_VOLT_SEL", "", "";			/* 48-51 */
 };
 
 &main_i2c0 {
@@ -862,13 +821,13 @@
 };
 
 &sdhci2 {
-	vmmc-supply = <&wlan_en>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&wifi_pins_default>, <&wifi_32k_clk>;
 	non-removable;
 	ti,fails-without-test-cd;
 	cap-power-off-card;
 	keep-power-in-suspend;
+	vmmc-supply = <&wlan_en>;
 	assigned-clocks = <&k3_clks 157 158>;
 	assigned-clock-parents = <&k3_clks 157 160>;
 	#address-cells = <1>;
@@ -949,4 +908,10 @@
 	>;
 	tx-num-evt = <0>;
 	rx-num-evt = <0>;
+};
+
+&ecap2 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&mikrobus_pwm_pins_default>;
 };
