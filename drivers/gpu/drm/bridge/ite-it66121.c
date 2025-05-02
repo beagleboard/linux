@@ -607,45 +607,45 @@ static enum drm_mode_status it66121_mode_valid(struct drm_connector *connector,
 	return MODE_OK;
 }
 
-static struct edid *it66121_get_edid(struct it66121_ctx *ctx,
+static const struct drm_edid *it66121_get_edid(struct it66121_ctx *ctx,
 				     struct drm_connector *connector)
 {
-	struct edid *edid;
+	const struct drm_edid *drm_edid;
 	int ret;
 
 	mutex_lock(&ctx->lock);
 	ret = it66121_preamble_ddc(ctx);
 	if (ret) {
-		edid = NULL;
+		drm_edid = NULL;
 		goto out_unlock;
 	}
 
 	ret = regmap_write(ctx->regmap, IT66121_DDC_HEADER_REG,
 			   IT66121_DDC_HEADER_EDID);
 	if (ret) {
-		edid = NULL;
+		drm_edid = NULL;
 		goto out_unlock;
 	}
 
-	edid = drm_do_get_edid(connector, it66121_get_edid_block, ctx);
+	drm_edid = drm_edid_read_custom(connector, it66121_get_edid_block, ctx);
 
 out_unlock:
 	mutex_unlock(&ctx->lock);
 
-	return edid;
+	return drm_edid;
 }
 
 static int it66121_get_modes(struct drm_connector *connector)
 {
 	struct it66121_ctx *ctx = connector_to_it66121(connector);
-	struct edid *edid;
+	const struct drm_edid *drm_edid;
 	int num = 0;
 
-	edid = it66121_get_edid(ctx, connector);
-	drm_connector_update_edid_property(connector, edid);
-	if (edid) {
-		num = drm_add_edid_modes(connector, edid);
-		kfree(edid);
+	drm_edid = it66121_get_edid(ctx, connector);
+	drm_edid_connector_update(connector, drm_edid);
+	if (drm_edid) {
+		num = drm_edid_connector_add_modes(connector);
+		drm_edid_free(drm_edid);
 	}
 
 	return num;
