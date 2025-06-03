@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * GPIO driver for TI TPS65215/TPS65219 PMICs
+ * GPIO driver for TI TPS65219 PMICs
  *
- * Copyright (C) 2024 Texas Instruments Incorporated - http://www.ti.com/
+ * Copyright (C) 2022 Texas Instruments Incorporated - http://www.ti.com/
  */
 
 #include <linux/bits.h>
@@ -13,16 +13,14 @@
 #include <linux/regmap.h>
 
 #define TPS65219_GPIO0_DIR_MASK		BIT(3)
-#define TPS6521X_GPIO0_IDX			0
+#define TPS65219_GPIO0_OFFSET		2
+#define TPS65219_GPIO0_IDX		0
+#define TPS65219_GPIO_DIR_IN		1
+#define TPS65219_GPIO_DIR_OUT		0
 
 struct tps65219_gpio {
 	struct gpio_chip gpio_chip;
 	struct tps65219 *tps;
-};
-
-struct tps65219_chip_data {
-	int ngpio;
-	int offset;
 };
 
 static int tps65219_gpio_get_direction(struct gpio_chip *gc, unsigned int offset)
@@ -30,7 +28,7 @@ static int tps65219_gpio_get_direction(struct gpio_chip *gc, unsigned int offset
 	struct tps65219_gpio *gpio = gpiochip_get_data(gc);
 	int ret, val;
 
-	if (offset != TPS6521X_GPIO0_IDX)
+	if (offset != TPS65219_GPIO0_IDX)
 		return GPIO_LINE_DIRECTION_OUT;
 
 	ret = regmap_read(gpio->tps->regmap, TPS65219_REG_MFP_1_CONFIG, &val);
@@ -46,7 +44,7 @@ static int tps65219_gpio_get(struct gpio_chip *gc, unsigned int offset)
 	struct device *dev = gpio->tps->dev;
 	int ret, val;
 
-	if (offset != TPS6521X_GPIO0_IDX) {
+	if (offset != TPS65219_GPIO0_IDX) {
 		dev_err(dev, "GPIO%d is output only, cannot get\n", offset);
 		return -ENOTSUPP;
 	}
@@ -63,7 +61,7 @@ static int tps65219_gpio_get(struct gpio_chip *gc, unsigned int offset)
 	 * status bit.
 	 */
 
-	if (tps65219_gpio_get_direction(gc, offset) == GPIO_LINE_DIRECTION_OUT)
+	if (tps65219_gpio_get_direction(gc, offset) == TPS65219_GPIO_DIR_OUT)
 		return -ENOTSUPP;
 
 	return ret;
@@ -75,7 +73,7 @@ static void tps65219_gpio_set(struct gpio_chip *gc, unsigned int offset, int val
 	struct device *dev = gpio->tps->dev;
 	int v, mask, bit;
 
-	bit = (offset == TPS6521X_GPIO0_IDX) ? (gpio->gpio_chip.offset - 1) : offset - 1;
+	bit = (offset == TPS65219_GPIO0_IDX) ? TPS65219_GPIO0_OFFSET : offset - 1;
 
 	mask = BIT(bit);
 	v = value ? mask : 0;
@@ -121,30 +119,31 @@ static int tps65219_gpio_direction_input(struct gpio_chip *gc, unsigned int offs
 	struct tps65219_gpio *gpio = gpiochip_get_data(gc);
 	struct device *dev = gpio->tps->dev;
 
-	if (offset != TPS6521X_GPIO0_IDX) {
+	if (offset != TPS65219_GPIO0_IDX) {
 		dev_err(dev, "GPIO%d is output only, cannot change to input\n", offset);
 		return -ENOTSUPP;
 	}
 
-	if (tps65219_gpio_get_direction(gc, offset) == GPIO_LINE_DIRECTION_IN)
+	if (tps65219_gpio_get_direction(gc, offset) == TPS65219_GPIO_DIR_IN)
 		return 0;
 
-	return tps65219_gpio_change_direction(gc, offset, GPIO_LINE_DIRECTION_IN);
+	return tps65219_gpio_change_direction(gc, offset, TPS65219_GPIO_DIR_IN);
 }
 
 static int tps65219_gpio_direction_output(struct gpio_chip *gc, unsigned int offset, int value)
 {
 	tps65219_gpio_set(gc, offset, value);
-	if (offset != TPS6521X_GPIO0_IDX)
+	if (offset != TPS65219_GPIO0_IDX)
 		return 0;
 
-	if (tps65219_gpio_get_direction(gc, offset) == GPIO_LINE_DIRECTION_OUT)
+	if (tps65219_gpio_get_direction(gc, offset) == TPS65219_GPIO_DIR_OUT)
 		return 0;
 
-	return tps65219_gpio_change_direction(gc, offset, GPIO_LINE_DIRECTION_OUT);
+	return tps65219_gpio_change_direction(gc, offset, TPS65219_GPIO_DIR_OUT);
 }
 
 static const struct gpio_chip tps65219_template_chip = {
+	.label			= "tps65219-gpio",
 	.owner			= THIS_MODULE,
 	.get_direction		= tps65219_gpio_get_direction,
 	.direction_input	= tps65219_gpio_direction_input,
@@ -152,29 +151,14 @@ static const struct gpio_chip tps65219_template_chip = {
 	.get			= tps65219_gpio_get,
 	.set			= tps65219_gpio_set,
 	.base			= -1,
+	.ngpio			= 3,
 	.can_sleep		= true,
-};
-
-static const struct tps65219_chip_data chip_info_table[] = {
-	[TPS65215] = {
-		.ngpio = 2,
-		.offset = 1,
-	},
-	[TPS65219] = {
-		.ngpio = 3,
-		.offset = 2,
-	},
 };
 
 static int tps65219_gpio_probe(struct platform_device *pdev)
 {
-	struct tps65219_gpio *gpio;
-	const struct tps65219_chip_data *pmic;
-
 	struct tps65219 *tps = dev_get_drvdata(pdev->dev.parent);
-	enum pmic_id chip = platform_get_device_id(pdev)->driver_data;
-
-	pmic = &chip_info_table[chip];
+	struct tps65219_gpio *gpio;
 
 	gpio = devm_kzalloc(&pdev->dev, sizeof(*gpio), GFP_KERNEL);
 	if (!gpio)
@@ -182,30 +166,20 @@ static int tps65219_gpio_probe(struct platform_device *pdev)
 
 	gpio->tps = tps;
 	gpio->gpio_chip = tps65219_template_chip;
-	gpio->gpio_chip.label = dev_name(&pdev->dev);
-	gpio->gpio_chip.ngpio =  pmic->ngpio;
-	gpio->gpio_chip.offset = pmic->offset;
 	gpio->gpio_chip.parent = tps->dev;
 
 	return devm_gpiochip_add_data(&pdev->dev, &gpio->gpio_chip, gpio);
 }
-
-static const struct platform_device_id tps6521x_gpio_id_table[] = {
-	{ "tps65215-gpio", TPS65215 },
-	{ "tps65219-gpio", TPS65219 },
-	{ }
-};
-MODULE_DEVICE_TABLE(platform, tps6521x_gpio_id_table);
 
 static struct platform_driver tps65219_gpio_driver = {
 	.driver = {
 		.name = "tps65219-gpio",
 	},
 	.probe = tps65219_gpio_probe,
-	.id_table = tps6521x_gpio_id_table,
 };
 module_platform_driver(tps65219_gpio_driver);
 
+MODULE_ALIAS("platform:tps65219-gpio");
 MODULE_AUTHOR("Jonathan Cormier <jcormier@criticallink.com>");
-MODULE_DESCRIPTION("TPS65215/TPS65219 GPIO driver");
+MODULE_DESCRIPTION("TPS65219 GPIO driver");
 MODULE_LICENSE("GPL");
