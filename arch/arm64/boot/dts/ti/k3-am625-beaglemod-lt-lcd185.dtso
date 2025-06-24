@@ -1,0 +1,215 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (C) 2022 Texas Instruments Incorporated - https://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+#include "k3-pinctrl.h"
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+ */
+&{/chosen} {
+	overlays {
+		k3-am625-beaglemod-lt-185lcd-panel.kernel = __TIMESTAMP__;
+	};
+};
+
+/ {
+	fragment@101 {
+		target-path = "/";
+
+		__overlay__ {
+			backlight: backlight {
+				pinctrl-names = "default";
+				pinctrl-0 = <&backlight_pins_default>;
+
+				compatible = "pwm-backlight";
+
+				brightness-levels = <0 4 8 16 32 64 128 255>;
+				default-brightness-level = <6>;
+
+				enable-gpios = <&main_gpio0 38 GPIO_ACTIVE_HIGH>;
+				pwms = <&epwm0 0 20000 0>;
+			};
+
+			lcd {
+				compatible = "lincolntech,lcd185-101ct";
+				backlight = <&backlight>;
+
+				/*
+				* Note that the OLDI TX 0 transmits the odd set of pixels
+				* while the OLDI TX 1 transmits the even set. This is a
+				* fixed configuration in the IP integration and is not
+				* changeable. The properties, "dual-lvds-odd-pixels" and
+				* "dual-lvds-even-pixels" have been used to merely
+				* identify if a Dual Link configuration is required.
+				* Swapping them will not make any difference.
+				*/
+				port@0 {
+					dual-lvds-odd-pixels;
+					lcd_in0: endpoint {
+						remote-endpoint = <&oldi_out0>;
+					};
+				};
+
+				port@1 {
+					dual-lvds-even-pixels;
+					lcd_in1: endpoint {
+						remote-endpoint = <&oldi_out1>;
+					};
+				};
+			};
+
+			level_shift_oe: level-shift-oe {
+				compatible = "gpio-leds";
+				pinctrl-names = "default";
+				pinctrl-0 = <&level_shift_oe_pins_default>;
+
+				//lcd backlight 1v8 -> TXB0108PWR -> lcd backlight 3v3 -> lcd
+				oe-pin {
+					label = "LEVEL_SHIFT_OE";
+					gpios = <&main_gpio0 32 GPIO_ACTIVE_HIGH>;
+					default-state = "on";
+				};
+			};
+
+			vdd_5v_lvds: regulator-lvds {
+				pinctrl-names = "default";
+				pinctrl-0 = <&vdd_5v_lvds_pins_default>;
+
+				compatible = "regulator-fixed";
+				regulator-name = "vdd_5v_lvds";
+				regulator-min-microvolt = <5000000>;
+				regulator-max-microvolt = <5000000>;
+				enable-active-high;
+				regulator-always-on;
+				vin-supply = <&vsys_5v0>;
+				gpio = <&main_gpio0 1 GPIO_ACTIVE_HIGH>;
+			};
+		};
+	};
+};
+
+&main_pmx0 {
+	oldi_pins_default: oldi-pins-default {
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x0260, PIN_OUTPUT, 0) /* (AA5) OLDI0_A0N */
+			AM62X_IOPAD(0x025c, PIN_OUTPUT, 0) /* (Y6) OLDI0_A0P */
+			AM62X_IOPAD(0x0268, PIN_OUTPUT, 0) /* (AD3) OLDI0_A1N */
+			AM62X_IOPAD(0x0264, PIN_OUTPUT, 0) /* (AB4) OLDI0_A1P */
+			AM62X_IOPAD(0x0270, PIN_OUTPUT, 0) /* (Y8) OLDI0_A2N */
+			AM62X_IOPAD(0x026c, PIN_OUTPUT, 0) /* (AA8) OLDI0_A2P */
+			AM62X_IOPAD(0x0278, PIN_OUTPUT, 0) /* (AB6) OLDI0_A3N */
+			AM62X_IOPAD(0x0274, PIN_OUTPUT, 0) /* (AA7) OLDI0_A3P */
+			AM62X_IOPAD(0x0280, PIN_OUTPUT, 0) /* (AC6) OLDI0_A4N */
+			AM62X_IOPAD(0x027c, PIN_OUTPUT, 0) /* (AC5) OLDI0_A4P */
+			AM62X_IOPAD(0x0288, PIN_OUTPUT, 0) /* (AE5) OLDI0_A5N */
+			AM62X_IOPAD(0x0284, PIN_OUTPUT, 0) /* (AD6) OLDI0_A5P */
+			AM62X_IOPAD(0x0290, PIN_OUTPUT, 0) /* (AE6) OLDI0_A6N */
+			AM62X_IOPAD(0x028c, PIN_OUTPUT, 0) /* (AD7) OLDI0_A6P */
+			AM62X_IOPAD(0x0298, PIN_OUTPUT, 0) /* (AD8) OLDI0_A7N */
+			AM62X_IOPAD(0x0294, PIN_OUTPUT, 0) /* (AE7) OLDI0_A7P */
+			AM62X_IOPAD(0x02a0, PIN_OUTPUT, 0) /* (AD4) OLDI0_CLK0N */
+			AM62X_IOPAD(0x029c, PIN_OUTPUT, 0) /* (AE3) OLDI0_CLK0P */
+			AM62X_IOPAD(0x02a8, PIN_OUTPUT, 0) /* (AE4) OLDI0_CLK1N */
+			AM62X_IOPAD(0x02a4, PIN_OUTPUT, 0) /* (AD5) OLDI0_CLK1P */
+		>;
+	};
+
+	touchscreen_pins_default: touchscreen-pins-default {
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x01b8, PIN_INPUT, 7) /* (C13) SPI0_CS1.GPIO1_16 */
+		>;
+	};
+
+	backlight_pins_default: bl-pins-default {
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x01ac, PIN_OUTPUT, 6) /* (E19) MCASP0_AFSR.EHRPWM0_A */
+			AM62X_IOPAD(0x009c, PIN_OUTPUT, 7) /* (V25) GPMC0_WAIT1.GPIO0_38 */
+		>;
+	};
+
+	level_shift_oe_pins_default: level-shift-oe-pins-default {
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x0084, PIN_OUTPUT, 7) /* (L23) GPMC0_ADVn_ALE.GPIO0_32 */
+		>;
+	};
+
+	vdd_5v_lvds_pins_default: vdd-5v-lvds-pins-default {
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x0004, PIN_OUTPUT, 7) /* (G25) OSPI0_LBCLKO.GPIO0_1 */
+		>;
+	};
+};
+
+&main_gpio0 {
+	status = "okay";
+};
+
+&main_gpio1 {
+	status = "okay";
+};
+
+&dss {
+	pinctrl-names = "default";
+	pinctrl-0 = <&oldi_pins_default>;
+};
+
+&dss_ports {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	/* VP1: LVDS Output (OLDI TX 0) */
+	port@0 {
+		reg = <0>;
+		oldi_out0: endpoint {
+			remote-endpoint = <&lcd_in0>;
+		};
+	};
+
+	/* VP1: LVDS Output (OLDI TX 1) */
+	port@2 {
+		reg = <2>;
+		oldi_out1: endpoint {
+			remote-endpoint = <&lcd_in1>;
+		};
+	};
+};
+
+&mcu_i2c0 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	eeprom@57 {
+		compatible = "atmel,24c256";
+		reg = <0x57>;
+	};
+
+
+	touchscreen@5d {
+	        compatible = "goodix,gt928";
+	        reg = <0x5d>;
+
+	        pinctrl-names = "default";
+	        pinctrl-0 = <&touchscreen_pins_default>;
+
+	        interrupt-parent = <&main_gpio1>;
+	        interrupts = <16 IRQ_TYPE_EDGE_FALLING>;
+
+		touchscreen-size-x = <1920>;
+		touchscreen-size-y = <1200>;
+
+		reset-gpios = <&pca953x 12 GPIO_ACTIVE_HIGH>;
+		irq-gpios = <&main_gpio1 16 GPIO_ACTIVE_HIGH>;
+	};
+};
+
+&epwm0 {
+	status = "okay";
+};
