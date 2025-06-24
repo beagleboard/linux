@@ -1,0 +1,39 @@
+// SPDX-License-Identifier: GPL-2.0-only OR MIT
+/*
+ *
+ * Copyright (C) 2025 Robert Nelson, BeagleBoard.org Foundation
+ *
+ */
+
+/dts-v1/;
+/plugin/;
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+ */
+&{/chosen} {
+	overlays {
+		k3-am67a-beagley-ai-i2c1-rtc-rv3028.kernel = __TIMESTAMP__;
+	};
+};
+
+&{/aliases} {
+	rtc0 = &rv3028;
+	/* find /sys/firmware/devicetree/ | grep rtc@ */
+	/* rtc-ds1307 beagley-ai battery connector */
+	rtc1 = "/bus@f0000/bus@b00000/i2c@2b200000/rtc@68";
+	/* rtc-ti-k3 k3 internal */
+	rtc2 = "/bus@f0000/bus@b00000/rtc@2b1f0000";
+};
+
+&mcu_i2c0 {
+	status = "okay";
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	rv3028: rv3028@52 {
+		compatible = "microcrystal,rv3028";
+		reg = <0x52>;
+	};
+};
