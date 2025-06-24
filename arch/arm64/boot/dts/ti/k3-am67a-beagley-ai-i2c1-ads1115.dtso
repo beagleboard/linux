@@ -1,0 +1,59 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * DT Overlay for I2C1 with Gravity: I2C ADS1115 16-Bit ADC Module
+ * https://www.dfrobot.com/product-1730.html
+ * https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/iio/adc/ti,ads1015.yaml
+ *
+ * Copyright (C) 2024 Robert Nelson, BeagleBoard.org Foundation
+ *
+ */
+
+/dts-v1/;
+/plugin/;
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+ */
+&{/chosen} {
+	overlays {
+		k3-am67a-beagley-ai-i2c1-ads1115.kernel = __TIMESTAMP__;
+	};
+};
+
+&mcu_i2c0 {
+	status = "okay";
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	adc@48 {
+		compatible = "ti,ads1115";
+		reg = <0x48>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		channel@4 {
+			reg = <4>;
+			ti,gain = <1>;
+			ti,datarate = <7>;
+		};
+
+		channel@5 {
+			reg = <5>;
+			ti,gain = <1>;
+			ti,datarate = <7>;
+		};
+
+		channel@6 {
+			reg = <6>;
+			ti,gain = <1>;
+			ti,datarate = <7>;
+		};
+
+		channel@7 {
+			reg = <7>;
+			ti,gain = <1>;
+			ti,datarate = <7>;
+		};
+	};
+};

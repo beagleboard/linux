@@ -35,9 +35,9 @@
 
 	target-module@2b300050 {
 		compatible = "ti,sysc-omap2", "ti,sysc";
-		reg = <0 0x2b300050 0 0x4>,
-		      <0 0x2b300054 0 0x4>,
-		      <0 0x2b300058 0 0x4>;
+		reg = <0x00 0x2b300050 0x00 0x4>,
+		      <0x00 0x2b300054 0x00 0x4>,
+		      <0x00 0x2b300058 0x00 0x4>;
 		reg-names = "rev", "sysc", "syss";
 		ti,sysc-mask = <(SYSC_OMAP2_ENAWAKEUP |
 				 SYSC_OMAP2_SOFTRESET |
@@ -53,11 +53,11 @@
 		clock-names = "fck";
 		#address-cells = <1>;
 		#size-cells = <1>;
-		ranges = <0 0 0x2b300000 0x100000>;
+		ranges = <0x0 0x00 0x2b300000 0x100000>;
 
 		wkup_uart0: serial@0 {
 			compatible = "ti,am64-uart", "ti,am654-uart";
-			reg = <0 0x100>;
+			reg = <0x0 0x100>;
 			interrupts = <GIC_SPI 186 IRQ_TYPE_LEVEL_HIGH>;
 			status = "disabled";
 		};
@@ -101,8 +101,9 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges = <0x78000000 0x00 0x78000000 0x8000>,
-				 <0x78100000 0x00 0x78100000 0x8000>;
+			 <0x78100000 0x00 0x78100000 0x8000>;
 		power-domains = <&k3_pds 119 TI_SCI_PD_EXCLUSIVE>;
+		status = "disabled";
 
 		wkup_r5fss0_core0: r5f@78000000 {
 			compatible = "ti,am62-r5f";
@@ -119,6 +120,7 @@
 			ti,loczrama = <1>;
 		};
 	};
+
 	wkup_vtm0: temperature-sensor@b00000 {
 		compatible = "ti,j7200-vtm";
 		reg = <0x00 0xb00000 0x00 0x400>,
