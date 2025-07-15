@@ -422,7 +422,7 @@ static int tps65219_regulator_probe(struct platform_device *pdev)
 		rdev = devm_regulator_register(&pdev->dev, &pmic->common_rdesc[i],
 					       &config);
 		if (IS_ERR(rdev))
-			 return dev_err_probe(tps->dev, PTR_ERR(rdev),
+			return dev_err_probe(tps->dev, PTR_ERR(rdev),
 					      "Failed to register %s regulator\n",
 					      pmic->common_rdesc[i].name);
 	}
