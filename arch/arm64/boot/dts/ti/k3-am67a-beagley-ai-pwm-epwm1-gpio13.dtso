@@ -1,0 +1,38 @@
+// SPDX-License-Identifier: GPL-2.0-only OR MIT
+/*
+ * DT Overlay for GPIO13 epwm1 connections within the expansion header.
+ *
+ * Copyright (C) 2023 Texas Instruments Incorporated - https://www.ti.com/
+ *
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include "k3-pinctrl.h"
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+*/
+&{/chosen} {
+	overlays {
+		k3-am67a-beagley-ai-pwm-epwm1-gpio13.kernel = __TIMESTAMP__;
+		hat-33.23010000.pwm = "k3-am67a-beagley-ai-pwm-epwm1-gpio13.23010000.1.GPIO13";
+		gpio13.23010000.pwm = "k3-am67a-beagley-ai-pwm-epwm1-gpio13.23010000.1.GPIO13";
+	};
+};
+
+&main_pmx0 {
+	hat_33_pwm: hat-33-pwm-pins {
+		pinctrl-single,pins = <
+			J722S_IOPAD(0x1C0, PIN_OUTPUT, 2) /* (E19) SPI0_D0.EHRPWM1_B */
+		>;
+	};
+};
+
+&epwm1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&hat_33_pwm>;
+	status = "okay";
+};
