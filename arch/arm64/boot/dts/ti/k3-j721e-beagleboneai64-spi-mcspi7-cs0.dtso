@@ -1,0 +1,62 @@
+// SPDX-License-Identifier: GPL-2.0-only OR MIT
+/*
+ * DT Overlay for pins P9_28(cs0), P9_31(clk), P9_30(MOSI), P9_29B(MISO) SPI7 connections within the expansion header.
+ *
+ * Copyright (C) 2023 Texas Instruments Incorporated - https://www.ti.com/
+ *
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include "k3-pinctrl.h"
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+*/
+&{/chosen} {
+        overlays {
+                k3-j721e-beagleboneai64-spi-mcspi7-cs0.kernel = __TIMESTAMP__;
+                mcspi7.2170000.spi = "k3-j721e-beagleboneai64-spi-mcspi7-cs0.2170000";
+        };
+};
+
+&main_pmx0 {
+	mcspi7_cs_zero: mcspi7-cs0-pins {
+		pinctrl-single,pins = <
+			J721E_IOPAD(0x234, PIN_OUTPUT, 6) /* (U3) EXT_REFCLK1.SPI7_CLK P9_31a*/
+			J721E_IOPAD(0xD4, PIN_DISABLE, 7) /* (AB26) disable p9_31b */
+			J721E_IOPAD(0x230, PIN_OUTPUT, 6) /* (U2) ECAP0_IN_APWM_OUT.SPI7_CS0 P9_28a */
+			J721E_IOPAD(0xB0, PIN_DISABLE, 7) /* (AF28) disable p9_28b */
+			J721E_IOPAD(0x238, PIN_OUTPUT, 6) /* (V6) TIMER_IO0.SPI7_D0 MOSI P9_30a */
+			J721E_IOPAD(0xB4, PIN_DISABLE, 7) /* (AE28) disable P9_30b */
+			J721E_IOPAD(0x23c, PIN_INPUT, 6) /* (V5) TIMER_IO1.SPI7_D1 MISO P9_29a */
+			J721E_IOPAD(0xD8, PIN_DISABLE, 7) /* (AB25) disable p9_29b */
+		>;
+	};
+};
+
+/*
+ * Most of the stuff in this section is here for the spidev linux driver. For control from
+ * from a DSP or R5 core, only the status and pinctrl parts matter.
+ *
+ * Make sure to load the spidev driver to control SPI from linux.
+ */
+&main_spi7 {
+    #address-cells = <1>;
+    #size-cells = <0>;
+    pinctrl-names = "default";
+    pinctrl-0 = <&mcspi7_cs_zero>;
+    ti,spi-num-cs = <1>;
+    ti,pindir-d0-out-d1-in;
+    status = "okay";
+
+    /* When controlling SPI from outside linux, you may want to delete this spidev stuff */
+    channel@0 {
+        symlink = "bone/spi/7.0";
+        compatible = "rohm,dh2228fv";
+        reg = <0>; /* CE0 */
+        spi-max-frequency = <125000000>;
+    };
+};
