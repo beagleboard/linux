@@ -497,20 +497,6 @@ static int tps65219_probe(struct i2c_client *client)
 		return ret;
 	}
 
-	/*
-	 * Don't Enable TPS65214 on AM62L E1 boards that have different
-	 * PMICs
-	 */
-	if (tps->chip_id == TPS65214) {
-		unsigned int id;
-
-		regmap_read(tps->regmap, 0, &id);
-		if (id != 0x14) {
-			dev_err(tps->dev, "Failed to find TPS65214\n");
-			return -ENODEV;
-		}
-	}
-
 	ret = devm_regmap_add_irq_chip(tps->dev, tps->regmap, client->irq,
 				       IRQF_ONESHOT, 0, pmic->irq_chip,
 				       &tps->irq_data);
