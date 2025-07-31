@@ -1,0 +1,41 @@
+// SPDX-License-Identifier: GPL-2.0-only OR MIT
+/*
+ * DT Overlay for GPIO15 and GPIO14 epwm0 connections within the expansion header.
+ *
+ * Copyright (C) 2023 Texas Instruments Incorporated - https://www.ti.com/
+ *
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include "k3-pinctrl.h"
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+*/
+&{/chosen} {
+	overlays {
+		k3-am67a-beagley-ai-pwm-epwm0-gpio15-gpio14.kernel = __TIMESTAMP__;
+		hat-10.23000000.pwm = "k3-am67a-beagley-ai-pwm-epwm0-gpio15.23000000.0.GPIO15";
+		gpio15.23000000.pwm = "k3-am67a-beagley-ai-pwm-epwm0-gpio15.23000000.0.GPIO15";
+		hat-08.23000000.pwm = "k3-am67a-beagley-ai-pwm-epwm0-gpio14.23000000.1.GPIO14";
+		gpio14.23000000.pwm = "k3-am67a-beagley-ai-pwm-epwm0-gpio14.23000000.1.GPIO14";
+	};
+};
+
+&main_pmx0 {
+	gpio15_gpio14_pwm: gpio15-gpio14-pwm-pins {
+		pinctrl-single,pins = <
+			J722S_IOPAD(0x1AC, PIN_OUTPUT, 6) /* (C27) MCASP0_AFSR.EHRPWM0_A */
+			J722S_IOPAD(0x1B0, PIN_OUTPUT, 6) /* (F24) MCASP0_ACLKR.EHRPWM0_B */
+		>;
+	};
+};
+
+&epwm0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&gpio15_gpio14_pwm>;
+	status = "okay";
+};
