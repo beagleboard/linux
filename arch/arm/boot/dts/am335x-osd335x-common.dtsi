@@ -29,6 +29,7 @@
 	* EFUSE_SMA register reads as all zeros).
 	*/
 	oppnitro-1000000000 {
+		/* OPP Nitro */
 		opp-supported-hw = <0x06 0x0100>;
 	};
 };
@@ -48,6 +49,7 @@
 
 	status = "okay";
 	clock-frequency = <400000>;
+	symlink = "bone/i2c/0";
 
 	tps: tps@24 {
 		reg = <0x24>;
