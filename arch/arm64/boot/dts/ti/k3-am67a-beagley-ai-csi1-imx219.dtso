@@ -1,0 +1,103 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * DT Overlay for RPi Camera V2.1 on CSI1 J722S BeagleY-AI board.
+ *
+ * Copyright (C) 2023 Texas Instruments Incorporated - https://www.ti.com/
+ *
+ * Schematics: https://datasheets.raspberrypi.com/camera/camera-v2-schematics.pdf
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+ */
+&{/chosen} {
+	overlays {
+		k3-am67a-beagley-ai-csi1-imx219.kernel = __TIMESTAMP__;
+	};
+};
+
+&{/} {
+    mipi_switch: mipi-switch {
+		oe-pin {
+			default-state = "off";
+		};
+
+		sel-pin {
+			default-state = "on";
+		};
+	};
+
+	clk_csi1_imx219_fixed: csi1-imx219-xclk {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <24000000>;
+	};
+};
+
+&main_gpio1 {
+    status = "okay";
+};
+
+&main_i2c0 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_i2c0_pins_default>;
+	clock-frequency = <400000>;
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	imx219_1: sensor@10 {
+		compatible = "sony,imx219";
+		reg = <0x10>;
+
+		clocks = <&clk_csi1_imx219_fixed>;
+		clock-names = "xclk";
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&csi1_gpio_pins_default>;
+
+		reset-gpios = <&main_gpio1 24 GPIO_ACTIVE_HIGH>;
+
+		port {
+			csi2_cam1: endpoint {
+				remote-endpoint = <&csi2rx1_in_sensor>;
+				link-frequencies = /bits/ 64 <456000000>;
+				clock-lanes = <0>;
+				data-lanes = <1 2>;
+			};
+		};
+	};
+};
+
+&cdns_csi2rx1 {
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		csi1_port0: port@0 {
+			reg = <0>;
+			status = "okay";
+
+			csi2rx1_in_sensor: endpoint {
+				remote-endpoint = <&csi2_cam1>;
+				bus-type = <4>; /* CSI2 DPHY */
+				clock-lanes = <0>;
+				data-lanes = <1 2>;
+			};
+		};
+	};
+};
+
+&ti_csi2rx1 {
+	status = "okay";
+};
+
+&dphy1 {
+	status = "okay";
+};
