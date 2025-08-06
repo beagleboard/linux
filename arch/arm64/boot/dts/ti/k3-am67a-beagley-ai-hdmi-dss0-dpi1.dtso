@@ -1,0 +1,53 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * DT Overlay to switch HDMI to DSS0-DPI1 on the AM67A BeagleY-AI board.
+ *
+ * Copyright (C) 2023 Texas Instruments Incorporated - https://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+ */
+&{/chosen} {
+	overlays {
+		k3-am67a-beagley-ai-hdmi-dss0-dpi1.kernel = __TIMESTAMP__;
+	};
+};
+
+/* disable DSS1 so that the clocks can be set correctly */
+&dss1 {
+    status = "disabled";
+};
+
+&dss0 {
+    status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_dpi_pins_default>;
+
+	assigned-clocks = <&k3_clks 186 2>,         /* DSS0-DPI1 Input */
+                      <&k3_clks 245 0>;         /* DPIO Input */
+	assigned-clock-parents = <&k3_clks 186 3>,  /* PLL17 - HDMI */
+                             <&k3_clks 245 1>;  /* DSS0-DPI1 */
+};
+
+&dss0_ports {
+    #address-cells = <1>;
+	#size-cells = <0>;
+
+    /* DSS0-VP2: DPI/HDMI Output */
+	port@1 {
+		reg = <1>;
+
+		dss0_dpi1_out: endpoint {
+			remote-endpoint = <&it66122_in>;
+		};
+	};
+};
+
+/* change hdmi_in endpoint to DSS0-DPI1 instead of DSS1-DPI0 */
+&it66122_in {
+    remote-endpoint = <&dss0_dpi1_out>;
+};
