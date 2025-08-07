@@ -46,6 +46,7 @@
 	};
 
 	cbass_main: bus@f0000 {
+		bootph-all;
 		compatible = "simple-bus";
 		#address-cells = <2>;
 		#size-cells = <2>;
@@ -90,6 +91,7 @@
 			 <0x00 0x78100000 0x00 0x78100000 0x00 0x00008000>; /* DM R5 BTCM*/
 
 		cbass_mcu: bus@4000000 {
+			bootph-all;
 			compatible = "simple-bus";
 			#address-cells = <2>;
 			#size-cells = <2>;
@@ -97,6 +99,7 @@
 		};
 
 		cbass_wakeup: bus@b00000 {
+			bootph-all;
 			compatible = "simple-bus";
 			#address-cells = <2>;
 			#size-cells = <2>;
