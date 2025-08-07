@@ -14,6 +14,8 @@
 
 	chosen {
 		stdout-path = &uart0;
+		base_dtb = "am335x-boneblue.dts";
+		base_dtb_timestamp = __TIMESTAMP__;
 	};
 
 	leds {
@@ -22,6 +24,50 @@
 
 		compatible = "gpio-leds";
 
+		/* Note: The battery leds on the right side of the board, enumerated bottom-up. Bottom led is red, others are green. */
+		batt_1_led {
+			label = "bat25";
+			gpios = <&gpio0 27 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+
+		batt_2_led {
+			label = "bat50";
+			gpios = <&gpio0 11 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+
+		batt_3_led {
+			label = "bat75";
+			gpios = <&gpio1 29 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+
+		batt_4_led {
+			label = "bat100";
+			gpios = <&gpio0 26 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+
+		/* Note: The green Charge LED is not controlled by software. */
+
+		/* Note: The blue Power LED top right indicates 3V3 supply which is controlled by PMIC. */
+
+		/* Note: The red user led on top left side. */
+		red_led {
+			label = "red";
+			gpios = <&gpio2 2 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+
+		/* Note: The green user led on top left side. */
+		green_led {
+			label = "green";
+			gpios = <&gpio2 3 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+
+		/* Note: The blue user leds on top left side enumerated top-down. */
 		usr_0_led {
 			label = "beaglebone:green:usr0";
 			gpios = <&gpio1 21 GPIO_ACTIVE_HIGH>;
@@ -50,47 +96,12 @@
 			default-state = "off";
 		};
 
+		/* Note: The green led in the center of the board indicating an active wifi connection. */
 		wifi_led {
 			label = "wifi";
 			gpios = <&gpio0 19 GPIO_ACTIVE_HIGH>;
 			default-state = "off";
 			linux,default-trigger = "phy0assoc";
-		};
-
-		red_led {
-			label = "red";
-			gpios = <&gpio2 2 GPIO_ACTIVE_HIGH>;
-			default-state = "off";
-		};
-
-		green_led {
-			label = "green";
-			gpios = <&gpio2 3 GPIO_ACTIVE_HIGH>;
-			default-state = "off";
-		};
-
-		batt_1_led {
-			label = "bat25";
-			gpios = <&gpio0 27 GPIO_ACTIVE_HIGH>;
-			default-state = "off";
-		};
-
-		batt_2_led {
-			label = "bat50";
-			gpios = <&gpio0 11 GPIO_ACTIVE_HIGH>;
-			default-state = "off";
-		};
-
-		batt_3_led {
-			label = "bat75";
-			gpios = <&gpio1 29 GPIO_ACTIVE_HIGH>;
-			default-state = "off";
-		};
-
-		batt_4_led {
-			label = "bat100";
-			gpios = <&gpio0 26 GPIO_ACTIVE_HIGH>;
-			default-state = "off";
 		};
 	};
 
@@ -106,29 +117,119 @@
 		regulator-name = "wlan-en-regulator";
 		regulator-min-microvolt = <1800000>;
 		regulator-max-microvolt = <1800000>;
-		startup-delay-us= <70000>;
+		startup-delay-us = <70000>;
 
 		/* WL_EN */
 		gpio = <&gpio3 9 0>;
 		enable-active-high;
 	};
+
+	motor_pwms: motor_pwms {
+		/* Note: The entries for PWMs contain tuples of
+		 *       - the phandle (in this case &ehrpwm1 or 2),
+		 *       - the relative chip number (in this case 0 or 1),
+		 *       - the period in nanoseconds (in this case 25kHz = 1/40000ns)
+		 *       - and special flags, i.e. PWM_POLARITY_INVERTED (in this case 0)
+		 *       See https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/pwm/pwm.txt ,
+		 *       https://www.kernel.org/doc/Documentation/devicetree/bindings/pwm/pwm.txt is always outdated!
+		 */
+		pwms = <
+			&ehrpwm1 0 40000 0
+			&ehrpwm1 1 40000 0
+			&ehrpwm2 0 40000 0
+			&ehrpwm2 1 40000 0
+		>;
+		pwm-names = "motor1pwm", "motor2pwm", "motor3pwm", "motor4pwm";
+	};
 };
 
 &am33xx_pinmux {
-	user_leds_s0: user_leds_s0 {
-		pinctrl-single,pins = <
-			AM33XX_PADCONF(AM335X_PIN_GPMC_A5, PIN_OUTPUT, MUX_MODE7) /* (V15) gpmc_a5.gpio1[21] - USR_LED_0 */
-			AM33XX_PADCONF(AM335X_PIN_GPMC_A6, PIN_OUTPUT, MUX_MODE7) /* (U15) gpmc_a6.gpio1[22] - USR_LED_1 */
-			AM33XX_PADCONF(AM335X_PIN_GPMC_A7, PIN_OUTPUT, MUX_MODE7) /* (T15) gpmc_a7.gpio1[23] - USR_LED_2 */
-			AM33XX_PADCONF(AM335X_PIN_GPMC_A8, PIN_OUTPUT, MUX_MODE7) /* (V16) gpmc_a8.gpio1[24] - USR_LED_3 */
-			AM33XX_PADCONF(AM335X_PIN_XDMA_EVENT_INTR0, PIN_OUTPUT, MUX_MODE7) /* (A15) xdma_event_intr0.gpio0[19] - WIFI_LED */
-			AM33XX_PADCONF(AM335X_PIN_GPMC_ADVN_ALE, PIN_OUTPUT, MUX_MODE7) /* (R7) gpmc_advn_ale.gpio2[2] - P8.7, LED_RED, GP1_PIN_5 */
-			AM33XX_PADCONF(AM335X_PIN_GPMC_OEN_REN, PIN_OUTPUT, MUX_MODE7) /* (T7) gpmc_oen_ren.gpio2[3] - P8.8, LED_GREEN, GP1_PIN_6 */
-			AM33XX_PADCONF(AM335X_PIN_GPMC_AD11, PIN_OUTPUT, MUX_MODE7) /* (U12) gpmc_ad11.gpio0[27] - P8.17, BATT_LED_1 */
-			AM33XX_PADCONF(AM335X_PIN_LCD_DATA15, PIN_OUTPUT, MUX_MODE7) /* (T5) lcd_data15.gpio0[11] - P8.32, BATT_LED_2 */
-			AM33XX_PADCONF(AM335X_PIN_GPMC_CSN0, PIN_OUTPUT, MUX_MODE7) /* (V6) gpmc_csn0.gpio1[29] - P8.26, BATT_LED_3 */
-			AM33XX_PADCONF(AM335X_PIN_GPMC_AD10, PIN_OUTPUT, MUX_MODE7) /* (T11) gpmc_ad10.gpio0[26] - P8.14, BATT_LED_4 */
 
+	bt_pins: pinmux_bt_pins {
+		pinctrl-single,pins = <
+			AM33XX_PADCONF(AM335X_PIN_MII1_TXD0, PIN_OUTPUT_PULLUP, MUX_MODE7)	/* (K17) gmii1_txd0.gpio0[28] - BT_EN */
+		>;
+	};
+
+	/* DCAN */
+	dcan1_pins: pinmux_dcan1_pins {
+		pinctrl-single,pins = <
+			AM33XX_PADCONF(AM335X_PIN_UART0_RTSN, PIN_INPUT, MUX_MODE2)		/* (E17) uart0_rtsn.dcan1_rx */
+			AM33XX_PADCONF(AM335X_PIN_UART0_CTSN, PIN_OUTPUT, MUX_MODE2)		/* (E18) uart0_ctsn.dcan1_tx */
+			AM33XX_PADCONF(AM335X_PIN_MII1_RXD0, PIN_OUTPUT, MUX_MODE7)		/* (M16) gmii1_rxd0.gpio2[21] */
+		>;
+	};
+
+	/* PWM1 for Motor 1 and 2
+	 * Note: The Motor driver TB6612FNG has internal pull-downs, therefore disable internal pulls.
+	 */
+	ehrpwm1_pins: pinmux_ehrpwm1_pins {
+		pinctrl-single,pins = <
+			AM33XX_PADCONF(AM335X_PIN_GPMC_A2, PIN_OUTPUT, MUX_MODE6)		/* (U14) gpmc_a2.ehrpwm1a - PWM_1A */
+			AM33XX_PADCONF(AM335X_PIN_GPMC_A3, PIN_OUTPUT, MUX_MODE6)		/* (T14) gpmc_a3.ehrpwm1b - PWM_1B */
+		>;
+	};
+
+	/* PWM2 for Motor 3 and 4
+	 * Note: The Motor driver TB6612FNG has internal pull-downs, therefore disable internal pulls.
+	 */
+	ehrpwm2_pins: pinmux_ehrpwm2_pins {
+		pinctrl-single,pins = <
+			AM33XX_PADCONF(AM335X_PIN_GPMC_AD8, PIN_OUTPUT, MUX_MODE4)		/* (U10) gpmc_ad8.ehrpwm2a - PWM_2A */
+			AM33XX_PADCONF(AM335X_PIN_GPMC_AD9, PIN_OUTPUT, MUX_MODE4)		/* (T10) gpmc_ad9.ehrpwm2b - PWM_2B */
+		>;
+	};
+
+	/* E1
+	 * Note: No external pull-down, therefore enable internal pull-down.
+	 */
+	eqep0_pins: pinmux_eqep0_pins {
+		pinctrl-single,pins = <
+			AM33XX_PADCONF(AM335X_PIN_MCASP0_ACLKR, PIN_INPUT_PULLDOWN, MUX_MODE1)	/* (B12) mcasp0_aclkr.eQEP0A_in */
+			AM33XX_PADCONF(AM335X_PIN_MCASP0_FSR, PIN_INPUT_PULLDOWN, MUX_MODE1)	/* (C13) mcasp0_fsr.eQEP0B_in */
+		>;
+	};
+
+	/* E2
+	 * Note: according to schematics, both pins have external 100k pull-down resistors,
+	 *       therefore disable the internal pull.
+	 */
+	eqep1_pins: pinmux_eqep1_pins {
+		pinctrl-single,pins = <
+			AM33XX_PADCONF(AM335X_PIN_LCD_DATA12, PIN_INPUT, MUX_MODE2)		/* (V2) lcd_data12.eQEP1A_in */
+			AM33XX_PADCONF(AM335X_PIN_LCD_DATA13, PIN_INPUT, MUX_MODE2)		/* (V3) lcd_data13.eQEP1B_in */
+		>;
+	};
+
+	/* E3
+	 * Note: No external pull-down, therefore enable internal pull-down,
+         *       mimic E2 behaviour.
+	 */
+	eqep2_pins: pinmux_eqep2_pins {
+		pinctrl-single,pins = <
+			AM33XX_PADCONF(AM335X_PIN_GPMC_AD12, PIN_INPUT_PULLDOWN, MUX_MODE4)	/* (T12) gpmc_ad12.eQEP2A_in */
+			AM33XX_PADCONF(AM335X_PIN_GPMC_AD13, PIN_INPUT_PULLDOWN, MUX_MODE4)	/* (R12) gpmc_ad13.eQEP2B_in */
+		>;
+	};
+
+	/* E4
+	 * Note: Emulated Encoder by using PRU,
+	 *       no external pull-down, therefore enable internal pull-down,
+         *       mimic E2 behaviour.
+	 */
+	pru_encoder_pins: pinmux_pru_encoder_pins {
+		pinctrl-single,pins = <
+			AM33XX_PADCONF(AM335X_PIN_GPMC_AD14, PIN_INPUT_PULLDOWN, MUX_MODE6)	/* (V13) gpmc_ad14.pr1_pru0_pru_r31_14 */
+			/* Note: That is only PRU_E_A. PRU_E_B is nowhere to be found in 4.14 dts but it's (U13) */
+		>;
+	};
+
+	/* Note: i2c0_pins C16 C17 are chip default - never touched */
+
+	i2c1_pins: pinmux_i2c1_pins {
+		pinctrl-single,pins = <
+			AM33XX_PADCONF(AM335X_PIN_SPI0_D1, PIN_INPUT_PULLUP, MUX_MODE2)		/* (B16) spi0_d1.i2c1_sda */
+			AM33XX_PADCONF(AM335X_PIN_SPI0_CS0, PIN_INPUT_PULLUP, MUX_MODE2)	/* (A16) spi0_cs0.i2c1_scl */
 		>;
 	};
 
@@ -136,45 +237,6 @@
 		pinctrl-single,pins = <
 			AM33XX_PADCONF(AM335X_PIN_UART1_CTSN, PIN_INPUT_PULLUP, MUX_MODE3)	/* (D18) uart1_ctsn.I2C2_SDA */
 			AM33XX_PADCONF(AM335X_PIN_UART1_RTSN, PIN_INPUT_PULLUP, MUX_MODE3)	/* (D17) uart1_rtsn.I2C2_SCL */
-		>;
-	};
-
-	/* UT0 */
-	uart0_pins: pinmux_uart0_pins {
-		pinctrl-single,pins = <
-			AM33XX_PADCONF(AM335X_PIN_UART0_RXD, PIN_INPUT_PULLUP, MUX_MODE0)
-			AM33XX_PADCONF(AM335X_PIN_UART0_TXD, PIN_OUTPUT_PULLDOWN, MUX_MODE0)
-		>;
-	};
-
-	/* UT1 */
-	uart1_pins: pinmux_uart1_pins {
-		pinctrl-single,pins = <
-			AM33XX_PADCONF(AM335X_PIN_UART1_RXD, PIN_INPUT_PULLUP, MUX_MODE0)
-			AM33XX_PADCONF(AM335X_PIN_UART1_TXD, PIN_OUTPUT_PULLDOWN, MUX_MODE0)
-		>;
-	};
-
-	/* GPS */
-	uart2_pins: pinmux_uart2_pins {
-		pinctrl-single,pins = <
-			AM33XX_PADCONF(AM335X_PIN_SPI0_SCLK, PIN_INPUT_PULLUP, MUX_MODE1)	/* (A17) spi0_sclk.uart2_rxd */
-			AM33XX_PADCONF(AM335X_PIN_SPI0_D0, PIN_OUTPUT_PULLDOWN, MUX_MODE1)	/* (B17) spi0_d0.uart2_txd */
-		>;
-	};
-
-	/* DSM2 */
-	uart4_pins: pinmux_uart4_pins {
-		pinctrl-single,pins = <
-			AM33XX_PADCONF(AM335X_PIN_GPMC_WAIT0, PIN_INPUT_PULLUP, MUX_MODE6)	/* (T17) gpmc_wait0.uart4_rxd */
-		>;
-	};
-
-	/* UT5 */
-	uart5_pins: pinmux_uart5_pins {
-		pinctrl-single,pins = <
-			AM33XX_PADCONF(AM335X_PIN_LCD_DATA9, PIN_INPUT_PULLUP, MUX_MODE4)	/* (U2) lcd_data9.uart5_rxd */
-			AM33XX_PADCONF(AM335X_PIN_LCD_DATA8, PIN_OUTPUT_PULLDOWN, MUX_MODE4)	/* (U1) lcd_data8.uart5_txd */
 		>;
 	};
 
@@ -210,9 +272,81 @@
 		>;
 	};
 
-	bt_pins: pinmux_bt_pins {
+	/* Onboard Motor Driver Control Pins
+	 * Note: The Motor driver TB6612FNG has internal pull-downs, therefore disable internal pulls.
+	 */
+	motor_pins: pinmux_motor_pins {
 		pinctrl-single,pins = <
-			AM33XX_PADCONF(AM335X_PIN_MII1_TXD0, PIN_OUTPUT_PULLUP, MUX_MODE7)	/* (K17) gmii1_txd0.gpio0[28] - BT_EN */
+			AM33XX_PADCONF(AM335X_PIN_GPMC_CSN3, PIN_OUTPUT, MUX_MODE7)		/* (T13) gpmc_csn3.gpio2[0] - MDIR_1A */
+			AM33XX_PADCONF(AM335X_PIN_GPMC_WPN, PIN_OUTPUT, MUX_MODE7)		/* (U17) gpmc_wpn.gpio0[31] - MDIR_1B */
+
+			AM33XX_PADCONF(AM335X_PIN_GPMC_A0, PIN_OUTPUT, MUX_MODE7)		/* (R13) gpmc_a0.gpio1[16] - MDIR_2A */
+			AM33XX_PADCONF(AM335X_PIN_LCD_DATA14, PIN_OUTPUT, MUX_MODE7)		/* (V4) lcd_data14.gpio0[10] - MDIR_2B */
+
+			AM33XX_PADCONF(AM335X_PIN_LCD_DATA3, PIN_OUTPUT, MUX_MODE7)		/* (R4) lcd_data3.gpio2[9] - MDIR_3A */
+			AM33XX_PADCONF(AM335X_PIN_LCD_DATA2, PIN_OUTPUT, MUX_MODE7)		/* (R3) lcd_data2.gpio2[8] - MDIR_3B */
+
+			AM33XX_PADCONF(AM335X_PIN_LCD_DATA0, PIN_OUTPUT, MUX_MODE7)		/* (R1) lcd_data0.gpio2[6] - MDIR_4A */
+			AM33XX_PADCONF(AM335X_PIN_LCD_DATA1, PIN_OUTPUT, MUX_MODE7)		/* (R2) lcd_data1.gpio2[7] - MDIR_4B */
+
+			AM33XX_PADCONF(AM335X_PIN_XDMA_EVENT_INTR1, PIN_OUTPUT, MUX_MODE7)	/* (D14) xdma_event_intr1.gpio0[20] - MOT_STBY */
+		>;
+	};
+
+	/* IMU 9-Axis MPU-9250 */
+	mpu9250_pins: pinmux_mpu9250_pins {
+		pinctrl-single,pins = <
+			AM33XX_PADCONF(AM335X_PIN_MCASP0_AHCLKX, PIN_INPUT, MUX_MODE7)		/* (U10) mcasp0_ahclkx.gpio3[21] - INT_MPU */
+		>;
+	};
+
+	/* Servo Output Pins via PRU */
+	servo_pins: pinmux_servo_pins {
+		pinctrl-single,pins = <
+			AM33XX_PADCONF(AM335X_PIN_LCD_VSYNC, PIN_OUTPUT, MUX_MODE5)		/* (U5) lcd_vsync.pr1_pru1_pru_r30_8 - SVO1 */
+			AM33XX_PADCONF(AM335X_PIN_LCD_PCLK, PIN_OUTPUT, MUX_MODE5)		/* (V5) lcd_pclk.pr1_pru1_pru_r30_10 - SVO2 */
+			AM33XX_PADCONF(AM335X_PIN_LCD_HSYNC, PIN_OUTPUT, MUX_MODE5)		/* (R5) lcd_hsync.pr1_pru1_pru_r30_9 - SVO3 */
+			AM33XX_PADCONF(AM335X_PIN_LCD_AC_BIAS_EN, PIN_OUTPUT, MUX_MODE5)	/* (R6) lcd_ac_bias_en.pr1_pru1_pru_r30_11 - SVO4 */
+			AM33XX_PADCONF(AM335X_PIN_LCD_DATA6, PIN_OUTPUT, MUX_MODE5)		/* (T3) lcd_data6.pr1_pru1_pru_r30_6 - SVO5 */
+			AM33XX_PADCONF(AM335X_PIN_LCD_DATA7, PIN_OUTPUT, MUX_MODE5)		/* (T4) lcd_data7.pr1_pru1_pru_r30_7 - SVO6 */
+			AM33XX_PADCONF(AM335X_PIN_LCD_DATA4, PIN_OUTPUT, MUX_MODE5)		/* (T1) lcd_data4.pr1_pru1_pru_r30_4 - SVO7 */
+			AM33XX_PADCONF(AM335X_PIN_LCD_DATA5, PIN_OUTPUT, MUX_MODE5)		/* (T2) lcd_data5.pr1_pru1_pru_r30_5 - SVO8 */
+			AM33XX_PADCONF(AM335X_PIN_LCD_DATA10, PIN_OUTPUT, MUX_MODE7)		/* (U3) lcd_data10.gpio2[16] - SERVO_EN */
+		>;
+	};
+
+	/* Spi 1 on external connectors JST-SH 6-pin connectors S1.0 and S1.1 */
+	spi1_pins: pinmux_spi1_pins {
+		pinctrl-single,pins = <
+			AM33XX_PADCONF(AM335X_PIN_MCASP0_ACLKX, PIN_INPUT, MUX_MODE3)		/* (A13) mcasp0_aclkx.spi1_sclk */
+			AM33XX_PADCONF(AM335X_PIN_MCASP0_FSX, PIN_INPUT, MUX_MODE3)		/* (B13) mcasp0_fsx.spi1_d0 */
+			AM33XX_PADCONF(AM335X_PIN_MCASP0_AXR0, PIN_INPUT, MUX_MODE3)		/* (D12) mcasp0_axr0.spi1_d1 */
+			AM33XX_PADCONF(AM335X_PIN_MCASP0_AHCLKR, PIN_INPUT, MUX_MODE3)		/* (C12) mcasp0_ahclkr.spi1_cs0 */
+			AM33XX_PADCONF(AM335X_PIN_ECAP0_IN_PWM0_OUT, PIN_INPUT, MUX_MODE2)	/* (C18) ecap0_in_pwm0_out.spi1_cs1 */
+		>;
+	};
+
+	/* UT0 */
+	uart0_pins: pinmux_uart0_pins {
+		pinctrl-single,pins = <
+			AM33XX_PADCONF(AM335X_PIN_UART0_RXD, PIN_INPUT_PULLUP, MUX_MODE0)
+			AM33XX_PADCONF(AM335X_PIN_UART0_TXD, PIN_OUTPUT_PULLDOWN, MUX_MODE0)
+		>;
+	};
+
+	/* UT1 */
+	uart1_pins: pinmux_uart1_pins {
+		pinctrl-single,pins = <
+			AM33XX_PADCONF(AM335X_PIN_UART1_RXD, PIN_INPUT_PULLUP, MUX_MODE0)
+			AM33XX_PADCONF(AM335X_PIN_UART1_TXD, PIN_OUTPUT_PULLDOWN, MUX_MODE0)
+		>;
+	};
+
+	/* GPS */
+	uart2_pins: pinmux_uart2_pins {
+		pinctrl-single,pins = <
+			AM33XX_PADCONF(AM335X_PIN_SPI0_SCLK, PIN_INPUT_PULLUP, MUX_MODE1)	/* (A17) spi0_sclk.uart2_rxd */
+			AM33XX_PADCONF(AM335X_PIN_SPI0_D0, PIN_OUTPUT_PULLDOWN, MUX_MODE1)	/* (B17) spi0_d0.uart2_txd */
 		>;
 	};
 
@@ -220,8 +354,40 @@
 		pinctrl-single,pins = <
 			AM33XX_PADCONF(AM335X_PIN_MII1_RXD3, PIN_INPUT_PULLUP, MUX_MODE1)	/* (L17) gmii1_rxd3.uart3_rxd */
 			AM33XX_PADCONF(AM335X_PIN_MII1_RXD2, PIN_OUTPUT_PULLDOWN, MUX_MODE1)	/* (L16) gmii1_rxd2.uart3_txd */
-			AM33XX_PADCONF(AM335X_PIN_MDIO, PIN_INPUT, MUX_MODE3)		/* (M17) mdio_data.uart3_ctsn */
-			AM33XX_PADCONF(AM335X_PIN_MDC, PIN_OUTPUT_PULLDOWN, MUX_MODE3)	/* (M18) mdio_clk.uart3_rtsn */
+			AM33XX_PADCONF(AM335X_PIN_MDIO, PIN_INPUT, MUX_MODE3)			/* (M17) mdio_data.uart3_ctsn */
+			AM33XX_PADCONF(AM335X_PIN_MDC, PIN_OUTPUT_PULLDOWN, MUX_MODE3)		/* (M18) mdio_clk.uart3_rtsn */
+		>;
+	};
+
+	/* DSM2 */
+	uart4_pins: pinmux_uart4_pins {
+		pinctrl-single,pins = <
+			AM33XX_PADCONF(AM335X_PIN_GPMC_WAIT0, PIN_INPUT_PULLUP, MUX_MODE6)	/* (T17) gpmc_wait0.uart4_rxd */
+		>;
+	};
+
+	/* UT5 */
+	uart5_pins: pinmux_uart5_pins {
+		pinctrl-single,pins = <
+			AM33XX_PADCONF(AM335X_PIN_LCD_DATA9, PIN_INPUT_PULLUP, MUX_MODE4)	/* (U2) lcd_data9.uart5_rxd */
+			AM33XX_PADCONF(AM335X_PIN_LCD_DATA8, PIN_OUTPUT_PULLDOWN, MUX_MODE4)	/* (U1) lcd_data8.uart5_txd */
+		>;
+	};
+
+	user_leds_s0: user_leds_s0 {
+		pinctrl-single,pins = <
+			AM33XX_PADCONF(AM335X_PIN_GPMC_A5, PIN_OUTPUT, MUX_MODE7) 		/* (V15) gpmc_a5.gpio1[21] - USR_LED_0 */
+			AM33XX_PADCONF(AM335X_PIN_GPMC_A6, PIN_OUTPUT, MUX_MODE7) 		/* (U15) gpmc_a6.gpio1[22] - USR_LED_1 */
+			AM33XX_PADCONF(AM335X_PIN_GPMC_A7, PIN_OUTPUT, MUX_MODE7) 		/* (T15) gpmc_a7.gpio1[23] - USR_LED_2 */
+			AM33XX_PADCONF(AM335X_PIN_GPMC_A8, PIN_OUTPUT, MUX_MODE7) 		/* (V16) gpmc_a8.gpio1[24] - USR_LED_3 */
+			AM33XX_PADCONF(AM335X_PIN_XDMA_EVENT_INTR0, PIN_OUTPUT, MUX_MODE7) 	/* (A15) xdma_event_intr0.gpio0[19] - WIFI_LED */
+			AM33XX_PADCONF(AM335X_PIN_GPMC_ADVN_ALE, PIN_OUTPUT, MUX_MODE7) 	/* (R7) gpmc_advn_ale.gpio2[2] - P8.7, LED_RED, GP1_PIN_5 */
+			AM33XX_PADCONF(AM335X_PIN_GPMC_OEN_REN, PIN_OUTPUT, MUX_MODE7) 		/* (T7) gpmc_oen_ren.gpio2[3] - P8.8, LED_GREEN, GP1_PIN_6 */
+			AM33XX_PADCONF(AM335X_PIN_GPMC_AD11, PIN_OUTPUT, MUX_MODE7) 		/* (U12) gpmc_ad11.gpio0[27] - P8.17, BATT_LED_1 */
+			AM33XX_PADCONF(AM335X_PIN_LCD_DATA15, PIN_OUTPUT, MUX_MODE7) 		/* (T5) lcd_data15.gpio0[11] - P8.32, BATT_LED_2 */
+			AM33XX_PADCONF(AM335X_PIN_GPMC_CSN0, PIN_OUTPUT, MUX_MODE7) 		/* (V6) gpmc_csn0.gpio1[29] - P8.26, BATT_LED_3 */
+			AM33XX_PADCONF(AM335X_PIN_GPMC_AD10, PIN_OUTPUT, MUX_MODE7) 		/* (T11) gpmc_ad10.gpio0[26] - P8.14, BATT_LED_4 */
+
 		>;
 	};
 
@@ -233,83 +399,224 @@
 		>;
 	};
 
-	/* DCAN */
-	dcan1_pins: pinmux_dcan1_pins {
-		pinctrl-single,pins = <
-			AM33XX_PADCONF(AM335X_PIN_UART0_RTSN, PIN_INPUT, MUX_MODE2)		/* (E17) uart0_rtsn.dcan1_rx */
-			AM33XX_PADCONF(AM335X_PIN_UART0_CTSN, PIN_OUTPUT, MUX_MODE2)		/* (E18) uart0_ctsn.dcan1_tx */
-			AM33XX_PADCONF(AM335X_PIN_MII1_RXD0, PIN_OUTPUT, MUX_MODE7)		/* (M16) gmii1_rxd0.gpio2[21] */
-		>;
+};
+
+&dcan1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&dcan1_pins>;
+	status = "okay";
+};
+
+&epwmss0 {
+	status = "okay";
+};
+
+&ecap0 {
+	status="okay";
+};
+
+
+&eqep0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&eqep0_pins>;
+	status = "okay";
+};
+
+&ehrpwm0 {
+	/* Does not seem to have any pins assigned in Kernel 4.14 DTS */
+	status = "okay";
+};
+
+&epwmss1 {
+	status = "okay";
+};
+
+&ecap1 {
+	status="okay";
+};
+
+
+&eqep1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&eqep1_pins>;
+	status = "okay";
+};
+
+&ehrpwm1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&ehrpwm1_pins>;
+	status = "okay";
+};
+
+&epwmss2 {
+	status = "okay";
+};
+
+&ecap2 {
+	status="okay";
+};
+
+&eqep2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&eqep2_pins>;
+	status = "okay";
+};
+
+&ehrpwm2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&ehrpwm2_pins>;
+	status = "okay";
+};
+
+
+&gpio0 {
+	gpio-line-names =
+		"UART3_CTS", /* M17 */
+		"UART3_RTS", /* M18 */
+		"UART2_RX", /* A17 */
+		"UART2_TX", /* B17 */
+		"I2C1_SDA", /* B16 */
+		"I2C1_SCL", /* A16 */
+		"MMC0_CD", /* C15 */
+		"SPI1_SS2", /* C18 */
+		"EQEP_1A", /* V2 */
+		"EQEP_1B", /* V3 */
+		"MDIR_2B", /* V4 */
+		"BATT_LED_2", /* T5 */
+		"I2C2_SDA", /* D18 */
+		"I2C2_SCL", /* D17 */
+		"UART1_RX", /* D16 */
+		"UART1_TX", /* D15 */
+		"MMC2_DAT1", /* J18 */
+		"MMC2_DAT2", /* K15 */
+		"NC", /* F16 */
+		"WIFI_LED", /* A15 */
+		"MOT_STBY", /* D14 */
+		"WLAN_IRQ", /* K16 */
+		"PWM_2A", /* U10 */
+		"PWM_2B", /* T10 */
+		"",
+		"",
+		"BATT_LED_4", /* T11 */
+		"BATT_LED_1", /* U12 */
+		"BT_EN", /* K17 */
+		"SPI1_SS1", /* H18 */
+		"UART4_RX", /* T17 */
+		"MDIR_1B"; /* U17 */
+};
+
+&gpio1 {
+	gpio-line-names =
+		"MMC1_DAT0", /* U7 */
+		"MMC1_DAT1", /* V7 */
+		"MMC1_DAT2", /* R8 */
+		"MMC1_DAT3", /* T8 */
+		"MMC1_DAT4", /* U8 */
+		"MMC1_DAT5", /* V8 */
+		"MMC1_DAT6", /* R9 */
+		"MMC1_DAT7", /* T9 */
+		"DCAN1_TX", /* E18 */
+		"DCAN1_RX", /* E17 */
+		"UART0_RX", /* E15 */
+		"UART0_TX", /* E16 */
+		"EQEP_2A", /* T12 */
+		"EQEP_2B", /* R12 */
+		"PRU_E_A", /* V13 */
+		"PRU_E_B", /* U13 */
+		"MDIR_2A", /* R13 */
+		"GPIO1_17", /* V14 */
+		"PWM_1A", /* U14 */
+		"PWM_1B", /* T14 */
+		"EMMC_RST", /* R14 */
+		"USR_LED_0", /* V15 */
+		"USR_LED_1", /* U15 */
+		"USR_LED_2", /* T15 */
+		"USR_LED_3", /* V16 */
+		"GPIO1_25", /* U16 */
+		"MCASP0_AXR0", /* T16 */
+		"MCASP0_AXR1", /* V17 */
+		"MCASP0_ACLKR", /* U18 */
+		"BATT_LED_3", /* V6 */
+		"MMC1_CLK", /* U9 */
+		"MMC1_CMD"; /* V9 */
+};
+
+&gpio2 {
+	gpio-line-names =
+		"MDIR_1A", /* T13 */
+		"MCASP0_FSR", /* V12 */
+		"LED_RED", /* R7 */
+		"LED_GREEN", /* T7 */
+		"MODE_BTN", /* U6 */
+		"PAUSE_BTN", /* T6 */
+		"MDIR_4A", /* R1 */
+		"MDIR_4B", /* R2 */
+		"MDIR_3B", /* R3 */
+		"MDIR_3A", /* R4 */
+		"SVO7", /* T1 */
+		"SVO8", /* T2 */
+		"SVO5", /* T3 */
+		"SVO6", /* T4 */
+		"UART5_TX", /* U1 */
+		"UART5_RX", /* U2 */
+		"SERVO_EN", /* U3 */
+		"NC", /* U4 */
+		"UART3_RX", /* L17 */
+		"UART3_TX", /* L16 */
+		"MMC2_CLK", /* L15 */
+		"DCAN1_SILENT", /* M16 */
+		"SVO1", /* U5 */
+		"SVO3", /* R5 */
+		"SVO2", /* V5 */
+		"SVO4", /* R6 */
+		"MMC0_DAT3", /* F17 */
+		"MMC0_DAT2", /* F18 */
+		"MMC0_DAT1", /* G15 */
+		"MMC0_DAT0", /* G16 */
+		"MMC0_CLK", /* G17 */
+		"MMC0_CMD"; /* G18 */
+};
+
+&gpio3 {
+	gpio-line-names =
+		"MMC2_DAT3", /* H16 */
+		"GPIO3_1", /* H17 */
+		"GPIO3_2", /* J15 */
+		"MMC2_CMD", /* J16 */
+		"MMC2_DAT0", /* J17 */
+		"I2C0_SDA", /* C17 */
+		"I2C0_SCL", /* C16 */
+		"EMU1", /* C14 */
+		"EMU0", /* B14 */
+		"WL_EN", /* K18 */
+		"WL_BT_OE", /* L18 */
+		"",
+		"",
+		"NC", /* F15 */
+		"SPI1_SCK", /* A13 */
+		"SPI1_MISO", /* B13 */
+		"SPI1_MOSI", /* D12 */
+		"GPIO3_17", /* C12 */
+		"EQEP_0A", /* B12 */
+		"EQEP_0B", /* C13 */
+		"GPIO3_20", /* D13 */
+		"IMU_INT", /* A14 */
+		"",
+		"",
+		"",
+		"",
+		"",
+		"",
+		"",
+		"",
+		"",
+		"";
+
+	ls-buf-en-hog {
+		gpio-hog;
+		gpios = <10 GPIO_ACTIVE_HIGH>;
+		output-high;
 	};
-
-	/* E1 */
-	eqep0_pins: pinmux_eqep0_pins {
-		pinctrl-single,pins = <
-			AM33XX_PADCONF(AM335X_PIN_MCASP0_AXR0, PIN_INPUT, MUX_MODE1)		/* (B12) mcasp0_aclkr.eQEP0A_in */
-			AM33XX_PADCONF(AM335X_PIN_MCASP0_FSR, PIN_INPUT, MUX_MODE1)		/* (C13) mcasp0_fsr.eQEP0B_in */
-		>;
-	};
-
-	/* E2 */
-	eqep1_pins: pinmux_eqep1_pins {
-		pinctrl-single,pins = <
-			AM33XX_PADCONF(AM335X_PIN_LCD_DATA12, PIN_INPUT, MUX_MODE2)		/* (V2) lcd_data12.eQEP1A_in */
-			AM33XX_PADCONF(AM335X_PIN_LCD_DATA13, PIN_INPUT, MUX_MODE2)		/* (V3) lcd_data13.eQEP1B_in */
-		>;
-	};
-
-	/* E3 */
-	eqep2_pins: pinmux_eqep2_pins {
-		pinctrl-single,pins = <
-			AM33XX_PADCONF(AM335X_PIN_GPMC_AD12, PIN_INPUT, MUX_MODE4)		/* (T12) gpmc_ad12.eQEP2A_in */
-			AM33XX_PADCONF(AM335X_PIN_GPMC_AD13, PIN_INPUT, MUX_MODE4)		/* (R12) gpmc_ad13.eQEP2B_in */
-		>;
-	};
-};
-
-&uart0 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&uart0_pins>;
-
-	status = "okay";
-};
-
-&uart1 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&uart1_pins>;
-
-	status = "okay";
-};
-
-&uart2 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&uart2_pins>;
-
-	status = "okay";
-};
-
-&uart4 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&uart4_pins>;
-
-	status = "okay";
-};
-
-&uart5 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&uart5_pins>;
-
-	status = "okay";
-};
-
-&usb0 {
-	dr_mode = "peripheral";
-	interrupts-extended = <&intc 18 &tps 0>;
-	interrupt-names = "mc", "vbus";
-};
-
-&usb1 {
-	dr_mode = "host";
 };
 
 &i2c0 {
@@ -325,6 +632,14 @@
 	};
 };
 
+
+&i2c1 {
+	/* external I2C connector JST-SH 4pin */
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c1_pins>;
+};
+
 &i2c2 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&i2c2_pins>;
@@ -334,6 +649,7 @@
 
 	mpu9250@68 {
 		compatible = "invensense,mpu9250";
+                pinctrl-0 = <&mpu9250_pins>;
 		reg = <0x68>;
 		interrupt-parent = <&gpio3>;
 		interrupts = <21 IRQ_TYPE_EDGE_RISING>;
@@ -341,7 +657,7 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			ax8975@c {
-				compatible = "ak,ak8975";
+				compatible = "asahi-kasei,ak8975";
 				reg = <0x0c>;
 			};
 		};
@@ -353,17 +669,6 @@
 	};
 };
 
-/include/ "tps65217.dtsi"
-
-&tps {
-	/delete-property/ ti,pmic-shutdown-controller;
-
-	charger {
-		interrupts = <0>, <1>;
-		interrupt-names = "USB", "AC";
-		status = "okay";
-	};
-};
 
 &mmc1 {
 	status = "okay";
@@ -405,11 +710,68 @@
 	};
 };
 
+&spi1 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&spi1_pins>;
+
+	channel@0 {
+		/* external S1.0 connector JST-SH 6pin */
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "rohm,dh2228fv";
+		reg = <0>;
+	};
+
+	channel@1 {
+		/* external S1.1 connector JST-SH 6pin */
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "rohm,dh2228fv";
+		reg = <1>;
+	};
+};
+
+&rtc {
+	system-power-controller;
+	clocks = <&clk_32768_ck>, <&clk_24mhz_clkctrl AM3_CLK_24MHZ_CLKDIV32K_CLKCTRL 0>;
+	clock-names = "ext-clk", "int-clk";
+};
+
+&tps {
+	charger {
+		status = "okay";
+	};
+};
+
 &tscadc {
 	status = "okay";
 	adc {
 		ti,adc-channels = <0 1 2 3 4 5 6 7>;
 	};
+};
+
+&uart0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart0_pins>;
+
+	status = "okay";
+};
+
+&uart1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart1_pins>;
+
+	status = "okay";
+};
+
+&uart2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart2_pins>;
+
+	status = "okay";
 };
 
 &uart3 {
@@ -423,53 +785,26 @@
 	};
 };
 
-&rtc {
-	system-power-controller;
-	clocks = <&clk_32768_ck>, <&clk_24mhz_clkctrl AM3_CLK_24MHZ_CLKDIV32K_CLKCTRL 0>;
-	clock-names = "ext-clk", "int-clk";
-};
-
-&dcan1 {
+&uart4 {
 	pinctrl-names = "default";
-	pinctrl-0 = <&dcan1_pins>;
+	pinctrl-0 = <&uart4_pins>;
+
 	status = "okay";
 };
 
-&gpio3 {
-	ls_buf_en {
-		gpio-hog;
-		gpios = <10 GPIO_ACTIVE_HIGH>;
-		output-high;
-		line-name = "LS_BUF_EN";
-	};
-};
-
-&epwmss0 {
-	status = "okay";
-};
-
-&eqep0 {
+&uart5 {
 	pinctrl-names = "default";
-	pinctrl-0 = <&eqep0_pins>;
+	pinctrl-0 = <&uart5_pins>;
+
 	status = "okay";
 };
 
-&epwmss1 {
-	status = "okay";
+&usb0 {
+	dr_mode = "peripheral";
+	interrupts-extended = <&intc 18 &tps 0>;
+	interrupt-names = "mc", "vbus";
 };
 
-&eqep1 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&eqep1_pins>;
-	status = "okay";
-};
-
-&epwmss2 {
-	status = "okay";
-};
-
-&eqep2 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&eqep2_pins>;
-	status = "okay";
+&usb1 {
+	dr_mode = "host";
 };

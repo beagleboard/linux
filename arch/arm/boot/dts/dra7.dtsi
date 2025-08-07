@@ -102,6 +102,7 @@
 		syscon = <&scm_wkup>;
 
 		opp_nom-1000000000 {
+			/* OPP NOM */
 			opp-hz = /bits/ 64 <1000000000>;
 			opp-microvolt = <1060000 850000 1150000>,
 					<1060000 850000 1150000>;
@@ -110,6 +111,7 @@
 		};
 
 		opp_od-1176000000 {
+			/* OPP OD */
 			opp-hz = /bits/ 64 <1176000000>;
 			opp-microvolt = <1160000 885000 1160000>,
 					<1160000 885000 1160000>;
@@ -118,6 +120,7 @@
 		};
 
 		opp_high@1500000000 {
+			/* OPP High */
 			opp-hz = /bits/ 64 <1500000000>;
 			opp-microvolt = <1210000 950000 1250000>,
 					<1210000 950000 1250000>;
@@ -884,7 +887,7 @@
 		};
 
 		bb2d: bb2d@59000000 {
-			compatible = "ti,dra7-bb2d";
+			compatible = "ti,dra7-bb2d", "vivante,gc";
 			reg = <0x59000000 0x0700>;
 			interrupts = <GIC_SPI 120 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "bb2d";
