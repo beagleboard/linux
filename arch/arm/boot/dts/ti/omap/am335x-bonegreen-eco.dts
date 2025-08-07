@@ -13,6 +13,11 @@
 	model = "Seeed Studio BeagleBone Green Eco";
 	compatible = "seeed,am335x-bone-green-eco", "ti,am33xx";
 
+	chosen {
+		base_dtb = "am335x-bonegreen-eco.dts";
+		base_dtb_timestamp = __TIMESTAMP__;
+	};
+
 	cpus {
 		cpu@0 {
 			cpu0-supply = <&buck1>;
@@ -123,6 +128,10 @@
 		ti,fifo-depth = <DP83867_PHYCR_FIFO_DEPTH_8_B_NIB>;
 		ti,min-output-impedance;
 		ti,dp83867-rxctrl-strap-quirk;
+
+		reset-gpios = <&gpio1 8 GPIO_ACTIVE_LOW>;
+		reset-assert-us = <300>;
+		reset-deassert-us = <50000>;
 	};
 };
 
@@ -167,3 +176,17 @@
 		>;
 	};
 };
+
+&tscadc {
+	status = "okay";
+};
+
+&rtc {
+	pinctrl-0 = <&ext_wakeup>;
+	pinctrl-names = "default";
+
+	ext_wakeup: ext-wakeup {
+		pins = "ext_wakeup0";
+		input-enable;
+	};
+ };
