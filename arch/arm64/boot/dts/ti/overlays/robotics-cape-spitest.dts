@@ -1,0 +1,70 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (C) 2022 Jason Kridner, BeagleBoard.org Foundation
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/pinctrl/k3.h>
+#include <dt-bindings/board/k3-j721e-bone-pins.h>
+#include <dt-bindings/soc/ti,sci_pm_domain.h>
+#include <dt-bindings/input/linux-event-codes.h>
+
+&{/chosen} {
+	overlays {
+		BB-ROBOTICS-CAPE-SPITEST-00B0.kernel = __TIMESTAMP__;
+	};
+};
+
+&bone_spi_0 {
+	/* P9_18 - SPI6_D1 - SDI */
+	/* P9_21 - SPI6_D0 - SDO */
+	/* P9_22 - SPI6_CLK */
+	/* P9_17 - Barometer_CS# - SPI6_CS0 */
+	/* P9_23 - IMU_CS# - SPI6_CS1 */
+	/* P9_25 - Magnetometer_CS# */
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <
+		&P9_17_spi_pin /* spi6_cs0 */
+		&P9_22_spi_pin /* spi6_clk */
+		&P9_21_spi_pin /* spi6_d0 */
+		&P9_18_spi_pin /* spi6_d1 */
+		&P9_23_spi_pin /* spi6_cs1 */
+		&P9_25_gpio_pin
+	>;
+	ti,spi-num-cs = <3>;
+	ti,pindir-d0-out-d1-in;
+	cs-gpios = <0>, /* P9_17 */
+		   <0>, /* P9_23 */
+		   <gpio_P9_25 GPIO_ACTIVE_LOW>;
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	pressure@0 {
+		compatible = "bosch,bmp280";
+		reg = <0>;	/* CE0 */
+		spi-max-frequency = <5000000>;
+	};
+
+	imu@1 {
+		compatible = "st,lsm6ds3tr-c";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <1>;	/* CE1 */
+		spi-max-frequency = <5000000>;
+	};
+
+	magn@2 {
+		compatible = "bosch,bmm150_magn";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <2>;	/* CE2 */
+		spi-max-frequency = <5000000>;
+	};
+};

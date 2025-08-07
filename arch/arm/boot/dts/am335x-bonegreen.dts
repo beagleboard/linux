@@ -11,4 +11,9 @@
 / {
 	model = "TI AM335x BeagleBone Green";
 	compatible = "ti,am335x-bone-green", "ti,am335x-bone-black", "ti,am335x-bone", "ti,am33xx";
+
+	chosen {
+		base_dtb = "am335x-bonegreen.dts";
+		base_dtb_timestamp = __TIMESTAMP__;
+	};
 };
