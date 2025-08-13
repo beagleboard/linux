@@ -31,8 +31,23 @@ struct sa_tfm_ctx;
 #define SA_EEC_CPPI_PORT_IN_EN		0x00000200
 #define SA_EEC_CPPI_PORT_OUT_EN		0x00000800
 
+/*
+ * Encoding used to identify the typo of crypto operation
+ * performed on the packet when the packet is returned
+ * by SA
+ */
+#define SA_REQ_SUBTYPE_ENC	0x0001
+#define SA_REQ_SUBTYPE_DEC	0x0002
+#define SA_REQ_SUBTYPE_SHIFT	16
+#define SA_REQ_SUBTYPE_MASK	0xffff
+
 /* Number of 32 bit words in EPIB  */
 #define SA_DMA_NUM_EPIB_WORDS   4
+
+/* Number of 32 bit words in PS data  */
+#define SA_DMA_NUM_PS_WORDS     16
+#define NKEY_SZ			3
+#define MCI_SZ			27
 
 /*
  * Maximum number of simultaeneous security contexts
@@ -45,6 +60,12 @@ struct sa_tfm_ctx;
  */
 #define SA_CTX_SIZE_TO_DMA_SIZE(ctx_sz) \
 		((ctx_sz) ? ((ctx_sz) / 32 - 1) : 0)
+
+#define SA_CTX_ENC_KEY_OFFSET   32
+#define SA_CTX_ENC_AUX1_OFFSET  64
+#define SA_CTX_ENC_AUX2_OFFSET  96
+#define SA_CTX_ENC_AUX3_OFFSET  112
+#define SA_CTX_ENC_AUX4_OFFSET  128
 
 /* Next Engine Select code in CP_ACE */
 #define SA_ENG_ID_EM1   2       /* Enc/Dec engine with AES/DEC core */
@@ -89,12 +110,15 @@ struct sa_tfm_ctx;
 #define SA_CTX_PE_PKT_TYPE_IPSEC_ESP   3
 /* Indicates that it is in data mode, It may not be used by PHP */
 #define SA_CTX_PE_PKT_TYPE_NONE        4
-#define SA_CTX_ENC_TYPE_SZ     128      /* Encryption SC with Key and Aux1 */
-#define SA_CTX_AUTH_TYPE_SZ    160      /* Auth SC with Key and Aux1 and Aux2 */
+#define SA_CTX_ENC_TYPE1_SZ     64      /* Encryption SC with Key only */
+#define SA_CTX_ENC_TYPE2_SZ     96      /* Encryption SC with Key and Aux1 */
+
+#define SA_CTX_AUTH_TYPE1_SZ    64      /* Auth SC with Key only */
+#define SA_CTX_AUTH_TYPE2_SZ    96      /* Auth SC with Key and Aux1 */
 /* Size of security context for PHP engine */
 #define SA_CTX_PHP_PE_CTX_SZ    64
 
-#define SA_CTX_MAX_SZ (64 + SA_CTX_ENC_TYPE_SZ + SA_CTX_AUTH_TYPE_SZ)
+#define SA_CTX_MAX_SZ (64 + SA_CTX_ENC_TYPE2_SZ + SA_CTX_AUTH_TYPE2_SZ)
 
 /*
  * Encoding of F/E control in SCCTL
@@ -119,7 +143,14 @@ struct sa_tfm_ctx;
  */
 #define SA_CTX_SCCTL_OWNER_OFFSET 0
 
-#define SA_SCCTL_FE_AUTH_ENC	0x6D
+#define SA_CTX_ENC_KEY_OFFSET   32
+#define SA_CTX_ENC_AUX1_OFFSET  64
+#define SA_CTX_ENC_AUX2_OFFSET  96
+#define SA_CTX_ENC_AUX3_OFFSET  112
+#define SA_CTX_ENC_AUX4_OFFSET  128
+
+#define SA_SCCTL_FE_AUTH_ENC	0x65
+#define SA_SCCTL_FE_ENC		0x8D
 
 #define SA_ALIGN_MASK		(sizeof(u32) - 1)
 #define SA_ALIGNED		__aligned(32)
@@ -133,8 +164,6 @@ struct sa_tfm_ctx;
 
 /* SA2UL can only handle maximum data size of 64KB */
 #define SA_MAX_DATA_SZ		U16_MAX
-/* SA2UL can only handle maximum data size of 64KB */
-#define SA_MAX_ASSOC_SZ		16
 
 /*
  * SA2UL can provide unpredictable results with packet sizes that fall
@@ -166,7 +195,7 @@ struct sa_crypto_data {
 	void __iomem *base;
 	const struct sa_match_data *match_data;
 	struct platform_device	*pdev;
-	mempool_t		*sc_pool;
+	struct dma_pool		*sc_pool;
 	struct device *dev;
 	spinlock_t	scid_lock; /* lock for SC-ID allocation */
 	/* Security context data */
@@ -232,8 +261,16 @@ struct sa_cmdl_upd_info {
 	u32				aux_key[SA_MAX_AUX_DATA_WORDS];
 };
 
+/*
+ * Number of 32bit words appended after the command label
+ * in PSDATA to identify the crypto request context.
+ * word-0: Request type
+ * word-1: pointer to request
+ */
+#define SA_PSDATA_CTX_WORDS 4
+
 /* Maximum size of Command label in 32 words */
-#define SA_MAX_CMDL_WORDS 24
+#define SA_MAX_CMDL_WORDS (SA_DMA_NUM_PS_WORDS - SA_PSDATA_CTX_WORDS)
 
 /**
  * struct sa_ctx_info: SA context information
@@ -271,9 +308,11 @@ struct sa_tfm_ctx {
 	struct sa_ctx_info enc;
 	struct sa_ctx_info dec;
 	struct sa_ctx_info auth;
+	int keylen;
 	int iv_idx;
+	u32 key[AES_KEYSIZE_256 / sizeof(u32)];
+	u8 authkey[SHA512_BLOCK_SIZE];
 	struct crypto_shash	*shash;
-	struct crypto_sync_skcipher	*skcipher;
 	/* for fallback */
 	union {
 		struct crypto_skcipher		*skcipher;
@@ -290,6 +329,7 @@ struct sa_tfm_ctx {
  */
 struct sa_sha_req_ctx {
 	struct sa_crypto_data	*dev_data;
+	u32			cmdl[SA_MAX_CMDL_WORDS + SA_PSDATA_CTX_WORDS];
 	struct ahash_request	fallback_req;
 };
 
@@ -310,7 +350,7 @@ enum sa_ealg_id {
 	SA_EALG_ID_DES_CBC,         /* DES CBC mode */
 	SA_EALG_ID_3DES_CBC,        /* 3DES CBC mode */
 	SA_EALG_ID_CCM,             /* Counter with CBC-MAC mode */
-	SA_EALG_ID_AES_GCM,             /* Galois Counter mode */
+	SA_EALG_ID_GCM,             /* Galois Counter mode */
 	SA_EALG_ID_AES_ECB,
 	SA_EALG_ID_LAST
 };
