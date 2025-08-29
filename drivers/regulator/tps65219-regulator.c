@@ -422,7 +422,7 @@ static int tps65219_regulator_probe(struct platform_device *pdev)
 		rdev = devm_regulator_register(&pdev->dev, &pmic->common_rdesc[i],
 					       &config);
 		if (IS_ERR(rdev))
-			 return dev_err_probe(tps->dev, PTR_ERR(rdev),
+			return dev_err_probe(tps->dev, PTR_ERR(rdev),
 					      "Failed to register %s regulator\n",
 					      pmic->common_rdesc[i].name);
 	}
@@ -454,9 +454,9 @@ static int tps65219_regulator_probe(struct platform_device *pdev)
 						  irq_type->irq_name,
 						  irq_data);
 		if (error)
-			return dev_err_probe(tps->dev, PTR_ERR(rdev),
-					     "Failed to request %s IRQ %d: %d\n",
-					     irq_type->irq_name, irq, error);
+			return dev_err_probe(tps->dev, error,
+					     "Failed to request %s IRQ %d\n",
+					     irq_type->irq_name, irq);
 	}
 
 	for (i = 0; i < pmic->dev_irq_size; ++i) {
@@ -477,9 +477,9 @@ static int tps65219_regulator_probe(struct platform_device *pdev)
 						  irq_type->irq_name,
 						  irq_data);
 		if (error)
-			return dev_err_probe(tps->dev, PTR_ERR(rdev),
-					     "Failed to request %s IRQ %d: %d\n",
-					     irq_type->irq_name, irq, error);
+			return dev_err_probe(tps->dev, error,
+					     "Failed to request %s IRQ %d\n",
+					     irq_type->irq_name, irq);
 	}
 
 	return 0;
