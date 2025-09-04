@@ -195,7 +195,7 @@ static const struct mfd_cell tps65214_cells[] = {
 
 static const struct mfd_cell tps65215_cells[] = {
 	MFD_CELL_RES("tps65215-regulator", tps65215_regulator_resources),
-	MFD_CELL_NAME("tps65219-gpio"),
+	MFD_CELL_NAME("tps65215-gpio"),
 };
 
 static const struct mfd_cell tps65219_cells[] = {
@@ -495,20 +495,6 @@ static int tps65219_probe(struct i2c_client *client)
 		ret = PTR_ERR(tps->regmap);
 		dev_err(tps->dev, "Failed to allocate register map: %d\n", ret);
 		return ret;
-	}
-
-	/*
-	 * Don't Enable TPS65214 on AM62L E1 boards that have different
-	 * PMICs
-	 */
-	if (tps->chip_id == TPS65214) {
-		unsigned int id;
-
-		regmap_read(tps->regmap, 0, &id);
-		if (id != 0x14) {
-			dev_err(tps->dev, "Failed to find TPS65214\n");
-			return -ENODEV;
-		}
 	}
 
 	ret = devm_regmap_add_irq_chip(tps->dev, tps->regmap, client->irq,
