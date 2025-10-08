@@ -1,0 +1,187 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (C) 2022 BeagleBoard.org - https://beagleboard.org/
+ *
+ * https://docs.beagleboard.io/latest/boards/capes/cape-interface-spec.html#i2c
+ */
+
+#include <dt-bindings/gpio/gpio.h>
+#include "k3-pinctrl.h"
+
+/dts-v1/;
+/plugin/;
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+ */
+&{/chosen} {
+	overlays {
+		PB2-ARDUPILOT.kernel = __TIMESTAMP__;
+	};
+};
+
+// many definitions from pinmux/board/pocketbeagle2/pocketbeagle2-pinmux.dts
+&main_pmx0 {
+	main_spi0_pins: main-spi0-pins {
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x01bc, PIN_INPUT_PULLUP, 0) /* P2.25 (A14) SPI0_CLK */
+			AM62X_IOPAD(0x01c0, PIN_INPUT_PULLUP, 0) /* P2.27v(B13) SPI0_D0 */
+			AM62X_IOPAD(0x01c4, PIN_OUTPUT_PULLUP, 0) /* P2.29 SPI0_D1 */
+			AM62X_IOPAD(0x01b4, PIN_OUTPUT_PULLUP, 0) /* P2.31 (A13) SPI0_CS0 */
+			AM62X_IOPAD(0x01B8, PIN_OUTPUT_PULLUP, 0) /* P2.36 (C13) SPI0_CS1 */
+		>;
+	};
+	main_can0_pins: main-can0-pins {
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x01D8, PIN_OUTPUT, 0) /* P2.05 (C15) MCAN0_TX */
+			AM62X_IOPAD(0x01DC, PIN_INPUT, 0) /*  P2.07 (E15) MCAN0_RX */
+		>;
+	};
+	main_i2c2_pins: main-i2c2-pins {
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x00B4, PIN_INPUT_PULLUP, 1) /* P1.26 (K24) I2C2_SDA */
+			AM62X_IOPAD(0x00B0, PIN_INPUT_PULLUP, 1) /* P1.28 (K22) I2C2_SCL */
+		>;
+	};
+        main_i2c3_pins: main-i2c3-pins {
+                pinctrl-single,pins = <
+                        AM62X_IOPAD(0x01D0, PIN_INPUT_PULLUP, 2) /* P2.09 (A15) I2C3_SCL */
+                        AM62X_IOPAD(0x01D4, PIN_INPUT_PULLUP, 2) /* P2.11 (B15) I2C3_SCL */
+                >;
+        };
+
+	main_uart1_pins_default: main-uart1-default-pins {
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x01ac, PIN_INPUT, 2) /* P1.06 (E19/D15) MCASP0_AFSR.UART1_RXD */
+			AM62X_IOPAD(0x01b0, PIN_OUTPUT, 2) /* P1.08 (A20/D16) MCASP0_ACLKR.UART1_TXD */
+		>;
+	};
+	main_uart3_pins_default: main-uart3-default-pins {
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x00C0, PIN_INPUT, 4) /* P2.06 (W25) UART3_RXD */
+			AM62X_IOPAD(0x00C4, PIN_OUTPUT, 4) /* P2.08 (W24) UART3_TXD */
+		>;
+	};
+	main_uart4_pins_default: main-uart4-default-pins {
+		pinctrl-single,pins = <
+		AM62X_IOPAD(0x00C8, PIN_INPUT, 4) /* P2.20 (Y25) UART4_RXD */
+		AM62X_IOPAD(0x00CC, PIN_OUTPUT, 4) /* P1.20(Y24) UART4_TXD */
+		>;
+	};
+        main_uart5_pins_default: main-uart5-default-pins {
+                pinctrl-single,pins = <
+                AM62X_IOPAD(0x00D0, PIN_INPUT, 4) /* P2.24 (Y23) UART5_RXD */
+                AM62X_IOPAD(0x00D4, PIN_OUTPUT, 4) /* P2.33(AA25) UART5_TXD */
+                >;
+        };
+
+	main_prus_pins: main-prus-pins {
+		pinctrl-single,pins = <
+		AM62X_IOPAD(0x00FC, PIN_OUTPUT_PULLDOWN, 5) /* P1.29 - RCOUT 1*/
+		AM62X_IOPAD(0x00F0, PIN_OUTPUT_PULLDOWN, 5) /* P1.31 - RCOUT 2*/
+		AM62X_IOPAD(0x00E4, PIN_OUTPUT_PULLDOWN, 5) /* P1.33A - RCOUT 3*/
+		AM62X_IOPAD(0x00F4, PIN_OUTPUT_PULLDOWN, 5) /* P2.34 - RCOUT 4*/
+
+		AM62X_IOPAD(0x0104, PIN_INPUT_PULLUP, 8) /* P2.17 - RCINPUT*/
+		>;
+	};
+};
+
+&main_spi0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_spi0_pins>;
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+	ti,spi-num-cs = <3>;
+
+	channel@0 {
+		compatible = "rohm,dh2228fv";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		symlink = "spi/0.0";
+		reg = <0>;
+		spi-max-frequency = <24000000>;
+		spi-cpha;
+	};
+        channel@1 {
+                compatible = "rohm,dh2228fv";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		symlink = "spi/0.1";
+		reg = <1>;
+                spi-max-frequency = <24000000>;
+        };
+
+};
+&main_mcan0 {
+    pinctrl-names = "default";
+    pinctrl-0 = <&main_can0_pins>;
+    status = "okay";
+};
+
+&main_i2c2 {
+    pinctrl-names = "default";
+    pinctrl-0 = <&main_i2c2_pins>;
+    status = "okay";
+};
+
+&main_i2c3 {
+    pinctrl-names = "default";
+    pinctrl-0 = <&main_i2c3_pins>;
+    status = "okay";
+};
+
+&wkup_i2c0 {
+    status = "disabled";
+};
+
+&main_i2c1 {
+    status = "disabled";
+};
+
+
+&main_uart1 {
+        pinctrl-names = "default";
+        pinctrl-0 = <&main_uart1_pins_default>;
+        bootph-all;
+        status = "okay";
+};
+
+&main_uart3 {
+        pinctrl-names = "default";
+        pinctrl-0 = <&main_uart3_pins_default>;
+        bootph-all;
+        status = "okay";
+};
+
+&main_uart4 {
+        pinctrl-names = "default";
+        pinctrl-0 = <&main_uart4_pins_default>;
+        bootph-all;
+        status = "okay";
+};
+
+&main_uart5 {
+        pinctrl-names = "default";
+        pinctrl-0 = <&main_uart5_pins_default>;
+        bootph-all;
+        status = "okay";
+};
+
+&pruss {
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_prus_pins>;
+	status = "okay";
+};
+&main_gpio0 {
+	/* pinctrl-names = "default"; */
+	/* pinctrl-0 = <&main_gpio_pins>; */
+	status = "okay";
+};
+&main_gpio1 {
+	status = "okay";
+};
+&ecap0 {
+	status = "okay";
+};
