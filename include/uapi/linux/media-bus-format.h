@@ -182,6 +182,9 @@
  */
 #define MEDIA_BUS_FMT_METADATA_FIXED		0x7001
 
+/* Sensor ancillary metadata formats - next is 0x7002 */
+#define MEDIA_BUS_FMT_SENSOR_DATA		0x7002
+
 /* Generic line based metadata formats for serial buses. Next is 0x8008. */
 #define MEDIA_BUS_FMT_META_8			0x8001
 #define MEDIA_BUS_FMT_META_10			0x8002
