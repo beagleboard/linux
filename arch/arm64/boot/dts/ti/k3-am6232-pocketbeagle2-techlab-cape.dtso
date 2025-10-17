@@ -1,0 +1,128 @@
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/leds/common.h>
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/input.h>
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+ */
+&{/chosen} {
+	overlays {
+		k3-am6232-pocketbeagle2-techlab-cape.kernel = __TIMESTAMP__;
+	};
+};
+
+&main_spi0 {
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	techlab_gpio: techlab-gpio@0 {
+		compatible = "microchip,mcp23s18";
+		reg = <0>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		spi-max-frequency = <1000000>;
+		microchip,spi-present-mask = <1>;
+		gpio-line-names = "LD4", "LD7", "LD8",	  /* 0-2 */
+				  "LD6", "LD3", "LD2",    /* 3-5 */
+				  "LD5", "", "LD11",      /* 6-8 */
+				  "LD14", "LD15", "LD13", /* 9-11 */
+				  "LD10", "LD9", "LD12",  /* 12-14 */
+				  "";                     /* 15 */
+	};
+};
+
+&{/} {
+	techlab-led {
+		compatible = "pwm-leds-multicolor";
+		pinctrl-names = "default";
+		pinctrl-0 = <&P1_33_A17_pwm>;
+
+		multi-led {
+			color = <LED_COLOR_ID_RGB>;
+			max-brightness = <255>;
+
+			led-red {
+				pwms = <&epwm2 1 255 0>;
+				color = <LED_COLOR_ID_RED>;
+			};
+
+			led-green {
+				pwms = <&ecap2 0 255 0>;
+				color = <LED_COLOR_ID_GREEN>;
+			};
+
+			led-blue {
+				pwms = <&epwm2 0 255 0>;
+				color = <LED_COLOR_ID_BLUE>;
+			};
+		};
+	};
+
+	seven-segments-left {
+		compatible = "gpio-7-segment";
+		segment-gpios = <&techlab_gpio 0 GPIO_ACTIVE_LOW>,
+				<&techlab_gpio 1 GPIO_ACTIVE_LOW>,
+				<&techlab_gpio 2 GPIO_ACTIVE_LOW>,
+				<&techlab_gpio 3 GPIO_ACTIVE_LOW>,
+				<&techlab_gpio 4 GPIO_ACTIVE_LOW>,
+				<&techlab_gpio 5 GPIO_ACTIVE_LOW>,
+				<&techlab_gpio 6 GPIO_ACTIVE_LOW>;
+	};
+
+	seven-segments-right {
+		compatible = "gpio-7-segment";
+		segment-gpios = <&techlab_gpio 8 GPIO_ACTIVE_LOW>,
+				<&techlab_gpio 9 GPIO_ACTIVE_LOW>,
+				<&techlab_gpio 10 GPIO_ACTIVE_LOW>,
+				<&techlab_gpio 11 GPIO_ACTIVE_LOW>,
+				<&techlab_gpio 12 GPIO_ACTIVE_LOW>,
+				<&techlab_gpio 13 GPIO_ACTIVE_LOW>,
+				<&techlab_gpio 14 GPIO_ACTIVE_LOW>;
+	};
+
+	buzzer_pwm: buzzer-pwm {
+		#pwm-cells = <3>;
+		compatible = "pwm-gpio";
+		pinctrl-names = "default";
+		pinctrl-0 = <&P2_30_gpio>;
+		gpios = <&main_gpio0 58 GPIO_ACTIVE_HIGH>;
+	};
+
+	buttons {
+		compatible = "gpio-keys";
+		pinctrl-names = "default";
+		pinctrl-0 = <&P1_29_gpio &P2_33_gpio>;
+
+		left {
+			label = "GPIO Key Left";
+			gpios = <&main_gpio0 52 0>;
+			linux,code = <KEY_LEFT>;
+		};
+
+		right {
+			label = "GPIO Key Right";
+			gpios = <&main_gpio0 62 0>;
+			linux,code = <KEY_RIGHT>;
+		};
+	};
+
+	techlab-buzzer {
+		compatible = "pwm-beeper";
+		pwms = <&buzzer_pwm 0 50000 0>;
+	};
+};
+
+&main_i2c2 {
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	accel@1c {
+		compatible = "fsl,mma8453";
+		reg = <0x1c>;
+	};
+};

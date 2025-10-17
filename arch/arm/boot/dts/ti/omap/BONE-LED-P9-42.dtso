@@ -1,0 +1,39 @@
+// SPDX-License-Identifier: GPL-2.0-only
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/pinctrl/am33xx.h>
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+ */
+&{/chosen} {
+	overlays {
+		BONE-LED-P9-42.kernel = __TIMESTAMP__;
+	};
+};
+
+&am33xx_pinmux {
+	bb_gpio_p9_42_pins: pinmux_bb_gpio_p9_42_pins {
+		pinctrl-single,pins = <
+			AM33XX_PADCONF(AM335X_PIN_ECAP0_IN_PWM0_OUT, PIN_OUTPUT_PULLDOWN, MUX_MODE7)	/* P9_42: Relay2 */
+		>;
+	};
+};
+
+&{/} {
+	leds {
+		pinctrl-names = "default";
+		pinctrl-0 = <&bb_gpio_p9_42_pins>;
+
+		compatible = "gpio-leds";
+
+		pin@942 {
+			label = "P9_42";
+			gpios = <&gpio0 07 GPIO_ACTIVE_HIGH>;
+			default-state = "keep";
+		};
+	};
+};

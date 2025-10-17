@@ -1,0 +1,8 @@
+/dts-v1/;
+/plugin/;
+
+&main_uart6 {
+    mcu {
+        status = "disabled";
+    };
+};
