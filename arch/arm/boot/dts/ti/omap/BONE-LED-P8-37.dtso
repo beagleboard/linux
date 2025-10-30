@@ -1,0 +1,39 @@
+// SPDX-License-Identifier: GPL-2.0-only
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/pinctrl/am33xx.h>
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+ */
+&{/chosen} {
+	overlays {
+		BONE-LED-P8-37.kernel = __TIMESTAMP__;
+	};
+};
+
+&am33xx_pinmux {
+	bb_gpio_p8_37_pins: pinmux_bb_gpio_p8_37_pins {
+		pinctrl-single,pins = <
+			AM33XX_PADCONF(AM335X_PIN_LCD_DATA8, PIN_OUTPUT_PULLDOWN, MUX_MODE7)	/* P8_37: gpio2[14] */
+		>;
+	};
+};
+
+&{/} {
+	leds {
+		pinctrl-names = "default";
+		pinctrl-0 = <&bb_gpio_p8_37_pins>;
+
+		compatible = "gpio-leds";
+
+		pin@837 {
+			label = "P8_37";
+			gpios = <&gpio2 14 GPIO_ACTIVE_HIGH>;
+			default-state = "keep";
+		};
+	};
+};

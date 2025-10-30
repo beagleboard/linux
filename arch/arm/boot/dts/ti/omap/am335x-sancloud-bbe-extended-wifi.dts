@@ -18,6 +18,11 @@
 		     "ti,am335x-bone",
 		     "ti,am33xx";
 
+	chosen {
+		base_dtb = "am335x-sancloud-bbe-extended-wifi.dts";
+		base_dtb_timestamp = __TIMESTAMP__;
+	};
+
 	wlan_en_reg: fixedregulator@2 {
 		compatible = "regulator-fixed";
 		regulator-name = "wlan-en-regulator";
