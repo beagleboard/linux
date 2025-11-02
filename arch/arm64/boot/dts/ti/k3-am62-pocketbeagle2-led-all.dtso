@@ -1,0 +1,454 @@
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/leds/common.h>
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+ */
+&{/chosen} {
+	overlays {
+		k3-am62-pocketbeagle2-led-all.kernel = __TIMESTAMP__;
+	};
+};
+
+&{/} {
+	leds {
+		compatible = "gpio-leds";
+		pinctrl-names = "default";
+		pinctrl-0 = <&P1_02_E18_gpio>,
+			    <&P1_04_D20_gpio>,
+			    <&P1_06_E19_gpio>,
+			    <&P1_08_gpio>,
+			    <&P1_10_A18_gpio>,
+			    <&P1_12_A19_gpio>,
+			    <&P1_13_gpio>,
+			    <&P1_19_gpio>,
+			    <&P1_20_gpio>,
+			    <&P1_21_gpio>,
+			    <&P1_23_gpio>,
+			    <&P1_25_gpio>,
+			    <&P1_26_K24_gpio>,
+			    <&P1_27_gpio>,
+			    <&P1_28_K22_gpio>,
+			    <&P1_29_gpio>,
+			    <&P1_30_gpio>,
+			    <&P1_31_gpio>,
+			    <&P1_32_gpio>,
+			    <&P1_33_A17_gpio>,
+			    <&P1_34_gpio>,
+			    <&P1_35_gpio>,
+			    <&P1_36_V20_gpio>,
+			    <&P2_01_AD24_gpio>,
+			    <&P2_02_gpio>,
+			    <&P2_03_AB22_gpio>,
+			    <&P2_04_gpio>,
+			    <&P2_05_C15_gpio>,
+			    <&P2_06_gpio>,
+			    <&P2_07_E15_gpio>,
+			    <&P2_08_gpio>,
+			    <&P2_09_A15_gpio>,
+			    <&P2_10_gpio>,
+			    <&P2_11_B15_gpio>,
+			    <&P2_17_gpio>,
+			    <&P2_18_gpio>,
+			    <&P2_19_gpio>,
+			    <&P2_20_gpio>,
+			    <&P2_22_gpio>,
+			    <&P2_24_gpio>,
+			    <&P2_25_gpio>,
+			    <&P2_27_gpio>,
+			    <&P2_28_gpio>,
+			    <&P2_29_A14_gpio>,
+			    <&P2_30_gpio>,
+			    <&P2_31_A13_gpio>,
+			    <&P2_32_gpio>,
+			    <&P2_33_gpio>,
+			    <&P2_34_gpio>,
+			    <&P2_35_gpio>,
+			    <&P2_36_gpio>;
+
+		pin@102 {
+			label = "P1_02";
+			linux,default-trigger = "heartbeat";
+			gpios = <&main_gpio1 10 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+		};
+
+		pin@104 {
+			label = "P1_04";
+			linux,default-trigger = "heartbeat";
+			gpios = <&main_gpio1 12 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+		};
+
+		pin@106 {
+			label = "P1_06";
+			linux,default-trigger = "heartbeat";
+			gpios = <&main_gpio1 13 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+		};
+
+		pin@108 {
+			label = "P1_08";
+			linux,default-trigger = "heartbeat";
+			gpios = <&main_gpio1 14 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+		};
+
+		pin@110 {
+			label = "P1_10";
+			linux,default-trigger = "heartbeat";
+			gpios = <&main_gpio1 30 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+		};
+
+		pin@112 {
+			label = "P1_12";
+			linux,default-trigger = "heartbeat";
+			gpios = <&main_gpio1 8 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+		};
+
+		pin@113 {
+			label = "P1_13";
+			linux,default-trigger = "heartbeat";
+			gpios = <&main_gpio0 36 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+		};
+
+		pin@119 {
+			label = "P1_19";
+			linux,default-trigger = "heartbeat";
+			gpios = <&main_gpio1 1 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+		};
+
+		pin@120 {
+			label = "P1_20";
+			linux,default-trigger = "heartbeat";
+			gpios = <&main_gpio0 50 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+		};
+
+		pin@121 {
+			label = "P1_21";
+			linux,default-trigger = "heartbeat";
+			gpios = <&main_gpio1 6 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+		};
+
+		pin@123 {
+			label = "P1_23";
+			linux,default-trigger = "heartbeat";
+			gpios = <&main_gpio1 5 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+		};
+
+		pin@125 {
+			label = "P1_25";
+			linux,default-trigger = "heartbeat";
+			gpios = <&main_gpio1 4 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+		};
+
+		pin@126 {
+			label = "P1_26";
+			linux,default-trigger = "heartbeat";
+			gpios = <&main_gpio0 44 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+		};
+
+		pin@127 {
+			label = "P1_27";
+			linux,default-trigger = "heartbeat";
+			gpios = <&main_gpio1 3 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+		};
+
+		pin@128 {
+			label = "P1_28";
+			linux,default-trigger = "heartbeat";
+			gpios = <&main_gpio0 43 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+		};
+
+		pin@129 {
+			label = "P1_29";
+			linux,default-trigger = "heartbeat";
+			gpios = <&main_gpio0 62 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+		};
+
+		pin@130 {
+			label = "P1_30";
+			linux,default-trigger = "heartbeat";
+			gpios = <&main_gpio1 21 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+		};
+
+		pin@131 {
+			label = "P1_31";
+			linux,default-trigger = "heartbeat";
+			gpios = <&main_gpio0 59 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+		};
+
+		pin@132 {
+			label = "P1_32";
+			linux,default-trigger = "heartbeat";
+			gpios = <&main_gpio1 20 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+		};
+
+		pin@133 {
+			label = "P1_33";
+			linux,default-trigger = "heartbeat";
+			gpios = <&main_gpio1 29 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+		};
+
+		pin@134 {
+			label = "P1_34";
+			linux,default-trigger = "heartbeat";
+			gpios = <&main_gpio1 2 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+		};
+
+		pin@135 {
+			label = "P1_35";
+			linux,default-trigger = "heartbeat";
+			gpios = <&main_gpio0 88 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+		};
+
+		pin@136 {
+			label = "P1_36";
+			linux,default-trigger = "heartbeat";
+			gpios = <&main_gpio0 55 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+		};
+
+		pin@201 {
+			label = "P2_01";
+			linux,default-trigger = "heartbeat";
+			gpios = <&main_gpio0 86 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+		};
+
+		pin@202 {
+			label = "P2_02";
+			linux,default-trigger = "heartbeat";
+			gpios = <&main_gpio0 45 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+		};
+
+		pin@203 {
+			label = "P2_03";
+			linux,default-trigger = "heartbeat";
+			gpios = <&main_gpio0 85 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+		};
+
+		pin@204 {
+			label = "P2_04";
+			linux,default-trigger = "heartbeat";
+			gpios = <&main_gpio0 46 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+		};
+
+		pin@205 {
+			label = "P2_05";
+			linux,default-trigger = "heartbeat";
+			gpios = <&main_gpio1 24 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+		};
+
+		pin@206 {
+			label = "P2_06";
+			linux,default-trigger = "heartbeat";
+			gpios = <&main_gpio0 47 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+		};
+
+		pin@207 {
+			label = "P2_07";
+			linux,default-trigger = "heartbeat";
+			gpios = <&main_gpio1 25 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+		};
+
+		pin@208 {
+			label = "P2_08";
+			linux,default-trigger = "heartbeat";
+			gpios = <&main_gpio0 48 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+		};
+
+		pin@209 {
+			label = "P2_09";
+			linux,default-trigger = "heartbeat";
+			gpios = <&main_gpio1 22 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+		};
+
+		pin@210 {
+			label = "P2_10";
+			linux,default-trigger = "heartbeat";
+			gpios = <&main_gpio0 91 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+		};
+
+		pin@211 {
+			label = "P2_11";
+			linux,default-trigger = "heartbeat";
+			gpios = <&main_gpio1 23 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+		};
+
+		pin@217 {
+			label = "P2_17";
+			linux,default-trigger = "heartbeat";
+			gpios = <&main_gpio0 64 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+		};
+
+		pin@218 {
+			label = "P2_18";
+			linux,default-trigger = "heartbeat";
+			gpios = <&main_gpio0 53 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+		};
+
+		pin@219 {
+			label = "P2_19";
+			linux,default-trigger = "heartbeat";
+			gpios = <&main_gpio1 0 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+		};
+
+		pin@220 {
+			label = "P2_20";
+			linux,default-trigger = "heartbeat";
+			gpios = <&main_gpio0 49 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+		};
+
+		pin@222 {
+			label = "P2_22";
+			linux,default-trigger = "heartbeat";
+			gpios = <&main_gpio0 63 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+		};
+
+		pin@224 {
+			label = "P2_24";
+			linux,default-trigger = "heartbeat";
+			gpios = <&main_gpio0 51 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+		};
+
+		pin@225 {
+			label = "P2_25";
+			linux,default-trigger = "heartbeat";
+			gpios = <&main_gpio1 19 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+		};
+
+		pin@227 {
+			label = "P2_27";
+			linux,default-trigger = "heartbeat";
+			gpios = <&main_gpio1 18 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+		};
+
+		pin@228 {
+			label = "P2_28";
+			linux,default-trigger = "heartbeat";
+			gpios = <&main_gpio0 61 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+		};
+
+		pin@229 {
+			label = "P2_29";
+			linux,default-trigger = "heartbeat";
+			gpios = <&main_gpio1 17 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+		};
+
+		pin@230 {
+			label = "P2_30";
+			linux,default-trigger = "heartbeat";
+			gpios = <&main_gpio0 58 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+		};
+
+		pin@231 {
+			label = "P2_31";
+			linux,default-trigger = "heartbeat";
+			gpios = <&main_gpio1 15 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+		};
+
+		pin@232 {
+			label = "P2_32";
+			linux,default-trigger = "heartbeat";
+			gpios = <&main_gpio0 57 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+		};
+
+		pin@233 {
+			label = "P2_33";
+			linux,default-trigger = "heartbeat";
+			gpios = <&main_gpio0 52 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+		};
+
+		pin@234 {
+			label = "P2_34";
+			linux,default-trigger = "heartbeat";
+			gpios = <&main_gpio0 60 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+		};
+
+		pin@235 {
+			label = "P2_35";
+			linux,default-trigger = "heartbeat";
+			gpios = <&main_gpio0 54 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+		};
+
+		pin@236 {
+			label = "P2_36";
+			linux,default-trigger = "heartbeat";
+			gpios = <&main_gpio1 16 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+		};
+	};
+};
+
+&main_uart0 {
+	pinctrl-0 = <>;
+	status = "disabled";
+};
+
+&main_i2c2 {
+	pinctrl-0 = <>;
+	status = "disabled";
+};
+
+&main_spi0 {
+	pinctrl-0 = <>;
+	status = "disabled";
+};
+
+&ecap2 {
+	pinctrl-0 = <>;
+	status = "disabled";
+};
+
+&epwm2 {
+	pinctrl-0 = <>;
+	status = "disabled";
+};
