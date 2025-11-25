@@ -1,0 +1,41 @@
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/leds/common.h>
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+ */
+&{/chosen} {
+	overlays {
+		k3-am62-pocketbeagle2-leds-off.kernel = __TIMESTAMP__;
+	};
+};
+
+&{/} {
+	leds {
+		led-1 {
+			function = LED_FUNCTION_INDICATOR;
+			default-state = "off";
+			linux,default-trigger = "none";
+		};
+
+		led-2 {
+			function = LED_FUNCTION_INDICATOR;
+			default-state = "off";
+			linux,default-trigger = "none";
+		};
+
+		led-3 {
+			function = LED_FUNCTION_INDICATOR;
+			default-state = "off";
+			linux,default-trigger = "none";
+		};
+
+		led-4 {
+			function = LED_FUNCTION_INDICATOR;
+			default-state = "off";
+			linux,default-trigger = "none";
+		};
+	};
+};

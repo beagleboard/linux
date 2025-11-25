@@ -1,0 +1,95 @@
+// SPDX-License-Identifier: GPL-2.0-only OR MIT
+/*
+ * DT Overlay for BBORG_MOTOR connections within the expansion header.
+ *
+ * Copyright (C) 2023 Texas Instruments Incorporated - https://www.ti.com/
+ *
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include "k3-pinctrl.h"
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+*/
+&{/chosen} {
+	overlays {
+		k3-j721e-beagleboneai64-BBORG_MOTOR.kernel = __TIMESTAMP__;
+		p8_13.3000000.pwm = "k3-j721e-beagleboneai64-pwm-epwm0-p8_13.3000000.1.P8_13";
+		p8_19.3000000.pwm = "k3-j721e-beagleboneai64-pwm-epwm0-p8_19.3000000.0.P8_19";
+		p9_14.3020000.pwm = "k3-j721e-beagleboneai64-pwm-epwm2-p9_14.3020000.0.P9_14";
+		p9_16.3020000.pwm = "k3-j721e-beagleboneai64-pwm-epwm2-p9_16.3020000.1.P9_16";
+	};
+};
+
+&main_pmx0 {
+	P8_13_P8_19_pwm: P8-13-P8-19pwm-pins {
+		pinctrl-single,pins = <
+			J721E_IOPAD(0x168, PIN_OUTPUT, 6) /* (V27) RGMII5_TD1.EHRPWM0_B */
+			J721E_IOPAD(0x164, PIN_OUTPUT, 6) /* (V29) RGMII5_TD2.EHRPWM0_A */
+		>;
+	};
+
+	P9_14_P9_16_pwm: P9-14-P9-16-pwm-pins {
+		pinctrl-single,pins = <
+			J721E_IOPAD(0x178, PIN_OUTPUT, 6) /* (U27) RGMII5_RD3.EHRPWM2_A */
+			J721E_IOPAD(0x17C, PIN_OUTPUT, 6) /* (U24) RGMII5_RD2.EHRPWM2_B */
+		>;
+	};
+
+	bborg_motor: bborg-motor-pins {
+		pinctrl-single,pins = <
+			J721E_IOPAD(0x10, PIN_OUTPUT, 7) /* (AJ23) PRG1_PRU0_GPO3.GPIO0_4 P8_18 m1 */
+			J721E_IOPAD(0xFC, PIN_OUTPUT, 7) /* (AB28) PRG0_PRU0_GPO19.GPIO0_62 P8_16 m2 */
+			J721E_IOPAD(0x130, PIN_OUTPUT, 7) /* (AF27) PRG0_PRU1_GPO12.GPIO0_75 P8_14 m3 */
+			J721E_IOPAD(0xD0, PIN_OUTPUT, 7) /* (AC27) PRG0_PRU0_GPO8.GPIO0_51 P8_26 m4 */
+		>;
+	};
+};
+
+&epwm0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&P8_13_P8_19_pwm>;
+	status = "okay";
+};
+
+&epwm2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&P9_14_P9_16_pwm>;
+	status = "okay";
+};
+
+&{/} {
+	leds {
+		pinctrl-names = "default";
+		pinctrl-0 = <&bborg_motor>;
+		compatible = "gpio-leds";
+
+		motor-1 {
+			label = "m1_high";
+			gpios = <&main_gpio0 4 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+
+		motor-2 {
+			label = "m2_high";
+			gpios = <&main_gpio0 62 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+
+		motor-3 {
+			label = "m3_high";
+			gpios = <&main_gpio0 75 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+
+		motor-4 {
+			label = "m4_high";
+			gpios = <&main_gpio0 51 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+	};
+};

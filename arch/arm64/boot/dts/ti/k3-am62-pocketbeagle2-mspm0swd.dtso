@@ -1,0 +1,21 @@
+// SPDX-License-Identifier: GPL-2.0-only OR MIT
+/*
+ * Copyright (C) 2025 Ayush Singh, BeagleBoard.org Foundation
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include "k3-pinctrl.h"
+
+&mcu_gpio0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&mspm0_swdio_pins_gpio>;
+	status = "okay";
+};
+
+&main_gpio0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&P2_35_gpio>;
+	status = "okay";
+};
