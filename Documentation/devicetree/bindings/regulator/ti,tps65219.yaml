@@ -106,17 +106,9 @@ allOf:
       properties:
         compatible:
           contains:
-            const: ti,tps65214
-    then:
-      properties:
-        regulators:
-          patternProperties:
-            "^ldo[3-4]$": false
-  - if:
-      properties:
-        compatible:
-          contains:
-            const: ti,tps65215
+            enum:
+              - ti,tps65214
+              - ti,tps65215
     then:
       properties:
         regulators:

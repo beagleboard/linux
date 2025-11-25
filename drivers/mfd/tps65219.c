@@ -195,7 +195,7 @@ static const struct mfd_cell tps65214_cells[] = {
 
 static const struct mfd_cell tps65215_cells[] = {
 	MFD_CELL_RES("tps65215-regulator", tps65215_regulator_resources),
-	MFD_CELL_NAME("tps65219-gpio"),
+	MFD_CELL_NAME("tps65215-gpio"),
 };
 
 static const struct mfd_cell tps65219_cells[] = {
@@ -473,50 +473,6 @@ static struct tps65219_chip_data chip_info_table[] = {
 	},
 };
 
-static int tps65214_reg_write(void *context, unsigned int reg, unsigned int val)
-{
-	struct i2c_client *i2c = context;
-	struct tps65219 *tps;
-	int ret;
-
-	if (val > 0xff || reg > 0xff)
-		return -EINVAL;
-
-	tps = i2c_get_clientdata(i2c);
-	ret = i2c_smbus_write_byte_data(i2c, TPS65214_REG_LOCK,
-					TPS65214_LOCK_ACCESS_CMD);
-	if (ret)
-		return ret;
-
-	ret = i2c_smbus_write_byte_data(i2c, reg, val);
-	if (ret)
-		return ret;
-
-	return i2c_smbus_write_byte_data(i2c, TPS65214_REG_LOCK, 0);
-}
-
-static int tps65214_reg_read(void *context, unsigned int reg, unsigned int *val)
-{
-	struct i2c_client *i2c = context;
-	int ret;
-
-	if (reg > 0xff)
-		return -EINVAL;
-
-	ret = i2c_smbus_read_byte_data(i2c, reg);
-	if (ret < 0)
-		return ret;
-
-	*val = ret;
-
-	return 0;
-}
-
-static const struct regmap_bus tps65214_regmap_bus = {
-	.reg_write = tps65214_reg_write,
-	.reg_read = tps65214_reg_read,
-};
-
 static int tps65219_probe(struct i2c_client *client)
 {
 	struct tps65219 *tps;
@@ -534,12 +490,7 @@ static int tps65219_probe(struct i2c_client *client)
 	tps->chip_id = (uintptr_t)i2c_get_match_data(client);
 	pmic = &chip_info_table[tps->chip_id];
 
-	if (tps->chip_id == TPS65214)
-		tps->regmap = devm_regmap_init(&client->dev,
-					       &tps65214_regmap_bus, client,
-					       &tps65219_regmap_config);
-	else
-		tps->regmap = devm_regmap_init_i2c(client, &tps65219_regmap_config);
+	tps->regmap = devm_regmap_init_i2c(client, &tps65219_regmap_config);
 	if (IS_ERR(tps->regmap)) {
 		ret = PTR_ERR(tps->regmap);
 		dev_err(tps->dev, "Failed to allocate register map: %d\n", ret);
