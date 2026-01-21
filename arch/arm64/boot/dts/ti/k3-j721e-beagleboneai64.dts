@@ -14,6 +14,7 @@
 #include <dt-bindings/leds/common.h>
 #include <dt-bindings/net/ti-dp83867.h>
 #include <dt-bindings/phy/phy-cadence.h>
+#include "k3-j721e-beagleboneai64-pinmux.dtsi"
 
 / {
 	compatible = "beagle,j721e-beagleboneai64", "ti,j721e";
@@ -698,7 +699,7 @@
 		resets = <&serdes_wiz4 1>;
 		cdns,phy-type = <PHY_TYPE_DP>;
 		cdns,num-lanes = <4>;
-		cdns,max-bit-rate = <2700>;
+		cdns,max-bit-rate = <5400>;
 		#phy-cells = <0>;
 	};
 };
@@ -765,6 +766,7 @@
 &mcu_cpsw {
 	pinctrl-names = "default";
 	pinctrl-0 = <&mcu_cpsw_pins_default>;
+	status = "okay";
 };
 
 &davinci_mdio {
