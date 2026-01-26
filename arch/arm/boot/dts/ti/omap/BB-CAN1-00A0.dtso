@@ -1,0 +1,44 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright (C) 2015 Robert Nelson <robertcnelson@gmail.com>
+ *
+ * Virtual cape for CAN1 on connector pins P9.24 P9.26
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/pinctrl/am33xx.h>
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+ */
+&{/chosen} {
+	overlays {
+		BB-CAN1-00A0.kernel = __TIMESTAMP__;
+	};
+};
+
+/*
+ * Free up the pins used by the cape from the pinmux helpers.
+ */
+&ocp {
+	P9_24_pinmux { status = "disabled"; };	/* P9_24: uart1_txd.d_can1_rx */
+	P9_26_pinmux { status = "disabled"; };	/* P9_26: uart1_rxd.d_can1_tx */
+};
+
+&am33xx_pinmux {
+	bb_dcan1_pins: pinmux_dcan1_pins {
+		pinctrl-single,pins = <
+			AM33XX_PADCONF(AM335X_PIN_UART1_TXD, PIN_INPUT_PULLUP, MUX_MODE2)	/* P9_24: uart1_txd.d_can1_rx */
+			AM33XX_PADCONF(AM335X_PIN_UART1_RXD, PIN_OUTPUT_PULLUP, MUX_MODE2)	/* P9_26: uart1_rxd.d_can1_tx */
+		>;
+	};
+};
+
+&dcan1 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&bb_dcan1_pins>;
+};

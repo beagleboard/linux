@@ -1,0 +1,53 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright (C) 2019 Tomas Arturo Herrera Castro <taherrera@uc.cl>
+ *
+ * Based on BB-I2C2-RTC-DS1338.dts:
+ *
+ * Copyright (C) 2018 Tim Small <tim@seoss.co.uk>
+ *
+ * This was code was writen by Chilean Software and Hardware developer
+ * company Southern Lake Technologies for a custom-made datalogger.
+ *
+ * https://www.sltech.cl
+ *
+ * compiled using: dtc -O dtb -o BB-I2C2-RTC-DS3231.dtbo -b 0 -@ BB-I2C2-RTC-DS3231.dts
+ *
+ * tested on element14 BeagleBone Industrial
+ *
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/pinctrl/am33xx.h>
+#include <dt-bindings/gpio/gpio.h>
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+ */
+&{/chosen} {
+	overlays {
+		BB-I2C2-RTC-DS3231.kernel = __TIMESTAMP__;
+	};
+};
+
+&{/} {
+	aliases {
+		rtc0 = &extrtc;
+		/* find /sys/firmware/devicetree/ | grep rtc@ */
+		rtc1 = "/ocp/interconnect@44c00000/segment@200000/target-module@3e000/rtc@0";
+	};
+};
+
+&i2c2 {
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	extrtc: ds3231@68 {
+		status = "okay";
+		compatible = "maxim,ds3231";
+		reg = <0x68>;
+	};
+};
