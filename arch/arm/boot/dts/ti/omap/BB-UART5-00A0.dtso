@@ -1,0 +1,43 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright (C) 2013 CircuitCo
+ * Virtual cape for UART5 on connector pins P9.37 P8.38
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/pinctrl/am33xx.h>
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+ */
+&{/chosen} {
+	overlays {
+		BB-UART5-00A0.kernel = __TIMESTAMP__;
+	};
+};
+
+/*
+ * Free up the pins used by the cape from the pinmux helpers.
+ */
+&ocp {
+	P8_37_pinmux { status = "disabled"; };	/* uart5_txd */
+	P8_38_pinmux { status = "disabled"; };	/* uart5_rxd */
+};
+
+&am33xx_pinmux {
+	bb_uart5_pins: pinmux_bb_uart5_pins {
+		pinctrl-single,pins = <
+			AM33XX_PADCONF(AM335X_PIN_LCD_DATA8, PIN_OUTPUT, MUX_MODE4)	/* P8_37 lcd_data8.uart5_txd */
+			AM33XX_PADCONF(AM335X_PIN_LCD_DATA9, PIN_INPUT, MUX_MODE4)	/* P8_38 lcd_data9.uart5_rxd */
+		>;
+	};
+};
+
+&uart5 {
+	/* sudo agetty 115200 ttyS5 */
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&bb_uart5_pins>;
+};

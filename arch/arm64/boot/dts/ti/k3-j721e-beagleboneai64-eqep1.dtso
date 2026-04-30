@@ -1,0 +1,57 @@
+// SPDX-License-Identifier: GPL-2.0-only OR MIT
+/*
+ * Copyright (C) 2026 Pranav Raja
+ * DT Overlay for EQEP1
+ * P8.35 - EQEP1_A
+ * P8.33 - EQEP1_B
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include "k3-pinctrl.h"
+#include <dt-bindings/soc/ti,sci_pm_domain.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+
+&{/chosen} {
+    overlays {
+        bbai64-eqep-only.kernel = __TIMESTAMP__;
+    };
+};
+
+&main_pmx0 {
+    eqep1_pins: eqep1-pins {
+        pinctrl-single,pins = <
+            J721E_IOPAD(0x64, PIN_INPUT, 9) /* (AD23) PRG1_PRU1_GPO3.EQEP1_A -> P8_35a */
+            J721E_IOPAD(0x68, PIN_INPUT, 9) /* (AH24) PRG1_PRU1_GPO4.EQEP1_B -> P8_33a */
+        >;
+    };
+};
+
+&cbass_main {
+    #address-cells = <2>;
+    #size-cells = <2>;
+
+    eqep1: qep@3210000 {
+        compatible = "ti,am3352-eqep";
+        reg = <0 0x3210000 0 0x100>;
+        power-domains = <&k3_pds 95 TI_SCI_PD_EXCLUSIVE>;
+        clocks = <&k3_clks 95 0>;
+        clock-names = "eqep1-ficlk";
+        interrupt-parent = <&gic500>;
+        interrupts = <GIC_SPI 323 IRQ_TYPE_EDGE_RISING>;
+        interrupt-names = "eqep1";
+        pinctrl-names = "default";
+        pinctrl-0 = <&eqep1_pins>;
+        symlink = "bone/qep/1";
+        status = "okay";
+        label = "encoder1";
+
+        count_mode = <0>;
+        swap_input = <0>;
+        invert_qa = <0>;
+        invert_qb = <0>;
+    };
+};
