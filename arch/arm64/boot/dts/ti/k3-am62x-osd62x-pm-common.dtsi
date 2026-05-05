@@ -1,0 +1,16 @@
+// SPDX-License-Identifier: GPL-2.0-only OR MIT
+/*
+ * Common dtsi for OSD62x-PM and derivatives
+ *
+ * Copyright (C) 2025 Octavo Systems LLC - https://www.octavosystems.com/
+ */
+
+/ {
+	memory@80000000 {
+		bootph-pre-ram;
+		device_type = "memory";
+		/* 1G RAM */
+		reg = <0x00000000 0x80000000 0x00000000 0x40000000>;
+
+	};
+};
