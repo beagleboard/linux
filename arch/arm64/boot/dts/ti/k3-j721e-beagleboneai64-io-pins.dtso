@@ -1,0 +1,37 @@
+// SPDX-License-Identifier: GPL-2.0-only OR MIT
+/*
+ * Copyright (C) 2026 Pranav Raja
+ * DT Overlay for GPIOs
+ * P8.15 & P8.18 GPIOs are enabled with this overlay.
+ * Make sure the IO pins you are enabling are not being used by any other overlay.
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include "k3-pinctrl.h"
+
+&{/chosen} {
+    overlays {
+        k3-j721e-beagleboneai64-iopins = __TIMESTAMP__;
+    };
+};
+
+&main_pmx0 {
+    gpio_pins: gpio-pins {
+        pinctrl-single,pins = <
+            /* P8_15 */
+            J721E_IOPAD(0xf8, PIN_INPUT, 7)
+
+            /* P8_18 */
+            J721E_IOPAD(0x10, PIN_INPUT, 7)
+        >;
+    };
+};
+
+&main_gpio0 {
+    pinctrl-names = "default";
+    pinctrl-0 = <&gpio_pins>;
+    status = "okay";
+};

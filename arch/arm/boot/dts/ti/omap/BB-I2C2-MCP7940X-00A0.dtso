@@ -1,0 +1,40 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright (C) 2026 Stuart Longland <me@vk4msl.com>
+ * Copyright (C) 2015 Robert Nelson <robertcnelson@gmail.com>
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/pinctrl/am33xx.h>
+#include <dt-bindings/gpio/gpio.h>
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+ */
+&{/chosen} {
+	overlays {
+		BB-I2C2-MCP7940X-00A0.kernel = __TIMESTAMP__;
+	};
+};
+
+&{/} {
+	aliases {
+		rtc0 = &extrtc;
+		/* find /sys/firmware/devicetree/ | grep rtc@ */
+		rtc1 = "/ocp/interconnect@44c00000/segment@200000/target-module@3e000/rtc@0";
+	};
+};
+
+&i2c2 {
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	extrtc: mcp7940x@6f {
+		status = "okay";
+		compatible = "microchip,mcp7940x";
+		reg = <0x6f>;
+	};
+};
