@@ -35,50 +35,16 @@
 #define round_down(x, y) ((x) & ~__round_mask(x, y))
 
 /**
- * round_closest_up - round closest to be multiple of specified value (which is
- *                    power of 2) with preference to rounding up
- * @x: the value to round
- * @y: multiple to round closest to (must be a power of 2)
+ * DIV_ROUND_UP_POW2 - divide and round up
+ * @n: numerator
+ * @d: denominator (must be a power of 2)
  *
- * Rounds @x to closest multiple of @y (which must be a power of 2).
- * The value can be either rounded up or rounded down depending upon rounded
- * value's closeness to the specified value. If there are two closest possible
- * values, i.e. the difference between the specified value and it's rounded up
- * and rounded down values is same then preference is given to rounded up
- * value.
- *
- * To perform arbitrary rounding to closest value (not multiple of 2), use
- * roundclosest().
- *
- * Examples:
- * * round_closest_up(17, 4) = 16
- * * round_closest_up(15, 4) = 16
- * * round_closest_up(14, 4) = 16
+ * Divides @n by @d and rounds up to next multiple of @d (which must be a power
+ * of 2). Avoids integer overflows that may occur with __KERNEL_DIV_ROUND_UP().
+ * Performance is roughly equivalent to __KERNEL_DIV_ROUND_UP().
  */
-#define round_closest_up(x, y) round_down((x) + (y) / 2, (y))
-
-/**
- * round_closest_down - round closest to be multiple of specified value (which
- *			is power of 2) with preference to rounding down
- * @x: the value to round
- * @y: multiple to round closest to (must be a power of 2)
- *
- * Rounds @x to closest multiple of @y (which must be a power of 2).
- * The value can be either rounded up or rounded down depending upon rounded
- * value's closeness to the specified value. If there are two closest possible
- * values, i.e. the difference between the specified value and it's rounded up
- * and rounded down values is same then preference is given to rounded up
- * value.
- *
- * To perform arbitrary rounding to closest value (not multiple of 2), use
- * roundclosest().
- *
- * Examples:
- * * round_closest_down(17, 4) = 16
- * * round_closest_down(15, 4) = 16
- * * round_closest_down(14, 4) = 12
- */
-#define round_closest_down(x, y) round_up((x) - (y) / 2, (y))
+#define DIV_ROUND_UP_POW2(n, d) \
+	((n) / (d) + !!((n) & ((d) - 1)))
 
 #define DIV_ROUND_UP __KERNEL_DIV_ROUND_UP
 
@@ -123,31 +89,9 @@
 }							\
 )
 
-/**
- * roundclosest - round to nearest multiple
- * @x: the value to round
- * @y: multiple to round nearest to
- *
- * Rounds @x to nearest multiple of @y.
- * The rounded value can be greater than or less than @x depending
- * upon it's nearness to @x. If @y will always be a power of 2, consider
- * using the faster round_closest_up() or round_closest_down().
- *
- * Examples:
- * * roundclosest(21, 5) = 20
- * * roundclosest(19, 5) = 20
- * * roundclosest(17, 5) = 15
- */
-#define roundclosest(x, y) rounddown((x) + (y) / 2, (y))
-
-/**
- * DIV_ROUND_CLOSEST - Divide positive or negative dividend by positive or
- *		       negative divisor and round to closest value
- * @x: dividend value
- * @divisor: divisor value
- *
- * Divide positive or negative dividend value @x by positive or negative
- * @divisor value and round to closest integer. Result is undefined for negative
+/*
+ * Divide positive or negative dividend by positive or negative divisor
+ * and round to closest integer. Result is undefined for negative
  * divisors if the dividend variable type is unsigned and for negative
  * dividends if the divisor variable type is unsigned.
  */
@@ -162,15 +106,9 @@
 		(((__x) - ((__d) / 2)) / (__d));	\
 }							\
 )
-
-/**
- * DIV_ROUND_CLOSEST_ULL - Divide 64-bit unsigned dividend by 32-bit divisor and
- *			   round to closest value
- * @x: unsigned 64-bit dividend
- * @divisor: 32-bit divisor
- *
- * Divide unsigned 64-bit dividend value @x by 32-bit @divisor value
- * and round to closest integer. Result is undefined for negative divisors.
+/*
+ * Same as above but for u64 dividends. divisor must be a 32-bit
+ * number.
  */
 #define DIV_ROUND_CLOSEST_ULL(x, divisor)(		\
 {							\
