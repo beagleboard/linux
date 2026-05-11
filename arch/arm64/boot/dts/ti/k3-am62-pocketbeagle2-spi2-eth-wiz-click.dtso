@@ -1,0 +1,75 @@
+// SPDX-License-Identifier: GPL-2.0-only OR MIT
+/*
+ * DT Overlay for eth-wiz-click connections within the expansion header.
+ *
+ * https://www.mikroe.com/eth-wiz-click
+ * https://download.mikroe.com/documents/add-on-boards/click/eth-wiz/eth-wiz-click-manual-v100.pdf
+ *
+ * Copyright (C) 2025 Texas Instruments Incorporated - https://www.ti.com/
+ *
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+#include "k3-pinctrl.h"
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+*/
+&{/chosen} {
+	overlays {
+		k3-am62-pocketbeagle2-spi2-eth-wiz-click.kernel = __TIMESTAMP__;
+	};
+};
+
+&main_pmx0 {
+	techlab_rst_pin: techlab-rst-default-pin {
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x01a8, PIN_DISABLE, 7) /* P1.04: (D20) MCASP0_AFSX.GPIO1_12 RESET */
+			AM62X_IOPAD(0x016c, PIN_OUTPUT, 7) /* P1.04: (Y18) RGMII2_TD0.GPIO0_89 RESET */
+		>;
+	};
+
+	techlab_irq_pin: techlab-irq-default-pin {
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x015c, PIN_INPUT, 7) /* P2.03: (AB22) MDIO0_MDIO.GPIO0_85 INT */
+			AM62X_IOPAD(0x019c, PIN_DISABLE, 7) /* P2.03: (B18) MCASP0_AXR1.GPIO1_9 INT */
+		>;
+	};
+
+	techlab_spi_pins: techlab-spi-default-pins {
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x01b0, PIN_OUTPUT, 1) /* P1.06: (A20) MCASP0_ACLKR.SPI2_CLK */
+			AM62X_IOPAD(0x01ac, PIN_OUTPUT, 1) /* P1.08: (E19) MCASP0_AFSR.SPI2_CS0 */
+			AM62X_IOPAD(0x0194, PIN_INPUT, 1)  /* P1.10: (B19) MCASP0_AXR3.SPI2_D0 (MISO) */
+			AM62X_IOPAD(0x0198, PIN_OUTPUT, 1) /* P1.12: (A19) MCASP0_AXR2.SPI2_D1 (MOSI) */
+
+			AM62X_IOPAD(0x0140, PIN_DISABLE, 7) /* P1.06: (AD18) RGMII1_TD3.GPIO0_78 PIN_DISABLE */
+			AM62X_IOPAD(0x01f0, PIN_DISABLE, 7) /* P1.10: (A18) EXT_REFCLK1.GPIO1_30 PIN_DISABLE */
+			AM62X_IOPAD(0x013c, PIN_DISABLE, 7) /* P1.12: (AE18) RGMII1_TD2.GPIO0_77 PIN_DISABLE */
+		>;
+	};
+};
+
+&main_spi2 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&techlab_spi_pins>;
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	w5500: ethernet@0 {
+		compatible = "wiznet,w5500";
+		pinctrl-names = "default";
+		pinctrl-0 = <&techlab_irq_pin>, <&techlab_rst_pin>;
+		reg = <0x0>;
+		interrupt-parent = <&main_gpio0>;
+		interrupts = <85 IRQ_TYPE_EDGE_FALLING>;
+		spi-max-frequency = <24000000>;
+		local-mac-address = [ 00 00 00 00 00 00 ];
+	};
+};
