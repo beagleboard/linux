@@ -1,0 +1,180 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright (C) 2012 Texas Instruments Incorporated - https://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/pinctrl/am33xx.h>
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+ */
+&{/chosen} {
+	overlays {
+		DLPDLCR2000-00A0 = __TIMESTAMP__;
+	};
+};
+
+/*
+ * Free up the pins used by the cape from the pinmux helpers.
+ */
+&ocp {
+        P9_15_pinmux { status = "disabled"; };  /* enable pin */
+	P8_26_pinmux { status = "disabled"; };	/* Ready pin */
+
+	P8_45_pinmux { status = "disabled"; };	/* lcd_data0 */
+	P8_46_pinmux { status = "disabled"; };	/* lcd_data1 */
+	P8_43_pinmux { status = "disabled"; };	/* lcd_data2 */
+	P8_44_pinmux { status = "disabled"; };	/* lcd_data3 */
+	P8_41_pinmux { status = "disabled"; };	/* lcd_data4 */
+	P8_42_pinmux { status = "disabled"; };	/* lcd_data5 */
+	P8_39_pinmux { status = "disabled"; };	/* lcd_data6 */
+	P8_40_pinmux { status = "disabled"; };	/* lcd_data7 */
+	P8_37_pinmux { status = "disabled"; };	/* lcd_data8 */
+	P8_38_pinmux { status = "disabled"; };	/* lcd_data9 */
+	P8_36_pinmux { status = "disabled"; };	/* lcd_data10 */
+	P8_34_pinmux { status = "disabled"; };	/* lcd_data11 */
+	P8_35_pinmux { status = "disabled"; };	/* lcd_data12 */
+	P8_33_pinmux { status = "disabled"; };	/* lcd_data13 */
+	P8_31_pinmux { status = "disabled"; };	/* lcd_data14 */
+	P8_32_pinmux { status = "disabled"; };	/* lcd_data15 */
+        P8_15_pinmux { status = "disabled"; };  /* gpmc_ad15.lcd_data16 */
+        P8_16_pinmux { status = "disabled"; };  /* gpmc_ad14.lcd_data17 */
+        P8_11_pinmux { status = "disabled"; };  /* gpmc_ad13.lcd_data18 */
+        P8_12_pinmux { status = "disabled"; };  /* gpmc_ad12.lcd_data19 */
+        P8_17_pinmux { status = "disabled"; };  /* gpmc_ad11.lcd_data20 */
+        P8_14_pinmux { status = "disabled"; };  /* gpmc_ad10.lcd_data21 */
+        P8_13_pinmux { status = "disabled"; };  /* gpmc_ad9.lcd_data22 */
+        P8_19_pinmux { status = "disabled"; };  /* gpmc_ad8.lcd_data23 */
+
+	P8_27_pinmux { status = "disabled"; };	/* lcd_vsync */
+	P8_29_pinmux { status = "disabled"; };	/* lcd_hsync */
+	P8_28_pinmux { status = "disabled"; };	/* lcd_pclk */
+	P8_30_pinmux { status = "disabled"; };	/* lcd_ac_bias_en */
+};
+
+&am33xx_pinmux {
+	dlp_lcd_pins: dlp_lcd_pins {
+		pinctrl-single,pins = <
+			AM33XX_PADCONF(AM335X_PIN_LCD_DATA0, PIN_OUTPUT, MUX_MODE0)
+			AM33XX_PADCONF(AM335X_PIN_LCD_DATA1, PIN_OUTPUT, MUX_MODE0)
+			AM33XX_PADCONF(AM335X_PIN_LCD_DATA2, PIN_OUTPUT, MUX_MODE0)
+			AM33XX_PADCONF(AM335X_PIN_LCD_DATA3, PIN_OUTPUT, MUX_MODE0)
+			AM33XX_PADCONF(AM335X_PIN_LCD_DATA4, PIN_OUTPUT, MUX_MODE0)
+			AM33XX_PADCONF(AM335X_PIN_LCD_DATA5, PIN_OUTPUT, MUX_MODE0)
+			AM33XX_PADCONF(AM335X_PIN_LCD_DATA6, PIN_OUTPUT, MUX_MODE0)
+			AM33XX_PADCONF(AM335X_PIN_LCD_DATA7, PIN_OUTPUT, MUX_MODE0)
+			AM33XX_PADCONF(AM335X_PIN_LCD_DATA8, PIN_OUTPUT, MUX_MODE0)
+			AM33XX_PADCONF(AM335X_PIN_LCD_DATA9, PIN_OUTPUT, MUX_MODE0)
+			AM33XX_PADCONF(AM335X_PIN_LCD_DATA10, PIN_OUTPUT, MUX_MODE0)
+			AM33XX_PADCONF(AM335X_PIN_LCD_DATA11, PIN_OUTPUT, MUX_MODE0)
+			AM33XX_PADCONF(AM335X_PIN_LCD_DATA12, PIN_OUTPUT, MUX_MODE0)
+			AM33XX_PADCONF(AM335X_PIN_LCD_DATA13, PIN_OUTPUT, MUX_MODE0)
+			AM33XX_PADCONF(AM335X_PIN_LCD_DATA14, PIN_OUTPUT, MUX_MODE0)
+			AM33XX_PADCONF(AM335X_PIN_LCD_DATA15, PIN_OUTPUT, MUX_MODE0)
+			AM33XX_PADCONF(AM335X_PIN_GPMC_AD15, PIN_OUTPUT, MUX_MODE0)
+			AM33XX_PADCONF(AM335X_PIN_GPMC_AD14, PIN_OUTPUT, MUX_MODE0)
+			AM33XX_PADCONF(AM335X_PIN_GPMC_AD13, PIN_OUTPUT, MUX_MODE0)
+			AM33XX_PADCONF(AM335X_PIN_GPMC_AD12, PIN_OUTPUT, MUX_MODE0)
+			AM33XX_PADCONF(AM335X_PIN_GPMC_AD11, PIN_OUTPUT, MUX_MODE0)
+			AM33XX_PADCONF(AM335X_PIN_GPMC_AD10, PIN_OUTPUT, MUX_MODE0)
+			AM33XX_PADCONF(AM335X_PIN_GPMC_AD9, PIN_OUTPUT, MUX_MODE0)
+			AM33XX_PADCONF(AM335X_PIN_GPMC_AD8, PIN_OUTPUT, MUX_MODE0)
+			AM33XX_PADCONF(AM335X_PIN_LCD_VSYNC, PIN_OUTPUT_PULLDOWN, MUX_MODE0)
+			AM33XX_PADCONF(AM335X_PIN_LCD_HSYNC, PIN_OUTPUT_PULLDOWN, MUX_MODE0)
+			AM33XX_PADCONF(AM335X_PIN_LCD_PCLK, PIN_OUTPUT_PULLDOWN, MUX_MODE0)
+			AM33XX_PADCONF(AM335X_PIN_LCD_AC_BIAS_EN, PIN_OUTPUT_PULLDOWN, MUX_MODE0)
+		>;
+	};
+
+	dlp_gpio_pins: dlp_gpio_pins {
+		pinctrl-single,pins = <
+			AM33XX_PADCONF(AM335X_PIN_GPMC_CSN0, PIN_INPUT_PULLDOWN, MUX_MODE7)
+		>;
+	};
+
+        dlp_led_pins: dlp_led_pins {
+                pinctrl-single,pins = <
+                        AM33XX_PADCONF(AM335X_PIN_GPMC_A0, PIN_OUTPUT, MUX_MODE7)
+                >;
+        };
+};
+
+&lcdc {
+	status = "okay";
+	blue-and-red-wiring = "crossed";
+};
+
+&i2c0 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+        clock-frequency = <100000>;
+
+	DLP2607: DLP2607@36 {
+		compatible = "DLP2607";
+		reg = <0x70>;
+	};
+};
+
+&ocp {
+        valversled_helper {
+                compatible = "bone-pinmux-helper";
+                pinctrl-names = "default";
+                pinctrl-0 = <&dlp_gpio_pins>;
+                status = "okay";
+        };
+};
+
+&{/} {
+        panel {
+                status = "okay";
+                compatible = "ti,tilcdc,panel";
+                pinctrl-names = "default";
+                pinctrl-0 = <&dlp_lcd_pins>;
+                panel-info {
+                        ac-bias           = <255>;
+                        ac-bias-intrpt    = <0>;
+                        dma-burst-sz      = <16>;
+                        bpp               = <32>;
+                        fdd               = <0x80>;
+                        tft-alt-mode      = <0>;
+                        stn-565-mode      = <1>;
+                        mono-8bit-mode    = <0>;
+                        sync-edge         = <0>;
+                        sync-ctrl         = <1>;
+                        raster-order      = <0>;
+                        fifo-th           = <0>;
+                };
+                display-timings {
+                        native-mode = <&timing0>;
+                        timing0: 640x360 {
+                                clock-frequency = <5900000>;
+                                hactive = <640>;
+                                vactive = <360>;
+                                hfront-porch = <14>;
+                                hback-porch = <12>;
+                                hsync-len = <4>;
+                                vback-porch = <9>;
+                                vfront-porch = <2>;
+                                vsync-len = <3>;
+                                hsync-active = <0>;
+                                vsync-active  = <0>;
+                        };
+                };
+        };
+
+        leds {
+            pinctrl-names = "default";
+            pinctrl-0 = <&dlp_led_pins>;
+            compatible = "gpio-leds";
+
+            proj_on_ext {
+                label = "proj_on_ext";
+                gpios = <&gpio1 16 GPIO_ACTIVE_HIGH>;
+                default-state = "on";
+            };
+        };
+};

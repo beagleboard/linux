@@ -12,6 +12,7 @@
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/input/input.h>
 #include "k3-am625.dtsi"
+#include "k3-am62-pocketbeagle2-pinmux.dtsi"
 
 / {
 	compatible = "beagle,am62-pocketbeagle2", "ti,am625";
@@ -21,17 +22,26 @@
 		serial0 = &wkup_uart0;
 		serial1 = &main_uart1;
 		serial2 = &main_uart6;
-		serial3 = &main_uart0;
+		serial3 = &main_uart3;
+		serial4 = &main_uart4;
+		serial5 = &main_uart5;
+		serial6 = &main_uart2;
+		serial7 = &main_uart0;
+		mmc0 = &sdhci0;
 		mmc1 = &sdhci1;
 		usb0 = &usb0;
 		usb1 = &usb1;
 		i2c0 = &main_i2c0;
+		i2c1 = &main_i2c1;
 		i2c2 = &main_i2c2;
 		i2c3 = &wkup_i2c0;
+		spi0 = &main_spi0;
+		spi2 = &main_spi2;
 	};
 
 	chosen {
 		stdout-path = &main_uart6;
+		base_dtb = "k3-am62-pocketbeagle2.dts";
 	};
 
 	memory@80000000 {
@@ -54,18 +64,6 @@
 			linux,cma-default;
 		};
 
-		mcu_m4fss_dma_memory_region: m4f-dma-memory@9cb00000 {
-			compatible = "shared-dma-pool";
-			reg = <0x00 0x9cb00000 0x00 0x100000>;
-			no-map;
-		};
-
-		mcu_m4fss_memory_region: m4f-memory@9cc00000 {
-			compatible = "shared-dma-pool";
-			reg = <0x00 0x9cc00000 0x00 0xe00000>;
-			no-map;
-		};
-
 		secure_tfa_ddr: tfa@9e780000 {
 			reg = <0x00 0x9e780000 0x00 0x80000>;
 			alignment = <0x1000>;
@@ -78,7 +76,13 @@
 			no-map;
 		};
 
-		wkup_r5fss0_core0_dma_memory_region: r5f-dma-memory@9db00000 {
+		wkup_r5fss0_core0_dma_memory_region: memory@9da00000 {
+			compatible = "shared-dma-pool";
+			reg = <0x00 0x9da00000 0x00 0x100000>;
+			no-map;
+		};
+
+		wkup_r5fss0_core0_memory_region: memory@9db00000 {
 			compatible = "shared-dma-pool";
 			reg = <0x00 0x9db00000 0x00 0xc00000>;
 			no-map;
@@ -292,13 +296,6 @@
 	pinctrl-0 = <&epwm2_pins_default>;
 };
 
-&mailbox0_cluster0 {
-	mbox_m4_0: mbox-m4-0 {
-		ti,mbox-rx = <0 0 0>;
-		ti,mbox-tx = <1 0 0>;
-	};
-};
-
 &main_uart0 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&main_uart0_pins_default>;
@@ -346,13 +343,6 @@
 	pinctrl-0 = <&main_i2c2_pins_default>;
 	clock-frequency = <400000>;
 	bootph-all;
-	status = "okay";
-};
-
-&mcu_m4fss {
-	mboxes = <&mailbox0_cluster0 &mbox_m4_0>;
-	memory-region = <&mcu_m4fss_dma_memory_region>,
-			<&mcu_m4fss_memory_region>;
 	status = "okay";
 };
 
@@ -519,3 +509,5 @@
 		};
 	};
 };
+
+#include "k3-am62-ti-ipc-firmware.dtsi"

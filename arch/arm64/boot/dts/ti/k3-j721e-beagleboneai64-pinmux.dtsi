@@ -1,0 +1,249 @@
+// SPDX-License-Identifier: GPL-2.0-only OR MIT
+/*
+ * https://beagleboard.org/ai-64
+ * Copyright (C) 2022-2024 Texas Instruments Incorporated - https://www.ti.com/
+ * Copyright (C) 2022-2024 Jason Kridner, BeagleBoard.org Foundation
+ * Copyright (C) 2022-2024 Robert Nelson, BeagleBoard.org Foundation
+ */
+
+#include <dt-bindings/gpio/gpio.h>
+
+/ {
+	chosen {
+		base_dtb = "k3-j721e-beagleboneai64.dts";
+		base_dtb_timestamp = __TIMESTAMP__;
+	};
+
+	leds {
+		led-0 {
+			label = "beaglebone:green:usr0";
+		};
+
+		led-1 {
+			label = "beaglebone:green:usr1";
+		};
+
+		led-2 {
+			label = "beaglebone:green:usr2";
+		};
+
+		led-3 {
+			label = "beaglebone:green:usr3";
+		};
+
+		led-4 {
+			label = "beaglebone:green:usr4";
+			linux,default-trigger = "phy0tx";
+		};
+	};
+};
+
+&main_pmx0 {
+	pinctrl-single,gpio-range =
+		<&main_pmx0_range 0 18 PIN_GPIO_RANGE_IOPAD>,
+		<&main_pmx0_range 19 110 PIN_GPIO_RANGE_IOPAD>,
+		<&main_pmx0_range 129 29 PIN_GPIO_RANGE_IOPAD>,
+		<&main_pmx0_range 164 7 PIN_GPIO_RANGE_IOPAD>;
+
+	main_pmx0_range: gpio-range {
+		#pinctrl-single,gpio-range-cells = <3>;
+	};
+};
+
+&wkup_pmx0 {
+	pinctrl-single,gpio-range =
+		<&wkup_pmx_range 44 16 PIN_GPIO_RANGE_IOPAD>,
+		<&wkup_pmx_range 0 44 PIN_GPIO_RANGE_IOPAD>,
+		<&wkup_pmx_range 60 24 PIN_GPIO_RANGE_IOPAD>;
+
+	wkup_pmx_range: gpio-range {
+		#pinctrl-single,gpio-range-cells = <3>;
+	};
+};
+
+&main_gpio0 {
+	gpio-line-names =
+		"(AC18)NC",			/* gpio0_0: AC18*/
+		"(AC23)P9_11",			/* gpio0_1: AC23 */
+		"(AG22)P9_13",			/* gpio0_2: AG22 */
+		"(AF22)P8_17",			/* gpio0_3: AF22 */
+		"(AJ23)P8_18",			/* gpio0_4: AJ23 */
+		"(AH23)P8_22",			/* gpio0_5: AH23 */
+		"(AD20)P8_24",			/* gpio0_6: AD20 */
+		"(AD22)P8_34",			/* gpio0_7: AD22 */
+		"(AE20)P8_36",			/* gpio0_8: AE20 */
+		"(AJ20)P8_38b",			/* gpio0_9: AJ20 */
+		"(AG20)P9_23",			/* gpio0_10: AG20 */
+		"(AD21)P8_37b",			/* gpio0_11: AD21 */
+		"(AF24)P9_26b",			/* gpio0_12: AF24 */
+		"(AJ24)P9_24b",			/* gpio0_13: AJ24 */
+		"(AG24)P8_08",			/* gpio0_14: AG24 */
+		"(AD24)P8_07",			/* gpio0_15: AD24 */
+		"(AC24)P8_10",			/* gpio0_16: AC24 */
+		"(AE24)P8_09",			/* gpio0_17: AE24 */
+		"(AJ21)P9_42b",			/* gpio0_18: AJ21 */
+		"(AE21)-[M.2-UART-WAKE]",	/* gpio0_19: AE21 */
+		"(AH21)P8_03",			/* gpio0_20: AH21 */
+		"(AE22)-[PWR_ST]",		/* gpio0_21: AE22 */
+		"(AG23)-[M.2-RST]",		/* gpio0_22: AG23 */
+		"(AF23)-[M.2-I2C-ALERT]",	/* gpio0_23: AF23 */
+		"(AD23)P8_35a",			/* gpio0_24: AD23 */
+		"(AH24)P8_33a",			/* gpio0_25: AH24 */
+		"(AG21)P8_32a",			/* gpio0_26: AG21 */
+		"(AE23)-[M.2-SDIO-WAKE]",	/* gpio0_27: AE23 */
+		"(AC21)P9_17a",			/* gpio0_28: AC21 */
+		"(Y23)-[M.2-SDIO-RESET]",	/* gpio0_29: Y23  */
+		"(AF21)P8_21",			/* gpio0_30: AF21 */
+		"(AB23)P8_23",			/* gpio0_31: AB23 */
+		"(AJ25)P8_31a",			/* gpio0_32: AJ25 */
+		"(AH25)P8_05",			/* gpio0_33: AH25 */
+		"(AG25)P8_06",			/* gpio0_34: AG25 */
+		"(AH26)P8_25",			/* gpio0_35: AH26 */
+		"(AJ27)-[M.2-W-DISABLE1]",	/* gpio0_36: AJ27 */
+		"(AJ26)-[M.2-W-DISABLE2]",	/* gpio0_37: AJ26 */
+		"(AC22)P9_22a",			/* gpio0_38: AC22 */
+		"(AJ22)P9_21a",			/* gpio0_39: AJ22 */
+		"(AH22)P9_18a",			/* gpio0_40: AH22 */
+		"(AD19)-[DSI-I2C4-SDA]",	/* gpio0_41: AD19 */
+		"(AD18)-[DSI-I2C4-SDA]",	/* gpio0_42: AD18 */
+		"(AF28)P9_28b",			/* gpio0_43: AF28 */
+		"(AE28)P9_30b",			/* gpio0_44: AE28 */
+		"(AE27)P9_12",			/* gpio0_45: AE27 */
+		"(AD26)P9_27a",			/* gpio0_46: AD26 */
+		"(AD25)P9_15",			/* gpio0_47: AD25 */
+		"(AC29)P8_04",			/* gpio0_48: AC29 */
+		"(AE26)-[3v3-en]",		/* gpio0_49: AE26 */
+		"(AC28)P9_33b",			/* gpio0_50: AC28 */
+		"(AC27)P8_26",			/* gpio0_51: AC27 */
+		"(AB26)P9_31b",			/* gpio0_52: AB26 */
+		"(AB25)P9_29b",			/* gpio0_53: AB25 */
+		"(AJ28)P9_39b",			/* gpio0_54: AJ28 */
+		"(AH27)P9_35b",			/* gpio0_55: AH27 */
+		"(AH29)P9_36b",			/* gpio0_56: AH29 */
+		"(AG28)P9_37b",			/* gpio0_57: AG28 */
+		"(AG27)P9_38b",			/* gpio0_58: AG27 */
+		"(AH28)P8_12",			/* gpio0_59: AH28 */
+		"(AB24)P8_11",			/* gpio0_60: AB24 */
+		"(AB29)P8_15",			/* gpio0_61: AB29 */
+		"(AB28)P8_16",			/* gpio0_62: AB28 */
+		"(AE29)P8_31b",			/* gpio0_63: AE29 */
+		"(AD28)P8_32b",			/* gpio0_64: AD28 */
+		"(AD27)P8_43",			/* gpio0_65: AD27 */
+		"(AC25)P8_44",			/* gpio0_66: AC25 */
+		"(AD29)P8_41",			/* gpio0_67: AD29 */
+		"(AB27)P8_42",			/* gpio0_68: AB27 */
+		"(AC26)P8_39",			/* gpio0_69: AC26 */
+		"(AA24)P8_40",			/* gpio0_70: AA24 */
+		"(AA28)P8_27",			/* gpio0_71: AA28 */
+		"(Y24)P8_28",			/* gpio0_72: Y24 */
+		"(AA25)P8_29",			/* gpio0_73: AA25 */
+		"(AG26)P8_30",			/* gpio0_74: AG26 */
+		"(AF27)P8_14",			/* gpio0_75: AF27 */
+		"(AF26)P8_20",			/* gpio0_76: AF26 */
+		"(AE25)P9_20b",			/* gpio0_77: AE25 */
+		"(AF29)P9_19b",			/* gpio0_78: AF29 */
+		"(AG29)P8_45",			/* gpio0_79: AG29 */
+		"(Y25)P8_46",			/* gpio0_80: Y25 */
+		"(AA26)P9_40b",			/* gpio0_81: AA26 */
+		"(AA29)-[sd-pwr-en]",		/* gpio0_82: AA29 */
+		"(Y26)-[CSI0-I2C5-SCL]",	/* gpio0_83: Y26 */
+		"(AA27)-[CSI0-I2C5-SDA]",	/* gpio0_84: AA27 */
+		"(U23)-[M.2-MCASP10-ACLKX]",	/* gpio0_85: U23 */
+		"(U26)-[M.2-MCASP10-AFSX]",	/* gpio0_86: U26 */
+		"(V28)-[M.2-MCASP10-AXR0]",	/* gpio0_87: V28 */
+		"(V29)P8_19",			/* gpio0_88: V29 */
+		"(V27)P8_13",			/* gpio0_89: V27 */
+		"(U28)P9_21b",			/* gpio0_90: U28 */
+		"(U29)P9_22b",			/* gpio0_91: U29 */
+		"(U25)-[M.2-MCASP10-AXR3]",	/* gpio0_92: U25 */
+		"(U27)P9_14",			/* gpio0_93: U27 */
+		"(U24)P9_16",			/* gpio0_94: U24 */
+		"(R23)LED_2-[mm0-activity]",	/* gpio0_95: R23 */
+		"(T23)LED_1-[Heartbeat]",	/* gpio0_96: T23 */
+		"(Y28)LED_3-[cpu-activity]",	/* gpio0_97: Y28 */
+		"(V23)-[DSI-GPIO1]",		/* gpio0_98: V23 */
+		"(W23)-[FAN_PWM]",		/* gpio0_99: W23 */
+		"(W28)-[FAN_TACH]",		/* gpio0_100: W28 */
+		"(V25)-[CSI1-GPIO1]",		/* gpio0_101: V25 */
+		"(W27)-[CSI0-GPIO2]",		/* gpio0_102: W27 */
+		"(W29)-[CSI0-GPIO1]",		/* gpio0_103: W29 */
+		"(W26)P9_25b",			/* gpio0_104: W26 */
+		"(Y29)P8_38a",			/* gpio0_105: Y29 */
+		"(Y27)P8_37a",			/* gpio0_106: Y27 */
+		"(W24)-[CSI1-GPIO2]",		/* gpio0_107: W24 */
+		"(W25)-[DSI-GPIO2]",		/* gpio0_108: W25 */
+		"(V26)LED_5-[WLAN-activity]",	/* gpio0_109: V26 */
+		"(V24)LED_4-[mmc1-activity]",	/* gpio0_110: V24 */
+		"(AA2)P8_33b",			/* gpio0_111: AA2 */
+		"(Y4)-[DP0_HPD]",		/* gpio0_112: Y4 */
+		"(AA1)-[M.2-UART_CTS]",		/* gpio0_113: AA1 */
+		"(AB5)-[M.2-UART_RTS]",		/* gpio0_114: AB5 */
+		"(AA3)P9_17b",			/* gpio0_115: AA3 */
+		"(Y3)P8_35b",			/* gpio0_116: Y3 */
+		"(W4)-[sd-dv-alt]",		/* gpio0_117: W4 */
+		"(Y1)P9_26a",			/* gpio0_118: Y1 */
+		"(Y5)P9_24a",			/* gpio0_119: Y5 */
+		"(Y2)P9_18b",			/* gpio0_120: Y2 */
+		"(AB2)-[Debug-UART0_RX]",	/* gpio0_121: AB2 */
+		"(AB3)-[Debug-UART0_TX]",	/* gpio0_122: AB3 */
+		"(AC2)P9_42a",			/* gpio0_123: AC2 */
+		"(AB1)P9_27b",			/* gpio0_124: AB1 */
+		"(AA4)-[M.2-UART_RX]",		/* gpio0_125: AA4 */
+		"(AB4)-[M.2-UART_TX]",		/* gpio0_126: AB4 */
+		"(AC4)P9_25a";			/* gpio0_127: AC4 */
+};
+
+&main_gpio1 {
+	gpio-line-names =
+		"(AD5)P9_41",			/* gpio1_0: AD5 */
+		"(W5)P9_19a",			/* gpio1_1: W5 */
+		"(W6)P9_20a",			/* gpio1_2: W6 */
+		"(W3)-[USBC_DIR]",		/* gpio1_3: W3 */
+		"(V4)-[USBC-INT]",		/* gpio1_4: V4 */
+		"(W2)-[M.2-WAKE]",		/* gpio1_5: W2 */
+		"(W1)-[M.2-CLKREQ]",		/* gpio1_6: W1 */
+		"(AC5)-[M.2-I2C0-SCL]",		/* gpio1_7: AC5 */
+		"(AA5)-[M.2-I2C0-SDA]",		/* gpio1_8: AA5 */
+		"(Y6)-[CSI1-I2C1-SCL]",		/* gpio1_9: Y6 */
+		"(AA6)-[CSI1-I2C1-SDA]",	/* gpio1_10: AA6 */
+		"(U2)P9_28a",			/* gpio1_11: U2 */
+		"(U3)P9_31a",			/* gpio1_12: U3 */
+		"(V6)P9_30a",			/* gpio1_13: V6 */
+		"(V5)P9_29a";			/* gpio1_14: V5 */
+};
+
+&wkup_gpio0 {
+	gpio-ranges = <&wkup_pmx0 0 44 16>, <&wkup_pmx0 16 0 44>,
+		      <&wkup_pmx0 60 60 24>;
+};
+
+bone_i2c_2: &main_i2c2 {
+	/* BBB Header: P9.19 and P9.20 */
+	clock-frequency = <100000>;
+};
+
+bone_i2c_3: &main_i2c4 {
+	/* BBB Header: P9.24 and P9.26 */
+	clock-frequency = <100000>;
+};
+
+bone_i2c_1: &main_i2c6 {
+	/* BBB Header: P9.17 and P9.18 */
+	clock-frequency = <100000>;
+};
+
+epwm0: &main_ehrpwm0 {
+	status = "okay";
+};
+
+epwm2: &main_ehrpwm2 {
+	status = "okay";
+};
+
+&pcie1_rc {
+	/*
+	 * There is no on-board or external reference clock generators,
+	 * use refclk from the ACSPCIE module's PAD IO Buffers.
+	 */
+	ti,syscon-acspcie-proxy-ctrl = <&acspcie0_proxy_ctrl 0x3>;
+};

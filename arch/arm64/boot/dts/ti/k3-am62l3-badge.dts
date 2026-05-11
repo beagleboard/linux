@@ -20,6 +20,7 @@
 
 	chosen {
 		stdout-path = &main_uart0;
+		base_dtb = "k3-am62l3-badge.dts";
 	};
 
 	aliases {
