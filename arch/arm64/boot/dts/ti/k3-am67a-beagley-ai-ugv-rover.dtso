@@ -1,0 +1,35 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * DT Overlay for the Waveshare UGV Rover on BeagleY-AI board. Enables the
+ * MCU_I2C0 and MAIN_UART1 which are pinned out on the 40-pin header.
+ *
+ * Copyright (C) 2023 Texas Instruments Incorporated - https://www.ti.com/
+ *
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include "k3-pinctrl.h"
+
+&main_pmx0 {
+	main_uart1_pins_default: main-uart1-default-pins {
+		pinctrl-single,pins = <
+			J722S_IOPAD(0x01e8, PIN_INPUT, 1) /* (C24) I2C1_SCL.UART1_RXD */
+			J722S_IOPAD(0x01ec, PIN_OUTPUT, 1) /* (A22) I2C1_SDA.UART1_TXD */
+		>;
+	};
+};
+
+&mcu_i2c0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&mcu_i2c0_pins_default>;
+	clock-frequency = <100000>;
+	status = "okay";
+};
+
+&main_uart1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_uart1_pins_default>;
+	status = "okay";
+};
