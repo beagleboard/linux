@@ -515,7 +515,25 @@ static struct ieee80211_supported_band cc33xx_band_5ghz = {
 	},
 };
 
-static struct ieee80211_supported_band cc33xx_band_5ghz_non_he = {
+static struct ieee80211_supported_band cc33xx_band_5ghz_vht_only = {
+	.channels = cc33xx_channels_5ghz,
+	.n_channels = ARRAY_SIZE(cc33xx_channels_5ghz),
+	.bitrates = cc33xx_rates_5ghz,
+	.n_bitrates = ARRAY_SIZE(cc33xx_rates_5ghz),
+	.vht_cap = {
+		.vht_supported = true,
+		.cap = (IEEE80211_VHT_CAP_MAX_MPDU_LENGTH_7991 |
+			(1 << IEEE80211_VHT_CAP_MAX_A_MPDU_LENGTH_EXPONENT_SHIFT)),
+		.vht_mcs = {
+			.rx_mcs_map = cpu_to_le16(0xfffc),
+			.rx_highest = 7,
+			.tx_mcs_map = cpu_to_le16(0xfffc),
+			.tx_highest = 7,
+		},
+	},
+};
+
+static struct ieee80211_supported_band cc33xx_band_5ghz_non_he_non_vht = {
 	.channels = cc33xx_channels_5ghz,
 	.n_channels = ARRAY_SIZE(cc33xx_channels_5ghz),
 	.bitrates = cc33xx_rates_5ghz,
@@ -550,6 +568,40 @@ static int cc33xx_set_authorized(struct cc33xx *cc, struct cc33xx_vif *wlvif)
 
 	cc33xx_info("Association complete.");
 	return 0;
+}
+
+static void cc33xx_regdomain_config(struct cc33xx *cc)
+{
+	int ret = 0;
+
+	if (!(cc->quirks & CC33XX_QUIRK_REGDOMAIN_CONF))
+		return;
+
+	mutex_lock(&cc->mutex);
+
+	if (unlikely(cc->state != CC33XX_STATE_ON))
+		goto out;
+
+	if (ret < 0) {
+		cc33xx_queue_recovery_work(cc);
+		goto out;
+	}
+
+out:
+	mutex_unlock(&cc->mutex);
+}
+
+static void cc33xx_reg_notify(struct wiphy *wiphy,
+			      struct regulatory_request *request)
+{
+	struct ieee80211_hw *hw = wiphy_to_ieee80211_hw(wiphy);
+	struct cc33xx *cc = hw->priv;
+
+	/* copy the current dfs region */
+	if (request)
+		cc->dfs_region = request->dfs_region;
+
+	cc33xx_regdomain_config(cc);
 }
 
 /* cc->mutex must be taken */
@@ -841,12 +893,21 @@ static int general_error_event_get_log(struct cc33xx *cc,
 {
 	int ret = 0;
 	u8 *read_buffer;
-	const size_t buffer_size = 5000;
+	size_t buffer_size = 5000;
 	unsigned long end_time = jiffies + msecs_to_jiffies(CC33XX_GENERAL_ERROR_READ_TIMEOUT_MSEC);
 	u8 isGeneralError = 0;
 	u32 isTimeout = 0;
 	void *pFwCrashLogs;
 
+	if (cc->max_transaction_len) { /* Used in SPI interface */
+		const int spi_alignment = sizeof (u32) - 1;
+		buffer_size = __ALIGN_MASK(buffer_size,
+							spi_alignment);
+	} else { /* SDIO */
+		const int sdio_alignment = CC33XX_BUS_BLOCK_SIZE-1;
+		buffer_size = __ALIGN_MASK(buffer_size,
+							sdio_alignment);
+	}
 
 	read_buffer = kmalloc(buffer_size, GFP_KERNEL);
 	if (!read_buffer)
@@ -1493,7 +1554,12 @@ static int cc33xx_validate_wowlan_pattern(struct cfg80211_pkt_pattern *p)
 	return 0;
 }
 
-static void cc33xx_rx_filter_free(struct cc33xx_rx_filter *filter)
+struct cc33xx_rx_filter *cc33xx_rx_filter_alloc(void)
+{
+	return kzalloc(sizeof(struct cc33xx_rx_filter), GFP_KERNEL);
+}
+
+void cc33xx_rx_filter_free(struct cc33xx_rx_filter *filter)
 {
 	int i;
 
@@ -1506,7 +1572,7 @@ static void cc33xx_rx_filter_free(struct cc33xx_rx_filter *filter)
 	kfree(filter);
 }
 
-static int cc33xx_rx_filter_alloc_field(struct cc33xx_rx_filter *filter,
+int cc33xx_rx_filter_alloc_field(struct cc33xx_rx_filter *filter,
 					u16 offset, u8 flags,
 					const u8 *pattern, u8 len)
 {
@@ -3678,6 +3744,61 @@ static int cc33xx_clear_bssid(struct cc33xx *cc, struct cc33xx_vif *wlvif)
 	return 0;
 }
 
+static int cc33xx_configure_cqm(struct cc33xx *cc, struct cc33xx_vif *wlvif, s32 rssi_thold, u32 rssi_hyst)
+{
+	int ret;
+	int role_id = wlvif->role_id;
+
+	if (unlikely(cc->state != CC33XX_STATE_ON)) {
+		cc33xx_warning("CQM: Cannot configure, FW not running (state=%d)", cc->state);
+		return -EAGAIN;
+	}
+
+	if (role_id >= CC33XX_MAX_ROLES) {
+		cc33xx_error("CQM: Invalid role_id %u", role_id);
+		return -EINVAL;
+	}
+
+	if (rssi_thold == 0) {
+		if (!wlvif->cqm_enabled) {
+			cc33xx_debug(DEBUG_CMD, "CQM: Already disabled, ignoring");
+			return 0;
+		}
+
+		ret = cc33xx_acx_cqm_rssi_config(cc, wlvif, false, 0, 0);
+		if (ret < 0) {
+			cc33xx_error("CQM: Failed to disable: %d", ret);
+			return ret;
+		}
+
+		wlvif->cqm_enabled = false;
+		wlvif->rssi_thold = 0;
+		wlvif->cqm_rssi_hyst = 0;
+
+		return ret;
+	}
+
+	if (rssi_thold < CC33XX_CQM_RSSI_MIN_DBM || rssi_thold > CC33XX_CQM_RSSI_MAX_DBM) {
+		cc33xx_error("CQM: Invalid threshold %d dBm (range: %d to +%d)",
+					 rssi_thold, CC33XX_CQM_RSSI_MIN_DBM, CC33XX_CQM_RSSI_MAX_DBM);
+		return -EINVAL;
+	}
+
+	cc33xx_debug(DEBUG_CMD, "CQM: Enabling for role %u: threshold=%d dBm, hysteresis=%u dB", wlvif->role_id, rssi_thold, rssi_hyst);
+
+	ret = cc33xx_acx_cqm_rssi_config(cc, wlvif, true, (s8)rssi_thold, rssi_hyst);
+	if (ret < 0) {
+		cc33xx_error("CQM: Failed to enable: %d", ret);
+		return ret;
+	}
+
+	wlvif->cqm_enabled = true;
+	wlvif->rssi_thold = rssi_thold;
+	wlvif->cqm_rssi_hyst = rssi_hyst;
+
+	return ret;
+}
+
 static void cc33xx_sta_set_he(struct cc33xx *cc, struct cc33xx_vif *wlvif, bool has_he)
 {
 	struct cc33xx_vif *wlvif_itr;
@@ -3716,6 +3837,7 @@ static void cc33xx_bss_info_changed_sta(struct cc33xx *cc,
 	struct ieee80211_sta *sta = NULL;
 	bool sta_exists = false;
 	struct ieee80211_sta_ht_cap sta_ht_cap;
+	struct ieee80211_sta_vht_cap sta_vht_cap;
 	struct ieee80211_sta_he_cap sta_he_cap;
 
 	if (is_ibss) {
@@ -3752,8 +3874,11 @@ static void cc33xx_bss_info_changed_sta(struct cc33xx *cc,
 	if (changed & BSS_CHANGED_IDLE && !is_ibss)
 		cc33xx_sta_handle_idle(cc, wlvif, vif->cfg.idle);
 
-	if (changed & BSS_CHANGED_CQM)
-		wlvif->rssi_thold = bss_conf->cqm_rssi_thold;
+	if (changed & BSS_CHANGED_CQM) {
+		ret = cc33xx_configure_cqm(cc, wlvif, bss_conf->cqm_rssi_thold, bss_conf->cqm_rssi_hyst);
+		if (ret < 0)
+			cc33xx_error("CQM: Configuration failed: %d", ret);
+	}
 
 	if (changed & (BSS_CHANGED_BSSID | BSS_CHANGED_HT | BSS_CHANGED_ASSOC)) {
 		rcu_read_lock();
@@ -3769,6 +3894,7 @@ static void cc33xx_bss_info_changed_sta(struct cc33xx *cc,
 					(rx_mask[1] << HW_MIMO_RATES_OFFSET);
 			}
 			sta_ht_cap = sta->deflink.ht_cap;
+			sta_vht_cap = sta->deflink.vht_cap;
 			sta_he_cap = sta->deflink.he_cap;
 			sta_exists = true;
 		}
@@ -3871,7 +3997,7 @@ static void cc33xx_bss_info_changed_sta(struct cc33xx *cc,
 						NL80211_CHAN_WIDTH_20_NOHT;
 		cc33xx_debug(DEBUG_CMD, "cc33xx_hw_set_peer_cap %x",
 			     wlvif->rate_set);
-		ret = cc33xx_acx_set_peer_cap(cc, &sta_ht_cap, &sta_he_cap,
+		ret = cc33xx_acx_set_peer_cap(cc, &sta_ht_cap, &sta_vht_cap, &sta_he_cap,
 					      wlvif, enabled, wlvif->rate_set,
 					      wlvif->sta.hlid);
 		if (ret < 0) {
@@ -3896,28 +4022,39 @@ static void cc33xx_bss_info_changed_sta(struct cc33xx *cc,
 	if ((changed & BSS_CHANGED_ARP_FILTER) ||
 	    (!is_ibss && (changed & BSS_CHANGED_QOS))) {
 		__be32 addr = vif->cfg.arp_addr_list[0];
-
+		bool ip_changed = false;
 		wlvif->sta.qos = bss_conf->qos;
 		WARN_ON(wlvif->bss_type != BSS_TYPE_STA_BSS);
 
 		if (vif->cfg.arp_addr_cnt == 1 && vif->cfg.assoc) {
-			wlvif->ip_addr = addr;
-			/* The template should have been configured only upon
-			 * association. however, it seems that the correct ip
-			 * isn't being set (when sending), so we have to
-			 * reconfigure the template upon every ip change.
-			 */
-			if (ret < 0) {
-				cc33xx_warning("build arp rsp failed: %d", ret);
-				goto out;
+			if (wlvif->ip_addr != addr) {
+				cc33xx_debug(DEBUG_MAC80211,
+					     "ARP filter: role_id=%d IP CHANGED old=%pI4 -> new=%pI4 (total STAs=%d)",
+					     wlvif->role_id, &wlvif->ip_addr, &addr, cc->sta_count);
+				wlvif->ip_addr = addr;
+				ip_changed = true;
 			}
 
 		} else {
-			wlvif->ip_addr = 0;
+			if (wlvif->ip_addr != 0) {
+				cc33xx_debug(DEBUG_MAC80211,
+					     "ARP filter: role_id=%d CLEARING IP old=%pI4 (assoc=%d, arp_addr_cnt=%d)",
+					     wlvif->role_id, &wlvif->ip_addr, vif->cfg.assoc, vif->cfg.arp_addr_cnt);
+				wlvif->ip_addr = 0;
+				ip_changed = true;
+			}
 		}
 
-		if (ret < 0)
-			goto out;
+		/* Send IP configuration to firmware only if IP changed */
+		if (ip_changed && cc->state == CC33XX_STATE_ON) {
+			ret = cc33xx_acx_arp_ip_config(cc, wlvif->role_id, wlvif->ip_addr);
+			if (ret < 0) {
+				cc33xx_warning("ARP filter FAILED: role_id=%d, %s IP, ret=%d",
+					       wlvif->role_id,
+					       wlvif->ip_addr ? "configure" : "clear", ret);
+			}
+
+		}
 	}
 
 out:
@@ -5227,59 +5364,69 @@ static int cc33xx_init_ieee80211(struct cc33xx *cc)
 		cc33xx_band_5ghz.channels[i].max_antenna_gain = 0;
 	}
 
-	/* Enable/Disable He based on conf file params */
-	if ((!cc->disable_wifi6) && (cc->conf.mac.he_enable)) {
+	/* Enable/Disable He based on efuse/conf file params */
+	if((!cc->disable_wifi6) && (cc->conf.mac.he_enable))
+	{
 		cc->hw->wiphy->iftype_ext_capab = he_iftypes_ext_capa;
 		cc->hw->wiphy->num_iftype_ext_capab =
-			ARRAY_SIZE(he_iftypes_ext_capa);
-	} else {
+		ARRAY_SIZE(he_iftypes_ext_capa);
+
+		/* We keep local copies of the band structs because we need to
+		 * modify them on a per-device basis.
+		 */
+		memcpy(&cc->bands[NL80211_BAND_2GHZ], &cc33xx_band_2ghz,
+		   sizeof(cc33xx_band_2ghz));
+		memcpy(&cc->bands[NL80211_BAND_2GHZ].ht_cap,
+		   &cc->ht_cap[NL80211_BAND_2GHZ],
+		   sizeof(*cc->ht_cap));
+
+		memcpy(&cc->bands[NL80211_BAND_5GHZ], &cc33xx_band_5ghz,
+		   sizeof(cc33xx_band_5ghz));
+		memcpy(&cc->bands[NL80211_BAND_5GHZ].ht_cap,
+		   &cc->ht_cap[NL80211_BAND_5GHZ],
+		   sizeof(*cc->ht_cap));
+	}
+	else
+	{
 		cc33xx_band_2ghz.iftype_data = NULL;
 		cc33xx_band_2ghz.n_iftype_data = 0;
 
 		cc33xx_band_5ghz.iftype_data = NULL;
 		cc33xx_band_5ghz.n_iftype_data = 0;
-	}
 
-	/* We keep local copies of the band structs because we need to
-	 * modify them on a per-device basis.
-	 */
-	if (!cc->disable_wifi6 && (cc->conf.mac.he_enable)) {
-		memcpy(&cc->bands[NL80211_BAND_2GHZ], &cc33xx_band_2ghz,
-			sizeof(cc33xx_band_2ghz));
-		memcpy(&cc->bands[NL80211_BAND_2GHZ].ht_cap,
-			&cc->ht_cap[NL80211_BAND_2GHZ],
-			sizeof(*cc->ht_cap));
+		memcpy(&cc->bands[NL80211_BAND_2GHZ], &cc33xx_band_2ghz_non_he,
+		sizeof(cc33xx_band_2ghz_non_he));
+	    memcpy(&cc->bands[NL80211_BAND_2GHZ].ht_cap,
+		&cc->ht_cap[NL80211_BAND_2GHZ],
+		sizeof(*cc->ht_cap));
 
-		memcpy(&cc->bands[NL80211_BAND_5GHZ], &cc33xx_band_5ghz,
-			sizeof(cc33xx_band_5ghz));
-		memcpy(&cc->bands[NL80211_BAND_5GHZ].ht_cap,
+		if (cc->conf.mac.vht_enable)
+		{
+			memcpy(&cc->bands[NL80211_BAND_5GHZ], &cc33xx_band_5ghz_vht_only,
+			sizeof(cc33xx_band_5ghz_vht_only));
+			memcpy(&cc->bands[NL80211_BAND_5GHZ].ht_cap,
 			&cc->ht_cap[NL80211_BAND_5GHZ],
 			sizeof(*cc->ht_cap));
-	} else {
-		memcpy(&cc->bands[NL80211_BAND_2GHZ], &cc33xx_band_2ghz_non_he,
-	       sizeof(cc33xx_band_2ghz_non_he));
-	    memcpy(&cc->bands[NL80211_BAND_2GHZ].ht_cap,
-	       &cc->ht_cap[NL80211_BAND_2GHZ],
-	       sizeof(*cc->ht_cap));
-
-	    memcpy(&cc->bands[NL80211_BAND_5GHZ], &cc33xx_band_5ghz_non_he,
-	       sizeof(cc33xx_band_5ghz_non_he));
-	    memcpy(&cc->bands[NL80211_BAND_5GHZ].ht_cap,
-	       &cc->ht_cap[NL80211_BAND_5GHZ],
-	       sizeof(*cc->ht_cap));
+		}
+		else
+		{
+			memcpy(&cc->bands[NL80211_BAND_5GHZ], &cc33xx_band_5ghz_non_he_non_vht,
+			sizeof(cc33xx_band_5ghz_non_he_non_vht));
+			memcpy(&cc->bands[NL80211_BAND_5GHZ].ht_cap,
+			&cc->ht_cap[NL80211_BAND_5GHZ],
+			sizeof(*cc->ht_cap));
+		}
 	}
-
-	ieee80211_set_sband_iftype_data(&cc->bands[NL80211_BAND_2GHZ], iftype_data_2ghz);
-	ieee80211_set_sband_iftype_data(&cc->bands[NL80211_BAND_5GHZ], iftype_data_5ghz);
 
 	cc->hw->wiphy->bands[NL80211_BAND_2GHZ] =
 		&cc->bands[NL80211_BAND_2GHZ];
 
-	if (!cc->disable_5g && cc->conf.core.enable_5ghz)
+	if(!cc->disable_5g && (cc->conf.core.enable_5ghz))
 		cc->hw->wiphy->bands[NL80211_BAND_5GHZ] =
 			&cc->bands[NL80211_BAND_5GHZ];
 
-	/* allow 4 queues per mac address we support +
+	/*
+	 * allow 4 queues per mac address we support +
 	 * 1 cab queue per mac + one global offchannel Tx queue
 	 */
 	cc->hw->queues = (NUM_TX_QUEUES + 1) * CC33XX_NUM_MAC_ADDRESSES + 1;
@@ -5287,6 +5434,8 @@ static int cc33xx_init_ieee80211(struct cc33xx *cc)
 	/* the last queue is the offchannel queue */
 	cc->hw->offchannel_tx_hw_queue = cc->hw->queues - 1;
 	cc->hw->max_rates = 1;
+
+	cc->hw->wiphy->reg_notifier = cc33xx_reg_notify;
 
 	/* allowed interface combinations */
 	cc->hw->wiphy->iface_combinations = cc33xx_iface_combinations;

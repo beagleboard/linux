@@ -400,6 +400,7 @@ struct cc33xx_acx_fw_tsf_information {
 } __packed;
 
 #define ACX_RATE_MGMT_ALL_PARAMS 0xff
+#define ACX_IPV4_ADDR_LENGTH 4
 
 struct acx_default_rx_filter {
 	struct acx_header header;
@@ -414,6 +415,18 @@ struct acx_default_rx_filter {
 	u8 padding;
 } __packed;
 
+struct acx_arp_ip_cfg {
+	struct acx_header header;
+	u8 role_id;
+	u8 address[ACX_IPV4_ADDR_LENGTH];
+	u8 padding[3];
+} __packed;
+
+struct acx_arp_offload {
+	struct acx_header header;
+	u8 enable;
+	u8 padding[3];
+} __packed;
 struct acx_rx_filter_cfg {
 	struct acx_header header;
 
@@ -451,7 +464,7 @@ enum cfg {
 	DOT11_GROUP_ADDRESS_TBL			= 7,
 	BA_SESSION_RX_SETUP_CFG			= 8,
 	ACX_SLEEP_AUTH				= 9,
-	STATIC_CALIBRATION_CFG			= 10,
+	RESERVED				= 10,
 	AP_RATES_CFG				= 11,
 	WAKE_UP_CONDITIONS_CFG			= 12,
 	SET_ANTENNA_SELECT_CFG			= 13,
@@ -474,6 +487,10 @@ enum cfg {
 	ENABLE_CHANNEL_UTILIZATION_NEXT_SCAN = 30,
 	SET_SEED_CFG			= 31,
 	RESET_STATS			= 32,
+	PHY_REGDOMAIN_TX_POWER_PARAMS = 33,
+	CQM_RSSI_CONFIG			= 34,
+	ACX_ARP_IP_CFG			= 35,
+	ACX_ARP_OFFLOAD_ENABLE		= 36,
 
 	LAST_CFG_VALUE,
 	MAX_DOT11_CFG = LAST_CFG_VALUE,
@@ -503,6 +520,7 @@ enum cmd_debug {
 	TRIGGER_FW_ASSERT,
 	BURST_MODE_CFG,
 	THERMAL_PROTECTION_CFG,
+	OVERRIDE_TEMPERATURE,
 
 	LAST_DEBUG_VALUE,
 
@@ -527,6 +545,8 @@ enum interrogate_opt {
 	GET_STATISTICS = 13,
 	GET_SP_VERSIONS_INTR = 14,
 	GET_LINK_INACTIVITY = 15,
+	// RESERVED = 16,
+	GET_SLOW_CLK_SOURCE = 17,
 	LAST_IE_VALUE,
 	MAX_DOT11_IE = LAST_IE_VALUE,
 
@@ -543,6 +563,8 @@ struct cc33xx_acx_peer_cap {
 
 	u8 role_id;
 
+	u8 pading_0[3];
+
 	/* rates supported by the remote peer */
 	__le32 supported_rates;
 
@@ -556,6 +578,16 @@ struct cc33xx_acx_peer_cap {
 	/* This is the minimal spacing required when sending A-MPDUs to the AP*/
 	u8 ampdu_min_spacing;
 
+	u8 padding_1[2];
+
+	/* bitmask of capability bits supported by the peer */
+	__le32 	vht_capabilities;
+
+	/* VHT peer support */
+	bool vht_supported;
+
+	u8 padding_2[3];
+
 	/* HE capabilities */
 	u8 mac_cap_info[8];
 
@@ -568,8 +600,6 @@ struct cc33xx_acx_peer_cap {
 	u8 dcm_max_constelation;
 
 	u8 er_upper_supported;
-
-	u8 padding;
 } __packed;
 
 struct acx_antenna_select {
@@ -577,6 +607,21 @@ struct acx_antenna_select {
 
 	u8 selection;
 	u8 padding[3];
+} __packed;
+
+#define BLE_LIM_CHANNELS_COUNT (40)
+#define REG_RULES_COUNT		   (520)
+
+struct acx_phy_regdomain_tx_control_params {
+	struct acx_header header;
+
+	u8  bitmask;
+	u32 country_code;
+	u8  reg_domain;
+	u8  ble_ch_lim_1M[BLE_LIM_CHANNELS_COUNT];
+	u8  ble_ch_lim_2M[BLE_LIM_CHANNELS_COUNT];
+	u8  per_channel_power_limit[REG_RULES_COUNT];
+	u8 	padding[2];
 } __packed;
 
 struct debug_set_tsf {
@@ -674,6 +719,13 @@ struct acx_diversity_status {
 	u8 padding[3];
 } __packed;
 
+struct acx_slow_clk_type {
+	struct acx_header header;
+
+	u8 is_ext_slw_clk;
+	u8 padding[3];
+} __packed;
+
 struct acx_diversity_rssi_threshold {
 	struct acx_header header;
 
@@ -686,6 +738,15 @@ struct acx_diversity_default_antenna {
 
     u8 default_antenna;
 	u8 padding[3];
+} __packed;
+
+struct acx_cqm_rssi_config {
+	struct acx_header header;
+
+	u8 role_id;
+	u8 enable;
+	s8 threshold_dbm;
+	u8 hysteresis_db;
 } __packed;
 
 struct reset_decrypt_count_cfg {
@@ -766,12 +827,15 @@ int cc33xx_acx_get_tx_rate(struct cc33xx *cc, struct cc33xx_vif *wlvif,
 			   struct station_info *sinfo);
 int cc33xx_acx_average_rssi(struct cc33xx *cc,
 			    struct cc33xx_vif *wlvif, s8 *avg_rssi);
+int cc33xx_acx_arp_ip_config(struct cc33xx *cc, u8 role_id, __be32 ip_addr);
+int cc33xx_acx_arp_offload(struct cc33xx *cc, bool enable);
 int cc33xx_acx_default_rx_filter_enable(struct cc33xx *cc, bool enable,
 					enum rx_filter_action action);
 int cc33xx_acx_set_rx_filter(struct cc33xx *cc, u8 index, bool enable,
 			     struct cc33xx_rx_filter *filter);
 int cc33xx_acx_set_peer_cap(struct cc33xx *cc,
 			    struct ieee80211_sta_ht_cap *ht_cap,
+			    struct ieee80211_sta_vht_cap *vht_cap,
 			    struct ieee80211_sta_he_cap *he_cap,
 			    struct cc33xx_vif *wlvif, bool allow_ht_operation,
 			    u32 rate_set, u8 hlid);
@@ -781,10 +845,13 @@ int cc33xx_acx_trigger_fw_assert(struct cc33xx *cc);
 int cc33xx_acx_burst_mode_cfg(struct cc33xx *cc, u8 burst_disable);
 int cc33xx_acx_get_antenna_diversity_status(struct cc33xx *cc);
 int cc33xx_acx_set_antenna_diversity_status(struct cc33xx *cc, u8 enable);
+int cc33xx_acx_get_slow_clock_type(struct cc33xx *cc);
 int cc33xx_acx_antenna_diversity_get_rssi_threshold(struct cc33xx *cc, s8 *threshold);
 int cc33xx_acx_antenna_diversity_set_rssi_threshold(struct cc33xx *cc, s8 rssi_threshold);
 int cc33xx_acx_antenna_diversity_get_default_antenna(struct cc33xx *cc);
 int cc33xx_acx_antenna_diversity_select_default_antenna(struct cc33xx *cc, u8 default_antenna);
+int cc33xx_acx_cqm_rssi_config(struct cc33xx *cc, struct cc33xx_vif *wlvif,
+			       bool enable, s8 threshold, u8 hysteresis);
 int cc33xx_acx_twt_setup(struct cc33xx *wl,
 			 u32 min_wake_duration_usec,
 			 u32 min_wake_interval_mantissa,
@@ -795,6 +862,7 @@ int cc33xx_acx_twt_setup(struct cc33xx *wl,
 int cc33xx_acx_twt_terminate(struct cc33xx *wl);
 int cc33xx_acx_twt_resume(struct cc33xx *wl);
 int cc33xx_acx_twt_suspend(struct cc33xx *wl);
+int cc33xx_acx_set_regdoamin_and_tx_control_params(struct cc33xx *cc, struct acx_phy_regdomain_tx_control_params *params);
 int cc33xx_acx_statistics(struct cc33xx *cc, void *stats);
 int cc33xx_acx_clear_statistics(struct cc33xx *cc);
 

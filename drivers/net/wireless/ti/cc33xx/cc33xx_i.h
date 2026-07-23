@@ -178,11 +178,11 @@ struct cc33xx_link {
 	u64 total_freed_pkts;
 };
 
-#define CC33XX_MAX_RX_FILTERS 5
-#define CC33XX_RX_FILTER_MAX_FIELDS 8
+#define CC33XX_MAX_RX_FILTERS 7
+#define CC33XX_RX_FILTER_MAX_FIELDS 7
 
 #define CC33XX_RX_FILTER_ETH_HEADER_SIZE 14
-#define CC33XX_RX_FILTER_MAX_FIELDS_SIZE 95
+#define CC33XX_RX_FILTER_MAX_FIELDS_SIZE 98
 #define RX_FILTER_FIELD_OVERHEAD				\
 	(sizeof(struct cc33xx_rx_filter_field) - sizeof(u8 *))
 #define CC33XX_RX_FILTER_MAX_PATTERN_SIZE			\
@@ -190,6 +190,11 @@ struct cc33xx_link {
 
 #define CC33XX_RX_FILTER_FLAG_IP_HEADER           0
 #define CC33XX_RX_FILTER_FLAG_ETHERNET_HEADER     BIT(1)
+#define CC33XX_RX_FILTER_FLAG_SEARCH_ANYWHERE     BIT(2)
+#define CC33XX_RX_FILTER_FLAG_MASKED              BIT(3)
+
+#define CC33XX_CQM_RSSI_MIN_DBM		-110
+#define CC33XX_CQM_RSSI_MAX_DBM		17
 
 struct ieee80211_header {
 	__le16 frame_ctl;
@@ -326,6 +331,8 @@ struct cc33xx_vif {
 
 	int rssi_thold;
 	int last_rssi_event;
+	bool cqm_enabled;
+	u32 cqm_rssi_hyst;
 
 	/* save the current encryption type for auto-arp config */
 	u8 encryption_type;

@@ -63,8 +63,8 @@ static void cc33xx_set_ba_policies(struct cc33xx *cc, struct cc33xx_vif *wlvif)
 	cc->ba_rx_session_count = 0;
 
 	/* BA is supported in STA/AP modes */
-	wlvif->ba_support = (wlvif->bss_type != BSS_TYPE_AP_BSS &&
-				wlvif->bss_type != BSS_TYPE_STA_BSS);
+	wlvif->ba_support = (wlvif->bss_type == BSS_TYPE_AP_BSS ||
+				wlvif->bss_type == BSS_TYPE_STA_BSS);
 }
 
 /* vif-specifc initialization */
@@ -199,15 +199,13 @@ int cc33xx_download_ini_params_and_wait(struct cc33xx *cc)
 	size_t command_size = ALIGN((sizeof(*cmd) + sizeof(cc->conf)), 4);
 	int ret;
 
-	cc33xx_set_max_buffer_size(cc, INI_MAX_BUFFER_SIZE);
-
 	cc33xx_debug(DEBUG_ACX,
 		     "Downloading INI configurations to FW, payload Length: %zu",
 		     sizeof(cc->conf));
 
 	cmd = kzalloc(command_size, GFP_KERNEL);
 	if (!cmd) {
-		cc33xx_set_max_buffer_size(cc, CMD_MAX_BUFFER_SIZE);
+		cc33xx_error("INI Params Download: process failed due to memory allocation failure");
 		return -ENOMEM;
 	}
 
@@ -225,7 +223,6 @@ int cc33xx_download_ini_params_and_wait(struct cc33xx *cc)
 		cc33xx_debug(DEBUG_BOOT, "INI Params downloaded successfully");
 	}
 
-	cc33xx_set_max_buffer_size(cc, CMD_MAX_BUFFER_SIZE);
 	kfree(cmd);
 	return ret;
 }

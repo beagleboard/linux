@@ -337,6 +337,421 @@ int cc33xx_rx(struct cc33xx *cc, u8 *rx_buf_ptr, u16 rx_buf_len)
 	return 0;
 }
 
+int cc33xx_parse_wowlan_hex_string(const char *input, u8 *pattern, u8 *mask,
+					size_t max_len, bool *has_mask)
+{
+	size_t byte_count = 0;
+	const char *p = input;
+	int val1, val2;
+
+	*has_mask = false;
+
+	while (*p != '\0' && byte_count < max_len) {
+		while (*p == ' ' || *p == '\t')
+			p++;
+
+		if (*p == '\0')
+			break;
+
+		if (*p == '-' || (*p == 'x' && p[1] == 'x')) {
+			pattern[byte_count] = 0x00;
+			mask[byte_count] = 0x00;
+			byte_count++;
+			*has_mask = true;
+
+			if (*p == 'x') {
+				p += 2;
+			} else {
+				p++;
+				if (*p == '-')
+					p++;
+			}
+
+			if (*p != '\0' && *p != ':' && *p != ' ' && *p != '\t')
+				return -EINVAL;
+
+			if (*p == ':')
+				p++;
+			continue;
+		}
+
+		val1 = hex_to_bin(*p);
+		if (val1 < 0)
+			return -EINVAL;
+
+		p++;
+
+		if (*p != '\0' && *p != ':' && *p != ' ' && *p != '\t') {
+			val2 = hex_to_bin(*p);
+			if (val2 < 0)
+				return -EINVAL;
+			p++;
+			pattern[byte_count] = (val1 << 4) | val2;
+		} else {
+			pattern[byte_count] = val1;
+		}
+
+		mask[byte_count] = 0xFF;
+		byte_count++;
+
+		if (*p == ':')
+			p++;
+	}
+
+	if (byte_count == max_len) {
+		while (*p == ' ' || *p == '\t')
+			p++;
+
+		if (*p != '\0') {
+			cc33xx_warning("Pattern exceeds maximum size (%zu bytes)\n",
+			       max_len);
+			return -EINVAL;
+		}
+	}
+
+	if (byte_count == 0)
+		return -EINVAL;
+
+	return byte_count;
+}
+
+int cc33xx_parse_wowlan_search_pattern(char *input,
+					u8 *header_bytes, int *header_len,
+					u8 *header_mask, bool *header_has_mask,
+					u8 *payload_bytes, int *payload_len,
+					u8 *payload_mask, bool *payload_has_mask,
+					u16 *payload_offset, bool *search_mode)
+{
+	char *header_text, *payload_text, *offset_str, *plus_sign, *pipe;
+	int ret, parsed_bytes;
+
+	*header_len = 0;
+	*payload_len = 0;
+	*header_has_mask = false;
+	*payload_has_mask = false;
+	*payload_offset = 0;
+	*search_mode = true;
+
+	/* Parse mode flag: -f for fixed, -s for search mode (default) */
+	if (input[0] == '-' && input[1] == 'f' &&
+	    (input[2] == ' ' || input[2] == '\t')) {
+		*search_mode = false;
+		input += 2;
+		while (*input == ' ' || *input == '\t')
+			input++;
+	} else if (input[0] == '-' && input[1] == 's' &&
+	           (input[2] == ' ' || input[2] == '\t')) {
+		input += 2;
+		while (*input == ' ' || *input == '\t')
+			input++;
+	}
+
+	/* Parse format: [header bytes]|[offset+][payload pattern] */
+	plus_sign = strchr(input, '+');
+	pipe = strchr(input, '|');
+
+	if (plus_sign && !pipe) {
+		cc33xx_error("Offset '+' requires '|' separator with 14-byte header");
+		return -EINVAL;
+	}
+
+	header_text = input;
+
+	if (pipe) {
+		char *str;
+
+		/* Split at pipe: header | payload */
+		*pipe = '\0';
+		payload_text = pipe + 1;
+
+		parsed_bytes = 1;
+		str = header_text;
+		while (*str) {
+			if (*str == ':')
+				parsed_bytes++;
+			str++;
+		}
+
+		if (parsed_bytes != CC33XX_RX_FILTER_ETH_HEADER_SIZE) {
+			cc33xx_error("Header pattern part must be exactly %d bytes when searching for pattern in payload, got %d bytes",
+				     CC33XX_RX_FILTER_ETH_HEADER_SIZE, parsed_bytes);
+			return -EINVAL;
+		}
+	} else {
+		payload_text = NULL;
+	}
+
+	ret = cc33xx_parse_wowlan_hex_string(header_text, header_bytes,
+					     header_mask,
+					     CC33XX_RX_FILTER_ETH_HEADER_SIZE,
+					     header_has_mask);
+	if (ret < 0) {
+		cc33xx_error("Invalid header format");
+		return ret;
+	}
+	*header_len = ret;
+
+	/* Parse payload if present */
+	if (payload_text && strlen(payload_text) > 0) {
+		plus_sign = strchr(payload_text, '+');
+		if (plus_sign) {
+			*plus_sign = '\0';
+			offset_str = payload_text;
+			payload_text = plus_sign + 1;
+
+			ret = kstrtou16(offset_str, 10, payload_offset);
+			if (ret < 0) {
+				cc33xx_error("Invalid payload offset '%s'", offset_str);
+				return -EINVAL;
+			}
+		}
+
+		if (strlen(payload_text) > 0) {
+			ret = cc33xx_parse_wowlan_hex_string(payload_text, payload_bytes,
+							     payload_mask,
+							     CC33XX_RX_FILTER_MAX_PATTERN_SIZE,
+							     payload_has_mask);
+			if (ret < 0) {
+				cc33xx_error("Invalid payload pattern format");
+				return ret;
+			}
+			*payload_len = ret;
+		}
+	}
+
+	return 0;
+}
+
+int cc33xx_add_wowlan_search_pattern(struct cc33xx *cc, char *input)
+{
+	struct cc33xx_rx_filter *filter;
+	u8 header_bytes[CC33XX_RX_FILTER_ETH_HEADER_SIZE * 2];
+	u8 payload_bytes[CC33XX_RX_FILTER_MAX_PATTERN_SIZE * 2];
+	u8 *header_mask = header_bytes + CC33XX_RX_FILTER_ETH_HEADER_SIZE;
+	u8 *payload_mask = payload_bytes + CC33XX_RX_FILTER_MAX_PATTERN_SIZE;
+	u8 field_buffer[CC33XX_RX_FILTER_MAX_PATTERN_SIZE * 2];
+	const u8 *field_data;
+	int header_len, payload_len;
+	bool header_has_mask, payload_has_mask;
+	bool search_mode;
+	u16 payload_offset;
+	u8 flags, len;
+	u16 offset;
+	int ret, i, j;
+	int field_num = 0;
+
+	if (cc->wowlan_search.filter_count >= CC33XX_MAX_RX_FILTERS) {
+		cc33xx_error("Maximum filters reached (%d/%d)",
+			     cc->wowlan_search.filter_count, CC33XX_MAX_RX_FILTERS);
+		return -ENOSPC;
+	}
+
+	/* Parse pattern string into header and payload components */
+	ret = cc33xx_parse_wowlan_search_pattern(input,
+						  header_bytes, &header_len,
+						  header_mask, &header_has_mask,
+						  payload_bytes, &payload_len,
+						  payload_mask, &payload_has_mask,
+						  &payload_offset, &search_mode);
+	if (ret < 0)
+		return ret;
+
+	filter = cc33xx_rx_filter_alloc();
+	if (!filter) {
+		cc33xx_error("Failed to allocate rx filter");
+		return -ENOMEM;
+	}
+
+	filter->action = FILTER_SIGNAL;
+
+	/* Process header: split into multiple fields at wildcard boundaries */
+	if (header_len > 0) {
+		i = 0;
+		while (i < header_len) {
+			if (header_has_mask && header_mask[i] == 0x00) {
+				i++;
+				continue;
+			}
+
+			for (j = i; j < header_len; j++) {
+				if (header_has_mask && header_mask[j] == 0x00)
+					break;
+			}
+
+			/* Create field for this contiguous sequence */
+			offset = i;
+			len = j - i;
+			flags = CC33XX_RX_FILTER_FLAG_ETHERNET_HEADER;
+			if (header_has_mask) {
+				/* Masked: send [pattern][mask] format */
+				flags |= CC33XX_RX_FILTER_FLAG_MASKED;
+				memcpy(field_buffer, &header_bytes[i], len);
+				memcpy(field_buffer + len, &header_mask[i], len);
+				field_data = field_buffer;
+			} else {
+				/* Unmasked: send pattern only */
+				field_data = &header_bytes[i];
+			}
+
+			ret = cc33xx_rx_filter_alloc_field(filter, offset, flags,
+							   field_data, len);
+
+			if (ret < 0) {
+				cc33xx_error("Failed to add header field %d", field_num);
+				cc33xx_rx_filter_free(filter);
+				return ret;
+			}
+
+			field_num++;
+			i = j;
+		}
+	}
+
+	/* Process payload: add single field with search-anywhere flag (if search mode) */
+	if (payload_len > 0) {
+		flags = 0;
+		if (search_mode)
+			flags |= CC33XX_RX_FILTER_FLAG_SEARCH_ANYWHERE;
+
+		if (payload_has_mask) {
+			/* Masked: send [pattern][mask] format */
+			flags |= CC33XX_RX_FILTER_FLAG_MASKED;
+			memcpy(field_buffer, payload_bytes, payload_len);
+			memcpy(field_buffer + payload_len, payload_mask, payload_len);
+			field_data = field_buffer;
+		} else {
+			/* Unmasked: send pattern only */
+			field_data = payload_bytes;
+		}
+
+		ret = cc33xx_rx_filter_alloc_field(filter, payload_offset, flags,
+						   field_data, payload_len);
+
+		if (ret < 0) {
+			cc33xx_error("Failed to add payload field");
+			cc33xx_rx_filter_free(filter);
+			return ret;
+		}
+
+		field_num++;
+	}
+
+	cc->wowlan_search.active_filters[cc->wowlan_search.filter_count] = filter;
+	cc->wowlan_search.filter_count++;
+
+	return 0;
+}
+
+int cc33xx_clear_wowlan_search_patterns(struct cc33xx *cc)
+{
+	int ret;
+
+	ret = cc33xx_rx_filter_clear_all(cc);
+	if (ret < 0) {
+		cc33xx_error("Failed to clear RX filters: %d", ret);
+		goto out;
+	}
+
+	ret = cc33xx_acx_default_rx_filter_enable(cc, 0, FILTER_SIGNAL);
+	if (ret < 0)
+		cc33xx_error("Failed to reset default RX filter: %d", ret);
+
+	/* Disable ARP offload since rx filtering is disabled */
+	ret = cc33xx_acx_arp_offload(cc, false);
+	if (ret)
+		cc33xx_warning("Failed to disable ARP offload: %d", ret);
+
+out:
+	cc33xx_free_wowlan_patterns_memory(cc);
+	return ret;
+}
+
+
+int cc33xx_set_wowlan_search_mode(struct cc33xx *cc, bool enable)
+{
+	struct cc33xx_vif *wlvif = NULL;
+	int ret = 0;
+
+	cc33xx_for_each_wlvif_sta(cc, wlvif) {
+		break;
+	}
+
+	if (!wlvif)
+		return -EINVAL;
+
+	if (enable) {
+		struct cfg80211_wowlan *wowlan_config;
+
+		wowlan_config = kzalloc(sizeof(*wowlan_config), GFP_KERNEL);
+		if (!wowlan_config) {
+			return -ENOMEM;
+		}
+
+		cc->hw->wiphy->wowlan_config = wowlan_config;
+		cc->keep_device_power = true;
+
+		ret = cc33xx_acx_wake_up_conditions(cc, wlvif,
+						    cc->conf.core.suspend_wake_up_event,
+						    cc->conf.core.suspend_listen_interval);
+		if (ret < 0) {
+			cc33xx_error("Failed to configure wake-up conditions: %d", ret);
+			cc->keep_device_power = false;
+			kfree(wowlan_config);
+			cc->hw->wiphy->wowlan_config = NULL;
+			return ret;
+		}
+
+		cc->wowlan_search.enabled = true;
+	} else {
+		/* Disable: try hardware operation first, then always clean up software state */
+		ret = cc33xx_acx_wake_up_conditions(cc, wlvif,
+						    cc->conf.core.wake_up_event,
+						    cc->conf.core.listen_interval);
+		if (ret < 0)
+			cc33xx_error("Failed to restore wake-up conditions: %d", ret);
+
+		/* Always clean up software state, even if hardware operation failed */
+		cc->wowlan_search.enabled = false;
+
+		cc33xx_clear_wowlan_search_patterns(cc);
+
+
+		if (cc->hw->wiphy->wowlan_config) {
+			kfree(cc->hw->wiphy->wowlan_config);
+			cc->hw->wiphy->wowlan_config = NULL;
+		}
+
+		cc->keep_device_power = false;
+	}
+
+	return ret;
+}
+
+void cc33xx_free_wowlan_patterns_memory(struct cc33xx *cc)
+{
+	int i;
+
+	for (i = 0; i < cc->wowlan_search.filter_count; i++) {
+		if (cc->wowlan_search.active_filters[i]) {
+			cc33xx_rx_filter_free(cc->wowlan_search.active_filters[i]);
+			cc->wowlan_search.active_filters[i] = NULL;
+		}
+	}
+	cc->wowlan_search.filter_count = 0;
+}
+
+int cc33xx_is_wowlan_search_enabled(struct cc33xx *cc)
+{
+	return cc->wowlan_search.enabled && (cc->wowlan_search.filter_count > 0);
+}
+
+int cc33xx_get_wowlan_search_filters(struct cc33xx *cc, struct cc33xx_rx_filter ***filters_out)
+{
+	if (filters_out)
+		*filters_out = cc->wowlan_search.active_filters;
+	return cc->wowlan_search.filter_count;
+}
+
 #ifdef CONFIG_PM
 int cc33xx_rx_filter_enable(struct cc33xx *cc, int index, bool enable,
 			    struct cc33xx_rx_filter *filter)

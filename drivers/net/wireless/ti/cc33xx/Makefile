@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0
 
 cc33xx-objs		= main.o cmd.o io.o event.o tx.o rx.o ps.o acx.o \
-					boot.o init.o scan.o debugfs.o
+					boot.o init.o scan.o debugfs.o sysfs.o
 
 cc33xx_spi-objs 	= spi.o
 cc33xx_sdio-objs	= sdio.o

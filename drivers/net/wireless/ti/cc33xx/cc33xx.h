@@ -47,6 +47,12 @@ struct cc33xx_stats {
 	unsigned int excessive_retries;
 };
 
+struct cc33xx_wowlan_search {
+	bool enabled;
+	int filter_count;
+	struct cc33xx_rx_filter *active_filters[CC33XX_MAX_RX_FILTERS];
+};
+
 struct cc33xx_ant_diversity {
 	u8 diversity_enable;
 	s8 rssi_threshold;
@@ -217,6 +223,9 @@ struct cc33xx {
 
 	bool keep_device_power;
 
+	/* WoWLAN search pattern state */
+	struct cc33xx_wowlan_search wowlan_search;
+
 	/* AP-mode - links indexed by HLID. The global and broadcast links
 	 * are always active.
 	 */
@@ -266,6 +275,9 @@ struct cc33xx {
 	/*ble_enable value - 1=enabled, 0=disabled. */
 	int ble_enable;
 
+	/* WoWLAN ARP offload: if true, FW will handle incoming ARP requests during suspend */
+	bool wowlan_arp_offload;
+
 	/*fw_crash_logs, allocated upon successfully receiving FW Logs after general error (ie FW assert)*/
 	u8  *fw_crash_logs;
 
@@ -284,16 +296,11 @@ struct cc33xx {
 	 */
 	u8 sta_role_idx;
 
-	u16 max_cmd_size;
-
 	struct completion nvs_loading_complete;
 	struct completion command_complete;
 
 	/* dynamic fw traces */
 	u32 dynamic_fw_traces;
-
-	/* buffer for sending commands to FW */
-	u8 cmd_buf[CC33XX_CMD_BUFFER_SIZE];
 
 	/* number of keys requiring extra spare mem-blocks */
 	int extra_spare_key_count;
@@ -309,6 +316,8 @@ struct cc33xx {
 	struct cc33xx_acx_fw_versions *fw_ver;
 
 	u8 antenna_selection;
+
+	u8 is_ext_slw_clk;
 
 	/* burst mode cfg */
 	u8 burst_disable;

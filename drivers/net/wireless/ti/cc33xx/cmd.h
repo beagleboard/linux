@@ -15,7 +15,6 @@ enum buffer_size {
 	CMD_MAX_BUFFER_SIZE
 };
 
-int cc33xx_set_max_buffer_size(struct cc33xx *cc, enum buffer_size max_buffer_size);
 int cc33xx_cmd_send(struct cc33xx *cc, u16 id, void *buf,
 		    size_t len, size_t res_len);
 int cc33xx_cmd_role_enable(struct cc33xx *cc, u8 *addr,

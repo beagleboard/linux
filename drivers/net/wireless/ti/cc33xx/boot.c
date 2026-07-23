@@ -153,7 +153,7 @@ static int wait_for_boot_irq(struct cc33xx *cc, u32 boot_irq_mask,
 		return -2;
 	}
 
-	if (boot_irq_mask != pending_irqs) {
+	if (!(boot_irq_mask & pending_irqs)) {
 		cc33xx_error("Unexpected IRQ received @ boot: 0x%x",
 			     pending_irqs);
 		return -3;
@@ -310,8 +310,6 @@ static int get_device_info_ram_loader(struct cc33xx *cc)
 int cc33xx_init_fw(struct cc33xx *cc)
 {
 	int ret;
-
-	cc->max_cmd_size = CC33XX_CMD_MAX_SIZE;
 
 	ret = fw_download_alloc(cc);
 	if (ret < 0)
