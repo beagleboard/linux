@@ -44,9 +44,11 @@
 #define GOODIX_HAVE_KEY			BIT(4)
 #define GOODIX_BUFFER_STATUS_TIMEOUT	20
 
-#define RESOLUTION_LOC		1
-#define MAX_CONTACTS_LOC	5
-#define TRIGGER_LOC		6
+#define RESOLUTION_LOC			1
+#define MAX_CONTACTS_LOC		5
+#define TRIGGER_LOC			6
+
+#define GOODIX_POLL_INTERVAL_MS		17	/* 17ms = 60fps */
 
 /* Our special handling for GPIO accesses through ACPI is x86 specific */
 #if defined CONFIG_X86 && defined CONFIG_ACPI
@@ -297,6 +299,14 @@ static int goodix_ts_read_input_report(struct goodix_ts_data *ts, u8 *data)
 				return 0;
 		}
 
+		if (!ts->client->irq)
+			/*
+			 * No point in retrying if polling, particularly as some
+			 * versions continuously report "not ready" if there are
+			 * no touch points.
+			 */
+			break;
+
 		usleep_range(1000, 2000); /* Poll every 1 - 2 ms */
 	} while (time_before(jiffies, max_timeout));
 
@@ -497,6 +507,14 @@ sync:
 	input_sync(ts->input_dev);
 }
 
+static void goodix_ts_work_i2c_poll(struct input_dev *input)
+{
+	struct goodix_ts_data *ts = input_get_drvdata(input);
+
+	goodix_process_events(ts);
+	goodix_i2c_write_u8(ts->client, GOODIX_READ_COOR_ADDR, 0);
+}
+
 /**
  * goodix_ts_irq_handler - The IRQ handler
  *
@@ -513,13 +531,29 @@ static irqreturn_t goodix_ts_irq_handler(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+static void goodix_enable_irq(struct goodix_ts_data *ts)
+{
+	if (ts->client->irq)
+		enable_irq(ts->client->irq);
+}
+
+static void goodix_disable_irq(struct goodix_ts_data *ts)
+{
+	if (ts->client->irq)
+		disable_irq(ts->client->irq);
+}
+
 static void goodix_free_irq(struct goodix_ts_data *ts)
 {
-	devm_free_irq(&ts->client->dev, ts->client->irq, ts);
+	if (ts->client->irq)
+		devm_free_irq(&ts->client->dev, ts->client->irq, ts);
 }
 
 static int goodix_request_irq(struct goodix_ts_data *ts)
 {
+	if (!ts->client->irq)
+		return 0;
+
 	return devm_request_threaded_irq(&ts->client->dev, ts->client->irq,
 					 NULL, goodix_ts_irq_handler,
 					 ts->irq_flags, ts->client->name, ts);
@@ -1056,7 +1090,8 @@ static void goodix_read_config(struct goodix_ts_data *ts)
 	}
 
 	ts->int_trigger_type = ts->config[TRIGGER_LOC] & 0x03;
-	ts->max_touch_num = ts->config[MAX_CONTACTS_LOC] & 0x0f;
+	ts->max_touch_num = min(ts->config[MAX_CONTACTS_LOC] & 0x0f,
+				GOODIX_MAX_CONTACTS);
 
 	x_max = get_unaligned_le16(&ts->config[RESOLUTION_LOC]);
 	y_max = get_unaligned_le16(&ts->config[RESOLUTION_LOC + 2]);
@@ -1217,6 +1252,18 @@ retry_read_config:
 		dev_err(&ts->client->dev,
 			"Failed to initialize MT slots: %d", error);
 		return error;
+	}
+
+	input_set_drvdata(ts->input_dev, ts);
+
+	if (!ts->client->irq) {
+		error = input_setup_polling(ts->input_dev, goodix_ts_work_i2c_poll);
+		if (error) {
+			dev_err(&ts->client->dev,
+				 "could not set up polling mode, %d\n", error);
+			return error;
+		}
+		input_set_poll_interval(ts->input_dev, GOODIX_POLL_INTERVAL_MS);
 	}
 
 	error = input_register_device(ts->input_dev);
@@ -1422,7 +1469,7 @@ static int goodix_suspend(struct device *dev)
 
 	/* We need gpio pins to suspend/resume */
 	if (ts->irq_pin_access_method == IRQ_PIN_ACCESS_NONE) {
-		disable_irq(client->irq);
+		goodix_disable_irq(ts);
 		return 0;
 	}
 
@@ -1466,7 +1513,7 @@ static int goodix_resume(struct device *dev)
 	int error;
 
 	if (ts->irq_pin_access_method == IRQ_PIN_ACCESS_NONE) {
-		enable_irq(client->irq);
+		goodix_enable_irq(ts);
 		return 0;
 	}
 
@@ -1519,6 +1566,7 @@ MODULE_DEVICE_TABLE(i2c, goodix_ts_id);
 static const struct acpi_device_id goodix_acpi_match[] = {
 	{ "GDIX1001", 0 },
 	{ "GDIX1002", 0 },
+	{ "GDIX1003", 0 },
 	{ "GDX9110", 0 },
 	{ }
 };
