@@ -467,7 +467,7 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&mcspi1_pins>;
 
-	eth@0 {
+	ethernet@0 {
 		pinctrl-names = "default";
 		pinctrl-0 = <&ks8851_pins>;
 
@@ -531,6 +531,8 @@
 };
 
 &keypad {
+	status = "okay";
+
 	keypad,num-rows = <8>;
 	keypad,num-columns = <8>;
 	linux,keymap = <0x00000012	/* KEY_E */

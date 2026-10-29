@@ -1,0 +1,81 @@
+// SPDX-License-Identifier: GPL-2.0-only OR MIT
+/*
+ * DT Overlay for SPI6 pins P9_17(cs0), P9_22(clk), P9_21(MOSI), P9_18(MISO).
+ *
+ * Copyright (C) 2023 Texas Instruments Incorporated - https://www.ti.com/
+ *
+ */
+
+/*
+ * WARNING!!!
+ * This overlay will not mux if there are pin conflicts. For example, by default i2c6 is enabled taking
+ * pins P9_17 and P9_18. To stop pin conflicts, this overlay disables i2c6.
+ *
+ * Look for errors in `sudo beagle-version \| grep UBOOT`
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include "k3-pinctrl.h"
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+*/
+&{/chosen} {
+        overlays {
+                k3-j721e-beagleboneai64-spi-mcspi2-cs0.kernel = __TIMESTAMP__;
+                mcspi2.2120000.spi = "k3-j721e-beagleboneai64-spi-mcspi2-cs0.2120000";
+        };
+};
+
+/* To figure out which SoC pad numbers go with which BB header pins, look at columns A and B
+ * in the following spreadsheet. To figure out mux modes, look at row 10.
+ * https://drive.google.com/file/d/15NLaUeMBy-iT8s6rFrP4Esf0Qh57T4xu/view?pli=1
+ *
+ * To figure out the addresses of SoC pads, look at table "Table 5-125. Pin Multiplexing" in the TDA4VM Processor datasheet
+ * https://www.ti.com/lit/ds/symlink/tda4vm.pdf?ts=1741890214437&ref_url=https%253A%252F%252Fwww.ti.com%252Fproduct%252FTDA4VM
+ *
+*/
+&main_pmx0 {
+    mcspi2_cs_zero: mcspi2-cs0-pins {
+        pinctrl-single,pins = <
+            /* Used TI SysConfig app to generate these, had manually adjust output modes */
+            J721E_IOPAD(0x1f4, PIN_OUTPUT, 4) /* (AB1) UART0_RTSn.SPI2_CLK */
+            J721E_IOPAD(0x1f0, PIN_OUTPUT, 4) /* (AC2) UART0_CTSn.SPI2_CS0 */
+            J721E_IOPAD(0x200, PIN_OUTPUT, 4) /* (AC4) UART1_CTSn.SPI2_D0 */
+            J721E_IOPAD(0x204, PIN_INPUT, 4) /* (AD5) UART1_RTSn.SPI2_D1 */
+
+            /* Disable SoC pins that share same BB header pins */
+            /* This pin conflics*/
+            J721E_IOPAD(0xbc, PIN_DISABLE, 7) /* (AD26) disable P9_27a */
+            J721E_IOPAD(0x4c, PIN_DISABLE, 7) /* (AJ21) disable P9_42b */
+            J721E_IOPAD(0x1A4, PIN_DISABLE, 7) /* (W26) disable P9_25b */
+        >;
+    };
+};
+
+/*
+ * Most of the stuff in this section is here for the spidev linux driver. For control from
+ * from a DSP or R5 core, only the status and pinctrl parts matter.
+ *
+ * Make sure to load the spidev driver to control SPI from linux.
+ */
+&main_spi2 {
+    #address-cells = <1>;
+    #size-cells = <0>;
+    pinctrl-names = "default";
+    pinctrl-0 = <&mcspi2_cs_zero>;
+    ti,spi-num-cs = <1>;
+    ti,pindir-d0-out-d1-in;
+    status = "okay";
+
+    /* When controlling SPI from outside linux, you may want to delete this spidev stuff */
+    channel@0 {
+        symlink = "bone/spi/2.0"; /* /dev/bone/spi/2.0 */
+        compatible = "rohm,dh2228fv";
+        reg = <0>; /* CE0 */
+        spi-max-frequency = <125000000>;
+    };
+};

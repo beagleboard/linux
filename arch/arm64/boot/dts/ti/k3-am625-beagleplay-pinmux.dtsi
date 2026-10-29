@@ -1,0 +1,130 @@
+// SPDX-License-Identifier: GPL-2.0-only OR MIT
+/*
+ * https://beagleplay.org/
+ *
+ * Copyright (C) 2022-2024 Texas Instruments Incorporated - https://www.ti.com/
+ * Copyright (C) 2022-2024 Robert Nelson, BeagleBoard.org Foundation
+ */
+
+#include <dt-bindings/gpio/gpio.h>
+
+/ {
+	/* rtc1 = &wkup_rtc0; diff */
+	aliases {
+		ethernet0 = &cpsw_port1;
+		ethernet1 = &cpsw_port2;
+		gpio0 = &main_gpio0;
+		gpio1 = &main_gpio1;
+		gpio2 = &mcu_gpio0;
+		i2c0 = &main_i2c0;
+		i2c1 = &main_i2c1;
+		i2c2 = &main_i2c2;
+		i2c3 = &main_i2c3;
+		i2c4 = &wkup_i2c0;
+		i2c5 = &mcu_i2c0;
+		mmc0 = &sdhci0;
+		mmc1 = &sdhci1;
+		mmc2 = &sdhci2;
+		rtc0 = &rtc;
+		rtc1 = &wkup_rtc0;
+		serial0 = &main_uart5;
+		serial1 = &main_uart6;
+		serial2 = &main_uart0;
+		usb0 = &usb0;
+		usb1 = &usb1;
+	};
+
+	chosen {
+		base_dtb = "k3-am625-beagleplay.dts";
+		base_dtb_timestamp = __TIMESTAMP__;
+	};
+
+	leds {
+		led-0 {
+			label = "beaglebone:green:usr0";
+		};
+
+		led-1 {
+			label = "beaglebone:green:usr1";
+		};
+
+		led-2 {
+			label = "beaglebone:green:usr2";
+			linux,default-trigger = "cpu";
+		};
+
+		led-3 {
+			label = "beaglebone:green:usr3";
+		};
+
+		led-4 {
+			label = "beaglebone:green:usr4";
+			linux,default-trigger = "phy0tx";
+		};
+	};
+};
+
+&main_pmx0 {
+	pinctrl-single,gpio-range =
+		<&main_pmx0_range 0 32 PIN_GPIO_RANGE_IOPAD>,
+		<&main_pmx0_range 33 38 PIN_GPIO_RANGE_IOPAD>,
+		<&main_pmx0_range 72 22 PIN_GPIO_RANGE_IOPAD>,
+		<&main_pmx0_range 137 5 PIN_GPIO_RANGE_IOPAD>,
+		<&main_pmx0_range 143 3 PIN_GPIO_RANGE_IOPAD>,
+		<&main_pmx0_range 149 2 PIN_GPIO_RANGE_IOPAD>;
+
+	main_pmx0_range: gpio-range {
+		#pinctrl-single,gpio-range-cells = <3>;
+	};
+
+	touchscreen_pins_default: touchscreen-default-pins {
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x01b4, PIN_OUTPUT, 7) /* (A13) SPI0_CS0.GPIO1_15 */
+			AM62X_IOPAD(0x00a0, PIN_INPUT, 7) /* (K25) GPMC0_WPn.GPIO0_39 */
+		>;
+	};
+
+	backlight_pins_default: bl-default-pins {
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x0000, PIN_OUTPUT, 7) /* (H24) OSPI0_CLK.GPIO0_0 */
+			AM62X_IOPAD(0x01b8, PIN_OUTPUT, 2) /* (C13) SPI0_CS1.EHRPWM0_B */
+		>;
+	};
+};
+
+&mcu_gpio0 {
+	gpio-line-names = "", "", "", "",			/* 0-3 */
+		"", "", "", "",					/* 4-7 */
+		"", "", "", "",					/* 8-11 */
+		"", "", "", "",					/* 12-15 */
+		"", "QWIIC_I2C0_SCL", "QWIIC_I2C0_SDA", "",	/* 16-19 */
+		"", "", "", "";					/* 20-23 */
+};
+
+&wkup_i2c0 {
+	symlink = "play/csi/i2c";
+};
+
+&mcu_i2c0 {
+	symlink = "play/qwiic/i2c";
+};
+
+&main_i2c1 {
+	symlink = "play/grove/i2c";
+};
+
+&main_i2c3 {
+	symlink = "play/mikrobus/i2c";
+};
+
+&main_uart5 {
+	symlink = "play/mikrobus/uart";
+};
+
+&main_uart6 {
+	symlink = "play/cc1352/uart";
+
+	mcu {
+		status = "okay";
+	};
+};

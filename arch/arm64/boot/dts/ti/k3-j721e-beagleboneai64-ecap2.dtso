@@ -1,0 +1,40 @@
+// SPDX-License-Identifier: GPL-2.0-only OR MIT
+/*
+ * Copyright (C) 2026 Pranav Raja
+ * DT Overlay for ECAP2
+ * P9.27 - ECAP2_IN
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/soc/ti,sci_pm_domain.h>
+#include "k3-pinctrl.h"
+
+&main_pmx0 {
+	ecap2_pins_default: ecap2-pins-default {
+		pinctrl-single,pins = <
+		J721E_IOPAD(0x23c, PIN_INPUT, 1) /* P9_27 - ECAP2_IN */
+		>;
+	};
+};
+
+&cbass_main {
+	#address-cells = <2>;
+	#size-cells = <2>;
+
+	cap2: capture@3120000 {
+		compatible = "ti,am62-ecap-capture";
+		reg = <0x0 0x03120000 0x0 0x100>;
+		interrupt-parent = <&gic500>;
+		interrupts = <GIC_SPI 327 IRQ_TYPE_EDGE_RISING>;
+		power-domains = <&k3_pds 82 TI_SCI_PD_SHARED>;
+		clocks = <&k3_clks 82 0>;
+		clock-names = "fck";
+		pinctrl-names = "default";
+		pinctrl-0 = <&ecap2_pins_default>;
+		status = "okay";
+		label = "capture2";
+	};
+};

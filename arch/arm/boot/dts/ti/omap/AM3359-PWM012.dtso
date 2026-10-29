@@ -1,0 +1,80 @@
+// SPDX-License-Identifier: GPL-2.0-only or MIT
+/*
+ * Copyright (C) 2026 David Summers
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/pinctrl/am33xx.h>
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+ */
+&{/chosen} {
+	overlays {
+		AM3359-PWM012.kernel = __TIMESTAMP__;
+	};
+};
+
+/* remove HDMI as pins shared with PWM0 */
+&lcdc {
+	status = "disabled";
+};
+
+&mcasp0	{
+	status = "disabled";
+};
+
+&am33xx_pinmux {
+	epwmss0_pins: pinmux_epwmss0_pins {
+		pinctrl-single,pins = <
+			AM33XX_IOPAD(0x990, PIN_OUTPUT | MUX_MODE1) /* (A13) mcasp0_aclkx.ehrpwm0A */
+			AM33XX_IOPAD(0x994, PIN_OUTPUT | MUX_MODE1) /* (B13) mcasp0_fsx.ehrpwm0B */
+		>;
+	};
+
+	epwmss1_pins: pinmux_epwmss1_pins {
+		pinctrl-single,pins = <
+			AM33XX_IOPAD(0x8c8, PIN_OUTPUT | MUX_MODE2) /* (U3) lcd_data10.ehrpwm1A */
+			AM33XX_IOPAD(0x8cc, PIN_OUTPUT | MUX_MODE2) /* (U4) lcd_data11.ehrpwm1B */
+		>;
+	};
+
+	epwmss2_pins: pinmux_epwmss2_pins {
+		pinctrl-single,pins = <
+			AM33XX_IOPAD(0x8a0, PIN_OUTPUT | MUX_MODE3) /* (R1) lcd_data0.ehrpwm2A */
+			AM33XX_IOPAD(0x8a4, PIN_OUTPUT | MUX_MODE3) /* (R2) lcd_data1.ehrpwm2B */
+		>;
+	};
+};
+
+&epwmss0 {
+	status = "okay";
+};
+
+&ehrpwm0 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&epwmss0_pins>;
+};
+
+&epwmss1 {
+	status = "okay";
+};
+
+&ehrpwm1 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&epwmss1_pins>;
+};
+
+&epwmss2 {
+	status = "okay";
+};
+
+&ehrpwm2 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&epwmss2_pins>;
+};

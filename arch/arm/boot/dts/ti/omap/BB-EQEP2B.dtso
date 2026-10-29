@@ -1,0 +1,39 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright (C) 2025 Robert Nelson <robertcnelson@gmail.com>
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/pinctrl/am33xx.h>
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+ */
+&{/chosen} {
+	overlays {
+		BB-EQEP2B.kernel = __TIMESTAMP__;
+	};
+};
+
+&am33xx_pinmux {
+	eqep2b_pins: pinmux_eqep2b_pins {
+		pinctrl-single,pins = <
+			AM33XX_IOPAD(0x830, PIN_INPUT | MUX_MODE4) /* (T12) gpmc_ad12.eQEP2A_in */
+			AM33XX_IOPAD(0x834, PIN_INPUT | MUX_MODE4) /* (R12) gpmc_ad13.eQEP2B_in */
+			AM33XX_IOPAD(0x838, PIN_INPUT | MUX_MODE4) /* (V13) gpmc_ad14.eQEP2_index */
+			AM33XX_IOPAD(0x83c, PIN_INPUT | MUX_MODE4) /* (U13) gpmc_ad15.eQEP2_strobe */
+		>;
+	};
+};
+
+&epwmss2 {
+	status = "okay";
+};
+
+&eqep2 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&eqep2b_pins>;
+};

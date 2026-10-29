@@ -1,0 +1,22 @@
+// SPDX-License-Identifier: GPL-2.0-only OR MIT
+/*
+ * Copyright (C) BeagleBoard.org Foundation
+ */
+
+/dts-v1/;
+/plugin/;
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+ */
+&{/chosen} {
+	overlays {
+		k3-am625-beagleplay-bcfserial-no-firmware.kernel = __TIMESTAMP__;
+	};
+};
+
+&main_uart6 {
+	mcu {
+		status = "disabled";
+	};
+};

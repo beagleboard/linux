@@ -1,0 +1,108 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright 2020 Vaishnav M A, BeagleBoard.org Foundation.
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/pinctrl/am33xx.h>
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+ */
+&{/chosen} {
+	overlays {
+		PB-MIKROBUS-1 = __TIMESTAMP__;
+	};
+};
+
+/*
+ * Free up the pins used by the cape from the pinmux helpers.
+ */
+&ocp {
+	P1_36_pinmux { status = "disabled"; };
+	P1_34_pinmux { status = "disabled"; };
+	P1_32_pinmux { status = "disabled"; };
+	P1_30_pinmux { status = "disabled"; };
+	P1_28_pinmux { status = "disabled"; };
+	P1_26_pinmux { status = "disabled"; };
+	P2_25_pinmux { status = "disabled"; };
+	P2_27_pinmux { status = "disabled"; };
+	P2_29_pinmux { status = "disabled"; };
+	P2_31_pinmux { status = "disabled"; };
+	P2_33_pinmux { status = "disabled"; };
+	P2_35_pinmux { status = "disabled"; };
+};
+
+&{/} {
+	aliases {
+		mikrobus1 = "/mikrobus-1";
+	};
+
+	mikrobus-1 {
+		compatible = "linux,mikrobus";
+		status = "okay";
+		pinctrl-names = "default", "pwm_default", "pwm_gpio",
+				"uart_default", "uart_gpio", "i2c_default",
+				"i2c_gpio", "spi_default", "spi_gpio";
+		pinctrl-0 = <
+			&P1_34_gpio_input_pin
+			&P2_33_gpio_pin
+			&P2_35_gpio_pin
+		>;
+		pinctrl-1 = <&P1_36_pwm_pin>;
+		pinctrl-2 = <&P1_36_gpio_pin>;
+		pinctrl-3 = <
+			&P1_32_uart_pin
+			&P1_30_uart_pin
+		>;
+		pinctrl-4 = <
+			&P1_32_gpio_pin
+			&P1_30_gpio_pin
+		>;
+		pinctrl-5 = <
+			&P1_26_i2c_pin
+			&P1_28_i2c_pin
+		>;
+		pinctrl-6 = <
+			&P1_26_gpio_pin
+			&P1_28_gpio_pin
+		>;
+		pinctrl-7 = <
+			&P2_25_spi_pin
+			&P2_27_spi_pin
+			&P2_29_spi_sclk_pin
+			&P2_31_spi_cs_pin
+		>;
+		pinctrl-8 = <
+			&P2_25_gpio_pin
+			&P2_27_gpio_pin
+			&P2_29_gpio_pin
+			&P2_31_gpio_pin
+		>;
+		i2c-adapter = <&i2c2>;
+		spi-master = <1>;
+		spi-cs = <1 2>;
+		uart = <&uart0>;
+		pwms = <&ehrpwm0 0 500000 0>;
+		mikrobus-gpios = <&gpio3 14 0> , <&gpio0 26 0>,
+				 <&gpio1 10 0> , <&gpio1 11 0>,
+				 <&gpio0 13 0> , <&gpio0 12 0>,
+				 <&gpio1 9 0>  , <&gpio1 8 0>,
+				 <&gpio0 7 0>  , <&gpio0 19 0>,
+				 <&gpio1 13 0> , <&gpio2 22 0>;
+	};
+};
+
+&spi1 {
+	status = "okay";
+	channel@0{ status = "disabled"; };
+	channel@1{ status = "disabled"; };
+};
+
+&uart0 {
+	status = "okay";
+	force-empty-serdev-controller;
+};

@@ -1,0 +1,45 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright (C) 2013 CircuitCo
+ * Virtual cape for UART1 on connector pins P9.24 P9.26
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/pinctrl/am33xx.h>
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+ */
+&{/chosen} {
+	overlays {
+		BB-UART1-00A0.kernel = __TIMESTAMP__;
+	};
+};
+
+/*
+ * Free up the pins used by the cape from the pinmux helpers.
+ */
+&ocp {
+	P9_24_pinmux { status = "disabled"; };	/* uart1_txd */
+	P9_26_pinmux { status = "disabled"; };	/* uart1_rxd */
+};
+
+&am33xx_pinmux {
+	bb_uart1_pins: pinmux_bb_uart1_pins {
+		pinctrl-single,pins = <
+			AM33XX_PADCONF(AM335X_PIN_UART1_TXD, PIN_OUTPUT, MUX_MODE0)	/* P9_24 uart1_txd.uart1_txd */
+			AM33XX_PADCONF(AM335X_PIN_UART1_RXD, PIN_INPUT, MUX_MODE0)	/* P9_26 uart1_rxd.uart1_rxd */
+			//AM33XX_PADCONF(AM335X_PIN_UART1_RTSN, PIN_OUTPUT, MUX_MODE0)	/* P9_19 uart1_rtsn.uart1_rtsn */
+			//AM33XX_PADCONF(AM335X_PIN_UART1_CTSN, PIN_INPUT, MUX_MODE0)	/* P9_20 uart1_ctsn.uart1_ctsn */
+		>;
+	};
+};
+
+&uart1 {
+	/* sudo agetty 115200 ttyS1 */
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&bb_uart1_pins>;
+};

@@ -1,0 +1,69 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright (C) 2020 Deepak Khatri <deepaklorkhatri7@gmail.com>
+ * Copyright (C) 2021 Robert Nelson <robertcnelson@gmail.com>
+ * See Cape Interface Spec page for more info on Bone Buses
+ * https://elinux.org/Beagleboard:BeagleBone_cape_interface_spec
+ * https://docs.beagleboard.io/latest/boards/capes/cape-interface-spec.html
+ */
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/pinctrl/am33xx.h>
+
+// For dummy refrence when peripheral is not available.
+&{/} {
+	not_available: not_available {
+		// Use &not_available when required.
+		// This node is responsible to create these entries,
+		// /sys/firmware/devicetree/base/__symbols__/not_available
+		// /sys/firmware/devicetree/base/not_available
+	};
+};
+
+// For compatible bone pinmuxing
+bone_pinmux: &am33xx_pinmux {
+	bborg_comms_can_pins: pinmux_comms_can_pins {
+		pinctrl-single,pins = <
+			0x184 (PIN_INPUT_PULLUP | MUX_MODE2)	/* P9_24: uart1_txd.d_can1_rx */
+			0x180 (PIN_OUTPUT_PULLUP | MUX_MODE2)	/* P9_26: uart1_rxd.d_can1_tx */
+		>;
+	};
+
+	bborg_comms_rs485_pins: pinmux_comms_rs485_pins {
+		pinctrl-single,pins = <
+			0x074 (PIN_OUTPUT | MUX_MODE6)	/* P9_13: gpmc_wpn.uart4_txd_mux2 */
+			0x070 (PIN_INPUT  | MUX_MODE6)	/* P9_11: gpmc_wait0.uart4_rxd_mux2 */
+		>;
+	};
+};
+
+// ADC
+bone_adc: &tscadc {
+
+};
+
+// UART
+// https://docs.beagleboard.io/latest/boards/capes/cape-interface-spec.html#uart
+bone_uart_4: &uart4 {
+	symlink = "bone/uart/4";
+	status = "disabled";
+	pinctrl-names = "default";
+	pinctrl-0 = <&bborg_comms_rs485_pins>;
+	//rs485-rts-delay = <0 0>;
+	//rts-gpio = <&gpio3 19 1>; /*  GPIO_ACTIVE_HIGH>; */
+	//rs485-rts-active-high;
+	//linux,rs485-enabled-at-boot-time;
+};
+
+// CAN
+// https://docs.beagleboard.io/latest/boards/capes/cape-interface-spec.html#can
+bone_can_1: &dcan1 {
+	symlink = "bone/can/1";
+	status = "disabled";
+	pinctrl-names = "default";
+//	pinctrl-0 = <
+//		&P9_26_can_pin /* tx */
+//		&P9_24_can_pin /* rx */
+//	>;
+	pinctrl-0 = <&bborg_comms_can_pins>;
+};
